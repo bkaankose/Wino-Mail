@@ -15,10 +15,14 @@ namespace Wino.Mail.WinUI.Services;
 public sealed class WindowsAttachmentPlatformService(
     NativeAppService nativeAppService,
     IWindowsAttachmentPolicyService policy,
+    IPreferencesService preferencesService,
     IWinoLogger logger) : IAttachmentPlatformService
 {
     public async Task<AttachmentFileOperationResult> OpenReceivedAsync(string localPath, CancellationToken cancellationToken = default)
     {
+        if (!preferencesService.CheckAttachmentsWithPlatformSecurity)
+            return await LaunchWithoutAttachmentServicesAsync(localPath, null, cancellationToken);
+
         try
         {
             return await nativeAppService.ExecuteOnPlatformThreadAsync(() =>
@@ -51,6 +55,9 @@ public sealed class WindowsAttachmentPlatformService(
 
     public async Task<AttachmentFileOperationResult> ApplySavePolicyAsync(string localPath, CancellationToken cancellationToken = default)
     {
+        if (!preferencesService.CheckAttachmentsWithPlatformSecurity)
+            return new AttachmentFileOperationResult(AttachmentFileOperationStatus.Succeeded, localPath);
+
         try
         {
             return await nativeAppService.ExecuteOnPlatformThreadAsync(() =>
@@ -73,7 +80,7 @@ public sealed class WindowsAttachmentPlatformService(
     }
 
     private async Task<AttachmentFileOperationResult> LaunchWithoutAttachmentServicesAsync(
-        string path, WindowsAttachmentPolicyException policyException, CancellationToken cancellationToken)
+        string path, WindowsAttachmentPolicyException? policyException, CancellationToken cancellationToken)
     {
         IExternalLauncher launcher = nativeAppService;
         var launch = await launcher.LaunchFileAsync(path, cancellationToken);
@@ -85,8 +92,14 @@ public sealed class WindowsAttachmentPlatformService(
             case PlatformOperationStatus.Cancelled:
                 return new(AttachmentFileOperationStatus.Cancelled, path);
             case PlatformOperationStatus.Unavailable:
-                return new(AttachmentFileOperationStatus.Unavailable, path, ErrorMessage: launch.ErrorMessage ?? policyException.Message);
+                return new(AttachmentFileOperationStatus.Unavailable, path, ErrorMessage: launch.ErrorMessage ?? policyException?.Message);
             default:
+                if (policyException is null)
+                {
+                    Log.Warning("The default launcher could not open the attachment: {LaunchStatus} {LaunchError}", launch.Status, launch.ErrorMessage);
+                    return new(AttachmentFileOperationStatus.Failed, path, ErrorMessage: launch.ErrorMessage);
+                }
+
                 Log.Warning("The default launcher could not open the attachment after HRESULT 0x{HResult:X8}: {LaunchStatus} {LaunchError}",
                     policyException.HResultCode, launch.Status, launch.ErrorMessage);
 

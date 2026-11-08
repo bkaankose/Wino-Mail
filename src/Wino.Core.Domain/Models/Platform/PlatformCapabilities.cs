@@ -28,4 +28,6 @@ public sealed record PlatformCapabilities(
     bool BadgeLaunchNavigation = false,
     bool AddressFirstAccountSetup = false,
     bool OAuthLoopbackRedirect = true,
-    bool WidgetsAndLiveTiles = false) : IPlatformCapabilities;
+    bool WidgetsAndLiveTiles = false,
+    bool AttachmentSecurityCheck = false,
+    bool VoiceControl = false) : IPlatformCapabilities;

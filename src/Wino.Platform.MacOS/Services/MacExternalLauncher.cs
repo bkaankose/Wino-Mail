@@ -14,6 +14,12 @@ public sealed class MacExternalLauncher(IDispatcher dispatcher) : IExternalLaunc
         return OpenAsync(new Uri(Path.GetFullPath(path)), cancellationToken);
     }
 
+    public Task<PlatformOperationResult> LaunchFolderAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (!Directory.Exists(path)) return Task.FromResult(new PlatformOperationResult(PlatformOperationStatus.Failed, "The folder does not exist."));
+        return OpenAsync(new Uri(Path.GetFullPath(path)), cancellationToken);
+    }
+
     public Task<PlatformOperationResult> LaunchUriAsync(Uri uri, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(uri);

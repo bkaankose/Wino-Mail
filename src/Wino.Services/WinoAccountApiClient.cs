@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -20,6 +21,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.PushRelay;
+using Wino.Core.Domain.Models.Voice;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
 using Wino.Mail.Api.Contracts.Ai;
@@ -28,6 +30,7 @@ using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Store;
 using Wino.Mail.Api.Contracts.Users;
+using Wino.Mail.Api.Contracts.Voice;
 using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Services;
@@ -258,6 +261,13 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             new CreateCheckoutSessionRequest(productCode),
             WinoAccountApiJsonContext.Default.CreateCheckoutSessionRequest,
             WinoAccountApiJsonContext.Default.ApiEnvelopeCheckoutSessionResultDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<CustomerPortalResultDto>> CreateCustomerPortalSessionAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/billing/customer-portal-session",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeCustomerPortalResultDto,
             cancellationToken);
 
     public Task<ApiEnvelope<BillingStatusResultDto>> GetBillingStatusAsync(CancellationToken cancellationToken = default)
@@ -948,6 +958,131 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
     }
 
+    private const string VoiceModeEndpoint = "api/v1/ai/voice/mode";
+    private const string VoiceBrainEndpoint = "api/v1/ai/voice/brain";
+    private const string VoiceBrainSectionsEndpoint = "api/v1/ai/voice/brain/sections";
+    private const string VoiceBrainFactsEndpoint = "api/v1/ai/voice/brain/facts";
+
+    public Task<ApiEnvelope<VoiceModeDto>> GetVoiceModeAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(VoiceModeEndpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeVoiceModeDto, cancellationToken);
+
+    public Task<ApiEnvelope<VoiceModeDto>> SetVoiceModeAsync(VoiceMode mode, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Put, VoiceModeEndpoint, new UpdateVoiceModeRequest(mode),
+            WinoAccountApiJsonContext.Default.UpdateVoiceModeRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeVoiceModeDto, cancellationToken);
+
+    public Task<ApiEnvelope<VoiceBrainDto>> GetVoiceBrainAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(VoiceBrainEndpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeVoiceBrainDto, cancellationToken);
+
+    public Task<ApiEnvelope<BrainSectionPushResult>> PushVoiceBrainSectionAsync(PushBrainSectionRequest request, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Put, VoiceBrainSectionsEndpoint, request,
+            WinoAccountApiJsonContext.Default.PushBrainSectionRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeBrainSectionPushResult, cancellationToken);
+
+    public Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainSectionAsync(BrainMailboxKey mailbox, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Delete, VoiceBrainSectionsEndpoint, new DeleteBrainSectionRequest(mailbox),
+            WinoAccountApiJsonContext.Default.DeleteBrainSectionRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement, cancellationToken);
+
+    public Task<ApiEnvelope<BrainFact>> AddVoiceBrainFactAsync(AddBrainFactRequest request, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Post, VoiceBrainFactsEndpoint, request,
+            WinoAccountApiJsonContext.Default.AddBrainFactRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeBrainFact, cancellationToken);
+
+    public Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainFactAsync(string factId, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Delete, $"{VoiceBrainFactsEndpoint}/{Uri.EscapeDataString(factId)}",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement, cancellationToken);
+
+    public Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Delete, VoiceBrainEndpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement, cancellationToken);
+
+    private const string VoiceInterpretEndpoint = "api/v1/ai/voice/interpret";
+
+    public async Task<VoiceConnectResult> ConnectVoiceAsync(CancellationToken cancellationToken = default)
+    {
+        var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
+        if (session is null || session.IsInvalid)
+            return VoiceConnectResult.Failed(WinoAccountClientErrorCodes.SignInRequired);
+
+        // Behind the Cloudflare tunnel a refused upgrade arrives as a bare 502 without the error header, so an expired
+        // token is never reported as SESSION_INVALID: refresh it before connecting instead of waiting for the 401.
+        var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+        if (account is not null && account.AccessTokenExpiresAtUtc <= DateTime.UtcNow.AddMinutes(1))
+        {
+            try
+            {
+                await TryRefreshAccessTokenAsync(session, null, cancellationToken).ConfigureAwait(false);
+            }
+            catch (WinoAccountApiException)
+            {
+            }
+        }
+
+        var accessToken = await GetAccessTokenAsync().ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(accessToken))
+            return VoiceConnectResult.Failed(WinoAccountClientErrorCodes.SignInRequired);
+
+        var result = await TryConnectVoiceAsync(accessToken, cancellationToken).ConfigureAwait(false);
+        if (result.ErrorCode != ApiErrorCodes.SessionInvalid)
+            return result;
+
+        if (!await TryRefreshAccessTokenAsync(session, accessToken, cancellationToken).ConfigureAwait(false))
+            return result;
+
+        accessToken = await GetAccessTokenAsync().ConfigureAwait(false);
+        return string.IsNullOrWhiteSpace(accessToken)
+            ? VoiceConnectResult.Failed(WinoAccountClientErrorCodes.SignInRequired)
+            : await TryConnectVoiceAsync(accessToken, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<VoiceConnectResult> TryConnectVoiceAsync(string accessToken, CancellationToken cancellationToken)
+    {
+        var baseAddress = _httpClient.BaseAddress ?? new Uri(ApiUrl);
+        var builder = new UriBuilder(new Uri(baseAddress, VoiceInterpretEndpoint))
+        {
+            Scheme = baseAddress.Scheme == Uri.UriSchemeHttps ? "wss" : "ws"
+        };
+
+        var socket = new ClientWebSocket();
+        socket.Options.SetRequestHeader("Authorization", $"Bearer {accessToken}");
+        socket.Options.CollectHttpResponseDetails = true;
+        socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        if (builder.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+            socket.Options.RemoteCertificateValidationCallback = static (_, _, _, _) => true;
+
+        try
+        {
+            await socket.ConnectAsync(builder.Uri, cancellationToken).ConfigureAwait(false);
+            return new VoiceConnectResult(socket, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            socket.Dispose();
+            throw;
+        }
+        catch (Exception ex) when (ex is WebSocketException or HttpRequestException or OperationCanceledException)
+        {
+            var status = socket.HttpStatusCode;
+            var headerCode = socket.HttpResponseHeaders is { } headers &&
+                             headers.TryGetValue(ApiErrorHeaders.ErrorCode, out var values)
+                ? values.FirstOrDefault()
+                : null;
+            socket.Dispose();
+
+            var code = !string.IsNullOrWhiteSpace(headerCode)
+                ? headerCode
+                : status switch
+                {
+                    HttpStatusCode.Unauthorized => ApiErrorCodes.SessionInvalid,
+                    HttpStatusCode.Forbidden => VoiceClientErrorCodes.AccessDenied,
+                    HttpStatusCode.Conflict => ApiErrorCodes.IntelligenceConsentVersionOutdated,
+                    HttpStatusCode.TooManyRequests => ApiErrorCodes.RateLimited,
+                    HttpStatusCode.ServiceUnavailable => ApiErrorCodes.AiProviderUnavailable,
+                    _ => WinoAccountClientErrorCodes.ServiceUnavailable
+                };
+
+            _logger.Warning("The voice socket could not be opened: HTTP {StatusCode}, {ErrorCode}. {Reason}",
+                (int)status, code, ex.GetBaseException().Message);
+            return VoiceConnectResult.Failed(code);
+        }
+    }
+
     private async Task<HttpRequestMessage?> CreateAuthorizedRequestAsync(HttpMethod method, string endpoint, Func<HttpContent>? contentFactory = null)
     {
         var accessToken = await GetAccessTokenAsync().ConfigureAwait(false);
@@ -1209,6 +1344,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<AiTranslationResultDto>))]
 [JsonSerializable(typeof(MailTranslationResult))]
 [JsonSerializable(typeof(ApiEnvelope<CheckoutSessionResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<CustomerPortalResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<BillingStatusResultDto>))]
 [JsonSerializable(typeof(RedeemStorePurchaseRequest))]
 [JsonSerializable(typeof(ApiEnvelope<StoreCollectionsIdTicketResultDto>))]
@@ -1255,4 +1391,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceConsentDto>))]
 [JsonSerializable(typeof(AcceptAppPolicyRequest))]
 [JsonSerializable(typeof(ApiEnvelope<AppPolicyAcceptanceDto>))]
+[JsonSerializable(typeof(UpdateVoiceModeRequest))]
+[JsonSerializable(typeof(ApiEnvelope<VoiceModeDto>))]
+[JsonSerializable(typeof(ApiEnvelope<VoiceBrainDto>))]
+[JsonSerializable(typeof(PushBrainSectionRequest))]
+[JsonSerializable(typeof(ApiEnvelope<BrainSectionPushResult>))]
+[JsonSerializable(typeof(DeleteBrainSectionRequest))]
+[JsonSerializable(typeof(AddBrainFactRequest))]
+[JsonSerializable(typeof(ApiEnvelope<BrainFact>))]
+[JsonSerializable(typeof(VoiceBrainDto))]
+[JsonSerializable(typeof(BrainSection))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;

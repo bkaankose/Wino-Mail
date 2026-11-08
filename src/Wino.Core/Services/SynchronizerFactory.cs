@@ -51,6 +51,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IMimeFileService _mimeFileService;
     private readonly ICalDavSynchronizationEngine _calDavSynchronizationEngine;
     private readonly IOAuthTokenService _oauthTokenService;
+    private readonly ICalDavTaskSynchronizationEngine _calDavTaskSynchronizationEngine;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
     internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
@@ -92,7 +93,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                                ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
                                IOAuthTokenService oauthTokenService = null,
                                IExchangeChangeProcessor exchangeChangeProcessor = null,
-                               IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory = null)
+                               IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory = null,
+                               ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -124,6 +126,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         _oauthTokenService = oauthTokenService;
         _exchangeChangeProcessor = exchangeChangeProcessor;
         _exchangeSynchronizerErrorHandlerFactory = exchangeSynchronizerErrorHandlerFactory;
+        _calDavTaskSynchronizationEngine = calDavTaskSynchronizationEngine;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -189,7 +192,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                     _taskService,
                     _smtpTransport,
                     _calDavSynchronizationEngine,
-                    _oauthTokenService);
+                    _oauthTokenService,
+                    _calDavTaskSynchronizationEngine);
             case Domain.Enums.MailProviderType.Exchange:
                 var exchangeAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Exchange) as IExchangeAuthenticator
                     ?? throw new InvalidOperationException("The Exchange authenticator is not registered.");

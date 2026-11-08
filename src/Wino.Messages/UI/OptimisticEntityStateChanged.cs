@@ -17,7 +17,10 @@ public sealed record ContactStateChanged(
     OptimisticEntityChange Change,
     EntityUpdateSource Source) : UIMessageBase<ContactStateChanged>;
 
-/// <summary>Updates the loaded task projection without persisting the entity.</summary>
+/// <summary>
+/// Updates the loaded task projection. Client sources carry optimistic request state that is not
+/// persisted yet; the server source carries changes a synchronizer already stored.
+/// </summary>
 public sealed record TaskStateChanged(
     TaskSynchronizerOperation Operation,
     AccountTaskList List,

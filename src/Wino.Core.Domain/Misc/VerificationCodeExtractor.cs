@@ -2,7 +2,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace Wino.Mail.ViewModels.Data;
+namespace Wino.Core.Domain.Misc;
 
 /// <summary>
 /// Pulls the one-time code out of a message body.

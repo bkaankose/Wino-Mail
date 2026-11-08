@@ -562,7 +562,10 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             IsContactAccessGranted = plan.IsContactAccessEnabled && plan.ContactIntegrationSource != AccountIntegrationSource.Local,
             ContactIntegrationSource = plan.ContactIntegrationSource,
             IsTaskAccessEnabled = plan.IsTaskAccessEnabled,
-            IsTaskAccessGranted = isProviderApi && plan.IsTaskAccessEnabled && plan.TaskIntegrationSource == AccountIntegrationSource.Provider,
+            IsTaskAccessGranted = plan.IsTaskAccessEnabled &&
+                (isProviderApi
+                    ? plan.TaskIntegrationSource == AccountIntegrationSource.Provider
+                    : plan.TaskIntegrationSource == AccountIntegrationSource.Dav),
             TaskIntegrationSource = plan.TaskIntegrationSource
         };
 

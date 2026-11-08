@@ -91,6 +91,10 @@ public static class WinoViewModelRegistration
         services.AddTransient<PersonalizationPageViewModel>();
         services.AddTransient<ApplicationThemeGalleryPageViewModel>();
         services.AddTransient<ApplicationThemeEditorPageViewModel>();
+        services.AddTransient<PrivacySecurityPageViewModel>();
+        services.AddTransient<VoiceControlSettingsPageViewModel>();
+        services.AddTransient<VoiceBrainPageViewModel>();
+        services.AddTransient<RemoteContentRulesPageViewModel>();
         services.AddTransient<MailPreferencesPageViewModel>();
         services.AddTransient<MessageListPageViewModel>();
         services.AddTransient<ReadComposePanePageViewModel>();

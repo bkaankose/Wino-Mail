@@ -40,6 +40,7 @@ namespace Wino.Mail.ViewModels;
 public partial class MailRenderingPageViewModel : MailBaseViewModel,
     IRecipient<ThumbnailAdded>,
     IRecipient<PreferenceChangedMessage>,
+    IRecipient<RemoteContentRulesChangedMessage>,
     ITransferProgress // For listening IMAP message download progress.
 {
     private const int AttachmentPreviewLimit = 5;
@@ -59,7 +60,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IUnsubscriptionService _unsubscriptionService;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IAttachmentFileService _attachmentFileService;
-    private bool forceImageLoading = false;
+    private readonly IRemoteContentPolicyService _remoteContentPolicyService;
+    private readonly IRemoteContentSessionService _remoteContentSessionService;
+    private readonly IRemoteContentRuleStore _remoteContentRuleStore;
+    private readonly ILinkSanitizer _linkSanitizer;
+    private readonly INavigationService _navigationService;
 
     private MailItemViewModel initializedMailItemViewModel = null;
     private MimeMessageInformation initializedMimeMessageInformation = null;
@@ -78,21 +83,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public bool SmimeSignaturesValid => CurrentRenderModel?.Signatures?.Any(x => x.Value) ?? false;
     public bool SmimeSignaturesInvalid => !SmimeSignaturesValid;
     public bool CanShowAllAttachments => Attachments.Count > AttachmentPreviewLimit && !IsShowingAllAttachments;
-
-    public bool IsImageRenderingDisabled
-    {
-        get
-        {
-            if (IsJunkMail)
-            {
-                return !forceImageLoading;
-            }
-            else
-            {
-                return !CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? false;
-            }
-        }
-    }
 
     private bool isDarkWebviewRenderer;
     public bool IsDarkWebviewRenderer
@@ -177,9 +167,44 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public Guid? CurrentMailAccountId => initializedMailItemViewModel?.MailCopy.AssignedAccount?.Id;
     public Guid? CurrentMailFileId => initializedMailItemViewModel?.MailCopy.FileId;
 
-    /// <summary>Opens a link from the message in the browser chosen for its account.</summary>
-    public Task<PlatformOperationResult> OpenLinkAsync(Uri uri)
-        => _linkBrowserService?.OpenLinkAsync(uri, CurrentMailAccountId) ?? ExternalLauncher.LaunchUriAsync(uri);
+    /// <summary>
+    /// Opens a link from the message in the browser chosen for its account, after removing tracking
+    /// parameters and asking for confirmation when the privacy settings say so.
+    /// </summary>
+    /// <param name="linkText">The anchor's visible text, when the renderer captured the click.</param>
+    public async Task<PlatformOperationResult> OpenLinkAsync(Uri uri, string? linkText = null)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+
+        var originalUri = uri;
+        var removedCount = 0;
+
+        if (PreferencesService.StripLinkTrackingParameters)
+            uri = _linkSanitizer.Clean(uri, out removedCount);
+
+        if (PreferencesService.ConfirmBeforeOpeningLinks)
+        {
+            var confirmed = await _dialogService.ShowOpenLinkConfirmationAsync(linkText, originalUri, uri, removedCount, GetLinkBrowserName());
+
+            if (!confirmed)
+                return new PlatformOperationResult(PlatformOperationStatus.Succeeded);
+        }
+
+        return await (_linkBrowserService?.OpenLinkAsync(uri, CurrentMailAccountId) ?? ExternalLauncher.LaunchUriAsync(uri));
+    }
+
+    private string? GetLinkBrowserName()
+    {
+        if (_linkBrowserService is not { IsBrowserSelectionSupported: true })
+            return null;
+
+        var preferences = initializedMailItemViewModel?.MailCopy.AssignedAccount?.Preferences;
+        var browser = preferences is { HasCustomLinkBrowser: true }
+            ? _linkBrowserService.GetCustomBrowser(preferences)
+            : _linkBrowserService.AllAccountsBrowser;
+
+        return browser?.DisplayName;
+    }
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
     {
@@ -225,6 +250,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IPreferencesService preferencesService,
         IPlatformCapabilities platformCapabilities,
         IApplicationConfiguration applicationConfiguration,
+        IRemoteContentPolicyService remoteContentPolicyService,
+        IRemoteContentSessionService remoteContentSessionService,
+        IRemoteContentRuleStore remoteContentRuleStore,
+        ILinkSanitizer linkSanitizer,
+        INavigationService navigationService,
         IAttachmentFileService attachmentFileService = null,
         ILinkBrowserService linkBrowserService = null)
     {
@@ -238,6 +268,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         PlatformCapabilities = platformCapabilities;
         _applicationConfiguration = applicationConfiguration;
         _attachmentFileService = attachmentFileService;
+        _remoteContentPolicyService = remoteContentPolicyService;
+        _remoteContentSessionService = remoteContentSessionService;
+        _remoteContentRuleStore = remoteContentRuleStore;
+        _linkSanitizer = linkSanitizer;
+        _navigationService = navigationService;
         _unsubscriptionService = unsubscriptionService;
         _underlyingThemeService = underlyingThemeService;
         _mimeFileService = mimeFileService;
@@ -291,24 +326,20 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     [RelayCommand]
-    private async Task ForceImageLoading()
-    {
-        if (initializedMailItemViewModel == null && initializedMimeMessageInformation == null) return;
-
-        await RenderAsync(initializedMimeMessageInformation, ignoreJunkFilter: true);
-    }
-
-    [RelayCommand]
     private async Task UnsubscribeAsync()
     {
-        if (!(CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false)) return;
+        // Selecting another mail while a confirmation or request is pending replaces the render model,
+        // so the target and sender name are captured before the first await.
+        var unsubscribeInfo = CurrentRenderModel?.UnsubscribeInfo;
+        if (unsubscribeInfo == null || !unsubscribeInfo.CanUnsubscribe) return;
 
+        var senderName = FromName;
         bool confirmed;
 
         // Try to unsubscribe by http first.
-        if (CurrentRenderModel.UnsubscribeInfo.HttpLink is not null)
+        if (unsubscribeInfo.HttpLink is not null)
         {
-            if (!Uri.IsWellFormedUriString(CurrentRenderModel.UnsubscribeInfo.HttpLink, UriKind.RelativeOrAbsolute))
+            if (!Uri.IsWellFormedUriString(unsubscribeInfo.HttpLink, UriKind.RelativeOrAbsolute))
             {
                 _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
                 return;
@@ -316,16 +347,16 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             // Support for List-Unsubscribe-Post header. It can be done without launching browser.
             // https://datatracker.ietf.org/doc/html/rfc8058
-            if (CurrentRenderModel.UnsubscribeInfo.IsOneClick)
+            if (unsubscribeInfo.IsOneClick)
             {
-                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, senderName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
                 if (!confirmed) return;
 
-                bool isOneClickUnsubscribed = await _unsubscriptionService.OneClickUnsubscribeAsync(CurrentRenderModel.UnsubscribeInfo);
+                bool isOneClickUnsubscribed = await _unsubscriptionService.OneClickUnsubscribeAsync(unsubscribeInfo);
 
                 if (isOneClickUnsubscribed)
                 {
-                    _dialogService.InfoBarMessage(Translator.Unsubscribe, string.Format(Translator.Info_UnsubscribeSuccessMessage, FromName), InfoBarMessageType.Success);
+                    _dialogService.InfoBarMessage(Translator.Unsubscribe, string.Format(Translator.Info_UnsubscribeSuccessMessage, senderName), InfoBarMessageType.Success);
                 }
                 else
                 {
@@ -334,21 +365,21 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             }
             else
             {
-                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
+                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, senderName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
                 if (!confirmed) return;
 
-                (await OpenLinkAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.HttpLink))).ThrowIfNotSucceeded();
+                (await OpenLinkAsync(new Uri(unsubscribeInfo.HttpLink))).ThrowIfNotSucceeded();
             }
         }
-        else if (CurrentRenderModel.UnsubscribeInfo.MailToLink is not null)
+        else if (unsubscribeInfo.MailToLink is not null)
         {
-            confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, FromName, new string(CurrentRenderModel.UnsubscribeInfo.MailToLink.Skip(7).ToArray())), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+            confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, senderName, new string(unsubscribeInfo.MailToLink.Skip(7).ToArray())), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
 
             if (!confirmed) return;
 
             // TODO: Implement automatic mail send after user confirms the action.
             // Currently it will launch compose page and user should manually press send button.
-            (await ExternalLauncher.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.MailToLink))).ThrowIfNotSucceeded();
+            (await ExternalLauncher.LaunchUriAsync(new Uri(unsubscribeInfo.MailToLink))).ThrowIfNotSucceeded();
         }
     }
 
@@ -515,6 +546,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         initializedMimeMessageInformation = null;
         CurrentMailItemDisplayInformation = null;
         CurrentRenderModel = null;
+        ResetPrivacyState();
 
         Subject = string.Empty;
         FromName = string.Empty;
@@ -694,10 +726,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         await RenderAsync(mimeMessageInformation);
     }
 
-    private async Task RenderAsync(MimeMessageInformation mimeMessageInformation, bool ignoreJunkFilter = false)
+    /// <param name="transientMode">Applied to this render only and never remembered, for Load once on a Block rule.</param>
+    private async Task RenderAsync(MimeMessageInformation mimeMessageInformation, RemoteContentMode? transientMode = null)
     {
-        forceImageLoading = ignoreJunkFilter;
-
         var message = mimeMessageInformation.MimeMessage;
         var messagePath = mimeMessageInformation.Path;
 
@@ -707,6 +738,14 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         // initializedMimeMessageInformation.MimeMessage.Body is MultipartSigned
 
         var renderingOptions = PreferencesService.GetRenderingOptions();
+        var mailCopy = initializedMailItemViewModel?.MailCopy;
+        var isJunk = mailCopy?.AssignedFolder?.SpecialFolderType == SpecialFolderType.Junk;
+        var decision = await ResolveRemoteContentDecisionAsync(mailCopy, message, messagePath, isJunk);
+
+        if (transientMode is RemoteContentMode oneTimeMode)
+            decision = decision with { EffectiveMode = oneTimeMode };
+
+        renderingOptions.RemoteContent = decision.EffectiveMode;
 
         // Prepare account contacts info in advance, to avoid UI shifts after clearing collections.
         var toAccountContacts = await GetAccountContacts(message.To);
@@ -738,21 +777,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
             CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.UtcDateTime;
 
-            // Automatically block remote image loading for Junk folder to reduce pixel tracking.
-            // This can only work for selected mail item rendering, not for EML file rendering.
-            if (initializedMailItemViewModel != null &&
-                initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
-            {
-                renderingOptions.LoadImages = false;
-            }
+            var renderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
 
-            // Load images if forced.
-            if (ignoreJunkFilter)
-            {
-                renderingOptions.LoadImages = true;
-            }
-
-            CurrentRenderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
+            // Heads refresh their remote content bars when CurrentRenderModel changes, so the
+            // privacy state has to be current before it is assigned.
+            ApplyPrivacyState(renderModel, decision, isJunk, transientMode.HasValue);
+            CurrentRenderModel = renderModel;
 
             foreach (var attachment in CurrentRenderModel.Attachments)
             {
@@ -762,8 +792,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             }
 
             RefreshDisplayedAttachments();
-
-            OnPropertyChanged(nameof(IsImageRenderingDisabled));
 
             StatePersistenceService.IsReadingMail = true;
         });
@@ -822,8 +850,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
         CurrentMailItemDisplayInformation = null;
-
-        forceImageLoading = false;
 
         StatePersistenceService.IsReadingMail = false;
     }
@@ -910,6 +936,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         try
         {
+            if (!await ConfirmExecutableAttachmentAsync(PreferencesService, _dialogService, attachmentViewModel.FileName))
+                return;
+
             attachmentViewModel.IsBusy = true;
             var detection = await attachmentViewModel.GetInspectionAsync();
             var source = attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received);
@@ -1314,6 +1343,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         Messenger.Register<ThumbnailAdded>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
+        Messenger.Register<RemoteContentRulesChangedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -1322,5 +1352,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         Messenger.Unregister<ThumbnailAdded>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
+        Messenger.Unregister<RemoteContentRulesChangedMessage>(this);
     }
 }

@@ -28,8 +28,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     IRecipient<AccountSetupInProgressMessage>, IAsyncDisposable
 {
     private const int InboxSyncsPerFullSync = 20;
-    private static readonly TimeSpan RareModeSynchronizationInterval = TimeSpan.FromHours(6);
-    private static readonly TimeSpan RareModeDueCheckInterval = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan QuotaDueCheckInterval = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan InboxRerunPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan InboxRerunWaitLimit = TimeSpan.FromMinutes(2);
     private readonly object _gate = new();
@@ -59,8 +58,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private Task? _stopping;
     private CancellationTokenSource? _mailLoop;
     private CancellationTokenSource? _calendarLoop;
-    private CancellationTokenSource? _taskLoop;
-    private CancellationTokenSource? _contactLoop;
+    private CancellationTokenSource? _quotaLoop;
     private Task? _startupPass;
     private bool _hasAccounts;
     private bool _subscribed;
@@ -346,16 +344,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
 
         // With every account gone the app returns to the welcome window. The next account starts
-        // from its own initial synchronization, so the background windows start over too.
-        if (!hasAccounts)
-            ResetRareModeSynchronizationDates();
-    }
-
-    private void ResetRareModeSynchronizationDates()
-    {
-        if (_preferencesService.TaskLastAutoSynchronizationUtcTicks != 0)
-            _preferencesService.TaskLastAutoSynchronizationUtcTicks = 0;
-        if (_preferencesService.ContactLastAutoSynchronizationUtcTicks != 0)
+        // from its own initial synchronization, so the Google contacts window starts over too.
+        if (!hasAccounts && _preferencesService.ContactLastAutoSynchronizationUtcTicks != 0)
             _preferencesService.ContactLastAutoSynchronizationUtcTicks = 0;
     }
 
@@ -376,8 +366,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (_startupPass == null) StartStartupPass();
         if (_mailLoop == null) RestartMailLoop();
         if (_calendarLoop == null) RestartCalendarLoop();
-        if (_taskLoop == null) RestartTaskLoop();
-        if (_contactLoop == null) RestartContactLoop();
+        if (_quotaLoop == null) RestartQuotaLoop();
     }
 
     // The intervals come from the coordinator: the user's settings on desktop (in timer mode and as the relay
@@ -397,16 +386,16 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         var source = _calendarLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         var startupPass = PendingStartupPass;
         var interval = _coordinator.CalendarSyncInterval;
-        Track(() => RunLoopWithCleanupAsync(source, () => RunCalendarAutoSynchronizationLoopAsync(interval, startupPass, source.Token)));
+        Track(() => RunLoopWithCleanupAsync(source, () => RunIntervalModesLoopAsync(interval, startupPass, source.Token)));
     }
 
     /// <summary>The startup pass while it still runs; a loop created meanwhile lets it cover the first run.</summary>
     private Task? PendingStartupPass => _startupPass is { IsCompleted: false } ? _startupPass : null;
 
     /// <summary>
-    /// The first synchronization after launch runs once, in priority order: mail, then calendar.
-    /// To Do and People keep their own six-hour schedule. Each loop used to run its own first pass
-    /// at the same time, and mail gave up its pass whenever the calendar pass held the shared
+    /// The first synchronization after launch runs once, in priority order: mail, calendar, then the To Do and People
+    /// sources that follow the calendar interval. Quota-bound sources never run at launch. Each loop used to run its
+    /// own first pass at the same time, and mail gave up its pass whenever the calendar pass held the shared
     /// semaphore, so a background launch showed no new mail until the first timer tick minutes later.
     /// </summary>
     private void StartStartupPass()
@@ -417,8 +406,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         {
             try
             {
-                await RunStartupStepAsync(ExecuteAutoSynchronizationAsync, "mail").ConfigureAwait(false);
-                await RunStartupStepAsync(ExecuteCalendarAutoSynchronizationAsync, "calendar").ConfigureAwait(false);
+                await RunPassStepAsync(ExecuteAutoSynchronizationAsync, "startup mail", _lifetime.Token).ConfigureAwait(false);
+                await ExecuteIntervalModesSynchronizationAsync(_lifetime.Token).ConfigureAwait(false);
             }
             finally
             {
@@ -427,41 +416,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         });
     }
 
-    private async Task RunStartupStepAsync(Func<CancellationToken, Task> step, string name)
+    // Quota-bound sources (Google Tasks, Google contacts) are only checked for being due; nothing runs at launch.
+    private void RestartQuotaLoop()
     {
-        _lifetime.Token.ThrowIfCancellationRequested();
-        try
-        {
-            await step(_lifetime.Token).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Log.Information($"Startup {name} synchronization failed: {ex.Message}");
-        }
-    }
-
-    // Tasks and contacts are rarely used modes, and Google Tasks shares one daily quota across
-    // every installation. They synchronize in the background once every six hours, measured from
-    // a persisted timestamp so short sessions still catch up. Nothing runs at launch; the loop
-    // only checks whether a run is due, and a new installation starts its first window now.
-    private void RestartTaskLoop()
-    {
-        _taskLoop?.Cancel();
-        var source = _taskLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-        Track(() => RunLoopWithCleanupAsync(source, () => RunRareModeLoopAsync(
-            () => _preferencesService.TaskLastAutoSynchronizationUtcTicks,
-            ticks => _preferencesService.TaskLastAutoSynchronizationUtcTicks = ticks,
-            ExecuteTaskAutoSynchronizationAsync, "task", source.Token)));
-    }
-
-    private void RestartContactLoop()
-    {
-        _contactLoop?.Cancel();
-        var source = _contactLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-        Track(() => RunLoopWithCleanupAsync(source, () => RunRareModeLoopAsync(
-            () => _preferencesService.ContactLastAutoSynchronizationUtcTicks,
-            ticks => _preferencesService.ContactLastAutoSynchronizationUtcTicks = ticks,
-            ExecuteContactAutoSynchronizationAsync, "contact", source.Token)));
+        _quotaLoop?.Cancel();
+        var source = _quotaLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        Track(() => RunLoopWithCleanupAsync(source, () => RunQuotaLoopAsync(source.Token)));
     }
 
     private async Task RunLoopWithCleanupAsync(CancellationTokenSource source, Func<Task> operation)
@@ -473,8 +433,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             {
                 if (ReferenceEquals(_mailLoop, source)) _mailLoop = null;
                 if (ReferenceEquals(_calendarLoop, source)) _calendarLoop = null;
-                if (ReferenceEquals(_taskLoop, source)) _taskLoop = null;
-                if (ReferenceEquals(_contactLoop, source)) _contactLoop = null;
+                if (ReferenceEquals(_quotaLoop, source)) _quotaLoop = null;
             }
             source.Dispose();
         }
@@ -484,12 +443,10 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     {
         _mailLoop?.Cancel();
         _calendarLoop?.Cancel();
-        _taskLoop?.Cancel();
-        _contactLoop?.Cancel();
+        _quotaLoop?.Cancel();
         _mailLoop = null;
         _calendarLoop = null;
-        _taskLoop = null;
-        _contactLoop = null;
+        _quotaLoop = null;
     }
 
     public void Receive(NewMailSynchronizationRequested message)
@@ -909,15 +866,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
         // Each mode runs even when an earlier one fails, as the separate loops would.
         await RunPassStepAsync(ExecuteAutoSynchronizationAsync, "mail", token).ConfigureAwait(false);
-        await RunPassStepAsync(ExecuteCalendarAutoSynchronizationAsync, "calendar", token).ConfigureAwait(false);
-        await RunPassStepAsync(ct => RunRareModeIfDueAsync(
-            () => _preferencesService.TaskLastAutoSynchronizationUtcTicks,
-            ticks => _preferencesService.TaskLastAutoSynchronizationUtcTicks = ticks,
-            ExecuteTaskAutoSynchronizationAsync, ct), "task", token).ConfigureAwait(false);
-        await RunPassStepAsync(ct => RunRareModeIfDueAsync(
-            () => _preferencesService.ContactLastAutoSynchronizationUtcTicks,
-            ticks => _preferencesService.ContactLastAutoSynchronizationUtcTicks = ticks,
-            ExecuteContactAutoSynchronizationAsync, ct), "contact", token).ConfigureAwait(false);
+        await ExecuteIntervalModesSynchronizationAsync(token).ConfigureAwait(false);
+        await ExecuteQuotaSynchronizationAsync(token).ConfigureAwait(false);
     }
 
     private static async Task RunPassStepAsync(Func<CancellationToken, Task> step, string name, CancellationToken cancellationToken)
@@ -929,7 +879,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Log.Information($"Bounded {name} synchronization failed: {ex.Message}");
+            Log.Information($"Synchronization step {name} failed: {ex.Message}");
         }
     }
 
@@ -1053,20 +1003,20 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
     }
 
-    private async Task RunCalendarAutoSynchronizationLoopAsync(TimeSpan interval, Task? startupPass, CancellationToken cancellationToken)
+    private async Task RunIntervalModesLoopAsync(TimeSpan interval, Task? startupPass, CancellationToken cancellationToken)
     {
         try
         {
             if (startupPass != null)
                 await startupPass.WaitAsync(cancellationToken);
             else
-                await ExecuteCalendarAutoSynchronizationAsync(cancellationToken);
+                await ExecuteIntervalModesSynchronizationAsync(cancellationToken);
 
             using var timer = new PeriodicTimer(interval, _timeProvider);
 
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
-                await ExecuteCalendarAutoSynchronizationAsync(cancellationToken);
+                await ExecuteIntervalModesSynchronizationAsync(cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -1079,16 +1029,23 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
     }
 
-    private async Task RunRareModeLoopAsync(Func<long> getLastSynchronizedTicks, Action<long> setLastSynchronizedTicks,
-        Func<CancellationToken, Task> operation, string name, CancellationToken cancellationToken)
+    /// <summary>Calendar, then the To Do and People sources that are not quota-bound, all on the calendar interval.</summary>
+    private async Task ExecuteIntervalModesSynchronizationAsync(CancellationToken cancellationToken)
+    {
+        await RunPassStepAsync(ExecuteCalendarAutoSynchronizationAsync, "calendar", cancellationToken).ConfigureAwait(false);
+        await RunPassStepAsync(ct => ExecuteTaskAutoSynchronizationAsync(quotaBound: false, ct), "task", cancellationToken).ConfigureAwait(false);
+        await RunPassStepAsync(ct => ExecuteContactAutoSynchronizationAsync(quotaBound: false, ct), "contact", cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RunQuotaLoopAsync(CancellationToken cancellationToken)
     {
         try
         {
-            using var timer = new PeriodicTimer(RareModeDueCheckInterval, _timeProvider);
+            using var timer = new PeriodicTimer(QuotaDueCheckInterval, _timeProvider);
 
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
-                await RunRareModeIfDueAsync(getLastSynchronizedTicks, setLastSynchronizedTicks, operation, cancellationToken);
+                await ExecuteQuotaSynchronizationAsync(cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -1097,30 +1054,37 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
         catch (Exception ex)
         {
-            Log.Information($"Automatic {name} sync loop failed: {ex.Message}");
+            Log.Information($"Automatic quota-bound sync loop failed: {ex.Message}");
         }
     }
 
-    private async Task RunRareModeIfDueAsync(Func<long> getLastSynchronizedTicks, Action<long> setLastSynchronizedTicks,
-        Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
+    // Google Tasks is due per account by the coordinator's gate, which the synchronization manager enforces again.
+    // Google contacts share one persisted window, so short sessions still catch up and a new installation starts
+    // its first window now instead of synchronizing at launch.
+    private async Task ExecuteQuotaSynchronizationAsync(CancellationToken cancellationToken)
+    {
+        await RunPassStepAsync(ct => ExecuteTaskAutoSynchronizationAsync(quotaBound: true, ct), "Google Tasks", cancellationToken).ConfigureAwait(false);
+        await RunPassStepAsync(RunQuotaContactsIfDueAsync, "Google contacts", cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RunQuotaContactsIfDueAsync(CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetUtcNow().UtcTicks;
-        var last = getLastSynchronizedTicks();
+        var last = _preferencesService.ContactLastAutoSynchronizationUtcTicks;
 
         // No timestamp yet, or one from the future after a clock change: start the window now.
         if (last <= 0 || last > now)
         {
-            setLastSynchronizedTicks(now);
+            _preferencesService.ContactLastAutoSynchronizationUtcTicks = now;
             return;
         }
 
-        if (now - last < RareModeSynchronizationInterval.Ticks)
+        if (now - last < _coordinator.QuotaWindow.Ticks)
             return;
 
-        // Stamp before running so a failing provider, such as an exhausted quota, waits
-        // for the next window instead of retrying on every check.
-        setLastSynchronizedTicks(now);
-        await operation(cancellationToken);
+        // Stamp before running so a failing provider waits for the next window instead of retrying on every check.
+        _preferencesService.ContactLastAutoSynchronizationUtcTicks = now;
+        await ExecuteContactAutoSynchronizationAsync(quotaBound: true, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Accounts still in setup, or waiting for their initial work after it, are left to that work.</summary>
@@ -1130,38 +1094,51 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         lock (_gate) return accounts.Where(account => !_pendingCreatedAccounts.Contains(account.Id)).ToList();
     }
 
-    private async Task ExecuteTaskAutoSynchronizationAsync(CancellationToken cancellationToken)
+    private async Task ExecuteTaskAutoSynchronizationAsync(bool quotaBound, CancellationToken cancellationToken)
     {
-        if (_synchronizationManager == null || _accountService == null)
-            return;
+        var accounts = await GetAutoSynchronizedAccountsAsync().ConfigureAwait(false);
+        var candidates = accounts
+            .Where(account => account.IsTaskAccessGranted &&
+                              !account.IsTaskReauthorizationRequired &&
+                              !account.IsNetworkAccessBlocked() &&
+                              account.TaskIntegrationSource != AccountIntegrationSource.Local &&
+                              _coordinator.IsQuotaBound(account, WinoApplicationMode.Tasks) == quotaBound)
+            .ToList();
 
-        var accounts = await GetAutoSynchronizedAccountsAsync();
-        foreach (var account in accounts.Where(a => a.IsTaskAccessGranted && !a.IsTaskReauthorizationRequired && !a.IsNetworkAccessBlocked()))
+        var synchronizations = new List<Task>(candidates.Count);
+        foreach (var account in candidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
+            if (quotaBound && await _coordinator.GetNextQuotaTaskPullUtcAsync(account).ConfigureAwait(false) is not null)
+                continue;
+
+            synchronizations.Add(_synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = TaskSynchronizationType.Delta
-            }, cancellationToken).ConfigureAwait(false);
+            }, cancellationToken));
         }
+
+        await Task.WhenAll(synchronizations).ConfigureAwait(false);
     }
 
-    private async Task ExecuteContactAutoSynchronizationAsync(CancellationToken cancellationToken)
+    private async Task ExecuteContactAutoSynchronizationAsync(bool quotaBound, CancellationToken cancellationToken)
     {
-        if (_synchronizationManager == null || _accountService == null)
-            return;
-
-        var accounts = await GetAutoSynchronizedAccountsAsync();
-        foreach (var account in accounts.Where(a => a.IsContactAccessGranted && !a.IsNetworkAccessBlocked()))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await _synchronizationManager.SynchronizeContactsAsync(new ContactSynchronizationOptions
+        var accounts = await GetAutoSynchronizedAccountsAsync().ConfigureAwait(false);
+        var synchronizations = accounts
+            .Where(account => account.IsContactAccessGranted &&
+                              !account.IsContactReauthorizationRequired &&
+                              !account.IsNetworkAccessBlocked() &&
+                              account.ContactIntegrationSource != AccountIntegrationSource.Local &&
+                              _coordinator.IsQuotaBound(account, WinoApplicationMode.Contacts) == quotaBound)
+            .Select(account => _synchronizationManager.SynchronizeContactsAsync(new ContactSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = ContactSynchronizationType.Delta
-            }, cancellationToken).ConfigureAwait(false);
-        }
+            }, cancellationToken))
+            .ToList();
+
+        await Task.WhenAll(synchronizations).ConfigureAwait(false);
     }
 
     private Task ExecuteAutoSynchronizationAsync(CancellationToken cancellationToken)

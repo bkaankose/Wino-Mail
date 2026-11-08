@@ -100,7 +100,9 @@ public sealed class ModeSynchronizerFactory :
         {
             AccountIntegrationSource.Local => true,
             AccountIntegrationSource.Provider => account.IsTaskAccessGranted && IsProviderAccount(account),
-            AccountIntegrationSource.Dav => false,
+            AccountIntegrationSource.Dav => account.IsTaskAccessGranted &&
+                                            account.ProviderType == MailProviderType.IMAP4 &&
+                                            !string.IsNullOrWhiteSpace(account.ServerInformation?.CalDavServiceUrl),
             _ => false
         };
 

@@ -47,7 +47,7 @@ public static class SettingsCatalog
     /// <summary>The Windows home grid is replaced by the list itself; every other page follows the shared availability rule.</summary>
     public static bool IsVisible(WinoPage page)
         => page is not (WinoPage.SettingOptionsPage or WinoPage.SettingsPage)
-            && SettingsPageAvailability.IsAvailable(page, _capabilities, page == WinoPage.WinoIntelligencePage && CanAccessIntelligence);
+            && SettingsPageAvailability.IsAvailable(page, _capabilities);
 
     /// <summary>The list in the Windows pane order, with a header row before each titled group (the Mac sidebar shape).</summary>
     public static List<SettingsCatalogEntry> GetEntries()
@@ -112,6 +112,9 @@ public static class SettingsCatalog
     {
         if (page == WinoPage.WinoIntelligenceManagementPage) return Translator.SemanticIndex_PageDescription;
         if (page == WinoPage.IntelligenceCoveragePage) return Translator.SemanticIndex_CoverageEditorPageDescription;
+        if (page == WinoPage.RemoteContentRulesPage) return Translator.RemoteContentRules_Description;
+        if (page == WinoPage.VoiceBrainPage) return Translator.VoiceBrain_Description;
+        if (page == WinoPage.VoiceControlSettingsPage) return Translator.VoiceControlSettings_Description;
         return RootPage(page) == page ? RootDescription(page) : string.Empty;
     }
 

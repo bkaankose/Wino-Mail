@@ -15,6 +15,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
@@ -45,6 +46,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private readonly IStatePersistanceService? _stateService;
     private readonly IKnownImapProviderCatalog? _providerCatalog;
     private readonly IAccountOAuthProfileService? _oauthProfileService;
+    private readonly IRemoteContentRuleStore? _remoteContentRuleStore;
     private readonly ILogger _logger = Log.ForContext<WinoAccountDataSyncService>();
 
     public WinoAccountDataSyncService(
@@ -61,7 +63,8 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         INewThemeService? themeService = null,
         IStatePersistanceService? stateService = null,
         IKnownImapProviderCatalog? providerCatalog = null,
-        IAccountOAuthProfileService? oauthProfileService = null)
+        IAccountOAuthProfileService? oauthProfileService = null,
+        IRemoteContentRuleStore? remoteContentRuleStore = null)
     {
         _profileService = profileService;
         _preferencesService = preferencesService;
@@ -77,6 +80,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         _stateService = stateService;
         _providerCatalog = providerCatalog;
         _oauthProfileService = oauthProfileService;
+        _remoteContentRuleStore = remoteContentRuleStore;
     }
 
     public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
@@ -289,9 +293,10 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             document.PreferencesJson = _preferencesService.ExportPreferences();
             document.Templates = await ExportTemplatesAsync().ConfigureAwait(false);
             document.Shortcuts = await ExportShortcutsAsync().ConfigureAwait(false);
+            document.RemoteContentRules = await ExportRemoteContentRulesAsync().ConfigureAwait(false);
             document.Appearance = ExportAppearance();
 
-            exportedAppDataCount += (document.Templates?.Count ?? 0) + (document.Shortcuts?.Count ?? 0);
+            exportedAppDataCount += (document.Templates?.Count ?? 0) + (document.Shortcuts?.Count ?? 0) + (document.RemoteContentRules?.Count ?? 0);
         }
 
         if (selection.IncludeAccounts)
@@ -359,6 +364,24 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 ModifierKeys = (int)a.ModifierKeys,
                 Action = (int)a.Action,
                 IsEnabled = a.IsEnabled
+            })
+            .ToList();
+    }
+
+    private async Task<List<SnapshotRemoteContentRule>?> ExportRemoteContentRulesAsync()
+    {
+        if (_remoteContentRuleStore == null) return null;
+
+        var rules = await _remoteContentRuleStore.GetAllAsync().ConfigureAwait(false);
+
+        return rules
+            .Where(a => !string.IsNullOrWhiteSpace(a.Pattern))
+            .Select(a => new SnapshotRemoteContentRule
+            {
+                Pattern = a.Pattern,
+                Policy = (int)a.Policy,
+                Source = (int)a.Source,
+                CreatedUtc = a.CreatedUtc
             })
             .ToList();
     }
@@ -564,6 +587,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         {
             appliedAppDataCount += await ApplyTemplatesAsync(document.Templates).ConfigureAwait(false);
             appliedAppDataCount += await ApplyShortcutsAsync(document.Shortcuts).ConfigureAwait(false);
+            appliedAppDataCount += await ApplyRemoteContentRulesAsync(document.RemoteContentRules).ConfigureAwait(false);
         }
 
         if (selection.IncludeAccounts)
@@ -685,6 +709,54 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             AppliedAppDataCount = appliedAppDataCount,
             Appearance = selection.IncludePreferences ? document.Appearance : null
         };
+    }
+
+    /// <summary>Rules match by pattern. Existing ones take the snapshot's policy, missing ones are created, none deleted.</summary>
+    private async Task<int> ApplyRemoteContentRulesAsync(List<SnapshotRemoteContentRule>? rules)
+    {
+        if (_remoteContentRuleStore == null || rules == null || rules.Count == 0) return 0;
+
+        var applied = 0;
+        var local = await _remoteContentRuleStore.GetAllAsync().ConfigureAwait(false);
+
+        foreach (var rule in rules)
+        {
+            var policy = (RemoteContentSenderPolicy)rule.Policy;
+            var source = (RemoteContentRuleSource)rule.Source;
+            var pattern = RemoteContentRulePattern.Normalize(rule.Pattern, out _);
+
+            if (pattern == null || !Enum.IsDefined(policy)) continue;
+            if (!Enum.IsDefined(source)) source = RemoteContentRuleSource.Manual;
+
+            try
+            {
+                var existing = local.FirstOrDefault(a => a.Pattern == pattern);
+                if (existing == null)
+                {
+                    await _remoteContentRuleStore.UpsertAsync(new RemoteContentSenderRule
+                    {
+                        Id = Guid.NewGuid(),
+                        Pattern = pattern,
+                        Policy = policy,
+                        Source = source,
+                        CreatedUtc = rule.CreatedUtc == default ? DateTime.UtcNow : rule.CreatedUtc
+                    }).ConfigureAwait(false);
+                    applied++;
+                }
+                else if (existing.Policy != policy)
+                {
+                    existing.Policy = policy;
+                    await _remoteContentRuleStore.UpsertAsync(existing).ConfigureAwait(false);
+                    applied++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Remote content rule {Pattern} could not be restored.", rule.Pattern);
+            }
+        }
+
+        return applied;
     }
 
     /// <summary>Templates match by name. Existing ones are updated, missing ones created, none deleted.</summary>

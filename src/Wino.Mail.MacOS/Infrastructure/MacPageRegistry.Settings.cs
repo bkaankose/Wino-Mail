@@ -15,6 +15,7 @@ public sealed partial class MacPageRegistry
     partial void RegisterBackupSettingsPages();
     partial void RegisterWinoAccountPages();
     partial void RegisterCompanionSettingsPages();
+    partial void RegisterVoiceSettingsPages();
     partial void RegisterAccountExtrasSettingsPages();
     partial void RegisterSignatureSettingsPages();
     partial void RegisterFilterSettingsPages();
@@ -31,6 +32,8 @@ public sealed partial class MacPageRegistry
         Register<MessageListPageViewController>(WinoPage.MessageListPage, MacPageHost.SettingsWindow);
         Register<AboutPageViewController>(WinoPage.AboutPage, MacPageHost.SettingsWindow);
         Register<PersonalizationPageViewController>(WinoPage.PersonalizationPage, MacPageHost.SettingsWindow);
+        Register<PrivacySecurityPageViewController>(WinoPage.PrivacySecurityPage, MacPageHost.SettingsWindow);
+        Register<RemoteContentRulesPageViewController>(WinoPage.RemoteContentRulesPage, MacPageHost.SettingsWindow);
         Register<ManageAccountsPageViewController>(WinoPage.ManageAccountsPage, MacPageHost.SettingsWindow);
         Register<ManageAccountsPageViewController>(WinoPage.AccountManagementPage, MacPageHost.SettingsWindow);
         Register<AccountDetailsPageViewController>(WinoPage.AccountDetailsPage, MacPageHost.SettingsWindow);
@@ -57,6 +60,7 @@ public sealed partial class MacPageRegistry
         RegisterBackupSettingsPages();
         RegisterWinoAccountPages();
         RegisterCompanionSettingsPages();
+        RegisterVoiceSettingsPages();
         RegisterAccountExtrasSettingsPages();
         RegisterSignatureSettingsPages();
         RegisterFilterSettingsPages();

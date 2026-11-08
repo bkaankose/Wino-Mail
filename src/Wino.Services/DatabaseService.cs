@@ -292,6 +292,7 @@ VALUES
             Connection.CreateTableAsync<ContactCategoryAssignment>(),
             Connection.CreateTableAsync<DirectoryPhotoLookup>(),
             Connection.CreateTableAsync<RecipientHistory>(),
+            Connection.CreateTableAsync<RemoteContentSenderRule>(),
             Connection.CreateTableAsync<CardDavAccountState>(),
             Connection.CreateTableAsync<CardDavAddressBookState>(),
             Connection.CreateTableAsync<CardDavResourceShadow>(),

@@ -1,72 +1,211 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Services.Extensions;
 
 public static class HtmlAgilityPackExtensions
 {
+    private const string StyleElementAttribute = "#style";
+
+    private static readonly string[] PlainImageAttributes = ["src", "background", "poster", "data"];
+    private static readonly string[] SourceSetAttributes = ["srcset", "imagesrcset"];
+    private static readonly string[] SvgReferenceAttributes = ["href", "xlink:href"];
+
+    private static readonly Regex CssUrlRegex = new(@"(?is)url\s*\(\s*(?<u>[^)]*?)\s*\)", RegexOptions.Compiled);
+    private static readonly Regex CssImageSetRegex = new(@"(?is)(?:-webkit-)?image-set\s*\((?<body>[^)]*)\)", RegexOptions.Compiled);
+    private static readonly Regex CssImportRegex = new(@"(?is)@import\s+(?:url\s*\(\s*(?<u>[^)]*?)\s*\)|(?<q>[""'])(?<u>.*?)\k<q>)[^;]*;?", RegexOptions.Compiled);
+    private static readonly Regex CssQuotedRegex = new(@"(?s)(?<q>[""'])(?<u>.*?)\k<q>", RegexOptions.Compiled);
+
     /// <summary>
     /// Clears passive remote image-loading hooks while preserving already-embedded inline images.
     /// </summary>
     public static void ClearImages(this HtmlDocument document)
+        => document.ClearRemoteContent((_, _) => BlockedResourceReason.RemoteContent);
+
+    /// <summary>
+    /// Every remote reference the reader would fetch passively: image-like attributes, source sets, SVG image references,
+    /// and <c>url(...)</c>, <c>image-set(...)</c> and <c>@import</c> in style attributes and style blocks.
+    /// Embedded images (<c>data:image/</c>, <c>cid:</c>, fragments) are not included. For a style block the attribute is <c>#style</c>.
+    /// </summary>
+    public static List<(HtmlNode node, string attribute, string url)> CollectRemoteImages(this HtmlDocument document)
     {
+        var references = new List<(HtmlNode node, string attribute, string url)>();
+
         if (document?.DocumentNode == null)
+        {
+            return references;
+        }
+
+        var seen = new HashSet<(HtmlNode, string, string)>();
+
+        void Add(HtmlNode node, string attribute, string url)
+        {
+            var trimmed = Unquote(url);
+
+            if (trimmed.Length == 0 || IsEmbeddedImageSource(trimmed))
+            {
+                return;
+            }
+
+            if (seen.Add((node, attribute, trimmed)))
+            {
+                references.Add((node, attribute, trimmed));
+            }
+        }
+
+        foreach (var node in document.DocumentNode.Descendants())
+        {
+            if (node.NodeType != HtmlNodeType.Element)
+            {
+                continue;
+            }
+
+            foreach (var attribute in PlainImageAttributes)
+            {
+                var value = node.GetAttributeValue(attribute, null);
+
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    Add(node, attribute, value);
+                }
+            }
+
+            foreach (var attribute in SourceSetAttributes)
+            {
+                var value = node.GetAttributeValue(attribute, null);
+
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                foreach (var candidate in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var url = candidate.Split((char[])null, 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+
+                    if (url != null)
+                    {
+                        Add(node, attribute, url);
+                    }
+                }
+            }
+
+            if (IsSvgImageReferenceElement(node))
+            {
+                foreach (var attribute in SvgReferenceAttributes)
+                {
+                    var value = node.GetAttributeValue(attribute, null);
+
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        Add(node, attribute, value);
+                    }
+                }
+            }
+
+            var style = node.GetAttributeValue("style", null);
+
+            if (!string.IsNullOrWhiteSpace(style))
+            {
+                foreach (var url in EnumerateCssUrls(style))
+                {
+                    Add(node, "style", url);
+                }
+            }
+
+            if (node.Name.Equals("style", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var url in EnumerateCssUrls(node.InnerHtml))
+                {
+                    Add(node, StyleElementAttribute, url);
+                }
+            }
+        }
+
+        return references;
+    }
+
+    /// <summary>
+    /// Remote references in the document. Call it before anything is removed.
+    /// </summary>
+    public static int CountRemoteImages(this HtmlDocument document) => document.CollectRemoteImages().Count;
+
+    /// <summary>
+    /// Removes each remote reference <paramref name="shouldBlock"/> returns a reason for, and records it in <paramref name="blocked"/>.
+    /// Width and height attributes stay so the layout keeps its size.
+    /// </summary>
+    public static void ClearRemoteContent(this HtmlDocument document,
+                                          Func<HtmlNode, string, BlockedResourceReason?> shouldBlock,
+                                          List<BlockedRemoteResource> blocked = null)
+    {
+        ArgumentNullException.ThrowIfNull(shouldBlock);
+
+        var references = document.CollectRemoteImages();
+
+        if (references.Count == 0)
         {
             return;
         }
 
-        foreach (var eachNode in document.DocumentNode.Descendants().ToList())
+        var blockedByTarget = new Dictionary<(HtmlNode node, string attribute), HashSet<string>>();
+
+        foreach (var (node, attribute, url) in references)
         {
-            ClearRemoteImageAttribute(eachNode, "src");
-            ClearRemoteImageAttribute(eachNode, "background");
-            ClearRemoteImageAttribute(eachNode, "poster");
-            ClearRemoteImageAttribute(eachNode, "data");
+            var reason = shouldBlock(node, url);
 
-            if (eachNode.Attributes.Contains("srcset"))
+            if (reason == null)
             {
-                eachNode.Attributes.Remove("srcset");
+                continue;
             }
 
-            if (eachNode.Attributes.Contains("imagesrcset"))
+            blocked?.Add(new BlockedRemoteResource(GetHost(url), url, reason.Value));
+
+            if (!blockedByTarget.TryGetValue((node, attribute), out var urls))
             {
-                eachNode.Attributes.Remove("imagesrcset");
+                urls = new HashSet<string>(StringComparer.Ordinal);
+                blockedByTarget[(node, attribute)] = urls;
             }
 
-            if (eachNode.Attributes.Contains("style"))
-            {
-                var sanitizedStyle = SanitizeCss(eachNode.GetAttributeValue("style", string.Empty));
+            urls.Add(url);
+        }
 
-                if (string.IsNullOrWhiteSpace(sanitizedStyle))
+        foreach (var ((node, attribute), urls) in blockedByTarget)
+        {
+            if (attribute == StyleElementAttribute)
+            {
+                var css = RemoveBlockedCss(node.InnerHtml, urls);
+
+                if (string.IsNullOrWhiteSpace(css))
                 {
-                    eachNode.Attributes.Remove("style");
+                    node.Remove();
                 }
                 else
                 {
-                    eachNode.SetAttributeValue("style", sanitizedStyle);
+                    node.InnerHtml = css;
                 }
             }
-
-            if (IsSvgImageReferenceElement(eachNode))
+            else if (attribute == "style")
             {
-                ClearRemoteImageAttribute(eachNode, "href");
-                ClearRemoteImageAttribute(eachNode, "xlink:href");
-            }
-        }
+                var css = RemoveBlockedCss(node.GetAttributeValue("style", string.Empty), urls);
 
-        foreach (var styleNode in document.DocumentNode.Descendants("style").ToList())
-        {
-            var sanitizedCss = SanitizeCss(styleNode.InnerHtml);
-
-            if (string.IsNullOrWhiteSpace(sanitizedCss))
-            {
-                styleNode.Remove();
+                if (string.IsNullOrWhiteSpace(css))
+                {
+                    node.Attributes.Remove("style");
+                }
+                else
+                {
+                    node.SetAttributeValue("style", css);
+                }
             }
             else
             {
-                styleNode.InnerHtml = sanitizedCss;
+                node.Attributes.Remove(attribute);
             }
         }
     }
@@ -273,21 +412,6 @@ public static class HtmlAgilityPackExtensions
         return string.Join(Environment.NewLine, lines);
     }
 
-    private static void ClearRemoteImageAttribute(HtmlNode node, string attributeName)
-    {
-        var value = node.GetAttributeValue(attributeName, null);
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return;
-        }
-
-        if (!IsEmbeddedImageSource(value))
-        {
-            node.Attributes.Remove(attributeName);
-        }
-    }
-
     private static bool IsEmbeddedImageSource(string value)
     {
         var trimmed = value.Trim().Trim('"', '\'');
@@ -302,17 +426,57 @@ public static class HtmlAgilityPackExtensions
            || node.Name.Equals("feImage", StringComparison.OrdinalIgnoreCase)
            || node.Name.Equals("use", StringComparison.OrdinalIgnoreCase);
 
-    private static string SanitizeCss(string css)
+    private static IEnumerable<string> EnumerateCssUrls(string css)
+    {
+        if (string.IsNullOrWhiteSpace(css))
+        {
+            yield break;
+        }
+
+        foreach (Match match in CssImportRegex.Matches(css))
+        {
+            yield return match.Groups["u"].Value;
+        }
+
+        foreach (Match match in CssUrlRegex.Matches(css))
+        {
+            yield return match.Groups["u"].Value;
+        }
+
+        foreach (Match match in CssImageSetRegex.Matches(css))
+        {
+            foreach (Match quoted in CssQuotedRegex.Matches(match.Groups["body"].Value))
+            {
+                yield return quoted.Groups["u"].Value;
+            }
+        }
+    }
+
+    private static string RemoveBlockedCss(string css, HashSet<string> blockedUrls)
     {
         if (string.IsNullOrWhiteSpace(css))
         {
             return string.Empty;
         }
 
-        var sanitizedCss = Regex.Replace(css, @"(?is)url\s*\([^)]*\)", "none");
-        sanitizedCss = Regex.Replace(sanitizedCss, @"(?is)image-set\s*\([^)]*\)", "none");
-        sanitizedCss = Regex.Replace(sanitizedCss, @"(?is)@import\s+[^;]+;?", string.Empty);
+        var result = CssImportRegex.Replace(css, match => blockedUrls.Contains(Unquote(match.Groups["u"].Value)) ? string.Empty : match.Value);
+        result = CssUrlRegex.Replace(result, match => blockedUrls.Contains(Unquote(match.Groups["u"].Value)) ? "none" : match.Value);
+        result = CssImageSetRegex.Replace(result, match =>
+            CssQuotedRegex.Matches(match.Groups["body"].Value).Any(quoted => blockedUrls.Contains(Unquote(quoted.Groups["u"].Value)))
+                ? "none"
+                : match.Value);
 
-        return sanitizedCss.Trim();
+        return result.Trim();
+    }
+
+    private static string Unquote(string value) => value.Trim().Trim('"', '\'').Trim();
+
+    private static string GetHost(string url)
+    {
+        var candidate = url.StartsWith("//", StringComparison.Ordinal) ? "https:" + url : url;
+
+        return Uri.TryCreate(candidate, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Host)
+            ? uri.IdnHost.ToLowerInvariant()
+            : string.Empty;
     }
 }

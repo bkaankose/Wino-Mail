@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Mail.Api.Contracts.Voice;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
@@ -28,6 +29,9 @@ public record MailListInitializationOptions(IReadOnlyList<IMailItemFolder> Folde
     public bool RequireAttachments { get; init; }
     public MailReadStatusFilter ReadStatus { get; init; }
     public bool RequireFlagged { get; init; }
+
+    /// <summary>Only mails from this kind of sender, as <see cref="Contacts.MailSenderClassifier"/> decides on the device.</summary>
+    public MailSenderKind SenderKind { get; init; }
     public bool ExcludeDrafts { get; init; }
     public bool IsCategoryView => CategoryIds?.Count > 0;
 }

@@ -16,7 +16,8 @@ namespace Wino.Platform.MacOS.Services;
 public sealed class MacGlobalHotKeyService : IDisposable
 {
     private const string Carbon = "/System/Library/Frameworks/Carbon.framework/Carbon";
-    private const uint Signature = 0x57494E4F;          // 'WINO'
+    private const uint CompanionSignature = 0x57494E4F; // 'WINO'
+    private const int EventNotHandledError = -9874;     // eventNotHandledErr
     private const uint PrimaryId = 1;
     private const uint SecondaryId = 2;
     private const uint KeyboardEventClass = 0x6B657962; // kEventClassKeyboard 'keyb'
@@ -37,8 +38,19 @@ public sealed class MacGlobalHotKeyService : IDisposable
     private uint _activeId;
     private bool _disposed;
 
-    public MacGlobalHotKeyService()
+    private readonly uint _signature;
+
+    public MacGlobalHotKeyService() : this(CompanionSignature)
     {
+    }
+
+    /// <summary>
+    /// Each instance holds one shortcut under its own Carbon signature, so several instances (the companion and voice
+    /// shortcuts) can be registered at once.
+    /// </summary>
+    public MacGlobalHotKeyService(uint signature)
+    {
+        _signature = signature;
         _handler = HandleEvent;
     }
 
@@ -80,7 +92,7 @@ public sealed class MacGlobalHotKeyService : IDisposable
             if (!EnsureHandler()) return false;
             var candidateId = _activeId == PrimaryId ? SecondaryId : PrimaryId;
             var status = RegisterEventHotKey(keyCode, ToCarbonModifiers(normalized.Value.Modifiers),
-                new EventHotKeyID { Signature = Signature, Id = candidateId }, GetApplicationEventTarget(), 0, out var hotKeyRef);
+                new EventHotKeyID { Signature = _signature, Id = candidateId }, GetApplicationEventTarget(), 0, out var hotKeyRef);
             if (status != 0)
             {
                 LastError = status == HotKeyExistsError ? "the combination is already registered (eventHotKeyExistsErr)" : $"RegisterEventHotKey failed ({status})";
@@ -120,8 +132,11 @@ public sealed class MacGlobalHotKeyService : IDisposable
         try
         {
             var status = GetEventParameter(theEvent, DirectObjectParameter, HotKeyIdType, 0, (nuint)Marshal.SizeOf<EventHotKeyID>(), 0, out var id);
-            if (status == 0 && id.Signature == Signature && id.Id == _activeId && ActiveHotKey is not null)
-                Pressed?.Invoke(this, EventArgs.Empty);
+            // Every instance installs an application handler; a press for another instance's shortcut must reach it.
+            if (status != 0 || id.Signature != _signature || id.Id != _activeId || ActiveHotKey is null)
+                return EventNotHandledError;
+
+            Pressed?.Invoke(this, EventArgs.Empty);
         }
         catch
         {

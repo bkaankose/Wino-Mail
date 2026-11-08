@@ -105,6 +105,14 @@ public static class XamlHelpers
     public static Brush GetSelectionBorderBrush(bool isSelected)
         => GetThemeBrush(isSelected ? "AccentFillColorDefaultBrush" : "CardStrokeColorDefaultBrush");
 
+    public static Brush GetRemoteContentPolicyBrush(RemoteContentSenderPolicy? policy) => GetThemeBrush(policy switch
+    {
+        RemoteContentSenderPolicy.LoadEverything => "SystemFillColorSuccessBrush",
+        RemoteContentSenderPolicy.ImagesOnly => "SystemFillColorCautionBrush",
+        RemoteContentSenderPolicy.Block => "SystemFillColorCriticalBrush",
+        _ => "SubtleFillColorTransparentBrush"
+    });
+
     public static int GetManagementCardSpan(bool isProviderAvailable) => isProviderAvailable ? 1 : 2;
 
     #endregion
@@ -240,6 +248,26 @@ public static class XamlHelpers
     public static string FormatBirthday(int? year, int? month, int? day) => ContactDisplayFormatter.FormatBirthday(year, month, day);
     public static bool GetGravatarEnabled() => PreferencesService?.IsGravatarEnabled ?? true;
     public static bool GetFaviconEnabled() => PreferencesService?.IsFaviconEnabled ?? true;
+
+    public static string GetPrivacyMenuItemHint(string? hint)
+        => string.IsNullOrEmpty(hint) ? string.Empty : $"  {hint}";
+
+    /// <summary>
+    /// The sender's name, followed by the address when the privacy setting asks to always show it,
+    /// so a forged display name is easier to spot.
+    /// </summary>
+    public static string GetSenderDisplayName(string? fromName, string? fromAddress)
+    {
+        if (PreferencesService?.AlwaysShowSenderAddress != true ||
+            string.IsNullOrWhiteSpace(fromName) ||
+            string.IsNullOrWhiteSpace(fromAddress) ||
+            string.Equals(fromName.Trim(), fromAddress.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return fromName ?? string.Empty;
+        }
+
+        return $"{fromName} <{fromAddress}>";
+    }
 
     /// <summary>
     /// Every shell pane draws account identity at one size, so a row reads the same

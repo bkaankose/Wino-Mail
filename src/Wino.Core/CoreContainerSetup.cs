@@ -83,6 +83,7 @@ public static class CoreContainerSetup
         services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
+        services.AddTransient<IVoicePlanExecutor, Services.Voice.VoicePlanExecutor>();
         services.AddTransient<IMailFilterExecutor, MailFilterExecutor>();
         services.AddTransient<IMailFilterProviderService, MailFilterProviderService>();
         services.AddTransient<IProviderFeatureAuthorizationService, ProviderFeatureAuthorizationService>();
@@ -138,6 +139,7 @@ public static class CoreContainerSetup
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
         services.AddTransient<ICalDavSynchronizationEngine, CalDavSynchronizationEngine>();
+        services.AddTransient<ICalDavTaskSynchronizationEngine, CalDavTaskSynchronizationEngine>();
         services.AddTransient<ICardDavAddressBookService, CardDavAddressBookService>();
         services.AddTransient<ICardDavContactListService, CardDavContactListService>();
 

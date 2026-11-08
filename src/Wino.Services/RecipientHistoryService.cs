@@ -87,6 +87,27 @@ public class RecipientHistoryService : BaseDatabaseService, IRecipientHistorySer
             Math.Max(1, limit));
     }
 
+    public Task<List<RecipientHistory>> GetMostFrequentAsync(Guid accountId, int limit)
+        => Connection.QueryAsync<RecipientHistory>(
+            "SELECT * FROM RecipientHistory " +
+            "WHERE AccountId = ? AND IsSuppressed = 0 " +
+            "ORDER BY SentCount * 3 + ReceivedCount DESC LIMIT ?",
+            accountId,
+            Math.Max(1, limit));
+
+    public async Task<RecipientHistory?> FindAsync(Guid accountId, string address)
+    {
+        if (!IsStructurallyValid(address))
+            return null;
+
+        var normalized = ContactEmailAddress.Normalize(address);
+
+        return await Connection.Table<RecipientHistory>()
+            .Where(a => a.AccountId == accountId && a.NormalizedAddress == normalized)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
+    }
+
     public Task ClearAsync(Guid accountId)
         => Connection.ExecuteAsync("DELETE FROM RecipientHistory WHERE AccountId = ?", accountId);
 

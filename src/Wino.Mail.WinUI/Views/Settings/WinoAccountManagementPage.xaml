@@ -9,7 +9,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
     x:Name="Root"
@@ -22,32 +21,6 @@
             <GradientStop Offset="0" Color="#FBBF24" />
             <GradientStop Offset="1" Color="#D97706" />
         </LinearGradientBrush>
-
-        <!--
-            One feature chip. Control fill and stroke keep it readable on the subtle promo
-            surface in Light, Dark, and Contrast themes; only the glyph carries the brand.
-        -->
-        <Style x:Key="PromoChipStyle" TargetType="Border">
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
-        </Style>
-        <!--  An explicit Style replaces the implicit WinoFontIcon style, so it must carry the Wino icon font itself.  -->
-        <Style x:Key="PromoChipIconStyle" TargetType="coreControls:WinoFontIcon">
-            <Setter Property="FontFamily" Value="{ThemeResource WinoIconFontFamily}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{ThemeResource WinoIntelligenceBrandIconBrush}" />
-        </Style>
-        <Style
-            x:Key="PromoChipTextStyle"
-            BasedOn="{StaticResource CaptionTextBlockStyle}"
-            TargetType="TextBlock">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-        </Style>
 
         <!--
             One offer in the signed-out grid. Every glyph is filled path data on the same
@@ -64,6 +37,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <Border
@@ -82,45 +56,42 @@
                             Icon="{x:Bind Icon}" />
                     </Border>
 
-                    <StackPanel Grid.Column="1" Spacing="3">
-                        <StackPanel
-                            Orientation="Horizontal"
-                            Spacing="8"
-                            UseLayoutRounding="True">
+                    <!--  Free and paid badges differ only in tint, and a brush cannot be picked by binding.  -->
+                    <Grid
+                        Grid.Column="2"
+                        VerticalAlignment="Top"
+                        UseLayoutRounding="True">
+                        <Border
+                            Padding="8,1"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource SystemFillColorSuccessBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Visibility="{x:Bind IsFreeBadge}">
                             <TextBlock
-                                VerticalAlignment="Center"
-                                FontWeight="SemiBold"
-                                Text="{x:Bind Title}"
-                                TextTrimming="CharacterEllipsis" />
+                                Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind BadgeText}" />
+                        </Border>
+                        <Border
+                            Padding="8,1"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsFreeBadge)}">
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind BadgeText}" />
+                        </Border>
+                    </Grid>
 
-                            <!--  Free and paid badges differ only in tint, and a brush cannot be picked by binding.  -->
-                            <Border
-                                Padding="8,1"
-                                VerticalAlignment="Center"
-                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                BorderBrush="{ThemeResource SystemFillColorSuccessBrush}"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                Visibility="{x:Bind IsFreeBadge}">
-                                <TextBlock
-                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind BadgeText}" />
-                            </Border>
-                            <Border
-                                Padding="8,1"
-                                VerticalAlignment="Center"
-                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsFreeBadge)}">
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind BadgeText}" />
-                            </Border>
-                        </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="3">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind Title}"
+                            TextWrapping="WrapWholeWords" />
 
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -950,292 +921,81 @@
                             Content="{x:Bind domain:Translator.WinoAccount_Management_RefreshPurchases, Mode=OneTime}" />
                     </Grid>
 
-                    <!--  Wino Intelligence, not yet purchased: one card that says what the subscription does.  -->
-                    <Border
-                        Padding="16"
-                        AutomationProperties.AutomationId="WinoAccountIntelligencePurchaseCard"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        Visibility="{x:Bind ViewModel.AiPackAddOn.IsNotPurchased, Mode=OneWay}">
-                        <StackPanel Spacing="12">
-                            <Grid ColumnSpacing="16">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <coreControls:WinoFontIcon
-                                    VerticalAlignment="Center"
-                                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
-                                    Icon="WinoIntelligence" />
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind domain:Translator.WinoAddOn_AI_PACK_Name, Mode=OneTime}" />
-                                    <TextBlock
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind ViewModel.AiPackSubtitleText, Mode=OneWay}" />
-                                </StackPanel>
-                                <StackPanel
-                                    Grid.Column="2"
-                                    VerticalAlignment="Center"
-                                    Orientation="Horizontal"
-                                    Spacing="8">
-                                    <ProgressRing
-                                        Width="18"
-                                        Height="18"
-                                        IsActive="{x:Bind ViewModel.AiPackAddOn.IsLoading, Mode=OneWay}"
-                                        Visibility="{x:Bind ViewModel.AiPackAddOn.IsLoading, Mode=OneWay}" />
-                                    <Border
-                                        Padding="10,3"
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="10">
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="{x:Bind domain:Translator.WinoAccount_Management_NotActiveShort, Mode=OneTime}" />
-                                    </Border>
-                                </StackPanel>
-                            </Grid>
-
-                            <!--
-                                What the subscription does, on the shared Intelligence surface. The illustration
-                                carries the brand; text, chips, and the accent button stay on system resources so
-                                the panel follows Light, Dark, and Contrast themes.
-                            -->
-                            <Border
-                                Padding="20"
-                                Background="{ThemeResource WinoIntelligenceBrandSurfaceBrush}"
-                                CornerRadius="4">
-                                <Grid ColumnSpacing="20">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <illustrations:WinoIntelligencePromotionIllustration
-                                        Width="96"
-                                        Height="96"
-                                        VerticalAlignment="Center" />
-
-                                    <StackPanel Grid.Column="1" Spacing="12">
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoTitle, Mode=OneTime}" />
-                                            <TextBlock
-                                                MaxWidth="520"
-                                                HorizontalAlignment="Left"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoDescription, Mode=OneTime}"
-                                                TextWrapping="WrapWholeWords" />
-                                        </StackPanel>
-
-                                        <!--  The five things it does. Every chip is the same shape; only the text and glyph differ.  -->
-                                        <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8">
-                                            <Border Style="{StaticResource PromoChipStyle}">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <coreControls:WinoFontIcon Icon="DailyBriefing" Style="{StaticResource PromoChipIconStyle}" />
-                                                    <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureBriefing, Mode=OneTime}" />
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Style="{StaticResource PromoChipStyle}">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <coreControls:WinoFontIcon Icon="Note" Style="{StaticResource PromoChipIconStyle}" />
-                                                    <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneTime}" />
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Style="{StaticResource PromoChipStyle}">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <coreControls:WinoFontIcon Icon="Translate" Style="{StaticResource PromoChipIconStyle}" />
-                                                    <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate, Mode=OneTime}" />
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Style="{StaticResource PromoChipStyle}">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <coreControls:WinoFontIcon Icon="Edit" Style="{StaticResource PromoChipIconStyle}" />
-                                                    <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite, Mode=OneTime}" />
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Style="{StaticResource PromoChipStyle}">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <coreControls:WinoFontIcon Icon="Tag" Style="{StaticResource PromoChipIconStyle}" />
-                                                    <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureLabels, Mode=OneTime}" />
-                                                </StackPanel>
-                                            </Border>
-                                        </controls:WrapPanel>
-                                    </StackPanel>
-
-                                    <StackPanel
-                                        Grid.Column="2"
-                                        MinWidth="180"
-                                        VerticalAlignment="Center"
-                                        Spacing="8">
-                                        <!--  Stripe Checkout states the price in the customer's own currency; the app does not repeat it.  -->
-                                        <Button
-                                            HorizontalAlignment="Stretch"
-                                            AutomationProperties.AutomationId="WinoAccountAddOnPurchaseButton"
-                                            Command="{x:Bind ViewModel.PurchaseAddOnCommand}"
-                                            CommandParameter="{x:Bind ViewModel.AiPackAddOn}"
-                                            Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton, Mode=OneTime}"
-                                            Style="{StaticResource AccentButtonStyle}" />
-                                        <HyperlinkButton
-                                            HorizontalAlignment="Stretch"
-                                            HorizontalContentAlignment="Center"
-                                            AutomationProperties.AutomationId="WinoAccountAddOnLearnMoreButton"
-                                            Content="{x:Bind domain:Translator.Buttons_LearnMore, Mode=OneTime}"
-                                            NavigateUri="https://www.winomail.app/intelligence" />
-                                        <TextBlock
-                                            HorizontalAlignment="Right"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPriceAtCheckout, Mode=OneTime}"
-                                            TextAlignment="Right"
-                                            TextWrapping="WrapWholeWords" />
-                                        <TextBlock
-                                            HorizontalAlignment="Right"
-                                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="{x:Bind ViewModel.AiPackAddOn.ErrorText, Mode=OneWay}"
-                                            TextAlignment="Right"
-                                            TextWrapping="WrapWholeWords"
-                                            Visibility="{x:Bind ViewModel.AiPackAddOn.ShowErrorState, Mode=OneWay}" />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackLocalNote, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </Border>
-
-                    <!--  Wino Intelligence, purchased: billing, the monthly allowance, and where the rest is managed.  -->
-                    <controls:SettingsExpander
-                        AutomationProperties.AutomationId="WinoAccountIntelligenceExpander"
-                        Description="{x:Bind ViewModel.AiPackSubtitleText, Mode=OneWay}"
-                        Header="{x:Bind domain:Translator.WinoAddOn_AI_PACK_Name, Mode=OneTime}"
-                        IsExpanded="True"
-                        Visibility="{x:Bind ViewModel.AiPackAddOn.IsPurchased, Mode=OneWay}">
-                        <controls:SettingsExpander.HeaderIcon>
+                    <!--  Wino Intelligence at a glance: active or not and the renewal date. Usage and settings live on the Wino Intelligence page.  -->
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="WinoAccountIntelligenceCard"
+                        Description="{x:Bind ViewModel.AiPackStatusText, Mode=OneWay}"
+                        Header="{x:Bind domain:Translator.WinoAddOn_AI_PACK_Name, Mode=OneTime}">
+                        <controls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
-                        </controls:SettingsExpander.HeaderIcon>
+                        </controls:SettingsCard.HeaderIcon>
 
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ProgressRing
-                                Width="18"
-                                Height="18"
-                                VerticalAlignment="Center"
-                                IsActive="{x:Bind ViewModel.AiPackAddOn.IsLoading, Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.AiPackAddOn.IsLoading, Mode=OneWay}" />
-                            <Border
-                                Padding="10,3"
-                                VerticalAlignment="Center"
-                                Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                                CornerRadius="10">
-                                <TextBlock
-                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.WinoAccount_Management_ActiveShort, Mode=OneTime}" />
-                            </Border>
-                        </StackPanel>
-
-                        <controls:SettingsExpander.Items>
-                            <!--  Billing facts and the allowance the briefing draws on  -->
-                            <controls:SettingsCard
-                                HorizontalContentAlignment="Stretch"
-                                AutomationProperties.AutomationId="WinoAccountIntelligenceUsageCard"
-                                ContentAlignment="Vertical">
-                                <StackPanel Spacing="18">
-                                    <Grid ColumnSpacing="24">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <!--  The amount is Stripe's to state; the period is the fact Wino can report.  -->
-                                        <StackPanel Spacing="2">
-                                            <TextBlock
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackBillingPeriodLabel, Mode=OneTime}" />
-                                            <TextBlock Text="{x:Bind ViewModel.AiPackBillingPeriodText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Spacing="2">
-                                            <TextBlock
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind domain:Translator.WinoAccount_Management_IncludedEachMonth, Mode=OneTime}" />
-                                            <TextBlock Text="{x:Bind ViewModel.IntelligenceIncludedText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <StackPanel Spacing="7">
-                                        <Grid>
-                                            <TextBlock Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackRequestsUsed, Mode=OneTime}" />
-                                            <TextBlock
-                                                HorizontalAlignment="Right"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind ViewModel.IntelligenceUsageSummary, Mode=OneWay}" />
-                                        </Grid>
-                                        <ProgressBar
-                                            AutomationProperties.AutomationId="WinoAccountIntelligenceUsageProgressBar"
-                                            Maximum="100"
-                                            Visibility="{x:Bind ViewModel.IsIntelligenceUsageAvailable, Mode=OneWay}"
-                                            Value="{x:Bind ViewModel.IntelligenceUsagePercentage, Mode=OneWay}" />
-                                        <Grid>
-                                            <TextBlock
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind ViewModel.AiPackRenewalOrCancellationText, Mode=OneWay}" />
-                                            <TextBlock
-                                                HorizontalAlignment="Right"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind ViewModel.IntelligenceResetText, Mode=OneWay}" />
-                                        </Grid>
-                                    </StackPanel>
-
+                        <StackPanel HorizontalAlignment="Right" Spacing="4">
+                            <StackPanel
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <ProgressRing
+                                    Width="18"
+                                    Height="18"
+                                    VerticalAlignment="Center"
+                                    IsActive="{x:Bind ViewModel.AiPackAddOn.IsLoading, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.AiPackAddOn.IsLoading, Mode=OneWay}" />
+                                <Border
+                                    Padding="8,2"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="WinoAccountIntelligenceActiveBadge"
+                                    Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                    CornerRadius="4"
+                                    Visibility="{x:Bind ViewModel.AiPackAddOn.IsPurchased, Mode=OneWay}">
+                                    <TextBlock
+                                        Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind domain:Translator.WinoAccount_Management_ActiveShort, Mode=OneTime}" />
+                                </Border>
+                                <Border
+                                    Padding="8,2"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="WinoAccountIntelligenceEndedBadge"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    CornerRadius="4"
+                                    Visibility="{x:Bind ViewModel.IsAiPackEnded, Mode=OneWay}">
                                     <TextBlock
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind domain:Translator.WinoAccount_Management_UsageOtherLimitsNote, Mode=OneTime}"
-                                        TextWrapping="WrapWholeWords" />
-                                </StackPanel>
-                            </controls:SettingsCard>
-
-                            <!--  Results are device-local, so the only mailbox fact here is which accounts take part.  -->
-                            <controls:SettingsCard
-                                AutomationProperties.AutomationId="WinoAccountBriefingMailboxesCard"
-                                Description="{x:Bind ViewModel.IntelligenceMailboxesSummary, Mode=OneWay}"
-                                Header="{x:Bind domain:Translator.WinoAccount_Management_BriefingMailboxesTitle, Mode=OneTime}">
-                                <controls:SettingsCard.HeaderIcon>
-                                    <coreControls:WinoFontIcon Icon="Mail" />
-                                </controls:SettingsCard.HeaderIcon>
+                                        Text="{x:Bind domain:Translator.WinoIntelligence_Status_Ended, Mode=OneTime}" />
+                                </Border>
+                                <HyperlinkButton
+                                    AutomationProperties.AutomationId="WinoAccountIntelligenceSeeWhatsIncludedButton"
+                                    Command="{x:Bind ViewModel.OpenIntelligencePageCommand}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_SeeWhatsIncluded, Mode=OneTime}"
+                                    Visibility="{x:Bind ViewModel.IsAiPackNotActive, Mode=OneWay}" />
+                                <!--  Stripe Checkout states the price in the customer's own currency; the app does not repeat it.  -->
                                 <Button
-                                    AutomationProperties.AutomationId="WinoAccountBriefingMailboxesManageButton"
-                                    Command="{x:Bind ViewModel.OpenIntelligenceManagementCommand}"
-                                    Content="{x:Bind domain:Translator.Buttons_Manage, Mode=OneTime}" />
-                            </controls:SettingsCard>
-
-                            <controls:SettingsCard
-                                AutomationProperties.AutomationId="WinoAccountConsentManagementCard"
-                                Description="{x:Bind domain:Translator.WinoAccount_ConsentNavigationDescription, Mode=OneTime}"
-                                Header="{x:Bind domain:Translator.WinoAccount_ConsentNavigationTitle, Mode=OneTime}">
-                                <controls:SettingsCard.HeaderIcon>
-                                    <coreControls:WinoFontIcon Icon="LockClosed" />
-                                </controls:SettingsCard.HeaderIcon>
+                                    AutomationProperties.AutomationId="WinoAccountAddOnPurchaseButton"
+                                    Command="{x:Bind ViewModel.PurchaseAddOnCommand}"
+                                    CommandParameter="{x:Bind ViewModel.AiPackAddOn}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton, Mode=OneTime}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Visibility="{x:Bind ViewModel.IsAiPackNotActive, Mode=OneWay}" />
                                 <Button
-                                    AutomationProperties.AutomationId="WinoAccountOpenConsentManagementButton"
-                                    Command="{x:Bind ViewModel.OpenIntelligenceManagementCommand}"
-                                    Content="{x:Bind domain:Translator.Buttons_Manage, Mode=OneTime}" />
-                            </controls:SettingsCard>
-                        </controls:SettingsExpander.Items>
-                    </controls:SettingsExpander>
+                                    AutomationProperties.AutomationId="WinoAccountAddOnRenewButton"
+                                    Command="{x:Bind ViewModel.PurchaseAddOnCommand}"
+                                    CommandParameter="{x:Bind ViewModel.AiPackAddOn}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_Renew, Mode=OneTime}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Visibility="{x:Bind ViewModel.IsAiPackEnded, Mode=OneWay}" />
+                            </StackPanel>
+                            <TextBlock
+                                HorizontalAlignment="Right"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.AiPackAddOn.ErrorText, Mode=OneWay}"
+                                TextAlignment="Right"
+                                TextWrapping="WrapWholeWords"
+                                Visibility="{x:Bind ViewModel.AiPackAddOn.ShowErrorState, Mode=OneWay}" />
+                        </StackPanel>
+                    </controls:SettingsCard>
 
                     <!--  Unlimited Accounts is intentionally compact; ownership and headroom are the only state users need here.  -->
                     <controls:SettingsCard

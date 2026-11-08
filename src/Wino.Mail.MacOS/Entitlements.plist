@@ -7,6 +7,8 @@
   <key>com.apple.security.network.server</key><true/>
   <key>com.apple.security.files.user-selected.read-write</key><true/>
   <key>com.apple.security.cs.allow-jit</key><true/>
+  <!-- Voice control records spoken commands. Without this entitlement the sandbox denies the microphone silently. -->
+  <key>com.apple.security.device.audio-input</key><true/>
   <!-- Sparkle's installer service (DMG builds). Entitlements.AppStore.plist leaves this out. -->
   <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
   <array>

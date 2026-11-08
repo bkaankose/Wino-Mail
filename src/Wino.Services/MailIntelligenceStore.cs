@@ -21,7 +21,7 @@ namespace Wino.Services;
 /// a file delete rather than a migration against live mail.
 /// </summary>
 public sealed class MailIntelligenceStore(
-    IApplicationConfiguration applicationConfiguration) : IMailIntelligenceStore, IIntelligenceResultKeyRows, IAsyncDisposable
+    IApplicationConfiguration applicationConfiguration) : IMailIntelligenceStore, IIntelligenceResultKeyRows, IVoiceBrainStore, IAsyncDisposable
 {
     private const string DatabaseName = "WinoMailIntelligence.db";
 
@@ -62,6 +62,7 @@ public sealed class MailIntelligenceStore(
             await connection.CreateTableAsync<MailIntelligenceAccessRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<AccountIntelligenceSnapshotRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<IntelligenceResultKeyRow>().ConfigureAwait(false);
+            await connection.CreateTableAsync<VoiceBrainStateRow>().ConfigureAwait(false);
 
             _connection = connection;
             return connection;
@@ -591,6 +592,41 @@ public sealed class MailIntelligenceStore(
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         await lease.Connection.ExecuteAsync("DELETE FROM IntelligenceResultKey").ConfigureAwait(false);
+    }
+
+    // ---- voice --------------------------------------------------------------------
+
+    public async Task<string?> GetVoiceValueAsync(string key, CancellationToken cancellationToken = default)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        var row = await lease.Connection.Table<VoiceBrainStateRow>()
+            .Where(x => x.Key == key)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
+        return row?.Value;
+    }
+
+    public async Task SetVoiceValueAsync(string key, string? value, CancellationToken cancellationToken = default)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        if (value is null)
+        {
+            await lease.Connection.DeleteAsync<VoiceBrainStateRow>(key).ConfigureAwait(false);
+            return;
+        }
+
+        await lease.Connection.InsertOrReplaceAsync(new VoiceBrainStateRow
+        {
+            Key = key,
+            Value = value,
+            UpdatedUtc = DateTime.UtcNow,
+        }, typeof(VoiceBrainStateRow)).ConfigureAwait(false);
+    }
+
+    public async Task ClearVoiceValuesAsync(CancellationToken cancellationToken = default)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        await lease.Connection.ExecuteAsync("DELETE FROM VoiceBrainState").ConfigureAwait(false);
     }
 
     // ---- lifecycle -----------------------------------------------------------------

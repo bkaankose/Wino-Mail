@@ -358,6 +358,7 @@ public sealed partial class CalendarItemControl : UserControl
 #if DEBUG
         flyout.AddTestNotificationCommand(
             () => _notificationBuilder.CreateTestCalendarReminderNotificationAsync(CalendarItem.CalendarItem));
+        flyout.AddAssistantCommand(CalendarItem.CalendarItem);
 #endif
     }
 

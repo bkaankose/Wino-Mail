@@ -38,6 +38,16 @@ public interface IRecipientHistoryService
     Task<List<RecipientHistory>> SearchAsync(Guid accountId, string query, int limit = 30);
 
     /// <summary>
+    /// The account's unsuppressed history rows, most used first, ranked like <see cref="SearchAsync"/>.
+    /// </summary>
+    Task<List<RecipientHistory>> GetMostFrequentAsync(Guid accountId, int limit);
+
+    /// <summary>
+    /// The account's history row for an address, suppressed or not, or null when it has none.
+    /// </summary>
+    Task<RecipientHistory?> FindAsync(Guid accountId, string address);
+
+    /// <summary>
     /// Forgets the account's history, including suppressions.
     /// </summary>
     Task ClearAsync(Guid accountId);

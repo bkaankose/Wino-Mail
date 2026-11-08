@@ -29,10 +29,13 @@ internal static class ConsoleServices
     public const string LocalApiUrl = "https://localhost:7204/";
     public const string ProductionApiUrl = "https://api.winomail.app/";
 
-    public static Uri GetApiUri(ApiTarget target)
-        => new(target == ApiTarget.Production ? ProductionApiUrl : LocalApiUrl);
+    /// <summary>Another API address than the two targets, such as the local voice evaluation API.</summary>
+    public static Uri? ApiUrlOverride { get; set; }
 
-    public static ServiceProvider Create(ConsolePaths paths, ApiTarget apiTarget)
+    public static Uri GetApiUri(ApiTarget target)
+        => ApiUrlOverride ?? new(target == ApiTarget.Production ? ProductionApiUrl : LocalApiUrl);
+
+    public static ServiceProvider Create(ConsolePaths paths, ApiTarget apiTarget, Action<IServiceCollection>? configure = null)
     {
         var nativeAppService = new ConsoleNativeAppService(paths.ApplicationDataFolder);
         var services = new ServiceCollection();
@@ -85,6 +88,8 @@ internal static class ConsoleServices
                 provider.GetRequiredService<ITranslationService>(),
                 sessionService: provider.GetRequiredService<IWinoAccountSessionService>());
         });
+
+        configure?.Invoke(services);
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions
         {

@@ -49,10 +49,9 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
         Add(links);
 
         // The Diagnostics page (18 Oct 2026): every item is a row of the one pushed page, nothing pushes further. The
-        // Enable logs switch with its explanation as the footer, Share and Upload as action rows, then the identifier
-        // row: the explanation under the title, the ID itself as the next row's title with a copy button.
-        var logsCard = Card(Translator.SettingsEnableLogs_Title, Translator.IOS_SettingsHint_EnableLogs, WinoIconGlyph.None,
-            Bind.Switch(p, nameof(p.IsLoggingEnabled), s => s.IsLoggingEnabled, (s, v) => s.IsLoggingEnabled = v, Translator.SettingsEnableLogs_Title));
+        // logs explanation (the switch lives in Privacy & security), Share and Upload as action rows, then the
+        // identifier row: the explanation under the title, the ID itself as the next row's title with a copy button.
+        var logsCard = Card(Translator.PrivacySecurity_AboutLogs_Title, Translator.PrivacySecurity_AboutLogs_Description);
         var share = ActionRow(Bind.Button(Translator.Buttons_Share, vm.ShareWinoLogCommand));
         var upload = ActionRow(Bind.Button(Translator.Buttons_UploadLogs, vm.UploadWinoLogsCommand));
 

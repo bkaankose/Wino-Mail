@@ -44,6 +44,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private readonly IKnownImapProviderCatalog _knownImapProviderCatalog;
     private readonly IAccountCapabilityService _accountCapabilityService;
     private readonly IExternalLauncher _externalLauncher;
+    private readonly ITaskService _taskService;
 
     private ImapCalDavSettingsPageMode _pageMode;
     private Guid _editingAccountId;
@@ -73,6 +74,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCalendarModeSelectionVisible))]
     [NotifyPropertyChangedFor(nameof(IsCalDavSettingsVisible))]
+    [NotifyPropertyChangedFor(nameof(CalDavSectionTitle))]
     [NotifyPropertyChangedFor(nameof(IsCalDavCalendarModeSelected))]
     [NotifyPropertyChangedFor(nameof(IsLocalCalendarModeSelected))]
     [NotifyPropertyChangedFor(nameof(IsDisabledCalendarModeSelected))]
@@ -83,6 +85,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCalDavSettingsVisible))]
+    [NotifyPropertyChangedFor(nameof(CalDavSectionTitle))]
     [NotifyPropertyChangedFor(nameof(IsCalDavCalendarModeSelected))]
     [NotifyPropertyChangedFor(nameof(IsLocalCalendarModeSelected))]
     [NotifyPropertyChangedFor(nameof(IsDisabledCalendarModeSelected))]
@@ -169,7 +172,16 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     public bool IsPop3 => _providerType == MailProviderType.POP3;
     public string IncomingSettingsTitle => IsPop3 ? Translator.ImapSetup_IncomingPop3Title : Translator.ImapSetup_IncomingImapTitle;
     public bool IsCalendarModeSelectionVisible => IsCalendarSupportEnabled && !IsPop3;
-    public bool IsCalDavSettingsVisible => IsCalendarSupportEnabled && !IsPop3 && SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav;
+    public bool IsCalDavSettingsVisible => IsCalDavCalendarEnabled || IsCalDavTaskEnabled;
+    private bool IsCalDavCalendarEnabled => IsCalendarSupportEnabled && !IsPop3 && SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav;
+    private bool IsCalDavTaskEnabled => !IsPop3 && Capabilities.TaskMode == AccountCapabilityMode.Provider;
+
+    public string CalDavSectionTitle => (IsCalDavCalendarEnabled, IsCalDavTaskEnabled) switch
+    {
+        (true, true) => Translator.ImapSetup_CalDavCalendarAndTasksTitle,
+        (false, true) => Translator.ImapSetup_CalDavTasksTitle,
+        _ => Translator.ImapSetup_CalDavTitle
+    };
     public bool IsCardDavSettingsVisible => _isCardDavEnabled;
     public bool IsCardDavOnlySettingsVisible => _isCardDavEnabled && !IsCalDavSettingsVisible;
     public bool IsCalDavCalendarModeSelected => IsCalendarSupportEnabled && SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav;
@@ -261,8 +273,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            IOAuthIssuerDiscoveryService oauthIssuerDiscoveryService = null,
                                            IImapAuthCapabilityProbe imapAuthCapabilityProbe = null,
                                            IAccountOAuthProfileService accountOAuthProfileService = null,
-                                           IDavOAuthAuthenticationProvider davOAuthAuthenticationProvider = null)
+                                           IDavOAuthAuthenticationProvider davOAuthAuthenticationProvider = null,
+                                           ITaskService taskService = null)
     {
+        _taskService = taskService;
         _davOAuthAuthenticationProvider = davOAuthAuthenticationProvider;
         _oauthTokenService = oauthTokenService;
         _oauthIssuerDiscoveryService = oauthIssuerDiscoveryService;
@@ -405,7 +419,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 IsImapValidationSucceeded = false;
             }
 
-            if (serverInformation.CalendarSupportMode == ImapCalendarSupportMode.CalDav)
+            if (IsCalDavSettingsVisible)
             {
                 await TestCalDavConnectionAsync(serverInformation);
             }
@@ -581,7 +595,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _initialContactMode = !account.IsContactAccessEnabled
             ? AccountCapabilityMode.Off
             : _isCardDavEnabled ? AccountCapabilityMode.Provider : AccountCapabilityMode.Local;
-        _initialTaskMode = account.IsTaskAccessEnabled ? AccountCapabilityMode.Local : AccountCapabilityMode.Off;
+        _initialTaskMode = !account.IsTaskAccessEnabled
+            ? AccountCapabilityMode.Off
+            : account.TaskIntegrationSource == AccountIntegrationSource.Dav ? AccountCapabilityMode.Provider : AccountCapabilityMode.Local;
         _initialAccountName = account.Name ?? string.Empty;
         DisplayName = account.SenderName ?? string.Empty;
         EmailAddress = account.Address ?? string.Empty;
@@ -811,9 +827,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         await ExecuteUIThread(() =>
         {
             ApplyServerInformation(serverInformation);
-            shouldDiscoverCalDav =
-                IsCalendarSupportEnabled &&
-                SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav;
+            shouldDiscoverCalDav = IsCalDavSettingsVisible;
         }).ConfigureAwait(false);
 
         if (!shouldDiscoverCalDav)
@@ -830,8 +844,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 CalDavServiceUrl = discoveredCalDavUri.ToString();
             }
 
-            if (IsCalendarSupportEnabled &&
-                SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav)
+            if (IsCalDavSettingsVisible)
             {
                 if (string.IsNullOrWhiteSpace(CalDavUsername))
                     CalDavUsername = minimalSettings.Email;
@@ -1121,6 +1134,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             throw new InvalidOperationException(Translator.Exception_NullAssignedAccount);
 
         var wasContactSyncEnabled = account.IsContactAccessEnabled && account.ContactIntegrationSource == AccountIntegrationSource.Dav;
+        var wasTaskSyncEnabled = account.IsTaskAccessEnabled && account.TaskIntegrationSource == AccountIntegrationSource.Dav;
+        var hadCalDavTaskSource = account.TaskIntegrationSource == AccountIntegrationSource.Dav;
 
         account.SenderName = DisplayName.Trim();
         account.Address = EmailAddress.Trim();
@@ -1136,7 +1151,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             ? AccountIntegrationSource.Dav
             : AccountIntegrationSource.Local;
         account.IsTaskAccessEnabled = Capabilities.IsTaskEnabled;
-        account.TaskIntegrationSource = AccountIntegrationSource.Local;
+        account.IsTaskAccessGranted = Capabilities.TaskMode == AccountCapabilityMode.Provider;
+        account.TaskIntegrationSource = Capabilities.TaskMode == AccountCapabilityMode.Provider
+            ? AccountIntegrationSource.Dav
+            : AccountIntegrationSource.Local;
 
         serverInformation.Id = account.ServerInformation?.Id ?? Guid.NewGuid();
         serverInformation.AccountId = account.Id;
@@ -1156,6 +1174,28 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             await _accountCapabilityService.EnsureLocalCapabilityStoresAsync(account);
 
         await SynchronizationManager.Instance.DestroySynchronizerAsync(account.Id);
+
+        // Leaving CalDAV removes only the synced copies; the server keeps them and local lists stay.
+        if (hadCalDavTaskSource && account.TaskIntegrationSource != AccountIntegrationSource.Dav && _taskService != null)
+        {
+            try
+            {
+                await _taskService.DeleteTaskListsBySourceAsync(account.Id, TaskSourceKind.CalDav);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Removing CalDAV task lists of account {AccountId} failed", account.Id);
+            }
+        }
+
+        if (account.IsTaskAccessGranted && !wasTaskSyncEnabled)
+        {
+            Messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = TaskSynchronizationType.Full
+            }));
+        }
 
         if (account.IsContactAccessGranted && !wasContactSyncEnabled)
         {
@@ -1217,7 +1257,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         var mode = IsCalendarSupportEnabled ? SelectedCalendarSupportMode : ImapCalendarSupportMode.Disabled;
 
-        var davEnabled = mode == ImapCalendarSupportMode.CalDav || _isCardDavEnabled;
+        var isCalDavRequired = IsCalDavSettingsVisible;
+        var davEnabled = isCalDavRequired || _isCardDavEnabled;
         var calDavUser = (EffectiveDavUsername ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(calDavUser))
             calDavUser = (EmailAddress ?? string.Empty).Trim();
@@ -1252,7 +1293,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             MaxConcurrentClients = MaxConcurrentClients <= 0 ? 5 : MaxConcurrentClients,
             ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected,
             CalendarSupportMode = mode,
-            CalDavServiceUrl = mode == ImapCalendarSupportMode.CalDav ? (CalDavServiceUrl ?? string.Empty).Trim() : string.Empty,
+            CalDavServiceUrl = isCalDavRequired ? (CalDavServiceUrl ?? string.Empty).Trim() : string.Empty,
             CardDavServiceUrl = _isCardDavEnabled ? (CardDavServiceUrl ?? string.Empty).Trim() : string.Empty,
             CalDavUsername = davEnabled ? calDavUser : string.Empty,
             CalDavPassword = davEnabled ? calDavPassword : string.Empty
@@ -1333,7 +1374,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private void ValidateCalendarModeSpecificSettings(CustomServerInformation serverInformation)
     {
-        if (serverInformation.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
+        if (!IsCalDavSettingsVisible)
             return;
 
         ValidateCalDavSettings(serverInformation);
@@ -1361,8 +1402,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     {
         var needsImapSettings = IsMailSupportEnabled && requireCompleteImapSettings && !HasCompleteImapSettings();
         var needsCalDavSettings = requireCompleteCalDavSettings
-                                  && IsCalendarSupportEnabled
-                                  && SelectedCalendarSupportMode == ImapCalendarSupportMode.CalDav
+                                  && IsCalDavSettingsVisible
                                   && !HasCompleteCalDavSettings();
 
         if (!needsImapSettings && !needsCalDavSettings)
@@ -1457,8 +1497,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
 
     private bool HasCompleteCalDavSettings()
-        => !IsCalendarSupportEnabled
-           || SelectedCalendarSupportMode != ImapCalendarSupportMode.CalDav
+        => !IsCalDavSettingsVisible
            || (!string.IsNullOrWhiteSpace(CalDavServiceUrl)
                && Uri.TryCreate(CalDavServiceUrl, UriKind.Absolute, out _)
                && !string.IsNullOrWhiteSpace(EffectiveDavUsername)

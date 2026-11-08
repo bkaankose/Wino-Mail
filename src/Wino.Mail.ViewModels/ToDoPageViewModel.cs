@@ -34,6 +34,7 @@ namespace Wino.Mail.ViewModels;
 public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, IShellMenuProvider,
     IRecipient<TaskSynchronizationCompleted>,
     IRecipient<TaskStateChanged>,
+    IRecipient<BulkTaskChanged>,
     IRecipient<AccountUpdatedMessage>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<PreferenceChangedMessage>
@@ -49,6 +50,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly IMailDialogService _dialogService;
     private readonly IPreferencesService _preferencesService;
     private readonly ITaskCompletionSound _taskCompletionSound;
+    private readonly ISyncCoordinator _syncCoordinator;
     private readonly NewTaskListMenuItem _newListMenuItem = new();
     private readonly SeperatorItem _commandSeparator = new();
     private readonly SeperatorItem _smartViewSeparator = new();
@@ -487,8 +489,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         IPreferencesService preferencesService = null,
         ITaskCompletionSound taskCompletionSound = null,
         IAppModeReadinessService appModeReadinessService = null,
-        IMailShellClient mailShell = null)
+        IMailShellClient mailShell = null,
+        ISyncCoordinator syncCoordinator = null)
     {
+        _syncCoordinator = syncCoordinator;
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
         _accountService = accountService;
@@ -553,6 +557,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         base.RegisterRecipients();
         Messenger.Register<TaskSynchronizationCompleted>(this);
         Messenger.Register<TaskStateChanged>(this);
+        Messenger.Register<BulkTaskChanged>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
@@ -562,6 +567,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     {
         Messenger.Unregister<TaskSynchronizationCompleted>(this);
         Messenger.Unregister<TaskStateChanged>(this);
+        Messenger.Unregister<BulkTaskChanged>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
@@ -583,6 +589,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     void IRecipient<TaskStateChanged>.Receive(TaskStateChanged message)
         => _ = ExecuteUIThread(() => ApplyTaskState(message));
 
+    void IRecipient<BulkTaskChanged>.Receive(BulkTaskChanged message)
+    {
+        if (!_isPreparedForShellShutdown)
+            _ = ReloadAsync();
+    }
+
     void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message)
         => _ = ExecuteUIThread(() => ApplyAccountUpdate(message.Account));
 
@@ -591,6 +603,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private void ApplyTaskState(TaskStateChanged message)
     {
+        if (message is null)
+            return;
+
+        if (message.Source == EntityUpdateSource.Server)
+            message = WithoutPendingEntities(message);
+
         if (message is null)
             return;
 
@@ -613,6 +631,27 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(CanCreateTask));
         ApplyMenuCounts();
+    }
+
+    /// <summary>
+    /// A synchronization can store a row while a request for it still waits in the queue. The
+    /// request's optimistic state stays on screen until the request completes or reverts.
+    /// </summary>
+    private TaskStateChanged WithoutPendingEntities(TaskStateChanged message)
+    {
+        var task = message.Task is not null &&
+                   (_pendingTaskStates.ContainsKey(message.Task.Id) || _pendingDeletedTaskIds.ContainsKey(message.Task.Id))
+            ? null
+            : message.Task;
+        var list = message.List is not null &&
+                   (_pendingListStates.ContainsKey(message.List.Id) || _pendingDeletedListIds.ContainsKey(message.List.Id))
+            ? null
+            : message.List;
+
+        if (task is null && list is null && message.Group is null)
+            return null;
+
+        return message with { Task = task, List = list };
     }
 
     private void TrackPendingState(TaskStateChanged message)
@@ -2329,32 +2368,48 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         => _dialogService.InfoBarMessage(Translator.ToDoPage_EmailList, Translator.ToDoPage_NotAvailableYet, InfoBarMessageType.Information);
 
     [RelayCommand]
-    private void Synchronize()
+    private Task Synchronize() => RequestTaskSynchronizationAsync(Accounts.Where(CanSynchronizeTasks).ToList());
+
+    private async Task SynchronizeAccountAsync(Guid accountId)
     {
-        foreach (var account in Accounts.Where(CanSynchronizeTasks))
+        var account = Accounts.FirstOrDefault(candidate => candidate.Id == accountId);
+        if (account is null || !CanSynchronizeTasks(account))
+            return;
+
+        await RequestTaskSynchronizationAsync([account]);
+        RefreshShellSynchronizationState();
+    }
+
+    /// <summary>
+    /// Google Tasks shares one daily quota across every installation, so an account inside its refresh window is not
+    /// asked to synchronize; the user learns when the next refresh is available instead.
+    /// </summary>
+    private async Task RequestTaskSynchronizationAsync(List<MailAccount> accounts)
+    {
+        DateTimeOffset? nextQuotaPullUtc = null;
+        foreach (var account in accounts)
         {
+            var next = _syncCoordinator is null ? null : await _syncCoordinator.GetNextQuotaTaskPullUtcAsync(account);
+            if (next is DateTimeOffset gatedUntil)
+            {
+                nextQuotaPullUtc = nextQuotaPullUtc is null || gatedUntil < nextQuotaPullUtc ? gatedUntil : nextQuotaPullUtc;
+                continue;
+            }
+
             WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = TaskSynchronizationType.Delta
             }));
         }
-    }
 
-    private Task SynchronizeAccountAsync(Guid accountId)
-    {
-        var account = Accounts.FirstOrDefault(candidate => candidate.Id == accountId);
-        if (account is null || !CanSynchronizeTasks(account))
-            return Task.CompletedTask;
-
-        WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+        if (nextQuotaPullUtc is DateTimeOffset nextUtc)
         {
-            AccountId = account.Id,
-            Type = TaskSynchronizationType.Delta
-        }));
-        RefreshShellSynchronizationState();
-
-        return Task.CompletedTask;
+            _dialogService.InfoBarMessage(
+                Translator.ToDoPage_GoogleTasksRefreshLimitTitle,
+                string.Format(Translator.ToDoPage_GoogleTasksRefreshLimitMessage, nextUtc.ToLocalTime().ToString("t")),
+                InfoBarMessageType.Information);
+        }
     }
 
     [RelayCommand]
@@ -2410,15 +2465,18 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     }
 
     private static TaskSourceKind ResolveTaskSource(MailAccount account)
-        => account.TaskIntegrationSource == AccountIntegrationSource.Provider && account.IsTaskAccessGranted
-            ? account.ProviderType switch
+        => account.TaskIntegrationSource switch
+        {
+            AccountIntegrationSource.Provider when account.IsTaskAccessGranted => account.ProviderType switch
             {
                 MailProviderType.Gmail => TaskSourceKind.Gmail,
                 MailProviderType.Outlook => TaskSourceKind.Outlook,
                 MailProviderType.Exchange => TaskSourceKind.Exchange,
                 _ => TaskSourceKind.Local
-            }
-            : TaskSourceKind.Local;
+            },
+            AccountIntegrationSource.Dav when account.IsTaskAccessGranted => TaskSourceKind.CalDav,
+            _ => TaskSourceKind.Local
+        };
 
     private AccountTaskList GetWritableDestinationList()
         => TaskLists
@@ -2491,7 +2549,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private static bool RequiresLocalFallbackList(MailAccount account)
         => account.IsTaskAccessEnabled &&
-           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange) ||
+           (account.TaskIntegrationSource == AccountIntegrationSource.Local ||
            !account.IsTaskAccessGranted ||
            account.IsTaskReauthorizationRequired);
 

@@ -101,6 +101,12 @@ internal static class MailContextFlyoutBuilder
             Command = CreateCommand(() => selected(new MailContextFlyoutSelection(CreateTestNotification: true))),
             AutomationId = "MailContextTestNotification"
         });
+        items.Add(new ContextFlyoutCommandEntry
+        {
+            Text = Translator.VoiceBubble_DebugOpenForSelection,
+            Command = CreateCommand(() => selected(new MailContextFlyoutSelection(OpenAssistant: true))),
+            AutomationId = "MailContextOpenAssistant"
+        });
 #endif
 
         return new MailContextFlyoutMenu(items, CreateHeaderItems(actions, shortcutResolver, selected));
@@ -367,4 +373,5 @@ internal sealed record MailContextFlyoutSelection(
     bool IsCategoryAssignedToAll = false,
     bool? PinState = null,
     bool CreateTestNotification = false,
-    IMailItemFolder? MoveTargetFolder = null);
+    IMailItemFolder? MoveTargetFolder = null,
+    bool OpenAssistant = false);

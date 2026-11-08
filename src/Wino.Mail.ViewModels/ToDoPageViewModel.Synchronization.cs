@@ -29,12 +29,10 @@ public partial class ToDoPageViewModel
 
     public string SynchronizationToolTip => Translator.TitleBar_Sync_TasksToolTip;
 
-    public Task SynchronizeAsync()
+    public async Task SynchronizeAsync()
     {
-        Synchronize();
+        await Synchronize();
         RefreshShellSynchronizationState();
-
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -52,7 +50,7 @@ public partial class ToDoPageViewModel
     /// to its Fix account entry, because synchronizing it can only fail.
     /// </summary>
     private static bool CanSynchronizeTasks(MailAccount account)
-        => account.ProviderType is (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange) &&
+        => account.TaskIntegrationSource != AccountIntegrationSource.Local &&
            account.IsTaskAccessGranted &&
            !account.IsTaskReauthorizationRequired &&
            !account.RequiresAttention(WinoApplicationMode.Tasks);

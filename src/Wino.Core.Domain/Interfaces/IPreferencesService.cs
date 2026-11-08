@@ -96,6 +96,57 @@ public interface IPreferencesService : INotifyPropertyChanged
     ModifierKeys CompanionHotKeyModifiers { get; set; }
 
     /// <summary>
+    /// Setting: Whether voice control is on. Off turns off its global shortcut and its in-app button.
+    /// </summary>
+    bool IsVoiceControlEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether a voice plan runs as soon as it is planned, without Yes. Risky steps (large or permanent
+    /// deletes, emptying a folder, large archives) still ask.
+    /// </summary>
+    bool IsVoiceAutoConfirmEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the voice bubble opens with a system-wide hot key.
+    /// </summary>
+    bool IsVoiceHotKeyEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: The non-modifier key of the voice bubble hot key.
+    /// </summary>
+    string VoiceHotKeyKey { get; set; }
+
+    /// <summary>
+    /// Setting: The modifiers of the voice bubble hot key.
+    /// </summary>
+    ModifierKeys VoiceHotKeyModifiers { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the system-wide shortcut that opens Wino Assistant for typing is registered.
+    /// </summary>
+    bool IsVoiceTextHotKeyEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: The key of the shortcut that opens Wino Assistant for typing.
+    /// </summary>
+    string VoiceTextHotKeyKey { get; set; }
+
+    /// <summary>
+    /// Setting: The modifiers of the shortcut that opens Wino Assistant for typing.
+    /// </summary>
+    ModifierKeys VoiceTextHotKeyModifiers { get; set; }
+
+    /// <summary>
+    /// Setting: Where the voice bubble opens on the screen.
+    /// </summary>
+    VoiceBubblePosition VoiceBubblePosition { get; set; }
+
+    /// <summary>
+    /// Setting: The platform id of the microphone voice control listens with. Empty follows the system default.
+    /// </summary>
+    string VoiceMicrophoneDeviceId { get; set; }
+
+    /// <summary>
     /// Setting: The snooze currently in effect, or <see cref="NotificationSnoozePreset.None"/> when
     /// notifications are delivering. Persisted rather than held in memory so the choice survives a
     /// restart, and so the companion flyout and the shell agree on it without either owning the state.
@@ -325,9 +376,49 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsOtherInboxUnreadNoticeEnabled { get; set; }
 
     /// <summary>
-    /// Setting: Set whether 'img' tags in rendered HTMLs should be removed.
+    /// Setting: Mark unread mails as read before Wino moves them to the Trash folder.
     /// </summary>
-    bool RenderImages { get; set; }
+    bool IsMarkAsReadOnMoveToTrashEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: What remote content messages may load when no sender rule applies.
+    /// </summary>
+    RemoteContentMode RemoteContentMode { get; set; }
+
+    /// <summary>
+    /// Setting: Load everything from senders stored in the account's contacts.
+    /// </summary>
+    bool LoadRemoteContentFromContacts { get; set; }
+
+    /// <summary>
+    /// Setting: Load everything from addresses the account has sent mail to.
+    /// </summary>
+    bool LoadRemoteContentFromRecipients { get; set; }
+
+    /// <summary>
+    /// Setting: Remove known tracking parameters from links before they open.
+    /// </summary>
+    bool StripLinkTrackingParameters { get; set; }
+
+    /// <summary>
+    /// Setting: Show the destination of a link and ask before opening it.
+    /// </summary>
+    bool ConfirmBeforeOpeningLinks { get; set; }
+
+    /// <summary>
+    /// Setting: Show the sender's address next to their name.
+    /// </summary>
+    bool AlwaysShowSenderAddress { get; set; }
+
+    /// <summary>
+    /// Setting: Ask before opening attachments that can run programs.
+    /// </summary>
+    bool WarnBeforeOpeningExecutableAttachments { get; set; }
+
+    /// <summary>
+    /// Setting: Check received attachments with the platform's security services before opening or saving them. Windows only.
+    /// </summary>
+    bool CheckAttachmentsWithPlatformSecurity { get; set; }
 
     MailContentTheme ReaderContentTheme { get; set; }
 

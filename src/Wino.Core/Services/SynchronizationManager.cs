@@ -65,11 +65,16 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     private IDraftUpdateCoordinator _draftUpdateCoordinator;
     private IMailService _draftMailService;
+    // Resolved on first use: the coordinator itself depends on this manager.
+    private Func<ISyncCoordinator> _syncCoordinatorResolver;
 
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
 
     private SynchronizationManager() { }
+
+    internal void UseSyncCoordinator(Func<ISyncCoordinator> resolver)
+        => _syncCoordinatorResolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
 
     internal static async Task PublishMailSynchronizationNotificationsAsync(
         MailSynchronizationResult result, INotificationBuilder notifications, bool notificationsEnabled)
@@ -1037,6 +1042,23 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (synchronizer is null)
             return TaskSynchronizationResult.Failed(new InvalidOperationException("Can't create/get synchronizer."));
 
+        // Every Google Tasks pull passes the coordinator's quota gate. A gated pull still sends the account's queued
+        // task requests, and the ExecuteRequests run publishes the usual progress and completion for the caller.
+        if (options.Type != TaskSynchronizationType.ExecuteRequests)
+        {
+            var coordinator = _syncCoordinatorResolver?.Invoke()
+                ?? throw new InvalidOperationException("SynchronizationManager has no sync coordinator for the task quota gate.");
+
+            if (!await coordinator.TryBeginQuotaTaskPullAsync(synchronizer.Account).ConfigureAwait(false))
+            {
+                options = new TaskSynchronizationOptions
+                {
+                    AccountId = options.AccountId,
+                    Type = TaskSynchronizationType.ExecuteRequests
+                };
+            }
+        }
+
         ResumeDeferredRequests(
             options.AccountId,
             synchronizer,
@@ -1070,7 +1092,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             }
             else if (result.CompletedState == SynchronizationCompletedState.Success &&
                      options.Type != TaskSynchronizationType.ExecuteRequests &&
-                     synchronizer.Account.TaskIntegrationSource == AccountIntegrationSource.Provider)
+                     synchronizer.Account.TaskIntegrationSource != AccountIntegrationSource.Local)
             {
                 synchronizer.Account.IsTaskReauthorizationRequired = false;
                 var persistedAccount = await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);

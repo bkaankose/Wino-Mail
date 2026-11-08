@@ -168,18 +168,7 @@ public partial class SettingsMenuProvider(
     }
 
     public void Receive(WinoIntelligenceEntitlementChanged message)
-        => _ = ExecuteUIThread(() =>
-        {
-            var selectedRootPage = SettingsNavigationInfoProvider.GetRootPage(
-                (SelectedMenuItem as SettingsShellPageMenuItem)?.PageType ?? WinoPage.SettingOptionsPage);
-
-            RebuildMenuItems();
-            if (!message.Entitlement.CanAccessSurfaces &&
-                selectedRootPage == WinoPage.WinoIntelligencePage)
-            {
-                SetSelectedRootPage(WinoPage.WinoAccountManagementPage);
-            }
-        });
+        => _ = ExecuteUIThread(RebuildMenuItems);
 
     private async Task RefreshEntitlementAsync()
     {
@@ -241,9 +230,9 @@ public partial class SettingsMenuProvider(
         SetSelectedRootPage(selectedPage);
     }
 
-    /// <summary>The shared page rule (platform capabilities and the Wino Intelligence entitlement).</summary>
+    /// <summary>The shared page rule (platform capabilities).</summary>
     public bool IsPageAvailable(WinoPage page)
-        => SettingsPageAvailability.IsAvailable(page, platformCapabilities, entitlementService.CurrentEntitlement.CanAccessSurfaces);
+        => SettingsPageAvailability.IsAvailable(page, platformCapabilities);
 
     private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item, IMenuItem parentMenuItem = null)
         => new(item.PageType.Value, item.Title, item.Description, item.Icon, parentMenuItem);

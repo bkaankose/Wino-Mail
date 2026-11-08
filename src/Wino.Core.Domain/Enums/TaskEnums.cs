@@ -6,7 +6,8 @@ public enum TaskSourceKind
     Local = 0,
     Gmail = 1,
     Outlook = 2,
-    Exchange = 3
+    CalDav = 3,
+    Exchange = 4
 }
 
 public enum TaskPendingMutation

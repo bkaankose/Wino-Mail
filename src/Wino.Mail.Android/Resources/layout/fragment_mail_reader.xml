@@ -125,12 +125,34 @@
                   android:orientation="horizontal"
                   android:visibility="gone" />
 
-              <com.winomail.controls.WinoInfoBar
-                  android:id="@+id/reader_image_banner"
+              <LinearLayout
+                  android:id="@+id/reader_privacy_bars"
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
                   android:layout_marginTop="@dimen/wino_space_m"
-                  android:visibility="gone" />
+                  android:orientation="vertical"
+                  android:visibility="gone">
+
+                <com.winomail.controls.WinoInfoBar
+                    android:id="@+id/reader_withheld_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+
+                <com.winomail.controls.WinoInfoBar
+                    android:id="@+id/reader_junk_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/wino_space_s"
+                    android:visibility="gone" />
+
+                <com.winomail.controls.WinoInfoBar
+                    android:id="@+id/reader_rule_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/wino_space_s"
+                    android:visibility="gone" />
+              </LinearLayout>
 
               <LinearLayout
                   android:id="@+id/reader_attachment_strip"

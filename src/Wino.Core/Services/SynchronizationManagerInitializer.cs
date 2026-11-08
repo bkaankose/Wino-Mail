@@ -30,6 +30,8 @@ public class SynchronizationManagerInitializer : IInitializeAsync
         // Cast to concrete type to access CreateNewSynchronizer method
         var concreteSynchronizerFactory = synchronizerFactory as SynchronizerFactory;
 
+        SynchronizationManager.Instance.UseSyncCoordinator(() => _serviceProvider.GetRequiredService<ISyncCoordinator>());
+
         await SynchronizationManager.Instance.InitializeAsync(
             concreteSynchronizerFactory,
             mailServerTestService,

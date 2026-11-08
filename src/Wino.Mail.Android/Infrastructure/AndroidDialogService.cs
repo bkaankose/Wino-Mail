@@ -136,6 +136,11 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
             _ => ThreeButtonDialogResult.Cancel
         };
 
+    public async Task<bool> ShowOpenLinkConfirmationAsync(string? linkText, System.Uri originalUri, System.Uri cleanedUri, int removedParameterCount, string? browserName)
+        => await AlertAsync(Translator.OpenLinkDialog_Title,
+            Wino.Core.Domain.Models.Reader.OpenLinkConfirmationText.GetMessage(linkText, cleanedUri, removedParameterCount, browserName),
+            Translator.OpenLinkDialog_OpenLink, Translator.Buttons_Cancel) == 0;
+
     /// <summary>Same contract as Windows: a key already marked "don't ask again" answers false without showing.</summary>
     public async Task<bool> ShowWinoCustomMessageDialogAsync(string title, string description, string approveButtonText, WinoCustomMessageDialogIcon? icon, string cancelButtonText = "", string dontAskAgainConfigurationKey = "")
     {

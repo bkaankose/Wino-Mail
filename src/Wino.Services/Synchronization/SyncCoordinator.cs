@@ -66,7 +66,13 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     private readonly IRelaySocketCoordinator? _socket;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IMessenger _messenger;
+    private readonly ITaskService _taskService;
     private readonly TimeProvider _timeProvider;
+    private readonly object _quotaGate = new();
+    // In memory on purpose: a pull that failed (an exhausted quota among others) never reaches the persisted
+    // success time, and without this stamp every check would retry it.
+    private readonly Dictionary<Guid, DateTimeOffset> _quotaTaskPullAttempts = new();
+    private readonly Dictionary<Guid, DateTimeOffset> _quotaTaskSkipLogged = new();
     private readonly ILogger _logger = Log.ForContext<SyncCoordinator>();
     private readonly ThrottledLog _throttle = new(TimeSpan.FromMinutes(10));
 
@@ -103,6 +109,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         IPushRelayRegistrationService registration,
         ISynchronizationManager synchronizationManager,
         IMessenger messenger,
+        ITaskService taskService,
         IRelayIntroductionService? introduction = null,
         IRelaySocketCoordinator? socket = null,
         TimeProvider? timeProvider = null)
@@ -113,6 +120,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         _registration = registration;
         _synchronizationManager = synchronizationManager;
         _messenger = messenger;
+        _taskService = taskService;
         _introduction = introduction;
         _socket = socket;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -155,6 +163,77 @@ public sealed class SyncCoordinator : ISyncCoordinator,
 
     public TimeSpan CalendarSyncInterval
         => TimeSpan.FromMinutes(Math.Max(1, HasIntervals ? _preferences.CalendarSyncIntervalMinutes : Constants.DefaultCalendarSyncIntervalMinutes));
+
+    public TimeSpan QuotaWindow { get; } = TimeSpan.FromHours(6);
+
+    public bool IsQuotaBound(MailAccount account, WinoApplicationMode mode)
+        => account.ProviderType == MailProviderType.Gmail && mode switch
+        {
+            WinoApplicationMode.Tasks => account.TaskIntegrationSource == AccountIntegrationSource.Provider,
+            WinoApplicationMode.Contacts => account.ContactIntegrationSource == AccountIntegrationSource.Provider,
+            _ => false
+        };
+
+    public async Task<DateTimeOffset?> GetNextQuotaTaskPullUtcAsync(MailAccount account)
+    {
+        if (!IsQuotaBound(account, WinoApplicationMode.Tasks))
+            return null;
+
+        var lastSuccess = await GetLastSuccessfulQuotaTaskPullUtcAsync(account.Id).ConfigureAwait(false);
+        lock (_quotaGate)
+            return GetNextQuotaTaskPullUtc(account.Id, lastSuccess, _timeProvider.GetUtcNow());
+    }
+
+    public async Task<bool> TryBeginQuotaTaskPullAsync(MailAccount account)
+    {
+        if (!IsQuotaBound(account, WinoApplicationMode.Tasks))
+            return true;
+
+        var lastSuccess = await GetLastSuccessfulQuotaTaskPullUtcAsync(account.Id).ConfigureAwait(false);
+        var now = _timeProvider.GetUtcNow();
+        lock (_quotaGate)
+        {
+            var next = GetNextQuotaTaskPullUtc(account.Id, lastSuccess, now);
+            if (next is null)
+            {
+                _quotaTaskPullAttempts[account.Id] = now;
+                _quotaTaskSkipLogged.Remove(account.Id);
+                return true;
+            }
+
+            if (!_quotaTaskSkipLogged.TryGetValue(account.Id, out var logged) || logged != next.Value)
+            {
+                _quotaTaskSkipLogged[account.Id] = next.Value;
+                _logger.Information("Google Tasks pull for account {AccountId} is skipped until {NextPullUtc:u}; it refreshes once every {Window}.",
+                    account.Id, next.Value, QuotaWindow);
+            }
+
+            return false;
+        }
+    }
+
+    private DateTimeOffset? GetNextQuotaTaskPullUtc(Guid accountId, DateTimeOffset? lastSuccess, DateTimeOffset now)
+    {
+        var last = lastSuccess;
+        if (_quotaTaskPullAttempts.TryGetValue(accountId, out var attempt) && (last is null || attempt > last))
+            last = attempt;
+
+        if (last is null)
+            return null;
+
+        // A time from the future after a clock change keeps the gate closed until six hours past it: the quota
+        // matters more than a refresh that comes late.
+        var next = last.Value + QuotaWindow;
+        return next > now ? next : null;
+    }
+
+    private async Task<DateTimeOffset?> GetLastSuccessfulQuotaTaskPullUtcAsync(Guid accountId)
+    {
+        var state = await _taskService.GetTaskSyncStateAsync(accountId, TaskSourceKind.Gmail).ConfigureAwait(false);
+        return state?.LastSuccessfulSyncUtc is DateTime value
+            ? new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc))
+            : null;
+    }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -365,6 +444,12 @@ public sealed class SyncCoordinator : ISyncCoordinator,
             _accounts.Remove(message.Account.Id);
             _idle.Remove(message.Account.Id);
             _exchangeNotifications.Remove(message.Account.Id);
+        }
+
+        lock (_quotaGate)
+        {
+            _quotaTaskPullAttempts.Remove(message.Account.Id);
+            _quotaTaskSkipLogged.Remove(message.Account.Id);
         }
 
         Recompute($"account {message.Account.Name} removed");

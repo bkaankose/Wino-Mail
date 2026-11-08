@@ -329,6 +329,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         try
         {
+            if (!await ConfirmExecutableAttachmentAsync(PreferencesService, _dialogService, attachmentViewModel.FileName))
+                return;
+
             attachmentViewModel.IsBusy = true;
             var detection = await attachmentViewModel.GetInspectionAsync();
             var source = attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Local);
@@ -1151,7 +1154,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     private async Task<bool> ShouldBlockRemoteContentAsync(MimeMessage draftMessage)
     {
-        if (!PreferencesService.RenderImages) return true;
+        if (PreferencesService.RemoteContentMode == RemoteContentMode.BlockAll) return true;
 
         var accountId = ComposingAccount?.Id;
         var referenceMessageId = MailHeaderExtensions.NormalizeMessageId(draftMessage.InReplyTo);

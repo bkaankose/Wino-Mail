@@ -2393,8 +2393,18 @@
       "source": "fluent:chevron_left"
     },
     {
-      "name": "Exchange",
+      "name": "Microphone",
       "codepoint": "E0CD",
+      "svg": "Microphone.svg",
+      "accent": {
+        "svg": "Microphone.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:mic"
+    },
+    {
+      "name": "Exchange",
+      "codepoint": "E0CE",
       "svg": "Exchange.svg",
       "layers": [
         {

@@ -513,7 +513,8 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         else if (message?.Type == "navigation" &&
                  Uri.TryCreate(message.Uri, UriKind.Absolute, out Uri? uri))
         {
-            NavigationRequested?.Invoke(this, new RendererNavigationRequestedEventArgs(uri));
+            NavigationRequested?.Invoke(this, new RendererNavigationRequestedEventArgs(
+                uri, string.IsNullOrWhiteSpace(message.Text) ? null : message.Text));
         }
         else if (message?.Type == "linkHover")
         {

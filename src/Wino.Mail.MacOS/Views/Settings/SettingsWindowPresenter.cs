@@ -5,6 +5,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 
@@ -16,7 +17,8 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// original parameter. Swaps are serialized; the outgoing page is released after the new page is
 /// on screen so a slow release never blocks the window.
 /// </summary>
-public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipient<LanguageChanged>, IRecipient<WinoIntelligenceEntitlementChanged>
+public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipient<LanguageChanged>, IRecipient<WinoIntelligenceEntitlementChanged>,
+    IRecipient<SettingsRootNavigationRequested>
 {
     private sealed record Entry(WinoPage Page, object? Parameter);
 
@@ -46,6 +48,7 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
         _lastCanAccessIntelligence = entitlement?.CurrentEntitlement?.CanAccessSurfaces ?? false;
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
+        WeakReferenceMessenger.Default.Register<SettingsRootNavigationRequested>(this);
     }
 
     public async Task ShowAsync(WinoPage? page = null, object? parameter = null)
@@ -56,6 +59,14 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
             EnsureWindow().Present();
             _isVisible = true;
         });
+
+        // The settings root with a page parameter is a deep link (the reader's Manage sender rules).
+        if (page is WinoPage.SettingOptionsPage or WinoPage.SettingsPage && parameter is WinoPage deepLink
+            && deepLink is not (WinoPage.SettingOptionsPage or WinoPage.SettingsPage))
+        {
+            page = deepLink;
+            parameter = null;
+        }
 
         if (page is null || page is WinoPage.SettingOptionsPage or WinoPage.SettingsPage)
         {
@@ -168,6 +179,13 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
             });
         }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>A page asked for another Settings root, such as the Wino Intelligence page's Voice Control button.</summary>
+    public void Receive(SettingsRootNavigationRequested message)
+    {
+        if (_stopping || _window is null) return;
+        _ = ObserveAsync(ShowAsync(message.PageType));
     }
 
     public void Receive(LanguageChanged message)

@@ -51,6 +51,15 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
                 throw new InvalidOperationException("Windows declined to open the URI.");
         }, cancellationToken);
 
+    async Task<PlatformOperationResult> IExternalLauncher.LaunchFolderAsync(string path, CancellationToken cancellationToken)
+        => await RunPlatformOperationAsync(() => ExecuteOnPlatformThreadAsync(async () =>
+        {
+            if (!await Launcher.LaunchFolderPathAsync(path))
+                throw new InvalidOperationException("Windows declined to open the folder.");
+
+            return true;
+        }, cancellationToken), cancellationToken);
+
     async Task<PlatformOperationResult> IClipboardService.CopyTextAsync(string text, CancellationToken cancellationToken)
         => await RunPlatformOperationAsync(() => ExecuteOnPlatformThreadAsync(async () =>
         {

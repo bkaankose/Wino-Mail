@@ -35,6 +35,9 @@ internal static class Program
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
+        if (args is ["voice", ..])
+            return await Voice.VoiceRunner.RunAsync(args[1..]);
+
         if (!ConsoleArguments.TryParse(args, out var arguments, out var parseError))
         {
             ConsoleOutput.Error(parseError);

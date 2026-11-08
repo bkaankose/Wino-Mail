@@ -9,6 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Domain.Misc;
+using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
@@ -16,7 +17,7 @@ namespace Wino.Services;
 /// Owns the account task cache and optimistic local mutations. Provider synchronizers
 /// reconcile this cache; this service never performs network I/O.
 /// </summary>
-public sealed class TaskService : BaseDatabaseService, ITaskService
+public sealed partial class TaskService : BaseDatabaseService, ITaskService
 {
     private static readonly SemaphoreSlim TaskListColorGate = new(1, 1);
 
@@ -130,6 +131,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         group.Title = string.IsNullOrWhiteSpace(group.Title) ? "Group" : group.Title.Trim();
         group.ModifiedAtUtc = DateTime.UtcNow;
 
+        var changes = new ServerTaskChanges(group.MailAccountId);
         if (existing is not null)
         {
             group.Id = existing.Id;
@@ -137,12 +139,18 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             // Expansion is a local preference; the provider has no notion of it.
             group.IsExpanded = existing.IsExpanded;
             await Connection.UpdateAsync(group, typeof(AccountTaskListGroup)).ConfigureAwait(false);
-            return group;
+            if (GroupSignature(existing) != GroupSignature(group))
+                changes.UpsertGroup(group);
+        }
+        else
+        {
+            group.Id = group.Id == Guid.Empty ? Guid.NewGuid() : group.Id;
+            group.CreatedAtUtc = DateTime.UtcNow;
+            await Connection.InsertAsync(group, typeof(AccountTaskListGroup)).ConfigureAwait(false);
+            changes.UpsertGroup(group);
         }
 
-        group.Id = group.Id == Guid.Empty ? Guid.NewGuid() : group.Id;
-        group.CreatedAtUtc = DateTime.UtcNow;
-        await Connection.InsertAsync(group, typeof(AccountTaskListGroup)).ConfigureAwait(false);
+        ReportServerChanges(changes);
         return group;
     }
 
@@ -153,14 +161,29 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             .Where(item => item.MailAccountId == accountId && item.SourceKind == sourceKind)
             .ToListAsync().ConfigureAwait(false);
 
+        var changes = new ServerTaskChanges(accountId);
         foreach (var group in stored)
         {
             if (group.RemoteId is not null && activeRemoteIds.Contains(group.RemoteId))
                 continue;
 
+            var ungroupedLists = await Connection.Table<AccountTaskList>()
+                .Where(list => list.GroupId == group.Id)
+                .ToListAsync().ConfigureAwait(false);
+
             // Lists fall back to ungrouped rather than disappearing with the group.
             await DeleteTaskListGroupAsync(group.Id).ConfigureAwait(false);
+
+            foreach (var list in ungroupedLists)
+            {
+                list.GroupId = null;
+                changes.UpsertList(list);
+            }
+
+            changes.DeleteGroup(group);
         }
+
+        ReportServerChanges(changes);
     }
 
     public async Task ApplyRemoteTaskListMetadataAsync(
@@ -170,6 +193,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         if (list is null)
             return;
 
+        var previous = ListSignature(list);
         list.GroupId = groupId;
 
         if (!string.IsNullOrWhiteSpace(colorHex))
@@ -183,6 +207,13 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
 
         list.ModifiedAtUtc = DateTime.UtcNow;
         await Connection.UpdateAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
+
+        if (previous != ListSignature(list))
+        {
+            var changes = new ServerTaskChanges(list.MailAccountId);
+            changes.UpsertList(list);
+            ReportServerChanges(changes);
+        }
     }
 
     public async Task CommitSubstrateDeltaLinksAsync(
@@ -257,6 +288,9 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         var activeGroupIds = new HashSet<string>((delta.Groups ?? []).Select(group => group.RemoteId).Where(id => id is not null), StringComparer.Ordinal);
         var activeListIds = new HashSet<string>((delta.Lists ?? []).Select(list => list.RemoteId).Where(id => id is not null), StringComparer.Ordinal);
         var now = DateTime.UtcNow;
+        var changes = new ServerTaskChanges(delta.MailAccountId);
+        var groupsBefore = groups.ToDictionary(group => group.Id, GroupSignature);
+        var listsBefore = lists.ToDictionary(list => list.Id, ListSignature);
 
         await Connection.RunInTransactionAsync(transaction =>
         {
@@ -305,6 +339,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
                 transaction.Execute("UPDATE TaskList SET GroupId = NULL WHERE GroupId = ?", stored.Id);
                 transaction.Execute("DELETE FROM TaskListGroup WHERE Id = ?", stored.Id);
                 groups.Remove(stored);
+                changes.DeleteGroup(stored);
                 foreach (var list in lists.Where(list => list.GroupId == stored.Id))
                     list.GroupId = null;
             }
@@ -347,8 +382,13 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
                 if (!remove || stored.PendingMutation != TaskPendingMutation.None)
                     continue;
 
+                var storedId = stored.Id;
+                foreach (var task in transaction.Table<AccountTask>().Where(task => task.TaskListId == storedId).ToList())
+                    changes.DeleteTask(task);
+
                 DeleteList(transaction, stored.Id);
                 lists.Remove(stored);
+                changes.DeleteList(stored);
             }
 
             var groupsByRemoteId = groups.Where(group => !string.IsNullOrWhiteSpace(group.RemoteId))
@@ -409,6 +449,10 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             state.LastSuccessfulSyncUtc = now;
             transaction.Update(state, typeof(AccountTaskSyncState));
         }).ConfigureAwait(false);
+
+        changes.UpsertChanged(groups, groupsBefore, group => group.Id, GroupSignature, group => group.PendingMutation, changes.UpsertGroup);
+        changes.UpsertChanged(lists, listsBefore, list => list.Id, ListSignature, list => list.PendingMutation, changes.UpsertList);
+        ReportServerChanges(changes);
     }
 
     public async Task ApplyTaskHierarchyDeltaAsync(TaskHierarchyDelta delta)
@@ -419,15 +463,18 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             return;
 
         var tasks = await Connection.Table<AccountTask>().Where(task => task.TaskListId == list.Id).ToListAsync().ConfigureAwait(false);
-        var taskIds = tasks.Select(task => task.Id).ToList();
-        var steps = taskIds.Count == 0
+        var steps = tasks.Count == 0
             ? []
-            : (await Connection.Table<AccountTaskStep>().ToListAsync().ConfigureAwait(false)).Where(step => taskIds.Contains(step.TaskId)).ToList();
+            : await Connection.QueryAsync<AccountTaskStep>(
+                "SELECT * FROM TaskStep WHERE TaskId IN (SELECT Id FROM TaskCard WHERE TaskListId = ?)", list.Id).ConfigureAwait(false);
         var deletedTasks = new HashSet<string>(delta.DeletedTaskRemoteIds ?? [], StringComparer.Ordinal);
         var deletedSteps = new HashSet<string>(delta.DeletedStepRemoteIds ?? [], StringComparer.Ordinal);
         var authoritativeParents = new HashSet<string>(delta.AuthoritativeStepParentRemoteIds ?? [], StringComparer.Ordinal);
         var incomingRemoteIds = new HashSet<string>((delta.Tasks ?? []).Select(task => task.RemoteId).Where(id => id is not null), StringComparer.Ordinal);
         var now = DateTime.UtcNow;
+        var tasksBefore = tasks.ToDictionary(task => task.Id);
+        var signaturesBefore = TaskSignatures(tasks, steps, list.IsReadOnly);
+        var removedTaskIds = new HashSet<Guid>();
 
         await Connection.RunInTransactionAsync(transaction =>
         {
@@ -496,7 +543,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
                         stored.DueDate = incoming.DueDate;
                         stored.IsCompleted = incoming.IsCompleted;
                         stored.CompletedAtUtc = incoming.CompletedAtUtc;
-                        if (stored.SourceKind == TaskSourceKind.Outlook)
+                        if (stored.SourceKind is TaskSourceKind.Outlook or TaskSourceKind.CalDav)
                             stored.IsImportant = incoming.IsImportant;
                     }
                     stored.ModifiedAtUtc = now;
@@ -573,6 +620,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
                 {
                     transaction.Execute("DELETE FROM TaskStep WHERE TaskId = ?", stale.Id);
                     transaction.Execute("DELETE FROM TaskCard WHERE Id = ?", stale.Id);
+                    removedTaskIds.Add(stale.Id);
                 }
             }
 
@@ -592,6 +640,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
                 {
                     transaction.Execute("DELETE FROM TaskStep WHERE TaskId = ?", stale.Id);
                     transaction.Execute("DELETE FROM TaskCard WHERE Id = ?", stale.Id);
+                    removedTaskIds.Add(stale.Id);
                 }
             }
 
@@ -602,6 +651,9 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             list.LastSuccessfulSyncUtc = now;
             transaction.Update(list, typeof(AccountTaskList));
         }).ConfigureAwait(false);
+
+        tasks.RemoveAll(task => removedTaskIds.Contains(task.Id));
+        ReportServerChanges(CollectTaskChanges(list, tasksBefore, signaturesBefore, tasks, steps));
     }
 
     private static void DeleteList(SQLite.SQLiteConnection transaction, Guid listId)
@@ -689,6 +741,8 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
     public async Task<AccountTaskList> UpsertRemoteTaskListAsync(AccountTaskList list)
     {
         ArgumentNullException.ThrowIfNull(list);
+
+        var changes = new ServerTaskChanges(list.MailAccountId);
         var existing = await Connection.Table<AccountTaskList>()
             .FirstOrDefaultAsync(item => item.MailAccountId == list.MailAccountId &&
                                          item.SourceKind == list.SourceKind &&
@@ -703,14 +757,20 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             list.PendingMutation = TaskPendingMutation.None;
             list.ModifiedAtUtc = DateTime.UtcNow;
             await Connection.UpdateAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
-            return list;
+            if (ListSignature(existing) != ListSignature(list))
+                changes.UpsertList(list);
+        }
+        else
+        {
+            list.Id = list.Id == Guid.Empty ? Guid.NewGuid() : list.Id;
+            list.PendingMutation = TaskPendingMutation.None;
+            list.CreatedAtUtc = DateTime.UtcNow;
+            list.ModifiedAtUtc = list.CreatedAtUtc;
+            await InsertTaskListWithDistinctColorAsync(list).ConfigureAwait(false);
+            changes.UpsertList(list);
         }
 
-        list.Id = list.Id == Guid.Empty ? Guid.NewGuid() : list.Id;
-        list.PendingMutation = TaskPendingMutation.None;
-        list.CreatedAtUtc = DateTime.UtcNow;
-        list.ModifiedAtUtc = list.CreatedAtUtc;
-        await InsertTaskListWithDistinctColorAsync(list).ConfigureAwait(false);
+        ReportServerChanges(changes);
         return list;
     }
 
@@ -778,13 +838,26 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         }
     }
 
-    public Task RemoveTaskListAsync(Guid listId)
-        => Connection.RunInTransactionAsync(transaction =>
+    public async Task RemoveTaskListAsync(Guid listId)
+    {
+        var list = await GetTaskListAsync(listId).ConfigureAwait(false);
+        if (list is null)
+            return;
+
+        var tasks = await Connection.Table<AccountTask>().Where(task => task.TaskListId == listId).ToListAsync().ConfigureAwait(false);
+        await Connection.RunInTransactionAsync(transaction =>
         {
             transaction.Execute("DELETE FROM TaskStep WHERE TaskId IN (SELECT Id FROM TaskCard WHERE TaskListId = ?)", listId);
             transaction.Execute("DELETE FROM TaskCard WHERE TaskListId = ?", listId);
             transaction.Execute("DELETE FROM TaskList WHERE Id = ?", listId);
-        });
+        }).ConfigureAwait(false);
+
+        var changes = new ServerTaskChanges(list.MailAccountId);
+        foreach (var task in tasks)
+            changes.DeleteTask(task);
+        changes.DeleteList(list);
+        ReportServerChanges(changes);
+    }
 
     public async Task<List<AccountTask>> GetTasksAsync(Guid? accountId = null, Guid? listId = null, TaskViewKind view = TaskViewKind.All, string search = null, TaskSortKind sort = TaskSortKind.DueDate)
     {
@@ -1385,26 +1458,43 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         }).ConfigureAwait(false);
     }
 
-    public Task DeleteTaskListsBySourceAsync(Guid accountId, TaskSourceKind sourceKind)
-        => Connection.RunInTransactionAsync(transaction =>
+    public async Task DeleteTaskListsBySourceAsync(Guid accountId, TaskSourceKind sourceKind)
+    {
+        var lists = await Connection.Table<AccountTaskList>()
+            .Where(list => list.MailAccountId == accountId && list.SourceKind == sourceKind)
+            .ToListAsync().ConfigureAwait(false);
+
+        await Connection.RunInTransactionAsync(transaction =>
         {
             transaction.Execute("DELETE FROM TaskStep WHERE MailAccountId = ? AND SourceKind = ?", accountId, sourceKind);
             transaction.Execute("DELETE FROM TaskCard WHERE MailAccountId = ? AND SourceKind = ?", accountId, sourceKind);
             transaction.Execute("DELETE FROM TaskList WHERE MailAccountId = ? AND SourceKind = ?", accountId, sourceKind);
             transaction.Execute("DELETE FROM TaskSyncState WHERE MailAccountId = ? AND SourceKind = ?", accountId, sourceKind);
-        });
+        }).ConfigureAwait(false);
+
+        // Removing a whole source empties several lists at once, so the page reloads instead of
+        // receiving one message per task.
+        if (lists.Count > 0)
+            ReportUIChange(new BulkTaskChanged(accountId));
+    }
 
     public async Task MarkTaskListsReadOnlyAsync(Guid accountId, TaskSourceKind sourceKind, bool isReadOnly = true)
     {
         var lists = await Connection.Table<AccountTaskList>()
             .Where(list => list.MailAccountId == accountId && list.SourceKind == sourceKind)
             .ToListAsync().ConfigureAwait(false);
+        var changed = false;
         foreach (var list in lists)
         {
+            changed |= list.IsReadOnly != isReadOnly;
             list.IsReadOnly = isReadOnly;
             list.ModifiedAtUtc = DateTime.UtcNow;
             await Connection.UpdateAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
         }
+
+        // Read-only state is copied onto every task and step row the page holds.
+        if (changed)
+            ReportUIChange(new BulkTaskChanged(accountId));
     }
 
     public async Task EnsureLocalTaskListAsync(Guid accountId, string displayName)
