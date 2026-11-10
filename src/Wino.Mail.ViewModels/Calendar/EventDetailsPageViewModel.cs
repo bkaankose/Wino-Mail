@@ -711,22 +711,14 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
             return;
         }
 
-        // If the event is a master recurring event, ask for confirmation
-        if (CurrentEvent.IsRecurringParent)
-        {
-            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
-                Translator.DialogMessage_DeleteRecurringSeriesMessage,
-                Translator.DialogMessage_DeleteRecurringSeriesTitle,
-                Translator.Buttons_Delete);
-
-            if (!confirmed) return;
-        }
-
         try
         {
+            var deletingItem = await RecurringEventDeletion.ResolveDeleteTargetAsync(CurrentEvent.CalendarItem, _dialogService, _calendarService);
+            if (deletingItem == null) return;
+
             var preparationRequest = new CalendarOperationPreparationRequest(
                 CalendarSynchronizerOperation.DeleteEvent,
-                CurrentEvent.CalendarItem,
+                deletingItem,
                 null);
 
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);

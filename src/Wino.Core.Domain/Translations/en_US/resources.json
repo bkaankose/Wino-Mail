@@ -619,6 +619,8 @@
   "DialogMessage_DeleteAccountConfirmationTitle": "All data associated with this account will be deleted from disk permanently.",
   "DialogMessage_DeleteEmailTemplateConfirmationMessage": "Delete template \"{0}\"?",
   "DialogMessage_DeleteEmailTemplateConfirmationTitle": "Delete Email Template",
+  "DialogMessage_DeleteRecurringEventMessage": "This event is part of a series. Delete only this event, or every event in the series?",
+  "DialogMessage_DeleteRecurringEventTitle": "Delete Recurring Event",
   "DialogMessage_DeleteRecurringSeriesMessage": "This will delete all events in the series. Do you want to continue?",
   "DialogMessage_DeleteRecurringSeriesTitle": "Delete Recurring Series",
   "DialogMessage_DiscardDraftConfirmationMessage": "This draft will be discarded. Do you want to continue?",

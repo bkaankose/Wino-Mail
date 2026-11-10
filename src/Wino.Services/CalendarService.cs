@@ -153,15 +153,18 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         if (calendarItem == null) return;
 
-        List<CalendarItem> eventsToRemove = new() { calendarItem };
+        List<CalendarItem> eventsToRemove = new();
 
         // In case of parent event, delete all child events as well.
+        // Children go first: a deleted parent makes the calendar reload, which must not find them anymore.
         if (!string.IsNullOrEmpty(calendarItem.Recurrence))
         {
             var recurringEvents = await Connection.Table<CalendarItem>().Where(a => a.RecurringCalendarItemId == calendarItemId).ToListAsync().ConfigureAwait(false);
 
             eventsToRemove.AddRange(recurringEvents);
         }
+
+        eventsToRemove.Add(calendarItem);
 
         foreach (var @event in eventsToRemove)
         {

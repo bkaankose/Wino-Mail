@@ -20,6 +20,12 @@ namespace Wino.Core.Domain.Interfaces;
 public interface IMailDialogService : IDialogServiceBase
 {
     void ShowReadOnlyCalendarMessage();
+
+    /// <summary>
+    /// Asks whether deleting an occurrence of a recurring event removes only that occurrence or the whole series.
+    /// </summary>
+    /// <returns>The chosen scope, or null when the user cancels.</returns>
+    Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync();
     Task<bool> ShowHardDeleteConfirmationAsync();
     Task<ThreeButtonDialogResult> ShowThreeButtonDialogAsync(string title,
                                                              string description,

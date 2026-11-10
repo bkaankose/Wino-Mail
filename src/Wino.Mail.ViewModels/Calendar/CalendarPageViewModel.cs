@@ -350,25 +350,23 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             return;
         }
 
-        if (DisplayDetailsCalendarItemViewModel.CalendarItem.IsRecurringParent)
-        {
-            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
-                Translator.DialogMessage_DeleteRecurringSeriesMessage,
-                Translator.DialogMessage_DeleteRecurringSeriesTitle,
-                Translator.Buttons_Delete);
+        args.Handled = true;
 
-            if (!confirmed)
-                return;
-        }
+        var deletingItem = await RecurringEventDeletion.ResolveDeleteTargetAsync(
+            DisplayDetailsCalendarItemViewModel.CalendarItem,
+            _dialogService,
+            _calendarService);
+
+        if (deletingItem == null)
+            return;
 
         var preparationRequest = new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.DeleteEvent,
-            DisplayDetailsCalendarItemViewModel.CalendarItem,
+            deletingItem,
             null);
 
         await _winoRequestDelegator.ExecuteAsync(preparationRequest);
         DisplayDetailsCalendarItemViewModel = null;
-        args.Handled = true;
     }
 
     protected override void RegisterRecipients()
@@ -1186,7 +1184,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         if (calendarItem.IsRecurringParent)
         {
-            _ = ReloadCurrentVisibleRangeAsync();
+            RemoveLoadedSeriesOccurrences(calendarItem);
+
+            // The occurrences stay in the database until the provider confirms the deletion, so a reload now would bring them back.
+            if (source != EntityUpdateSource.ClientUpdated)
+                _ = ReloadCurrentVisibleRangeAsync();
+
             return;
         }
 
@@ -1195,6 +1198,18 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             return;
 
         RemoveLoadedCalendarItem(existingItemId.Value, calendarItem);
+    }
+
+    private void RemoveLoadedSeriesOccurrences(CalendarItem seriesMaster)
+    {
+        var occurrences = _loadedCalendarItems
+            .Where(pair => pair.Value.CalendarItem?.RecurringCalendarItemId == seriesMaster.Id)
+            .ToList();
+
+        foreach (var occurrence in occurrences)
+        {
+            RemoveLoadedCalendarItem(occurrence.Key, occurrence.Value.CalendarItem);
+        }
     }
 
     protected override void OnCalendarItemUpdated(CalendarItem calendarItem, EntityUpdateSource source)

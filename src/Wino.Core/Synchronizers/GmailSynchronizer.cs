@@ -3653,6 +3653,14 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
         await PersistSuccessfulMailStateChangesAsync(bundle).ConfigureAwait(false);
 
+        // Deleting a series master also removes its occurrences; the next sync reports a deleted
+        // occurrence as a cancelled instance, which stays hidden.
+        if (bundle?.UIChangeRequest is DeleteCalendarEventRequest deleteCalendarEventRequest)
+        {
+            await _gmailChangeProcessor.DeleteCalendarItemAsync(deleteCalendarEventRequest.Item.Id).ConfigureAwait(false);
+            return;
+        }
+
         if (bundle is HttpRequestBundle<IGoogleApiRequest, Message> messageBundle)
         {
             var gmailMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, GmailSynchronizerJsonContext.Default.Message, cancellationToken).ConfigureAwait(false);

@@ -63,6 +63,18 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
             Translator.CalendarReadOnly_Message,
             InfoBarMessageType.Warning);
 
+    public async Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync()
+    {
+        var dialog = new RecurringEventDeleteDialog()
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
+    }
+
     public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
     {
         var createAccountAliasDialog = new CreateAccountAliasDialog()

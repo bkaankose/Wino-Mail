@@ -4280,6 +4280,14 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 return;
             }
 
+            // The calendar delta does not reliably report every occurrence of a deleted series, so the
+            // local rows go as soon as Graph confirms. Deleting a series master also removes its occurrences.
+            if (bundle?.UIChangeRequest is DeleteCalendarEventRequest deleteCalendarEventRequest)
+            {
+                await _outlookChangeProcessor.DeleteCalendarItemAsync(deleteCalendarEventRequest.Item.Id).ConfigureAwait(false);
+                return;
+            }
+
             if (bundle?.UIChangeRequest is ChangeFlagRequest changeFlagRequest)
             {
                 await _outlookChangeProcessor.ChangeFlagStatusAsync(changeFlagRequest.Item.Id, changeFlagRequest.IsFlagged).ConfigureAwait(false);
