@@ -278,6 +278,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void PaneButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
     {
+        if (MainShellFrame.Content is WinoAppShell shellPage)
+        {
+            shellPage.ToggleNavigationPane();
+            return;
+        }
+
         PreferencesService.IsNavigationPaneOpened = !PreferencesService.IsNavigationPaneOpened;
     }
 

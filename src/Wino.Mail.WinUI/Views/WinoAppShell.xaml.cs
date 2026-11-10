@@ -479,7 +479,8 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             return;
         }
 
-        if (_isPreparedForWindowClose)
+        // The preference only describes the expanded pane.
+        if (_isPreparedForWindowClose || navigationView.DisplayMode != NavigationViewDisplayMode.Expanded)
             return;
 
         try
@@ -491,6 +492,24 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             // The title bar can toggle the preference while this window's content is torn down.
             Log.Debug(ex, "Navigation pane state could not be applied to a closing shell.");
         }
+    }
+
+    // Compact and minimal panes close on width changes and light dismiss without touching the
+    // preference, so the toggle reads the pane's actual state instead of the preference.
+    public void ToggleNavigationPane()
+    {
+        if (_isPreparedForWindowClose)
+            return;
+
+        var shouldOpen = !navigationView.IsPaneOpen;
+
+        if (navigationView.DisplayMode == NavigationViewDisplayMode.Expanded)
+        {
+            ViewModel.PreferencesService.IsNavigationPaneOpened = shouldOpen;
+            return;
+        }
+
+        navigationView.IsPaneOpen = shouldOpen;
     }
 
     #endregion
