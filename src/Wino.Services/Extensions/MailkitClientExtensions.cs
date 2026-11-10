@@ -222,30 +222,38 @@ public static class MailkitClientExtensions
 
     private static string GetEnvelopeSubject(IMessageSummary messageSummary, Encoding fallbackEncoding)
     {
+        // Some servers replace non-ASCII characters of unencoded UTF-8 headers with '?' in ENVELOPE for clients
+        // that did not enable UTF8=ACCEPT. The fetched header carries the original bytes.
         var header = FindRawHeader(messageSummary, HeaderId.Subject);
 
-        if (header != null && fallbackEncoding != null && MimeHeaderCharsetRecovery.NeedsRecovery(header))
-            return MimeHeaderCharsetRecovery.GetRecoveredValue(header, fallbackEncoding);
+        if (header != null)
+            return MimeHeaderCharsetRecovery.GetRecoveredValue(header, fallbackEncoding) ?? string.Empty;
 
         return messageSummary.Envelope?.Subject ?? string.Empty;
     }
 
     private static string GetEnvelopeSenderName(IMessageSummary messageSummary, Encoding fallbackEncoding)
     {
-        var recovered = GetRecoveredMailbox(messageSummary, HeaderId.From, fallbackEncoding)
-                        ?? GetRecoveredMailbox(messageSummary, HeaderId.Sender, fallbackEncoding);
+        var mailbox = GetHeaderMailbox(messageSummary, HeaderId.From, fallbackEncoding)
+                      ?? GetHeaderMailbox(messageSummary, HeaderId.Sender, fallbackEncoding);
 
-        if (recovered != null)
-            return string.IsNullOrWhiteSpace(recovered.Name) ? recovered.Address : recovered.Name;
+        if (mailbox != null)
+            return string.IsNullOrWhiteSpace(mailbox.Name) ? mailbox.Address : mailbox.Name;
 
         return GetEnvelopeSenderName(messageSummary.Envelope);
     }
 
-    private static MailboxAddress GetRecoveredMailbox(IMessageSummary messageSummary, HeaderId headerId, Encoding fallbackEncoding)
+    private static MailboxAddress GetHeaderMailbox(IMessageSummary messageSummary, HeaderId headerId, Encoding fallbackEncoding)
     {
         var header = FindRawHeader(messageSummary, headerId);
 
-        return MimeHeaderCharsetRecovery.TryGetRecoveredAddresses(header, fallbackEncoding, out var addresses)
+        if (header == null)
+            return null;
+
+        if (MimeHeaderCharsetRecovery.TryGetRecoveredAddresses(header, fallbackEncoding, out var recovered))
+            return recovered.Mailboxes.FirstOrDefault();
+
+        return InternetAddressList.TryParse(ParserOptions.Default, header.RawValue, out var addresses)
             ? addresses.Mailboxes.FirstOrDefault()
             : null;
     }
