@@ -248,7 +248,7 @@ public sealed class CardDavClient : ICardDavClient
             Content = new StringContent(vcard ?? throw new ArgumentNullException(nameof(vcard)), Encoding.UTF8, "text/vcard")
         };
         if (createOnly) request.Headers.TryAddWithoutValidation("If-None-Match", "*");
-        else if (!string.IsNullOrWhiteSpace(ifMatch)) request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        else if (IsStrong(ifMatch)) request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
 
         using var response = await SendAsync(settings, request, cancellationToken).ConfigureAwait(false);
         await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
@@ -273,7 +273,7 @@ public sealed class CardDavClient : ICardDavClient
     {
         Validate(settings);
         using var request = new HttpRequestMessage(HttpMethod.Delete, exactHref);
-        if (!string.IsNullOrWhiteSpace(ifMatch)) request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        if (IsStrong(ifMatch)) request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
         using var response = await SendAsync(settings, request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound) return;
         await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
@@ -525,6 +525,10 @@ public sealed class CardDavClient : ICardDavClient
 
         return new Uri(addressBook.ExactHref);
     }
+
+    /// <summary>If-Match uses the strong comparison (RFC 7232 section 3.1); a weak ETag would never match, so it is not sent.</summary>
+    private static bool IsStrong(string etag)
+        => !string.IsNullOrWhiteSpace(etag) && !etag.TrimStart().StartsWith("W/", StringComparison.Ordinal);
 
     private static string EnsureTrailingSlash(string href) => href.EndsWith('/') ? href : href + "/";
     private static string Escape(string value) => SecurityElement.Escape(value ?? string.Empty);

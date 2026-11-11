@@ -19,14 +19,13 @@ internal static class CardDavConnection
 
     public static async Task<CardDavConnectionSettings> CreateSettingsAsync(
         MailAccount account,
-        IDavCredentialStore credentialStore,
         IAccountService accountService,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var server = account.ServerInformation
                      ?? await accountService.GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false)
                      ?? throw new InvalidOperationException("CardDAV server settings are unavailable.");
-        var password = await credentialStore.GetPasswordAsync(account.Id, cancellationToken).ConfigureAwait(false);
 
         return new CardDavConnectionSettings
         {
@@ -36,11 +35,15 @@ internal static class CardDavConnection
             {
                 Kind = DavAuthenticationKind.Basic,
                 Username = string.IsNullOrWhiteSpace(server.CalDavUsername) ? account.Address : server.CalDavUsername,
-                Password = password ?? server.CalDavPassword,
+                Password = CalDav.CalDavConnection.ResolvePassword(server),
                 EndpointTrust = new DavEndpointTrust { AccountId = account.Id, Protocol = MailServerProtocol.CardDav }
             }
         };
     }
+
+    /// <summary>The ETag when it is strong (RFC 7232 section 2.3); If-Match compares strongly, so a weak one is never sent.</summary>
+    public static string StrongETag(string etag)
+        => string.IsNullOrWhiteSpace(etag) || etag.TrimStart().StartsWith("W/", StringComparison.Ordinal) ? null : etag.Trim();
 
     public static async Task<IDisposable> LockAddressBookAsync(Guid addressBookId, CancellationToken cancellationToken)
     {

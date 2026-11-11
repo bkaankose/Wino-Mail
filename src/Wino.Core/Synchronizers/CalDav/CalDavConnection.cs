@@ -94,10 +94,15 @@ internal static class CalDavConnection
         return uri;
     }
 
-    public static string ResolvePassword(MailAccount account)
-    {
-        var server = account.ServerInformation;
+    public static string ResolvePassword(MailAccount account) => ResolvePassword(account.ServerInformation);
 
+    /// <summary>
+    /// The one DAV password rule for CalDAV events, CalDAV tasks and CardDAV: the DAV password, else
+    /// the mail sign-in. AccountService restores a password an earlier version moved to the DAV
+    /// credential store into CalDavPassword when it loads the server information.
+    /// </summary>
+    public static string ResolvePassword(CustomServerInformation? server)
+    {
         if (!string.IsNullOrWhiteSpace(server?.CalDavPassword))
             return server.CalDavPassword;
 

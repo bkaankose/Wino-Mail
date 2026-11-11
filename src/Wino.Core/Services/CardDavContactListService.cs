@@ -25,17 +25,15 @@ public sealed class CardDavContactListService : ICardDavContactListService
     private readonly ICardDavClient _client;
     private readonly ICardDavSynchronizationStore _store;
     private readonly IVCardCodec _codec;
-    private readonly IDavCredentialStore _credentials;
     private readonly IAccountService _accounts;
     private readonly IContactService _contacts;
 
     public CardDavContactListService(ICardDavClient client, ICardDavSynchronizationStore store, IVCardCodec codec,
-        IDavCredentialStore credentials, IAccountService accounts, IContactService contacts)
+        IAccountService accounts, IContactService contacts)
     {
         _client = client;
         _store = store;
         _codec = codec;
-        _credentials = credentials;
         _accounts = accounts;
         _contacts = contacts;
     }
@@ -83,7 +81,9 @@ public sealed class CardDavContactListService : ICardDavContactListService
         var (binding, settings) = await ConnectAsync(group.AddressBookId, cancellationToken).ConfigureAwait(false);
         using var bookLock = await CardDavConnection.LockAddressBookAsync(group.AddressBookId, cancellationToken).ConfigureAwait(false);
 
-        await _client.DeleteResourceAsync(settings, group.ExactHref, cancellationToken: cancellationToken).ConfigureAwait(false);
+        // Conditional on the version Wino synchronized (RFC 7232 section 3.1): a group another client
+        // changed since is refused with 412 and refreshed by the caller instead of deleted.
+        await _client.DeleteResourceAsync(settings, group.ExactHref, CardDavConnection.StrongETag(group.ETag), cancellationToken).ConfigureAwait(false);
         await _store.DeleteResourceAsync(binding.State.AddressBookId, group.ExactHref).ConfigureAwait(false);
     }
 
@@ -109,12 +109,12 @@ public sealed class CardDavContactListService : ICardDavContactListService
         foreach (var contactId in removedContactIds ?? [])
         {
             var resource = await _store.GetResourceByContactAsync(contactId).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(resource?.Uid)) removed.Add(resource.Uid);
+            if (!string.IsNullOrWhiteSpace(resource?.Uid)) removed.Add(VCardUid.Normalize(resource.Uid));
         }
 
         await EditGroupAsync(listId, document => _codec.SetGroupMembers(
             document,
-            _codec.GetGroupMembers(document).Where(uid => !removed.Contains(uid)).Concat(added)), cancellationToken).ConfigureAwait(false);
+            _codec.GetGroupMembers(document).Where(uid => !removed.Contains(VCardUid.Normalize(uid))).Concat(added)), cancellationToken).ConfigureAwait(false);
     }
 
     private async Task EditGroupAsync(Guid listId, Action<VCardDocument> edit, CancellationToken cancellationToken)
@@ -131,7 +131,8 @@ public sealed class CardDavContactListService : ICardDavContactListService
 
         var document = _codec.Parse(current.VCard);
         edit(document);
-        var written = await _client.PutResourceAsync(settings, group.ExactHref, _codec.Serialize(document), current.ETag,
+        var expected = CardDavConnection.StrongETag(group.ETag) ?? CardDavConnection.StrongETag(current.ETag);
+        var written = await _client.PutResourceAsync(settings, group.ExactHref, _codec.Serialize(document), expected,
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
         group.ETag = written.ETag;
@@ -156,7 +157,7 @@ public sealed class CardDavContactListService : ICardDavContactListService
 
         var account = await _accounts.GetAccountAsync(book.MailAccountId).ConfigureAwait(false)
                       ?? throw new InvalidOperationException(Translator.DavError_NotFound);
-        var settings = await CardDavConnection.CreateSettingsAsync(account, _credentials, _accounts, cancellationToken).ConfigureAwait(false);
+        var settings = await CardDavConnection.CreateSettingsAsync(account, _accounts, cancellationToken).ConfigureAwait(false);
         return (binding, settings);
     }
 

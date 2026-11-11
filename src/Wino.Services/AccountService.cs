@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
@@ -567,6 +568,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                 account.ServerInformation = serverInformation;
             }
             await _credentialPersistence.DeleteMailAccountSecretsAsync(account.Id).ConfigureAwait(false);
+            await DeleteLegacyDavPasswordAsync(account.Id).ConfigureAwait(false);
         }
 
         account.AttentionReason = AccountAttentionReason.InvalidCredentials;
@@ -696,9 +698,43 @@ public class AccountService : BaseDatabaseService, IAccountService
     {
         var information = await ReadServerInformationMetadataAsync(accountId).ConfigureAwait(false);
         if (information is not null)
+        {
             await _credentialPersistence.RestoreServerInformationSecretsAsync(information).ConfigureAwait(false);
+            await RestoreLegacyDavPasswordAsync(information).ConfigureAwait(false);
+        }
         return information;
     }
+
+    /// <summary>
+    /// Earlier versions moved the DAV password out of CalDavPassword into the DAV credential store
+    /// after the first contact synchronization. CalDavPassword is the only place the password is
+    /// written now, so the store is read only when CalDavPassword is empty, and the next write of the
+    /// server information stores the value in CalDavPassword and removes the store entry.
+    /// </summary>
+    private async Task RestoreLegacyDavPasswordAsync(CustomServerInformation information)
+    {
+        if (_davCredentialStore is null || !string.IsNullOrEmpty(information.CalDavPassword))
+            return;
+
+        try
+        {
+            var legacyPassword = await _davCredentialStore.GetPasswordAsync(information.AccountId).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(legacyPassword))
+                information.CalDavPassword = legacyPassword;
+        }
+        catch (CryptographicException ex)
+        {
+            // An unreadable entry must not stop the account from loading; DAV then signs in with the mail password.
+            _logger.Warning(ex, "The stored DAV password of account {AccountId} could not be read.", information.AccountId);
+        }
+    }
+
+    /// <summary>
+    /// A write of the server information supersedes the legacy store entry: the value it held was
+    /// restored into CalDavPassword when the information was read, or the user replaced it.
+    /// </summary>
+    private Task DeleteLegacyDavPasswordAsync(Guid accountId)
+        => _davCredentialStore is null ? Task.CompletedTask : _davCredentialStore.DeleteAsync(accountId);
 
     public async Task<MailAccount> GetAccountMetadataAsync(Guid accountId)
     {
@@ -757,6 +793,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         var previous = await ReadServerInformationMetadataAsync(customServerInformation.AccountId).ConfigureAwait(false);
         var stored = await _credentialPersistence.PrepareServerInformationForStorageAsync(customServerInformation).ConfigureAwait(false);
         await Connection.InsertOrReplaceAsync(stored, typeof(CustomServerInformation)).ConfigureAwait(false);
+        await DeleteLegacyDavPasswordAsync(customServerInformation.AccountId).ConfigureAwait(false);
         await UpdateCertificateTrustsAsync(previous, customServerInformation).ConfigureAwait(false);
     }
 
@@ -801,6 +838,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         }).ConfigureAwait(false);
 
         customServerInformation.PendingCertificateTrusts.Clear();
+        await DeleteLegacyDavPasswordAsync(account.Id).ConfigureAwait(false);
         account.ServerInformation = customServerInformation;
         ReportUIChange(new AccountUpdatedMessage(account));
     }
