@@ -21,10 +21,10 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// Wino Intelligence home (Windows WinoIntelligencePage, shared WinoAccountManagementPageViewModel).
 /// Without access: the hero, "What's included" led by Wino Assistant, and the locked features.
 /// With access: the status expander (subscription and this month's usage), then Wino Assistant,
-/// Daily briefing, Mail Classification, the languages expander and Privacy and data.
+/// Smart Labels and Daily Briefing, the languages expander and the AI provider access switch.
 /// </summary>
 public sealed class WinoIntelligencePageViewController(WinoAccountManagementPageViewModel viewModel,
-    IDispatcher dispatcher, IWinoLogger logger)
+    IMailDialogService dialogs, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<WinoAccountManagementPageViewModel>(viewModel, dispatcher, logger)
 {
     private readonly NSStackView _content = WinoLayout.VStack(12);
@@ -33,6 +33,8 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
     private NSView? _loading;
     private NSProgressIndicator? _loadingSpinner;
     private bool _revealed;
+    private WinoTextSwitch? _consent;
+    private bool _applyingConsent;
 
     protected override void BuildPage()
     {
@@ -243,23 +245,61 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         Bind.Bind(vm, nameof(vm.AssistantHomeDescription), s => s.AssistantHomeDescription, text => assistant.Description = text);
         AddTo(panel, Bind.Visible(assistant, vm, nameof(vm.HasIntelligenceAccess), s => s.ShowVoiceCommandsCard));
 
-        var briefing = CommandCard(Translator.DailyBriefing_Title, vm.BriefingHomeDescription, WinoIconGlyph.DailyBriefing, vm.OpenDailyBriefingSettingsCommand);
-        Bind.Bind(vm, nameof(vm.BriefingHomeDescription), s => s.BriefingHomeDescription, text => briefing.Description = text);
-        AddTo(panel, briefing);
-
-        var classification = CommandCard(Translator.WinoIntelligence_MailClassification_Title, vm.MailClassificationHomeDescription, WinoIconGlyph.Tag, vm.OpenMailClassificationCommand);
-        Bind.Bind(vm, nameof(vm.MailClassificationHomeDescription), s => s.MailClassificationHomeDescription, text => classification.Description = text);
+        var classification = CommandCard(Translator.WinoIntelligence_MailClassification_Title, Translator.WinoIntelligence_MailClassification_HomeDescription, WinoIconGlyph.Tag, vm.OpenMailClassificationCommand);
         AddTo(panel, classification);
 
         AddTo(panel, LanguagesExpander());
 
-        var dataHeader = SectionHeader(Translator.WinoIntelligence_DataAndPlan_Header);
-        AddTo(panel, dataHeader);
+        var privacyHeader = SectionHeader(Translator.WinoIntelligence_Privacy_Header);
+        AddTo(panel, privacyHeader);
         panel.SetCustomSpacing(20, panel.ArrangedSubviews[^2]);
-        var privacy = CommandCard(Translator.WinoIntelligence_PrivacyData_Title, Translator.WinoIntelligence_PrivacyData_Description, WinoIconGlyph.Shield, vm.OpenPrivacyDataCommand);
-        privacy.Content = Bind.Label(vm, nameof(vm.ConsentShortText), s => s.ConsentShortText, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText);
-        AddTo(panel, privacy);
+        AddTo(panel, ProviderAccessCard());
         return panel;
+    }
+
+    /// <summary>AI provider access: the account-wide consent switch, the accepted date and the policy link.</summary>
+    private NSView ProviderAccessCard()
+    {
+        var vm = ViewModel;
+        var busy = IntelligenceViews.Spinner();
+        _consent = new WinoTextSwitch(Translator.WinoAccount_Allowed, Translator.WinoAccount_NotAllowed, Translator.WinoIntelligence_Privacy_Title);
+        Bind.Bind(vm, nameof(vm.IsConsentBusy), s => s.IsConsentBusy, on => { IntelligenceViews.SetSpinning(busy, on); _consent.IsEnabled = !on; });
+        Bind.Bind(vm, nameof(vm.IsConsentGranted), s => s.IsConsentGranted, granted => { if (!_applyingConsent) _consent.IsOn = granted; });
+        _consent.Toggled += async (_, _) => await ConsentToggledAsync();
+
+        var policy = IntelligenceSettingsViews.Link(Bind.Button(Translator.WinoIntelligence_Policy_ReviewLink, vm.OpenConsentPolicyCommand),
+            Translator.WinoIntelligence_Policy_ReviewLink);
+        var card = Card(Translator.WinoIntelligence_Privacy_Title, Translator.WinoIntelligence_ProviderAccess_Description, WinoIconGlyph.Shield, Row(policy, busy, _consent));
+        Bind.Bind(vm, nameof(vm.ConsentAcceptedText), s => s.ConsentAcceptedText, text => card.Description = string.IsNullOrWhiteSpace(text)
+            ? Translator.WinoIntelligence_ProviderAccess_Description
+            : $"{Translator.WinoIntelligence_ProviderAccess_Description}\n{text}");
+        return card;
+    }
+
+    private async Task ConsentToggledAsync()
+    {
+        var vm = ViewModel;
+        if (_consent is null || _applyingConsent || vm.IsConsentBusy || _consent.IsOn == vm.IsConsentGranted) return;
+        _applyingConsent = true;
+        try
+        {
+            if (_consent.IsOn)
+            {
+                if (View.Window is { } window)
+                    await IntelligenceConsentPolicySheet.PresentAsync(window, vm.ConsentPolicyUri, () => vm.SetIntelligenceConsentAsync(true));
+            }
+            else if (await dialogs.ShowConfirmationDialogAsync(Translator.WinoAccount_IntelligenceConsentDisableMessage,
+                         Translator.WinoAccount_IntelligenceConsentDisableTitle, Translator.WinoAccount_DisableConsent))
+            {
+                await vm.SetIntelligenceConsentAsync(false);
+            }
+        }
+        catch (Exception exception) { ReportError(exception); }
+        finally
+        {
+            _applyingConsent = false;
+            _consent.IsOn = vm.IsConsentGranted;
+        }
     }
 
     /// <summary>The status strip: brand tile, title, renewal line and an Active or Limit reached badge; inside, the plan and usage.</summary>

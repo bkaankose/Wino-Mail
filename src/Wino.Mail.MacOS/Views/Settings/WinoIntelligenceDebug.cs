@@ -19,7 +19,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// <summary>
 /// Debug bridge commands for the Intelligence pages: <c>intel signedout|notsub|sub</c> forces a hub state
 /// with sample rows, <c>intelquota</c> expands the status expander, <c>intelcmd NAME</c> runs the visible
-/// Intelligence page's NAMECommand (OpenDailyBriefing, OpenPrivacyData, ...), <c>intelmanage</c> opens the first mailbox's
+/// Intelligence page's NAMECommand (OpenDailyBriefing, OpenMailClassification, ...), <c>intelmanage</c> opens the first mailbox's
 /// management page and <c>coverage</c> opens its coverage editor. Sample data only lives in the page.
 /// </summary>
 internal static class WinoIntelligenceDebug

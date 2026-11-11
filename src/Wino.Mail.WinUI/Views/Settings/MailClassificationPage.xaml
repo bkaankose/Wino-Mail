@@ -14,13 +14,13 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="ClassificationMailboxTemplate" x:DataType="viewModelData:WinoIntelligenceMailboxItemViewModel">
+        <DataTemplate x:Key="SmartLabelsMailboxTemplate" x:DataType="viewModelData:WinoIntelligenceMailboxItemViewModel">
             <controls:SettingsCard
                 AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
                 AutomationProperties.Name="{x:Bind Address}"
                 Command="{x:Bind OpenCommand}"
                 CommandParameter="{x:Bind}"
-                Description="{x:Bind IntelligenceSummary}"
+                Description="{x:Bind SmartLabelsDescription, Mode=OneWay}"
                 Header="{x:Bind Address}"
                 IsClickEnabled="{x:Bind CanManage}">
                 <controls:SettingsCard.Resources>
@@ -38,7 +38,7 @@
                     OffContent=""
                     OnContent=""
                     Tag="{x:Bind}"
-                    Toggled="ClassificationToggle_Toggled"
+                    Toggled="IndexingToggle_Toggled"
                     ToolTipService.ToolTip="{x:Bind ToggleUnavailableTooltip}" />
             </controls:SettingsCard>
         </DataTemplate>
@@ -52,7 +52,7 @@
             Severity="Error"
             Visibility="{x:Bind ViewModel.HasIntelligenceDataError, Mode=OneWay}" />
         <InfoBar
-            AutomationProperties.AutomationId="MailClassificationConsentRequiredInfoBar"
+            AutomationProperties.AutomationId="SmartLabelsConsentRequiredInfoBar"
             IsClosable="False"
             IsOpen="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentGranted), Mode=OneWay}"
             Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentNotGranted, Mode=OneTime}"
@@ -60,15 +60,34 @@
             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsConsentGranted), Mode=OneWay}">
             <InfoBar.ActionButton>
                 <Button
-                    AutomationProperties.AutomationId="MailClassificationOpenPrivacyButton"
-                    Command="{x:Bind ViewModel.OpenPrivacyDataCommand}"
-                    Content="{x:Bind domain:Translator.WinoIntelligence_PrivacyData_Title, Mode=OneTime}" />
+                    AutomationProperties.AutomationId="SmartLabelsOpenProviderAccessButton"
+                    Command="{x:Bind ViewModel.OpenIntelligencePageCommand}"
+                    Content="{x:Bind domain:Translator.WinoIntelligence_Privacy_Title, Mode=OneTime}" />
             </InfoBar.ActionButton>
         </InfoBar>
 
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="SmartLabelsOpenBriefingCard"
+            Description="{x:Bind domain:Translator.WinoIntelligence_Briefing_OpenDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.WinoIntelligence_Briefing_OpenTitle, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="DailyBriefing" />
+            </controls:SettingsCard.HeaderIcon>
+            <Button
+                AutomationProperties.AutomationId="SmartLabelsOpenBriefingButton"
+                AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_Briefing_OpenTitle, Mode=OneTime}"
+                Command="{x:Bind ViewModel.OpenDailyBriefingCommand}"
+                Content="{x:Bind domain:Translator.Buttons_Open, Mode=OneTime}" />
+        </controls:SettingsCard>
+
+        <TextBlock
+            Margin="1,20,0,4"
+            Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+            Text="{x:Bind domain:Translator.WinoIntelligence_MailAccountsHeader, Mode=OneTime}" />
+
         <ItemsControl
-            AutomationProperties.AutomationId="MailClassificationAccountList"
-            ItemTemplate="{StaticResource ClassificationMailboxTemplate}"
+            AutomationProperties.AutomationId="SmartLabelsAccountList"
+            ItemTemplate="{StaticResource SmartLabelsMailboxTemplate}"
             ItemsSource="{x:Bind ViewModel.IntelligenceMailboxes}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>

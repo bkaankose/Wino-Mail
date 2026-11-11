@@ -42,6 +42,28 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
     }
 
     [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
+    private async void DailyBriefingToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingToggleState || !ViewModel.IsPageReady || sender is not ToggleSwitch toggleSwitch ||
+            toggleSwitch.IsOn == ViewModel.IsDailyBriefingEnabled)
+        {
+            return;
+        }
+
+        _isApplyingToggleState = true;
+        try
+        {
+            var actualState = await ViewModel.SetDailyBriefingEnabledAsync(toggleSwitch.IsOn);
+            if (toggleSwitch.IsOn != actualState)
+                toggleSwitch.IsOn = actualState;
+        }
+        finally
+        {
+            _isApplyingToggleState = false;
+        }
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private async void IntelligenceIndicatorToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.IsPageReady ||

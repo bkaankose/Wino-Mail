@@ -40,31 +40,33 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
     public ICommand? ManageCommand { get; init; }
     public ICommand? DeleteCommand { get; init; }
     public ICommand? ToggleEnabledCommand { get; init; }
-    public ICommand? ToggleDailyBriefingCommand { get; init; }
     public ICommand? OpenCommand { get; init; }
-    public ICommand? OpenMailClassificationCommand { get; init; }
 
-    public bool IsClassificationOff => !IsEnabled;
-
-    public string BriefingDescription => IsEnabled
-        ? IntelligenceSummary
+    public string SmartLabelsDescription => IsEnabled
+        ? $"{IntelligenceSummary} · {(IsInDailyBriefing ? Translator.WinoIntelligence_Briefing_InBriefing : Translator.WinoIntelligence_Briefing_NotInBriefing)}"
         : Translator.WinoIntelligence_Briefing_ClassificationOff;
 
-    public bool CanChangeDailyBriefing => IsEnabled && !IsChangingDailyBriefing;
+    public bool HasSameContent(WinoIntelligenceMailboxItemViewModel other)
+        => MailboxId == other.MailboxId &&
+           Address == other.Address &&
+           IntelligenceSummary == other.IntelligenceSummary &&
+           ProviderType == other.ProviderType &&
+           SpecialProvider == other.SpecialProvider &&
+           LocalAccountId == other.LocalAccountId &&
+           CanToggle == other.CanToggle &&
+           IsEnabled == other.IsEnabled &&
+           IsInDailyBriefing == other.IsInDailyBriefing;
 
     [ObservableProperty]
     public partial bool IsDeleting { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsClassificationOff), nameof(BriefingDescription), nameof(CanChangeDailyBriefing))]
+    [NotifyPropertyChangedFor(nameof(SmartLabelsDescription))]
     public partial bool IsEnabled { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SmartLabelsDescription))]
     public partial bool IsInDailyBriefing { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanChangeDailyBriefing))]
-    public partial bool IsChangingDailyBriefing { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanChangeEnabled))]

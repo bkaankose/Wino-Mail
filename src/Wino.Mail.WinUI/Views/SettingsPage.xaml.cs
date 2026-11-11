@@ -364,8 +364,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     private static bool IsIntelligenceSubPage(WinoPage page)
         => page is WinoPage.WinoIntelligenceManagementPage
             or WinoPage.IntelligenceCoveragePage
-            or WinoPage.IntelligencePrivacyPage
-            or WinoPage.IntelligenceBriefingPage
             or WinoPage.MailClassificationPage;
 
     private void NavigateToRoute(SettingsNavigationRoute route)

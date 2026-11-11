@@ -160,7 +160,6 @@ public sealed class VoiceBubbleController : IDisposable
         var messenger = WeakReferenceMessenger.Default;
         messenger.Register<VoiceBubbleController, PreferenceChangedMessage>(this, static (controller, message) => controller._host.Post(() => controller.PreferenceChanged(message.PropertyName)));
         messenger.Register<VoiceBubbleController, WinoIntelligenceEntitlementChanged>(this, static (controller, message) => controller._host.Post(() => controller.ApplyAccess(message.Entitlement.CanAccessSurfaces)));
-        messenger.Register<VoiceBubbleController, VoiceBubbleTryRequested>(this, static (controller, _) => controller._host.Post(controller.TryOpen));
         messenger.Register<VoiceBubbleController, VoiceSelectionRequested>(this, static (controller, message) => controller._host.Post(() => controller.OpenForSelection(message.Selection)));
 
         ApplyHotKey();
@@ -397,15 +396,6 @@ public sealed class VoiceBubbleController : IDisposable
                 ApplyHotKey();
                 break;
         }
-    }
-
-    private void TryOpen()
-    {
-        if (_disposed || !IsUsable)
-            return;
-
-        if (State == VoiceBubbleState.Hidden)
-            Open(VoiceBubbleInputMode.Voice);
     }
 
     private void HostHotKeyPressed(object? sender, VoiceBubbleInputMode mode)

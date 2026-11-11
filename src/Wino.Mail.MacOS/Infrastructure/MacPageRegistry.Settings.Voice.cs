@@ -10,8 +10,6 @@ public sealed partial class MacPageRegistry
     {
         Register<VoiceControlSettingsPageViewController>(WinoPage.VoiceControlSettingsPage, MacPageHost.SettingsWindow);
         Register<VoiceBrainPageViewController>(WinoPage.VoiceBrainPage, MacPageHost.SettingsWindow);
-        Register<IntelligencePrivacyPageViewController>(WinoPage.IntelligencePrivacyPage, MacPageHost.SettingsWindow);
-        Register<IntelligenceBriefingPageViewController>(WinoPage.IntelligenceBriefingPage, MacPageHost.SettingsWindow);
         Register<MailClassificationPageViewController>(WinoPage.MailClassificationPage, MacPageHost.SettingsWindow);
     }
 }

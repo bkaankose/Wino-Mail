@@ -51,9 +51,7 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
         var enableCard = Card(Translator.VoiceControlSettings_Enable_Title, Translator.VoiceControlSettings_MacOS_Enable_Description, WinoIconGlyph.None, enabled);
         enableCard.LeadingView = IntelligenceSettingsViews.AppLogo(WinoSettingsStyle.IconSize);
 
-        var tryButton = Bind.Button(Translator.VoiceControlSettings_Try_Button, vm.TryVoiceControlCommand);
-        var tryCard = Card(Translator.VoiceControlSettings_Try_Title, Translator.VoiceControlSettings_Try_Description, WinoIconGlyph.Play, tryButton);
-        var top = Group(null, enableCard, tryCard);
+        var top = Group(null, enableCard);
 
         var shortcuts = BuildShortcuts();
         var (microphoneCard, microphoneProblem) = BuildMicrophone();
@@ -71,7 +69,7 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
         foreach (var view in new NSView[] { top, howYouAsk, howWinoAnswers })
             Add(Bind.Visible(view, vm, nameof(vm.IsAvailable), s => s.IsAvailable));
 
-        foreach (var view in new NSView[] { tryCard, microphoneCard, positionCard, autoConfirmCard })
+        foreach (var view in new NSView[] { microphoneCard, positionCard, autoConfirmCard })
             Bind.Enabled(view, vm, nameof(vm.IsVoiceControlEnabled), s => s.IsVoiceControlEnabled);
     }
 

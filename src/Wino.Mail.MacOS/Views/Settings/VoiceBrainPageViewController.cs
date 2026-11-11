@@ -61,6 +61,9 @@ public sealed class VoiceBrainPageViewController(VoiceBrainPageViewModel viewMod
         AddSyncGroup();
 
         var deleteAll = Bind.Button(Translator.VoiceBrain_DeleteAll_Button, vm.DeleteEverythingCommand);
+        deleteAll.HasDestructiveAction = true;
+        deleteAll.BezelColor = WinoStyle.Critical;
+        WinoAccessibility.Label(deleteAll, Translator.VoiceBrain_DeleteAll_Title);
         var forget = Group(Translator.VoiceBrain_Group_Forget,
             Card(Translator.VoiceBrain_DeleteAll_Title, Translator.VoiceBrain_DeleteAll_Description, WinoIconGlyph.Delete, deleteAll));
         Add(Bind.Visible(forget, vm, nameof(vm.HasLoaded), s => s.HasLoaded));

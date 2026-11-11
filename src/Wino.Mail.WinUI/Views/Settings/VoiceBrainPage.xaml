@@ -247,8 +247,11 @@
             </controls:SettingsCard.HeaderIcon>
             <Button
                 AutomationProperties.AutomationId="VoiceBrainDeleteAllButton"
+                AutomationProperties.Name="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Title, Mode=OneTime}"
+                Background="{ThemeResource DeleteBrush}"
                 Command="{x:Bind ViewModel.DeleteEverythingCommand}"
-                Content="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Button, Mode=OneTime}" />
+                Content="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Button, Mode=OneTime}"
+                Foreground="{ThemeResource DeleteButtonForegroundBrush}" />
         </controls:SettingsCard>
     </StackPanel>
 </abstract:VoiceBrainPageAbstract>
