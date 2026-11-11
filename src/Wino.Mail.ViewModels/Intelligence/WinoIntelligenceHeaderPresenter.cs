@@ -56,6 +56,7 @@ public sealed partial class WinoIntelligenceHeaderPresenter : ObservableObject, 
     private MailContentProjectionResult? _translationProjection;
     private MailContentProjection? _inferenceProjection;
     private IReadOnlyDictionary<string, string>? _translationMap;
+    private string? _translationMapLanguagePair;
     private MailItemViewModel? _currentMailItem;
     private WinoIntelligenceContext? _intelligenceContext;
     private WinoIntelligenceSnapshot? _intelligenceSnapshot;
@@ -608,7 +609,8 @@ public sealed partial class WinoIntelligenceHeaderPresenter : ObservableObject, 
             return;
         }
 
-        if (_translationMap is not null)
+        var languagePair = $"{SelectedSourceLanguage}>{SelectedTargetLanguage}";
+        if (_translationMap is not null && string.Equals(_translationMapLanguagePair, languagePair, StringComparison.Ordinal))
         {
             IsShowingTranslation = true;
             IsTranslationApplied = true;
@@ -649,6 +651,7 @@ public sealed partial class WinoIntelligenceHeaderPresenter : ObservableObject, 
         if (result.Value is null)
             throw new InvalidOperationException("Translation response was empty.");
         _translationMap = result.Value.Translations.ToDictionary(x => x.Id, x => x.Text, StringComparer.Ordinal);
+        _translationMapLanguagePair = languagePair;
         IsShowingTranslation = true;
         HasTranslationResult = true;
         IsTranslationApplied = true;

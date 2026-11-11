@@ -253,7 +253,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
             HttpMethod.Post,
-            "api/v2/ai/translate",
+            "api/v3/ai/translate",
             new TranslateRequest(segments, sourceLanguage, targetLanguage),
             WinoAccountApiJsonContext.Default.TranslateRequest,
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiTranslationResultDto,
