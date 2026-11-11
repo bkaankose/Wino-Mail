@@ -28,6 +28,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'WinoPackageProfile.ps1')
 $script:ReleaseRepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $script:SideloadIdentityName = 'WinoMail.Sideload'
 $script:BetaAssetsPath = $BetaAssetsPath
@@ -435,55 +436,11 @@ function Get-ReleaseBrandingPaths {
     } | Sort-Object)
 }
 
-function Get-WidgetDefinitionMode {
-    param([string]$DefinitionId)
-
-    switch ($DefinitionId) {
-        'Wino_Mail' { 'Mail' }
-        'Wino_Calendar' { 'Calendar' }
-        'Wino_People' { 'People' }
-        'Wino_ToDo' { 'Tasks' }
-        default { throw "Unknown widget definition: $DefinitionId" }
-    }
-}
-
 function Set-ReleaseLayoutProfile {
     param([string]$Layout, [xml]$Manifest, [object]$Profile, [object]$Plan)
 
     $Profile | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Layout 'release-profile.json') -Encoding utf8
-    $Manifest.Package.Properties.DisplayName = $Profile.DisplayNames.Mail
-    $entries = @{ App = 'Mail'; CalendarApp = 'Calendar'; ContactsApp = 'People'; ToDoApp = 'Tasks' }
-    foreach ($app in $Manifest.Package.Applications.Application) {
-        $mode = $entries[[string]$app.Id]
-        if (-not $mode) { throw "Unknown packaged application: $($app.Id)" }
-        $name = $Profile.DisplayNames.$mode
-        $visual = $app.SelectSingleNode("*[local-name()='VisualElements']")
-        $visual.SetAttribute('DisplayName', $name)
-        foreach ($startup in $app.SelectNodes(".//*[local-name()='StartupTask']")) { $startup.SetAttribute('DisplayName', "$name Startup Service") }
-        foreach ($node in $app.SelectNodes(".//*[local-name()='ToastNotificationActivation']")) { $node.SetAttribute('ToastActivatorCLSID', $Profile.NotificationActivatorIds.$mode) }
-        foreach ($node in $app.SelectNodes(".//*[local-name()='WidgetProvider']/*[local-name()='Activation']/*[local-name()='CreateInstance']")) { $node.SetAttribute('ClassId', $Profile.WidgetProviderId) }
-        foreach ($extension in $app.SelectNodes(".//*[local-name()='AppExtension'][@Name='com.microsoft.windows.widgets']")) { $extension.SetAttribute('DisplayName', $name) }
-        foreach ($definition in $app.SelectNodes(".//*[local-name()='WidgetProvider']//*[local-name()='Definition']")) {
-            $widgetName = $Profile.DisplayNames.(Get-WidgetDefinitionMode $definition.GetAttribute('Id'))
-            $definition.SetAttribute('DisplayName', $widgetName)
-            foreach ($screenshot in $definition.SelectNodes(".//*[local-name()='Screenshot']")) { $screenshot.SetAttribute('DisplayAltText', $widgetName) }
-        }
-        foreach ($server in $app.SelectNodes(".//*[local-name()='ExeServer']")) {
-            # The application itself hosts the session-start background task, Wino.WidgetHost the widget provider;
-            # every other server is the notification host.
-            $executable = $server.GetAttribute('Executable')
-            $displayName, $classId = switch ($executable) {
-                'Wino.Mail.WinUI.exe' { "$name startup service", $Profile.StartupTaskActivatorId }
-                'Wino.WidgetHost.exe' { "$name widget provider", $Profile.WidgetProviderId }
-                default { "$name notification host", $Profile.NotificationActivatorIds.$mode }
-            }
-            $server.SetAttribute('DisplayName', $displayName)
-            foreach ($node in $server.SelectNodes("*[local-name()='Class']")) {
-                $node.SetAttribute('Id', $classId)
-                $node.SetAttribute('DisplayName', $displayName)
-            }
-        }
-    }
+    Set-WinoManifestProfile $Manifest $Profile
     if ($Profile.Distribution -eq 'Beta') {
         $paths = @(Get-ReleaseBrandingPaths $Layout)
         if ($paths.Count -eq 0) { throw 'The package contains no branding assets.' }

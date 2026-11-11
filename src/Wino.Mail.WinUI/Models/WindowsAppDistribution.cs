@@ -4,5 +4,6 @@ public enum WindowsAppDistribution
 {
     Store,
     Sideload,
-    Beta
+    Beta,
+    Debug
 }

@@ -7,6 +7,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 | Category | Script | Platform | Shell | Purpose |
 | --- | --- | --- | --- | --- |
 | Development | `development/windows/start-wino.ps1` | Windows | PowerShell 7.2+ | Check build inputs and output, then build if needed and launch the packaged Debug app |
+| Development | `development/windows/generate-debug-artwork.py` | Windows | Python 3 with Pillow | Regenerate the amber Debug package artwork in `development/windows/DebugAssets` from the stable branding files |
 | Release | `release/windows/build-releases.ps1` | Windows | PowerShell 7 | Optionally translate resources, then build and package Store, Beta, and sideload releases |
 | Release | `release/windows/publish-releases.ps1` | Windows | PowerShell 7 | Publish Beta and sideload releases to download.winomail.app |
 | Release | `release/windows/upload-sentry-symbols.ps1` | Windows | PowerShell 7 | Upload symbols for a selected release |
@@ -27,6 +28,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 
 `release/windows/profiles` contains release channel configuration.
 `release/windows/Wino.Release.targets` exports the release payload used by the Windows release script.
+`release/windows/WinoPackageProfile.ps1` applies a release profile to the package manifest for sideload packages and Debug builds.
 `release/Assets/Beta` contains the Windows beta artwork.
 The root `Directory.Build.targets` retains shared compiler and Native AOT rules; `build/Wino.Windows.targets` holds the Windows-only packaging rules.
 

@@ -235,7 +235,12 @@ public class NavigationService : INavigationService
             WinoApplicationMode.Calendar => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["Calendar"],
             WinoApplicationMode.Contacts => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["People"],
             WinoApplicationMode.Tasks => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["Tasks"],
-            WinoApplicationMode.Settings => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.Distribution == "Beta" ? "Wino Settings Beta" : "Wino Settings",
+            WinoApplicationMode.Settings => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.Distribution switch
+            {
+                "Beta" => "Wino Settings Beta",
+                "Debug" => "Wino Settings (Debug)",
+                _ => "Wino Settings"
+            },
             _ => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.MailDisplayName
         };
 

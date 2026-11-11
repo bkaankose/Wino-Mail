@@ -1,7 +1,7 @@
 #requires -Version 7.2
 <#
 .SYNOPSIS
-Build changed Debug x64 inputs, then deploy and launch the existing MSIX identity.
+Build changed Debug x64 inputs, then deploy and launch the WinoMail.Debug development package.
 .DESCRIPTION
 F5 uses this single helper to avoid the SDK's repeated XAML work on unchanged inputs.
 State is local to artifacts/f5. Failed runs never become a reusable build.
@@ -37,6 +37,8 @@ function Get-WinoInputFiles([string]$Root) {
         $_.Extension -in @('.props', '.targets', '.json', '.config', '.sln', '.slnx', '.rsp') -or $_.Name -eq '.editorconfig'
     } | ForEach-Object FullName
     Join-Path $Root 'scripts/development/windows/start-wino.ps1'
+    Join-Path $Root 'scripts/release/windows/WinoPackageProfile.ps1'
+    Get-ChildItem -LiteralPath (Join-Path $Root 'scripts/development/windows/DebugAssets') -File -Recurse -Force | ForEach-Object FullName
     $nugetConfig = Join-Path $env:APPDATA 'NuGet/NuGet.Config'
     if (Test-Path -LiteralPath $nugetConfig) { $nugetConfig }
 }
@@ -63,8 +65,9 @@ function Get-WinoOutputHash([string]$Output) {
     [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes(($records -join "`n"))))
 }
 
-function Stop-WinoDebugPackage([string]$ManifestPath, [string]$Target = 'local') {
-    $identity = ([xml](Get-Content -LiteralPath $ManifestPath -Raw)).Package.Identity
+function Stop-WinoDebugPackage([string]$ProfilePath, [string]$Target = 'local') {
+    $releaseProfile = Get-Content -LiteralPath $ProfilePath -Raw | ConvertFrom-Json
+    $identity = @{ Name = [string]$releaseProfile.PackageName; Publisher = [string]$releaseProfile.Publisher }
     # This block also runs under Windows PowerShell 5.1 in the guest.
     $stopPackage = {
         param([string]$Name, [string]$Publisher)
@@ -123,7 +126,7 @@ function Start-Wino([string]$Root, [switch]$ForceBuild, [ValidateSet('local', 's
         $reuse = -not $ForceBuild -and $saved -is [Collections.IDictionary] -and
             $saved['Inputs'] -eq $inputs -and $outputs -ne '' -and $saved['Outputs'] -eq $outputs
 
-        Stop-WinoDebugPackage -ManifestPath (Join-Path $app 'Package.appxmanifest') -Target $Target
+        Stop-WinoDebugPackage -ProfilePath (Join-Path $app 'release-profile.Debug.json') -Target $Target
         # Invalidate before starting: build or deployment failure must force the next run to build.
         [IO.File]::WriteAllText($statePath, '{}')
         $runArgs = @('run', $project, '-c', 'Debug', '--arch', 'x64', '--detach')

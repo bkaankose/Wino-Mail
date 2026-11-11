@@ -101,7 +101,7 @@ Build without deployment:
 dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 ```
 
-Build, deploy, and activate the checked-in package:
+Build, deploy, and activate the Debug package:
 
 ```powershell
 winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
@@ -113,7 +113,23 @@ Deploy an existing build without compilation:
 winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --no-build --detach
 ```
 
-The manifest supplies package name `58272BurakKSE.WinoMailPreview` and publisher `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911`.
+### Debug package identity
+
+Debug builds install as their own package, `WinoMail.Debug` (publisher `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911`), so they
+run beside the Microsoft Store, Beta and Sideload installations without replacing them.
+Before manifest and PRI generation, `WinoGenerateDebugManifest` applies `src/Wino.Mail.WinUI/release-profile.Debug.json` to
+`Package.appxmanifest` through `scripts/release/windows/WinoPackageProfile.ps1`, the same rewrite the release packager uses.
+The profile sets the display names (Wino Mail (Debug), Wino Calendar (Debug), Wino People (Debug), Wino To Do (Debug)) and
+its own notification, session-start and widget COM class IDs, and is packaged as `release-profile.json`.
+`WinoUseDebugArtwork` packages the amber artwork from `scripts/development/windows/DebugAssets` in place of the stable branding files.
+After the stable artwork changes, regenerate it with `python scripts/development/windows/generate-debug-artwork.py` (requires Pillow).
+
+The Debug package has its own LocalState, so it starts without accounts and never migrates publisher data.
+It does not check for Store updates. Shared protocols (`wino:`, `mailto:`, `google.pw.oauth2:`) and file types are
+registered by every installed Wino package, so Windows may ask which app opens a sign-in redirect.
+To build Debug under the Store identity, for example to test Store add-ons, pass `-p:WinoDebugIdentity=false`;
+that build replaces a Store installation, so only use it on a machine without one.
+
 WinApp activates the registered package. It does not launch an unpackaged executable.
 A development layout provides MSIX identity without creating an installer on every run.
 
@@ -145,12 +161,13 @@ Changed inputs still use the normal SDK build. The helper does not replace any S
 Before deployment, inspect the installed package:
 
 ```powershell
-Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Select-Object Name, Publisher, IsDevelopmentMode, InstallLocation
+Get-AppxPackage -Name WinoMail.Debug | Select-Object Name, Publisher, IsDevelopmentMode, InstallLocation
 ```
 
-The publisher must match the source manifest. An existing installation must permit development deployment.
-If a signed Store installation owns this identity, use a development machine with the same checked-in identity.
-Preserve the existing installation and its data.
+The publisher must match `release-profile.Debug.json`. An existing installation must permit development deployment.
+Debug deployment never touches the Store, Beta or Sideload packages. Preserve those installations and their data.
+A development registration that still uses the Store identity, from a build before the Debug identity, blocks installing
+the Store package. Its owner removes it with `Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Where-Object IsDevelopmentMode | Remove-AppxPackage`.
 
 If deployment reports a locked file, exit Wino and its notification hosts before retrying.
 The [historical deployment investigation](debug-deployment-investigation.md) describes notification-host file locks.
@@ -187,7 +204,7 @@ For managed debugging on the host, select **Debug Wino Mail (packaged, x64)**.
 Before deployment, inspect the guest installation:
 
 ```powershell
-winapp target exec sandbox --json -- powershell.exe -NoProfile -Command "Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Select-Object Name,Publisher,IsDevelopmentMode,InstallLocation | ConvertTo-Json"
+winapp target exec sandbox --json -- powershell.exe -NoProfile -Command "Get-AppxPackage -Name WinoMail.Debug | Select-Object Name,Publisher,IsDevelopmentMode,InstallLocation | ConvertTo-Json"
 ```
 
 If installed, its publisher must match `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911` and `IsDevelopmentMode` must be true.
