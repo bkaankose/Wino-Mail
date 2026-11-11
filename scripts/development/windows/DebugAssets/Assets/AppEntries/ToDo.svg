@@ -3,18 +3,18 @@
   <defs>
     <!-- App tile background: 45deg gradient, top-left -> bottom-right -->
     <linearGradient id="todoTile" gradientUnits="userSpaceOnUse" x1="37" y1="37" x2="219" y2="219">
-      <stop offset="0" stop-color="#EDBF5C"/>
-      <stop offset="1" stop-color="#E8AE32"/>
+      <stop offset="0" stop-color="#922C6A"/>
+      <stop offset="1" stop-color="#661F4A"/>
     </linearGradient>
     <!-- Card: vertical gradient -->
     <linearGradient id="todoCard" gradientUnits="userSpaceOnUse" x1="128" y1="72" x2="128" y2="184">
-      <stop offset="0" stop-color="#FFFFFE"/>
-      <stop offset="1" stop-color="#FCFBF7"/>
+      <stop offset="0" stop-color="#FFFEFE"/>
+      <stop offset="1" stop-color="#F9F3F7"/>
     </linearGradient>
     <!-- Check: vertical gradient -->
     <linearGradient id="todoCheck" gradientUnits="userSpaceOnUse" x1="128" y1="98" x2="128" y2="158">
-      <stop offset="0" stop-color="#EFC56B"/>
-      <stop offset="1" stop-color="#EEC469"/>
+      <stop offset="0" stop-color="#AA337A"/>
+      <stop offset="1" stop-color="#A53277"/>
     </linearGradient>
   </defs>
 

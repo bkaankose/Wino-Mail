@@ -121,7 +121,7 @@ Before manifest and PRI generation, `WinoGenerateDebugManifest` applies `src/Win
 `Package.appxmanifest` through `scripts/release/windows/WinoPackageProfile.ps1`, the same rewrite the release packager uses.
 The profile sets the display names (Wino Mail (Debug), Wino Calendar (Debug), Wino People (Debug), Wino To Do (Debug)) and
 its own notification, session-start and widget COM class IDs, and is packaged as `release-profile.json`.
-`WinoUseDebugArtwork` packages the amber artwork from `scripts/development/windows/DebugAssets` in place of the stable branding files.
+`WinoUseDebugArtwork` packages the plum (#6D214F) artwork from `scripts/development/windows/DebugAssets` in place of the stable branding files.
 After the stable artwork changes, regenerate it with `python scripts/development/windows/generate-debug-artwork.py` (requires Pillow).
 
 The Debug package has its own LocalState, so it starts without accounts and never migrates publisher data.

@@ -1,4 +1,4 @@
-"""Regenerate the amber Debug artwork from the stable Windows branding assets.
+"""Regenerate the plum (#6D214F) Debug artwork from the stable Windows branding assets.
 
 Run from the repository root after the stable artwork changes:
 
@@ -19,11 +19,11 @@ ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "src" / "Wino.Mail.WinUI"
 OUTPUT = Path(__file__).resolve().parent / "DebugAssets"
 
-TARGET_HUE = 41 / 360
-TARGET_SATURATION = 0.80
-# The stable frame blue (#0051B7) sits at this lightness; it maps onto the lightness of #EAB543.
+TARGET_HUE = 324 / 360
+TARGET_SATURATION = 0.535
+# The stable frame blue (#0051B7) sits at this lightness; it maps onto the lightness of #6D214F.
 SOURCE_ANCHOR = 0.36
-TARGET_ANCHOR = 0.59
+TARGET_ANCHOR = 0.278
 BLUE_HUES = (170 / 360, 275 / 360)
 
 

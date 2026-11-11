@@ -506,7 +506,7 @@
   </PropertyGroup>
 
   <!--
-    Debug builds install as WinoMail.Debug with amber artwork, beside the Store, Beta and Sideload packages.
+    Debug builds install as WinoMail.Debug with plum (#6D214F) artwork, beside the Store, Beta and Sideload packages.
     Pass -p:WinoDebugIdentity=false to build Debug under the Store identity, for example to test Store add-ons.
   -->
   <PropertyGroup>
@@ -531,7 +531,7 @@
     </ItemGroup>
   </Target>
 
-  <!-- Replace each packaged branding file that has an amber counterpart; the package path stays the same. -->
+  <!-- Replace each packaged branding file that has a Debug counterpart; the package path stays the same. -->
   <Target Name="WinoUseDebugArtwork" BeforeTargets="AssignTargetPaths" Condition="'$(WinoDebugIdentity)' == 'true'">
     <ItemGroup>
       <_WinoStableArtwork Include="@(Content)" Condition="Exists('$(WinoDebugAssetsRoot)%(Identity)')" />

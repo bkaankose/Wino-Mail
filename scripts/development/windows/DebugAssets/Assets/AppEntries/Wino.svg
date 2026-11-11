@@ -4,24 +4,24 @@
     <!-- Shared app tile background: 45deg gradient, top-left -> bottom-right.
          Declared in the squircle's own 37..219 space (see the group transform below). -->
     <linearGradient id="winoTile" gradientUnits="userSpaceOnUse" x1="37" y1="37" x2="219" y2="219">
-      <stop offset="0" stop-color="#EDBF5C"/>
-      <stop offset="1" stop-color="#E8AE32"/>
+      <stop offset="0" stop-color="#922C6A"/>
+      <stop offset="1" stop-color="#661F4A"/>
     </linearGradient>
 
     <!-- ===== Mail (quadrant coordinates: the source glyph's own 37..219 space) ===== -->
     <linearGradient id="mailFaceLeft" gradientUnits="userSpaceOnUse" x1="70" y1="70" x2="122.5" y2="122.5">
-      <stop offset="0" stop-color="#F1CD7E"/>
-      <stop offset="1" stop-color="#EFC66E"/>
+      <stop offset="0" stop-color="#C53E8F"/>
+      <stop offset="1" stop-color="#AD347D"/>
     </linearGradient>
     <linearGradient id="mailFaceFront" gradientUnits="userSpaceOnUse" x1="114.5" y1="114.5" x2="185" y2="185">
-      <stop offset="0" stop-color="#EFC66E"/>
-      <stop offset="0.12" stop-color="#EFC66D"/>
-      <stop offset="1" stop-color="#EDBF5C"/>
+      <stop offset="0" stop-color="#AE357E"/>
+      <stop offset="0.12" stop-color="#AC347C"/>
+      <stop offset="1" stop-color="#932D6A"/>
     </linearGradient>
     <linearGradient id="mailFaceRight" gradientUnits="userSpaceOnUse" x1="121.75" y1="121.75" x2="177" y2="177">
-      <stop offset="0" stop-color="#EFC56C"/>
-      <stop offset="0.475" stop-color="#EFC56C"/>
-      <stop offset="1" stop-color="#EEC263"/>
+      <stop offset="0" stop-color="#AB347B"/>
+      <stop offset="0.475" stop-color="#AB347B"/>
+      <stop offset="1" stop-color="#9E3072"/>
     </linearGradient>
     <linearGradient id="mailFlap" gradientUnits="userSpaceOnUse" x1="70" y1="70" x2="150" y2="150">
       <stop offset="0" stop-color="#FFFFFF"/>
@@ -33,42 +33,42 @@
 
     <!-- ===== Calendar (source glyph's 0..200 space) ===== -->
     <linearGradient id="calPaper" x1="0" y1="20" x2="0" y2="180" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FCFAF7"/>
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F8F2F5"/>
     </linearGradient>
     <linearGradient id="calAcc" x1="0" y1="50" x2="0" y2="160" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#EFC56C"/><stop offset="1" stop-color="#EEC367"/>
+      <stop offset="0" stop-color="#AB347B"/><stop offset="1" stop-color="#A43276"/>
     </linearGradient>
     <linearGradient id="calHdr" x1="36" y1="40" x2="164" y2="67" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#EFC56C"/><stop offset="1" stop-color="#EDC05F"/>
+      <stop offset="0" stop-color="#AB347B"/><stop offset="1" stop-color="#972E6D"/>
     </linearGradient>
     <linearGradient id="calRing" x1="0" y1="24" x2="0" y2="42" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#EFEEED"/><stop offset="1" stop-color="#E4E2DF"/>
+      <stop offset="0" stop-color="#E3E0E1"/><stop offset="1" stop-color="#CEC9CC"/>
     </linearGradient>
     <clipPath id="calCard"><rect x="36" y="40" width="128" height="124" rx="14"/></clipPath>
 
     <!-- ===== People (source glyph's 0..200 space) ===== -->
     <linearGradient id="pplPaper" x1="0" y1="20" x2="0" y2="180" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FCFAF7"/>
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F8F2F5"/>
     </linearGradient>
     <linearGradient id="pplAcc" x1="0" y1="50" x2="0" y2="160" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#EFC56C"/><stop offset="1" stop-color="#EEC367"/>
+      <stop offset="0" stop-color="#AB347B"/><stop offset="1" stop-color="#A43276"/>
     </linearGradient>
     <!-- The People glyph fakes the gap around the front figure by stroking it with the
          tile gradient (Direct2D ignores <mask>). These endpoints are the quadrant-local
          pre-image of the tile gradient, so the stroke matches the surrounding background. -->
     <linearGradient id="pplTileMatch" gradientUnits="userSpaceOnUse"
                     x1="-44.16" y1="-203" x2="413.5" y2="254.66">
-      <stop offset="0" stop-color="#EDBF5C"/><stop offset="1" stop-color="#E8AE32"/>
+      <stop offset="0" stop-color="#922C6A"/><stop offset="1" stop-color="#661F4A"/>
     </linearGradient>
 
     <!-- ===== To Do (source glyph's 37..219 space) ===== -->
     <linearGradient id="todoCard" gradientUnits="userSpaceOnUse" x1="128" y1="72" x2="128" y2="184">
-      <stop offset="0" stop-color="#FFFFFE"/>
-      <stop offset="1" stop-color="#FCFBF7"/>
+      <stop offset="0" stop-color="#FFFEFE"/>
+      <stop offset="1" stop-color="#F9F3F7"/>
     </linearGradient>
     <linearGradient id="todoCheck" gradientUnits="userSpaceOnUse" x1="128" y1="98" x2="128" y2="158">
-      <stop offset="0" stop-color="#EFC56B"/>
-      <stop offset="1" stop-color="#EEC469"/>
+      <stop offset="0" stop-color="#AA337A"/>
+      <stop offset="1" stop-color="#A53277"/>
     </linearGradient>
 
     <!--
@@ -77,10 +77,10 @@
       ignores filters, leaving the artwork intact but flat.
     -->
     <filter id="winoShadow" x="-30%" y="-30%" width="160%" height="180%">
-      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#64480B" flood-opacity="0.34"/>
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#280C1D" flood-opacity="0.34"/>
     </filter>
     <filter id="winoShadowSmall" x="-40%" y="-40%" width="180%" height="200%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#64480B" flood-opacity="0.38"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#280C1D" flood-opacity="0.38"/>
     </filter>
   </defs>
 
@@ -135,15 +135,15 @@
       <rect x="36" y="40" width="128" height="124" rx="14" fill="url(#calPaper)"/>
       <g clip-path="url(#calCard)">
         <rect x="36" y="40" width="128" height="27" fill="url(#calHdr)"/>
-        <rect x="61" y="76.5" width="20" height="20" rx="6" fill="#FAF2E3"/>
-        <rect x="90" y="76.5" width="20" height="20" rx="6" fill="#FAF2E3"/>
-        <rect x="119" y="76.5" width="20" height="20" rx="6" fill="#FAF2E3"/>
-        <rect x="61" y="105.5" width="20" height="20" rx="6" fill="#FAF2E3"/>
+        <rect x="61" y="76.5" width="20" height="20" rx="6" fill="#EFD4E4"/>
+        <rect x="90" y="76.5" width="20" height="20" rx="6" fill="#EFD4E4"/>
+        <rect x="119" y="76.5" width="20" height="20" rx="6" fill="#EFD4E4"/>
+        <rect x="61" y="105.5" width="20" height="20" rx="6" fill="#EFD4E4"/>
         <rect x="90" y="105.5" width="20" height="20" rx="6" fill="url(#calAcc)"/>
-        <rect x="119" y="105.5" width="20" height="20" rx="6" fill="#FAF2E3"/>
-        <rect x="61" y="134.5" width="20" height="20" rx="6" fill="#FAF2E3"/>
-        <rect x="90" y="134.5" width="20" height="20" rx="6" fill="#FAF2E3"/>
-        <rect x="119" y="134.5" width="20" height="20" rx="6" fill="#FAF2E3"/>
+        <rect x="119" y="105.5" width="20" height="20" rx="6" fill="#EFD4E4"/>
+        <rect x="61" y="134.5" width="20" height="20" rx="6" fill="#EFD4E4"/>
+        <rect x="90" y="134.5" width="20" height="20" rx="6" fill="#EFD4E4"/>
+        <rect x="119" y="134.5" width="20" height="20" rx="6" fill="#EFD4E4"/>
       </g>
     </g>
   </g>

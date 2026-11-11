@@ -3,23 +3,23 @@
   <defs>
     <!-- App tile background: 45deg gradient, top-left -> bottom-right -->
     <linearGradient id="mailTile" gradientUnits="userSpaceOnUse" x1="37" y1="37" x2="219" y2="219">
-      <stop offset="0" stop-color="#EDC05E"/>
-      <stop offset="1" stop-color="#E9B138"/>
+      <stop offset="0" stop-color="#952D6B"/>
+      <stop offset="1" stop-color="#68204B"/>
     </linearGradient>
     <!-- Envelope body facets (all 45deg) -->
     <linearGradient id="mailFaceLeft" gradientUnits="userSpaceOnUse" x1="70" y1="70" x2="122.5" y2="122.5">
-      <stop offset="0" stop-color="#F1CD7E"/>
-      <stop offset="1" stop-color="#EFC66E"/>
+      <stop offset="0" stop-color="#C53E8F"/>
+      <stop offset="1" stop-color="#AD347D"/>
     </linearGradient>
     <linearGradient id="mailFaceFront" gradientUnits="userSpaceOnUse" x1="114.5" y1="114.5" x2="185" y2="185">
-      <stop offset="0" stop-color="#EFC66E"/>
-      <stop offset="0.12" stop-color="#EFC66D"/>
-      <stop offset="1" stop-color="#EDBF5C"/>
+      <stop offset="0" stop-color="#AE357E"/>
+      <stop offset="0.12" stop-color="#AC347C"/>
+      <stop offset="1" stop-color="#932D6A"/>
     </linearGradient>
     <linearGradient id="mailFaceRight" gradientUnits="userSpaceOnUse" x1="121.75" y1="121.75" x2="177" y2="177">
-      <stop offset="0" stop-color="#EFC56C"/>
-      <stop offset="0.475" stop-color="#EFC56C"/>
-      <stop offset="1" stop-color="#EEC263"/>
+      <stop offset="0" stop-color="#AB347B"/>
+      <stop offset="0.475" stop-color="#AB347B"/>
+      <stop offset="1" stop-color="#9E3072"/>
     </linearGradient>
     <!-- Flap -->
     <linearGradient id="mailFlap" gradientUnits="userSpaceOnUse" x1="70" y1="70" x2="150" y2="150">
@@ -37,10 +37,10 @@
       ignores filters, leaving the artwork intact but flat.
     -->
     <filter id="mailShadow" x="-25%" y="-25%" width="150%" height="160%">
-      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#64480B" flood-opacity="0.34"/>
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#280C1D" flood-opacity="0.34"/>
     </filter>
     <filter id="mailFlapShadow" x="-25%" y="-25%" width="150%" height="160%">
-      <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" flood-color="#A57712" flood-opacity="0.3"/>
+      <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" flood-color="#421430" flood-opacity="0.3"/>
     </filter>
   </defs>
 
