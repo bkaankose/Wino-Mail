@@ -101,10 +101,15 @@ public sealed class DavTransport : IDavTransport
             var redirected = DavUri.Resolve(target, response.Headers.Location);
             response.Dispose();
 
+            if (!MayFollowWithCredentials(target, redirected))
+            {
+                Logger.Warning("DAV redirect from {From} to {To} refused: credentials are only sent to the same host and never from https to http",
+                    target.GetLeftPart(UriPartial.Authority), redirected.GetLeftPart(UriPartial.Authority));
+                throw new DavRequestException(0, Translator.DavError_Network);
+            }
+
             if (!SameOrigin(target, redirected))
-                throw new DavRequestException(0, Translator.DavError_Network);
-            if (target.Scheme == Uri.UriSchemeHttps && redirected.Scheme != Uri.UriSchemeHttps)
-                throw new DavRequestException(0, Translator.DavError_Network);
+                certificateContext = await CreateCertificateContextAsync(authentication.EndpointTrust, redirected).ConfigureAwait(false);
 
             target = redirected;
             digestAuthorization = null;
@@ -266,6 +271,24 @@ public sealed class DavTransport : IDavTransport
     private static bool IsRedirect(HttpStatusCode statusCode)
         => statusCode is HttpStatusCode.MovedPermanently or HttpStatusCode.Redirect or
             HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect;
+
+    /// <summary>
+    /// Redirects (RFC 7231 section 6.4, RFC 6764 section 5) are followed with the account's
+    /// credentials only to the host the account is configured for: the port may change and http may
+    /// become https, but https never becomes http, and another host never receives them. The
+    /// credentials belong to that server (RFC 7235 section 2.2 scopes them to its protection space);
+    /// a different host would need its own trust decision, so such a redirect fails instead.
+    /// </summary>
+    private static bool MayFollowWithCredentials(Uri from, Uri to)
+    {
+        if (to.Scheme != Uri.UriSchemeHttp && to.Scheme != Uri.UriSchemeHttps)
+            return false;
+
+        if (from.Scheme == Uri.UriSchemeHttps && to.Scheme != Uri.UriSchemeHttps)
+            return false;
+
+        return from.Host.Equals(to.Host, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool SameOrigin(Uri left, Uri right)
         => left.Scheme.Equals(right.Scheme, StringComparison.OrdinalIgnoreCase) &&

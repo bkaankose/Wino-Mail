@@ -106,7 +106,8 @@ public sealed partial class CalDavSynchronizationEngine
                 .ConfigureAwait(false);
 
             await RecordQuotaUsageAsync(account, calendar, snapshot, icsContent, cancellationToken).ConfigureAwait(false);
-            await SaveSeriesSnapshotAsync(account, item, result.ExactHref, result.ETag, icsContent).ConfigureAwait(false);
+            var written = await ReadBackWriteAsync(connection, result, icsContent, cancellationToken).ConfigureAwait(false);
+            await SaveSeriesSnapshotAsync(account, item, written.ExactHref, written.ETag, written.IcsContent).ConfigureAwait(false);
             await PersistOwnResponseAsync(account, item, identity, response, participation).ConfigureAwait(false);
         }
 

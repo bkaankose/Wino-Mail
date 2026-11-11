@@ -131,12 +131,19 @@ public sealed partial class CalDavClient : ICalDavClient
 
         foreach (var eventResponse in eventResponses)
         {
-            result.AddRange(ParseCalendarData(
-                eventResponse.CalendarData,
-                eventResponse.Href,
-                eventResponse.ETag,
-                startUtc,
-                endUtc));
+            try
+            {
+                result.AddRange(ParseCalendarData(
+                    eventResponse.CalendarData,
+                    eventResponse.Href,
+                    eventResponse.ETag,
+                    startUtc,
+                    endUtc));
+            }
+            catch (CalDavCalendarDataException ex)
+            {
+                Logger.Warning(ex.InnerException, "Skipping CalDAV resource {Href}: its calendar data could not be read", ex.ResourceHref);
+            }
         }
 
         // Ensure recurring parents are saved before child occurrences/exceptions.
@@ -240,6 +247,12 @@ public sealed partial class CalDavClient : ICalDavClient
             throw new ArgumentException("Password is required for CalDAV.");
     }
 
+    /// <summary>
+    /// The user's principal (RFC 5397) from the configured URL. When that URL is not a DAV resource
+    /// (404, 405, a non-multistatus answer), the well-known URI of its host is tried, as RFC 6764
+    /// section 5 describes for a server that only knows its domain. Hrefs resolve against the URL
+    /// that answered after redirects, which becomes the context path.
+    /// </summary>
     private async Task<Uri> DiscoverPrincipalUriAsync(CalDavConnectionSettings connectionSettings, CancellationToken cancellationToken)
     {
         var body = """
@@ -250,21 +263,44 @@ public sealed partial class CalDavClient : ICalDavClient
             </D:propfind>
             """;
 
-        var responseXml = await SendXmlAsync(
-            connectionSettings,
-            PropFindMethod,
-            connectionSettings.ServiceUri,
-            depth: "0",
-            body,
-            cancellationToken).ConfigureAwait(false);
+        XDocument responseXml;
+        Uri contextUri;
+        try
+        {
+            (responseXml, contextUri) = await SendXmlWithFinalUriAsync(connectionSettings, PropFindMethod, connectionSettings.ServiceUri, "0", body, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DavRequestException ex) when (IsNotADavContext(ex) && TryGetWellKnownUri(connectionSettings.ServiceUri, out var wellKnownUri))
+        {
+            Logger.Information("CalDAV URL answered {StatusCode}; trying the well-known URI of its host", ex.StatusCode);
+            try
+            {
+                (responseXml, contextUri) = await SendXmlWithFinalUriAsync(connectionSettings, PropFindMethod, wellKnownUri, "0", body, cancellationToken).ConfigureAwait(false);
+            }
+            catch (DavRequestException wellKnownException)
+            {
+                Logger.Information("The well-known CalDAV URI answered {StatusCode}", wellKnownException.StatusCode);
+                throw ex;
+            }
+        }
 
         var principalHref = GetSuccessProps(responseXml)
             .Select(prop => prop.Element(DavNamespace + "current-user-principal")?.Element(DavNamespace + "href")?.Value)
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
         return string.IsNullOrWhiteSpace(principalHref)
-            ? connectionSettings.ServiceUri
-            : CreateAbsoluteUri(connectionSettings.ServiceUri, principalHref);
+            ? contextUri
+            : CreateAbsoluteUri(contextUri, principalHref.Trim());
+    }
+
+    /// <summary>Answers that mean the URL is not a CalDAV context path, as opposed to refused credentials or a server failure.</summary>
+    private static bool IsNotADavContext(DavRequestException exception)
+        => exception.StatusCode is (>= 200 and < 300) or 404 or 405 or 410 or 501;
+
+    /// <summary>"/.well-known/caldav" on the configured origin (RFC 6764 section 5), unless that is the URL already.</summary>
+    private static bool TryGetWellKnownUri(Uri serviceUri, out Uri wellKnownUri)
+    {
+        wellKnownUri = new Uri(new Uri(serviceUri.GetLeftPart(UriPartial.Authority)), "/.well-known/caldav");
+        return !string.Equals(serviceUri.AbsolutePath.TrimEnd('/'), wellKnownUri.AbsolutePath, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<IReadOnlyList<Uri>> DiscoverCalendarHomeSetUrisAsync(
@@ -307,6 +343,16 @@ public sealed partial class CalDavClient : ICalDavClient
         string depth,
         string body,
         CancellationToken cancellationToken)
+        => (await SendXmlWithFinalUriAsync(connectionSettings, method, uri, depth, body, cancellationToken).ConfigureAwait(false)).Document;
+
+    /// <summary>The multistatus answer and the URL that produced it once redirects were followed.</summary>
+    private async Task<(XDocument Document, Uri FinalUri)> SendXmlWithFinalUriAsync(
+        CalDavConnectionSettings connectionSettings,
+        HttpMethod method,
+        Uri uri,
+        string depth,
+        string body,
+        CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, uri);
 
@@ -330,8 +376,9 @@ public sealed partial class CalDavClient : ICalDavClient
         if (response.StatusCode != HttpStatusCode.MultiStatus)
             throw new DavRequestException((int)response.StatusCode, Translator.DavError_InvalidResponse);
 
+        var finalUri = response.RequestMessage?.RequestUri ?? uri;
         if (response.Content == null)
-            return new XDocument(new XElement("empty"));
+            return (new XDocument(new XElement("empty")), finalUri);
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var reader = XmlReader.Create(stream, new XmlReaderSettings
@@ -341,7 +388,7 @@ public sealed partial class CalDavClient : ICalDavClient
             XmlResolver = null
         });
 
-        return await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken).ConfigureAwait(false);
+        return (await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken).ConfigureAwait(false), finalUri);
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -604,8 +651,7 @@ public sealed partial class CalDavClient : ICalDavClient
         }
         catch (Exception ex)
         {
-            Logger.Warning(ex, "Failed to parse CalDAV ICS payload.");
-            return [];
+            throw new CalDavCalendarDataException(resourceHref, ex);
         }
     }
 
@@ -1074,5 +1120,20 @@ public sealed partial class CalDavClient : ICalDavClient
     }
 
     private sealed record CalDavEventResponse(string Href, string ETag, string CalendarData);
+}
+
+/// <summary>
+/// The calendar data of a resource could not be read (Ical.Net refused it or could not expand it).
+/// The caller keeps what it stored for the resource instead of treating it as empty.
+/// </summary>
+public sealed class CalDavCalendarDataException : FormatException
+{
+    public CalDavCalendarDataException(string resourceHref, Exception innerException)
+        : base($"The calendar data of {resourceHref} could not be read: {innerException?.Message}", innerException)
+    {
+        ResourceHref = resourceHref ?? string.Empty;
+    }
+
+    public string ResourceHref { get; }
 }
 

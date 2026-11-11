@@ -420,16 +420,38 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             : [];
 
         var expandedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        await DownloadAndApplyAsync(context, shadows, changed, deletedKeys, expandedIds, cancellationToken).ConfigureAwait(false);
-        await ReexpandStoredResourcesAsync(context, shadows, reexpandKeys, deletedKeys, expandedIds, cancellationToken).ConfigureAwait(false);
+        var unreadable = new UnreadableResources();
+        await DownloadAndApplyAsync(context, shadows, changed, deletedKeys, expandedIds, unreadable, cancellationToken).ConfigureAwait(false);
+        await ReexpandStoredResourcesAsync(context, shadows, reexpandKeys, deletedKeys, expandedIds, unreadable, cancellationToken).ConfigureAwait(false);
         await DeleteResourcesAsync(shadows, deletedKeys).ConfigureAwait(false);
+
+        // Rows of a resource that could not be read stay as they are until it can be.
+        foreach (var key in unreadable.Kept)
+        {
+            if (shadows.TryGetValue(key, out var shadow))
+                expandedIds.UnionWith(shadow.Items.Select(item => item.RemoteEventId).Where(id => !string.IsNullOrWhiteSpace(id)));
+        }
 
         if (reimport)
             await ReconcileDeletedCalendarItemsAsync(localCalendar, context.PeriodStartUtc, context.PeriodEndUtc, expandedIds).ConfigureAwait(false);
 
         await PruneExpiredOccurrencesAsync(localCalendar, context.PeriodStartUtc).ConfigureAwait(false);
 
-        CompleteCalendar(context, remoteToken, nextSyncToken, nextTokenFromReport);
+        if (unreadable.Downloaded.Count > 0)
+        {
+            // A sync token covers every change it reports (RFC 6578 section 3.5). Moving past a change
+            // that was not applied would lose it until the resource changes again, so the stored
+            // checkpoints stay and the next synchronization asks for it again.
+            Logger.Warning("CalDAV calendar {CalendarName}: {Count} changed resources could not be read; keeping the previous sync checkpoint",
+                localCalendar.Name, unreadable.Downloaded.Count);
+            context.CalendarState.LastSuccessfulSyncUtc = DateTime.UtcNow;
+            localCalendar.SynchronizationDeltaToken = CalendarSyncWindowToken.Encode(storedProviderToken, windowEndUtc);
+        }
+        else
+        {
+            CompleteCalendar(context, remoteToken, nextSyncToken, nextTokenFromReport);
+        }
+
         await _changeProcessor.UpdateAccountCalendarAsync(localCalendar).ConfigureAwait(false);
     }
 
@@ -517,6 +539,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         IReadOnlyList<CalDavResource> changed,
         HashSet<string> deletedKeys,
         HashSet<string> expandedIds,
+        UnreadableResources unreadable,
         CancellationToken cancellationToken)
     {
         for (var offset = 0; offset < changed.Count; offset += DownloadBatchSize)
@@ -542,7 +565,16 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
                 }
 
                 var eTag = string.IsNullOrWhiteSpace(body.ETag) ? resource.ETag : body.ETag;
-                await ApplyResourceAsync(context, shadows, resource.ExactHref, eTag, body.IcsContent, expandedIds).ConfigureAwait(false);
+                try
+                {
+                    await ApplyResourceAsync(context, shadows, resource.ExactHref, eTag, body.IcsContent, expandedIds).ConfigureAwait(false);
+                }
+                catch (CalDavCalendarDataException ex)
+                {
+                    Logger.Warning(ex.InnerException, "CalDAV resource {Href} could not be read; keeping its stored events", resource.ExactHref);
+                    unreadable.Downloaded.Add(key);
+                    unreadable.Kept.Add(key);
+                }
             }
         }
     }
@@ -631,6 +663,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         IReadOnlyList<string> keys,
         HashSet<string> deletedKeys,
         HashSet<string> expandedIds,
+        UnreadableResources unreadable,
         CancellationToken cancellationToken)
     {
         if (keys.Count == 0)
@@ -662,13 +695,21 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
                 continue;
             }
 
-            await ApplyResourceAsync(context, shadows, shadow.ExactHref, shadow.ETag, snapshot.IcsContent, expandedIds).ConfigureAwait(false);
+            try
+            {
+                await ApplyResourceAsync(context, shadows, shadow.ExactHref, shadow.ETag, snapshot.IcsContent, expandedIds).ConfigureAwait(false);
+            }
+            catch (CalDavCalendarDataException ex)
+            {
+                Logger.Warning(ex.InnerException, "Stored CalDAV resource {Href} could not be read; keeping its events", shadow.ExactHref);
+                unreadable.Kept.Add(key);
+            }
         }
 
         if (missing.Count > 0)
         {
             Logger.Information("CalDAV calendar {CalendarName}: {Count} stored resources have no ICS copy; downloading them", context.LocalCalendar.Name, missing.Count);
-            await DownloadAndApplyAsync(context, shadows, missing, deletedKeys, expandedIds, cancellationToken).ConfigureAwait(false);
+            await DownloadAndApplyAsync(context, shadows, missing, deletedKeys, expandedIds, unreadable, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1179,7 +1220,8 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
                 },
                 cancellationToken).ConfigureAwait(false);
 
-            await SaveSeriesSnapshotAsync(account, item, result.ExactHref, result.ETag, icsContent).ConfigureAwait(false);
+            var written = await ReadBackWriteAsync(connection, result, icsContent, cancellationToken).ConfigureAwait(false);
+            await SaveSeriesSnapshotAsync(account, item, written.ExactHref, written.ETag, written.IcsContent).ConfigureAwait(false);
             await _changeProcessor.DeleteCalendarItemAsync(item.Id).ConfigureAwait(false);
             return;
         }
@@ -1220,33 +1262,34 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             .GetCalendarItemIcsAsync(account.Id, item.CalendarId, item.Id)
             .ConfigureAwait(false);
 
-        if (snapshot != null && (string.IsNullOrWhiteSpace(snapshot.ExactHref) || string.IsNullOrWhiteSpace(snapshot.ETag)))
+        if (snapshot != null && string.IsNullOrWhiteSpace(snapshot.ExactHref))
         {
             throw new InvalidOperationException(
-                "Cannot safely update the CalDAV event because its exact resource href or ETag is unavailable. Synchronize the calendar and retry.");
+                "Cannot safely update the CalDAV event because its exact resource href is unavailable. Synchronize the calendar and retry.");
         }
 
-        var icsContent = snapshot == null
-            ? CalDavIcsMutator.Normalize(CalendarIcsBuilder.BuildIcsContent(item, attendees))
-            : CalDavIcsMutator.UpdateEvent(snapshot.IcsContent, item, attendees, identity);
+        if (snapshot != null)
+            return await WriteEventEditAsync(account, item, attendees, identity, connection, calendar, snapshot, cancellationToken).ConfigureAwait(false);
 
+        var icsContent = CalDavIcsMutator.Normalize(CalendarIcsBuilder.BuildIcsContent(item, attendees));
         icsContent = await PrepareOutgoingIcsAsync(account, item, calendar, snapshot, icsContent, cancellationToken).ConfigureAwait(false);
 
         var result = await _client
             .UpsertCalendarEventAsync(connection, calendar, new CalDavWriteRequest
             {
                 RemoteEventId = item.RemoteEventId.GetProviderRemoteEventId(),
-                ExactHref = snapshot?.ExactHref ?? string.Empty,
-                ETag = snapshot?.ETag ?? string.Empty,
+                ExactHref = string.Empty,
+                ETag = string.Empty,
                 IcsContent = icsContent,
-                CreateOnly = snapshot == null
+                CreateOnly = true
             }, cancellationToken)
             .ConfigureAwait(false);
 
         await RecordQuotaUsageAsync(account, calendar, snapshot, icsContent, cancellationToken).ConfigureAwait(false);
-        await SaveSeriesSnapshotAsync(account, item, result.ExactHref, result.ETag, icsContent).ConfigureAwait(false);
+        var written = await ReadBackWriteAsync(connection, result, icsContent, cancellationToken).ConfigureAwait(false);
+        await SaveSeriesSnapshotAsync(account, item, written.ExactHref, written.ETag, written.IcsContent).ConfigureAwait(false);
 
-        return snapshot?.IcsContent;
+        return null;
     }
 
     /// <summary>
@@ -1274,27 +1317,9 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             if (!IsRecurringResource(snapshot.IcsContent) && !IsRecurringResource(previousIcsContent))
                 return;
 
-            var localCalendar = await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
-            if (localCalendar == null || string.IsNullOrWhiteSpace(localCalendar.RemoteCalendarId))
+            var context = await CreateWriteContextAsync(account, item, cancellationToken).ConfigureAwait(false);
+            if (context == null)
                 return;
-
-            var settings = await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, cancellationToken).ConfigureAwait(false);
-            var state = await _stateStore.GetAsync(account.Id, cancellationToken).ConfigureAwait(false);
-            var remoteCalendar = new CalDavCalendar { RemoteCalendarId = localCalendar.RemoteCalendarId, Name = localCalendar.Name };
-            var calendarState = state.FindCalendar(localCalendar.RemoteCalendarId)
-                                ?? new CalDavCalendarState { RemoteCalendarId = localCalendar.RemoteCalendarId };
-
-            var now = DateTimeOffset.UtcNow;
-            var (_, storedWindowEndUtc) = CalendarSyncWindowToken.Decode(localCalendar.SynchronizationDeltaToken);
-            var context = new CalendarContext(
-                account,
-                settings,
-                localCalendar,
-                remoteCalendar,
-                calendarState,
-                now.AddYears(-1),
-                storedWindowEndUtc ?? now.AddYears(2),
-                ForceSync: false);
 
             using var calendarLock = await CalDavConnection.LockCalendarAsync(item.CalendarId, cancellationToken).ConfigureAwait(false);
 
@@ -1415,6 +1440,16 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
     private sealed record ResourceShadow(string ExactHref, string ETag, List<CalendarIcsShadow> Items);
 
     private sealed record SyncCollectionDelta(IReadOnlyList<CalDavResource> Changes, string NextSyncToken);
+
+    /// <summary>Resources whose calendar data could not be read in one calendar synchronization.</summary>
+    private sealed class UnreadableResources
+    {
+        /// <summary>Downloaded changes that were not applied; the sync checkpoint must not move past them.</summary>
+        public HashSet<string> Downloaded { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Resources whose stored rows are kept as they are.</summary>
+        public HashSet<string> Kept { get; } = new(StringComparer.Ordinal);
+    }
 
     /// <summary>Keeps state for the engine's lifetime when no persistent store is available.</summary>
     private sealed class TransientCalDavStateStore : ICalDavStateStore
