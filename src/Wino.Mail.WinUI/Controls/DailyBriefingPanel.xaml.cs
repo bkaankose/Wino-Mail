@@ -8,6 +8,9 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Serilog;
 using Windows.UI.ViewManagement;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels;
 
 namespace Wino.Mail.WinUI.Controls;
@@ -111,6 +114,14 @@ public sealed partial class DailyBriefingPanel : UserControl
     }
 
     private void ViewModelCloseRequested(object? sender, EventArgs e) => Close();
+
+    private void OpenMailClassificationClicked(object sender, RoutedEventArgs e)
+    {
+        Close();
+        WinoApplication.Current.Services.GetRequiredService<INavigationService>().Navigate(
+            WinoPage.SettingsPage,
+            new SettingsPageActivationContext(WinoPage.MailClassificationPage));
+    }
     private float PanelWidth() => (float)(ActualWidth > 0 ? ActualWidth : MaxWidth);
     private Visual GetVisual() => ElementCompositionPreview.GetElementVisual(PanelRoot);
 

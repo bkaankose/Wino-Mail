@@ -34,12 +34,12 @@ public static class IntelligenceUsage
 
     private static readonly string[] DisplayOrder =
     [
+        AssistantBucket,
+        VoiceBucket,
         AiQuotaBucketIds.Intelligence,
         AiQuotaBucketIds.Summarize,
         AiQuotaBucketIds.Translate,
-        AiQuotaBucketIds.Rewrite,
-        AssistantBucket,
-        VoiceBucket
+        AiQuotaBucketIds.Rewrite
     ];
 
     /// <summary>

@@ -112,6 +112,29 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public partial string VoiceUsageText { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string AssistantHomeDescription { get; set; } = Translator.WinoIntelligence_Home_AssistantDescription;
+
+    [ObservableProperty]
+    public partial string BriefingHomeDescription { get; set; } = Translator.WinoIntelligence_Briefing_Description;
+
+    [ObservableProperty]
+    public partial string MailClassificationHomeDescription { get; set; } = Translator.WinoIntelligence_MailClassification_HomeDescription;
+
+    [ObservableProperty]
+    public partial string BriefingInfoText { get; set; } = Translator.WinoIntelligence_Briefing_Info;
+
+    [ObservableProperty]
+    public partial string ConsentAcceptedText { get; set; } = string.Empty;
+
+    public string ConsentShortText => IsConsentGranted ? Translator.WinoAccount_Allowed : Translator.WinoAccount_NotAllowed;
+
+    [ObservableProperty]
+    public partial string IntelligenceHeroTermsText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string HeroSubscribeButtonText { get; set; } = string.Empty;
+
+    [ObservableProperty]
     public partial string IntelligenceCtaTitle { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -184,6 +207,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public partial bool IsConsentBusy { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ConsentShortText))]
     public partial bool IsConsentGranted { get; set; }
 
     [ObservableProperty]
@@ -857,6 +881,114 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             Messenger.Send(new BreadcrumbNavigationRequested(SettingsCatalog.Title(WinoPage.VoiceControlSettingsPage), WinoPage.VoiceControlSettingsPage));
     }
 
+    [RelayCommand]
+    private void OpenDailyBriefingSettings() => OpenIntelligenceSubPage(WinoPage.IntelligenceBriefingPage);
+
+    [RelayCommand]
+    private void OpenMailClassification() => OpenIntelligenceSubPage(WinoPage.MailClassificationPage);
+
+    [RelayCommand]
+    private void OpenPrivacyData() => OpenIntelligenceSubPage(WinoPage.IntelligencePrivacyPage);
+
+    [RelayCommand]
+    private void OpenVoiceBrain()
+    {
+        if (IsVoiceControlAvailable)
+            OpenIntelligenceSubPage(WinoPage.VoiceBrainPage);
+    }
+
+    private void OpenIntelligenceSubPage(WinoPage page)
+        => Messenger.Send(new BreadcrumbNavigationRequested(SettingsCatalog.Title(page), page));
+
+    [RelayCommand]
+    private void OpenMailClassificationAccount(WinoIntelligenceMailboxItemViewModel? mailbox)
+    {
+        if (!HasIntelligenceAccess || mailbox?.LocalAccountId is not Guid localAccountId)
+            return;
+
+        Messenger.Send(new BreadcrumbNavigationRequested(mailbox.Address, WinoPage.WinoIntelligenceManagementPage, localAccountId));
+    }
+
+    [RelayCommand]
+    private void OpenDailyBriefing() => WeakReferenceMessenger.Default.Send(new DailyBriefingOpenRequested());
+
+    [RelayCommand]
+    private Task SeeAssistantInActionAsync() => _dialogService.ShowWinoAssistantDemoAsync();
+
+    [RelayCommand]
+    private async Task OpenConsentPolicyAsync()
+        => await LaunchUriAsync(ConsentPolicyUri ?? new Uri(AppUrls.PrivacyPolicy));
+
+    private async Task LaunchUriAsync(Uri uri)
+    {
+        try
+        {
+            (await _externalLauncher.LaunchUriAsync(uri)).ThrowIfNotSucceeded();
+        }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(LaunchUriAsync));
+        }
+    }
+
+    [RelayCommand]
+    private async Task ToggleDailyBriefingAsync(WinoIntelligenceMailboxItemViewModel? mailbox)
+    {
+        if (mailbox?.LocalAccountId is not Guid localAccountId || mailbox.IsChangingDailyBriefing)
+            return;
+
+        var requested = !mailbox.IsInDailyBriefing;
+        await ExecuteUIThread(() => mailbox.IsChangingDailyBriefing = true);
+
+        try
+        {
+            var account = await _accountService.GetAccountAsync(localAccountId).ConfigureAwait(false);
+            if (account?.Preferences is null)
+                return;
+
+            account.Preferences.IsDailyBriefingEnabled = requested;
+            await _accountService.UpdateAccountPreferencesAsync(account.Preferences).ConfigureAwait(false);
+
+            await ExecuteUIThread(() =>
+            {
+                mailbox.IsInDailyBriefing = requested;
+                ApplyMailboxHomeDescriptions();
+            });
+            WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
+        }
+        catch (Exception exception)
+        {
+            await ExecuteUIThread(() =>
+            {
+                // The switch is one-way bound. Pulse the value so the switch returns to the saved preference.
+                mailbox.IsInDailyBriefing = requested;
+                mailbox.IsInDailyBriefing = !requested;
+            });
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                WinoAccountApiErrorTranslator.Translate(exception.Message),
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => mailbox.IsChangingDailyBriefing = false);
+        }
+    }
+
+    private void ApplyMailboxHomeDescriptions()
+    {
+        var total = IntelligenceMailboxes.Count;
+        var classified = IntelligenceMailboxes.Count(mailbox => mailbox.IsEnabled);
+        var inBriefing = IntelligenceMailboxes.Count(mailbox => mailbox.IsEnabled && mailbox.IsInDailyBriefing);
+
+        MailClassificationHomeDescription = total == 0
+            ? Translator.WinoIntelligence_MailClassification_HomeDescription
+            : $"{Translator.WinoIntelligence_MailClassification_HomeDescription} {string.Format(Translator.WinoIntelligence_MailClassification_HomeSummary, classified, total)}";
+        BriefingHomeDescription = total == 0
+            ? Translator.WinoIntelligence_Briefing_Description
+            : $"{Translator.WinoIntelligence_Briefing_Description} {string.Format(Translator.WinoIntelligence_Briefing_HomeSummary, inBriefing, total)}";
+    }
+
     [RelayCommand(CanExecute = nameof(CanManageSubscription))]
     private async Task ManageSubscriptionAsync()
     {
@@ -1065,7 +1197,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
             account.Preferences.IsSemanticIndexingEnabled = requested;
             await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
-            await ExecuteUIThread(() => mailbox.IsEnabled = requested);
+            await ExecuteUIThread(() =>
+            {
+                mailbox.IsEnabled = requested;
+                ApplyMailboxHomeDescriptions();
+            });
             WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
         }
         catch (Exception exception)
@@ -1497,6 +1633,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset reset ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, reset.LocalDateTime) : string.Empty;
             IntelligenceMailboxesSummary = DescribeBriefingMailboxes(mailboxItems);
             MailClassificationSummary = DescribeMailClassification(mailboxItems);
+            ApplyMailboxHomeDescriptions();
             IntelligenceLastUpdatedText = snapshot.LastSuccessfulRefreshUtc is DateTimeOffset updated ? updated.LocalDateTime.ToString("g") : string.Empty;
             IntelligenceRefreshError = string.IsNullOrWhiteSpace(refreshError) ? string.Empty : string.Format(
                 Translator.WinoIntelligence_CachedRefreshFailed,
@@ -1657,17 +1794,24 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         var assistantUsage = IntelligenceUsageItems.FirstOrDefault(item => item.Bucket == IntelligenceUsage.AssistantBucket);
         var voiceUsage = IntelligenceUsageItems.FirstOrDefault(item => item.Bucket == IntelligenceUsage.VoiceBucket);
-        VoiceUsageText = (assistantUsage, voiceUsage) switch
-        {
-            ({ } requests, { } spoken) => string.Format(Translator.WinoIntelligence_Voice_UsageDescription, requests.Used, requests.Limit, spoken.Used, spoken.Limit),
-            ({ } requests, null) => string.Format(Translator.WinoIntelligence_Voice_RequestsDescription, requests.Used, requests.Limit),
-            (null, { } spoken) => string.Format(Translator.WinoIntelligence_Voice_SpokenDescription, spoken.Used, spoken.Limit),
-            _ => Translator.WinoIntelligence_Voice_Description
-        };
+        var assistantUsageLine = DescribeAssistantUsage(assistantUsage, voiceUsage);
+        VoiceUsageText = assistantUsageLine ?? Translator.WinoIntelligence_Voice_Description;
+        AssistantHomeDescription = assistantUsageLine is null
+            ? Translator.WinoIntelligence_Home_AssistantDescription
+            : $"{Translator.WinoIntelligence_Home_AssistantDescription} {assistantUsageLine}.";
 
         ApplyOfferPerks();
         ApplyCtaTexts();
     }
+
+    public static string? DescribeAssistantUsage(IntelligenceUsageItem? assistantUsage, IntelligenceUsageItem? voiceUsage)
+        => (assistantUsage, voiceUsage) switch
+        {
+            ({ } requests, { } spoken) => string.Format(Translator.WinoIntelligence_Voice_UsageDescription, requests.Used, requests.Limit, spoken.Used, spoken.Limit),
+            ({ } requests, null) => string.Format(Translator.WinoIntelligence_Voice_RequestsDescription, requests.Used, requests.Limit),
+            (null, { } spoken) => string.Format(Translator.WinoIntelligence_Voice_SpokenDescription, spoken.Used, spoken.Limit),
+            _ => null
+        };
 
     private static string DescribeActiveSubscription(AiPackBillingStatusDto? aiPack)
     {
@@ -1695,7 +1839,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private void ApplyOfferPerks()
     {
-        var perks = IntelligenceOfferCatalog.CreatePerks();
+        var perks = IntelligenceOfferCatalog.CreatePerks()
+            .Where(perk => perk.Bucket != IntelligenceUsage.AssistantBucket)
+            .ToArray();
         for (var index = 0; index < perks.Length; index++)
         {
             var perk = perks[index];
@@ -1732,6 +1878,14 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         IntelligenceCtaButtonText = IsAiPackEnded
             ? Translator.WinoIntelligence_Cta_Renew
             : Translator.WinoAccount_Management_AiPackGetButton;
+
+        HeroSubscribeButtonText = IsAiPackEnded
+            ? Translator.WinoIntelligence_Cta_Renew
+            : Translator.WinoIntelligence_Hero_Subscribe;
+
+        IntelligenceHeroTermsText = IsSignedIn
+            ? string.Format(Translator.WinoIntelligence_Hero_SignedInTerms, AccountEmail)
+            : Translator.WinoIntelligence_Hero_SignedOutTerms;
     }
 
     private static void ResetAddOnItem(WinoAddOnItemViewModel addOn)
@@ -1884,6 +2038,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 : string.Empty;
             IntelligenceMailboxesSummary = DescribeBriefingMailboxes(mailboxItems);
             MailClassificationSummary = DescribeMailClassification(mailboxItems);
+            ApplyMailboxHomeDescriptions();
             IntelligenceDataError = mailboxError;
             ApplySubscriptionTexts();
             if (consent != null)
@@ -1926,7 +2081,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private static string DescribeLocalIntelligence(int processedMessageCount)
         => processedMessageCount > 0
             ? string.Format(Translator.SemanticIndex_IndexedCount, processedMessageCount)
-            : Translator.WinoAccount_Management_NoIntelligenceData;
+            : Translator.WinoIntelligence_Classification_NoneYet;
 
     private IntelligenceMailboxData CreateLocalIntelligenceMailboxItem(
         Wino.Core.Domain.Entities.Shared.MailAccount account,
@@ -1948,6 +2103,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ManageCommand = ManageIntelligenceMailboxCommand,
             DeleteCommand = DeleteIntelligenceCommand,
             ToggleEnabledCommand = ToggleIntelligenceMailboxCommand,
+            ToggleDailyBriefingCommand = ToggleDailyBriefingCommand,
+            OpenCommand = OpenMailClassificationAccountCommand,
+            OpenMailClassificationCommand = OpenMailClassificationCommand,
+            IsInDailyBriefing = account.Preferences?.IsDailyBriefingEnabled ?? true,
         };
 
     /// <summary>
@@ -1967,6 +2126,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _usageResetsAtUtc = usage?.ResetsAtUtc;
 
         var headline = IntelligenceUsage.Headline(usage);
+        BriefingInfoText = headline is null
+            ? Translator.WinoIntelligence_Briefing_Info
+            : string.Format(Translator.WinoIntelligence_Briefing_InfoWithUsage, headline.Used, headline.Limit);
         IntelligenceUsagePercentage = headline?.Percentage ?? 0;
         IntelligenceIncludedText = headline is null
             ? string.Empty
@@ -1992,7 +2154,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         ConsentDataDeletionStatus = IntelligenceDeletionStatuses.NotRequired;
         ConsentErrorMessage = string.Empty;
         IntelligenceDataError = string.Empty;
+        ConsentAcceptedText = string.Empty;
         IntelligenceMailboxes.Clear();
+        ApplyMailboxHomeDescriptions();
     });
 
     private WinoIntelligenceEntitlementSnapshot ResolveEntitlement(WinoAccountIntelligenceSnapshot snapshot)
@@ -2030,6 +2194,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         IntelligenceConsentStatusText = IsConsentGranted
             ? Translator.WinoAccount_IntelligenceConsentGranted
             : Translator.WinoAccount_IntelligenceConsentNotGranted;
+        ConsentAcceptedText = IsConsentGranted && consent.AcceptedAtUtc is { } acceptedAt
+            ? string.Format(Translator.WinoIntelligence_Policy_Accepted, acceptedAt.ToLocalTime())
+            : Translator.WinoIntelligence_Policy_NotAccepted;
     }
 
     private static bool IsCurrentIntelligenceConsent(IntelligenceConsentDto consent)

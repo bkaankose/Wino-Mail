@@ -1,7 +1,8 @@
-using AppKit;
+﻿using AppKit;
 using CommunityToolkit.Mvvm.Messaging;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Agent.Runtime.Plan;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -11,6 +12,7 @@ using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Services.Assistant;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Infrastructure.Voice;
 using Wino.Mail.ViewModels;
@@ -51,6 +53,7 @@ public sealed partial class AppDelegate
 
 #if DEBUG
         RegisterVoiceDebugCommands();
+        RegisterLabDebugCommands();
 #endif
     }
 
@@ -141,8 +144,38 @@ public sealed partial class AppDelegate
         await _dispatcher.ExecuteOnUIThread(() => _services!.GetRequiredService<AppKitNavigationService>().Navigate(WinoPage.CalendarEventComposePage, args));
     }
 
-    /// <summary>The Mac side of <see cref="IVoicePlanHost"/>: the same paths notifications and the companion use.</summary>
-    private sealed class MacVoicePlanHost(AppDelegate app) : IVoicePlanHost
+    /// <summary>A rule the assistant created, opened in the Settings window's rule editor.</summary>
+    private async Task OpenVoiceMailRuleAsync(Guid accountId, Guid filterId)
+        => await _dispatcher.ExecuteOnUIThread(() => _services!.GetRequiredService<AppKitNavigationService>()
+            .Navigate(WinoPage.MailFilterEditorPage, new MailFilterEditorNavigationParameter(accountId, filterId)));
+
+    /// <summary>A page of the app: a mode of the main window, the Settings window, or an account's mail rules.</summary>
+    private async Task OpenVoiceViewAsync(AgentView view, Guid? accountId)
+    {
+        switch (view)
+        {
+            case AgentView.MailRules:
+                var account = accountId ?? (await _services!.GetRequiredService<IAccountService>().GetAccountsAsync()).FirstOrDefault()?.Id;
+                if (account is { } id)
+                    await _dispatcher.ExecuteOnUIThread(() => _services!.GetRequiredService<AppKitNavigationService>().Navigate(WinoPage.MailFiltersPage, id));
+                break;
+            case AgentView.Settings:
+                await _dispatcher.ExecuteOnUIThread(() => _services!.GetRequiredService<AppKitNavigationService>().Navigate(WinoPage.SettingsPage, null));
+                break;
+            default:
+                await ShowWinoAsync(view switch
+                {
+                    AgentView.Calendar => WinoApplicationMode.Calendar,
+                    AgentView.Tasks => WinoApplicationMode.Tasks,
+                    AgentView.Contacts => WinoApplicationMode.Contacts,
+                    _ => WinoApplicationMode.Mail,
+                });
+                break;
+        }
+    }
+
+    /// <summary>The Mac side of <see cref="IAgentPlanHost"/>: the same paths notifications and the companion use.</summary>
+    private sealed class MacVoicePlanHost(AppDelegate app) : IAgentPlanHost
     {
         public Task OpenSearchAsync(MailAccount account, IReadOnlyList<IMailItemFolder> folders, MailSearchCriteria criteria)
             => app.OpenVoiceSearchAsync(account, folders, criteria);
@@ -154,5 +187,9 @@ public sealed partial class AppDelegate
         public Task OpenEventAsync(CalendarItem calendarItem) => app._notificationResponses.NavigateCalendarItemAsync(calendarItem.Id);
 
         public Task OpenEventEditorAsync(CalendarEventComposeNavigationArgs args) => app.OpenVoiceEventEditorAsync(args);
+
+        public Task OpenMailRuleAsync(Guid accountId, Guid filterId) => app.OpenVoiceMailRuleAsync(accountId, filterId);
+
+        public Task OpenViewAsync(AgentView view, Guid? accountId) => app.OpenVoiceViewAsync(view, accountId);
     }
 }

@@ -1,4 +1,4 @@
-using AppKit;
+﻿using AppKit;
 using Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Accounts;
@@ -22,13 +22,13 @@ internal sealed class SyncSecretSheet : WinoAccountSheet<string>
     {
         _isNewBackup = request.IsNewBackup;
 
-        var title = _isNewBackup ? Translator.WinoAccount_Sync_SecretDialog_NewTitle : Translator.WinoAccount_Sync_SecretDialog_Title;
-        var description = _isNewBackup
+        var title = request.Title ?? (_isNewBackup ? Translator.WinoAccount_Sync_SecretDialog_NewTitle : Translator.WinoAccount_Sync_SecretDialog_Title);
+        var description = request.Description ?? (_isNewBackup
             ? Translator.WinoAccount_Sync_SecretDialog_NewDescription_Device
-            : request.IsPassphrase ? Translator.WinoAccount_Sync_SecretDialog_PassphraseDescription : Translator.WinoAccount_Sync_SecretDialog_PasswordDescription;
-        var secretLabel = _isNewBackup || request.IsPassphrase
+            : request.IsPassphrase ? Translator.WinoAccount_Sync_SecretDialog_PassphraseDescription : Translator.WinoAccount_Sync_SecretDialog_PasswordDescription);
+        var secretLabel = request.FieldLabel ?? (_isNewBackup || request.IsPassphrase
             ? Translator.WinoAccount_Sync_SecretDialog_PassphraseLabel
-            : Translator.WinoAccount_Sync_SecretDialog_PasswordLabel;
+            : Translator.WinoAccount_Sync_SecretDialog_PasswordLabel);
 
         Sheet.Title = title;
         var heading = WinoStyle.Label(title, NSFont.SystemFontOfSize(18, NSFontWeight.Semibold), WinoStyle.PrimaryText, 0);
@@ -41,7 +41,7 @@ internal sealed class SyncSecretSheet : WinoAccountSheet<string>
         AddRow(header);
 
         var secretRow = Field(secretLabel, out _secret, secure: true);
-        var confirmRow = Field(Translator.WinoAccount_Sync_SecretDialog_ConfirmLabel, out _confirm, secure: true);
+        var confirmRow = Field(request.ConfirmLabel ?? Translator.WinoAccount_Sync_SecretDialog_ConfirmLabel, out _confirm, secure: true);
         // A new backup password is chosen here, so only the unlock field offers saved-password autofill.
         if (!_isNewBackup) _secret.ContentType = NSTextContentType.Password;
         confirmRow.Hidden = !_isNewBackup;

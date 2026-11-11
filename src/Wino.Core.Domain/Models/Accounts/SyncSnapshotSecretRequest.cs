@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 namespace Wino.Core.Domain.Models.Accounts;
 
@@ -9,7 +9,11 @@ namespace Wino.Core.Domain.Models.Accounts;
 /// with the Wino Account password of that time. <see cref="WasRejected"/> is set when a previous
 /// answer did not open the snapshot.
 /// </summary>
-public sealed record SyncSnapshotSecretRequest(bool IsPassphrase, bool WasRejected, bool IsNewBackup = false);
+/// <param name="Title">Replaces the dialog's title when the password protects something other than a snapshot.</param>
+/// <param name="Description">Replaces the dialog's description, likewise.</param>
+/// <param name="FieldLabel">Replaces the password field's label, likewise.</param>
+/// <param name="ConfirmLabel">Replaces the confirmation field's label, likewise.</param>
+public sealed record SyncSnapshotSecretRequest(bool IsPassphrase, bool WasRejected, bool IsNewBackup = false, string Title = null, string Description = null, string FieldLabel = null, string ConfirmLabel = null);
 
 /// <summary>
 /// Supplies the password for a snapshot. Returns null when the user cancels.

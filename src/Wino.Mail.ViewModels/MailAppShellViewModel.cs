@@ -282,7 +282,36 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
+    private TaskCompletionSource _navigationInitialization = CompletedNavigationInitialization();
+
+    private static TaskCompletionSource CompletedNavigationInitialization()
+    {
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        completed.SetResult();
+        return completed;
+    }
+
+    /// <summary>
+    /// Completes when the latest mode activation has rebuilt the menu and run its launch navigation. A page opened
+    /// before then (a draft, a search) is replaced by the default Inbox navigation.
+    /// </summary>
+    public Task NavigationInitialization => _navigationInitialization.Task;
+
     public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
+    {
+        var initialization = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _navigationInitialization = initialization;
+        try
+        {
+            await InitializeNavigationCoreAsync(parameters);
+        }
+        finally
+        {
+            initialization.TrySetResult();
+        }
+    }
+
+    private async Task InitializeNavigationCoreAsync(object? parameters)
     {
         if (!_hasRegisteredPersistentRecipients)
         {

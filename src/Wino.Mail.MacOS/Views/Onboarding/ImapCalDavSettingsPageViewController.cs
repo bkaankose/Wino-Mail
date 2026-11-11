@@ -1,4 +1,4 @@
-using AppKit;
+﻿using AppKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -426,6 +426,47 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             var step = args.Length > 0 && args[0].Equals("servers", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Servers : ImapSetupStep.SignIn;
             await Dispatcher.ExecuteOnUIThread(() => ViewModel.CurrentSetupStep = step);
             return "ok " + step;
+        });
+        // imap-fill KEY: the lab account KEY of tools/local-lab/.state/fixtures.json (copied to {tmp}/wino-debug/lab-fixtures.json):
+        // plaintext IMAP/SMTP on 127.0.0.1 and its DAV server, with the lab's test password. imap-save presses Save.
+        MacDebugBridge.Register("imap-fill", async args =>
+        {
+            var file = Path.Combine(Path.GetTempPath(), "wino-debug", "lab-fixtures.json");
+            if (args.Length == 0 || !File.Exists(file)) return "usage: imap-fill KEY (needs lab-fixtures.json)";
+            using var doc = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(file));
+            var account = doc.RootElement.GetProperty("accounts").EnumerateArray().FirstOrDefault(a => a.GetProperty("key").GetString() == args[0]);
+            if (account.ValueKind == System.Text.Json.JsonValueKind.Undefined) return "no such lab account";
+            string S(string name) => account.TryGetProperty(name, out var v) ? v.ToString() : string.Empty;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                var vm = ViewModel;
+                vm.DisplayName = S("name");
+                vm.EmailAddress = S("address");
+                vm.Password = S("password");
+                vm.IncomingServer = S("imapHost");
+                vm.IncomingServerPort = S("imapPort");
+                vm.IncomingServerUsername = S("address");
+                vm.IncomingServerPassword = S("password");
+                vm.OutgoingServer = S("smtpHost");
+                vm.OutgoingServerPort = S("smtpPort");
+                vm.OutgoingServerUsername = S("address");
+                vm.OutgoingServerPassword = S("password");
+                var none = vm.AvailableConnectionSecurities.FindIndex(c => c.ImapConnectionSecurity == ImapConnectionSecurity.None);
+                vm.SelectedIncomingServerConnectionSecurityIndex = none;
+                vm.SelectedOutgoingServerConnectionSecurityIndex = none;
+                vm.IsCalendarSupportEnabled = true;
+                vm.UseMailCredentialsForDav = false;
+                vm.CalDavServiceUrl = S("davUrl");
+                vm.CardDavServiceUrl = S("cardDavUrl");
+                vm.CalDavUsername = S("davUsername");
+                vm.CalDavPassword = S("password");
+            });
+            return "filled " + S("address");
+        });
+        MacDebugBridge.Register("imap-save", async _ =>
+        {
+            await Dispatcher.ExecuteOnUIThread(() => ViewModel.SaveCommand.Execute(null));
+            return "saving";
         });
         MacDebugBridge.Register("imap-expand", async args =>
         {

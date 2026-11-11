@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Mail.Api.Contracts.Voice;
 
 namespace Wino.Core.Domain.Models.MailItem;
 

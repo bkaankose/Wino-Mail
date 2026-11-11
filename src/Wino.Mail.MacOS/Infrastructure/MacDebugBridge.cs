@@ -1,4 +1,4 @@
-#if DEBUG
+﻿#if DEBUG
 using AppKit;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +34,9 @@ public static class MacDebugBridge
         _services = services;
         Directory.CreateDirectory(Folder);
         RegisterBuiltIns();
-        _timer = NSTimer.CreateRepeatingScheduledTimer(0.5, timer => { _ = PollAsync(); });
+        // Common modes, so a modal alert (which runs the loop in the modal mode) does not stop the bridge.
+        _timer = NSTimer.CreateRepeatingTimer(0.5, timer => { _ = PollAsync(); });
+        NSRunLoop.Main.AddTimer(_timer, NSRunLoopMode.Common);
     }
 
     private static async Task PollAsync()

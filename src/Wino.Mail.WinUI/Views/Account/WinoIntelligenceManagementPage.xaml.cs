@@ -11,7 +11,6 @@ namespace Wino.Views;
 public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceManagementPageAbstract
 {
     private bool _isApplyingToggleState;
-    private bool _isApplyingIntelligencePreferenceState;
 
     public WinoIntelligenceManagementPage()
     {
@@ -39,25 +38,6 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
         finally
         {
             _isApplyingToggleState = false;
-        }
-    }
-
-    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
-    private async void DailyBriefingToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_isApplyingIntelligencePreferenceState || !ViewModel.IsPageReady || sender is not ToggleSwitch toggleSwitch)
-            return;
-
-        _isApplyingIntelligencePreferenceState = true;
-        try
-        {
-            var actualState = await ViewModel.SetDailyBriefingEnabledAsync(toggleSwitch.IsOn);
-            if (toggleSwitch.IsOn != actualState)
-                toggleSwitch.IsOn = actualState;
-        }
-        finally
-        {
-            _isApplyingIntelligencePreferenceState = false;
         }
     }
 

@@ -108,7 +108,12 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     public bool HasPurchaseStatus => !string.IsNullOrWhiteSpace(PurchaseStatusMessage);
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DailyBriefingStatusText))]
     public partial bool IsDailyBriefingEnabled { get; set; } = true;
+
+    public string DailyBriefingStatusText => IsDailyBriefingEnabled
+        ? Translator.WinoIntelligence_Briefing_AccountIncluded
+        : Translator.WinoIntelligence_Briefing_AccountNotIncluded;
 
     /// <summary>Ordered, local visibility choices for the current mailbox.</summary>
     public ObservableCollection<IntelligenceIndicatorSettingsItem> IntelligenceIndicatorSettings { get; } = [];
@@ -749,6 +754,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private void OpenIntelligenceSettings()
         => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoIntelligencePage));
 
+    [RelayCommand]
+    private void OpenDailyBriefingSettings()
+        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.IntelligenceBriefingPage));
+
     [RelayCommand(CanExecute = nameof(CanStartIndexing))]
     private async Task StartIndexingAsync()
     {
@@ -1275,7 +1284,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     {
         if (!state.HasIntelligenceData)
         {
-            return Translator.WinoAccount_Management_NoIntelligenceData;
+            return Translator.WinoIntelligence_Classification_NoneYet;
         }
 
         return string.Format(Translator.SemanticIndex_IndexedCount, state.ProcessedMessageCount);

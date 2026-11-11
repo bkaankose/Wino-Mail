@@ -1,0 +1,80 @@
+﻿<abstract:MailClassificationPageAbstract
+    x:Class="Wino.Views.Settings.MailClassificationPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="ClassificationMailboxTemplate" x:DataType="viewModelData:WinoIntelligenceMailboxItemViewModel">
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
+                AutomationProperties.Name="{x:Bind Address}"
+                Command="{x:Bind OpenCommand}"
+                CommandParameter="{x:Bind}"
+                Description="{x:Bind IntelligenceSummary}"
+                Header="{x:Bind Address}"
+                IsClickEnabled="{x:Bind CanManage}">
+                <controls:SettingsCard.Resources>
+                    <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+                </controls:SettingsCard.Resources>
+                <controls:SettingsCard.HeaderIcon>
+                    <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account, ProviderType, SpecialProvider)}" IconSize="28" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    MinWidth="0"
+                    AutomationProperties.AutomationId="{x:Bind ToggleAutomationId}"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_MailClassification_ToggleName, Mode=OneTime}"
+                    IsEnabled="{x:Bind CanChangeEnabled, Mode=OneWay}"
+                    IsOn="{x:Bind IsEnabled, Mode=OneWay}"
+                    OffContent=""
+                    OnContent=""
+                    Tag="{x:Bind}"
+                    Toggled="ClassificationToggle_Toggled"
+                    ToolTipService.ToolTip="{x:Bind ToggleUnavailableTooltip}" />
+            </controls:SettingsCard>
+        </DataTemplate>
+    </Page.Resources>
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <InfoBar
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.HasIntelligenceDataError, Mode=OneWay}"
+            Message="{x:Bind ViewModel.IntelligenceDataError, Mode=OneWay}"
+            Severity="Error"
+            Visibility="{x:Bind ViewModel.HasIntelligenceDataError, Mode=OneWay}" />
+        <InfoBar
+            AutomationProperties.AutomationId="MailClassificationConsentRequiredInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentGranted), Mode=OneWay}"
+            Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentNotGranted, Mode=OneTime}"
+            Severity="Informational"
+            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsConsentGranted), Mode=OneWay}">
+            <InfoBar.ActionButton>
+                <Button
+                    AutomationProperties.AutomationId="MailClassificationOpenPrivacyButton"
+                    Command="{x:Bind ViewModel.OpenPrivacyDataCommand}"
+                    Content="{x:Bind domain:Translator.WinoIntelligence_PrivacyData_Title, Mode=OneTime}" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <ItemsControl
+            AutomationProperties.AutomationId="MailClassificationAccountList"
+            ItemTemplate="{StaticResource ClassificationMailboxTemplate}"
+            ItemsSource="{x:Bind ViewModel.IntelligenceMailboxes}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="{StaticResource SettingsCardSpacing}" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+    </StackPanel>
+</abstract:MailClassificationPageAbstract>

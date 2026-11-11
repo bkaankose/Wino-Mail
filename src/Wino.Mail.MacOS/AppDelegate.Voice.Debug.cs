@@ -1,4 +1,10 @@
-#if DEBUG
+﻿#if DEBUG
+using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain;
+using Wino.Agent.Runtime.Plan;
+using Wino.Core.Services.Assistant;
+using Wino.Agent.Runtime.Ports;
+using Wino.Core.Domain.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.Core.AccountIcon;
@@ -19,6 +25,71 @@ public sealed partial class AppDelegate
 
     private void RegisterVoiceDebugCommands()
     {
+        // assistant-secret new|enter: the memory sync password sheet with its wording; nothing is kept.
+        MacDebugBridge.Register("assistant-secret", async args =>
+        {
+            var isNew = args.Length == 0 || args[0] != "enter";
+            var request = new SyncSnapshotSecretRequest(true, false, isNew,
+                isNew ? Translator.VoiceBrain_Sync_NewPassword_Title : Translator.VoiceBrain_Sync_Password_Title,
+                isNew ? Translator.VoiceBrain_Sync_NewPassword_Description : Translator.VoiceBrain_Sync_Password_Description,
+                Translator.VoiceBrain_Sync_PasswordLabel, Translator.VoiceBrain_Sync_ConfirmPasswordLabel);
+            _ = _services!.GetRequiredService<IMailDialogService>().ShowWinoAccountSyncSecretDialogAsync(request);
+            await Task.Delay(400);
+            return "shown";
+        });
+
+        // assistant-view calendar|tasks|contacts|settings|mailRules: the page an OpenView step opens.
+        MacDebugBridge.Register("assistant-view", async args =>
+        {
+            if (args.Length == 0 || !Enum.TryParse<AgentView>(args[0], ignoreCase: true, out var view)) return "usage: assistant-view <view>";
+            await OpenVoiceViewAsync(view, null);
+            return "ok " + view;
+        });
+
+        // assistant-rule-run <account address>: runs a CreateMailRule step the way a confirmed plan does (mark read and
+        // archive every mail whose subject contains "wino-debug-rule"), which creates two Wino rules and opens the first.
+        // assistant-rule-clean <account address> deletes the rules it made.
+        MacDebugBridge.Register("assistant-rule-run", async args =>
+        {
+            var account = (await _services!.GetRequiredService<IAccountService>().GetAccountsAsync()).FirstOrDefault(a => args.Length > 0 && string.Equals(a.Address, args[0], StringComparison.OrdinalIgnoreCase));
+            if (account is null) return "no such account";
+            var rule = new StepArgs.MailRuleArgs(account.Id, "wino-debug-rule", MailFilterMatchMode.All,
+                [new MailRuleCondition(MailFilterConditionField.Subject, MailFilterConditionOperator.Contains, "wino-debug-rule")],
+                [new MailRuleAction(MailFilterActionType.MarkRead), new MailRuleAction(MailFilterActionType.Archive)]);
+            var step = new ResolvedStep(1, AgentAction.CreateMailRule, StepTarget.None.Instance, rule, null, null, RiskLevel.Medium, true, "debug rule", null);
+            var executor = _services!.GetRequiredService<AgentPlanExecutor>();
+            executor.Host = new MacVoicePlanHost(this);
+            var outcome = await executor.ExecuteAsync(new ResolvedPlan(Guid.NewGuid(), [step], "debug rule", 1, false), new Progress<StepOutcome>(), CancellationToken.None);
+            var filters = await _services!.GetRequiredService<IMailFilterService>().GetFiltersAsync(account.Id) ?? [];
+            var made = filters.Where(f => f.Name.StartsWith("wino-debug-rule", StringComparison.Ordinal))
+                .Select(f => $"{f.Name}: {string.Join(",", f.Actions.Select(a => a.Type))} target={(f.Actions.Any(a => a.TargetRemoteFolderId is not null) ? "set" : "none")} source={(f.SourceRemoteFolderId is null ? "none" : "inbox")}");
+            return $"{outcome.Steps[0].Status} '{outcome.Steps[0].Detail}' | {string.Join(" | ", made)}";
+        });
+        MacDebugBridge.Register("assistant-rule-clean", async args =>
+        {
+            var account = (await _services!.GetRequiredService<IAccountService>().GetAccountsAsync()).FirstOrDefault(a => args.Length > 0 && string.Equals(a.Address, args[0], StringComparison.OrdinalIgnoreCase));
+            if (account is null) return "no such account";
+            var service = _services!.GetRequiredService<IMailFilterService>();
+            var mine = (await service.GetFiltersAsync(account.Id) ?? []).Where(f => f.Name.StartsWith("wino-debug-rule", StringComparison.Ordinal)).ToList();
+            foreach (var f in mine) await service.DeleteFilterAsync(f.Id);
+            return $"deleted {mine.Count}";
+        });
+
+        // assistant-rule: the rule editor as a created rule opens it (the first account's first rule; navigation only).
+        MacDebugBridge.Register("assistant-rule", async _ =>
+        {
+            var accounts = await _services!.GetRequiredService<IAccountService>().GetAccountsAsync();
+            foreach (var account in accounts)
+            {
+                var filters = await _services!.GetRequiredService<IMailFilterService>().GetFiltersAsync(account.Id) ?? [];
+                if (filters.Count == 0) continue;
+                await OpenVoiceMailRuleAsync(account.Id, filters[0].Id);
+                return $"ok {filters[0].Name}";
+            }
+
+            return "no rules on any account";
+        });
+
         MacDebugBridge.Register("voice-status", async _ =>
         {
             var result = string.Empty;

@@ -513,6 +513,16 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
+    public async Task ShowWinoAssistantDemoAsync()
+    {
+        var dialog = new WinoAssistantDemoDialog()
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+    }
+
     public async Task<bool> ShowIntelligenceConsentPolicyDialogAsync(Uri? policyUri, Func<Task<bool>> acceptAsync)
     {
         var dialog = new IntelligenceConsentPolicyDialog(policyUri, acceptAsync)

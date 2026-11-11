@@ -1,18 +1,21 @@
-#nullable enable
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Agent.Runtime.Plan;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Services.Assistant;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Mail.WinUI.Services.Voice;
 
-/// <summary>The Windows side of <see cref="IVoicePlanHost"/>: hands each step to the app, which opens the shell window.</summary>
-internal sealed class VoicePlanHost(App app) : IVoicePlanHost
+/// <summary>The Windows side of <see cref="IAgentPlanHost"/>: hands each step to the app, which opens the shell window.</summary>
+internal sealed class VoicePlanHost(App app) : IAgentPlanHost
 {
     public Task OpenSearchAsync(MailAccount account, IReadOnlyList<IMailItemFolder> folders, MailSearchCriteria criteria)
         => app.OpenVoiceSearchAsync(account, folders, criteria);
@@ -24,4 +27,8 @@ internal sealed class VoicePlanHost(App app) : IVoicePlanHost
     public Task OpenEventAsync(CalendarItem calendarItem) => app.OpenVoiceEventAsync(calendarItem);
 
     public Task OpenEventEditorAsync(CalendarEventComposeNavigationArgs args) => app.OpenVoiceEventEditorAsync(args);
+
+    public Task OpenMailRuleAsync(Guid accountId, Guid filterId) => app.OpenVoiceMailRuleAsync(accountId, filterId);
+
+    public Task OpenViewAsync(AgentView view, Guid? accountId) => app.OpenVoiceViewAsync(view, accountId);
 }

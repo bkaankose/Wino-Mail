@@ -71,9 +71,10 @@ public interface ISynchronizationManager
     event EventHandler<Guid> RequestsQueued;
 
     /// <summary>
-    /// Cancels the latest undoable queued action for the given account.
+    /// Cancels the latest undoable queued action for the given account. Returns false when no action was still
+    /// waiting in its undo window, so nothing was undone.
     /// </summary>
-    Task UndoLatestQueuedAction(Guid accountId);
+    Task<bool> UndoLatestQueuedAction(Guid accountId);
 
     /// <summary>
     /// Cancels the latest undoable queued action for the given synchronizer account.

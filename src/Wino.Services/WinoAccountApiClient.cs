@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -30,7 +30,7 @@ using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Store;
 using Wino.Mail.Api.Contracts.Users;
-using Wino.Mail.Api.Contracts.Voice;
+using Wino.Mail.Api.Contracts.Assistant;
 using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Services;
@@ -92,7 +92,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         _httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri(ApiUrl)
+            BaseAddress = new Uri(ResolveApiUrl())
         };
         ConfigureHttpVersion(_httpClient);
 
@@ -126,10 +126,24 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<WinoAccountApiResult<AuthResultDto>> CompleteExternalSignInAsync(string code, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync("api/v1/auth/external/complete", new CompleteExternalAuthRequest(code), WinoAccountApiJsonContext.Default.CompleteExternalAuthRequest, cancellationToken);
 
+    /// <summary>
+    /// The API this app talks to: production, except in a Debug build started with <c>WINO_API_URL</c> naming an API on
+    /// this machine (the local lab). Only a loopback address is accepted, and Release builds never read the variable.
+    /// </summary>
+    private static string ResolveApiUrl()
+    {
+#if DEBUG
+        if (Environment.GetEnvironmentVariable("WINO_API_URL") is { Length: > 0 } local
+            && Uri.TryCreate(local, UriKind.Absolute, out var uri) && uri.IsLoopback)
+            return uri.GetLeftPart(UriPartial.Authority) + "/";
+#endif
+        return ApiUrl;
+    }
+
     /// <summary>The production API starts on winomail.app (see <see cref="WinoAccountExternalAuth.StartUri"/>); a local API directly.</summary>
     public Uri GetExternalSignInAuthorizationUri(string provider)
     {
-        var baseAddress = _httpClient.BaseAddress ?? new Uri(ApiUrl);
+        var baseAddress = _httpClient.BaseAddress ?? new Uri(ResolveApiUrl());
         return baseAddress.Host == "api.winomail.app"
             ? WinoAccountExternalAuth.StartUri(provider)
             : new Uri(baseAddress, $"api/v1/auth/{provider}/authorize");
@@ -424,7 +438,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             return null;
         }
 
-        return new WinoSyncSnapshotDownload(payload, ReadRevision(response));
+        return new WinoSyncSnapshotDownload(payload, ReadRevision(response, SyncSnapshotFormat.RevisionHeaderName));
     }
 
     public async Task<UserSyncSnapshotStatusDto?> GetSyncSnapshotStatusAsync(CancellationToken cancellationToken = default)
@@ -482,18 +496,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
 
         throw new WinoAccountApiException(envelope.ErrorCode ?? "Snapshot upload failed.", response.StatusCode);
-    }
-
-    private static long ReadRevision(HttpResponseMessage response)
-    {
-        if (response.Headers.TryGetValues(SyncSnapshotFormat.RevisionHeaderName, out var values)
-            && long.TryParse(values.FirstOrDefault(), out var revision))
-        {
-            return revision;
-        }
-
-        var tag = response.Headers.ETag?.Tag?.Trim('"');
-        return long.TryParse(tag, out var etagRevision) ? etagRevision : 0;
     }
 
     public async Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default)
@@ -958,43 +960,122 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
     }
 
-    private const string VoiceModeEndpoint = "api/v1/ai/voice/mode";
-    private const string VoiceBrainEndpoint = "api/v1/ai/voice/brain";
-    private const string VoiceBrainSectionsEndpoint = "api/v1/ai/voice/brain/sections";
-    private const string VoiceBrainFactsEndpoint = "api/v1/ai/voice/brain/facts";
+    private const string AssistantInterpretEndpoint = "api/v2/assistant/interpret";
+    private const string AssistantComposeEndpoint = "api/v2/assistant/compose";
+    private const string AgentBrainEndpoint = "api/v1/users/me/brain";
 
-    public Task<ApiEnvelope<VoiceModeDto>> GetVoiceModeAsync(CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(VoiceModeEndpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeVoiceModeDto, cancellationToken);
+    public Task<ApiEnvelope<AssistantComposeResult>> ComposeAssistantAsync(AssistantComposeRequest request, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Post, AssistantComposeEndpoint, request,
+            WinoAccountApiJsonContext.Default.AssistantComposeRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeAssistantComposeResult, cancellationToken);
 
-    public Task<ApiEnvelope<VoiceModeDto>> SetVoiceModeAsync(VoiceMode mode, CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(HttpMethod.Put, VoiceModeEndpoint, new UpdateVoiceModeRequest(mode),
-            WinoAccountApiJsonContext.Default.UpdateVoiceModeRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeVoiceModeDto, cancellationToken);
+    public async Task<UserAgentBrainStatusDto?> GetAgentBrainStatusAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Get, AgentBrainEndpoint + "/status"),
+            cancellationToken).ConfigureAwait(false);
 
-    public Task<ApiEnvelope<VoiceBrainDto>> GetVoiceBrainAsync(CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(VoiceBrainEndpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeVoiceBrainDto, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+            return null;
 
-    public Task<ApiEnvelope<BrainSectionPushResult>> PushVoiceBrainSectionAsync(PushBrainSectionRequest request, CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(HttpMethod.Put, VoiceBrainSectionsEndpoint, request,
-            WinoAccountApiJsonContext.Default.PushBrainSectionRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeBrainSectionPushResult, cancellationToken);
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        var envelope = await ReadEnvelopeAsync(response, WinoAccountApiJsonContext.Default.ApiEnvelopeUserAgentBrainStatusDto, cancellationToken).ConfigureAwait(false);
+        return envelope.IsSuccess ? envelope.Result : null;
+    }
 
-    public Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainSectionAsync(BrainMailboxKey mailbox, CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(HttpMethod.Delete, VoiceBrainSectionsEndpoint, new DeleteBrainSectionRequest(mailbox),
-            WinoAccountApiJsonContext.Default.DeleteBrainSectionRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement, cancellationToken);
+    public async Task<WinoAgentBrainDownload?> GetAgentBrainAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Get, AgentBrainEndpoint),
+            cancellationToken).ConfigureAwait(false);
 
-    public Task<ApiEnvelope<BrainFact>> AddVoiceBrainFactAsync(AddBrainFactRequest request, CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(HttpMethod.Post, VoiceBrainFactsEndpoint, request,
-            WinoAccountApiJsonContext.Default.AddBrainFactRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeBrainFact, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+            return null;
 
-    public Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainFactAsync(string factId, CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(HttpMethod.Delete, $"{VoiceBrainFactsEndpoint}/{Uri.EscapeDataString(factId)}",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement, cancellationToken);
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        if (IsHtmlResponse(response))
+            throw NonApiResponse(response.StatusCode, null);
 
-    public Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainAsync(CancellationToken cancellationToken = default)
-        => SendAuthorizedRequestAsync(HttpMethod.Delete, VoiceBrainEndpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement, cancellationToken);
+        byte[] payload;
+        try
+        {
+            payload = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            throw ServiceUnavailable(ex, response.StatusCode);
+        }
 
-    private const string VoiceInterpretEndpoint = "api/v1/ai/voice/interpret";
+        return payload.Length == 0 ? null : new WinoAgentBrainDownload(payload, ReadRevision(response, AgentBrainFormat.RevisionHeaderName));
+    }
 
-    public async Task<VoiceConnectResult> ConnectVoiceAsync(CancellationToken cancellationToken = default)
+    public async Task<UserAgentBrainStatusDto> PutAgentBrainAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        using var response = await SendAuthorizedAsync(
+            async () =>
+            {
+                var request = await CreateAuthorizedRequestAsync(HttpMethod.Put, AgentBrainEndpoint, () =>
+                {
+                    var content = new ByteArrayContent(payload);
+                    content.Headers.ContentType = new MediaTypeHeaderValue(AgentBrainFormat.ContentType);
+                    return content;
+                }).ConfigureAwait(false);
+
+                if (request != null && expectedRevision is { } revision)
+                    request.Headers.IfMatch.Add(new EntityTagHeaderValue($"\"{revision}\""));
+
+                return request;
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var conflict = await ReadEnvelopeAsync(response, WinoAccountApiJsonContext.Default.ApiEnvelopeUserAgentBrainStatusDto, cancellationToken).ConfigureAwait(false);
+            throw new WinoAgentBrainConflictException(ReadCurrentRevision(conflict.Details));
+        }
+
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        var envelope = await ReadEnvelopeAsync(response, WinoAccountApiJsonContext.Default.ApiEnvelopeUserAgentBrainStatusDto, cancellationToken).ConfigureAwait(false);
+        if (envelope.IsSuccess && envelope.Result != null)
+            return envelope.Result;
+
+        throw new WinoAccountApiException(envelope.ErrorCode ?? "Brain upload failed.", response.StatusCode);
+    }
+
+    public async Task DeleteAgentBrainAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Delete, AgentBrainEndpoint),
+            cancellationToken).ConfigureAwait(false);
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The <c>currentRevision</c> of a conflict envelope's details (an untyped object in the envelope).</summary>
+    private static long ReadCurrentRevision(object? details)
+    {
+        if (details is JsonElement element && element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Name.Equals("currentRevision", StringComparison.OrdinalIgnoreCase) && property.Value.TryGetInt64(out var revision))
+                    return revision;
+            }
+        }
+
+        return 0;
+    }
+
+    private static long ReadRevision(HttpResponseMessage response, string headerName)
+    {
+        if (response.Headers.TryGetValues(headerName, out var values) && long.TryParse(values.FirstOrDefault(), out var revision))
+            return revision;
+
+        var tag = response.Headers.ETag?.Tag?.Trim('"');
+        return long.TryParse(tag, out var etagRevision) ? etagRevision : 0;
+    }
+
+    public async Task<VoiceConnectResult> ConnectAssistantAsync(CancellationToken cancellationToken = default)
     {
         var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
         if (session is null || session.IsInvalid)
@@ -1018,7 +1099,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         if (string.IsNullOrWhiteSpace(accessToken))
             return VoiceConnectResult.Failed(WinoAccountClientErrorCodes.SignInRequired);
 
-        var result = await TryConnectVoiceAsync(accessToken, cancellationToken).ConfigureAwait(false);
+        var result = await TryConnectAssistantAsync(accessToken, cancellationToken).ConfigureAwait(false);
         if (result.ErrorCode != ApiErrorCodes.SessionInvalid)
             return result;
 
@@ -1028,13 +1109,13 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         accessToken = await GetAccessTokenAsync().ConfigureAwait(false);
         return string.IsNullOrWhiteSpace(accessToken)
             ? VoiceConnectResult.Failed(WinoAccountClientErrorCodes.SignInRequired)
-            : await TryConnectVoiceAsync(accessToken, cancellationToken).ConfigureAwait(false);
+            : await TryConnectAssistantAsync(accessToken, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<VoiceConnectResult> TryConnectVoiceAsync(string accessToken, CancellationToken cancellationToken)
+    private async Task<VoiceConnectResult> TryConnectAssistantAsync(string accessToken, CancellationToken cancellationToken)
     {
-        var baseAddress = _httpClient.BaseAddress ?? new Uri(ApiUrl);
-        var builder = new UriBuilder(new Uri(baseAddress, VoiceInterpretEndpoint))
+        var baseAddress = _httpClient.BaseAddress ?? new Uri(ResolveApiUrl());
+        var builder = new UriBuilder(new Uri(baseAddress, AssistantInterpretEndpoint))
         {
             Scheme = baseAddress.Scheme == Uri.UriSchemeHttps ? "wss" : "ws"
         };
@@ -1077,7 +1158,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                     _ => WinoAccountClientErrorCodes.ServiceUnavailable
                 };
 
-            _logger.Warning("The voice socket could not be opened: HTTP {StatusCode}, {ErrorCode}. {Reason}",
+            _logger.Warning("The assistant socket could not be opened: HTTP {StatusCode}, {ErrorCode}. {Reason}",
                 (int)status, code, ex.GetBaseException().Message);
             return VoiceConnectResult.Failed(code);
         }
@@ -1391,14 +1472,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceConsentDto>))]
 [JsonSerializable(typeof(AcceptAppPolicyRequest))]
 [JsonSerializable(typeof(ApiEnvelope<AppPolicyAcceptanceDto>))]
-[JsonSerializable(typeof(UpdateVoiceModeRequest))]
-[JsonSerializable(typeof(ApiEnvelope<VoiceModeDto>))]
-[JsonSerializable(typeof(ApiEnvelope<VoiceBrainDto>))]
-[JsonSerializable(typeof(PushBrainSectionRequest))]
-[JsonSerializable(typeof(ApiEnvelope<BrainSectionPushResult>))]
-[JsonSerializable(typeof(DeleteBrainSectionRequest))]
-[JsonSerializable(typeof(AddBrainFactRequest))]
-[JsonSerializable(typeof(ApiEnvelope<BrainFact>))]
-[JsonSerializable(typeof(VoiceBrainDto))]
-[JsonSerializable(typeof(BrainSection))]
+[JsonSerializable(typeof(AssistantComposeRequest))]
+[JsonSerializable(typeof(ApiEnvelope<AssistantComposeResult>))]
+[JsonSerializable(typeof(ApiEnvelope<UserAgentBrainStatusDto>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;

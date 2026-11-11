@@ -78,7 +78,9 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
-        services.AddTransient<IVoicePlanExecutor, Services.Voice.VoicePlanExecutor>();
+        // One executor per app: the platform sets its window host on it (AgentPlanExecutor.Host) when the shell is up.
+        services.AddSingleton<Services.Assistant.AgentPlanExecutor>();
+        services.AddSingleton<Wino.Agent.Runtime.Ports.IAgentPlanExecutor>(provider => provider.GetRequiredService<Services.Assistant.AgentPlanExecutor>());
         services.AddTransient<IMailFilterExecutor, MailFilterExecutor>();
         services.AddTransient<IMailFilterProviderService, MailFilterProviderService>();
         services.AddTransient<IProviderFeatureAuthorizationService, ProviderFeatureAuthorizationService>();

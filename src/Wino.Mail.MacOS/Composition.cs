@@ -1,4 +1,4 @@
-using AppKit;
+﻿using AppKit;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -38,7 +38,12 @@ internal static class Composition
         var paths = new ApplePaths(identity, NSBundle.MainBundle.ResourcePath ?? AppContext.BaseDirectory);
         var newInstallation = paths.IsVerifiedNewInstallation;
         var keychain = new AppleKeychainStore(identity);
-        var protector = new AesGcmEnvelopeSecretProtector(new SecureItemSecretProtectionKeyProvider(keychain, identity.Value));
+        ISecureItemStore secureStore = keychain;
+#if DEBUG
+        // The local lab app (ad hoc signed, its own container) cannot use the data protection keychain.
+        if (LabSecureItemStore.IsLabBundle) secureStore = new LabSecureItemStore();
+#endif
+        var protector = new AesGcmEnvelopeSecretProtector(new SecureItemSecretProtectionKeyProvider(secureStore, identity.Value));
         if (newInstallation) protector.ProvisionNewInstallationKey(true);
         paths.CreateDirectories();
 
@@ -54,7 +59,7 @@ internal static class Composition
         services.AddSingleton(identity);
         services.AddSingleton(paths);
         services.AddSingleton(keychain);
-        services.AddSingleton<ISecureItemStore>(keychain);
+        services.AddSingleton<ISecureItemStore>(secureStore);
         services.AddSingleton<ISecretProtector>(protector);
         services.Replace(ServiceDescriptor.Singleton<IApplicationConfiguration>(new ApplicationConfiguration
         {
@@ -162,10 +167,6 @@ internal static class Composition
         services.AddSingleton<AppKitNavigationService>(provider => new(provider, dispatcher, host));
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<AppKitNavigationService>());
         services.RegisterMacViewModels();
-#if DEBUG
-        if (Environment.GetCommandLineArgs().Contains(Infrastructure.Voice.ReadOnlyVoiceBrainService.LaunchArgument))
-            services.AddSingleton<IVoiceBrainService, Infrastructure.Voice.ReadOnlyVoiceBrainService>();
-#endif
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 

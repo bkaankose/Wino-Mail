@@ -1,4 +1,5 @@
-using AppKit;
+﻿using AppKit;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -258,6 +259,10 @@ public sealed partial class MailListPageViewController
         {
             Image = WinoIcons.Image(WinoIconGlyph.Reminder, 16)
         });
+        // Windows MailContextFlyoutBuilder: opens the assistant about the clicked mails.
+        menu.AddItem(new NSMenuItem(Translator.VoiceBubble_DebugOpenForSelection, (_, _) =>
+            WeakReferenceMessenger.Default.Send(new Wino.Messaging.UI.VoiceSelectionRequested(
+                Wino.Core.Domain.Models.Voice.VoiceLocalSelection.ForMails(targets.Select(static item => item.MailCopy).ToList())))));
 #endif
     }
 

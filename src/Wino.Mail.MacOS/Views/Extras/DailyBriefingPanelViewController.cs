@@ -31,6 +31,7 @@ public sealed class DailyBriefingPanelViewController : NSViewController
     private readonly IDispatcher _dispatcher;
     private readonly IWinoLogger _logger;
     private readonly Action _close;
+    private readonly Action? _openMailClassification;
     private readonly Dictionary<DailyBriefingItem, (WinoBriefingCardView Card, PropertyChangedEventHandler Handler)> _cards = new();
 
     private NSButton _showIgnored = null!;
@@ -45,8 +46,10 @@ public sealed class DailyBriefingPanelViewController : NSViewController
     private bool _visible;
     private bool _disposed;
 
-    public DailyBriefingPanelViewController(DailyBriefingPanelViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, Action close)
+    public DailyBriefingPanelViewController(DailyBriefingPanelViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, Action close,
+        Action? openMailClassification = null)
     {
+        _openMailClassification = openMailClassification;
         _viewModel = viewModel;
         _dispatcher = dispatcher;
         _logger = logger;
@@ -124,6 +127,20 @@ public sealed class DailyBriefingPanelViewController : NSViewController
         _empty = new WinoStateView(WinoIconGlyph.Info, Translator.DailyBriefing_EmptyTitle, Translator.DailyBriefing_EmptyMessage);
         _filtered = new WinoStateView(WinoIconGlyph.EyeOff, Translator.DailyBriefing_FilteredEmptyTitle, Translator.DailyBriefing_FilteredEmptyMessage);
         _unavailable = new WinoStateView(WinoIconGlyph.Info, Translator.DailyBriefing_UnavailableTitle, Translator.DailyBriefing_UnavailableMessage);
+        if (_openMailClassification is { } openMailClassification)
+        {
+            var link = new NSButton { Bordered = false, TranslatesAutoresizingMaskIntoConstraints = false };
+            link.SetButtonType(NSButtonType.MomentaryChange);
+            link.AttributedTitle = new Foundation.NSAttributedString(Translator.DailyBriefing_OpenMailClassification,
+                new NSStringAttributes { ForegroundColor = WinoStyle.Accent, Font = NSFont.SystemFontOfSize(13) });
+            WinoAccessibility.Label(link, Translator.DailyBriefing_OpenMailClassification);
+            link.Activated += (_, _) =>
+            {
+                _close();
+                openMailClassification();
+            };
+            _unavailable.Add(link);
+        }
         _error = new WinoStateView(WinoIconGlyph.AlertCircle, Translator.DailyBriefing_LocalErrorTitle, string.Empty, WinoStyle.Critical);
         var retry = new NSButton { Title = Translator.DailyBriefing_Retry, BezelStyle = NSBezelStyle.Rounded, TranslatesAutoresizingMaskIntoConstraints = false };
         retry.Activated += (_, _) => _viewModel.RetryCommand.Execute(null);

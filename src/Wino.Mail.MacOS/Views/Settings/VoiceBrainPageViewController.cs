@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using AppKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -13,8 +13,8 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS.Views.Settings;
 
 /// <summary>
-/// What Wino remembers (Windows VoiceBrainPage), under Voice Control in Personal mode: the learned people, accounts,
-/// folders and defaults with a forget button each, the remembered mailboxes, and the two ways to forget everything.
+/// What Wino remembers (Windows VoiceBrainPage), under Voice Control: the learned people, accounts, folders and
+/// defaults with a forget button each, memory sync across devices, and the way to forget everything.
 /// </summary>
 public sealed class VoiceBrainPageViewController(VoiceBrainPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<VoiceBrainPageViewModel>(viewModel, dispatcher, logger)
@@ -58,12 +58,42 @@ public sealed class VoiceBrainPageViewController(VoiceBrainPageViewModel viewMod
             sections.Hidden = vm.Sections.Count == 0;
         });
 
+        AddSyncGroup();
+
         var deleteAll = Bind.Button(Translator.VoiceBrain_DeleteAll_Button, vm.DeleteEverythingCommand);
-        var turnOff = Bind.Button(Translator.VoiceBrain_TurnOff_Button, vm.TurnOffPersonalModeCommand);
         var forget = Group(Translator.VoiceBrain_Group_Forget,
-            Card(Translator.VoiceBrain_DeleteAll_Title, Translator.VoiceBrain_DeleteAll_Description, WinoIconGlyph.Delete, deleteAll),
-            Card(Translator.VoiceBrain_TurnOff_Title, Translator.VoiceBrain_TurnOff_Description, WinoIconGlyph.Power, turnOff));
+            Card(Translator.VoiceBrain_DeleteAll_Title, Translator.VoiceBrain_DeleteAll_Description, WinoIconGlyph.Delete, deleteAll));
         Add(Bind.Visible(forget, vm, nameof(vm.HasLoaded), s => s.HasLoaded));
+    }
+
+    /// <summary>
+    /// Memory sync: on or off with its state, a password chosen on this device (never shown or kept by the page), and
+    /// the two answers when the server copy was made with another password.
+    /// </summary>
+    private void AddSyncGroup()
+    {
+        var vm = ViewModel;
+        var turnOn = Bind.Visible(Bind.Button(Translator.VoiceBrain_Sync_TurnOn_Button, vm.TurnOnSyncCommand, primary: true), vm, nameof(vm.IsSyncOff), s => s.IsSyncOff);
+        var change = Bind.Visible(Bind.Button(Translator.VoiceBrain_Sync_ChangePassword_Button, vm.ChangeSyncPasswordCommand), vm, nameof(vm.IsSyncOn), s => s.IsSyncOn);
+        var turnOff = Bind.Visible(Bind.Button(Translator.VoiceBrain_Sync_TurnOff_Button, vm.TurnOffSyncCommand), vm, nameof(vm.IsSyncOn), s => s.IsSyncOn);
+        var spinner = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
+        spinner.StartAnimation(null);
+        Bind.Visible(spinner, vm, nameof(vm.IsSyncBusy), s => s.IsSyncBusy);
+        var card = Card(Translator.VoiceBrain_Sync_Title, vm.SyncDescription, WinoIconGlyph.Key, Row(spinner, turnOn, change, turnOff));
+        Bind.Bind(vm, nameof(vm.SyncDescription), s => s.SyncDescription, value => card.Description = value);
+
+        var mismatch = InfoBar(WinoInfoBarSeverity.Warning, null, Translator.VoiceBrain_Sync_WrongPassword);
+        mismatch.IsClosable = false;
+        mismatch.ActionTitle = Translator.VoiceBrain_Sync_EnterPassword_Button;
+        mismatch.ActionInvoked += (_, _) => vm.EnterSyncPasswordCommand.Execute(null);
+        var replace = Bind.Button(Translator.VoiceBrain_Sync_Replace_Button, vm.ReplaceServerCopyCommand);
+        var mismatchRow = Bind.Visible(WinoLayout.VStack(WinoStyle.Space2, mismatch, replace), vm, nameof(vm.IsSyncPasswordMismatch), s => s.IsSyncPasswordMismatch);
+
+        var failed = InfoBar(WinoInfoBarSeverity.Error, null, Translator.VoiceBrain_Sync_Failed);
+        failed.IsClosable = false;
+
+        Add(Group(Translator.VoiceBrain_Group_Sync, card, mismatchRow,
+            Bind.Visible(failed, vm, nameof(vm.IsSyncFailed), s => s.IsSyncFailed)));
     }
 
     /// <summary>One group of learned facts; each row forgets its fact.</summary>

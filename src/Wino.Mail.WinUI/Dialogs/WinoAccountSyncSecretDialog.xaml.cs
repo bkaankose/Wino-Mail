@@ -47,6 +47,12 @@ public sealed partial class WinoAccountSyncSecretDialog : ContentDialog
             ShowError(Translator.WinoAccount_Sync_SecretDialog_Rejected);
         }
 
+        // Callers protecting something other than a snapshot (the assistant's memory) bring their own texts.
+        if (request.Title is { } title) Title = title;
+        if (request.Description is { } description) DescriptionTextBlock.Text = description;
+        if (request.FieldLabel is { } fieldLabel) SecretBox.Header = fieldLabel;
+        if (request.ConfirmLabel is { } confirmLabel) ConfirmBox.Header = confirmLabel;
+
         IsPrimaryButtonEnabled = false;
     }
 

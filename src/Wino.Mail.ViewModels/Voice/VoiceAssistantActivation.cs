@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.UI;
+using Wino.Services.Assistant;
 
 namespace Wino.Mail.ViewModels.Voice;
 
@@ -17,7 +18,7 @@ namespace Wino.Mail.ViewModels.Voice;
 public sealed class VoiceAssistantActivation : IDisposable
 {
     private readonly IWinoAccountIntelligenceSnapshotService _entitlements;
-    private readonly IVoiceBrainService _brain;
+    private readonly IAgentRuntimeHost _runtime;
     private readonly Action<Action> _post;
     private readonly Action _activate;
     private readonly Action _deactivate;
@@ -28,7 +29,7 @@ public sealed class VoiceAssistantActivation : IDisposable
     public VoiceAssistantActivation(IServiceProvider services, Action<Action> post, Action activate, Action deactivate)
     {
         _entitlements = services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
-        _brain = services.GetRequiredService<IVoiceBrainService>();
+        _runtime = services.GetRequiredService<IAgentRuntimeHost>();
         _post = post;
         _activate = activate;
         _deactivate = deactivate;
@@ -73,7 +74,6 @@ public sealed class VoiceAssistantActivation : IDisposable
         }
         else
         {
-            _brain.Stop();
             _deactivate();
         }
     }
@@ -82,11 +82,13 @@ public sealed class VoiceAssistantActivation : IDisposable
     {
         try
         {
-            await _brain.StartAsync().ConfigureAwait(false);
+            // The brain is local: loading it is cheap; with brain sync on, the check pulls another device's changes.
+            await _runtime.EnsureInitializedAsync().ConfigureAwait(false);
+            await _runtime.CheckSyncAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "The voice brain could not start.");
+            Log.Warning(ex, "The assistant brain could not load.");
         }
     }
 
@@ -102,7 +104,6 @@ public sealed class VoiceAssistantActivation : IDisposable
             return;
 
         _isActive = false;
-        _brain.Stop();
         _deactivate();
     }
 }

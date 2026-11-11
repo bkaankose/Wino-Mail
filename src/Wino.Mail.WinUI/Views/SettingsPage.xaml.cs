@@ -262,7 +262,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         DispatcherQueue.TryEnqueue(() =>
         {
             var activePage = PageHistory.LastOrDefault()?.Request.PageType;
-            if (activePage is WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage)
+            if (activePage is WinoPage activeType && IsIntelligenceSubPage(activeType))
                 NavigateDirectlyToRootPage(WinoPage.WinoIntelligencePage);
         });
     }
@@ -341,18 +341,32 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     }
 
     private void NavigateDirectlyToRootPage(WinoPage targetPage, object? pageParameter = null)
-        => NavigateToRoute(new SettingsNavigationRoute(
-        new[]
-        {
-            new SettingsNavigationRouteStep(
-                SettingsNavigationInfoProvider.GetPageTitle(targetPage),
-                targetPage,
-                pageParameter)
-        }));
+    {
+        var targetStep = new SettingsNavigationRouteStep(
+            SettingsNavigationInfoProvider.GetPageTitle(targetPage),
+            targetPage,
+            pageParameter);
+
+        // Wino Intelligence sub-pages keep their parent in the breadcrumb when they are opened from elsewhere.
+        var steps = IsIntelligenceSubPage(targetPage) && targetPage is not WinoPage.WinoIntelligenceManagementPage and not WinoPage.IntelligenceCoveragePage
+            ? new[]
+            {
+                new SettingsNavigationRouteStep(
+                    SettingsNavigationInfoProvider.GetPageTitle(WinoPage.WinoIntelligencePage),
+                    WinoPage.WinoIntelligencePage),
+                targetStep
+            }
+            : new[] { targetStep };
+
+        NavigateToRoute(new SettingsNavigationRoute(steps));
+    }
 
     private static bool IsIntelligenceSubPage(WinoPage page)
         => page is WinoPage.WinoIntelligenceManagementPage
-            or WinoPage.IntelligenceCoveragePage;
+            or WinoPage.IntelligenceCoveragePage
+            or WinoPage.IntelligencePrivacyPage
+            or WinoPage.IntelligenceBriefingPage
+            or WinoPage.MailClassificationPage;
 
     private void NavigateToRoute(SettingsNavigationRoute route)
     {

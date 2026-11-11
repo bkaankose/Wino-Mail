@@ -1352,8 +1352,10 @@ public sealed class MailIntelligenceCoordinator(
     private sealed record MailIntelligenceContext(Guid WinoUserId, Guid MailboxId);
 
     /// <summary>
-    /// Resolves the Wino user and the server mailbox id. The mailbox id comes from the
-    /// existing account sync, so intelligence keeps no registry of its own.
+    /// Resolves the Wino user and the mailbox id that scopes this account's jobs on the server.
+    /// The server only uses that id to group a user's jobs, so a new mailbox uses its local
+    /// account id. Accounts that already stored a synced mailbox id keep it, so their pending
+    /// jobs stay reachable.
     /// </summary>
     private async Task<MailIntelligenceContext> RequireContextAsync(Guid localAccountId, CancellationToken cancellationToken)
     {
@@ -1367,24 +1369,8 @@ public sealed class MailIntelligenceCoordinator(
             return new MailIntelligenceContext(winoAccount.Id, mailboxId);
         }
 
-        // The id is only available once account/mailbox sync has run, so that has to
-        // complete before any intelligence work can be submitted.
-        var mailboxes = await apiClient.GetMailboxesAsync(cancellationToken).ConfigureAwait(false);
-        var account = await accountService.GetAccountAsync(localAccountId).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("The account no longer exists.");
-
-        var match = mailboxes.Mailboxes.FirstOrDefault(mailbox =>
-            string.Equals(mailbox.Address?.Trim(), account.Address?.Trim(), StringComparison.OrdinalIgnoreCase) &&
-            mailbox.MailboxId is not null);
-
-        if (match?.MailboxId is not { } resolved)
-        {
-            throw new InvalidOperationException(
-                "This mailbox has not finished account synchronization yet, so intelligence cannot be submitted.");
-        }
-
-        await store.SaveAccessAsync(localAccountId, winoAccount.Id, resolved, true, true, cancellationToken).ConfigureAwait(false);
-        return new MailIntelligenceContext(winoAccount.Id, resolved);
+        await store.SaveAccessAsync(localAccountId, winoAccount.Id, localAccountId, true, true, cancellationToken).ConfigureAwait(false);
+        return new MailIntelligenceContext(winoAccount.Id, localAccountId);
     }
 
     /// <summary>

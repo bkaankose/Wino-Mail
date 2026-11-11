@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using AppKit;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -14,6 +15,7 @@ using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
 using Wino.Shell.ViewModels;
@@ -200,8 +202,10 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         });
 #endif
         _state.PropertyChanged += StateChanged;
+        WeakReferenceMessenger.Default.Register<WinoAppShellViewController, DailyBriefingOpenRequested>(this, static (shell, _) => shell.OpenBriefingRequested());
         Bindings.Own(new ActionDisposable(() =>
         {
+            WeakReferenceMessenger.Default.Unregister<DailyBriefingOpenRequested>(this);
             _state.PropertyChanged -= StateChanged;
             ObserveProvider(null);
             ObserveTitle(null);
@@ -493,6 +497,19 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         }
         SetBriefingOpen(!_briefingOpen);
     }
+
+    /// <summary>Daily briefing settings' Open button: bring the main window forward in Mail mode with the panel open.</summary>
+    private void OpenBriefingRequested() => _ = Dispatcher.ExecuteOnUIThread(() =>
+    {
+        if (_briefing is null) return;
+        if (_modes.ActiveMode != WinoApplicationMode.Mail && !_navigation.ChangeApplicationMode(WinoApplicationMode.Mail)) return;
+        View.Window?.MakeKeyAndOrderFront(null);
+        // A mode switch can close the panel while it settles, so the panel opens on the next turn.
+        NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+        {
+            if (!_briefingOpen && _briefing is not null) ToggleBriefing(View);
+        });
+    });
 
     private void SetBriefingOpen(bool open)
     {

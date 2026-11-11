@@ -81,7 +81,7 @@ public sealed class PrivacySecurityPageViewController(PrivacySecurityPageViewMod
                 ? CommandCard(Translator.PrivacySecurity_RelatedSignatures_Title, Translator.PrivacySecurity_RelatedSignatures_Description, WinoIconGlyph.Certificate, vm.OpenSignatureAndEncryptionCommand)
                 : null,
             vm.IsIntelligenceLinkAvailable
-                ? CommandCard(Translator.PrivacySecurity_RelatedIntelligence_Title, Translator.PrivacySecurity_RelatedIntelligence_Description, WinoIconGlyph.Sparkle, vm.OpenWinoIntelligenceCommand)
+                ? CommandCard(Translator.PrivacySecurity_RelatedIntelligence_Title, Translator.PrivacySecurity_RelatedIntelligence_Description, WinoIconGlyph.Sparkle, vm.OpenWinoIntelligencePrivacyCommand)
                 : null);
     }
 
