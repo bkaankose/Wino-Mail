@@ -427,8 +427,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             await Dispatcher.ExecuteOnUIThread(() => ViewModel.CurrentSetupStep = step);
             return "ok " + step;
         });
-        // imap-fill KEY: the lab account KEY of tools/local-lab/.state/fixtures.json (copied to {tmp}/wino-debug/lab-fixtures.json):
-        // plaintext IMAP/SMTP on 127.0.0.1 and its DAV server, with the lab's test password. imap-save presses Save.
+        // imap-fill KEY: the lab account KEY of the lab manifest (~/.wino-lab/fixtures.json, copied to
+        // {tmp}/wino-debug/lab-fixtures.json): its IMAP, SMTP and DAV endpoints with the lab's test password. imap-save presses Save.
         MacDebugBridge.Register("imap-fill", async args =>
         {
             var file = Path.Combine(Path.GetTempPath(), "wino-debug", "lab-fixtures.json");
@@ -437,6 +437,9 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             var account = doc.RootElement.GetProperty("accounts").EnumerateArray().FirstOrDefault(a => a.GetProperty("key").GetString() == args[0]);
             if (account.ValueKind == System.Text.Json.JsonValueKind.Undefined) return "no such lab account";
             string S(string name) => account.TryGetProperty(name, out var v) ? v.ToString() : string.Empty;
+            ImapConnectionSecurity Security(string name)
+                => Enum.TryParse<ImapConnectionSecurity>(S(name), out var security) ? security : ImapConnectionSecurity.None;
+            var smtpUsername = S("smtpUsername") is { Length: > 0 } login ? login : S("address");
             await Dispatcher.ExecuteOnUIThread(() =>
             {
                 var vm = ViewModel;
@@ -449,11 +452,10 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
                 vm.IncomingServerPassword = S("password");
                 vm.OutgoingServer = S("smtpHost");
                 vm.OutgoingServerPort = S("smtpPort");
-                vm.OutgoingServerUsername = S("address");
+                vm.OutgoingServerUsername = smtpUsername;
                 vm.OutgoingServerPassword = S("password");
-                var none = vm.AvailableConnectionSecurities.FindIndex(c => c.ImapConnectionSecurity == ImapConnectionSecurity.None);
-                vm.SelectedIncomingServerConnectionSecurityIndex = none;
-                vm.SelectedOutgoingServerConnectionSecurityIndex = none;
+                vm.SelectedIncomingServerConnectionSecurityIndex = vm.AvailableConnectionSecurities.FindIndex(c => c.ImapConnectionSecurity == Security("imapSecurity"));
+                vm.SelectedOutgoingServerConnectionSecurityIndex = vm.AvailableConnectionSecurities.FindIndex(c => c.ImapConnectionSecurity == Security("smtpSecurity"));
                 vm.IsCalendarSupportEnabled = true;
                 vm.UseMailCredentialsForDav = false;
                 vm.CalDavServiceUrl = S("davUrl");

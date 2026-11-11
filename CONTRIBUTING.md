@@ -46,7 +46,7 @@ On a Mac, open [`WinoMail.MacOS.code-workspace`](WinoMail.MacOS.code-workspace) 
 
 ## Testing and maintenance
 
-Use the [local Docker lab](tools/local-lab/README.md) for manual application testing on Windows. The lab does not run on macOS yet.
+Manual application testing uses the remote [mail lab](tools/lab/README.md). Its servers are reachable from any device; fetching the account manifest needs SSH access to the lab host.
 The repository has no automated test projects. Verify changes with builds and manual checks in the running application.
 Agent-driven UI suites and automation scripts are retired.
 

@@ -92,6 +92,7 @@ Read only references that apply to the task:
 | Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md) |
 | Release notes, GitHub releases, or marking issues for a release | [release skill](.claude/skills/release/SKILL.md) and [release notes format](release-notes/README.md) |
 | What's New notes and illustrations | [whatsnew skill](.claude/skills/whatsnew/SKILL.md) |
+| Lab accounts, endpoints, or the lab password | [mail lab](tools/lab/README.md) |
 | Scripts | [script index](scripts/README.md) |
 
 Repository commands and package rules take precedence over stale personal skill instructions.
@@ -129,7 +130,7 @@ dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x
 ```
 
 Format changed XAML before building with `scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
-The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
+The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. The remote [mail lab](tools/lab/README.md) is the application testing environment; `scripts/lab/windows/lab.ps1 install-app` puts its accounts into the Windows Debug app. Before any lab test, check that the lab manifest `~/.wino-lab/fixtures.json` exists (on Windows `%USERPROFILE%\.wino-lab\fixtures.json`). If it does not exist, refuse the lab test: do not run it, do not fetch or create the manifest, and do not look for the lab password anywhere else; report that the lab is not set up on this machine and that the owner sets it up with `lab.ps1 manifest`. When the manifest exists, take the lab accounts, endpoints and password from it, and never write the password into the repository, a commit, a log, or a reply. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
 A passing build does not prove UI behavior. Report a UI check as done only when it was performed, by an agent through `winapp ui` or by a person, and say which.
 
 ## Accounts, OAuth clients and signing (hard rules)

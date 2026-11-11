@@ -22,7 +22,7 @@ Commands use paths relative to the repository root unless stated otherwise.
 | [macOS shared-logic roadmap](macos-shared-logic-roadmap.md) | All | Phased plan for moving duplicated Mac logic into shared code. |
 | [Visual design reference](design-prototypes/wino-design-guideline.html) | Windows | Browser presentation of the design conventions. The Markdown guideline is the primary reference. |
 
-The [local Docker lab](../tools/local-lab/README.md) currently runs on Windows only.
+The [mail lab](../tools/lab/README.md) is remote and reachable from every platform.
 Historical records, such as the [AppKit migration plan](appkit-platform-migration-plan.md) and the [AppKit foundation validation](harness/appkit-foundation-validation.md), describe earlier decisions and evidence; the guides above are current.
 
 Normal Windows development uses Debug and x64; normal Mac development uses Debug on Apple Silicon; normal iOS development uses Debug in the Simulator on Apple Silicon; normal Android development uses Debug on the phone and tablet emulators. Release packages are built and inspected without installation or launch.

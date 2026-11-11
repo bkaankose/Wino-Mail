@@ -59,6 +59,9 @@ try
         var displayName = Text("name");
         var signatureId = StableId("signature/" + key);
         var smtpAuth = Enum.Parse<ImapAuthenticationMethod>(definition["smtpAuth"]?.GetValue<string>() ?? "NormalPassword");
+        var imapSecurity = Enum.Parse<ImapConnectionSecurity>(definition["imapSecurity"]?.GetValue<string>() ?? "None");
+        var smtpSecurity = Enum.Parse<ImapConnectionSecurity>(definition["smtpSecurity"]?.GetValue<string>() ?? "None");
+        var smtpUsername = definition["smtpUsername"]?.GetValue<string>() ?? address;
         var davUrl = Text("davUrl");
         var cardDavUrl = definition["cardDavUrl"]?.GetValue<string>() ?? davUrl;
         var davUser = Text("davUsername");
@@ -82,12 +85,12 @@ try
             IncomingServer = Text("imapHost"), IncomingServerPort = Number("imapPort").ToString(),
             IncomingServerType = CustomIncomingServerType.IMAP4,
             IncomingServerUsername = address, IncomingServerPassword = password,
-            IncomingServerSocketOption = ImapConnectionSecurity.None,
+            IncomingServerSocketOption = imapSecurity,
             IncomingAuthenticationMethod = ImapAuthenticationMethod.NormalPassword,
             OutgoingServer = Text("smtpHost"), OutgoingServerPort = Number("smtpPort").ToString(),
-            OutgoingServerUsername = smtpAuth == ImapAuthenticationMethod.None ? string.Empty : address,
+            OutgoingServerUsername = smtpAuth == ImapAuthenticationMethod.None ? string.Empty : smtpUsername,
             OutgoingServerPassword = smtpAuth == ImapAuthenticationMethod.None ? string.Empty : password,
-            OutgoingServerSocketOption = ImapConnectionSecurity.None,
+            OutgoingServerSocketOption = smtpSecurity,
             OutgoingAuthenticationMethod = smtpAuth,
             ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected, MaxConcurrentClients = maxClients,
             CalendarSupportMode = ImapCalendarSupportMode.CalDav,
@@ -102,14 +105,14 @@ try
             SignatureIdForFollowingMessages = signatureId
         };
         preferences.PrepareForStorage();
-        var signatureHtml = $"<p>{displayName}<br>Wino local lab ({definition["server"]?.GetValue<string>()})</p>";
+        var signatureHtml = $"<p>{displayName}<br>Wino lab ({definition["server"]?.GetValue<string>()})</p>";
 
         await database.Connection.RunInTransactionAsync(connection =>
         {
             connection.Insert(account);
             connection.Insert(server);
             connection.Insert(preferences);
-            connection.Insert(new AccountSignature { Id = signatureId, MailAccountId = id, Name = "Local lab signature", HtmlBody = signatureHtml });
+            connection.Insert(new AccountSignature { Id = signatureId, MailAccountId = id, Name = "Lab signature", HtmlBody = signatureHtml });
             connection.Insert(new MailAccountAlias
             {
                 Id = StableId("alias/" + key), AccountId = id, AliasAddress = address,
@@ -136,7 +139,7 @@ try
             CalDavServiceUrl = davUrl, CalDavUsername = davUser, MaxConcurrentClients = maxClients, IsMailAccessGranted = true,
             ShouldAppendMessagesToSentFolder = true, IsNotificationsEnabled = true, IsSignatureEnabled = true,
             SignatureIdForNewMessages = signatureId, SignatureIdForFollowingMessages = signatureId,
-            Signatures = [new UserMailboxSignatureSyncItemDto { Id = signatureId, Name = "Local lab signature", HtmlBody = signatureHtml }],
+            Signatures = [new UserMailboxSignatureSyncItemDto { Id = signatureId, Name = "Lab signature", HtmlBody = signatureHtml }],
             Folders = []
         });
         capabilitiesSnapshot.Add(new

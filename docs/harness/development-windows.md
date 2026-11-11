@@ -236,8 +236,8 @@ The editor extension is a convenience. The pinned command-line result is the for
 
 The repository has no automated test projects. Verify behavior with builds and manual checks in the running application.
 
-The [local Docker lab](../../tools/local-lab/README.md) is the application testing environment. It currently runs on Windows only.
-Its entry point is `scripts/lab/windows/local-lab.ps1`. `up` provisions five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail and generates account data; `install-app` installs that data into the Debug package and launches Wino.
+The remote [mail lab](../../tools/lab/README.md) is the application testing environment: five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail, calendars and contacts, on public names with TLS.
+Its client script is `scripts/lab/windows/lab.ps1`. `status` checks the endpoints; `install-app` fetches the account manifest, generates the account data, installs it into the registered Debug package and launches Wino. Close Wino first.
 Report UI checks separately from compilation results.
 
 ## Agent UI checks

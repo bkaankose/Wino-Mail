@@ -130,13 +130,13 @@ When a public control is added or its important states change, update `Wino.Mail
 
 ## Verification
 
-The playground remains a sample app. The local Docker lab is the application testing environment.
+The playground remains a sample app. The remote mail lab (`tools/lab/README.md`) is the application testing environment.
 Agent-driven UI automation is retired.
 
 Match verification to the change:
 
 - Core-only logic: build `Wino.Mail.Controls.Core` and its consumers.
-- WinUI control or template: build `Wino.Mail.Controls.WinUI` and the playground, then request manual verification of the affected control in the app with the local lab.
+- WinUI control or template: build `Wino.Mail.Controls.WinUI` and the playground, then request manual verification of the affected control in the app with the lab accounts.
 - Editor C#, XAML, or web assets: build `Wino.Editor.WinUI` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
 - AppKit control: build the Mac head for arm64 and x64, then request manual verification in the Mac app. There is no AppKit playground.
 - UIKit control: build the iOS head for the Simulator, then request manual verification on iPhone and iPad simulators. There is no UIKit playground.

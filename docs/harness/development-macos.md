@@ -128,7 +128,7 @@ On 2026-10-07, the production arm64 app hit a source breakpoint at `Program.cs:9
 | Debugger tooling or workspace | The F5 acceptance steps above on Apple Silicon |
 
 Do not notarize or publish to validate development changes. A build does not prove UI behavior.
-The local Docker lab currently runs on Windows only. Mac manual checks use the Mac app directly; do not reuse lab credentials generated for Windows on the Mac.
+The [mail lab](../../tools/lab/README.md) is remote and reachable from the Mac. Add its accounts in the Mac app by hand or through the debug bridge (`tools/lab/macos/README.md`); the database that `lab.ps1 generate-db` produces is Windows-only (its DAV credentials use DPAPI).
 
 ## Release
 
