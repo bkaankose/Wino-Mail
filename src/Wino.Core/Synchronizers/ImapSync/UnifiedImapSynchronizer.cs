@@ -40,6 +40,11 @@ public class UnifiedImapSynchronizer
     private readonly ConcurrentDictionary<Guid, ImapSyncStrategy> _mailboxFallbacks = new();
     private readonly ConcurrentDictionary<Guid, byte> _repairedFolders = new();
 
+    // UIDs of messages that are still in the mailbox with \Deleted (RFC 3501 section 2.3.2) and therefore not
+    // cached. They stay in the flag checks so that removing \Deleted again restores the message. In memory only:
+    // the repair pass of the first synchronization in a process rebuilds it.
+    private readonly ConcurrentDictionary<Guid, HashSet<uint>> _deletedFlagUids = new();
+
     private readonly ILogger _logger = Log.ForContext<UnifiedImapSynchronizer>();
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
@@ -338,8 +343,9 @@ public class UnifiedImapSynchronizer
 
         try
         {
-            var downloadedIds = await SynchronizeMailboxAsync(
-                client, folder, synchronizer, strategy, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false);
+            var changes = new MailboxChanges();
+            await SynchronizeMailboxAsync(
+                client, folder, synchronizer, strategy, changes, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false);
 
             bool highestModeSeqChanged = folder.HighestModeSeq != originalHighestModeSeq;
             bool requiresFullFolderUpdate =
@@ -359,7 +365,9 @@ public class UnifiedImapSynchronizer
             }
 
             _repairedFolders.TryAdd(folder.Id, 0);
-            return FolderSyncResult.Successful(folder.Id, folder.FolderName, downloadedIds.Count);
+            var result = FolderSyncResult.Successful(folder.Id, folder.FolderName, changes.Downloaded, changes.Deleted, changes.Updated);
+            result.DownloadedMailIds = changes.NewMailIds;
+            return result;
         }
         catch (OperationCanceledException)
         {
@@ -417,6 +425,14 @@ public class UnifiedImapSynchronizer
 
         if (!remoteFolder.IsOpen)
             await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+        // Online search can reach a folder that was never synchronized. Caching its messages establishes the
+        // folder's UIDVALIDITY (RFC 3501 section 2.3.1.1); the first synchronization then continues from it.
+        if (localFolder.UidValidity == 0 && remoteFolder.UidValidity != 0)
+        {
+            localFolder.UidValidity = await _folderService
+                .InitializeFolderUidValidityAsync(localFolder.Id, remoteFolder.UidValidity).ConfigureAwait(false);
+        }
 
         if (localFolder.UidValidity == 0 || remoteFolder.UidValidity != localFolder.UidValidity)
             throw new InvalidOperationException("IMAP mailbox identity changed. Synchronize the folder before downloading messages.");
@@ -485,15 +501,23 @@ public class UnifiedImapSynchronizer
 
     #region Strategy Implementations
 
-    private async Task<List<string>> SynchronizeMailboxAsync(
+    private sealed class MailboxChanges
+    {
+        public List<string> NewMailIds { get; } = [];
+        public int Downloaded { get; set; }
+        public int Updated { get; set; }
+        public int Deleted { get; set; }
+    }
+
+    private async Task SynchronizeMailboxAsync(
         IImapClient client,
         MailItemFolder folder,
         IImapSynchronizer synchronizer,
         ImapSyncStrategy strategy,
+        MailboxChanges changes,
         CancellationToken cancellationToken,
         bool suppressMatchingLocalFilters)
     {
-        var downloaded = new List<string>();
         var localMails = await _mailService.GetImapSynchronizationMailsAsync(folder.Id).ConfigureAwait(false) ?? [];
         var known = CreateExistingMailLookup(localMails.Where(mail => !mail.IsLocalDraft));
         var vanished = new HashSet<UniqueId>();
@@ -506,6 +530,16 @@ public class UnifiedImapSynchronizer
 
         if (_mailboxFallbacks.TryGetValue(folder.Id, out var fallback) && fallback > strategy)
             strategy = fallback;
+
+        var deletedFlagUids = _deletedFlagUids.GetOrAdd(folder.Id, _ => []);
+        HashSet<uint> deletedFlagUidsBefore;
+        lock (deletedFlagUids)
+            deletedFlagUidsBefore = [.. deletedFlagUids];
+        List<uint> FlagCheckedUids()
+        {
+            lock (deletedFlagUids)
+                return known.Keys.Concat(deletedFlagUids).Distinct().ToList();
+        }
 
         void OnVanished(object sender, MessagesVanishedEventArgs args) => vanished.UnionWith(args.UniqueIds);
         void OnFlags(object sender, MessageFlagsChangedEventArgs args)
@@ -525,7 +559,7 @@ public class UnifiedImapSynchronizer
                 {
                     // MailKit compresses consecutive UIDs. SELECT itself validates UIDVALIDITY.
                     await remote.OpenAsync(FolderAccess.ReadOnly, savedValidity, (ulong)savedModSeq,
-                        new UniqueIdSet(known.Keys.Select(uid => new UniqueId(uid)), SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
+                        new UniqueIdSet(FlagCheckedUids().Select(uid => new UniqueId(uid)), SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
                     usedQResync = true;
                     openedWithQResync = true;
                 }
@@ -540,7 +574,8 @@ public class UnifiedImapSynchronizer
             if (!usedQResync)
                 await remote.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
-            await EnsureUidValidityStateAsync(folder, remote).ConfigureAwait(false);
+            changes.Deleted += await EnsureUidValidityStateAsync(folder, remote).ConfigureAwait(false);
+            var unknownUndeletedUids = new HashSet<uint>();
             if (savedValidity != folder.UidValidity)
             {
                 known = CreateExistingMailLookup((await _mailService.GetImapSynchronizationMailsAsync(folder.Id).ConfigureAwait(false) ?? [])
@@ -548,6 +583,9 @@ public class UnifiedImapSynchronizer
                 vanished.Clear();
                 changedFlags.Clear();
                 usedQResync = false;
+                lock (deletedFlagUids)
+                    deletedFlagUids.Clear();
+                deletedFlagUidsBefore.Clear();
             }
 
             // Capture the server frontier before SEARCH/FETCH can observe later arrivals.
@@ -568,6 +606,12 @@ public class UnifiedImapSynchronizer
             {
                 // Also repairs rows missing below an old checkpoint, including legacy deduplication losses.
                 discovered = await remote.SearchAsync(BuildInitialSyncQuery(synchronizer).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
+                var flaggedDeleted = await remote.SearchAsync(SearchQuery.Deleted, cancellationToken).ConfigureAwait(false);
+                lock (deletedFlagUids)
+                {
+                    deletedFlagUids.Clear();
+                    deletedFlagUids.UnionWith(flaggedDeleted.Select(uid => uid.Id));
+                }
             }
             else if (folder.HighestKnownUid < uint.MaxValue && (!uidBoundary.HasValue || uidBoundary.Value > folder.HighestKnownUid))
             {
@@ -577,16 +621,25 @@ public class UnifiedImapSynchronizer
             }
 
             var missingUids = discovered.Where(uid => !known.ContainsKey(uid.Id)).ToList();
-            downloaded.AddRange(await DownloadMessagesByUidsAsync(client, remote, folder, missingUids,
-                synchronizer, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false));
+            var newMailIds = await DownloadMessagesByUidsAsync(client, remote, folder, missingUids,
+                synchronizer, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false);
+            changes.NewMailIds.AddRange(newMailIds);
+            changes.Downloaded += newMailIds.Count;
 
             var membershipReconciled = known.Count == 0;
             if (known.Count > 0)
             {
                 if (usedQResync && canUseDelta)
                 {
-                    await ApplyFlagChangesAsync(folder, changedFlags, known).ConfigureAwait(false);
-                    await ApplyDeletedUidsAsync(folder, vanished.ToList()).ConfigureAwait(false);
+                    var (updated, deleted) = await ApplyFlagChangesAsync(folder, changedFlags, known, unknownUndeletedUids).ConfigureAwait(false);
+                    changes.Updated += updated;
+                    changes.Deleted += deleted;
+                    changes.Deleted += await ApplyDeletedUidsAsync(folder, vanished.ToList()).ConfigureAwait(false);
+                    lock (deletedFlagUids)
+                    {
+                        deletedFlagUids.UnionWith(changedFlags.Where(change => change.Value.HasFlag(MessageFlags.Deleted)).Select(change => change.Key));
+                        deletedFlagUids.ExceptWith(vanished.Select(uid => uid.Id));
+                    }
                 }
                 else
                 {
@@ -594,49 +647,80 @@ public class UnifiedImapSynchronizer
                     if (strategy != ImapSyncStrategy.UidBased && canUseDelta)
                         flagsRequest.ChangedSince = (ulong)folder.HighestModeSeq;
 
-                    // A compact range avoids thousands of UID arguments and repeated SEARCH round trips.
+                    // A compact range avoids thousands of UID arguments and repeated SEARCH round trips. UIDs kept
+                    // only because of \Deleted are fetched separately so they never widen a full FLAGS fetch.
                     var range = new UniqueIdRange(new UniqueId(known.Keys.Min()), new UniqueId(known.Keys.Max()));
+                    var outsideRange = FlagCheckedUids().Where(uid => uid < range.Start.Id || uid > range.End.Id)
+                        .Select(uid => new UniqueId(uid)).ToList();
+                    async Task<IList<IMessageSummary>> FetchFlagsAsync()
+                    {
+                        var fetched = await remote.FetchAsync(range, flagsRequest, cancellationToken).ConfigureAwait(false);
+                        if (outsideRange.Count == 0)
+                            return fetched;
+                        var extra = await remote.FetchAsync(new UniqueIdSet(outsideRange, SortOrder.Ascending), flagsRequest, cancellationToken).ConfigureAwait(false);
+                        return fetched.Concat(extra).ToList();
+                    }
+
                     IList<IMessageSummary> summaries;
                     try
                     {
-                        summaries = await remote.FetchAsync(range, flagsRequest, cancellationToken).ConfigureAwait(false);
+                        summaries = await FetchFlagsAsync().ConfigureAwait(false);
                     }
                     catch (Exception ex) when (flagsRequest.ChangedSince.HasValue && IsExtensionRejection(ex) && client.IsConnected)
                     {
                         strategy = ImapSyncStrategy.UidBased;
                         _mailboxFallbacks[folder.Id] = strategy;
                         flagsRequest.ChangedSince = null;
-                        summaries = await remote.FetchAsync(range, flagsRequest, cancellationToken).ConfigureAwait(false);
+                        summaries = await FetchFlagsAsync().ConfigureAwait(false);
                     }
 
                     if (summaries.Any(summary => summary.UniqueId.IsValid && !summary.Flags.HasValue))
                         throw new IOException("IMAP flag reconciliation returned incomplete flags.");
 
-                    await ApplySummaryFlagUpdatesAsync(known, summaries).ConfigureAwait(false);
-                    await ApplyDeletedUidsAsync(folder, summaries.Where(summary => summary.Flags?.HasFlag(MessageFlags.Deleted) == true)
+                    changes.Updated += await ApplySummaryFlagUpdatesAsync(known, summaries).ConfigureAwait(false);
+                    changes.Deleted += await ApplyDeletedUidsAsync(folder, summaries.Where(summary => summary.Flags?.HasFlag(MessageFlags.Deleted) == true)
                         .Select(summary => summary.UniqueId).ToList()).ConfigureAwait(false);
+                    unknownUndeletedUids.UnionWith(summaries
+                        .Where(summary => summary.UniqueId.IsValid && !known.ContainsKey(summary.UniqueId.Id)
+                                          && summary.Flags?.HasFlag(MessageFlags.Deleted) == false)
+                        .Select(summary => summary.UniqueId.Id));
+                    lock (deletedFlagUids)
+                    {
+                        deletedFlagUids.UnionWith(summaries
+                            .Where(summary => summary.UniqueId.IsValid && summary.Flags?.HasFlag(MessageFlags.Deleted) == true)
+                            .Select(summary => summary.UniqueId.Id));
+                        if (!flagsRequest.ChangedSince.HasValue)
+                            deletedFlagUids.IntersectWith(summaries.Select(summary => summary.UniqueId.Id));
+                    }
 
                     membershipReconciled = true;
                     if (!flagsRequest.ChangedSince.HasValue)
                     {
                         // Only a successful full FLAGS response establishes absence. A delta never does.
                         var returned = summaries.Select(summary => summary.UniqueId.Id).ToHashSet();
-                        await ApplyDeletedUidsAsync(folder, known.Keys.Where(uid => !returned.Contains(uid))
+                        changes.Deleted += await ApplyDeletedUidsAsync(folder, known.Keys.Where(uid => !returned.Contains(uid))
                             .Select(uid => new UniqueId(uid)).ToList()).ConfigureAwait(false);
                     }
                     else
                     {
                         // CONDSTORE does not report vanished UIDs. Reconcile membership on each sync.
-                        await ReconcileDeletedMessagesAsync(folder, remote, cancellationToken).ConfigureAwait(false);
+                        changes.Deleted += await ReconcileDeletedMessagesAsync(folder, remote, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
+
+            lock (deletedFlagUids)
+                deletedFlagUidsBefore.UnionWith(deletedFlagUids);
+            var restored = await RestoreUndeletedMessagesAsync(client, remote, folder, synchronizer, unknownUndeletedUids,
+                deletedFlagUidsBefore, discovered, changes, cancellationToken).ConfigureAwait(false);
+            lock (deletedFlagUids)
+                deletedFlagUids.ExceptWith(unknownUndeletedUids.Concat(restored));
 
             if (repair)
             {
                 // Include cached messages outside the configured initial range in deletion checks.
                 if (!membershipReconciled)
-                    await ReconcileDeletedMessagesAsync(folder, remote, cancellationToken).ConfigureAwait(false);
+                    changes.Deleted += await ReconcileDeletedMessagesAsync(folder, remote, cancellationToken).ConfigureAwait(false);
                 folder.LastUidReconcileUtc = DateTime.UtcNow;
             }
 
@@ -644,7 +728,6 @@ public class UnifiedImapSynchronizer
             folder.HighestKnownUid = Math.Max(folder.HighestKnownUid, uidBoundary ?? observedMax);
             folder.HighestModeSeq = strategy != ImapSyncStrategy.UidBased && supportsModSeq && modSeqBoundary <= long.MaxValue
                 ? (long)modSeqBoundary : 0;
-            return downloaded;
         }
         catch (ImapCommandException ex) when (openedWithQResync && IsSelectedMailboxLost(ex) && client.IsConnected)
         {
@@ -656,9 +739,8 @@ public class UnifiedImapSynchronizer
             remote.MessagesVanished -= OnVanished;
             remote.MessageFlagsChanged -= OnFlags;
 
-            downloaded.AddRange(await SynchronizeMailboxAsync(client, folder, synchronizer, ImapSyncStrategy.Condstore,
-                cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false));
-            return downloaded;
+            await SynchronizeMailboxAsync(client, folder, synchronizer, ImapSyncStrategy.Condstore,
+                changes, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false);
         }
         finally
         {
@@ -697,18 +779,20 @@ public class UnifiedImapSynchronizer
         return SearchQuery.All;
     }
 
-    private async Task EnsureUidValidityStateAsync(MailItemFolder folder, IMailFolder remoteFolder)
+    private async Task<int> EnsureUidValidityStateAsync(MailItemFolder folder, IMailFolder remoteFolder)
     {
         if (remoteFolder.UidValidity == 0)
             throw new IOException("IMAP server did not provide a valid UIDVALIDITY.");
 
+        var deleted = 0;
         if (folder.UidValidity != 0 && remoteFolder.UidValidity != folder.UidValidity)
         {
             _logger.Warning("UIDVALIDITY changed for folder {FolderName}. Resetting local folder state.", folder.FolderName);
 
             var existingMails = await _mailService.GetMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
-            await _mailService.DeleteMailsAsync(folder.MailAccountId,
-                existingMails.Where(mail => !mail.IsLocalDraft).Select(mail => mail.Id)).ConfigureAwait(false);
+            var removedIds = existingMails.Where(mail => !mail.IsLocalDraft).Select(mail => mail.Id).ToList();
+            await _mailService.DeleteMailsAsync(folder.MailAccountId, removedIds).ConfigureAwait(false);
+            deleted = removedIds.Count;
 
             folder.HighestKnownUid = 0;
             folder.HighestModeSeq = 0;
@@ -716,6 +800,7 @@ public class UnifiedImapSynchronizer
         }
 
         folder.UidValidity = remoteFolder.UidValidity;
+        return deleted;
     }
 
     private Task<List<string>> ProcessSummariesAsync(
@@ -820,12 +905,12 @@ public class UnifiedImapSynchronizer
         return downloadedMessageIds;
     }
 
-    private async Task ApplySummaryFlagUpdatesAsync(
+    private async Task<int> ApplySummaryFlagUpdatesAsync(
         IReadOnlyDictionary<uint, MailCopy> existingByUid,
         IList<IMessageSummary> summaries)
     {
         if (existingByUid == null || existingByUid.Count == 0 || summaries == null || summaries.Count == 0)
-            return;
+            return 0;
 
         var pendingStateUpdates = new List<MailCopyStateUpdate>();
 
@@ -848,6 +933,8 @@ public class UnifiedImapSynchronizer
         {
             await _mailService.ApplyMailStateUpdatesAsync(pendingStateUpdates).ConfigureAwait(false);
         }
+
+        return pendingStateUpdates.Count;
     }
 
     private static IReadOnlyDictionary<uint, MailCopy> CreateExistingMailLookup(IEnumerable<MailCopy> existingMails)
@@ -887,25 +974,30 @@ public class UnifiedImapSynchronizer
                 shouldUpdateFlagged ? isFlagged : null);
     }
 
-    private async Task ApplyDeletedUidsAsync(MailItemFolder folder, IList<UniqueId> uniqueIds)
+    private async Task<int> ApplyDeletedUidsAsync(MailItemFolder folder, IList<UniqueId> uniqueIds)
     {
         if (uniqueIds == null || uniqueIds.Count == 0)
-            return;
+            return 0;
 
         var existingMails = await _mailService.GetExistingMailsAsync(folder.Id, uniqueIds.Distinct()).ConfigureAwait(false);
-        await _mailService.DeleteMailsAsync(folder.MailAccountId,
-            existingMails.Where(mail => !mail.IsLocalDraft).Select(mail => mail.Id)).ConfigureAwait(false);
+        var removedIds = existingMails.Where(mail => !mail.IsLocalDraft).Select(mail => mail.Id).ToList();
+        await _mailService.DeleteMailsAsync(folder.MailAccountId, removedIds).ConfigureAwait(false);
+        return removedIds.Count;
     }
 
-    private async Task ApplyFlagChangesAsync(MailItemFolder folder, IDictionary<uint, MessageFlags> changedFlags,
-        IReadOnlyDictionary<uint, MailCopy> known)
+    private async Task<(int Updated, int Deleted)> ApplyFlagChangesAsync(MailItemFolder folder, IDictionary<uint, MessageFlags> changedFlags,
+        IReadOnlyDictionary<uint, MailCopy> known, ISet<uint> unknownUndeletedUids)
     {
         var updates = new List<MailCopyStateUpdate>();
         var deleted = new List<UniqueId>();
         foreach (var (uid, flags) in changedFlags)
         {
             if (!known.TryGetValue(uid, out var mail))
+            {
+                if (!flags.HasFlag(MessageFlags.Deleted))
+                    unknownUndeletedUids.Add(uid);
                 continue;
+            }
 
             if (flags.HasFlag(MessageFlags.Deleted))
                 deleted.Add(new UniqueId(uid));
@@ -915,7 +1007,43 @@ public class UnifiedImapSynchronizer
 
         if (updates.Count > 0)
             await _mailService.ApplyMailStateUpdatesAsync(updates).ConfigureAwait(false);
-        await ApplyDeletedUidsAsync(folder, deleted).ConfigureAwait(false);
+        return (updates.Count, await ApplyDeletedUidsAsync(folder, deleted).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Wino removes a message from the cache when it carries \Deleted (RFC 3501 section 2.3.2). Another client
+    /// can remove the flag again before an EXPUNGE, and the change then arrives as a flag change for a UID that
+    /// is no longer cached. UIDs Wino saw with \Deleted are downloaded again when they are still present, no
+    /// longer \Deleted, and inside the account's initial synchronization range. They are not new mail.
+    /// </summary>
+    private async Task<List<uint>> RestoreUndeletedMessagesAsync(
+        IImapClient client,
+        IMailFolder remote,
+        MailItemFolder folder,
+        IImapSynchronizer synchronizer,
+        IEnumerable<uint> unknownUndeletedUids,
+        ISet<uint> deletedFlagUids,
+        IList<UniqueId> discovered,
+        MailboxChanges changes,
+        CancellationToken cancellationToken)
+    {
+        var alreadyDiscovered = discovered.Select(uid => uid.Id).ToHashSet();
+        var candidates = unknownUndeletedUids
+            .Where(uid => deletedFlagUids.Contains(uid) && !alreadyDiscovered.Contains(uid))
+            .Select(uid => new UniqueId(uid))
+            .ToList();
+        if (candidates.Count == 0)
+            return [];
+
+        var present = await remote.SearchAsync(SearchQuery.Uids(new UniqueIdSet(candidates, SortOrder.Ascending))
+            .And(BuildInitialSyncQuery(synchronizer)).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
+        if (present.Count == 0)
+            return [];
+
+        var restored = await DownloadMessagesByUidsAsync(client, remote, folder, present, synchronizer, cancellationToken).ConfigureAwait(false);
+        changes.Downloaded += restored.Count;
+        _logger.Information("Restored {Count} message(s) in folder {FolderName} after their \\Deleted flag was removed.", restored.Count, folder.FolderName);
+        return present.Select(uid => uid.Id).ToList();
     }
 
     private bool ShouldRunUidReconcile(MailItemFolder folder)
@@ -923,19 +1051,19 @@ public class UnifiedImapSynchronizer
         return ShouldRunUidReconcile(folder.LastUidReconcileUtc, DateTime.UtcNow, UidReconcileInterval);
     }
 
-    private async Task ReconcileDeletedMessagesAsync(MailItemFolder localFolder, IMailFolder remoteFolder, CancellationToken cancellationToken)
+    private async Task<int> ReconcileDeletedMessagesAsync(MailItemFolder localFolder, IMailFolder remoteFolder, CancellationToken cancellationToken)
     {
         var allLocalUids = (await _folderService.GetKnownUidsForFolderAsync(localFolder.Id).ConfigureAwait(false))
             .Select(a => new UniqueId(a))
             .ToList();
 
         if (allLocalUids.Count == 0)
-            return;
+            return 0;
 
         var remoteAllUids = await remoteFolder.SearchAsync(SearchQuery.NotDeleted, cancellationToken).ConfigureAwait(false);
         var deletedUids = allLocalUids.Except(remoteAllUids).ToList();
 
-        await ApplyDeletedUidsAsync(localFolder, deletedUids).ConfigureAwait(false);
+        return await ApplyDeletedUidsAsync(localFolder, deletedUids).ConfigureAwait(false);
     }
 
     public static bool ShouldRunUidReconcile(DateTime? lastUidReconcileUtc, DateTime utcNow, TimeSpan reconcileInterval)

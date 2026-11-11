@@ -3005,18 +3005,6 @@ SELECT EXISTS(
         return MailHeaderExtensions.NormalizeReferences(message.Headers[HeaderId.References]);
     }
 
-    public async Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count)
-    {
-        var recentMails = await Connection.Table<MailCopy>()
-            .Where(a => a.FolderId == folderId)
-            .OrderByDescending(a => a.CreationDate)
-            .Take(count)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        return recentMails.Select(m => m.Id);
-    }
-
     public async Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds)
     {
         if (!mailCopyIds.Any()) return [];

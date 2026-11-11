@@ -31,6 +31,13 @@ public class FolderSyncResult
     public int DownloadedCount { get; set; }
 
     /// <summary>
+    /// Ids of the messages that arrived in the folder during this synchronization. Notifications and
+    /// mail filters use them; messages restored to the cache (for example after \Deleted was removed)
+    /// count in <see cref="DownloadedCount"/> but are not listed here.
+    /// </summary>
+    public List<string> DownloadedMailIds { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets the number of messages deleted locally (removed from server).
     /// </summary>
     public int DeletedCount { get; set; }

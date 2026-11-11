@@ -422,11 +422,86 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         return BindOriginalRequests(Move(batchMoveRequest), request.Cast<IRequestBase>().ToList());
     }
 
+    // The local cache holds only the account's initial synchronization range, so folder-wide actions
+    // select their messages with UID SEARCH on the server instead of using the cached rows.
     public override List<IRequestBundle<ImapRequest>> EmptyFolder(EmptyFolderRequest request)
-        => BindOriginalRequests(Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a)))), new[] { request });
+    {
+        return CreateSingleTaskBundle(async (client, _, cancellationToken) =>
+        {
+            var remoteFolder = await client.GetFolderAsync(request.Folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
+
+            await remoteFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var uids = await remoteFolder.SearchAsync(SearchQuery.All, cancellationToken).ConfigureAwait(false);
+                if (uids.Count > 0)
+                {
+                    var uniqueIds = new UniqueIdSet(uids, SortOrder.Ascending);
+                    await remoteFolder.StoreAsync(uniqueIds,
+                        new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true }, cancellationToken).ConfigureAwait(false);
+
+                    // Without UIDPLUS a plain EXPUNGE could remove messages another client marked after this
+                    // SEARCH, so those servers keep the \Deleted messages, as Delete does.
+                    if (client.Capabilities.HasFlag(ImapCapabilities.UidPlus))
+                        await remoteFolder.ExpungeAsync(uniqueIds, cancellationToken).ConfigureAwait(false);
+                }
+
+                await DeleteLocalCopiesMissingFromRemoteAsync(remoteFolder,
+                    GetCachedCopiesOfMailbox(request.MailsToDelete, request.Folder, remoteFolder), cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
+            }
+        }, request, request);
+    }
 
     public override List<IRequestBundle<ImapRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
-        => BindOriginalRequests(MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)))), new[] { request });
+    {
+        return CreateSingleTaskBundle(async (client, _, cancellationToken) =>
+        {
+            var remoteFolder = await client.GetFolderAsync(request.Folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
+
+            await remoteFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var unseen = await remoteFolder.SearchAsync(SearchQuery.NotSeen, cancellationToken).ConfigureAwait(false);
+                if (unseen.Count > 0)
+                {
+                    await remoteFolder.StoreAsync(new UniqueIdSet(unseen, SortOrder.Ascending),
+                        new StoreFlagsRequest(StoreAction.Add, MessageFlags.Seen) { Silent = true }, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
+            }
+        }, request, request);
+    }
+
+    /// <summary>
+    /// Cached rows whose UID belongs to the selected mailbox instance. Rows from an older UIDVALIDITY
+    /// are left to the folder synchronization, which resets them.
+    /// </summary>
+    private static IEnumerable<(MailCopy MailCopy, UniqueId UniqueId)> GetCachedCopiesOfMailbox(
+        IEnumerable<MailCopy> mails, MailItemFolder folder, IMailFolder remoteFolder)
+    {
+        foreach (var mail in mails ?? [])
+        {
+            if (mail == null)
+                continue;
+
+            var uid = mail.ImapUid;
+            if (uid == 0 && !MailkitClientExtensions.TryResolveUid(mail.Id, out uid))
+                continue;
+
+            var validity = mail.ImapUidValidity != 0 ? mail.ImapUidValidity : mail.AssignedFolder?.UidValidity ?? folder.UidValidity;
+            if (uid == 0 || validity != remoteFolder.UidValidity)
+                continue;
+
+            yield return (mail, new UniqueId(uid));
+        }
+    }
 
     private static List<IRequestBundle<ImapRequest>> BindOriginalRequests(
         List<IRequestBundle<ImapRequest>> bundles, IReadOnlyList<IRequestBase> originals)
@@ -1055,9 +1130,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                         List<string> folderDownloadedIds = null;
                         if (folderResult.Success)
                         {
-                            if (folderResult.DownloadedCount > 0)
-                                folderDownloadedIds = await GetDownloadedIdsForFolderAsync(folder, folderResult.DownloadedCount).ConfigureAwait(false);
-
+                            folderDownloadedIds = folderResult.DownloadedMailIds;
                             await _imapChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
                         }
 
@@ -1154,17 +1227,6 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         unreadNewItems.RemoveAll(item => suppressedIds.Contains(item.Id));
 
         return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
-    }
-
-    /// <summary>
-    /// Gets the most recent downloaded message IDs for a folder.
-    /// Used for notification purposes after sync completes.
-    /// </summary>
-    private async Task<List<string>> GetDownloadedIdsForFolderAsync(MailItemFolder folder, int count)
-    {
-        // Get the most recent mail IDs from the folder
-        var recentMails = await _imapChangeProcessor.GetRecentMailIdsForFolderAsync(folder.Id, count).ConfigureAwait(false);
-        return recentMails?.ToList() ?? new List<string>();
     }
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<ImapRequest>> batchedRequests, CancellationToken cancellationToken = default)

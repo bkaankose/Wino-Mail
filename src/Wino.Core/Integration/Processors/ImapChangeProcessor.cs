@@ -31,9 +31,6 @@ public partial class ImapChangeProcessor : DefaultChangeProcessor, IImapChangePr
 
     public Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId) => FolderService.GetKnownUidsForFolderAsync(folderId);
 
-    public Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count)
-        => MailService.GetRecentMailIdsForFolderAsync(folderId, count);
-
     public async Task ManageCalendarEventAsync(CalDavCalendarEvent calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {
         if (calendarEvent == null || assignedCalendar == null)

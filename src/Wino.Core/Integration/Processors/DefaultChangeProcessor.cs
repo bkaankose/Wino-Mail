@@ -152,13 +152,6 @@ public interface IImapChangeProcessor : IDefaultChangeProcessor
     /// <param name="folderId">Folder id to retrieve uIds for.</param>
     Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
 
-    /// <summary>
-    /// Gets the most recent mail IDs for a folder (for notification purposes).
-    /// </summary>
-    /// <param name="folderId">Folder ID.</param>
-    /// <param name="count">Number of recent mails to return.</param>
-    Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count);
-
     Task ManageCalendarEventAsync(CalDavCalendarEvent calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
     Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent);
     Task<CalDavResourceSnapshot> GetCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
