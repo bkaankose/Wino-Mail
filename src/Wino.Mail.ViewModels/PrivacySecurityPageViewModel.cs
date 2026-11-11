@@ -233,10 +233,9 @@ public partial class PrivacySecurityPageViewModel : CoreBaseViewModel,
     [RelayCommand]
     private void OpenWinoIntelligence() => Navigate(WinoPage.WinoIntelligencePage);
 
-    /// <summary>Only Windows has the Privacy and data page so far; the other heads keep <see cref="OpenWinoIntelligenceCommand"/>.</summary>
     [RelayCommand]
     private void OpenWinoIntelligencePrivacy()
-        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.IntelligencePrivacyPage));
+        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoIntelligencePage));
 
     /// <summary>
     /// Shows the log folder where the platform has a file manager; elsewhere saves the logs to a folder the user picks,

@@ -115,18 +115,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public partial string AssistantHomeDescription { get; set; } = Translator.WinoIntelligence_Home_AssistantDescription;
 
     [ObservableProperty]
-    public partial string BriefingHomeDescription { get; set; } = Translator.WinoIntelligence_Briefing_Description;
-
-    [ObservableProperty]
-    public partial string MailClassificationHomeDescription { get; set; } = Translator.WinoIntelligence_MailClassification_HomeDescription;
-
-    [ObservableProperty]
-    public partial string BriefingInfoText { get; set; } = Translator.WinoIntelligence_Briefing_Info;
-
-    [ObservableProperty]
     public partial string ConsentAcceptedText { get; set; } = string.Empty;
-
-    public string ConsentShortText => IsConsentGranted ? Translator.WinoAccount_Allowed : Translator.WinoAccount_NotAllowed;
 
     [ObservableProperty]
     public partial string IntelligenceHeroTermsText { get; set; } = string.Empty;
@@ -207,7 +196,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public partial bool IsConsentBusy { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ConsentShortText))]
     public partial bool IsConsentGranted { get; set; }
 
     [ObservableProperty]
@@ -882,13 +870,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     }
 
     [RelayCommand]
-    private void OpenDailyBriefingSettings() => OpenIntelligenceSubPage(WinoPage.IntelligenceBriefingPage);
-
-    [RelayCommand]
     private void OpenMailClassification() => OpenIntelligenceSubPage(WinoPage.MailClassificationPage);
-
-    [RelayCommand]
-    private void OpenPrivacyData() => OpenIntelligenceSubPage(WinoPage.IntelligencePrivacyPage);
 
     [RelayCommand]
     private void OpenVoiceBrain()
@@ -931,62 +913,24 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
     }
 
-    [RelayCommand]
-    private async Task ToggleDailyBriefingAsync(WinoIntelligenceMailboxItemViewModel? mailbox)
+    /// <summary>
+    /// A load applies the snapshot up to three times (cached, purchase check, refreshed). Rebuilding
+    /// an unchanged list recreates every account card, which made the settings page flash.
+    /// </summary>
+    private void ApplyIntelligenceMailboxes(IEnumerable<WinoIntelligenceMailboxItemViewModel> items)
     {
-        if (mailbox?.LocalAccountId is not Guid localAccountId || mailbox.IsChangingDailyBriefing)
+        var ordered = items.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase).ToList();
+        if (ordered.Count == IntelligenceMailboxes.Count &&
+            ordered.Zip(IntelligenceMailboxes).All(pair => pair.First.HasSameContent(pair.Second)))
+        {
             return;
-
-        var requested = !mailbox.IsInDailyBriefing;
-        await ExecuteUIThread(() => mailbox.IsChangingDailyBriefing = true);
-
-        try
-        {
-            var account = await _accountService.GetAccountAsync(localAccountId).ConfigureAwait(false);
-            if (account?.Preferences is null)
-                return;
-
-            account.Preferences.IsDailyBriefingEnabled = requested;
-            await _accountService.UpdateAccountPreferencesAsync(account.Preferences).ConfigureAwait(false);
-
-            await ExecuteUIThread(() =>
-            {
-                mailbox.IsInDailyBriefing = requested;
-                ApplyMailboxHomeDescriptions();
-            });
-            WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
         }
-        catch (Exception exception)
-        {
-            await ExecuteUIThread(() =>
-            {
-                // The switch is one-way bound. Pulse the value so the switch returns to the saved preference.
-                mailbox.IsInDailyBriefing = requested;
-                mailbox.IsInDailyBriefing = !requested;
-            });
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                WinoAccountApiErrorTranslator.Translate(exception.Message),
-                InfoBarMessageType.Error);
-        }
-        finally
-        {
-            await ExecuteUIThread(() => mailbox.IsChangingDailyBriefing = false);
-        }
-    }
 
-    private void ApplyMailboxHomeDescriptions()
-    {
-        var total = IntelligenceMailboxes.Count;
-        var classified = IntelligenceMailboxes.Count(mailbox => mailbox.IsEnabled);
-        var inBriefing = IntelligenceMailboxes.Count(mailbox => mailbox.IsEnabled && mailbox.IsInDailyBriefing);
-
-        MailClassificationHomeDescription = total == 0
-            ? Translator.WinoIntelligence_MailClassification_HomeDescription
-            : $"{Translator.WinoIntelligence_MailClassification_HomeDescription} {string.Format(Translator.WinoIntelligence_MailClassification_HomeSummary, classified, total)}";
-        BriefingHomeDescription = total == 0
-            ? Translator.WinoIntelligence_Briefing_Description
-            : $"{Translator.WinoIntelligence_Briefing_Description} {string.Format(Translator.WinoIntelligence_Briefing_HomeSummary, inBriefing, total)}";
+        IntelligenceMailboxes.Clear();
+        foreach (var item in ordered)
+        {
+            IntelligenceMailboxes.Add(item);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanManageSubscription))]
@@ -1197,11 +1141,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
             account.Preferences.IsSemanticIndexingEnabled = requested;
             await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
-            await ExecuteUIThread(() =>
-            {
-                mailbox.IsEnabled = requested;
-                ApplyMailboxHomeDescriptions();
-            });
+            await ExecuteUIThread(() => mailbox.IsEnabled = requested);
             WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
         }
         catch (Exception exception)
@@ -1624,16 +1564,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ApplyAiPackBillingTexts(aiPack);
             if (snapshot.Consent is not null) ApplyIntelligenceConsent(snapshot.Consent);
             var mailboxItems = localAccounts.Select(account => CreateLocalIntelligenceMailboxItem(account, processedCounts)).ToArray();
-            IntelligenceMailboxes.Clear();
-            foreach (var item in mailboxItems.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase))
-            {
-                IntelligenceMailboxes.Add(item);
-            }
+            ApplyIntelligenceMailboxes(mailboxItems);
             ApplyIntelligenceUsage(usage);
             IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset reset ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, reset.LocalDateTime) : string.Empty;
             IntelligenceMailboxesSummary = DescribeBriefingMailboxes(mailboxItems);
             MailClassificationSummary = DescribeMailClassification(mailboxItems);
-            ApplyMailboxHomeDescriptions();
             IntelligenceLastUpdatedText = snapshot.LastSuccessfulRefreshUtc is DateTimeOffset updated ? updated.LocalDateTime.ToString("g") : string.Empty;
             IntelligenceRefreshError = string.IsNullOrWhiteSpace(refreshError) ? string.Empty : string.Format(
                 Translator.WinoIntelligence_CachedRefreshFailed,
@@ -2026,19 +1961,13 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         var usage = usageResponse?.IsSuccess == true ? usageResponse.Result : null;
         await ExecuteUIThread(() =>
         {
-            IntelligenceMailboxes.Clear();
-            foreach (var item in mailboxItems.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase))
-            {
-                IntelligenceMailboxes.Add(item);
-            }
-
+            ApplyIntelligenceMailboxes(mailboxItems);
             ApplyIntelligenceUsage(usage);
             IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset resetsAtUtc
                 ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, resetsAtUtc.LocalDateTime)
                 : string.Empty;
             IntelligenceMailboxesSummary = DescribeBriefingMailboxes(mailboxItems);
             MailClassificationSummary = DescribeMailClassification(mailboxItems);
-            ApplyMailboxHomeDescriptions();
             IntelligenceDataError = mailboxError;
             ApplySubscriptionTexts();
             if (consent != null)
@@ -2103,9 +2032,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ManageCommand = ManageIntelligenceMailboxCommand,
             DeleteCommand = DeleteIntelligenceCommand,
             ToggleEnabledCommand = ToggleIntelligenceMailboxCommand,
-            ToggleDailyBriefingCommand = ToggleDailyBriefingCommand,
             OpenCommand = OpenMailClassificationAccountCommand,
-            OpenMailClassificationCommand = OpenMailClassificationCommand,
             IsInDailyBriefing = account.Preferences?.IsDailyBriefingEnabled ?? true,
         };
 
@@ -2126,9 +2053,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _usageResetsAtUtc = usage?.ResetsAtUtc;
 
         var headline = IntelligenceUsage.Headline(usage);
-        BriefingInfoText = headline is null
-            ? Translator.WinoIntelligence_Briefing_Info
-            : string.Format(Translator.WinoIntelligence_Briefing_InfoWithUsage, headline.Used, headline.Limit);
         IntelligenceUsagePercentage = headline?.Percentage ?? 0;
         IntelligenceIncludedText = headline is null
             ? string.Empty
@@ -2156,7 +2080,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         IntelligenceDataError = string.Empty;
         ConsentAcceptedText = string.Empty;
         IntelligenceMailboxes.Clear();
-        ApplyMailboxHomeDescriptions();
     });
 
     private WinoIntelligenceEntitlementSnapshot ResolveEntitlement(WinoAccountIntelligenceSnapshot snapshot)

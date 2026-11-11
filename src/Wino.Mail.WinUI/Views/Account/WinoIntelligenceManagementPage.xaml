@@ -482,19 +482,23 @@
                         </controls:SettingsExpander>
 
                         <controls:SettingsCard
-                            AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingLinkCard"
-                            Description="{x:Bind ViewModel.DailyBriefingStatusText, Mode=OneWay}"
-                            Header="{x:Bind domain:Translator.DailyBriefing_Title, Mode=OneTime}">
+                            AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingCard"
+                            Description="{x:Bind domain:Translator.SemanticIndex_DailyBriefingDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.SemanticIndex_DailyBriefingTitle, Mode=OneTime}"
+                            IsEnabled="{x:Bind ViewModel.CanChangeIntelligencePreferences, Mode=OneWay}">
                             <controls:SettingsCard.HeaderIcon>
                                 <coreControls:WinoFontIcon
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Icon="DailyBriefing" />
                             </controls:SettingsCard.HeaderIcon>
-                            <HyperlinkButton
-                                AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingLinkButton"
-                                Command="{x:Bind ViewModel.OpenDailyBriefingSettingsCommand}"
-                                Content="{x:Bind domain:Translator.WinoIntelligence_Briefing_ChangeLink, Mode=OneTime}" />
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingToggle"
+                                AutomationProperties.Name="{x:Bind domain:Translator.SemanticIndex_DailyBriefingTitle, Mode=OneTime}"
+                                IsOn="{x:Bind ViewModel.IsDailyBriefingEnabled, Mode=OneWay}"
+                                OffContent="{x:Bind domain:Translator.SemanticIndex_Off, Mode=OneTime}"
+                                OnContent="{x:Bind domain:Translator.SemanticIndex_On, Mode=OneTime}"
+                                Toggled="DailyBriefingToggle_Toggled" />
                         </controls:SettingsCard>
 
                     </StackPanel>

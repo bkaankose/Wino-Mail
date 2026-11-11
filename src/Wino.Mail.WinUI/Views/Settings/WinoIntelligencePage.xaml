@@ -427,20 +427,9 @@
                     </coreControls:WinoSettingsCard>
 
                     <coreControls:WinoSettingsCard
-                        AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingCard"
-                        Command="{x:Bind ViewModel.OpenDailyBriefingSettingsCommand}"
-                        Description="{x:Bind ViewModel.BriefingHomeDescription, Mode=OneWay}"
-                        Header="{x:Bind domain:Translator.DailyBriefing_Title, Mode=OneTime}"
-                        IsClickEnabled="True">
-                        <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="DailyBriefing" />
-                        </controls:SettingsCard.HeaderIcon>
-                    </coreControls:WinoSettingsCard>
-
-                    <coreControls:WinoSettingsCard
                         AutomationProperties.AutomationId="WinoIntelligenceMailClassificationCard"
                         Command="{x:Bind ViewModel.OpenMailClassificationCommand}"
-                        Description="{x:Bind ViewModel.MailClassificationHomeDescription, Mode=OneWay}"
+                        Description="{x:Bind domain:Translator.WinoIntelligence_MailClassification_HomeDescription, Mode=OneTime}"
                         Header="{x:Bind domain:Translator.WinoIntelligence_MailClassification_Title, Mode=OneTime}"
                         IsClickEnabled="True">
                         <controls:SettingsCard.HeaderIcon>
@@ -497,19 +486,67 @@
                     <TextBlock
                         Margin="1,20,0,4"
                         Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
-                        Text="{x:Bind domain:Translator.WinoIntelligence_DataAndPlan_Header, Mode=OneTime}" />
+                        Text="{x:Bind domain:Translator.WinoIntelligence_Privacy_Header, Mode=OneTime}" />
 
-                    <coreControls:WinoSettingsCard
-                        AutomationProperties.AutomationId="WinoIntelligencePrivacyDataCard"
-                        Command="{x:Bind ViewModel.OpenPrivacyDataCommand}"
-                        Description="{x:Bind domain:Translator.WinoIntelligence_PrivacyData_Description, Mode=OneTime}"
-                        Header="{x:Bind domain:Translator.WinoIntelligence_PrivacyData_Title, Mode=OneTime}"
-                        IsClickEnabled="True">
+                    <InfoBar
+                        AutomationProperties.AutomationId="WinoIntelligenceConsentErrorInfoBar"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.HasConsentError, Mode=OneWay}"
+                        Message="{x:Bind ViewModel.ConsentErrorMessage, Mode=OneWay}"
+                        Severity="Error"
+                        Visibility="{x:Bind ViewModel.HasConsentError, Mode=OneWay}" />
+                    <InfoBar
+                        AutomationProperties.AutomationId="WinoIntelligenceConsentDeletionPendingInfoBar"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsConsentDeletionPending, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDeletionPending, Mode=OneTime}"
+                        Severity="Warning"
+                        Visibility="{x:Bind ViewModel.IsConsentDeletionPending, Mode=OneWay}" />
+                    <InfoBar
+                        AutomationProperties.AutomationId="WinoIntelligenceConsentDeletionFailedInfoBar"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsConsentDeletionFailed, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDeletionFailed, Mode=OneTime}"
+                        Severity="Error"
+                        Visibility="{x:Bind ViewModel.IsConsentDeletionFailed, Mode=OneWay}" />
+
+                    <controls:SettingsCard AutomationProperties.AutomationId="WinoIntelligenceProviderAccessCard" Header="{x:Bind domain:Translator.WinoIntelligence_Privacy_Title, Mode=OneTime}">
                         <controls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Icon="Shield" />
                         </controls:SettingsCard.HeaderIcon>
-                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.ConsentShortText, Mode=OneWay}" />
-                    </coreControls:WinoSettingsCard>
+                        <controls:SettingsCard.Description>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.WinoIntelligence_ProviderAccess_Description, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Text="{x:Bind ViewModel.ConsentAcceptedText, Mode=OneWay}"
+                                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.ConsentAcceptedText), Mode=OneWay}" />
+                                    <HyperlinkButton
+                                        Padding="2,0"
+                                        AutomationProperties.AutomationId="WinoIntelligencePolicyReviewButton"
+                                        Command="{x:Bind ViewModel.OpenConsentPolicyCommand}"
+                                        Content="{x:Bind domain:Translator.WinoIntelligence_Policy_ReviewLink, Mode=OneTime}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </controls:SettingsCard.Description>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <ProgressRing
+                                Width="18"
+                                Height="18"
+                                IsActive="{x:Bind ViewModel.IsConsentBusy, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.IsConsentBusy, Mode=OneWay}" />
+                            <ToggleSwitch
+                                x:Name="IntelligenceConsentToggle"
+                                AutomationProperties.AutomationId="WinoIntelligenceConsentToggle"
+                                AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_Privacy_Title, Mode=OneTime}"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentBusy), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsConsentGranted, Mode=OneWay}"
+                                OffContent="{x:Bind domain:Translator.WinoAccount_NotAllowed, Mode=OneTime}"
+                                OnContent="{x:Bind domain:Translator.WinoAccount_Allowed, Mode=OneTime}"
+                                Toggled="IntelligenceConsentToggle_Toggled" />
+                        </StackPanel>
+                    </controls:SettingsCard>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

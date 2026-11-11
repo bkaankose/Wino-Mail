@@ -18,7 +18,7 @@ public sealed partial class MailClassificationPage : MailClassificationPageAbstr
     }
 
     [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
-    private void ClassificationToggle_Toggled(object sender, RoutedEventArgs e)
+    private void IndexingToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleSwitch { Tag: WinoIntelligenceMailboxItemViewModel mailbox } toggle ||
             toggle.IsOn == mailbox.IsEnabled)

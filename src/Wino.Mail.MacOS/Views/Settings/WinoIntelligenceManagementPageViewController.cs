@@ -65,7 +65,7 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
 
         var wipe = Bind.Button(Translator.SemanticIndex_WipeData, vm.WipeIntelligenceDataCommand);
         wipe.HasDestructiveAction = true;
-        wipe.ContentTintColor = WinoStyle.Critical;
+        wipe.BezelColor = WinoStyle.Critical;
         var data = Group(Translator.SemanticIndex_CoverageIndexedDataGroupTitle,
             Card(Translator.SemanticIndex_DataTitle, Translator.SemanticIndex_DataDescription, WinoIconGlyph.LockClosed, wipe));
         Watch(s => s.IsIndexedDataGroupVisible, on => data.Hidden = !on);
@@ -299,12 +299,18 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
         Watch(s => s.CanChangeIntelligencePreferences, on => SettingsBinder.SetEnabled(_indicatorRows, on));
         group.Add(indicators);
 
-        var vm = ViewModel;
-        var change = IntelligenceSettingsViews.Link(Bind.Button(Translator.WinoIntelligence_Briefing_ChangeLink, vm.OpenDailyBriefingSettingsCommand),
-            Translator.WinoIntelligence_Briefing_ChangeLink);
-        var briefing = Card(Translator.DailyBriefing_Title, vm.DailyBriefingStatusText, WinoIconGlyph.DailyBriefing, change);
-        Bind.Bind(vm, nameof(vm.DailyBriefingStatusText), s => s.DailyBriefingStatusText, text => briefing.Description = text);
-        group.Add(briefing);
+        var briefing = new WinoTextSwitch(Translator.SemanticIndex_On, Translator.SemanticIndex_Off, Translator.SemanticIndex_DailyBriefingTitle);
+        Watch(s => s.IsDailyBriefingEnabled, on => { if (!_applying) briefing.IsOn = on; });
+        Watch(s => s.CanChangeIntelligencePreferences, on => briefing.IsEnabled = on);
+        briefing.Toggled += async (_, _) =>
+        {
+            if (_applying || !ViewModel.IsPageReady || briefing.IsOn == ViewModel.IsDailyBriefingEnabled) return;
+            _applying = true;
+            try { briefing.IsOn = await ViewModel.SetDailyBriefingEnabledAsync(briefing.IsOn); }
+            catch (Exception exception) { ReportError(exception); briefing.IsOn = ViewModel.IsDailyBriefingEnabled; }
+            finally { _applying = false; }
+        };
+        group.Add(Card(Translator.SemanticIndex_DailyBriefingTitle, Translator.SemanticIndex_DailyBriefingDescription, WinoIconGlyph.DailyBriefing, briefing));
 
         Watch(s => s.IsFeaturesGroupVisible, on => group.Hidden = !on);
         return group;

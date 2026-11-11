@@ -69,7 +69,5 @@ public enum WinoPage
     RemoteContentRulesPage,
     VoiceControlSettingsPage,
     VoiceBrainPage,
-    IntelligencePrivacyPage,
-    IntelligenceBriefingPage,
     MailClassificationPage
 }

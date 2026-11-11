@@ -81,8 +81,6 @@ public static class NavigationRouteTable
         Settings(WinoPage.StoragePage, typeof(StoragePage)),
         Settings(WinoPage.WinoAccountManagementPage, typeof(WinoAccountManagementPage)),
         Settings(WinoPage.WinoIntelligencePage, typeof(WinoIntelligencePage)),
-        Settings(WinoPage.IntelligencePrivacyPage, typeof(IntelligencePrivacyPage)),
-        Settings(WinoPage.IntelligenceBriefingPage, typeof(IntelligenceBriefingPage)),
         Settings(WinoPage.MailClassificationPage, typeof(MailClassificationPage)),
         Settings(WinoPage.WinoIntelligenceManagementPage, typeof(WinoIntelligenceManagementPage)),
         Settings(WinoPage.IntelligenceCoveragePage, typeof(IntelligenceCoveragePage)),

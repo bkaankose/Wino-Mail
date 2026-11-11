@@ -320,13 +320,6 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
         }
     }
 
-    [RelayCommand]
-    private void TryVoiceControl()
-    {
-        if (IsAvailable && IsVoiceControlEnabled)
-            Messenger.Send(new VoiceBubbleTryRequested());
-    }
-
     private void Navigate(WinoPage page)
         => Messenger.Send(new BreadcrumbNavigationRequested(SettingsCatalog.Title(page), page));
 

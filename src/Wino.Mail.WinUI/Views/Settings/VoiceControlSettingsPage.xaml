@@ -41,20 +41,6 @@
                     Toggled="VoiceControlEnabled_Toggled" />
             </controls:SettingsCard>
 
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="VoiceControlSettingsTryCard"
-                Description="{x:Bind domain:Translator.VoiceControlSettings_Try_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.VoiceControlSettings_Try_Title, Mode=OneTime}"
-                IsEnabled="{x:Bind ViewModel.IsVoiceControlEnabled, Mode=OneWay}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Play" />
-                </controls:SettingsCard.HeaderIcon>
-                <Button
-                    AutomationProperties.AutomationId="VoiceControlSettingsTryButton"
-                    Command="{x:Bind ViewModel.TryVoiceControlCommand}"
-                    Content="{x:Bind domain:Translator.VoiceControlSettings_Try_Button, Mode=OneTime}" />
-            </controls:SettingsCard>
-
             <TextBlock
                 Margin="1,20,0,4"
                 Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"

@@ -270,10 +270,6 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 return Translator.VoiceControlSettings_Description;
             case WinoPage.VoiceBrainPage:
                 return Translator.VoiceBrain_Description;
-            case WinoPage.IntelligencePrivacyPage:
-                return Translator.WinoIntelligence_PrivacyData_PageDescription;
-            case WinoPage.IntelligenceBriefingPage:
-                return Translator.WinoIntelligence_Briefing_Description;
             case WinoPage.MailClassificationPage:
                 return Translator.WinoIntelligence_MailClassification_PageDescription;
             case WinoPage.ProviderSelectionPage:

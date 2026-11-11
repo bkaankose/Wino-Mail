@@ -108,12 +108,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     public bool HasPurchaseStatus => !string.IsNullOrWhiteSpace(PurchaseStatusMessage);
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DailyBriefingStatusText))]
     public partial bool IsDailyBriefingEnabled { get; set; } = true;
-
-    public string DailyBriefingStatusText => IsDailyBriefingEnabled
-        ? Translator.WinoIntelligence_Briefing_AccountIncluded
-        : Translator.WinoIntelligence_Briefing_AccountNotIncluded;
 
     /// <summary>Ordered, local visibility choices for the current mailbox.</summary>
     public ObservableCollection<IntelligenceIndicatorSettingsItem> IntelligenceIndicatorSettings { get; } = [];
@@ -678,6 +673,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             Account.Preferences.IsDailyBriefingEnabled = isEnabled;
             await _accountService.UpdateAccountPreferencesAsync(Account.Preferences).ConfigureAwait(false);
             await ExecuteUIThread(() => IsDailyBriefingEnabled = isEnabled);
+            WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
             return isEnabled;
         }
         catch (Exception exception)
@@ -753,10 +749,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [RelayCommand]
     private void OpenIntelligenceSettings()
         => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoIntelligencePage));
-
-    [RelayCommand]
-    private void OpenDailyBriefingSettings()
-        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.IntelligenceBriefingPage));
 
     [RelayCommand(CanExecute = nameof(CanStartIndexing))]
     private async Task StartIndexingAsync()
