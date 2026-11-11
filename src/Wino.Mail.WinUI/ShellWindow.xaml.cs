@@ -45,6 +45,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoAccountProfileUpdatedMessage>,
     IRecipient<WinoAccountProfileDeletedMessage>,
     IRecipient<DailyBriefingStateChanged>,
+    IRecipient<DailyBriefingOpenRequested>,
     IRecipient<IntelligenceMetadataChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
     IRecipient<WinoIntelligenceEntitlementChanged>,
@@ -278,6 +279,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void PaneButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
     {
+        if (MainShellFrame.Content is WinoAppShell shellPage)
+        {
+            shellPage.ToggleNavigationPane();
+            return;
+        }
+
         PreferencesService.IsNavigationPaneOpened = !PreferencesService.IsNavigationPaneOpened;
     }
 
@@ -314,6 +321,25 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     }
 
     public async void Receive(DailyBriefingStateChanged message) => await RefreshDailyBriefingStateAsync();
+
+    public void Receive(DailyBriefingOpenRequested message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (StatePersistanceService.ApplicationMode != WinoApplicationMode.Mail &&
+                !NavigationService.ChangeApplicationMode(WinoApplicationMode.Mail))
+            {
+                return;
+            }
+
+            // The mode switch closes the panel from its property-changed handler, so the panel opens after that work runs.
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+            {
+                await DailyBriefingPanelControl.OpenAsync();
+                DailyBriefingToggleButton.IsChecked = DailyBriefingPanelControl.IsOpen;
+            });
+        });
+    }
 
     /// <summary>Freshly imported artifacts can make the briefing unseen again, so the badge is re-evaluated.</summary>
     public async void Receive(IntelligenceMetadataChanged message) => await RefreshDailyBriefingStateAsync();
@@ -1036,6 +1062,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
         WeakReferenceMessenger.Default.Register<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Register<DailyBriefingOpenRequested>(this);
         WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
@@ -1052,6 +1079,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<DailyBriefingOpenRequested>(this);
         WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);

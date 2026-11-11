@@ -311,7 +311,7 @@
                 </controls:SettingsCard>
 
                 <!--
-                    ============ 2. what gets indexed ============
+                    ============ 2. what gets classified ============
                     Stays on screen when intelligence is off, disabled and with a note, because
                     hiding it would make the switch look like it discarded the configuration.
                 -->
@@ -458,31 +458,14 @@
                 </StackPanel>
 
                 <!--
-                    ============ 3. features ============
-                    Hidden rather than disabled while intelligence is off: a Daily Briefing toggle
-                    for a mailbox that produces no intelligence is not a setting, it is noise.
+                    ============ 3. shown in Wino ============
+                    Hidden rather than disabled while classification is off: labels for a mailbox
+                    that produces no results are not a setting, they are noise.
                 -->
                 <StackPanel Margin="0,16,0,0" Visibility="{x:Bind ViewModel.IsFeaturesGroupVisible, Mode=OneWay}">
                     <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="{x:Bind domain:Translator.SemanticIndex_CoverageFeaturesGroupTitle, Mode=OneTime}" />
 
                     <StackPanel Spacing="2">
-                        <controls:SettingsCard
-                            AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingCard"
-                            Description="{x:Bind domain:Translator.SemanticIndex_DailyBriefingDescription, Mode=OneTime}"
-                            Header="{x:Bind domain:Translator.SemanticIndex_DailyBriefingTitle, Mode=OneTime}">
-                            <controls:SettingsCard.HeaderIcon>
-                                <coreControls:WinoFontIcon Icon="DailyBriefing" />
-                            </controls:SettingsCard.HeaderIcon>
-                            <ToggleSwitch
-                                x:Name="DailyBriefingToggle"
-                                AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingToggle"
-                                IsEnabled="{x:Bind ViewModel.CanChangeIntelligencePreferences, Mode=OneWay}"
-                                IsOn="{x:Bind ViewModel.IsDailyBriefingEnabled, Mode=OneWay}"
-                                OffContent="{x:Bind domain:Translator.SemanticIndex_Off, Mode=OneTime}"
-                                OnContent="{x:Bind domain:Translator.SemanticIndex_On, Mode=OneTime}"
-                                Toggled="DailyBriefingToggle_Toggled" />
-                        </controls:SettingsCard>
-
                         <controls:SettingsExpander
                             AutomationProperties.AutomationId="WinoIntelligenceIndicatorsCard"
                             Description="{x:Bind domain:Translator.SemanticIndex_IntelligenceIndicatorsDescription, Mode=OneTime}"
@@ -498,31 +481,49 @@
                             </controls:SettingsExpander.HeaderIcon>
                         </controls:SettingsExpander>
 
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingLinkCard"
+                            Description="{x:Bind ViewModel.DailyBriefingStatusText, Mode=OneWay}"
+                            Header="{x:Bind domain:Translator.DailyBriefing_Title, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Icon="DailyBriefing" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <HyperlinkButton
+                                AutomationProperties.AutomationId="WinoIntelligenceDailyBriefingLinkButton"
+                                Command="{x:Bind ViewModel.OpenDailyBriefingSettingsCommand}"
+                                Content="{x:Bind domain:Translator.WinoIntelligence_Briefing_ChangeLink, Mode=OneTime}" />
+                        </controls:SettingsCard>
+
                     </StackPanel>
                 </StackPanel>
 
                 <!--
-                    ============ 4. intelligence data ============
-                    Always available. Turning intelligence off is exactly when someone wants to
-                    wipe what it already stored, so hiding this would strand their data. Results
-                    live only on this device, so there is one wipe and no remote copy to manage.
+                    ============ 4. results on this device ============
+                    Always available. Turning classification off is exactly when someone wants to
+                    delete what it already stored, so hiding this would strand their data. Results
+                    live only on this device, so there is one delete and no remote copy to manage.
                 -->
-                <controls:SettingsCard
-                    Margin="0,16,0,0"
-                    AutomationProperties.AutomationId="WinoIntelligenceDataCard"
-                    Description="{x:Bind domain:Translator.SemanticIndex_DataDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.SemanticIndex_DataTitle, Mode=OneTime}"
-                    Visibility="{x:Bind ViewModel.IsIndexedDataGroupVisible, Mode=OneWay}">
-                    <controls:SettingsCard.HeaderIcon>
-                        <coreControls:WinoFontIcon Icon="LockClosed" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <Button
-                        AutomationProperties.AutomationId="WinoIntelligenceWipeDataButton"
-                        Background="{ThemeResource DeleteBrush}"
-                        Command="{x:Bind ViewModel.WipeIntelligenceDataCommand}"
-                        Content="{x:Bind domain:Translator.SemanticIndex_WipeData, Mode=OneTime}"
-                        Foreground="{ThemeResource DeleteButtonForegroundBrush}" />
-                </controls:SettingsCard>
+                <StackPanel Margin="0,16,0,0" Visibility="{x:Bind ViewModel.IsIndexedDataGroupVisible, Mode=OneWay}">
+                    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="{x:Bind domain:Translator.SemanticIndex_CoverageIndexedDataGroupTitle, Mode=OneTime}" />
+
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="WinoIntelligenceDataCard"
+                        Description="{x:Bind domain:Translator.SemanticIndex_DataDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SemanticIndex_DataTitle, Mode=OneTime}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="LockClosed" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <Button
+                            AutomationProperties.AutomationId="WinoIntelligenceWipeDataButton"
+                            Background="{ThemeResource DeleteBrush}"
+                            Command="{x:Bind ViewModel.WipeIntelligenceDataCommand}"
+                            Content="{x:Bind domain:Translator.SemanticIndex_WipeData, Mode=OneTime}"
+                            Foreground="{ThemeResource DeleteButtonForegroundBrush}" />
+                    </controls:SettingsCard>
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>

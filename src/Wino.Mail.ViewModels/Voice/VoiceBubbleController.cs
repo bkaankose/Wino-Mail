@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -12,9 +12,17 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
+using Wino.Agent.Runtime.Brain;
+using Wino.Agent.Runtime.Clarify;
+using Wino.Agent.Runtime.Plan;
+using Wino.Agent.Runtime.Session;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Voice;
+using Wino.Core.Services.Assistant;
+using Wino.Mail.Api.Contracts.Assistant;
 using Wino.Mail.Api.Contracts.Common;
-using Wino.Mail.Api.Contracts.Voice;
+using Wino.Services.Assistant;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.Controls.Core.VoiceBubble;
 using Wino.Mail.ViewModels.Data;
@@ -24,10 +32,11 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels.Voice;
 
 /// <summary>
-/// The voice bubble flow on every platform: opens the bubble from the global shortcut or Settings, records the
-/// microphone, streams it to the voice API, shows the live transcript, asks the plan's open questions, shows the
-/// planned steps for confirmation and runs them. The platform supplies the window, shortcut and frame clock through
-/// <see cref="IVoiceBubbleHost"/> and the steps that open app windows through <see cref="IVoicePlanHost"/>.
+/// The assistant bubble flow on every platform: opens the bubble from the global shortcut or Settings, records the
+/// microphone or takes typed text, and hands the request to the Wino Agent Runtime: the server reads the words, the
+/// runtime resolves them on the device, asks its questions here, and returns a plan that runs after confirmation
+/// through <see cref="AgentPlanExecutor"/>. The platform supplies the window, shortcut and frame clock through
+/// <see cref="IVoiceBubbleHost"/> and the steps that open app windows through <see cref="IAgentPlanHost"/>.
 /// Everything except the audio callbacks runs on the host's UI thread.
 /// </summary>
 public sealed class VoiceBubbleController : IDisposable
@@ -43,45 +52,51 @@ public sealed class VoiceBubbleController : IDisposable
     private static readonly TimeSpan QuestionFilterDelay = TimeSpan.FromMilliseconds(150);
 
     private readonly IVoiceBubbleHost _host;
-    private readonly IVoicePlanHost? _planHost;
     private readonly IPreferencesService _preferences;
     private readonly IWinoAccountIntelligenceSnapshotService _entitlementService;
     private readonly IMicrophoneService _microphone;
-    private readonly IVoiceCommandService _voiceCommands;
-    private readonly IVoicePlanPreviewService _planPreview;
-    private readonly IVoicePlanExecutor _planExecutor;
-    private readonly IVoiceBrainService _brain;
-    private readonly IVoiceQuestionService _questions;
+    private readonly IAssistantCommandService _commands;
+    private readonly IAgentRuntimeHost _runtime;
+    private readonly AgentPlanExecutor _executor;
+    private readonly AssistantReadingClient _reader;
     private readonly IPictureStorageService _pictureStorage;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
-    private VoicePlan? _questionPlan;
-    private List<VoiceQuestion>? _openQuestions;
-    private readonly List<VoiceAnswerCandidate> _picked = [];
     private const string DoneChoiceKey = "done";
-    private int _questionIndex;
-    private bool _isPersonalPlan;
-    private Dictionary<string, VoiceAnswerCandidate>? _candidates;
-    private CancellationTokenSource? _candidateCancellation;
+    private const string NewAddressPrefix = "new:";
     private readonly int _defaultSuccessDismissMilliseconds;
-    private VoicePlanResolution? _resolution;
-    private double _planConfidence;
-    private List<VoicePlanPreviewGroup>? _shownGroups;
+
+    // The runtime session lives as long as the controller: follow-ups ("archive them too") refer to earlier turns.
+    private IAgentSession? _agentSession;
+
+    // The question on screen, its options and the people picked so far for a many-person question.
+    private Clarification? _clarification;
+    private readonly List<ClarificationOption> _picked = [];
+    private CancellationTokenSource? _candidateCancellation;
+    private string? _questionFilter;
+
+    // The plan on screen: its steps grouped by account, and the second confirmation for steps that can't be undone.
+    private ResolvedPlan? _plan;
+    private List<List<int>>? _groupSteps;
     private VoiceBubbleStepGroup[]? _bubbleGroups;
-    private IReadOnlyCollection<VoicePlanPreviewGroup>? _riskAcceptedGroups;
-    private List<string>? _pendingNotes;
+    private List<int>? _riskAcceptedSteps;
+    private AgentFollowUp? _followUp;
+    private string _requestText = string.Empty;
+    private TaskCompletionSource<bool>? _proposalAnswer;
+
     private readonly VoiceBubbleLevelBands _bands = new();
     private readonly Lock _audioLock = new();
     private readonly List<ReadOnlyMemory<byte>> _pendingAudio = [];
     private bool _hasAccess;
     private CancellationTokenSource? _requestCancellation;
-    private IVoiceCommandSession? _session;
+    private IAssistantCommandSession? _session;
     private IDisposable? _capture;
     private string _heard = string.Empty;
 
-    // The items a context-aware request was opened for. They stay on the device; the server only gets their description.
+    // The items a context-aware request was opened for. They stay on the device; the server only gets their kind,
+    // count and flags.
     private VoiceLocalSelection? _selection;
-    private VoiceSelectionContext? _selectionContext;
+    private AgentSelection? _agentSelection;
 
     // Typed text a voice request continues from (the user typed, then pressed the microphone), and the text of the
     // request being typed. The last mode and text let Try again repeat a typed request.
@@ -98,21 +113,21 @@ public sealed class VoiceBubbleController : IDisposable
     private bool _isRendering;
     private bool _disposed;
 
-    public VoiceBubbleController(IVoiceBubbleHost host, IVoicePlanHost? planHost, IServiceProvider services)
+    public VoiceBubbleController(IVoiceBubbleHost host, IAgentPlanHost? planHost, IServiceProvider services)
     {
         _host = host;
-        _planHost = planHost;
         _preferences = services.GetRequiredService<IPreferencesService>();
         _entitlementService = services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
         _microphone = services.GetRequiredService<IMicrophoneService>();
-        _voiceCommands = services.GetRequiredService<IVoiceCommandService>();
-        _planPreview = services.GetRequiredService<IVoicePlanPreviewService>();
-        _planExecutor = services.GetRequiredService<IVoicePlanExecutor>();
-        _brain = services.GetRequiredService<IVoiceBrainService>();
-        _questions = services.GetRequiredService<IVoiceQuestionService>();
+        _commands = services.GetRequiredService<IAssistantCommandService>();
+        _runtime = services.GetRequiredService<IAgentRuntimeHost>();
+        _executor = services.GetRequiredService<AgentPlanExecutor>();
+        _reader = services.GetRequiredService<AssistantReadingClient>();
         _pictureStorage = services.GetRequiredService<IPictureStorageService>();
         _accountService = services.GetRequiredService<IAccountService>();
         _calendarService = services.GetRequiredService<ICalendarService>();
+        if (planHost is not null)
+            _executor.Host = planHost;
         _hasAccess = _entitlementService.CurrentEntitlement.CanAccessSurfaces;
 
         var bubble = _host.Bubble;
@@ -125,6 +140,7 @@ public sealed class VoiceBubbleController : IDisposable
         bubble.ConfirmSelectedText = Translator.VoiceBubble_ConfirmSelected;
         bubble.NoticeTitle = Translator.VoiceBubble_CantDo;
         bubble.QuestionSearchPlaceholder = Translator.VoiceQuestion_Search;
+        _runtime.Prompter.Handler = ProposeAsync;
         bubble.QuestionEmptyText = Translator.VoiceQuestion_NoMatches;
         bubble.QuestionCancelText = Translator.Buttons_Cancel;
         bubble.ComposePlaceholder = Translator.VoiceBubble_ComposePlaceholder;
@@ -187,6 +203,39 @@ public sealed class VoiceBubbleController : IDisposable
             StartComposing(string.Empty, Translator.VoiceBubble_VoiceQuotaUsed);
         else
             StartListening();
+
+        if (_voiceExhausted)
+            _ = RecheckVoiceAllowanceAsync();
+    }
+
+    /// <summary>
+    /// "Used up" is learned from a spoken request and typed requests never report it, so it would otherwise last until
+    /// the app restarts: a new period, a purchase or a raised limit gives the microphone back once usage says so.
+    /// </summary>
+    private async Task RecheckVoiceAllowanceAsync()
+    {
+        try
+        {
+            var refreshed = await _entitlementService.RefreshAsync().ConfigureAwait(false);
+            if (refreshed?.Snapshot.Usage?.Find(IntelligenceUsage.VoiceBucket) is not { IsExhausted: false })
+                return;
+
+            _host.Post(() =>
+            {
+                if (_disposed || !_voiceExhausted)
+                    return;
+
+                _voiceExhausted = false;
+                var bubble = _host.Bubble;
+                bubble.CanSwitchToVoice = true;
+                if (bubble.InputNotice == Translator.VoiceBubble_VoiceQuotaUsed)
+                    bubble.InputNotice = null;
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Could not recheck the spoken request allowance.");
+        }
     }
 
     /// <summary>
@@ -200,7 +249,7 @@ public sealed class VoiceBubbleController : IDisposable
 
         StartComposing(string.Empty, null);
         _selection = selection;
-        _selectionContext = null;
+        _agentSelection = null;
         _host.Bubble.ComposePlaceholder = SelectionPlaceholder(selection);
     }
 
@@ -209,10 +258,10 @@ public sealed class VoiceBubbleController : IDisposable
         var count = selection.Count;
         return selection.Kind switch
         {
-            VoiceContextKind.Mail => count == 1 ? Translator.VoiceBubble_AskAbout_Mail : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Mails, count),
-            VoiceContextKind.Event => count == 1 ? Translator.VoiceBubble_AskAbout_Event : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Events, count),
-            VoiceContextKind.Task => count == 1 ? Translator.VoiceBubble_AskAbout_Task : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Tasks, count),
-            VoiceContextKind.Contact => count == 1 ? Translator.VoiceBubble_AskAbout_Contact : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Contacts, count),
+            AssistantSelectionKind.Mail => count == 1 ? Translator.VoiceBubble_AskAbout_Mail : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Mails, count),
+            AssistantSelectionKind.Event => count == 1 ? Translator.VoiceBubble_AskAbout_Event : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Events, count),
+            AssistantSelectionKind.Task => count == 1 ? Translator.VoiceBubble_AskAbout_Task : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Tasks, count),
+            AssistantSelectionKind.Contact => count == 1 ? Translator.VoiceBubble_AskAbout_Contact : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Contacts, count),
             _ => Translator.VoiceBubble_AskAbout_Folder
         };
     }
@@ -223,30 +272,36 @@ public sealed class VoiceBubbleController : IDisposable
             return;
 
         _selection = null;
-        _selectionContext = null;
+        _agentSelection = null;
         _host.Bubble.ComposePlaceholder = Translator.VoiceBubble_ComposePlaceholder;
     }
 
-    /// <summary>The description of the selection sent with the request, built once per selection.</summary>
-    private async Task<VoiceSelectionContext?> GetSelectionContextAsync(CancellationToken cancellationToken)
+    /// <summary>The selection as the runtime's ids and flags, built once per selection.</summary>
+    private async Task<AgentSelection?> GetAgentSelectionAsync(CancellationToken cancellationToken)
     {
         if (_selection is not { } selection)
             return null;
 
-        if (_selectionContext is null)
+        if (_agentSelection is null)
         {
             try
             {
-                _selectionContext = await Wino.Services.Voice.VoiceSelectionContextBuilder.BuildAsync(selection, _accountService, _calendarService, cancellationToken);
+                _agentSelection = await AgentSelectionBuilder.BuildAsync(selection, _accountService, _calendarService, cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 Log.Warning(ex, "Could not describe the selection for the assistant.");
-                _selectionContext = new VoiceSelectionContext(selection.Kind, selection.Count, []);
+                return null;
             }
         }
 
-        return _selectionContext;
+        return _agentSelection;
+    }
+
+    private async Task<IAgentSession> GetSessionAsync(CancellationToken cancellationToken)
+    {
+        await _runtime.EnsureInitializedAsync(cancellationToken);
+        return _agentSession ??= _runtime.Runtime.OpenSession();
     }
 
     private HotKeyGesture OtherGesture(VoiceBubbleInputMode mode) => mode == VoiceBubbleInputMode.Voice
@@ -259,6 +314,8 @@ public sealed class VoiceBubbleController : IDisposable
             return;
 
         _disposed = true;
+        if (_runtime.Prompter.Handler == ProposeAsync)
+            _runtime.Prompter.Handler = null;
         WeakReferenceMessenger.Default.UnregisterAll(this);
         _host.HotKeyPressed -= HostHotKeyPressed;
         _host.FrameRendered -= HostFrameRendered;
@@ -356,6 +413,11 @@ public sealed class VoiceBubbleController : IDisposable
         if (_disposed || !IsUsable)
             return;
 
+        // With the spoken requests used up the voice shortcut opens typing, so it also closes or sends like the typing
+        // shortcut instead of "switching to voice", which only repeats the quota notice.
+        if (_voiceExhausted)
+            mode = VoiceBubbleInputMode.Text;
+
         switch (State)
         {
             case VoiceBubbleState.Hidden:
@@ -411,6 +473,22 @@ public sealed class VoiceBubbleController : IDisposable
         StartListening(_composed.Trim());
     }
 
+#if DEBUG
+    /// <summary>Debug bridge: types <paramref name="text"/> into the bubble and sends it as the user would, about
+    /// <paramref name="selection"/> when given (the mail list's "ask about these").</summary>
+    public void DebugSendTyped(string text, VoiceLocalSelection? selection)
+    {
+        if (selection is not null) OpenForSelection(selection);
+        else Open(VoiceBubbleInputMode.Text);
+        _composed = text;
+        _host.Bubble.ComposedText = text;
+        SendTyped();
+    }
+
+    /// <summary>Debug bridge: the plan's Run button.</summary>
+    public void DebugConfirm() => Confirm();
+#endif
+
     /// <summary>Sends the typed request: no microphone, no transcription.</summary>
     private void SendTyped()
     {
@@ -438,36 +516,25 @@ public sealed class VoiceBubbleController : IDisposable
         var token = cancellation.Token;
         try
         {
-            _brain.NotifyVoiceStarting();
-            var selection = await GetSelectionContextAsync(token);
-            var start = await _voiceCommands.StartAsync(VoiceInputKind.Text, null, selection, token);
+            var session = await GetSessionAsync(token);
+            var selection = await GetAgentSelectionAsync(token);
             if (IsStale(cancellation))
-            {
-                if (start.Session is { } staleSession)
-                    await staleSession.DisposeAsync();
                 return;
-            }
 
-            if (start.Session is not { } session)
-            {
-                Fail(GetErrorMessage(start.ErrorCode), CanRetry(start.ErrorCode));
-                return;
-            }
+            _requestText = text;
+            var turn = await session.HandleAsync(new AgentRequest(text, AgentInputKind.Typed, selection, selection?.AccountId), token);
+            if (_reader.LastMetrics?.VoiceRemaining is int voiceRemaining)
+                _voiceExhausted = voiceRemaining <= 0;
 
-            lock (_audioLock)
-                _session = session;
-
-            session.SendText(text);
-            await foreach (var frame in session.Frames.ReadAllAsync(token))
-            {
-                if (IsStale(cancellation))
-                    return;
-
-                await HandleFrameAsync(frame, cancellation);
-            }
+            await ShowTurnAsync(turn, cancellation);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+        }
+        catch (AssistantReadException ex)
+        {
+            if (!IsStale(cancellation))
+                Fail(GetErrorMessage(ex.Code), CanRetry(ex.Code));
         }
         catch (Exception ex)
         {
@@ -508,7 +575,8 @@ public sealed class VoiceBubbleController : IDisposable
 
     /// <summary>
     /// Opens the microphone and the socket together so the first words are not lost: audio recorded before the socket
-    /// exists is held and sent when it does. Runs on the UI thread between awaits.
+    /// exists is held and sent when it does. The socket returns the transcript and the reading; the reading goes to the
+    /// runtime as a pre-read request. Runs on the UI thread between awaits.
     /// </summary>
     private async Task RunRequestAsync(CancellationTokenSource cancellation)
     {
@@ -521,8 +589,10 @@ public sealed class VoiceBubbleController : IDisposable
                 OnAudioAvailable,
                 level => Volatile.Write(ref _micLevel, level),
                 token);
-            var sessionTask = _voiceCommands.StartAsync(VoiceInputKind.Audio, _typedPrefix, await GetSelectionContextAsync(token), token);
-            _brain.NotifyVoiceStarting();
+            var agentSession = await GetSessionAsync(token);
+            var selection = await GetAgentSelectionAsync(token);
+            var readRequest = agentSession.CreateReadRequest(new AgentRequest(_typedPrefix, AgentInputKind.Spoken, selection, selection?.AccountId));
+            var sessionTask = _commands.StartAsync(readRequest, token);
 
             var capture = await captureTask;
             if (IsStale(cancellation))
@@ -567,15 +637,20 @@ public sealed class VoiceBubbleController : IDisposable
                 if (IsStale(cancellation))
                     return;
 
-                await HandleFrameAsync(frame, cancellation);
+                await HandleFrameAsync(frame, agentSession, selection, cancellation);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
         }
+        catch (AssistantReadException ex)
+        {
+            if (!IsStale(cancellation))
+                Fail(GetErrorMessage(ex.Code), CanRetry(ex.Code));
+        }
         catch (Exception ex)
         {
-            Log.Error(ex, "The voice request failed.");
+            Log.Error(ex, "The spoken assistant request failed.");
             if (!IsStale(cancellation))
                 Fail(GetErrorMessage(VoiceClientErrorCodes.ConnectionLost), canRetry: true);
         }
@@ -584,7 +659,7 @@ public sealed class VoiceBubbleController : IDisposable
     private bool IsStale(CancellationTokenSource cancellation)
         => _disposed || cancellation.IsCancellationRequested || !ReferenceEquals(cancellation, _requestCancellation);
 
-    private static async Task DisposeSessionWhenStartedAsync(Task<VoiceCommandStartResult> sessionTask)
+    private static async Task DisposeSessionWhenStartedAsync(Task<AssistantCommandStartResult> sessionTask)
     {
         try
         {
@@ -593,7 +668,7 @@ public sealed class VoiceBubbleController : IDisposable
         }
         catch (Exception ex)
         {
-            Log.Debug(ex, "Could not close an unused voice session.");
+            Log.Debug(ex, "Could not close an unused assistant session.");
         }
     }
 
@@ -608,38 +683,43 @@ public sealed class VoiceBubbleController : IDisposable
         }
     }
 
-    private async Task HandleFrameAsync(VoiceServerFrame frame, CancellationTokenSource cancellation)
+    private async Task HandleFrameAsync(AssistantServerFrame frame, IAgentSession agentSession, AgentSelection? selection, CancellationTokenSource cancellation)
     {
         var bubble = _host.Bubble;
         switch (frame.Type)
         {
-            case VoiceFrameTypes.TranscriptDelta when State == VoiceBubbleState.Listening:
+            case AssistantFrameTypes.TranscriptDelta when State == VoiceBubbleState.Listening:
                 _heard += frame.Text;
                 _heardSpeech |= !string.IsNullOrWhiteSpace(frame.Text);
                 bubble.Transcript = JoinTyped(_typedPrefix, _heard);
                 break;
-            case VoiceFrameTypes.TranscriptFinal:
+            case AssistantFrameTypes.TranscriptFinal:
                 if (!string.IsNullOrWhiteSpace(frame.Text))
                     bubble.Transcript = frame.Text.Trim();
                 break;
-            case VoiceFrameTypes.Status:
+            case AssistantFrameTypes.Status:
                 if (State == VoiceBubbleState.Listening)
                     Send();
                 break;
-            case VoiceFrameTypes.Plan when frame.Plan is { } plan:
-                if (frame.Metrics?.Mode is { } mode)
-                    _brain.ApplyReportedMode(mode);
+            case AssistantFrameTypes.Reading when frame.Reading is { } reading:
+                StopRendering();
+                StopCapture();
                 if (frame.Metrics?.VoiceRemaining is int voiceRemaining)
                     _voiceExhausted = voiceRemaining <= 0;
 
-                await ShowPlanAsync(plan, frame.Metrics?.Mode ?? _brain.CurrentMode, cancellation);
+                // The session's own socket is done; the runtime resolves the reading on the device.
+                EndSession();
+                var text = bubble.Transcript ?? JoinTyped(_typedPrefix, _heard);
+                _requestText = text;
+                var turn = await agentSession.HandleAsync(new AgentRequest(text, AgentInputKind.Spoken, selection, selection?.AccountId, reading), cancellation.Token);
+                await ShowTurnAsync(turn, cancellation);
                 break;
-            case VoiceFrameTypes.Error:
-                if (frame.Code == VoiceErrorCodes.Superseded)
+            case AssistantFrameTypes.Error:
+                if (frame.Code == AssistantErrorCodes.Superseded)
                 {
                     Close();
                 }
-                else if (frame.Code == VoiceErrorCodes.VoiceQuotaExceeded)
+                else if (frame.Code == AssistantErrorCodes.VoiceQuotaExceeded)
                 {
                     // The request can still be typed: keep what was typed and heard, and switch to typing.
                     _voiceExhausted = true;
@@ -655,7 +735,7 @@ public sealed class VoiceBubbleController : IDisposable
 
     /// <summary>
     /// Stops recording and tells the API the user finished speaking. Without any transcribed words there is nothing to
-    /// plan, so the bubble just closes.
+    /// read, so the bubble just closes.
     /// </summary>
     private void Send()
     {
@@ -686,82 +766,126 @@ public sealed class VoiceBubbleController : IDisposable
         Present(VoiceBubbleState.Analyzing);
     }
 
-    private async Task ShowPlanAsync(VoicePlan plan, VoiceMode mode, CancellationTokenSource cancellation)
+    /// <summary>What the runtime returned: a question, a plan to confirm, a message, or nothing.</summary>
+    private async Task ShowTurnAsync(AgentTurn turn, CancellationTokenSource cancellation)
     {
-        StopRendering();
-        StopCapture();
-        var bubble = _host.Bubble;
-        if (!string.IsNullOrWhiteSpace(plan.Transcript))
-            bubble.Transcript = plan.Transcript;
-
-        var commands = plan.Commands ?? [];
-        if (VoicePlan.IsCanceledByUser(plan) || commands.Count == 0)
-        {
-            Close();
-            return;
-        }
-
-        // Names the plan leaves to the device (Private mode, and names Personal mode's brain doesn't know) become
-        // people or questions here; Personal mode then answers what the device can tell on its own.
-        plan = await _questions.AddLocalQuestionsAsync(plan, cancellation.Token);
         if (IsStale(cancellation))
             return;
 
-        if (mode == VoiceMode.Personal)
+        switch (turn)
         {
-            var known = await _questions.AnswerKnownQuestionsAsync(plan, cancellation.Token);
-            if (IsStale(cancellation))
-                return;
-
-            plan = known.Plan;
-            foreach (var fact in known.Facts)
-                _ = Task.Run(() => _brain.AddFactAsync(fact));
+            case AgentTurn.Clarify clarify:
+                AskQuestion(clarify.Clarification);
+                break;
+            case AgentTurn.Plan plan:
+                await ShowPlanAsync(plan.Resolved, cancellation);
+                break;
+            case AgentTurn.Message message:
+                ShowMessage(message);
+                break;
+            default:
+                Close();
+                break;
         }
-
-        // Every open question is asked before anything runs, auto-confirm included.
-        var questions = _questions.GetQuestions(plan);
-        if (questions.Count > 0)
-        {
-            _questionPlan = plan;
-            _openQuestions = questions.ToList();
-            _questionIndex = 0;
-            _isPersonalPlan = mode == VoiceMode.Personal;
-            AskQuestion();
-            return;
-        }
-
-        await ResolveAndShowPlanAsync(plan, cancellation);
     }
 
-    private void AskQuestion()
+    private void ShowMessage(AgentTurn.Message message)
     {
-        if (_openQuestions is not { } questions || _questionIndex >= questions.Count)
-            return;
+        var text = message.Kind switch
+        {
+            AgentMessageKind.Remembered => Translator.AssistantMessage_Remembered,
+            AgentMessageKind.Forgotten => Translator.AssistantMessage_Forgotten,
+            AgentMessageKind.ProposalSaved => Translator.AssistantMessage_ProposalSaved,
+            AgentMessageKind.StandingRuleRefused => Translator.AssistantMessage_StandingRuleRefused,
+            AgentMessageKind.OutOfScope => Translator.AssistantMessage_OutOfScope,
+            AgentMessageKind.NeedsPreviousRequest => Translator.AssistantMessage_NeedsPreviousRequest,
+            AgentMessageKind.NothingMatched => Translator.AssistantMessage_NothingMatched,
+            AgentMessageKind.Undone => Translator.AssistantMessage_Undone,
+            AgentMessageKind.Answer => Translator.AssistantMessage_Answer,
+            AgentMessageKind.Unavailable => Translator.AssistantMessage_Unavailable,
+            _ => Translator.VoiceBubble_Error_NotUnderstood,
+        };
 
-        var question = questions[_questionIndex];
+        // A refused standing rule can still run once now: the follow-up carries the reading without its condition.
+        if (message.FollowUps.FirstOrDefault(static f => f.Kind == AgentFollowUpKind.RunOnce && f.Resubmit is not null) is { } runOnce)
+        {
+            _followUp = runOnce;
+            var bubble = _host.Bubble;
+            bubble.ConfirmationText = VoiceBubbleText.FromMarked(text);
+            bubble.ConfirmationSteps = null;
+            bubble.ConfirmationGroups = string.IsNullOrWhiteSpace(runOnce.Gloss)
+                ? null
+                : new[] { new VoiceBubbleStepGroup(VoiceBubbleStepGroupKind.None, null, null, Array.Empty<IAccountIconInfo>(), new[] { new VoiceBubbleStep(VoiceBubbleText.FromMarked(runOnce.Gloss)) }) };
+            bubble.ConfirmText = Translator.AssistantPlan_RunOnce;
+            bubble.DeclineText = Translator.Buttons_Cancel;
+            Present(VoiceBubbleState.Confirmation);
+            return;
+        }
+
+        if (message.Kind is AgentMessageKind.Remembered or AgentMessageKind.Forgotten or AgentMessageKind.ProposalSaved or AgentMessageKind.Undone)
+        {
+            var bubble = _host.Bubble;
+            bubble.SuccessDismissMilliseconds = _defaultSuccessDismissMilliseconds;
+            bubble.Message = VoiceBubbleText.FromMarked(string.IsNullOrWhiteSpace(message.Gloss) ? text : text + "\n" + message.Gloss);
+            Present(VoiceBubbleState.Success);
+            return;
+        }
+
+        Fail(text, canRetry: message.Kind is AgentMessageKind.NotUnderstood or AgentMessageKind.NeedsPreviousRequest);
+    }
+
+    private void AskQuestion(Clarification clarification)
+    {
+        EndQuestions();
+        _clarification = clarification;
         var bubble = _host.Bubble;
-        bubble.QuestionText = question.Text;
-        bubble.IsQuestionSearchable = question.IsSearchable;
-        bubble.QuestionCaption = _isPersonalPlan ? Translator.VoiceQuestion_RememberCaption : null;
+        bubble.QuestionText = QuestionText(clarification);
+        bubble.IsQuestionSearchable = clarification.Searchable || clarification.Options.Count > 8;
+        bubble.QuestionCaption = clarification.Kind is ClarificationKind.PickPerson or ClarificationKind.PickPeople or ClarificationKind.PickAccount
+            or ClarificationKind.PickContainer or ClarificationKind.PickSender
+            ? Translator.AssistantQuestion_RememberCaption
+            : null;
         bubble.ClearQuestionFilter();
-        _candidates = null;
-        _picked.Clear();
         bubble.SetChoices([]);
         Present(VoiceBubbleState.Question);
-        _ = LoadChoicesAsync(question, null, TimeSpan.Zero);
+        _questionFilter = clarification.Filter;
+        _ = LoadChoicesAsync(null, TimeSpan.Zero);
+    }
+
+    private static string QuestionText(Clarification c)
+    {
+        var said = c.SaidAs?.Trim() ?? string.Empty;
+        string With(string named, string unnamed) => said.Length == 0 ? unnamed : string.Format(CultureInfo.CurrentCulture, named, said);
+        return c.Kind switch
+        {
+            ClarificationKind.PickPerson => With(Translator.AssistantQuestion_PickPerson, Translator.AssistantQuestion_PickPerson.Replace("“{0}”", "").Trim()),
+            ClarificationKind.PickPeople => With(Translator.AssistantQuestion_PickPeople, Translator.AssistantQuestion_PickPeople),
+            ClarificationKind.PickSender => With(Translator.AssistantQuestion_PickSender, Translator.AssistantQuestion_PickSender),
+            ClarificationKind.PickAccount => With(Translator.AssistantQuestion_PickAccount, Translator.AssistantQuestion_PickAccount_Unnamed),
+            ClarificationKind.PickContainer => With(Translator.AssistantQuestion_PickContainer, Translator.AssistantQuestion_PickContainer_Unnamed),
+            ClarificationKind.ChooseKind => With(Translator.AssistantQuestion_ChooseKind, Translator.AssistantQuestion_ChooseKind),
+            ClarificationKind.ChooseItem => With(Translator.AssistantQuestion_ChooseItem, Translator.AssistantQuestion_ChooseItem_Unnamed),
+            ClarificationKind.ChooseAction => With(Translator.AssistantQuestion_ChooseAction, Translator.AssistantQuestion_ChooseAction),
+            ClarificationKind.ConfirmTime => With(Translator.AssistantQuestion_ConfirmTime, Translator.AssistantQuestion_ConfirmTime),
+            ClarificationKind.ConfirmForget => With(Translator.AssistantQuestion_ConfirmForget, Translator.AssistantQuestion_ConfirmForget),
+            _ => said,
+        };
     }
 
     private void BubbleQuestionFilterChanged(object? sender, string filter)
     {
-        if (_openQuestions is { } questions && _questionIndex < questions.Count)
-            _ = LoadChoicesAsync(questions[_questionIndex], filter, QuestionFilterDelay);
+        if (_clarification is null)
+            return;
+
+        _questionFilter = filter;
+        _ = LoadChoicesAsync(filter, QuestionFilterDelay);
     }
 
     /// <summary>
-    /// Loads a question's choices off the UI thread. A newer filter cancels the load in flight, so only the latest
-    /// result reaches the list, in one batch.
+    /// The question's choices, filtered on the device by what the user typed (title and detail, ignoring case and
+    /// accents). A person question also offers a typed address. A newer filter replaces the one in flight.
     /// </summary>
-    private async Task LoadChoicesAsync(VoiceQuestion question, string? filter, TimeSpan delay)
+    private async Task LoadChoicesAsync(string? filter, TimeSpan delay)
     {
         _candidateCancellation?.Cancel();
         _candidateCancellation?.Dispose();
@@ -774,140 +898,120 @@ public sealed class VoiceBubbleController : IDisposable
             if (delay > TimeSpan.Zero)
                 await Task.Delay(delay, token);
 
-            var (choices, byKey) = await Task.Run(async () =>
-            {
-                var candidates = await _questions.GetCandidatesAsync(question, filter, token).ConfigureAwait(false);
-                if (!question.AllowsMany)
-                    return ToChoices(candidates);
-
-                // A group: the people already picked leave the list, and "Done" on top finishes once there is one.
-                var picked = _picked.ToList();
-                var (choices, byKey) = ToChoices(candidates.Where(candidate => !picked.Exists(p => p.Key == candidate.Key)).ToList());
-                if (picked.Count > 0)
-                {
-                    choices.Insert(0, new VoiceBubbleChoice(DoneChoiceKey,
-                        string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_GroupDone, picked.Count),
-                        string.Join(", ", picked.Select(static p => p.Title)), null));
-                }
-
-                return (choices, byKey);
-            }, token);
-
-            if (token.IsCancellationRequested || State != VoiceBubbleState.Question)
+            if (_clarification is not { } question || token.IsCancellationRequested || State != VoiceBubbleState.Question)
                 return;
 
-            _candidates = byKey;
-            _host.Bubble.SetChoices(choices);
+            var text = filter?.Trim() ?? string.Empty;
+            var compare = CultureInfo.CurrentCulture.CompareInfo;
+            bool Matches(string? value) => !string.IsNullOrWhiteSpace(value) && compare.IndexOf(value, text, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
+            var options = question.Options
+                .Where(o => text.Length == 0 || Matches(o.Title) || Matches(o.Detail) || Matches(o.Group))
+                .Where(o => !question.AllowsMany || !_picked.Exists(p => p.Key == o.Key))
+                .ToList();
+
+            var accounts = await _accountService.GetAccountsAsync() ?? [];
+            if (token.IsCancellationRequested)
+                return;
+
+            var choices = new List<VoiceBubbleChoice>(options.Count + 4);
+            if (question.AllowsMany && _picked.Count > 0)
+            {
+                choices.Add(new VoiceBubbleChoice(DoneChoiceKey,
+                    string.Format(CultureInfo.CurrentCulture, Translator.AssistantQuestion_Done, _picked.Count),
+                    string.Join(", ", _picked.Select(static p => p.Title)), null));
+            }
+
+            if (question.AllowsNewAddress && text.Contains('@') && text.Contains('.') && !text.Contains(' '))
+                choices.Add(new VoiceBubbleChoice(NewAddressPrefix + text, string.Format(CultureInfo.CurrentCulture, Translator.AssistantQuestion_UseAddress, text), null, null));
+
+            string? group = null;
+            foreach (var option in options)
+            {
+                var account = option.Ref.AccountId is { } id ? accounts.FirstOrDefault(a => a.Id == id) : null;
+                if (!string.IsNullOrWhiteSpace(option.Group))
+                {
+                    if (!string.Equals(group, option.Group, StringComparison.Ordinal))
+                    {
+                        group = option.Group;
+                        choices.Add(new VoiceBubbleChoice("h:" + option.Key, option.Group, null, account is null ? null : ToIcon(account), isHeader: true));
+                    }
+
+                    choices.Add(new VoiceBubbleChoice(option.Key, option.Title, option.Detail, null));
+                    continue;
+                }
+
+                choices.Add(new VoiceBubbleChoice(option.Key, option.Title, option.Detail,
+                    option.Ref.Kind == ItemKind.Account && account is not null ? ToIcon(account) : null));
+            }
+
+            if (!token.IsCancellationRequested && State == VoiceBubbleState.Question)
+                _host.Bubble.SetChoices(choices);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Could not load the choices for a voice question.");
+            Log.Warning(ex, "Could not load the choices for an assistant question.");
         }
     }
 
-    /// <summary>Choices in the order given, with an account header above each run of choices from the same account.</summary>
-    private (List<VoiceBubbleChoice> Choices, Dictionary<string, VoiceAnswerCandidate> ByKey) ToChoices(IReadOnlyList<VoiceAnswerCandidate> candidates)
-    {
-        var choices = new List<VoiceBubbleChoice>(candidates.Count + 4);
-        var byKey = new Dictionary<string, VoiceAnswerCandidate>(StringComparer.Ordinal);
-        string? group = null;
-
-        foreach (var candidate in candidates)
-        {
-            if (!byKey.TryAdd(candidate.Key, candidate))
-                continue;
-
-            var icon = candidate.Account is { } account ? ToIcon(account) : null;
-            if (!string.IsNullOrWhiteSpace(candidate.GroupTitle))
-            {
-                if (!string.Equals(group, candidate.GroupTitle, StringComparison.Ordinal))
-                {
-                    group = candidate.GroupTitle;
-                    choices.Add(new VoiceBubbleChoice("h:" + candidate.Key, candidate.GroupTitle, null, icon, isHeader: true));
-                }
-
-                choices.Add(new VoiceBubbleChoice(candidate.Key, candidate.Title, candidate.Detail, null));
-                continue;
-            }
-
-            choices.Add(new VoiceBubbleChoice(candidate.Key, candidate.Title, candidate.Detail, icon));
-        }
-
-        return (choices, byKey);
-    }
-
-    /// <summary>
-    /// Puts the answer into the plan, saves it as a learned fact in Personal mode (silently; a failure only logs), and
-    /// asks the next question or resolves the plan.
-    /// </summary>
+    /// <summary>An answer goes back to the runtime, which asks its next question or returns the plan.</summary>
     private void BubbleChoiceSelected(object? sender, VoiceBubbleChoice choice)
     {
-        if (_questionPlan is not { } plan || _openQuestions is not { } questions || _questionIndex >= questions.Count || _candidates is null)
+        if (_clarification is not { } question || choice.Key.StartsWith("h:", StringComparison.Ordinal))
             return;
 
-        var question = questions[_questionIndex];
-        VoiceAnswerCandidate? answer;
-        if (question.AllowsMany)
+        ClarificationAnswer answer;
+        if (choice.Key.StartsWith(NewAddressPrefix, StringComparison.Ordinal))
         {
-            if (choice.Key != DoneChoiceKey)
-            {
-                if (_candidates.TryGetValue(choice.Key, out var member) && _picked.Count < BrainFact.MaxGroupMembers)
-                    _picked.Add(member);
+            answer = new ClarificationAnswer(question.Id, [], choice.Key[NewAddressPrefix.Length..]);
+        }
+        else if (question.AllowsMany && choice.Key != DoneChoiceKey)
+        {
+            if (question.Options.FirstOrDefault(o => o.Key == choice.Key) is { } member)
+                _picked.Add(member);
 
-                _host.Bubble.ClearQuestionFilter();
-                _ = LoadChoicesAsync(question, null, TimeSpan.Zero);
-                return;
-            }
-
+            _host.Bubble.ClearQuestionFilter();
+            _ = LoadChoicesAsync(null, TimeSpan.Zero);
+            return;
+        }
+        else if (question.AllowsMany)
+        {
             if (_picked.Count == 0)
                 return;
 
-            answer = VoiceAnswerCandidate.Group(_picked.ToList());
+            answer = new ClarificationAnswer(question.Id, _picked.Select(static p => p.Key).ToList());
         }
-        else if (!_candidates.TryGetValue(choice.Key, out answer))
+        else
         {
-            return;
-        }
-
-        plan = _questions.ApplyAnswer(plan, question, answer);
-        _questionPlan = plan;
-
-        if (_isPersonalPlan && _questions.CreateFact(question, answer) is { } fact)
-            _ = Task.Run(() => _brain.AddFactAsync(fact));
-
-        _questionIndex++;
-        if (_questionIndex < questions.Count)
-        {
-            AskQuestion();
-            return;
+            answer = ClarificationAnswer.Pick(question.Id, choice.Key);
         }
 
         EndQuestions();
-        if (_requestCancellation is not { } cancellation)
+        if (_requestCancellation is not { } cancellation || _agentSession is not { } session)
         {
             Close();
             return;
         }
 
         Present(VoiceBubbleState.Analyzing);
-        _ = ResolveAfterQuestionsAsync(plan, cancellation);
+        _ = AnswerAsync(session, answer, cancellation);
     }
 
-    private async Task ResolveAfterQuestionsAsync(VoicePlan plan, CancellationTokenSource cancellation)
+    private async Task AnswerAsync(IAgentSession session, ClarificationAnswer answer, CancellationTokenSource cancellation)
     {
         try
         {
-            await ResolveAndShowPlanAsync(plan, cancellation);
+            var turn = await session.AnswerAsync(answer, cancellation.Token);
+            await ShowTurnAsync(turn, cancellation);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Resolving a voice plan after its questions failed.");
+            Log.Error(ex, "Continuing an assistant request after its question failed.");
             if (!IsStale(cancellation))
                 Fail(Translator.VoiceBubble_Error_Unavailable, canRetry: true);
         }
@@ -918,46 +1022,44 @@ public sealed class VoiceBubbleController : IDisposable
         _candidateCancellation?.Cancel();
         _candidateCancellation?.Dispose();
         _candidateCancellation = null;
-        _questionPlan = null;
-        _openQuestions = null;
-        _candidates = null;
+        _clarification = null;
+        _questionFilter = null;
         _picked.Clear();
-        _questionIndex = 0;
     }
 
-    private async Task ResolveAndShowPlanAsync(VoicePlan plan, CancellationTokenSource cancellation)
+    /// <summary>
+    /// Shows the resolved plan, its steps grouped by account. A request about a selection, or auto-confirm, runs
+    /// without Yes unless a step needs confirmation; steps that can't be undone get a second confirmation either way.
+    /// </summary>
+    private async Task ShowPlanAsync(ResolvedPlan plan, CancellationTokenSource cancellation)
     {
-        var bubble = _host.Bubble;
+        StopRendering();
+        StopCapture();
+        if (plan.Steps.Count == 0)
+        {
+            Close();
+            return;
+        }
 
-        var resolution = await _planExecutor.ResolveAsync(await _planPreview.CreateAsync(plan), _selection, cancellation.Token);
+        var accounts = await _accountService.GetAccountsAsync() ?? [];
         if (IsStale(cancellation))
             return;
 
-        var preview = resolution.Preview;
+        _plan = plan;
+        _followUp = null;
+        _riskAcceptedSteps = null;
+        var groups = plan.Steps.GroupBy(step => AccountOf(step)).ToList();
+        _groupSteps = groups.Select(static g => g.Select(static step => step.N).ToList()).ToList();
+        _bubbleGroups = groups.Select((g, index) => ToBubbleGroup(g.Key is { } id ? accounts.FirstOrDefault(a => a.Id == id) : null, g.ToList(),
+            index == 0 && plan.MayHaveMisunderstood ? [Translator.AssistantPlan_Misunderstood] : [])).ToArray();
 
-        // Nothing can run (every part is a banner, for example an account that didn't match): there is nothing to confirm.
-        if (preview.Groups.All(static group => group.Steps.Count == 0))
+        if ((_preferences.IsVoiceAutoConfirmEnabled || _selection is not null) && !plan.NeedsConfirmation && !plan.MayHaveMisunderstood)
         {
-            var issue = preview.Groups.SelectMany(static group => group.Issues).FirstOrDefault();
-            Fail(issue?.Message ?? Translator.VoiceBubble_Error_NotUnderstood, canRetry: true);
+            _ = RunPlanAsync(plan.Steps.Select(static step => step.N).ToList());
             return;
         }
 
-        _resolution = resolution;
-        _planConfidence = plan.Confidence;
-        _shownGroups = preview.Groups.ToList();
-        _bubbleGroups = preview.Groups.Select(ToBubbleGroup).ToArray();
-        _riskAcceptedGroups = null;
-
-        _pendingNotes = null;
-
-        // A request about a selection already names what it acts on, so it runs without Yes; risky steps still ask.
-        if (_preferences.IsVoiceAutoConfirmEnabled || _selection is not null)
-        {
-            AutoConfirm(resolution, preview);
-            return;
-        }
-
+        var bubble = _host.Bubble;
         bubble.ConfirmText = Translator.Buttons_Yes;
         bubble.DeclineText = Translator.Buttons_No;
         bubble.ConfirmationText = null;
@@ -966,51 +1068,72 @@ public sealed class VoiceBubbleController : IDisposable
         Present(VoiceBubbleState.Confirmation);
     }
 
-    /// <summary>
-    /// Runs every account's steps without Yes. Risky steps still get the second confirmation, and the parts Wino
-    /// can't do are listed with the result, since the user never saw the plan.
-    /// </summary>
-    private void AutoConfirm(VoicePlanResolution resolution, VoicePlanPreview preview)
+    private static Guid? AccountOf(ResolvedStep step) => step.Target switch
     {
-        var accepted = preview.Groups.Where(static group => group.Steps.Count > 0).ToList();
-        _pendingNotes = preview.Groups
-            .SelectMany(static group => group.Issues)
-            .Select(static issue => $"**{Translator.VoiceBubble_CantDo}** {issue.Message}")
-            .ToList();
-
-        var risks = _planExecutor.GetRisks(resolution, accepted);
-        if (risks.Count == 0)
+        StepTarget.Mails m => m.AccountId,
+        StepTarget.Events e => e.AccountId,
+        StepTarget.Tasks t => t.AccountId,
+        StepTarget.Folder f => f.AccountId,
+        StepTarget.TaskListTarget l => l.AccountId,
+        StepTarget.MailItems m when m.Items.Count > 0 => m.Items[0].AccountId,
+        StepTarget.EventItems e when e.Items.Count > 0 => e.Items[0].AccountId,
+        StepTarget.TaskItems t when t.Items.Count > 0 => t.Items[0].AccountId,
+        _ => step.Args switch
         {
-            _ = RunPlanAsync(resolution, accepted);
-            return;
-        }
-
-        ShowRisks(accepted, risks);
-    }
+            StepArgs.DraftArgs d => d.AccountId,
+            StepArgs.FolderArgs f => f.AccountId,
+            StepArgs.SystemArgs s => s.AccountId,
+            _ => null,
+        },
+    };
 
     /// <summary>
-    /// Yes or Confirm: runs the accepted accounts' steps, after a second confirmation when a step is risky (a large or
-    /// permanent delete, emptying a folder, a large archive). Cancelling the second confirmation drops the whole plan.
+    /// Yes or Run once: runs the accepted accounts' steps (or the refused rule once), after a second confirmation when
+    /// a step can't be undone easily. Cancelling the second confirmation drops the whole plan.
     /// </summary>
     private void Confirm()
     {
-        if (_resolution is not { } resolution || _shownGroups is null || _bubbleGroups is null)
+        if (_followUp is { Resubmit: { } resubmit })
+        {
+            _followUp = null;
+            if (_requestCancellation is not { } cancellation || _agentSession is not { } session)
+            {
+                Close();
+                return;
+            }
+
+            Present(VoiceBubbleState.Analyzing);
+            _ = RunOnceAsync(session, resubmit, cancellation);
+            return;
+        }
+
+        if (_proposalAnswer is { } proposal)
+        {
+            // Like "No", the answer ends the question; a further proposal shows the bubble again.
+            _proposalAnswer = null;
+            proposal.TrySetResult(true);
+            if (State == VoiceBubbleState.Confirmation)
+                Present(VoiceBubbleState.Hidden);
+            return;
+        }
+
+        if (_plan is not { } plan || _groupSteps is null || _bubbleGroups is null)
         {
             Close();
             return;
         }
 
-        if (_riskAcceptedGroups is { } confirmed)
+        if (_riskAcceptedSteps is { } confirmed)
         {
-            _riskAcceptedGroups = null;
-            _ = RunPlanAsync(resolution, confirmed);
+            _riskAcceptedSteps = null;
+            _ = RunPlanAsync(confirmed);
             return;
         }
 
         var accepted = _bubbleGroups
             .Select((group, index) => (Group: group, Index: index))
             .Where(static entry => entry.Group.CanSelect && entry.Group.IsSelected)
-            .Select(entry => _shownGroups[entry.Index])
+            .SelectMany(entry => _groupSteps[entry.Index])
             .ToList();
         if (accepted.Count == 0)
         {
@@ -1018,31 +1141,51 @@ public sealed class VoiceBubbleController : IDisposable
             return;
         }
 
-        var risks = _planExecutor.GetRisks(resolution, accepted);
-        if (risks.Count == 0)
+        var risky = plan.Steps.Where(step => accepted.Contains(step.N) && step.Risk == RiskLevel.High).ToList();
+        if (risky.Count == 0)
         {
-            _ = RunPlanAsync(resolution, accepted);
+            _ = RunPlanAsync(accepted);
             return;
         }
 
-        ShowRisks(accepted, risks);
-    }
-
-    private void ShowRisks(IReadOnlyCollection<VoicePlanPreviewGroup> accepted, IReadOnlyList<VoicePlanRisk> risks)
-    {
-        _riskAcceptedGroups = accepted;
+        _riskAcceptedSteps = accepted;
         var bubble = _host.Bubble;
-        var steps = risks.Select(static risk => new VoiceBubbleStep(VoiceBubbleText.FromMarked(risk.MarkedText))).ToArray();
+        var steps = risky.Select(static step => new VoiceBubbleStep(VoiceBubbleText.FromMarked(step.Gloss ?? step.Action.ToString()),
+            step.Permanent ? Translator.AssistantPlan_Permanent : step.EstimatedCount is int count ? EstimatedCountText(count) : null)).ToArray();
+        bubble.ConfirmationText = VoiceBubbleText.FromMarked(Translator.AssistantPlan_ConfirmHighRisk);
         bubble.ConfirmationGroups = new[] { new VoiceBubbleStepGroup(VoiceBubbleStepGroupKind.None, null, null, Array.Empty<IAccountIconInfo>(), steps) };
-        bubble.ConfirmText = risks.Count == 1 ? risks[0].ButtonText : Translator.VoiceGuard_Continue;
+        bubble.ConfirmText = Translator.VoiceGuard_Continue;
         bubble.DeclineText = Translator.Buttons_Cancel;
         Present(VoiceBubbleState.Confirmation);
     }
 
-    private async Task RunPlanAsync(VoicePlanResolution resolution, IReadOnlyCollection<VoicePlanPreviewGroup> accepted)
+    private async Task RunOnceAsync(IAgentSession session, AssistantReading reading, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            var selection = await GetAgentSelectionAsync(cancellation.Token);
+            var turn = await session.HandleAsync(new AgentRequest(_requestText, AgentInputKind.Typed, selection, selection?.AccountId, reading), cancellation.Token);
+            await ShowTurnAsync(turn, cancellation);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Running a refused rule once failed.");
+            if (!IsStale(cancellation))
+                Fail(Translator.VoiceBubble_Error_Unavailable, canRetry: false);
+        }
+    }
+
+    /// <summary>
+    /// Confirms the accepted steps with the runtime, runs the plan through the executor, reports the outcome back (the
+    /// conversation context and the "Remember this?" proposals use it) and shows what happened.
+    /// </summary>
+    private async Task RunPlanAsync(IReadOnlyList<int> accepted)
     {
         var cancellation = _requestCancellation;
-        if (cancellation is null || _planHost is null)
+        if (cancellation is null || _agentSession is not { } session || _plan is not { } plan || _executor.Host is null)
         {
             Fail(Translator.VoiceBubble_Error_Unavailable, canRetry: false);
             return;
@@ -1050,10 +1193,19 @@ public sealed class VoiceBubbleController : IDisposable
 
         Present(VoiceBubbleState.Analyzing);
 
-        VoicePlanExecutionResult result;
+        PlanOutcome outcome;
+        ResolvedPlan toRun;
         try
         {
-            result = await _planExecutor.ExecuteAsync(resolution, accepted, _planConfidence, _planHost, cancellation.Token);
+            var confirmed = await session.ConfirmAsync(new PlanConfirmation(plan.Id, accepted), cancellation.Token);
+            if (confirmed is not AgentTurn.Plan { Resolved: { } ready })
+            {
+                Close();
+                return;
+            }
+
+            toRun = ready;
+            outcome = await _executor.ExecuteAsync(toRun, new Progress<StepOutcome>(), cancellation.Token);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -1061,7 +1213,7 @@ public sealed class VoiceBubbleController : IDisposable
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Running a voice plan failed.");
+            Log.Error(ex, "Running an assistant plan failed.");
             if (!IsStale(cancellation))
                 Fail(Translator.VoiceBubble_Error_Unavailable, canRetry: false);
             return;
@@ -1070,64 +1222,142 @@ public sealed class VoiceBubbleController : IDisposable
         if (IsStale(cancellation))
             return;
 
-        _resolution = null;
-        var notes = _pendingNotes ?? [];
-        _pendingNotes = null;
-        var lines = result.Completed.Concat(result.Failed).Concat(notes).ToList();
-        if (result.Failed.Count > 0)
+        _plan = null;
+        var lines = new List<string>();
+        var failed = false;
+        foreach (var step in outcome.Steps)
         {
-            Fail(string.Join("\n", lines), canRetry: false);
-            return;
+            var gloss = toRun.Steps.FirstOrDefault(s => s.N == step.N)?.Gloss ?? string.Empty;
+            switch (step.Status)
+            {
+                case StepStatus.Done:
+                    if (gloss.Length > 0) lines.Add(gloss);
+                    break;
+                case StepStatus.NothingMatched:
+                    lines.Add(gloss.Length > 0 ? gloss + ": " + Translator.AssistantMessage_NothingMatched : Translator.AssistantMessage_NothingMatched);
+                    break;
+                case StepStatus.Failed:
+                    failed = true;
+                    lines.Add(string.Format(CultureInfo.CurrentCulture, Translator.AssistantPlan_StepFailed, step.N) + (step.Detail is { Length: > 0 } detail ? " " + SentenceStart(detail) : string.Empty));
+                    break;
+            }
         }
 
         var bubble = _host.Bubble;
-        var message = string.Join("\n", result.Completed.Concat(notes));
-        if (!string.IsNullOrWhiteSpace(result.Summary))
-            message = string.IsNullOrWhiteSpace(message) ? result.Summary : message + "\n\n" + result.Summary;
-
-        // A summary is read, not glanced at, so it stays until the user closes it or a long timeout passes.
-        bubble.SuccessDismissMilliseconds = string.IsNullOrWhiteSpace(result.Summary) ? _defaultSuccessDismissMilliseconds : SummaryDismissMilliseconds;
-        bubble.Message = VoiceBubbleText.FromMarked(message);
-        Present(VoiceBubbleState.Success);
-        EndSession();
-    }
-
-    private VoiceBubbleStepGroup ToBubbleGroup(VoicePlanPreviewGroup group)
-    {
-        var steps = group.Steps
-            .Select(static step => new VoiceBubbleStep(VoiceBubbleText.FromMarked(step.MarkedText), step.Detail, step.Number))
-            .ToArray();
-        var notices = group.Issues.Select(static issue => issue.Message).ToArray();
-
-        switch (group.Kind)
+        bubble.SuccessDismissMilliseconds = _defaultSuccessDismissMilliseconds;
+        if (failed)
         {
-            case VoicePlanAccountKind.Account when group.Account is { } account:
-                return new VoiceBubbleStepGroup(
-                    VoiceBubbleStepGroupKind.Account,
-                    GetAccountTitle(account),
-                    string.Equals(GetAccountTitle(account), account.Address, StringComparison.OrdinalIgnoreCase) ? null : account.Address,
-                    ToIcons(new[] { account }),
-                    steps,
-                    notices);
-            case VoicePlanAccountKind.AllAccounts:
-                return new VoiceBubbleStepGroup(
-                    VoiceBubbleStepGroupKind.Accounts,
-                    group.Candidates.Count <= 3 ? string.Join(", ", group.Candidates.Select(GetAccountTitle)) : Translator.VoiceBubble_AllAccounts,
-                    string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AllAccounts_Count, group.Candidates.Count),
-                    ToIcons(group.Candidates),
-                    steps,
-                    notices);
-            case VoicePlanAccountKind.Unresolved:
-                var subtitle = group.Candidates.Count > 1
-                    ? string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_UnresolvedAccount_Candidates, string.Join(", ", group.Candidates.Select(GetAccountTitle)))
-                    : string.IsNullOrWhiteSpace(group.SpokenAccount)
-                        ? Translator.VoiceBubble_UnresolvedAccount_Unnamed
-                        : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_UnresolvedAccount_Said, group.SpokenAccount);
-                return new VoiceBubbleStepGroup(VoiceBubbleStepGroupKind.Unresolved, Translator.VoiceBubble_UnresolvedAccount, subtitle, Array.Empty<IAccountIconInfo>(), steps, notices);
-            default:
-                return new VoiceBubbleStepGroup(VoiceBubbleStepGroupKind.None, null, null, Array.Empty<IAccountIconInfo>(), steps, notices);
+            Fail(string.Join("\n", lines), canRetry: false);
+        }
+        else
+        {
+            bubble.Message = VoiceBubbleText.FromMarked(string.Join("\n", lines));
+            Present(VoiceBubbleState.Success);
+        }
+
+        // Reported after the result is on screen: proposals ("Remember this?") may follow from here.
+        try
+        {
+            await session.ReportAsync(outcome, cancellation.Token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Warning(ex, "Could not report an assistant outcome to the runtime.");
         }
     }
+
+    /// <summary>The runtime's "Remember this?": asked in the bubble while it is open; dismissing it declines.</summary>
+    private async Task<bool> ProposeAsync(BrainProposal proposal, CancellationToken ct)
+    {
+        var text = await ProposalTextAsync(proposal).ConfigureAwait(false);
+        var answer = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _host.Post(() =>
+        {
+            if (_disposed || State == VoiceBubbleState.Hidden)
+            {
+                answer.TrySetResult(false);
+                return;
+            }
+
+            _proposalAnswer = answer;
+            var bubble = _host.Bubble;
+            bubble.ConfirmationText = VoiceBubbleText.FromMarked(text);
+            bubble.ConfirmationGroups = null;
+            bubble.ConfirmationSteps = null;
+            bubble.ConfirmText = Translator.Buttons_Yes;
+            bubble.DeclineText = Translator.Buttons_No;
+            Present(VoiceBubbleState.Confirmation);
+        });
+        using var registration = ct.Register(() => answer.TrySetCanceled(ct));
+        return await answer.Task.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A default's value is a device key ("calendar=Calendar:…"); the question names the calendar, list or account
+    /// it points at instead.
+    /// </summary>
+    private async Task<string> ProposalTextAsync(BrainProposal proposal)
+    {
+        if (proposal.Kind != BrainEntryKind.Default)
+        {
+            var who = proposal.Subject.Name ?? proposal.Subject.Address ?? proposal.Subject.Text ?? proposal.Value;
+            return string.Format(CultureInfo.CurrentCulture, Translator.AssistantProposal_Remember, proposal.SaidAs, who);
+        }
+
+        var separator = proposal.Value.IndexOf('=');
+        var use = separator > 0 ? proposal.Value[..separator] : proposal.Value;
+        var target = separator > 0 ? ItemRef.Parse(proposal.Value[(separator + 1)..]) : null;
+        var name = proposal.SaidAs;
+        if (target is { Kind: ItemKind.Account, AccountId: { } accountId })
+        {
+            try
+            {
+                var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+                if (account is not null)
+                    name = GetAccountTitle(account);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not read the account an assistant proposal names.");
+            }
+        }
+
+        var format = use switch
+        {
+            "calendar" => Translator.AssistantProposal_DefaultCalendar,
+            "task" or "taskList" => Translator.AssistantProposal_DefaultTaskList,
+            _ => Translator.AssistantProposal_DefaultMailAccount,
+        };
+        return string.Format(CultureInfo.CurrentCulture, format, name);
+    }
+
+    private VoiceBubbleStepGroup ToBubbleGroup(MailAccount? account, IReadOnlyList<ResolvedStep> steps, IReadOnlyList<string> notices)
+    {
+        var bubbleSteps = steps
+            .Select(static step => new VoiceBubbleStep(VoiceBubbleText.FromMarked(step.Gloss ?? step.Action.ToString()),
+                step.Permanent ? Translator.AssistantPlan_Permanent
+                    : step.EstimatedCount is int count ? EstimatedCountText(count) : null,
+                step.N))
+            .ToArray();
+        if (account is null)
+            return new VoiceBubbleStepGroup(VoiceBubbleStepGroupKind.None, null, null, Array.Empty<IAccountIconInfo>(), bubbleSteps, notices);
+
+        var title = GetAccountTitle(account);
+        return new VoiceBubbleStepGroup(
+            VoiceBubbleStepGroupKind.Account,
+            title,
+            string.Equals(title, account.Address, StringComparison.OrdinalIgnoreCase) ? null : account.Address,
+            new[] { ToIcon(account) },
+            bubbleSteps,
+            notices);
+    }
+
+    // Step details are written as fragments ("the mail isn't downloaded yet"); after "Step 1 failed." they start a sentence.
+    private static string SentenceStart(string text)
+        => char.ToUpper(text[0], CultureInfo.CurrentCulture) + text[1..];
+
+    private static string EstimatedCountText(int count)
+        => count == 1 ? Translator.AssistantPlan_EstimatedCount_One : string.Format(CultureInfo.CurrentCulture, Translator.AssistantPlan_EstimatedCount, count);
 
     private static string GetAccountTitle(MailAccount account)
         => !string.IsNullOrWhiteSpace(account.Name) ? account.Name
@@ -1135,8 +1365,6 @@ public sealed class VoiceBubbleController : IDisposable
             : account.Address ?? string.Empty;
 
     private IAccountIconInfo ToIcon(MailAccount account) => MailAccountIconInfoFactory.Create(account, _pictureStorage);
-
-    private IAccountIconInfo[] ToIcons(IEnumerable<MailAccount> accounts) => accounts.Select(ToIcon).ToArray();
 
     private void Fail(string message, bool canRetry)
     {
@@ -1151,6 +1379,18 @@ public sealed class VoiceBubbleController : IDisposable
 
     private void Close()
     {
+        if (_proposalAnswer is { } proposal)
+        {
+            // "No" on "Remember this?" only declines the proposal; the result already shown stays.
+            _proposalAnswer = null;
+            proposal.TrySetResult(false);
+            if (State == VoiceBubbleState.Confirmation)
+            {
+                Present(VoiceBubbleState.Hidden);
+                return;
+            }
+        }
+
         EndRequest();
         ClearSelection();
         if (State == VoiceBubbleState.Hidden)
@@ -1163,9 +1403,9 @@ public sealed class VoiceBubbleController : IDisposable
     private void EndRequest()
     {
         EndQuestions();
-        _resolution = null;
-        _riskAcceptedGroups = null;
-        _pendingNotes = null;
+        _plan = null;
+        _riskAcceptedSteps = null;
+        _followUp = null;
 
         var cancellation = _requestCancellation;
         _requestCancellation = null;
@@ -1179,7 +1419,7 @@ public sealed class VoiceBubbleController : IDisposable
 
     private void EndSession()
     {
-        IVoiceCommandSession? session;
+        IAssistantCommandSession? session;
         lock (_audioLock)
         {
             session = _session;
@@ -1191,7 +1431,7 @@ public sealed class VoiceBubbleController : IDisposable
             _ = DisposeQuietlyAsync(session);
     }
 
-    private static async Task DisposeQuietlyAsync(IVoiceCommandSession session)
+    private static async Task DisposeQuietlyAsync(IAssistantCommandSession session)
     {
         try
         {
@@ -1309,7 +1549,7 @@ public sealed class VoiceBubbleController : IDisposable
         ApiErrorCodes.IntelligenceConsentRequired or
         ApiErrorCodes.IntelligenceConsentVersionOutdated or
         ApiErrorCodes.AiQuotaExceeded or
-        VoiceErrorCodes.QuotaExceeded or
+        AssistantErrorCodes.QuotaExceeded or
         VoiceClientErrorCodes.AccessDenied);
 
     private static string GetErrorMessage(string? code) => code switch
@@ -1317,12 +1557,12 @@ public sealed class VoiceBubbleController : IDisposable
         WinoAccountClientErrorCodes.SignInRequired or ApiErrorCodes.SessionInvalid => Translator.VoiceBubble_Error_SignIn,
         ApiErrorCodes.AiPackRequired => Translator.VoiceBubble_Error_IntelligenceRequired,
         ApiErrorCodes.IntelligenceConsentRequired or ApiErrorCodes.IntelligenceConsentVersionOutdated => Translator.VoiceBubble_Error_Consent,
-        ApiErrorCodes.AiQuotaExceeded or VoiceErrorCodes.QuotaExceeded => Translator.VoiceBubble_Error_Quota,
+        ApiErrorCodes.AiQuotaExceeded or AssistantErrorCodes.QuotaExceeded => Translator.VoiceBubble_Error_Quota,
         VoiceClientErrorCodes.AccessDenied => Translator.VoiceBubble_Error_AccessDenied,
         ApiErrorCodes.RateLimited => Translator.VoiceBubble_Error_RateLimited,
-        VoiceErrorCodes.TranscriptionFailed => Translator.VoiceBubble_Error_NotHeard,
-        VoiceErrorCodes.PlannerFailed => Translator.VoiceBubble_Error_PlanFailed,
-        VoiceErrorCodes.Timeout => Translator.VoiceBubble_Error_Timeout,
+        AssistantErrorCodes.TranscriptionFailed => Translator.VoiceBubble_Error_NotHeard,
+        AssistantErrorCodes.ReaderFailed => Translator.VoiceBubble_Error_PlanFailed,
+        AssistantErrorCodes.Timeout => Translator.VoiceBubble_Error_Timeout,
         _ => Translator.VoiceBubble_Error_Unavailable
     };
 

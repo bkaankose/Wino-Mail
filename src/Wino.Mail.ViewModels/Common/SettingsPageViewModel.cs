@@ -266,6 +266,16 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 return Translator.SemanticIndex_CoverageEditorPageDescription;
             case WinoPage.WinoIntelligencePage:
                 return Translator.WinoIntelligence_SettingsDescription;
+            case WinoPage.VoiceControlSettingsPage:
+                return Translator.VoiceControlSettings_Description;
+            case WinoPage.VoiceBrainPage:
+                return Translator.VoiceBrain_Description;
+            case WinoPage.IntelligencePrivacyPage:
+                return Translator.WinoIntelligence_PrivacyData_PageDescription;
+            case WinoPage.IntelligenceBriefingPage:
+                return Translator.WinoIntelligence_Briefing_Description;
+            case WinoPage.MailClassificationPage:
+                return Translator.WinoIntelligence_MailClassification_PageDescription;
             case WinoPage.ProviderSelectionPage:
             case WinoPage.AccountSetupPage:
             case WinoPage.ExchangeSettingsPage:

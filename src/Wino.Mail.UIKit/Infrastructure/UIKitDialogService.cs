@@ -160,6 +160,16 @@ public sealed partial class UIKitDialogService(IDispatcher dispatcher, IUIKitShe
     public void ShowReadOnlyCalendarMessage()
         => ShowBanner(Translator.CalendarReadOnly_Title, Translator.CalendarReadOnly_Message, InfoBarMessageType.Warning, null, null);
 
+    public async Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync()
+        => await AlertAsync(Translator.DialogMessage_DeleteRecurringEventTitle, Translator.DialogMessage_DeleteRecurringEventMessage,
+            [Translator.CalendarContextMenu_ThisEventOnly, Translator.CalendarContextMenu_AllEventsInSeries], Translator.Buttons_Cancel,
+            destructiveIndex: 1) switch
+        {
+            0 => CalendarEventTargetType.Single,
+            1 => CalendarEventTargetType.Series,
+            _ => null
+        };
+
     /// <summary>Windows ShellInfoBar as a banner at the top of the window; it closes itself after a few seconds.</summary>
     private async void ShowBanner(string title, string message, InfoBarMessageType type, string? actionTitle, Action? action)
     {

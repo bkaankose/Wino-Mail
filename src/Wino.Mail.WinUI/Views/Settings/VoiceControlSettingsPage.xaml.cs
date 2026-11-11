@@ -121,9 +121,8 @@ public sealed partial class VoiceControlSettingsPage : VoiceControlSettingsPageA
     private void UpdateHotKeyAvailability()
     {
         var isEnabled = ViewModel.IsVoiceControlEnabled;
-        VoiceHotKeyExpander.IsEnabled = isEnabled;
+        ShortcutsExpander.IsEnabled = isEnabled;
         HotKeyInput.IsEnabled = isEnabled && HotKeyEnabledToggle.IsOn;
-        TextHotKeyExpander.IsEnabled = isEnabled;
         TextHotKeyInput.IsEnabled = isEnabled && TextHotKeyEnabledToggle.IsOn;
     }
 

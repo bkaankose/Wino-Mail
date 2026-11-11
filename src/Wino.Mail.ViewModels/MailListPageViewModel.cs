@@ -1167,7 +1167,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await InitializeFolderAsync();
     }
 
-    [RelayCommand]
+    // A newer search supersedes a running one through the load generation, so a submit that
+    // arrives while a slow search (semaphore wait, Graph download) is still running must not be dropped.
+    [RelayCommand(AllowConcurrentExecutions = true)]
     public async Task PerformSearchAsync()
     {
         IsOnlineSearchEnabled = false;

@@ -553,15 +553,7 @@ public partial class App : WinoApplication,
             RequireCalendarPickerWhenUnresolved = calendarId == null
         };
 
-        // Switching into Calendar runs the shell's own first navigation; composing before it finishes leaves the
-        // user on the calendar page instead of the new event.
-        var dispatcherQueue = GetActivationDispatcherQueue();
-        if (dispatcherQueue != null)
-        {
-            var shellSettled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            if (dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => shellSettled.SetResult()))
-                await shellSettled.Task;
-        }
+        await WaitForShellModeNavigationAsync();
 
         await ExecuteOnActivationUiThreadAsync(() =>
         {
@@ -569,6 +561,21 @@ public partial class App : WinoApplication,
                 .Navigate(WinoPage.CalendarEventComposePage, args);
             return Task.CompletedTask;
         });
+    }
+
+    /// <summary>
+    /// Switching the shell's mode runs that mode's own first navigation; a page opened before it finishes is
+    /// replaced by the mode's default page (the calendar instead of the new event).
+    /// </summary>
+    private async Task WaitForShellModeNavigationAsync()
+    {
+        var dispatcherQueue = GetActivationDispatcherQueue();
+        if (dispatcherQueue == null)
+            return;
+
+        var shellSettled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => shellSettled.SetResult()))
+            await shellSettled.Task;
     }
 
     private async Task ActivateWelcomeWindowAsync()

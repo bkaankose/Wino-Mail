@@ -16,12 +16,12 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS.Views.Settings;
 
 /// <summary>
-/// Voice Control (Windows VoiceControlSettingsPage): what voice control does and how to get it while the Wino Account
-/// has no Wino Intelligence, then the switch, microphone, global shortcut, bubble position, auto-confirm, Personal mode
-/// and a Try button. The shortcut logic lives here, like the Windows page code-behind and the Companion page.
+/// Wino Assistant (Windows VoiceControlSettingsPage): the switch and Try it, then "How you ask" (shortcuts, microphone,
+/// bubble position) and "How Wino answers" (What Wino remembers, run requests without asking). The shortcut logic
+/// lives here, like the Windows page code-behind and the Companion page.
 /// </summary>
 public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
-    MacVoiceHotKeyAccess hotKey, IPlatformCapabilities capabilities)
+    MacVoiceHotKeyAccess hotKey)
     : SettingsPageViewController<VoiceControlSettingsPageViewModel>(viewModel, dispatcher, logger)
 {
     private const string MicrophonePrivacyUrl = "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
@@ -37,80 +37,46 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
 
     private ShortcutRow _voiceShortcut = null!;
     private ShortcutRow _textShortcut = null!;
+    private WinoSettingsExpander _shortcuts = null!;
     private WinoInfoBar _hotKeyError = null!;
 
     private MacVoiceHotKeyAccess HotKeyAccess => hotKey;
 
     protected override void BuildPage()
     {
-        BuildLockedSection();
-        BuildAvailableSection();
-    }
-
-    /// <summary>Windows promo and upgrade cards, shown while voice commands are not part of the account.</summary>
-    private void BuildLockedSection()
-    {
-        var vm = ViewModel;
-        var promo = Group(Translator.VoiceControlSettings_Promo_Title,
-            Card(Translator.VoiceControlSettings_MacOS_Promo_MenuBar_Title, Translator.VoiceControlSettings_MacOS_Promo_MenuBar_Description, WinoIconGlyph.Microphone),
-            Card(Translator.VoiceControlSettings_Promo_Steps_Title, Translator.VoiceControlSettings_Promo_Steps_Description, WinoIconGlyph.Board),
-            Card(Translator.VoiceControlSettings_Promo_Confirm_Title, Translator.VoiceControlSettings_Promo_Confirm_Description, WinoIconGlyph.Shield));
-        promo.Footer = Translator.VoiceControlSettings_Promo_Description;
-
-        // App Store builds buy through StoreKit on the Wino Intelligence page; the browser checkout is for the other builds.
-        var upgradeButton = capabilities.AppleAppStore
-            ? Bind.Button(Translator.VoiceControlSettings_Upgrade_Button, vm.SeeWhatsIncludedCommand, primary: true)
-            : Bind.Button(Translator.VoiceControlSettings_Upgrade_Button, vm.GetWinoIntelligenceCommand, primary: true);
-        var whatsIncluded = Bind.Button(Translator.WinoAccount_Management_SeeWhatsIncluded, vm.SeeWhatsIncludedCommand);
-        var upgrade = Group(null, Card(Translator.VoiceControlSettings_Upgrade_Title, Translator.VoiceControlSettings_Upgrade_Description,
-            WinoIconGlyph.WinoIntelligence, Row(whatsIncluded, upgradeButton)));
-
-        Add(Bind.Visible(promo, vm, nameof(vm.IsLocked), s => s.IsLocked));
-        Add(Bind.Visible(upgrade, vm, nameof(vm.IsLocked), s => s.IsLocked));
-    }
-
-    private void BuildAvailableSection()
-    {
         var vm = ViewModel;
 
         var enabled = Bind.Switch(vm, nameof(vm.IsVoiceControlEnabled), s => s.IsVoiceControlEnabled, (s, v) => s.IsVoiceControlEnabled = v,
             Translator.VoiceControlSettings_Enable_Title);
-        var enable = Group(null, Card(Translator.VoiceControlSettings_Enable_Title, Translator.VoiceControlSettings_MacOS_Enable_Description, WinoIconGlyph.Microphone, enabled));
-
-        var microphone = BuildMicrophoneGroup();
-        var shortcut = BuildShortcutGroup();
-
-        var position = Bind.PopUp(vm, Positions.Select(PositionTitle).ToList(), nameof(vm.SelectedPosition),
-            s => Math.Max(0, Array.IndexOf(Positions, s.SelectedPosition)), (s, index) => s.SelectedPosition = Positions[index], width: 220);
-        var positionGroup = Group(null, Card(Translator.VoiceControlSettings_Position_Title, Translator.VoiceControlSettings_MacOS_Position_Description, WinoIconGlyph.Desktop, position));
-
-        var autoConfirm = Bind.Switch(vm, nameof(vm.IsAutoConfirmEnabled), s => s.IsAutoConfirmEnabled, (s, v) => s.IsAutoConfirmEnabled = v,
-            Translator.VoiceControlSettings_AutoConfirm_Title);
-        var autoConfirmGroup = Group(null, Card(Translator.VoiceControlSettings_AutoConfirm_Title, Translator.VoiceControlSettings_AutoConfirm_Description, WinoIconGlyph.Shield, autoConfirm));
-
-        var personal = Bind.Switch(vm, nameof(vm.IsPersonalMode), s => s.IsPersonalMode, (s, v) => s.IsPersonalMode = v,
-            Translator.VoiceControlSettings_PersonalMode_Title);
-        var modeFailed = InfoBar(WinoInfoBarSeverity.Error, null, Translator.VoiceControlSettings_PersonalMode_Failed);
-        modeFailed.IsClosable = false;
-        var brain = NavigationCard(Translator.VoiceBrain_Title, Translator.VoiceBrain_Description, WinoIconGlyph.Lightbulb, () => vm.OpenVoiceBrainCommand.Execute(null));
-        var personalGroup = Group(null,
-            Card(Translator.VoiceControlSettings_PersonalMode_Title, Translator.VoiceControlSettings_PersonalMode_Description, WinoIconGlyph.Person, personal),
-            Bind.Visible(brain, vm, nameof(vm.IsPersonalMode), s => s.IsPersonalMode));
+        var enableCard = Card(Translator.VoiceControlSettings_Enable_Title, Translator.VoiceControlSettings_MacOS_Enable_Description, WinoIconGlyph.None, enabled);
+        enableCard.LeadingView = IntelligenceSettingsViews.AppLogo(WinoSettingsStyle.IconSize);
 
         var tryButton = Bind.Button(Translator.VoiceControlSettings_Try_Button, vm.TryVoiceControlCommand);
-        var tryGroup = Group(null, Card(Translator.VoiceControlSettings_Try_Title, Translator.VoiceControlSettings_Try_Description, WinoIconGlyph.Play, tryButton));
+        var tryCard = Card(Translator.VoiceControlSettings_Try_Title, Translator.VoiceControlSettings_Try_Description, WinoIconGlyph.Play, tryButton);
+        var top = Group(null, enableCard, tryCard);
 
-        foreach (var view in new NSView[] { enable, microphone, shortcut, positionGroup, autoConfirmGroup, personalGroup })
+        var shortcuts = BuildShortcuts();
+        var (microphoneCard, microphoneProblem) = BuildMicrophone();
+        var position = Bind.PopUp(vm, Positions.Select(PositionTitle).ToList(), nameof(vm.SelectedPosition),
+            s => Math.Max(0, Array.IndexOf(Positions, s.SelectedPosition)), (s, index) => s.SelectedPosition = Positions[index], width: 220);
+        var positionCard = Card(Translator.VoiceControlSettings_Position_Title, Translator.VoiceControlSettings_MacOS_Position_Description, WinoIconGlyph.Desktop, position);
+        var howYouAsk = Group(Translator.VoiceControlSettings_HowYouAsk_Header, shortcuts, _hotKeyError, microphoneCard, microphoneProblem, positionCard);
+
+        var brain = NavigationCard(Translator.VoiceBrain_Title, Translator.VoiceBrain_Description, WinoIconGlyph.Lightbulb, () => vm.OpenVoiceBrainCommand.Execute(null));
+        var autoConfirm = Bind.Switch(vm, nameof(vm.IsAutoConfirmEnabled), s => s.IsAutoConfirmEnabled, (s, v) => s.IsAutoConfirmEnabled = v,
+            Translator.VoiceControlSettings_AutoConfirm_Title);
+        var autoConfirmCard = Card(Translator.VoiceControlSettings_AutoConfirm_Title, Translator.VoiceControlSettings_AutoConfirm_Description, WinoIconGlyph.Shield, autoConfirm);
+        var howWinoAnswers = Group(Translator.VoiceControlSettings_HowWinoAnswers_Header, brain, autoConfirmCard);
+
+        foreach (var view in new NSView[] { top, howYouAsk, howWinoAnswers })
             Add(Bind.Visible(view, vm, nameof(vm.IsAvailable), s => s.IsAvailable));
-        Add(Bind.Visible(modeFailed, vm, nameof(vm.IsModeChangeFailed), s => s.IsAvailable && s.IsModeChangeFailed));
-        Add(Bind.Visible(tryGroup, vm, nameof(vm.IsAvailable), s => s.IsAvailable));
 
-        foreach (var view in new NSView[] { microphone, positionGroup, autoConfirmGroup, tryGroup })
+        foreach (var view in new NSView[] { tryCard, microphoneCard, positionCard, autoConfirmCard })
             Bind.Enabled(view, vm, nameof(vm.IsVoiceControlEnabled), s => s.IsVoiceControlEnabled);
     }
 
     /// <summary>Windows microphone card: the device, a Test toggle with the live level, and the access problem with a link to Privacy settings.</summary>
-    private WinoSettingsGroup BuildMicrophoneGroup()
+    private (WinoSettingsCard Card, WinoInfoBar Problem) BuildMicrophone()
     {
         var vm = ViewModel;
         var devices = Bind.PopUp<VoiceControlSettingsPageViewModel, MicrophoneOption>(vm,
@@ -145,19 +111,18 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
             denied => problem.ActionTitle = denied ? Translator.VoiceControlSettings_Microphone_OpenPrivacySettings : null);
         Bind.Visible(problem, vm, nameof(vm.HasMicrophoneProblem), s => s.HasMicrophoneProblem);
 
-        return Group(null,
-            Card(Translator.VoiceControlSettings_Microphone_Title, Translator.VoiceControlSettings_Microphone_Description, WinoIconGlyph.Microphone,
-                Row(level, devices, test)),
-            problem);
+        var card = Card(Translator.VoiceControlSettings_Microphone_Title, Translator.VoiceControlSettings_Microphone_Description, WinoIconGlyph.Microphone,
+            Row(level, devices, test));
+        return (card, problem);
     }
 
     #region Shortcut
 
     /// <summary>
-    /// Windows VoiceHotKeyExpander and TextHotKeyExpander: for speaking and for typing, each a switch, recorder and reset,
-    /// with one error bar under both cards.
+    /// Windows ShortcutsExpander: one card for speaking and one for typing, each a recorder and a switch. The Mac keeps
+    /// its reset button in the row. The error bar sits under the expander.
     /// </summary>
-    private WinoSettingsGroup BuildShortcutGroup()
+    private WinoSettingsExpander BuildShortcuts()
     {
         var vm = ViewModel;
         var preferences = vm.PreferencesService;
@@ -174,11 +139,14 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
             () => new HotKeyGesture(preferences.VoiceTextHotKeyKey, preferences.VoiceTextHotKeyModifiers),
             gesture => { preferences.VoiceTextHotKeyKey = gesture.Key; preferences.VoiceTextHotKeyModifiers = gesture.Modifiers; });
 
-        var voiceExpander = _voiceShortcut.Build(Translator.VoiceControlSettings_HotKey_Title, Translator.VoiceControlSettings_MacOS_HotKey_Description, Translator.VoiceControlSettings_HotKey_KeyCombination);
-        var textExpander = _textShortcut.Build(Translator.VoiceControlSettings_TextHotKey_Title, Translator.VoiceControlSettings_TextHotKey_Description, Translator.VoiceControlSettings_TextHotKey_KeyCombination);
+        var voiceCard = _voiceShortcut.Build(Translator.VoiceControlSettings_HotKey_Title, Translator.VoiceControlSettings_HotKey_Description, Translator.VoiceControlSettings_HotKey_KeyCombination);
+        var textCard = _textShortcut.Build(Translator.VoiceControlSettings_TextHotKey_Title, Translator.VoiceControlSettings_TextHotKey_Description, Translator.VoiceControlSettings_TextHotKey_KeyCombination);
+        _shortcuts = Expander(Translator.VoiceControlSettings_Shortcuts_Title, Translator.VoiceControlSettings_Shortcuts_Description, WinoIconGlyph.Keyboard, null,
+            voiceCard, textCard);
+        _shortcuts.IsExpanded = true;
 
         Bind.Bind(vm, nameof(vm.IsVoiceControlEnabled), s => s.IsVoiceControlEnabled, _ => UpdateHotKeyAvailability());
-        return Group(Translator.CompanionSettings_ShortcutGroup, voiceExpander, textExpander, _hotKeyError);
+        return _shortcuts;
     }
 
     private void ShowHotKeyError(string message)
@@ -190,6 +158,8 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
     private void UpdateHotKeyAvailability()
     {
         var voice = ViewModel.IsVoiceControlEnabled;
+        // The expander re-enables every nested control, so the rows apply their own switch state after it.
+        _shortcuts.IsEnabled = voice;
         _voiceShortcut.UpdateAvailability(voice);
         _textShortcut.UpdateAvailability(voice);
     }
@@ -205,12 +175,11 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
         Action<HotKeyGesture> setGesture)
     {
         private WinoLabeledSwitch _switch = null!;
-        private WinoSettingsExpander _expander = null!;
         private HotKeyRecorderView _recorder = null!;
         private NSButton _resetButton = null!;
         private bool _updatingSwitch;
 
-        public WinoSettingsExpander Build(string title, string description, string keyCombination)
+        public WinoSettingsCard Build(string title, string description, string keyCombination)
         {
             _switch = new WinoLabeledSwitch { IsOn = getEnabled() };
             WinoAccessibility.Label(_switch.Switch, title);
@@ -238,16 +207,16 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
 
             _resetButton = page.Bind.Button(Translator.Buttons_Reset, () => Commit(defaultGesture));
 
-            _expander = page.Expander(title, description, WinoIconGlyph.Keyboard, _switch,
-                page.Card(keyCombination, null, WinoIconGlyph.None, _recorder),
-                page.Card(Translator.CompanionSettings_HotKey_ResetToDefault, MacHotKeyKeys.Format(defaultGesture), WinoIconGlyph.None, _resetButton));
-            _expander.IsExpanded = _switch.IsOn;
-            return _expander;
+            _resetButton.ToolTip = $"{Translator.CompanionSettings_HotKey_ResetToDefault}: {MacHotKeyKeys.Format(defaultGesture)}";
+            WinoAccessibility.Label(_recorder, keyCombination);
+            // The recorder only has a minimum width; without a fixed width the two rows split their space differently.
+            _recorder.WidthAnchor.ConstraintEqualTo(240).Active = true;
+
+            return page.Card(title, description, WinoIconGlyph.None, Row(_recorder, _resetButton, _switch));
         }
 
         public void UpdateAvailability(bool voiceControlEnabled)
         {
-            _expander.IsEnabled = voiceControlEnabled;
             _switch.IsEnabled = voiceControlEnabled;
             var active = voiceControlEnabled && _switch.IsOn;
             _recorder.IsEnabled = active;
@@ -266,7 +235,6 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
 
             setEnabled(enabled);
             SetSwitch(enabled);
-            _expander.IsExpanded = enabled;
             page.UpdateHotKeyAvailability();
         }
 

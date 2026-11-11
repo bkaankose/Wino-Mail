@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Wino.Mail.Api.Contracts.Voice;
+
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Contacts;
 

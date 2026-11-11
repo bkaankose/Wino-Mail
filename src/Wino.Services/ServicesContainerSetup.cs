@@ -83,12 +83,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IKeyboardShortcutService, KeyboardShortcutService>();
         services.AddSingleton<IWinoAccountSessionService>(provider => WinoAccountSessionService.For(provider.GetRequiredService<IDatabaseService>(), provider.GetRequiredService<IAccountCredentialPersistence>()));
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
-        services.AddSingleton<IVoiceCommandService, Voice.VoiceCommandService>();
-        services.AddSingleton<IVoicePlanPreviewService, Voice.VoicePlanPreviewService>();
-        services.AddTransient<Voice.VoiceBrainSectionBuilder>();
-        services.AddSingleton<IVoiceBrainService, Voice.VoiceBrainService>();
-        services.AddTransient<IVoiceQuestionService, Voice.VoiceQuestionService>();
-        services.AddSingleton<IVoiceBrainStore>(provider => provider.GetRequiredService<MailIntelligenceStore>());
+        RegisterAssistantServices(services);
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         RegisterPushRelayServices(services);
@@ -167,6 +162,26 @@ public static class ServicesContainerSetup
             provider.GetService<IRelayIntroductionService>(),
             provider.GetService<IRelaySocketCoordinator>()));
         services.AddSingleton<IRelayHealth>(provider => provider.GetRequiredService<ISyncCoordinator>());
+    }
+
+    /// <summary>
+    /// Wino Assistant: the capture transport (the interpret socket), the Wino Agent Runtime's ports (plan section 4.3)
+    /// and the runtime host that owns the brain and its sync. The runtime never executes; <c>Wino.Core</c> registers
+    /// the plan executor.
+    /// </summary>
+    private static void RegisterAssistantServices(IServiceCollection services)
+    {
+        services.AddSingleton<IAssistantCommandService, Assistant.AssistantCommandService>();
+        services.AddSingleton<Assistant.AssistantReadingClient>();
+        services.AddSingleton<Wino.Agent.Runtime.Ports.IReadingClient>(provider => provider.GetRequiredService<Assistant.AssistantReadingClient>());
+        services.AddSingleton<Wino.Agent.Runtime.Ports.IAgentDomainQueries, Assistant.AgentDomainQueries>();
+        services.AddSingleton<Wino.Agent.Runtime.Ports.IAgentBrainStorage>(provider => new Assistant.AgentBrainStorage(
+            provider.GetRequiredService<IApplicationConfiguration>(), provider.GetService<ISecureItemStore>(), provider.GetService<ISecretProtector>()));
+        services.AddSingleton<Wino.Agent.Runtime.Ports.IAgentClock, Assistant.AgentClock>();
+        services.AddSingleton<Wino.Agent.Runtime.Ports.IBrainSyncTransport, Assistant.AgentBrainSyncTransport>();
+        services.AddSingleton<Assistant.AgentPrompterRelay>();
+        services.AddSingleton<Assistant.IAgentRuntimeHost, Assistant.AgentRuntimeHost>();
+        services.AddSingleton<Wino.Agent.Runtime.IAgentRuntime>(provider => provider.GetRequiredService<Assistant.IAgentRuntimeHost>().Runtime);
     }
 
     /// <summary>

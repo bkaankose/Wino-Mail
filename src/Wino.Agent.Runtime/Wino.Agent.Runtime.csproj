@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<!-- Wino Agent Runtime (WAR): reads the classifier's reading, resolves it against the device's own data and the
+	     local brain, asks typed clarifications, applies policy and hands the app a ResolvedPlan. It never executes
+	     (the app implements IAgentPlanExecutor) and references only Wino.Core.Domain (entities, read-only query
+	     shapes) and the API contracts. No platform code, no Wino.Core, no Wino.Services. -->
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Platforms>x86;x64;arm64</Platforms>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<RootNamespace>Wino.Agent.Runtime</RootNamespace>
+	</PropertyGroup>
+	<ItemGroup>
+		<!-- Brain sync (phase 5): Argon2id for the brain password, the same package as the app's sync snapshot. -->
+		<PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<PackageReference Include="Wino.Mail.Contracts" />
+	</ItemGroup>
+</Project>

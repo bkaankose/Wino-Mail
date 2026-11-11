@@ -11,6 +11,7 @@
     <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj" />
     <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
     <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <Project Path="src/Wino.Agent.Runtime/Wino.Agent.Runtime.csproj" />
     <Project Path="src/Wino.Core/Wino.Core.csproj" />
     <Project Path="src/Wino.Core.MAPI/Wino.Core.MAPI.csproj" />
     <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj" />

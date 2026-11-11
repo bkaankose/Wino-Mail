@@ -153,6 +153,7 @@ public partial class TaskItemViewModel : ObservableObject
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsActive));
             OnPropertyChanged(nameof(CompletionActionText));
+            RefreshDueDisplay();
         }
     }
 
@@ -215,7 +216,7 @@ public partial class TaskItemViewModel : ObservableObject
     public bool HasDueDate => Task.DueDate.HasValue;
     public bool HasSteps => Steps.Count > 0;
 
-    /// <summary>Relative due text: "Due today", "Due Friday", "3 days overdue".</summary>
+    /// <summary>Relative due text: "Due today", "Due Friday", "3 days overdue". A completed task is never overdue.</summary>
     public string DueDisplayText
     {
         get
@@ -226,6 +227,7 @@ public partial class TaskItemViewModel : ObservableObject
             var days = (due.Date - DateTime.Now.Date).Days;
             return days switch
             {
+                < -1 when Task.IsCompleted => string.Format(Translator.ToDoPage_DueOn, due.ToString(due.Year == DateTime.Now.Year ? "MMM d" : "MMM d, yyyy")),
                 < -1 => string.Format(Translator.ToDoPage_DueOverdue, Math.Abs(days)),
                 -1 => Translator.ToDoPage_DueYesterday,
                 0 => Translator.ToDoPage_DueToday,
@@ -238,6 +240,21 @@ public partial class TaskItemViewModel : ObservableObject
 
     /// <summary>Overdue only matters while the task is still open.</summary>
     public bool IsOverdue => !Task.IsCompleted && Task.DueDate is { } due && due.Date < DateTime.Now.Date;
+
+    /// <summary>The screen-reader name of the task row: title, then completion, importance and due state.</summary>
+    public string AutomationName
+    {
+        get
+        {
+            var parts = new List<string>(4) { Title ?? string.Empty };
+            if (IsCompleted) parts.Add(Translator.ToDoPage_Completed);
+            if (IsImportant) parts.Add(Translator.ToDoPage_Important);
+            if (HasDueDate) parts.Add(DueDisplayText);
+            return string.Join(", ", parts.Where(part => !string.IsNullOrEmpty(part)));
+        }
+    }
+
+    public override string ToString() => AutomationName;
 
     public string StepSummaryText
         => Steps.Count == 0

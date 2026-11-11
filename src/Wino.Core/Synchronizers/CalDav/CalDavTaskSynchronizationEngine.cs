@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -286,6 +287,7 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
                 Title = string.IsNullOrWhiteSpace(collection.Name) ? existing?.Title ?? collection.RemoteCalendarId : collection.Name,
                 ColorHex = color,
                 IsReadOnly = collection.IsReadOnly,
+                HoldsCalendarEvents = collection.SupportsEvents,
                 RemoteVersion = collection.CTag
             });
         }
@@ -406,6 +408,11 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
 
         var plan = await BuildHierarchyAsync(account.Id, list, storedTasks, shadows, applied, deletedUids).ConfigureAwait(false);
 
+        // A resource that was listed but not downloaded must be asked for again: the old token
+        // and checkpoint make the next synchronization see it as changed once more.
+        if (incomplete)
+            nextSyncToken = list.TaskDeltaLink ?? string.Empty;
+
         await _taskService.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta
         {
             TaskListId = list.Id,
@@ -417,14 +424,16 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
         }).ConfigureAwait(false);
 
         await UpdateShadowsAsync(account.Id, list.Id, shadows, applied, deletedKeys, deletedUids).ConfigureAwait(false);
-        await CommitCheckpointsAsync(list, serverToken, flags).ConfigureAwait(false);
+        await CommitCheckpointsAsync(list, incomplete ? null : serverToken, flags).ConfigureAwait(false);
 
         return new ListOutcome(downloadedCount, applied.Count(pair => pair.Value.IsDownloaded), plan.DeletedTaskRemoteIds.Count + plan.DeletedStepRemoteIds.Count);
     }
 
-    private async Task CommitCheckpointsAsync(AccountTaskList list, string serverToken, ListSyncFlags flags)
+    /// <summary>Stores the flags, and the server token unless <paramref name="serverToken"/> is null.</summary>
+    private async Task CommitCheckpointsAsync(AccountTaskList list, string? serverToken, ListSyncFlags flags)
     {
-        await _taskService.CommitTaskListDeltaLinkAsync(list.Id, serverToken).ConfigureAwait(false);
+        if (serverToken != null)
+            await _taskService.CommitTaskListDeltaLinkAsync(list.Id, serverToken).ConfigureAwait(false);
 
         var flagsText = flags.ToString();
         if (string.Equals(flagsText, list.DeltaLink ?? string.Empty, StringComparison.Ordinal))
@@ -543,8 +552,11 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
                 if (todo == null)
                     continue;
 
-                var eTag = string.IsNullOrWhiteSpace(body.ETag) ? resource.ETag : body.ETag;
-                applied[todo.Uid] = new AppliedResource(todo, resource.ExactHref, eTag?.Trim() ?? string.Empty, body.IcsContent, IsDownloaded: true);
+                var eTag = StrongETag(body.ETag);
+                if (string.IsNullOrEmpty(eTag))
+                    eTag = StrongETag(resource.ETag);
+
+                applied[todo.Uid] = new AppliedResource(todo, resource.ExactHref, eTag, body.IcsContent, IsDownloaded: true);
             }
         }
 
@@ -745,17 +757,47 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
     /// <summary>
     /// What the server refused or how its token was obtained, kept in <see cref="AccountTaskList.DeltaLink"/>
     /// as ";"-separated words: "report" (the token came from a sync-collection REPORT, so a refusal
-    /// means it expired), "no-sync-collection" and "no-multiget".
+    /// means it expired), "no-sync-collection", "no-multiget" and "refused=yyyyMMdd", the day of the
+    /// last refusal. Refusals expire after <see cref="RefusalLifetime"/>, so a server that refused
+    /// once (or gained support later) is asked again; a flag without a day expires on the next read.
     /// </summary>
     private sealed class ListSyncFlags
     {
         private const string ReportToken = "report";
         private const string NoSyncCollection = "no-sync-collection";
         private const string NoMultiget = "no-multiget";
+        private const string RefusedPrefix = "refused=";
+        private const string DayFormat = "yyyyMMdd";
+
+        private static readonly TimeSpan RefusalLifetime = TimeSpan.FromDays(7);
+
+        private bool _syncCollectionRefused;
+        private bool _multigetRefused;
+        private DateTime? _refusedOnUtc;
 
         public bool TokenFromReport { get; set; }
-        public bool SyncCollectionRefused { get; set; }
-        public bool MultigetRefused { get; set; }
+
+        public bool SyncCollectionRefused
+        {
+            get => _syncCollectionRefused;
+            set
+            {
+                _syncCollectionRefused = value;
+                if (value)
+                    _refusedOnUtc = DateTime.UtcNow.Date;
+            }
+        }
+
+        public bool MultigetRefused
+        {
+            get => _multigetRefused;
+            set
+            {
+                _multigetRefused = value;
+                if (value)
+                    _refusedOnUtc = DateTime.UtcNow.Date;
+            }
+        }
 
         public static ListSyncFlags Parse(string? value)
         {
@@ -763,23 +805,34 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
                 (value ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
                 StringComparer.OrdinalIgnoreCase);
 
+            var refusedWord = words.FirstOrDefault(word => word.StartsWith(RefusedPrefix, StringComparison.OrdinalIgnoreCase));
+            DateTime? refusedOn = refusedWord != null &&
+                                  DateTime.TryParseExact(refusedWord[RefusedPrefix.Length..], DayFormat, CultureInfo.InvariantCulture,
+                                      DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var day)
+                ? day
+                : null;
+            var isCurrent = refusedOn is { } date && DateTime.UtcNow - date < RefusalLifetime;
+
             return new ListSyncFlags
             {
                 TokenFromReport = words.Contains(ReportToken),
-                SyncCollectionRefused = words.Contains(NoSyncCollection),
-                MultigetRefused = words.Contains(NoMultiget)
+                _syncCollectionRefused = isCurrent && words.Contains(NoSyncCollection),
+                _multigetRefused = isCurrent && words.Contains(NoMultiget),
+                _refusedOnUtc = isCurrent ? refusedOn : null
             };
         }
 
         public override string ToString()
         {
-            var words = new List<string>(3);
+            var words = new List<string>(4);
             if (TokenFromReport)
                 words.Add(ReportToken);
             if (SyncCollectionRefused)
                 words.Add(NoSyncCollection);
             if (MultigetRefused)
                 words.Add(NoMultiget);
+            if ((SyncCollectionRefused || MultigetRefused) && _refusedOnUtc is { } refusedOn)
+                words.Add(RefusedPrefix + refusedOn.ToString(DayFormat, CultureInfo.InvariantCulture));
 
             return string.Join(';', words);
         }

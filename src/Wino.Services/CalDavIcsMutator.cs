@@ -22,7 +22,11 @@ public static class CalDavIcsMutator
         ArgumentException.ThrowIfNullOrWhiteSpace(icsContent);
         var calendar = IcalCalendar.Load(icsContent)
             ?? throw new InvalidOperationException("The generated CalDAV resource is not a valid iCalendar object.");
-        return new CalendarSerializer(calendar).SerializeToString();
+
+        foreach (var calendarEvent in calendar.Events.Where(value => value.RecurrenceIdentifier == null))
+            AlignExceptionDates(calendarEvent);
+
+        return Serialize(calendar);
     }
 
     public static string UpdateEvent(
@@ -53,18 +57,10 @@ public static class CalDavIcsMutator
 
         if (target == null && !string.IsNullOrWhiteSpace(occurrenceKey))
         {
-            var master = calendar.Events.FirstOrDefault(value =>
-                string.Equals(value.Uid, uid, StringComparison.Ordinal) && value.RecurrenceIdentifier == null)
+            var master = FindMaster(calendar, uid)
                 ?? throw new InvalidOperationException("The recurring CalDAV master event is missing from the stored resource.");
 
-            target = master.Copy<CalendarEvent>();
-            target.Properties.Clear("RRULE");
-            target.Properties.Clear("EXRULE");
-            target.Properties.Clear("RDATE");
-            target.Properties.Clear("EXDATE");
-            target.RecurrenceIdentifier = new RecurrenceIdentifier(
-                ParseOccurrenceKey(occurrenceKey, master.Start),
-                RecurrenceRange.ThisInstance);
+            target = CreateOccurrenceException(master, occurrenceKey);
             calendar.Events.Add(target);
         }
 
@@ -72,7 +68,7 @@ public static class CalDavIcsMutator
             throw new InvalidOperationException("The CalDAV event is missing from the stored resource.");
 
         ApplyEditableProperties(target, item, attendees, identity);
-        return new CalendarSerializer(calendar).SerializeToString();
+        return Serialize(calendar);
     }
 
     /// <summary>
@@ -140,7 +136,7 @@ public static class CalDavIcsMutator
             }
         }
 
-        return new CalendarSerializer(calendar).SerializeToString();
+        return Serialize(calendar);
     }
 
     private static void SetOwnPartStat(CalendarEvent target, CalDavUserIdentity identity, string partStat, bool addWhenMissing)
@@ -173,9 +169,7 @@ public static class CalDavIcsMutator
     /// </summary>
     private static CalendarEvent CreateOccurrenceException(CalendarEvent master, string occurrenceKey)
     {
-        var recurrenceId = ParseOccurrenceKey(occurrenceKey, master.Start);
-        if (master.Start != null && !master.Start.HasTime)
-            recurrenceId = new CalDateTime(DateOnly.FromDateTime(recurrenceId.Value));
+        var recurrenceId = ToSeriesValueType(ParseOccurrenceKey(occurrenceKey, master.Start), master.Start);
 
         var length = master.End != null && master.Start != null
             ? master.End.Value - master.Start.Value
@@ -240,12 +234,12 @@ public static class CalDavIcsMutator
                 calendar.Events.Add(remainingEvent);
         }
 
-        master.ExceptionDates.Add(recurrenceId);
+        master.ExceptionDates.Add(ToSeriesValueType(recurrenceId, master.Start));
         master.Sequence++;
         master.DtStamp = CalDateTime.UtcNow;
         master.LastModified = CalDateTime.UtcNow;
 
-        return new CalendarSerializer(calendar).SerializeToString();
+        return Serialize(calendar);
     }
 
     private static CalendarEvent FindEvent(IcalCalendar calendar, string uid, string occurrenceKey)
@@ -274,8 +268,8 @@ public static class CalDavIcsMutator
         CalDavUserIdentity identity)
     {
         target.Summary = item.Title ?? string.Empty;
-        target.Description = item.Description ?? string.Empty;
-        target.Location = item.Location ?? string.Empty;
+        CalDavEventDescription.Apply(target, item.Description);
+        target.Location = string.IsNullOrWhiteSpace(item.Location) ? null : item.Location;
         target.Status = MapStatus(item.Status);
         target.Transparency = item.ShowAs == CalendarItemShowAs.Free ? "TRANSPARENT" : "OPAQUE";
         target.Class = MapVisibility(item.Visibility);
@@ -292,10 +286,13 @@ public static class CalDavIcsMutator
         }
         else
         {
-            target.Start = CreateCalDateTime(item.StartDate, item.StartTimeZone);
+            var storedStart = target.Start;
+            var storedEnd = target.End ?? storedStart;
+
+            target.Start = CreateCalDateTime(item.StartDate, item.StartTimeZone, storedStart);
             if (item.DurationInSeconds > 0)
             {
-                target.End = CreateCalDateTime(item.EndDate, item.EndTimeZone ?? item.StartTimeZone);
+                target.End = CreateCalDateTime(item.EndDate, item.EndTimeZone ?? item.StartTimeZone, storedEnd);
             }
             else
             {
@@ -433,6 +430,52 @@ public static class CalDavIcsMutator
             foreach (var property in source.Properties.AllOf(propertyName))
                 target.Properties.Add(property.Copy<CalendarProperty>());
         }
+
+        AlignExceptionDates(target);
+    }
+
+    /// <summary>
+    /// Rewrites EXDATE values in the value type of the series DTSTART. The stored recurrence string
+    /// carries them in UTC, and sabre/dav and iCloud do not match a UTC EXDATE against a zoned or
+    /// all-day series.
+    /// </summary>
+    private static void AlignExceptionDates(CalendarEvent master)
+    {
+        var dates = master.ExceptionDates.GetAllDates().Where(value => value != null).ToList();
+        var aligned = dates.Select(value => ToSeriesValueType(value, master.Start)).ToList();
+
+        if (dates.Count == 0 || dates.Zip(aligned).All(pair => ReferenceEquals(pair.First, pair.Second)))
+            return;
+
+        master.Properties.Clear("EXDATE");
+        master.ExceptionDates.AddRange(aligned);
+    }
+
+    /// <summary>
+    /// An instance value (RECURRENCE-ID, EXDATE) in the value type of the series DTSTART: a DATE for
+    /// all-day series and the master's TZID for zoned ones. Floating series stay as they are.
+    /// </summary>
+    private static CalDateTime ToSeriesValueType(CalDateTime value, CalDateTime masterStart)
+    {
+        if (value == null || masterStart == null)
+            return value;
+
+        if (!masterStart.HasTime)
+            return value.HasTime ? new CalDateTime(DateOnly.FromDateTime(value.Value)) : value;
+
+        if (!value.HasTime || value.IsFloating || masterStart.IsFloating ||
+            string.Equals(value.TzId, masterStart.TzId, StringComparison.OrdinalIgnoreCase))
+        {
+            return value;
+        }
+
+        return value.ToTimeZone(masterStart.TzId);
+    }
+
+    private static string Serialize(IcalCalendar calendar)
+    {
+        CalDavTimeZones.AddMissingTimeZones(calendar);
+        return new CalendarSerializer(calendar).SerializeToString();
     }
 
     private static string BuildNormalizedRecurrence(CalendarEvent source)
@@ -458,20 +501,39 @@ public static class CalDavIcsMutator
         return string.Join(Constants.CalendarEventRecurrenceRuleSeperator, lines);
     }
 
-    private static CalDateTime CreateCalDateTime(DateTime value, string timeZoneId)
+    /// <summary>
+    /// A wall-clock time in its zone. A stored event keeps its own TZID (defined by its own
+    /// VTIMEZONE) while the zone is unchanged; otherwise the IANA id is written, since other
+    /// clients do not know Windows ids. A zone that has no IANA id is written in UTC.
+    /// </summary>
+    private static CalDateTime CreateCalDateTime(DateTime value, string timeZoneId, CalDateTime stored)
     {
         var unspecified = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
         if (string.IsNullOrWhiteSpace(timeZoneId))
             return new CalDateTime(unspecified, true);
 
-        if (string.Equals(timeZoneId, TimeZoneInfo.Utc.Id, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(timeZoneId, "UTC", StringComparison.OrdinalIgnoreCase))
-        {
-            return new CalDateTime(DateTime.SpecifyKind(value, DateTimeKind.Utc), "UTC", true);
-        }
+        if (stored is { HasTime: true } && !string.IsNullOrWhiteSpace(stored.TzId) && CalDavTimeZones.IsSameZone(stored.TzId, timeZoneId))
+            return CreateZoned(unspecified, stored.TzId);
 
-        return new CalDateTime(unspecified, timeZoneId, true);
+        var icsTimeZoneId = CalDavTimeZones.ToIcsTimeZoneId(timeZoneId);
+        if (icsTimeZoneId != null)
+            return CreateZoned(unspecified, icsTimeZoneId);
+
+        try
+        {
+            var utc = TimeZoneInfo.ConvertTimeToUtc(unspecified, TimeZoneInfo.FindSystemTimeZoneById(timeZoneId));
+            return new CalDateTime(utc, CalDavTimeZones.UtcTzId, true);
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException or ArgumentException)
+        {
+            return new CalDateTime(unspecified, timeZoneId, true);
+        }
     }
+
+    private static CalDateTime CreateZoned(DateTime unspecified, string tzId)
+        => CalDavTimeZones.IsUtc(tzId)
+            ? new CalDateTime(DateTime.SpecifyKind(unspecified, DateTimeKind.Utc), CalDavTimeZones.UtcTzId, true)
+            : new CalDateTime(unspecified, tzId, true);
 
     private static CalDateTime ParseOccurrenceKey(string key, CalDateTime masterStart)
     {

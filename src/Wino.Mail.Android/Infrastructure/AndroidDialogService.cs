@@ -292,6 +292,15 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
     public void ShowReadOnlyCalendarMessage()
         => ShowSnackbar(Translator.CalendarReadOnly_Title, Translator.CalendarReadOnly_Message, null, null);
 
+    public async Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync()
+        => await AlertAsync(Translator.DialogMessage_DeleteRecurringEventTitle, Translator.DialogMessage_DeleteRecurringEventMessage,
+            Translator.CalendarContextMenu_ThisEventOnly, Translator.Buttons_Cancel, Translator.CalendarContextMenu_AllEventsInSeries) switch
+        {
+            0 => CalendarEventTargetType.Single,
+            1 => CalendarEventTargetType.Series,
+            _ => null
+        };
+
     /// <summary>The Windows ShellInfoBar as a snackbar: title and message, an optional action, a longer time with an action.</summary>
     private async void ShowSnackbar(string title, string message, string? actionTitle, Action? action)
     {

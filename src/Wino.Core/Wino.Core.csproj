@@ -36,6 +36,7 @@
 	</ItemGroup>
 	
 	<ItemGroup>
+		<ProjectReference Include="..\Wino.Agent.Runtime\Wino.Agent.Runtime.csproj" />
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 		<ProjectReference Include="..\Wino.Core.MAPI\Wino.Core.MAPI.csproj" />

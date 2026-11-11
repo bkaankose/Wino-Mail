@@ -43,6 +43,9 @@ public static partial class MacViewModelRegistration
         services.AddTransient<WinoIntelligencePageViewController>();
         services.AddTransient<WinoIntelligenceManagementPageViewController>();
         services.AddTransient<IntelligenceCoveragePageViewController>();
+        services.AddTransient<IntelligencePrivacyPageViewController>();
+        services.AddTransient<IntelligenceBriefingPageViewController>();
+        services.AddTransient<MailClassificationPageViewController>();
 #if DEBUG
         WinoIntelligenceDebug.Register();
         Views.Account.WinoAccountSheetsDebug.Register();

@@ -367,6 +367,11 @@
                     Text="{x:Bind domain:Translator.DailyBriefing_UnavailableMessage, Mode=OneTime}"
                     TextAlignment="Center"
                     TextWrapping="Wrap" />
+                <HyperlinkButton
+                    HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="DailyBriefingOpenMailClassificationButton"
+                    Click="OpenMailClassificationClicked"
+                    Content="{x:Bind domain:Translator.DailyBriefing_OpenMailClassification, Mode=OneTime}" />
             </StackPanel>
 
             <StackPanel

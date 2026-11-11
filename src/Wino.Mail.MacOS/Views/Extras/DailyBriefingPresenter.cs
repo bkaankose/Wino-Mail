@@ -1,6 +1,7 @@
 using AppKit;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.MacOS.Infrastructure;
@@ -64,7 +65,8 @@ public sealed class DailyBriefingPresenter : IDailyBriefingPresenter,
         _close = close;
         if (_panel is not null) return _panel;
         var viewModel = _services.GetRequiredService<DailyBriefingPanelViewModel>();
-        _panel = new DailyBriefingPanelViewController(viewModel, _dispatcher, _logger, () => _close?.Invoke());
+        _panel = new DailyBriefingPanelViewController(viewModel, _dispatcher, _logger, () => _close?.Invoke(),
+            () => _services.GetService<INavigationService>()?.Navigate(WinoPage.MailClassificationPage));
         return _panel;
     }
 

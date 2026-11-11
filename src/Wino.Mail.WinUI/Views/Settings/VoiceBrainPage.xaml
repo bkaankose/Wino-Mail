@@ -173,11 +173,75 @@
             </ItemsRepeater.Layout>
         </ItemsRepeater>
 
-        <TextBlock Style="{StaticResource VoiceBrainGroupHeaderStyle}" Text="{x:Bind domain:Translator.VoiceBrain_Group_Forget, Mode=OneTime}" />
+        <TextBlock Style="{StaticResource VoiceBrainGroupHeaderStyle}" Text="{x:Bind domain:Translator.VoiceBrain_Group_Sync, Mode=OneTime}" />
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="VoiceBrainSyncCard"
+            Description="{x:Bind ViewModel.SyncDescription, Mode=OneWay}"
+            Header="{x:Bind domain:Translator.VoiceBrain_Sync_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Key" />
+            </controls:SettingsCard.HeaderIcon>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <ProgressRing
+                    Width="20"
+                    Height="20"
+                    AutomationProperties.AutomationId="VoiceBrainSyncBusy"
+                    IsActive="{x:Bind ViewModel.IsSyncBusy, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsSyncBusy, Mode=OneWay}" />
+                <Button
+                    AutomationProperties.AutomationId="VoiceBrainSyncTurnOnButton"
+                    Command="{x:Bind ViewModel.TurnOnSyncCommand}"
+                    Content="{x:Bind domain:Translator.VoiceBrain_Sync_TurnOn_Button, Mode=OneTime}"
+                    Style="{ThemeResource AccentButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsSyncOff, Mode=OneWay}" />
+                <Button
+                    AutomationProperties.AutomationId="VoiceBrainSyncChangePasswordButton"
+                    Command="{x:Bind ViewModel.ChangeSyncPasswordCommand}"
+                    Content="{x:Bind domain:Translator.VoiceBrain_Sync_ChangePassword_Button, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsSyncOn, Mode=OneWay}" />
+                <Button
+                    AutomationProperties.AutomationId="VoiceBrainSyncTurnOffButton"
+                    Command="{x:Bind ViewModel.TurnOffSyncCommand}"
+                    Content="{x:Bind domain:Translator.VoiceBrain_Sync_TurnOff_Button, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsSyncOn, Mode=OneWay}" />
+            </StackPanel>
+        </controls:SettingsCard>
+
+        <InfoBar
+            AutomationProperties.AutomationId="VoiceBrainSyncWrongPassword"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsSyncPasswordMismatch, Mode=OneWay}"
+            Message="{x:Bind domain:Translator.VoiceBrain_Sync_WrongPassword, Mode=OneTime}"
+            Severity="Warning">
+            <InfoBar.ActionButton>
+                <Button
+                    AutomationProperties.AutomationId="VoiceBrainSyncEnterPasswordButton"
+                    Command="{x:Bind ViewModel.EnterSyncPasswordCommand}"
+                    Content="{x:Bind domain:Translator.VoiceBrain_Sync_EnterPassword_Button, Mode=OneTime}" />
+            </InfoBar.ActionButton>
+            <Button
+                Margin="0,0,0,12"
+                AutomationProperties.AutomationId="VoiceBrainSyncReplaceButton"
+                Command="{x:Bind ViewModel.ReplaceServerCopyCommand}"
+                Content="{x:Bind domain:Translator.VoiceBrain_Sync_Replace_Button, Mode=OneTime}" />
+        </InfoBar>
+
+        <InfoBar
+            AutomationProperties.AutomationId="VoiceBrainSyncFailed"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsSyncFailed, Mode=OneWay}"
+            Message="{x:Bind domain:Translator.VoiceBrain_Sync_Failed, Mode=OneTime}"
+            Severity="Error" />
+
+        <TextBlock
+            Style="{StaticResource VoiceBrainGroupHeaderStyle}"
+            Text="{x:Bind domain:Translator.VoiceBrain_Group_Forget, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasLoaded, Mode=OneWay}" />
         <controls:SettingsCard
             AutomationProperties.AutomationId="VoiceBrainDeleteAllCard"
             Description="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Title, Mode=OneTime}">
+            Header="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Title, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasLoaded, Mode=OneWay}">
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="Delete" />
             </controls:SettingsCard.HeaderIcon>
@@ -185,18 +249,6 @@
                 AutomationProperties.AutomationId="VoiceBrainDeleteAllButton"
                 Command="{x:Bind ViewModel.DeleteEverythingCommand}"
                 Content="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Button, Mode=OneTime}" />
-        </controls:SettingsCard>
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="VoiceBrainTurnOffCard"
-            Description="{x:Bind domain:Translator.VoiceBrain_TurnOff_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.VoiceBrain_TurnOff_Title, Mode=OneTime}">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Power" />
-            </controls:SettingsCard.HeaderIcon>
-            <Button
-                AutomationProperties.AutomationId="VoiceBrainTurnOffButton"
-                Command="{x:Bind ViewModel.TurnOffPersonalModeCommand}"
-                Content="{x:Bind domain:Translator.VoiceBrain_TurnOff_Button, Mode=OneTime}" />
         </controls:SettingsCard>
     </StackPanel>
 </abstract:VoiceBrainPageAbstract>

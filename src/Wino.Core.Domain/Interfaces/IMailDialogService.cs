@@ -19,7 +19,16 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface IMailDialogService : IDialogServiceBase
 {
+    /// <summary>Plays the Wino Assistant demo video. Only Windows ships the video; other heads keep this no-op.</summary>
+    Task ShowWinoAssistantDemoAsync() => Task.CompletedTask;
+
     void ShowReadOnlyCalendarMessage();
+
+    /// <summary>
+    /// Asks whether deleting an occurrence of a recurring event removes only that occurrence or the whole series.
+    /// </summary>
+    /// <returns>The chosen scope, or null when the user cancels.</returns>
+    Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync();
     Task<bool> ShowHardDeleteConfirmationAsync();
     Task<ThreeButtonDialogResult> ShowThreeButtonDialogAsync(string title,
                                                              string description,

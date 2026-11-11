@@ -15,7 +15,6 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Voice;
-using Wino.Mail.Api.Contracts.Voice;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -40,16 +39,13 @@ public sealed record MicrophoneOption(string Id, string DisplayName);
 /// </summary>
 public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
     IRecipient<PreferenceChangedMessage>,
-    IRecipient<WinoIntelligenceEntitlementChanged>,
-    IRecipient<VoiceModeChanged>
+    IRecipient<WinoIntelligenceEntitlementChanged>
 {
     private readonly IMicrophoneService _microphoneService;
     private readonly IWinoAccountIntelligenceSnapshotService _entitlementService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountProfileService _profileService;
     private readonly IWinoBillingService _billingService;
-    private readonly IVoiceBrainService _voiceBrain;
-    private bool _isChangingMode;
     private readonly SemaphoreSlim _monitorGate = new(1, 1);
     private CancellationTokenSource? _checkoutWatch;
     private IDisposable? _levelMonitor;
@@ -64,8 +60,7 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
         IWinoAccountIntelligenceSnapshotService entitlementService,
         IMailDialogService dialogService,
         IWinoAccountProfileService profileService,
-        IWinoBillingService billingService,
-        IVoiceBrainService voiceBrain)
+        IWinoBillingService billingService)
     {
         PreferencesService = preferencesService;
         _dialogService = dialogService;
@@ -73,69 +68,11 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
         _billingService = billingService;
         _microphoneService = microphoneService;
         _entitlementService = entitlementService;
-        _voiceBrain = voiceBrain;
         Access = ToAccess(entitlementService.CurrentEntitlement);
-    }
-
-    /// <summary>
-    /// Personal mode lets the voice planner use what Wino knows about the accounts. It belongs to the Wino Account, so
-    /// the switch follows the server; turning it off asks first because the server forgets everything it learned.
-    /// </summary>
-    public bool IsPersonalMode
-    {
-        get => _voiceBrain.CurrentMode == VoiceMode.Personal;
-        set
-        {
-            if (_isChangingMode || value == IsPersonalMode)
-                return;
-
-            _ = ChangeModeAsync(value ? VoiceMode.Personal : VoiceMode.Private);
-        }
-    }
-
-    [ObservableProperty]
-    public partial bool IsModeChangeFailed { get; set; }
-
-    private async Task ChangeModeAsync(VoiceMode mode)
-    {
-        _isChangingMode = true;
-        try
-        {
-            await ExecuteUIThread(() => IsModeChangeFailed = false);
-
-            if (mode == VoiceMode.Private)
-            {
-                var confirmed = await _dialogService.ShowConfirmationDialogAsync(
-                    Translator.VoiceBrain_TurnOff_DialogMessage,
-                    Translator.VoiceBrain_TurnOff_DialogTitle,
-                    Translator.VoiceBrain_TurnOff_DialogConfirm);
-                if (!confirmed)
-                    return;
-            }
-
-            var changed = await _voiceBrain.SetModeAsync(mode).ConfigureAwait(false);
-            if (!changed)
-                await ExecuteUIThread(() => IsModeChangeFailed = true);
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Could not change the voice mode.");
-            await ExecuteUIThread(() => IsModeChangeFailed = true);
-        }
-        finally
-        {
-            _isChangingMode = false;
-
-            // The switch already moved; raising the change puts it where the server's mode is.
-            await ExecuteUIThread(() => OnPropertyChanged(nameof(IsPersonalMode)));
-        }
     }
 
     [RelayCommand]
     private void OpenVoiceBrain() => Navigate(WinoPage.VoiceBrainPage);
-
-    public void Receive(VoiceModeChanged message)
-        => _ = ExecuteUIThread(() => OnPropertyChanged(nameof(IsPersonalMode)));
 
     public IPreferencesService PreferencesService { get; }
 
@@ -258,12 +195,6 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
         _ = RefreshAccessAsync();
     }
 
-    private async Task RefreshModeAsync()
-    {
-        await _voiceBrain.RefreshModeAsync().ConfigureAwait(false);
-        await ExecuteUIThread(() => OnPropertyChanged(nameof(IsPersonalMode)));
-    }
-
     public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
@@ -281,7 +212,6 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
 
         Messenger.Register<PreferenceChangedMessage>(this);
         Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
-        Messenger.Register<VoiceModeChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -290,7 +220,6 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
 
         Messenger.Unregister<PreferenceChangedMessage>(this);
         Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
-        Messenger.Unregister<VoiceModeChanged>(this);
     }
 
     public void Receive(PreferenceChangedMessage message)
@@ -418,7 +347,6 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
     // Microphones and the voice mode are only read for Wino Intelligence users; a locked page touches neither.
     private void ApplyAccess(VoiceControlAccess access)
     {
-        var wasUsable = _isWatchingMicrophones;
         Access = access;
         OnPropertyChanged(nameof(HasMicrophoneProblem));
 
@@ -427,8 +355,6 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
         if (isUsable)
         {
             _ = LoadMicrophonesAsync();
-            if (!wasUsable)
-                _ = RefreshModeAsync();
         }
         else
         {

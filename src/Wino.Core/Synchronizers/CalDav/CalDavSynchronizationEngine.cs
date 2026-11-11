@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Itenso.TimePeriod;
@@ -705,7 +706,9 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         string eTag,
         string icsContent,
         IReadOnlyList<CalDavCalendarEvent> events,
-        HashSet<string> expandedIds)
+        HashSet<string> expandedIds,
+        bool reapplyUnchanged = false,
+        Guid? preservedItemId = null)
     {
         var localCalendar = context.LocalCalendar;
         var resourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -724,7 +727,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
                 .GetCalendarItemAsync(localCalendar.Id, remoteEvent.RemoteEventId)
                 .ConfigureAwait(false);
 
-            if (await ShouldSkipUnchangedEventAsync(context.Account, localCalendar, existingLocalItem, remoteEvent).ConfigureAwait(false))
+            if (!reapplyUnchanged && await ShouldSkipUnchangedEventAsync(context.Account, localCalendar, existingLocalItem, remoteEvent).ConfigureAwait(false))
                 continue;
 
             await _changeProcessor
@@ -762,7 +765,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
 
         foreach (var item in shadow.Items)
         {
-            if (string.IsNullOrWhiteSpace(item.RemoteEventId) || resourceIds.Contains(item.RemoteEventId))
+            if (string.IsNullOrWhiteSpace(item.RemoteEventId) || resourceIds.Contains(item.RemoteEventId) || item.CalendarItemId == preservedItemId)
                 continue;
 
             await _changeProcessor.DeleteCalendarItemAsync(item.CalendarItemId).ConfigureAwait(false);
@@ -1126,6 +1129,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             reminders ?? [],
             item.RemoteEventId).ConfigureAwait(false);
         await ApplyAttachmentChangesAsync(account, item, attachments, isNewEvent: true, cancellationToken).ConfigureAwait(false);
+        await ExpandWrittenSeriesAsync(account, item, previousIcsContent: null, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task UpdateEventAsync(
@@ -1135,8 +1139,9 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         IReadOnlyList<CalendarEventComposeAttachmentDraft>? attachments = null,
         CancellationToken cancellationToken = default)
     {
-        await UpsertEventAsync(account, item, attendees, cancellationToken).ConfigureAwait(false);
+        var previousIcsContent = await UpsertEventAsync(account, item, attendees, cancellationToken).ConfigureAwait(false);
         await ApplyAttachmentChangesAsync(account, item, attachments, isNewEvent: false, cancellationToken).ConfigureAwait(false);
+        await ExpandWrittenSeriesAsync(account, item, previousIcsContent, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task RespondToEventAsync(
@@ -1152,7 +1157,8 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             return;
 
         item.Status = response;
-        await UpsertEventAsync(account, item, null, cancellationToken).ConfigureAwait(false);
+        var previousIcsContent = await UpsertEventAsync(account, item, null, cancellationToken).ConfigureAwait(false);
+        await ExpandWrittenSeriesAsync(account, item, previousIcsContent, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteEventAsync(MailAccount account, CalendarItem item, CancellationToken cancellationToken = default)
@@ -1183,15 +1189,27 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
                 cancellationToken).ConfigureAwait(false);
 
             await SaveSeriesSnapshotAsync(account, item, result.ExactHref, result.ETag, icsContent).ConfigureAwait(false);
+            await _changeProcessor.DeleteCalendarItemAsync(item.Id).ConfigureAwait(false);
             return;
         }
 
         await _client
             .DeleteCalendarEventAsync(connection, snapshot.ExactHref, snapshot.ETag, cancellationToken)
             .ConfigureAwait(false);
+
+        // The whole resource is gone, so every occurrence row and its ICS shadow goes with the master.
+        if (item.IsRecurringParent)
+        {
+            var occurrences = await _calendarService.GetRecurringChildrenAsync(item.Id).ConfigureAwait(false);
+            foreach (var occurrence in occurrences ?? [])
+                await _changeProcessor.DeleteCalendarItemAsync(occurrence.Id).ConfigureAwait(false);
+        }
+
+        await _changeProcessor.DeleteCalendarItemAsync(item.Id).ConfigureAwait(false);
     }
 
-    private async Task UpsertEventAsync(
+    /// <returns>The stored ICS the write replaced, or null for a new resource.</returns>
+    private async Task<string?> UpsertEventAsync(
         MailAccount account,
         CalendarItem item,
         List<CalendarEventAttendee>? attendees,
@@ -1236,7 +1254,90 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
 
         await RecordQuotaUsageAsync(account, calendar, snapshot, icsContent, cancellationToken).ConfigureAwait(false);
         await SaveSeriesSnapshotAsync(account, item, result.ExactHref, result.ETag, icsContent).ConfigureAwait(false);
+
+        return snapshot?.IcsContent;
     }
+
+    /// <summary>
+    /// Expands a resource Wino just wrote for the calendar's synchronization window the way a sync
+    /// does, so occurrence rows appear, change, move or go away right away. A later sync never
+    /// does it: the stored ETag already matches the server. Runs when the new or the replaced
+    /// version is recurring. A series write re-applies every row, because the edit changes them
+    /// all while their stored ETag is already the new one; an occurrence write only adds what is missing.
+    /// </summary>
+    private async Task ExpandWrittenSeriesAsync(
+        MailAccount account,
+        CalendarItem item,
+        string? previousIcsContent,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var snapshot = await _changeProcessor
+                .GetCalendarItemIcsAsync(account.Id, item.CalendarId, item.Id)
+                .ConfigureAwait(false);
+
+            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.IcsContent) || string.IsNullOrWhiteSpace(snapshot.ExactHref))
+                return;
+
+            if (!IsRecurringResource(snapshot.IcsContent) && !IsRecurringResource(previousIcsContent))
+                return;
+
+            var localCalendar = await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
+            if (localCalendar == null || string.IsNullOrWhiteSpace(localCalendar.RemoteCalendarId))
+                return;
+
+            var settings = await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, cancellationToken).ConfigureAwait(false);
+            var state = await _stateStore.GetAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            var remoteCalendar = new CalDavCalendar { RemoteCalendarId = localCalendar.RemoteCalendarId, Name = localCalendar.Name };
+            var calendarState = state.FindCalendar(localCalendar.RemoteCalendarId)
+                                ?? new CalDavCalendarState { RemoteCalendarId = localCalendar.RemoteCalendarId };
+
+            var now = DateTimeOffset.UtcNow;
+            var (_, storedWindowEndUtc) = CalendarSyncWindowToken.Decode(localCalendar.SynchronizationDeltaToken);
+            var context = new CalendarContext(
+                account,
+                settings,
+                localCalendar,
+                remoteCalendar,
+                calendarState,
+                now.AddYears(-1),
+                storedWindowEndUtc ?? now.AddYears(2),
+                ForceSync: false);
+
+            using var calendarLock = await CalDavConnection.LockCalendarAsync(item.CalendarId, cancellationToken).ConfigureAwait(false);
+
+            var shadows = await LoadShadowsAsync(context).ConfigureAwait(false);
+            var events = _client.ExpandCalendarResource(snapshot.IcsContent, snapshot.ExactHref, snapshot.ETag, context.PeriodStartUtc, context.PeriodEndUtc)
+                         ?? Array.Empty<CalDavCalendarEvent>();
+
+            await ApplyExpandedEventsAsync(
+                context,
+                shadows,
+                snapshot.ExactHref,
+                snapshot.ETag,
+                snapshot.IcsContent,
+                events,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                reapplyUnchanged: !item.IsRecurringChild,
+                preservedItemId: item.Id).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // The server already has the write; failing here would revert a change that succeeded.
+            Logger.Warning(ex, "Could not expand the written CalDAV series {RemoteEventId}", item.RemoteEventId);
+        }
+    }
+
+    private static bool IsRecurringResource(string? icsContent)
+        => !string.IsNullOrWhiteSpace(icsContent) && RecurrencePropertyRegex().IsMatch(icsContent);
+
+    [GeneratedRegex(@"^(?:RRULE|RDATE|RECURRENCE-ID)[;:]", RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex RecurrencePropertyRegex();
 
     /// <summary>
     /// A recurring series is one CalDAV resource shared by the master row and every occurrence row.

@@ -1633,8 +1633,17 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             await PersistIcsAsync(item, attendees).ConfigureAwait(false);
         }
 
-        public Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
-            => _changeProcessor.DeleteCalendarItemAsync(request.Item.Id);
+        public async Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
+        {
+            if (request.Item.IsRecurringParent)
+            {
+                var occurrences = await _calendarService.GetRecurringChildrenAsync(request.Item.Id).ConfigureAwait(false);
+                foreach (var occurrence in occurrences ?? [])
+                    await _changeProcessor.DeleteCalendarItemAsync(occurrence.Id).ConfigureAwait(false);
+            }
+
+            await _changeProcessor.DeleteCalendarItemAsync(request.Item.Id).ConfigureAwait(false);
+        }
 
         public async Task AcceptEventAsync(AcceptEventRequest request)
         {

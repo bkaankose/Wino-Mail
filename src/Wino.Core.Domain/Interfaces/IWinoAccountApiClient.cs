@@ -12,7 +12,7 @@ using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Store;
 using Wino.Mail.Api.Contracts.Users;
-using Wino.Mail.Api.Contracts.Voice;
+using Wino.Mail.Api.Contracts.Assistant;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.AI.Abstractions;
 
@@ -32,35 +32,32 @@ public interface IWinoAccountApiClient
         => throw new NotSupportedException();
 
     /// <summary>
-    /// Opens the voice interpret WebSocket with the signed-in account's token, refreshing it once when the API rejects
-    /// it. The caller owns the returned socket.
+    /// Opens the assistant interpret WebSocket (<c>GET /api/v2/assistant/interpret</c>) with the signed-in account's
+    /// token, refreshing it once when the API rejects it. The caller owns the returned socket.
     /// </summary>
-    Task<Models.Voice.VoiceConnectResult> ConnectVoiceAsync(CancellationToken cancellationToken = default)
+    Task<Models.Voice.VoiceConnectResult> ConnectAssistantAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
-    Task<ApiEnvelope<VoiceModeDto>> GetVoiceModeAsync(CancellationToken cancellationToken = default)
+    /// <summary>Writes text from the user's points (<c>POST /api/v2/assistant/compose</c>); only for composed content, with the hint of plan section 5.3.</summary>
+    Task<ApiEnvelope<AssistantComposeResult>> ComposeAssistantAsync(AssistantComposeRequest request, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
-    /// <summary>Switching to <see cref="VoiceMode.Private"/> deletes the brain on the server.</summary>
-    Task<ApiEnvelope<VoiceModeDto>> SetVoiceModeAsync(VoiceMode mode, CancellationToken cancellationToken = default)
+    /// <summary>Metadata of the stored encrypted agent brain, or null when the account has none.</summary>
+    Task<UserAgentBrainStatusDto?> GetAgentBrainStatusAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
-    Task<ApiEnvelope<VoiceBrainDto>> GetVoiceBrainAsync(CancellationToken cancellationToken = default)
+    /// <summary>The stored encrypted agent brain bytes and revision, or null when the account has none.</summary>
+    Task<WinoAgentBrainDownload?> GetAgentBrainAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
-    Task<ApiEnvelope<BrainSectionPushResult>> PushVoiceBrainSectionAsync(PushBrainSectionRequest request, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Uploads the encrypted agent brain. A non-null expected revision makes the write conditional (<c>If-Match</c>);
+    /// a mismatch throws <see cref="WinoAgentBrainConflictException"/> with the server's revision.
+    /// </summary>
+    Task<UserAgentBrainStatusDto> PutAgentBrainAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
-    Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainSectionAsync(BrainMailboxKey mailbox, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException();
-
-    Task<ApiEnvelope<BrainFact>> AddVoiceBrainFactAsync(AddBrainFactRequest request, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException();
-
-    Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainFactAsync(string factId, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException();
-
-    Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainAsync(CancellationToken cancellationToken = default)
+    Task DeleteAgentBrainAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
     Task<WinoAccountApiResult<AuthResultDto>> RegisterAsync(string email, string password, CancellationToken cancellationToken = default);

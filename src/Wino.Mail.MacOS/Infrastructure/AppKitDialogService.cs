@@ -173,6 +173,16 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     public void ShowNotSupportedMessage() => ShowNotice(Translator.Info_UnsupportedFunctionalityTitle, NotYetOnMac, InfoBarMessageType.Information);
     public void ShowReadOnlyCalendarMessage() => ShowNotice(Translator.CalendarReadOnly_Title, Translator.CalendarReadOnly_Message, InfoBarMessageType.Warning);
 
+    public async Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync() =>
+        await AlertAsync(Translator.DialogMessage_DeleteRecurringEventTitle, Translator.DialogMessage_DeleteRecurringEventMessage,
+            [Translator.CalendarContextMenu_ThisEventOnly, Translator.CalendarContextMenu_AllEventsInSeries, Translator.Buttons_Cancel],
+            style: NSAlertStyle.Warning) switch
+        {
+            0 => CalendarEventTargetType.Single,
+            1 => CalendarEventTargetType.Series,
+            _ => null
+        };
+
     public Task<bool> ShowHardDeleteConfirmationAsync()
         => ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_HardDeleteConfirmationMessage, Translator.DialogMessage_HardDeleteConfirmationTitle,
             Translator.Buttons_Yes, WinoCustomMessageDialogIcon.Warning, Translator.Buttons_No);

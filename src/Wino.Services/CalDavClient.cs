@@ -734,7 +734,7 @@ public sealed partial class CalDavClient : ICalDavClient
             IsSeriesMaster = isSeriesMaster,
             IsRecurringInstance = isRecurringInstance,
             Title = sourceEvent.Summary ?? string.Empty,
-            Description = sourceEvent.Description ?? string.Empty,
+            Description = CalDavEventDescription.Read(sourceEvent),
             Location = sourceEvent.Location ?? string.Empty,
             Start = start,
             End = end,

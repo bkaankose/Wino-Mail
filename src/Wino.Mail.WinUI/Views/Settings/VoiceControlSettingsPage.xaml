@@ -8,7 +8,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:hotKey="using:Wino.Mail.Controls.HotKeyInput"
-    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModels="using:Wino.Core.ViewModels"
     mc:Ignorable="d">
@@ -25,98 +24,6 @@
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
 
         <StackPanel
-            AutomationProperties.AutomationId="VoiceControlSettingsLockedPanel"
-            Spacing="{StaticResource SettingsCardSpacing}"
-            Visibility="{x:Bind ViewModel.IsLocked, Mode=OneWay}">
-            <Border
-                Padding="24"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-                <StackPanel Spacing="16">
-                    <illustrations:WinoVoiceControlDemo
-                        MaxWidth="720"
-                        HorizontalAlignment="Stretch"
-                        AutomationProperties.AutomationId="VoiceControlSettingsDemo"
-                        AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_Promo_DemoName, Mode=OneTime}"
-                        Visibility="{x:Bind ViewModel.IsLocked, Mode=OneWay}" />
-
-                    <StackPanel Spacing="4">
-                        <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.VoiceControlSettings_Promo_Title, Mode=OneTime}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{ThemeResource BodyTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.VoiceControlSettings_Promo_Description, Mode=OneTime}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Spacing="2">
-                            <TextBlock
-                                Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.VoiceControlSettings_Promo_Tray_Title, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{ThemeResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.VoiceControlSettings_Promo_Tray_Description, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock
-                                Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.VoiceControlSettings_Promo_Steps_Title, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{ThemeResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.VoiceControlSettings_Promo_Steps_Description, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" Spacing="2">
-                            <TextBlock
-                                Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.VoiceControlSettings_Promo_Confirm_Title, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{ThemeResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.VoiceControlSettings_Promo_Confirm_Description, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="VoiceControlSettingsUpgradeCard"
-                Description="{x:Bind domain:Translator.VoiceControlSettings_Upgrade_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.VoiceControlSettings_Upgrade_Title, Mode=OneTime}"
-                Visibility="{x:Bind ViewModel.IsLocked, Mode=OneWay}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
-                </controls:SettingsCard.HeaderIcon>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <HyperlinkButton
-                        AutomationProperties.AutomationId="VoiceControlSettingsSeeWhatsIncludedButton"
-                        Command="{x:Bind ViewModel.SeeWhatsIncludedCommand}"
-                        Content="{x:Bind domain:Translator.WinoAccount_Management_SeeWhatsIncluded, Mode=OneTime}" />
-                    <Button
-                        AutomationProperties.AutomationId="VoiceControlSettingsUpgradeButton"
-                        Command="{x:Bind ViewModel.GetWinoIntelligenceCommand}"
-                        Content="{x:Bind domain:Translator.VoiceControlSettings_Upgrade_Button, Mode=OneTime}"
-                        Style="{ThemeResource AccentButtonStyle}" />
-                </StackPanel>
-            </controls:SettingsCard>
-        </StackPanel>
-
-        <StackPanel
             AutomationProperties.AutomationId="VoiceControlSettingsAvailablePanel"
             Spacing="{StaticResource SettingsCardSpacing}"
             Visibility="{x:Bind ViewModel.IsAvailable, Mode=OneWay}">
@@ -125,7 +32,7 @@
                 Description="{x:Bind domain:Translator.VoiceControlSettings_Enable_Description, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.VoiceControlSettings_Enable_Title, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="WinoIntelligence" />
+                    <ImageIcon Source="ms-appx:///Assets/StoreLogo.png" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     AutomationProperties.AutomationId="VoiceControlSettingsEnableToggle"
@@ -134,68 +41,80 @@
                     Toggled="VoiceControlEnabled_Toggled" />
             </controls:SettingsCard>
 
-            <controls:SettingsExpander
-                x:Name="TextHotKeyExpander"
-                AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyCard"
-                Description="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Title, Mode=OneTime}"
-                IsExpanded="True">
-                <controls:SettingsExpander.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Keyboard" />
-                </controls:SettingsExpander.HeaderIcon>
-                <ToggleSwitch
-                    x:Name="TextHotKeyEnabledToggle"
-                    AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyToggle"
-                    AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Title, Mode=OneTime}"
-                    Toggled="TextHotKeyEnabled_Toggled" />
-                <controls:SettingsExpander.Items>
-                    <controls:SettingsCard
-                        AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyInputCard"
-                        Description="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_KeyCombination_Description, Mode=OneTime}"
-                        Header="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_KeyCombination, Mode=OneTime}">
-                        <hotKey:WinoHotKeyInput
-                            x:Name="TextHotKeyInput"
-                            MinWidth="240"
-                            AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyInput"
-                            AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_KeyCombination, Mode=OneTime}"
-                            CaptureCanceled="TextHotKeyInput_CaptureCanceled"
-                            CaptureStarted="TextHotKeyInput_CaptureStarted"
-                            HotKeyCommitted="TextHotKeyInput_HotKeyCommitted"
-                            ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
-                            NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />
-                    </controls:SettingsCard>
-                </controls:SettingsExpander.Items>
-            </controls:SettingsExpander>
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="VoiceControlSettingsTryCard"
+                Description="{x:Bind domain:Translator.VoiceControlSettings_Try_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.VoiceControlSettings_Try_Title, Mode=OneTime}"
+                IsEnabled="{x:Bind ViewModel.IsVoiceControlEnabled, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Play" />
+                </controls:SettingsCard.HeaderIcon>
+                <Button
+                    AutomationProperties.AutomationId="VoiceControlSettingsTryButton"
+                    Command="{x:Bind ViewModel.TryVoiceControlCommand}"
+                    Content="{x:Bind domain:Translator.VoiceControlSettings_Try_Button, Mode=OneTime}" />
+            </controls:SettingsCard>
+
+            <TextBlock
+                Margin="1,20,0,4"
+                Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+                Text="{x:Bind domain:Translator.VoiceControlSettings_HowYouAsk_Header, Mode=OneTime}" />
 
             <controls:SettingsExpander
-                x:Name="VoiceHotKeyExpander"
-                AutomationProperties.AutomationId="VoiceControlSettingsHotKeyCard"
-                Description="{x:Bind domain:Translator.VoiceControlSettings_HotKey_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.VoiceControlSettings_HotKey_Title, Mode=OneTime}"
+                x:Name="ShortcutsExpander"
+                AutomationProperties.AutomationId="VoiceControlSettingsShortcutsCard"
+                Description="{x:Bind domain:Translator.VoiceControlSettings_Shortcuts_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.VoiceControlSettings_Shortcuts_Title, Mode=OneTime}"
                 IsExpanded="True">
                 <controls:SettingsExpander.HeaderIcon>
                     <coreControls:WinoFontIcon Icon="Keyboard" />
                 </controls:SettingsExpander.HeaderIcon>
-                <ToggleSwitch
-                    x:Name="HotKeyEnabledToggle"
-                    AutomationProperties.AutomationId="VoiceControlSettingsHotKeyToggle"
-                    AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_HotKey_Title, Mode=OneTime}"
-                    Toggled="HotKeyEnabled_Toggled" />
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard
-                        AutomationProperties.AutomationId="VoiceControlSettingsHotKeyInputCard"
-                        Description="{x:Bind domain:Translator.VoiceControlSettings_HotKey_KeyCombination_Description, Mode=OneTime}"
-                        Header="{x:Bind domain:Translator.VoiceControlSettings_HotKey_KeyCombination, Mode=OneTime}">
-                        <hotKey:WinoHotKeyInput
-                            x:Name="HotKeyInput"
-                            MinWidth="240"
-                            AutomationProperties.AutomationId="VoiceControlSettingsHotKeyInput"
-                            AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_HotKey_KeyCombination, Mode=OneTime}"
-                            CaptureCanceled="HotKeyInput_CaptureCanceled"
-                            CaptureStarted="HotKeyInput_CaptureStarted"
-                            HotKeyCommitted="HotKeyInput_HotKeyCommitted"
-                            ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
-                            NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />
+                        AutomationProperties.AutomationId="VoiceControlSettingsHotKeyCard"
+                        Description="{x:Bind domain:Translator.VoiceControlSettings_HotKey_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.VoiceControlSettings_HotKey_Title, Mode=OneTime}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <hotKey:WinoHotKeyInput
+                                x:Name="HotKeyInput"
+                                MinWidth="240"
+                                AutomationProperties.AutomationId="VoiceControlSettingsHotKeyInput"
+                                AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_HotKey_KeyCombination, Mode=OneTime}"
+                                CaptureCanceled="HotKeyInput_CaptureCanceled"
+                                CaptureStarted="HotKeyInput_CaptureStarted"
+                                HotKeyCommitted="HotKeyInput_HotKeyCommitted"
+                                ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
+                                NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />
+                            <ToggleSwitch
+                                x:Name="HotKeyEnabledToggle"
+                                MinWidth="0"
+                                AutomationProperties.AutomationId="VoiceControlSettingsHotKeyToggle"
+                                AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_HotKey_Title, Mode=OneTime}"
+                                Toggled="HotKeyEnabled_Toggled" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyCard"
+                        Description="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Title, Mode=OneTime}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <hotKey:WinoHotKeyInput
+                                x:Name="TextHotKeyInput"
+                                MinWidth="240"
+                                AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyInput"
+                                AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_KeyCombination, Mode=OneTime}"
+                                CaptureCanceled="TextHotKeyInput_CaptureCanceled"
+                                CaptureStarted="TextHotKeyInput_CaptureStarted"
+                                HotKeyCommitted="TextHotKeyInput_HotKeyCommitted"
+                                ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
+                                NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />
+                            <ToggleSwitch
+                                x:Name="TextHotKeyEnabledToggle"
+                                MinWidth="0"
+                                AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyToggle"
+                                AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Title, Mode=OneTime}"
+                                Toggled="TextHotKeyEnabled_Toggled" />
+                        </StackPanel>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
@@ -233,6 +152,7 @@
                         Content="{x:Bind domain:Translator.VoiceControlSettings_Microphone_Test, Mode=OneTime}"
                         IsChecked="{x:Bind ViewModel.IsTestingMicrophone, Mode=TwoWay}" />
                     <ComboBox
+                        MaxWidth="300"
                         HorizontalAlignment="Stretch"
                         AutomationProperties.AutomationId="VoiceControlSettingsMicrophoneComboBox"
                         AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_Microphone_Title, Mode=OneTime}"
@@ -356,6 +276,22 @@
                 </Grid>
             </controls:SettingsCard>
 
+            <TextBlock
+                Margin="1,20,0,4"
+                Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+                Text="{x:Bind domain:Translator.VoiceControlSettings_HowWinoAnswers_Header, Mode=OneTime}" />
+
+            <coreControls:WinoSettingsCard
+                AutomationProperties.AutomationId="VoiceControlSettingsRemembersCard"
+                Command="{x:Bind ViewModel.OpenVoiceBrainCommand}"
+                Description="{x:Bind domain:Translator.VoiceBrain_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.VoiceBrain_Title, Mode=OneTime}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Lightbulb" />
+                </controls:SettingsCard.HeaderIcon>
+            </coreControls:WinoSettingsCard>
+
             <controls:SettingsCard
                 AutomationProperties.AutomationId="VoiceControlSettingsAutoConfirmCard"
                 Description="{x:Bind domain:Translator.VoiceControlSettings_AutoConfirm_Description, Mode=OneTime}"
@@ -368,53 +304,6 @@
                     AutomationProperties.AutomationId="VoiceControlSettingsAutoConfirmToggle"
                     AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_AutoConfirm_Title, Mode=OneTime}"
                     IsOn="{x:Bind ViewModel.IsAutoConfirmEnabled, Mode=TwoWay}" />
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="VoiceControlSettingsPersonalModeCard"
-                Description="{x:Bind domain:Translator.VoiceControlSettings_PersonalMode_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.VoiceControlSettings_PersonalMode_Title, Mode=OneTime}"
-                IsEnabled="{x:Bind ViewModel.IsVoiceControlEnabled, Mode=OneWay}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Person" />
-                </controls:SettingsCard.HeaderIcon>
-                <ToggleSwitch
-                    AutomationProperties.AutomationId="VoiceControlSettingsPersonalModeToggle"
-                    AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_PersonalMode_Title, Mode=OneTime}"
-                    IsOn="{x:Bind ViewModel.IsPersonalMode, Mode=TwoWay}" />
-            </controls:SettingsCard>
-
-            <InfoBar
-                AutomationProperties.AutomationId="VoiceControlSettingsPersonalModeError"
-                IsClosable="False"
-                IsOpen="{x:Bind ViewModel.IsModeChangeFailed, Mode=OneWay}"
-                Message="{x:Bind domain:Translator.VoiceControlSettings_PersonalMode_Failed, Mode=OneTime}"
-                Severity="Error" />
-
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="VoiceControlSettingsRemembersCard"
-                Command="{x:Bind ViewModel.OpenVoiceBrainCommand}"
-                Description="{x:Bind domain:Translator.VoiceBrain_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.VoiceBrain_Title, Mode=OneTime}"
-                IsClickEnabled="True"
-                Visibility="{x:Bind ViewModel.IsPersonalMode, Mode=OneWay}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Lightbulb" />
-                </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="VoiceControlSettingsTryCard"
-                Description="{x:Bind domain:Translator.VoiceControlSettings_Try_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.VoiceControlSettings_Try_Title, Mode=OneTime}"
-                IsEnabled="{x:Bind ViewModel.IsVoiceControlEnabled, Mode=OneWay}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="WinoIntelligence" />
-                </controls:SettingsCard.HeaderIcon>
-                <Button
-                    AutomationProperties.AutomationId="VoiceControlSettingsTryButton"
-                    Command="{x:Bind ViewModel.TryVoiceControlCommand}"
-                    Content="{x:Bind domain:Translator.VoiceControlSettings_Try_Button, Mode=OneTime}" />
             </controls:SettingsCard>
         </StackPanel>
     </StackPanel>

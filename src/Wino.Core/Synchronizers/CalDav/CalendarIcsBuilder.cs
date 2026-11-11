@@ -4,6 +4,7 @@ using System.Linq;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Services;
 
 namespace Wino.Core.Synchronizers.CalDav;
 
@@ -57,18 +58,19 @@ internal static partial class CalendarIcsBuilder
         }
         else
         {
-            var startUtc = ConvertEventTimeToUtc(item.StartDate, item.StartTimeZone);
-            var endUtc = ConvertEventTimeToUtc(item.EndDate, item.EndTimeZone ?? item.StartTimeZone);
-
-            lines.Add($"DTSTART:{startUtc:yyyyMMdd'T'HHmmss'Z'}");
-            lines.Add($"DTEND:{endUtc:yyyyMMdd'T'HHmmss'Z'}");
+            lines.Add(FormatDateTime("DTSTART", item.StartDate, item.StartTimeZone));
+            lines.Add(FormatDateTime("DTEND", item.EndDate, item.EndTimeZone ?? item.StartTimeZone));
         }
 
         if (!string.IsNullOrWhiteSpace(item.Title))
             lines.Add($"SUMMARY:{EscapeIcs(item.Title)}");
 
-        if (!string.IsNullOrWhiteSpace(item.Description))
-            lines.Add($"DESCRIPTION:{EscapeIcs(item.Description)}");
+        var (descriptionText, descriptionHtml) = CalDavEventDescription.Split(item.Description);
+        if (descriptionText != null)
+            lines.Add($"DESCRIPTION:{EscapeIcs(descriptionText)}");
+
+        if (descriptionHtml != null)
+            lines.Add($"{CalDavEventDescription.AlternateDescriptionProperty};FMTTYPE=text/html:{EscapeIcs(descriptionHtml)}");
 
         if (!string.IsNullOrWhiteSpace(item.Location))
             lines.Add($"LOCATION:{EscapeIcs(item.Location)}");
@@ -117,6 +119,21 @@ internal static partial class CalendarIcsBuilder
         lines.Add("END:VCALENDAR");
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// A timed value with the IANA TZID of its zone, so a series keeps its wall-clock time across
+    /// DST changes and BYDAY is evaluated in that zone. UTC and unknown zones are written in UTC.
+    /// The VTIMEZONE is added when the text is normalized for CalDAV.
+    /// </summary>
+    private static string FormatDateTime(string propertyName, DateTime eventDateTime, string eventTimeZoneId)
+    {
+        var tzId = CalDavTimeZones.ToIcsTimeZoneId(eventTimeZoneId);
+        if (tzId != null && !CalDavTimeZones.IsUtc(tzId))
+            return $"{propertyName};TZID={tzId}:{DateTime.SpecifyKind(eventDateTime, DateTimeKind.Unspecified):yyyyMMdd'T'HHmmss}";
+
+        var utc = ConvertEventTimeToUtc(eventDateTime, eventTimeZoneId);
+        return $"{propertyName}:{utc:yyyyMMdd'T'HHmmss'Z'}";
     }
 
     private static DateTime ConvertEventTimeToUtc(DateTime eventDateTime, string eventTimeZoneId)

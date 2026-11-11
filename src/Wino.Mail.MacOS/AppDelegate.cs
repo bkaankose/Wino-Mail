@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using AppKit;
 using CommunityToolkit.Mvvm.Messaging;
 using Foundation;
@@ -123,6 +123,10 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
     Task IApplicationLifecycleHook.ServicesReadyAsync()
     {
         _runtimeStarted = true;
+#if DEBUG
+        // First, so a hook below that fails still leaves the bridge to look at it.
+        if (_services is { } debugServices) _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(debugServices));
+#endif
         ActivationServicesReady();
         NotificationsServicesReady();
         DockServicesReady();
@@ -130,9 +134,6 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         ShortcutMenusServicesReady();
         AppStoreServicesReady();
         PushRelayServicesReady();
-#if DEBUG
-        if (_services is { } services) return _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(services));
-#endif
         return Task.CompletedTask;
     }
 

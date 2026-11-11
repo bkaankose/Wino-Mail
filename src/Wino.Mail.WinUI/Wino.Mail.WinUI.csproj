@@ -207,6 +207,7 @@
     <Content Include="AppThemes\Rose.xaml" />
     <Content Include="AppThemes\Indigo.xaml" />
     <Content Include="Assets\WhatsNew\*.json" />
+    <Content Include="Assets\Intelligence\*.mp4" />
     <Content Include="Assets\AppEntries\Mail.svg" />
     <Content Include="Assets\AppEntries\ToDo.svg" />
     <Content Include="Assets\AppEntries\Calendar.svg" />

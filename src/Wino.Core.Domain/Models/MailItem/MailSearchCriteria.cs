@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
-using Wino.Mail.Api.Contracts.Voice;
 
 namespace Wino.Core.Domain.Models.MailItem;
 

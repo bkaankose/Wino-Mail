@@ -606,7 +606,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
     }
 
-    public Task UndoLatestQueuedAction(Guid accountId)
+    public Task<bool> UndoLatestQueuedAction(Guid accountId)
     {
         EnsureInitialized();
 
@@ -620,7 +620,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 .FirstOrDefault();
 
             if (pendingPack == null)
-                return Task.CompletedTask;
+                return Task.FromResult(false);
 
             pendingPack.IsCompleted = true;
             _pendingUndoActionPacks.TryRemove(pendingPack.Id, out _);
@@ -634,7 +634,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         PublishUndoableMailActionPackChanged(pendingPack, UndoableMailActionPackState.Undone);
 
         _logger.Information("Undid queued action pack {PackId} for account {AccountId}", pendingPack.Id, accountId);
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 
     private void QueueUndoActionPack(Dictionary<Guid, List<IRequestBase>> requestsByAccount, UndoActionSettings undoActionSettings)

@@ -40,12 +40,31 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
     public ICommand? ManageCommand { get; init; }
     public ICommand? DeleteCommand { get; init; }
     public ICommand? ToggleEnabledCommand { get; init; }
+    public ICommand? ToggleDailyBriefingCommand { get; init; }
+    public ICommand? OpenCommand { get; init; }
+    public ICommand? OpenMailClassificationCommand { get; init; }
+
+    public bool IsClassificationOff => !IsEnabled;
+
+    public string BriefingDescription => IsEnabled
+        ? IntelligenceSummary
+        : Translator.WinoIntelligence_Briefing_ClassificationOff;
+
+    public bool CanChangeDailyBriefing => IsEnabled && !IsChangingDailyBriefing;
 
     [ObservableProperty]
     public partial bool IsDeleting { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsClassificationOff), nameof(BriefingDescription), nameof(CanChangeDailyBriefing))]
     public partial bool IsEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsInDailyBriefing { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChangeDailyBriefing))]
+    public partial bool IsChangingDailyBriefing { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanChangeEnabled))]

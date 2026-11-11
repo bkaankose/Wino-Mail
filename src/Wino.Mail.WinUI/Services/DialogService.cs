@@ -66,6 +66,18 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
             Translator.CalendarReadOnly_Message,
             InfoBarMessageType.Warning);
 
+    public async Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync()
+    {
+        var dialog = new RecurringEventDeleteDialog()
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
+    }
+
     public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
     {
         var createAccountAliasDialog = new CreateAccountAliasDialog()
@@ -502,6 +514,16 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         await HandleDialogPresentationAsync(dialog);
 
         return dialog.Result;
+    }
+
+    public async Task ShowWinoAssistantDemoAsync()
+    {
+        var dialog = new WinoAssistantDemoDialog()
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
     }
 
     public async Task<bool> ShowIntelligenceConsentPolicyDialogAsync(Uri? policyUri, Func<Task<bool>> acceptAsync)

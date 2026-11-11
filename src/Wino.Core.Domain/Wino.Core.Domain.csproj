@@ -79,7 +79,6 @@
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="sqlite-net-pcl" />
 		<PackageReference Include="TimePeriodLibrary.NET" />
-		<PackageReference Include="Wino.Mail.Contracts" />
 	</ItemGroup>
 	<ItemGroup>
 		<Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
@@ -89,6 +88,7 @@
 		<AdditionalFiles Include="..\..\icons\manifest.json" Link="Icons\manifest.json" />
 	</ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="Wino.Mail.Contracts" />
 		<!-- Source Generators -->
 		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj"
 			OutputItemType="Analyzer"

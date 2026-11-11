@@ -383,7 +383,7 @@
             Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
             Text="{x:Bind domain:Translator.PrivacySecurity_RelatedHeader, Mode=OneTime}" />
 
-        <controls:SettingsCard
+        <coreControls:WinoSettingsCard
             AutomationProperties.AutomationId="PrivacySecurityRelatedNotificationsCard"
             Command="{x:Bind ViewModel.OpenNotificationSettingsCommand}"
             Description="{x:Bind domain:Translator.PrivacySecurity_RelatedNotifications_Description, Mode=OneTime}"
@@ -394,9 +394,9 @@
                 <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Alert" />
             </controls:SettingsCard.HeaderIcon>
             <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.NotificationContentText, Mode=OneWay}" />
-        </controls:SettingsCard>
+        </coreControls:WinoSettingsCard>
 
-        <controls:SettingsCard
+        <coreControls:WinoSettingsCard
             AutomationProperties.AutomationId="PrivacySecurityRelatedSignaturesCard"
             Command="{x:Bind ViewModel.OpenSignatureAndEncryptionCommand}"
             Description="{x:Bind domain:Translator.PrivacySecurity_RelatedSignatures_Description, Mode=OneTime}"
@@ -406,11 +406,11 @@
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Certificate" />
             </controls:SettingsCard.HeaderIcon>
-        </controls:SettingsCard>
+        </coreControls:WinoSettingsCard>
 
-        <controls:SettingsCard
+        <coreControls:WinoSettingsCard
             AutomationProperties.AutomationId="PrivacySecurityRelatedIntelligenceCard"
-            Command="{x:Bind ViewModel.OpenWinoIntelligenceCommand}"
+            Command="{x:Bind ViewModel.OpenWinoIntelligencePrivacyCommand}"
             Description="{x:Bind domain:Translator.PrivacySecurity_RelatedIntelligence_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.PrivacySecurity_RelatedIntelligence_Title, Mode=OneTime}"
             IsClickEnabled="True"
@@ -418,6 +418,6 @@
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Sparkle" />
             </controls:SettingsCard.HeaderIcon>
-        </controls:SettingsCard>
+        </coreControls:WinoSettingsCard>
     </StackPanel>
 </abstract:PrivacySecurityPageAbstract>

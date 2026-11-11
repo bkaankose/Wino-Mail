@@ -18,7 +18,8 @@ namespace Wino.Mail.MacOS.Views.Settings;
 
 /// <summary>
 /// Debug bridge commands for the Intelligence pages: <c>intel signedout|notsub|sub</c> forces a hub state
-/// with sample rows, <c>intelquota</c> opens the quota flyout, <c>intelmanage</c> opens the first mailbox's
+/// with sample rows, <c>intelquota</c> expands the status expander, <c>intelcmd NAME</c> runs the visible
+/// Intelligence page's NAMECommand (OpenDailyBriefing, OpenPrivacyData, ...), <c>intelmanage</c> opens the first mailbox's
 /// management page and <c>coverage</c> opens its coverage editor. Sample data only lives in the page.
 /// </summary>
 internal static class WinoIntelligenceDebug
@@ -46,6 +47,15 @@ internal static class WinoIntelligenceDebug
                 ?? NSApplication.SharedApplication.KeyWindow;
             if (window is null) return Task.FromResult("no window");
             _ = IntelligenceConsentPolicySheet.PresentAsync(window, new Uri("https://www.winomail.app/privacy"), () => Task.FromResult(false));
+            return Task.FromResult("ok");
+        });
+        MacDebugBridge.Register("intelcmd", args =>
+        {
+            if (Current is not { } vm) return Task.FromResult("no page");
+            var command = vm.GetType().GetProperty(args[0] + "Command")?.GetValue(vm) as System.Windows.Input.ICommand;
+            if (command is null) return Task.FromResult("no command " + args[0]);
+            if (!command.CanExecute(null)) return Task.FromResult("cannot execute");
+            command.Execute(null);
             return Task.FromResult("ok");
         });
         MacDebugBridge.Register("intelquota", _ => { OpenQuota?.Invoke(); return Task.FromResult(OpenQuota is null ? "no page" : "ok"); });

@@ -45,6 +45,18 @@ public class AccountTaskList
     [Ignore]
     public bool IsFixedProviderList => SourceKind == TaskSourceKind.Exchange && IsDefault;
 
+    /// <summary>
+    /// True when the list's CalDAV collection also accepts events (or reports no component set),
+    /// so the same collection is a calendar. Deleting the collection would delete that calendar.
+    /// </summary>
+    public bool HoldsCalendarEvents { get; set; }
+
+    [Ignore]
+    public bool IsSharedCalendarCollection => SourceKind == TaskSourceKind.CalDav && HoldsCalendarEvents;
+
+    [Ignore]
+    public bool CanDelete => !IsReadOnly && !IsOutlookDefaultList && !IsSharedCalendarCollection && !IsFixedProviderList;
+
     public string DeltaLink { get; set; }
 
     /// <summary>Legacy account cursors. New synchronization state is stored in TaskSyncState.</summary>
@@ -63,4 +75,6 @@ public class AccountTaskList
     public TaskPendingMutation PendingMutation { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedAtUtc { get; set; } = DateTime.UtcNow;
+
+    public override string ToString() => Title ?? string.Empty;
 }

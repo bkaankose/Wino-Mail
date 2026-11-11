@@ -278,7 +278,7 @@
             AutomationProperties.AutomationId="ToDoMoveTaskFlyoutHost"
             Visibility="Collapsed">
             <Button.Flyout>
-                <Flyout Placement="RightEdgeAlignedTop">
+                <Flyout Placement="BottomEdgeAlignedLeft">
                     <StackPanel
                         MinWidth="240"
                         MaxHeight="360"
@@ -1036,10 +1036,11 @@
                             ItemsSource="{x:Bind ViewModel.SelectedTask.Steps, Mode=OneWay}" />
 
                         <Button
+                            x:Name="AddStepButton"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             AutomationProperties.AutomationId="ToDoAddStepButton"
-                            Command="{x:Bind ViewModel.AddStepCommand}"
+                            Click="AddStepButton_Click"
                             IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
                             Style="{StaticResource TransparentActionButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -1050,6 +1051,16 @@
                                 <TextBlock Text="{x:Bind domain:Translator.ToDoPage_AddStep, Mode=OneTime}" />
                             </StackPanel>
                         </Button>
+
+                        <TextBox
+                            x:Name="NewStepTextBox"
+                            Margin="12,4"
+                            AutomationProperties.AutomationId="ToDoNewStepTextBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_AddStep, Mode=OneTime}"
+                            KeyDown="NewStepTextBox_KeyDown"
+                            LostFocus="NewStepTextBox_LostFocus"
+                            PlaceholderText="{x:Bind domain:Translator.ToDoPage_AddStep, Mode=OneTime}"
+                            Visibility="Collapsed" />
                     </StackPanel>
 
                     <!--  Scheduling. My Day is manual; the due presets never write to it.  -->
