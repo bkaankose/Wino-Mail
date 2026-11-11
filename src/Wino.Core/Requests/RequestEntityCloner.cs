@@ -134,6 +134,7 @@ public static class RequestEntityCloner
                 SortOrder = source.SortOrder,
                 IsDefault = source.IsDefault,
                 IsReadOnly = source.IsReadOnly,
+                HoldsCalendarEvents = source.HoldsCalendarEvents,
                 DeltaLink = source.DeltaLink,
                 SubstrateGroupDeltaLink = source.SubstrateGroupDeltaLink,
                 SubstrateFolderDeltaLink = source.SubstrateFolderDeltaLink,

@@ -364,6 +364,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
                 }
 
                 stored.RemoteVersion = incoming.RemoteVersion ?? stored.RemoteVersion;
+                stored.HoldsCalendarEvents = incoming.HoldsCalendarEvents;
                 if (stored.PendingMutation == TaskPendingMutation.None)
                 {
                     stored.Title = incoming.Title ?? stored.Title;
@@ -455,6 +456,14 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         ReportServerChanges(changes);
     }
 
+    /// <summary>
+    /// CalDAV carries the creation time in CREATED (or DTSTAMP), so a task imported from it keeps
+    /// that time instead of the time it was first synchronized. An earlier remote time also
+    /// corrects rows stored with their synchronization time.
+    /// </summary>
+    private static bool KeepsRemoteCreationTime(AccountTaskList list, DateTime remoteCreatedAtUtc)
+        => list.SourceKind == TaskSourceKind.CalDav && remoteCreatedAtUtc != default && remoteCreatedAtUtc <= DateTime.UtcNow.AddDays(1);
+
     public async Task ApplyTaskHierarchyDeltaAsync(TaskHierarchyDelta delta)
     {
         ArgumentNullException.ThrowIfNull(delta);
@@ -525,7 +534,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
                     incoming.TaskListId = list.Id;
                     incoming.SourceKind = list.SourceKind;
                     incoming.PendingMutation = TaskPendingMutation.None;
-                    incoming.CreatedAtUtc = now;
+                    incoming.CreatedAtUtc = KeepsRemoteCreationTime(list, incoming.CreatedAtUtc) ? incoming.CreatedAtUtc : now;
                     incoming.ModifiedAtUtc = now;
                     transaction.Insert(incoming, typeof(AccountTask));
                     stored = incoming;
@@ -536,6 +545,8 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
                     stored.RemoteId = incoming.RemoteId;
                     stored.RemoteVersion = incoming.RemoteVersion ?? stored.RemoteVersion;
                     stored.RemoteOrder = incoming.RemoteOrder ?? stored.RemoteOrder;
+                    if (KeepsRemoteCreationTime(list, incoming.CreatedAtUtc) && incoming.CreatedAtUtc < stored.CreatedAtUtc)
+                        stored.CreatedAtUtc = incoming.CreatedAtUtc;
                     if (stored.PendingMutation == TaskPendingMutation.None)
                     {
                         stored.Title = incoming.Title ?? stored.Title;
@@ -578,7 +589,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
                         incomingStep.MailAccountId = list.MailAccountId;
                         incomingStep.SourceKind = list.SourceKind;
                         incomingStep.PendingMutation = TaskPendingMutation.None;
-                        incomingStep.CreatedAtUtc = now;
+                        incomingStep.CreatedAtUtc = KeepsRemoteCreationTime(list, incomingStep.CreatedAtUtc) ? incomingStep.CreatedAtUtc : now;
                         incomingStep.ModifiedAtUtc = now;
                         transaction.Insert(incomingStep, typeof(AccountTaskStep));
                         steps.Add(incomingStep);
@@ -588,6 +599,8 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
                         storedStep.TaskId = stored.Id;
                         storedStep.RemoteId = incomingStep.RemoteId;
                         storedStep.RemoteVersion = incomingStep.RemoteVersion ?? storedStep.RemoteVersion;
+                        if (KeepsRemoteCreationTime(list, incomingStep.CreatedAtUtc) && incomingStep.CreatedAtUtc < storedStep.CreatedAtUtc)
+                            storedStep.CreatedAtUtc = incomingStep.CreatedAtUtc;
                         if (storedStep.PendingMutation == TaskPendingMutation.None)
                         {
                             storedStep.Title = incomingStep.Title ?? storedStep.Title;
@@ -801,7 +814,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
     public async Task DeleteTaskListAsync(Guid listId)
     {
         var list = await GetTaskListAsync(listId).ConfigureAwait(false);
-        if (list is null || list.IsReadOnly)
+        if (list is null || list.IsReadOnly || list.IsSharedCalendarCollection)
             return;
         var tasks = await Connection.Table<AccountTask>().Where(task => task.TaskListId == listId).ToListAsync().ConfigureAwait(false);
         foreach (var task in tasks)
@@ -1179,6 +1192,14 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
     {
         var storedSteps = local.Steps?.ToList() ?? [];
 
+        // The server can answer with a different state than the optimistic one, e.g. completing a
+        // recurring task moves it to its next occurrence. The UI only learns that from a message.
+        var remoteDiffersFromOptimistic = applyRemoteState && remoteTask is not null &&
+            (local.IsCompleted != remoteTask.IsCompleted ||
+             NormalizeDate(local.DueDate) != NormalizeDate(remoteTask.DueDate) ||
+             !string.Equals(local.Title, remoteTask.Title, StringComparison.Ordinal) ||
+             !string.Equals(local.Notes ?? string.Empty, remoteTask.Notes ?? string.Empty, StringComparison.Ordinal));
+
         if (attachRemoteIdentity)
         {
             local.RemoteId = remoteTask?.RemoteId ?? local.RemoteId;
@@ -1276,6 +1297,15 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
                 transaction.Execute("DELETE FROM TaskStep WHERE Id = ?", storedStep.Id);
             }
         }).ConfigureAwait(false);
+
+        if (!remoteDiffersFromOptimistic)
+            return;
+
+        var steps = await Connection.Table<AccountTaskStep>().Where(step => step.TaskId == local.Id).ToListAsync().ConfigureAwait(false);
+        var list = await Connection.Table<AccountTaskList>().FirstOrDefaultAsync(item => item.Id == local.TaskListId).ConfigureAwait(false);
+        ReportUIChange(new TaskStateChanged(TaskSynchronizerOperation.UpdateTask,
+            null, SnapshotTask(local, StepsOf(VisibleStepsByTask(steps), local.Id), list?.IsReadOnly ?? false), null,
+            OptimisticEntityChange.Upsert, EntityUpdateSource.Server));
     }
 
     public async Task CompleteStepMutationAsync(

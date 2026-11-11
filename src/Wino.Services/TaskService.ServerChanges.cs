@@ -234,7 +234,7 @@ public sealed partial class TaskService
         => Join(group.Title, group.SortOrder, group.IsExpanded);
 
     private static string ListSignature(AccountTaskList list)
-        => Join(list.Title, list.ColorHex, list.GroupId, list.SortOrder, list.IsDefault, list.IsReadOnly,
+        => Join(list.Title, list.ColorHex, list.GroupId, list.SortOrder, list.IsDefault, list.IsReadOnly, list.HoldsCalendarEvents,
             list.SortKind, list.SortAscending, list.ShowCompletedTasks);
 
     private static string TaskSignature(AccountTask task, IEnumerable<AccountTaskStep> steps, bool isReadOnly)

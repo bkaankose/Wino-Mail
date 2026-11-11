@@ -31,17 +31,32 @@ internal sealed class CalDavTodo
     /// <summary>X-APPLE-SORT-ORDER, which Apple Reminders writes to order subtasks.</summary>
     public long? SortOrder { get; init; }
 
-    public bool IsCompleted => string.Equals(Status, "COMPLETED", StringComparison.OrdinalIgnoreCase) ||
-                               CompletedUtc.HasValue ||
-                               PercentComplete == 100;
+    /// <summary>STATUS decides when present; COMPLETED and PERCENT-COMPLETE left behind by another client do not override it.</summary>
+    public bool IsCompleted => string.IsNullOrEmpty(Status)
+        ? CompletedUtc.HasValue || PercentComplete == 100
+        : string.Equals(Status, "COMPLETED", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>RFC 5545 section 3.8.1.9: 1-4 is high priority, 5 medium, 6-9 low, 0 undefined.</summary>
     public bool IsImportant => Priority is >= 1 and <= 4;
 }
 
+/// <summary>The VTODO fields a mutation changed; an update patches only these.</summary>
+[Flags]
+internal enum CalDavTodoFields
+{
+    None = 0,
+    Title = 1,
+    Notes = 2,
+    Due = 4,
+    Completion = 8,
+    Importance = 16,
+    All = Title | Notes | Due | Completion | Importance
+}
+
 /// <summary>What Wino writes into a VTODO. Steps leave the description, due date and priority alone.</summary>
 internal sealed class CalDavTodoContent
 {
+    public CalDavTodoFields Fields { get; init; } = CalDavTodoFields.All;
     public string Uid { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public string? Notes { get; init; }
@@ -218,44 +233,59 @@ internal static class TaskIcsBuilder
             return null;
 
         var stored = ReadTodo(block.Properties);
+        var fields = content.Fields;
         var replacements = new Dictionary<string, List<string>?>(StringComparer.Ordinal);
 
-        if (!string.Equals(stored.Summary ?? string.Empty, content.Title ?? string.Empty, StringComparison.Ordinal))
+        if (fields.HasFlag(CalDavTodoFields.Title) &&
+            !string.Equals(stored.Summary ?? string.Empty, content.Title ?? string.Empty, StringComparison.Ordinal))
+        {
             replacements["SUMMARY"] = [$"SUMMARY:{EscapeText(content.Title ?? string.Empty)}"];
+        }
 
         if (!content.IsStep)
         {
             var notes = string.IsNullOrEmpty(content.Notes) ? null : content.Notes;
-            if (!string.Equals(NormalizeNewLines(stored.Description), NormalizeNewLines(notes), StringComparison.Ordinal))
-                replacements["DESCRIPTION"] = notes == null ? null : [$"DESCRIPTION:{EscapeText(notes)}"];
-
-            if (stored.DueDate?.Date != content.DueDate?.Date)
+            if (fields.HasFlag(CalDavTodoFields.Notes) &&
+                !string.Equals(NormalizeNewLines(stored.Description), NormalizeNewLines(notes), StringComparison.Ordinal))
             {
-                var storedDue = block.Properties.FirstOrDefault(line => line.Name == "DUE");
-                replacements["DUE"] = content.DueDate is { } dueDate ? [BuildDueLine(storedDue, dueDate)] : null;
-
-                // RFC 5545 section 3.6.2: DUE and DURATION must not occur together.
-                if (content.DueDate.HasValue && block.Properties.Any(line => line.Name == "DURATION"))
-                    replacements["DURATION"] = null;
+                replacements["DESCRIPTION"] = notes == null ? null : [$"DESCRIPTION:{EscapeText(notes)}"];
             }
 
-            if (content.IsImportant && !stored.IsImportant)
-                replacements["PRIORITY"] = ["PRIORITY:1"];
-            else if (!content.IsImportant && stored.IsImportant)
-                replacements["PRIORITY"] = ["PRIORITY:0"];
+            if (fields.HasFlag(CalDavTodoFields.Due) && stored.DueDate?.Date != content.DueDate?.Date)
+                ApplyDueChange(block, content.DueDate, replacements);
+
+            if (fields.HasFlag(CalDavTodoFields.Importance))
+            {
+                if (content.IsImportant && !stored.IsImportant)
+                    replacements["PRIORITY"] = ["PRIORITY:1"];
+                else if (!content.IsImportant && stored.IsImportant)
+                    replacements["PRIORITY"] = ["PRIORITY:0"];
+            }
         }
 
         // Only a change of completion rewrites STATUS: IN-PROCESS or CANCELLED survive an edit of the title.
-        if (stored.IsCompleted != content.IsCompleted)
+        if (fields.HasFlag(CalDavTodoFields.Completion) && stored.IsCompleted != content.IsCompleted)
         {
             replacements["STATUS"] = null;
             replacements["COMPLETED"] = null;
             replacements["PERCENT-COMPLETE"] = null;
 
-            foreach (var line in BuildCompletionLines(content, nowUtc))
+            // Completing a recurring VTODO completes the current occurrence only: like Apple
+            // Reminders, Nextcloud and tasks.org, the master moves to the next occurrence and stays open.
+            if (content.IsCompleted && TryAdvanceRecurrence(lines, block, out var advanced))
             {
-                var name = line[..line.IndexOf(':')];
-                (replacements[name] ??= []).Add(line);
+                foreach (var pair in advanced)
+                    replacements[pair.Key] = pair.Value;
+
+                replacements["STATUS"] = ["STATUS:NEEDS-ACTION"];
+            }
+            else
+            {
+                foreach (var line in BuildCompletionLines(content, nowUtc))
+                {
+                    var name = line[..line.IndexOf(':')];
+                    (replacements[name] ??= []).Add(line);
+                }
             }
         }
 
@@ -303,28 +333,174 @@ internal static class TaskIcsBuilder
     }
 
     /// <summary>
-    /// Replaces the day of DUE. A DUE with a time keeps its time of day, value type and time
-    /// zone; a date-only DUE stays date-only; a new DUE is date-only.
+    /// Sets or removes DUE. sabre/vobject (Baikal, Nextcloud) rejects a VTODO whose DUE and DTSTART
+    /// differ in value type or whose DUE is not after DTSTART, so a DTSTART that the new DUE does
+    /// not follow is removed, or moved before DUE when it anchors a recurrence.
     /// </summary>
-    private static string BuildDueLine(IcsLine? storedDue, DateTime dueDate)
+    private static void ApplyDueChange(TodoBlock block, DateTime? dueDate, Dictionary<string, List<string>?> replacements)
     {
-        if (storedDue == null || !TryParseDateTime(storedDue.Value, out var storedValue, out var hasTime, out var isUtc))
+        if (dueDate is not { } day)
+        {
+            replacements["DUE"] = null;
+            return;
+        }
+
+        var storedDue = block.Properties.FirstOrDefault(line => line.Name == "DUE");
+        var dtStart = block.Properties.FirstOrDefault(line => line.Name == "DTSTART");
+        var dueLine = BuildDueLine(storedDue, dtStart, day);
+        replacements["DUE"] = [dueLine];
+
+        // RFC 5545 section 3.6.2: DUE and DURATION must not occur together.
+        if (block.Properties.Any(line => line.Name == "DURATION"))
+            replacements["DURATION"] = null;
+
+        if (dtStart == null ||
+            !TryParseDateTime(dtStart.Value, out var startValue, out var startHasTime, out var startIsUtc) ||
+            !TryParseDateTime(IcsLine.Create(dueLine, dueLine).Value, out var dueValue, out var dueHasTime, out var dueIsUtc) ||
+            startHasTime != dueHasTime || startIsUtc != dueIsUtc ||
+            dueValue > startValue)
+        {
+            return;
+        }
+
+        var isRecurring = block.Properties.Any(line => line.Name is "RRULE" or "RDATE");
+        if (!isRecurring)
+        {
+            replacements["DTSTART"] = null;
+            return;
+        }
+
+        var movedStart = dueHasTime ? dueValue.AddHours(-1) : dueValue.AddDays(-1);
+        replacements["DTSTART"] = [$"{Prefix("DTSTART", dtStart)}:{FormatLike(movedStart, dueHasTime, dueIsUtc)}"];
+    }
+
+    /// <summary>
+    /// The DUE line for a new due day. DUE follows the value type, time zone and time of day of
+    /// the stored DUE, or of DTSTART when there is no DUE or the stored one disagrees with DTSTART;
+    /// without either it is date-only.
+    /// </summary>
+    private static string BuildDueLine(IcsLine? storedDue, IcsLine? dtStart, DateTime dueDate)
+    {
+        var template = storedDue != null && TryParseDateTime(storedDue.Value, out _, out _, out _) &&
+                       (dtStart == null || !TryParseDateTime(dtStart.Value, out _, out _, out _) || HaveSameValueType(storedDue, dtStart))
+            ? storedDue
+            : dtStart != null && TryParseDateTime(dtStart.Value, out _, out _, out _) ? dtStart : null;
+
+        if (template == null || !TryParseDateTime(template.Value, out var templateValue, out var hasTime, out var isUtc))
             return $"DUE;VALUE=DATE:{FormatDate(dueDate)}";
 
-        var prefix = string.IsNullOrEmpty(storedDue.Parameters) ? "DUE" : $"DUE;{storedDue.Parameters}";
+        var prefix = Prefix("DUE", template);
         if (!hasTime)
             return $"{prefix}:{FormatDate(dueDate)}";
 
         if (isUtc)
         {
-            var local = DateTime.SpecifyKind(storedValue, DateTimeKind.Utc).ToLocalTime();
+            var local = DateTime.SpecifyKind(templateValue, DateTimeKind.Utc).ToLocalTime();
             var moved = DateTime.SpecifyKind(dueDate.Date + local.TimeOfDay, DateTimeKind.Local).ToUniversalTime();
             return $"{prefix}:{FormatUtc(moved)}";
         }
 
-        var floating = dueDate.Date + storedValue.TimeOfDay;
-        return $"{prefix}:{floating.ToString("yyyyMMdd'T'HHmmss", CultureInfo.InvariantCulture)}";
+        return $"{prefix}:{FormatLike(dueDate.Date + templateValue.TimeOfDay, hasTime: true, isUtc: false)}";
     }
+
+    private static bool HaveSameValueType(IcsLine first, IcsLine second)
+    {
+        if (!TryParseDateTime(first.Value, out _, out var firstHasTime, out var firstIsUtc) ||
+            !TryParseDateTime(second.Value, out _, out var secondHasTime, out var secondIsUtc))
+        {
+            return false;
+        }
+
+        return firstHasTime == secondHasTime &&
+               firstIsUtc == secondIsUtc &&
+               string.Equals(first.GetParameter("TZID") ?? string.Empty, second.GetParameter("TZID") ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string Prefix(string name, IcsLine template)
+        => string.IsNullOrEmpty(template.Parameters) ? name : $"{name};{template.Parameters}";
+
+    private static string FormatLike(DateTime value, bool hasTime, bool isUtc)
+        => !hasTime
+            ? FormatDate(value)
+            : isUtc
+                ? FormatUtc(DateTime.SpecifyKind(value, DateTimeKind.Utc))
+                : value.ToString("yyyyMMdd'T'HHmmss", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The lines that move a recurring VTODO to its next occurrence: DTSTART and DUE shift by the
+    /// same amount and keep their value types, COMPLETED and PERCENT-COMPLETE are removed, and a
+    /// COUNT shrinks by the occurrence just completed. False when the VTODO does not recur, has no
+    /// DTSTART or DUE to anchor it, or has no occurrence left.
+    /// </summary>
+    private static bool TryAdvanceRecurrence(IReadOnlyList<IcsLine> lines, TodoBlock block, out Dictionary<string, List<string>?> changes)
+    {
+        changes = new Dictionary<string, List<string>?>(StringComparer.Ordinal);
+
+        var rules = block.Properties.Where(line => line.Name == "RRULE").ToList();
+        var dates = block.Properties.Where(line => line.Name is "RDATE" or "EXDATE").ToList();
+        if (rules.Count == 0 && !dates.Any(line => line.Name == "RDATE"))
+            return false;
+
+        var dtStart = block.Properties.FirstOrDefault(line => line.Name == "DTSTART");
+        var due = block.Properties.FirstOrDefault(line => line.Name == "DUE");
+        var anchor = dtStart ?? due;
+        if (anchor == null || !TryParseDateTime(anchor.Value, out var anchorValue, out _, out _))
+            return false;
+
+        var next = TaskRecurrence.FindNextOccurrence(
+            TimeZoneLines(lines),
+            FoldLine($"{Prefix("DTSTART", anchor)}:{anchor.Value}"),
+            rules.Concat(dates).Select(line => line.Raw).ToList(),
+            anchorValue);
+
+        if (next is not { } nextValue)
+            return false;
+
+        var delta = nextValue - anchorValue;
+        foreach (var line in new[] { dtStart, due })
+        {
+            if (line == null || !TryParseDateTime(line.Value, out var value, out var hasTime, out var isUtc))
+                continue;
+
+            changes[line.Name] = [$"{Prefix(line.Name, line)}:{FormatLike(value + delta, hasTime, isUtc)}"];
+        }
+
+        changes["COMPLETED"] = null;
+        changes["PERCENT-COMPLETE"] = null;
+
+        if (rules.Any(rule => ReadCount(rule.Value) != null))
+            changes["RRULE"] = rules.Select(rule => $"{Prefix("RRULE", rule)}:{DecrementCount(rule.Value)}").ToList();
+
+        return true;
+    }
+
+    private static int? ReadCount(string rule)
+    {
+        foreach (var part in rule.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = part.IndexOf('=');
+            if (separator > 0 &&
+                string.Equals(part[..separator].Trim(), "COUNT", StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(part[(separator + 1)..].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var count))
+            {
+                return count;
+            }
+        }
+
+        return null;
+    }
+
+    private static string DecrementCount(string rule)
+        => string.Join(';', rule.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(part =>
+        {
+            var separator = part.IndexOf('=');
+            return separator > 0 &&
+                   string.Equals(part[..separator].Trim(), "COUNT", StringComparison.OrdinalIgnoreCase) &&
+                   int.TryParse(part[(separator + 1)..].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var count) &&
+                   count > 1
+                ? $"COUNT={(count - 1).ToString(CultureInfo.InvariantCulture)}"
+                : part;
+        }));
 
     #endregion
 
@@ -417,6 +593,31 @@ internal static class TaskIcsBuilder
         }
 
         return blocks;
+    }
+
+    /// <summary>The raw lines of every VTIMEZONE component, BEGIN and END included.</summary>
+    private static List<string> TimeZoneLines(IReadOnlyList<IcsLine> lines)
+    {
+        var result = new List<string>();
+        var depth = 0;
+
+        foreach (var line in lines)
+        {
+            if (depth == 0 && line.Name == "BEGIN" && string.Equals(line.Value.Trim(), "VTIMEZONE", StringComparison.OrdinalIgnoreCase))
+                depth = 1;
+            else if (depth > 0 && line.Name == "BEGIN")
+                depth++;
+
+            if (depth == 0)
+                continue;
+
+            result.Add(line.Raw);
+
+            if (line.Name == "END")
+                depth--;
+        }
+
+        return result;
     }
 
     /// <summary>Folds at 75 octets (RFC 5545 section 3.1) without splitting a UTF-8 sequence.</summary>

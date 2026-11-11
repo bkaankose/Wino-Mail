@@ -432,6 +432,9 @@ public sealed partial class AgentPlanExecutor
                 if (existingList.IsOutlookDefaultList)
                     return Failed(step, string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_DefaultTaskList, Plain(existingList.Title ?? string.Empty)));
 
+                if (existingList.IsSharedCalendarCollection)
+                    return Failed(step, Translator.CalDavTasks_SharedCollectionDeleteBlocked);
+
                 await requestDelegator.ExecuteAsync(existingList.MailAccountId, (IRequestBase[])[new TaskActionRequest(existingList.MailAccountId, TaskSynchronizerOperation.DeleteList, List: existingList, OriginalList: existingList) { Trace = new RequestTrace(TraceSource, Guid.NewGuid()) }]).ConfigureAwait(false);
                 return Done(step, [ItemRef.TaskList(existingList.MailAccountId, existingList.Id)], string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_Deleted, Plain(existingList.Title ?? string.Empty)));
         }

@@ -623,6 +623,11 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
             await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.SubstrateFolderDeltaLink)} TEXT NULL").ConfigureAwait(false);
         }
 
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.HoldsCalendarEvents)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.HoldsCalendarEvents)} INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
+        }
+
         var taskGroupColumns = await Connection.GetTableInfoAsync("TaskListGroup").ConfigureAwait(false);
         if (!taskGroupColumns.Any(c => c.Name == nameof(AccountTaskListGroup.RemoteVersion)))
             await Connection.ExecuteAsync($"ALTER TABLE TaskListGroup ADD COLUMN {nameof(AccountTaskListGroup.RemoteVersion)} TEXT NULL").ConfigureAwait(false);

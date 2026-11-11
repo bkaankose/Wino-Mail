@@ -34,6 +34,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 {
     private CancellationTokenSource? _searchCancellationTokenSource;
     private TaskItemViewModel? _moveTaskTarget;
+    private TaskItemViewModel? _newStepTarget;
 #if DEBUG
     private readonly INotificationBuilder _notificationBuilder =
         WinoApplication.Current.Services.GetRequiredService<INotificationBuilder>();
@@ -299,7 +300,8 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
                            list.MailAccountId == task.Task.MailAccountId &&
                            list.SourceKind == task.Task.SourceKind)
             .ToList();
-        MoveTaskFlyoutHost.Flyout.ShowAt(TaskListView);
+        var anchor = TaskListView.ContainerFromItem(task) as FrameworkElement ?? TaskListView;
+        MoveTaskFlyoutHost.Flyout.ShowAt(anchor);
     }
 
     private async void MoveTaskListView_ItemClick(object sender, ItemClickEventArgs e)
@@ -328,6 +330,64 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
     {
         if (sender is FrameworkElement { DataContext: TaskStepViewModel step })
             await ViewModel.SaveStepCommand.ExecuteAsync(step);
+    }
+
+    private void AddStepButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SelectedTask is not { IsEditable: true } task)
+            return;
+
+        _newStepTarget = task;
+        NewStepTextBox.Text = string.Empty;
+        AddStepButton.Visibility = Visibility.Collapsed;
+        NewStepTextBox.Visibility = Visibility.Visible;
+        NewStepTextBox.Focus(FocusState.Programmatic);
+    }
+
+    private async void NewStepTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Escape)
+        {
+            e.Handled = true;
+            CloseNewStepEditor();
+            AddStepButton.Focus(FocusState.Programmatic);
+            return;
+        }
+
+        if (e.Key != Windows.System.VirtualKey.Enter)
+            return;
+
+        e.Handled = true;
+        await CommitNewStepAsync();
+    }
+
+    private async void NewStepTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (NewStepTextBox.Visibility != Visibility.Visible)
+            return;
+
+        await CommitNewStepAsync();
+        CloseNewStepEditor();
+    }
+
+    // The text is cleared before the await so a LostFocus raised while the step is queued cannot commit it twice.
+    private Task CommitNewStepAsync()
+    {
+        var title = NewStepTextBox.Text;
+        var target = _newStepTarget;
+        NewStepTextBox.Text = string.Empty;
+
+        return target is null || string.IsNullOrWhiteSpace(title)
+            ? Task.CompletedTask
+            : ViewModel.AddNamedStepAsync(target, title);
+    }
+
+    private void CloseNewStepEditor()
+    {
+        _newStepTarget = null;
+        NewStepTextBox.Text = string.Empty;
+        NewStepTextBox.Visibility = Visibility.Collapsed;
+        AddStepButton.Visibility = Visibility.Visible;
     }
 
     private async void StepDeleteButton_Click(object sender, RoutedEventArgs e)

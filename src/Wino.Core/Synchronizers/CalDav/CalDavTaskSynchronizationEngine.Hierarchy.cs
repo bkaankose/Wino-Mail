@@ -270,7 +270,7 @@ public sealed partial class CalDavTaskSynchronizationEngine
             IsCompleted = todo.IsCompleted,
             CompletedAtUtc = todo.IsCompleted ? todo.CompletedUtc : null,
             IsImportant = todo.IsImportant,
-            CreatedAtUtc = todo.CreatedUtc ?? DateTime.UtcNow,
+            CreatedAtUtc = todo.CreatedUtc ?? todo.DtStampUtc ?? default,
             Steps = []
         };
     }
@@ -288,7 +288,7 @@ public sealed partial class CalDavTaskSynchronizationEngine
             RemoteVersion = resource.ETag,
             Title = TitleOf(todo),
             IsCompleted = todo.IsCompleted,
-            CreatedAtUtc = todo.CreatedUtc ?? DateTime.UtcNow
+            CreatedAtUtc = todo.CreatedUtc ?? todo.DtStampUtc ?? default
         };
     }
 

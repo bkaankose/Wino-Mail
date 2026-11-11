@@ -143,7 +143,7 @@ public sealed partial class AccountTaskListMenuItem : MenuItemBase<AccountTaskLi
     public string AccountName { get; private set; }
     public string ColorHex => string.IsNullOrWhiteSpace(Parameter?.ColorHex) ? DefaultListColorHex : Parameter.ColorHex;
     public bool IsGrouped => Parameter?.GroupId is not null;
-    public bool CanDelete => Parameter is not null && !Parameter.IsReadOnly && !Parameter.IsOutlookDefaultList;
+    public bool CanDelete => Parameter is { CanDelete: true };
     public bool CanMoveToGroup => Parameter is not null && !Parameter.IsOutlookDefaultList;
     public IReadOnlyList<AccountTaskListGroup> AvailableGroups { get; private set; } = [];
     public Func<AccountTaskListMenuItem, Task> RenameRequested { get; init; }
