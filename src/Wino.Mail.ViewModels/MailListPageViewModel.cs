@@ -66,13 +66,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private Guid? trackingSynchronizationId = null;
     private int completedTrackingSynchronizationCount = 0;
 
-    /* [Bug] Unread folder reads All emails automatically with setting "Mark as Read: When Selected" enabled 
-     * https://github.com/bkaankose/Wino-Mail/issues/162
-     * We store the UniqueIds of the mails that are marked as read in Gmail Unread folder
-     * to prevent them from being removed from the list when they are marked as read.
-     */
-
-    private readonly HashSet<Guid> gmailUnreadFolderMarkedAsReadUniqueIds = [];
+    // Mails read while selected in an unread-only list (Unread filter or Gmail's Unread folder) stay listed
+    // until the list reloads. Removing them would select the next row and read the whole list (#162, #1222).
+    private readonly HashSet<Guid> readWhileSelectedUniqueIds = [];
 
     public MailListStore MailCollection { get; } = new();
     private readonly IWinoAccountIntelligenceSnapshotService? _entitlementService;
@@ -722,9 +718,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         var package = new MailOperationPreperationRequest(MailOperation.MarkAsRead, mailItem.MailCopy);
 
-        if (ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread)
+        if (IsUnreadOnlyList())
         {
-            gmailUnreadFolderMarkedAsReadUniqueIds.Add(mailItem.UniqueId);
+            readWhileSelectedUniqueIds.Add(mailItem.UniqueId);
         }
 
         return ExecuteMailOperationAsync(package);
@@ -1163,6 +1159,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private async Task SelectedFilterChanged(FilterOption option)
     {
         SelectedFilterOption = option;
+        readWhileSelectedUniqueIds.Clear();
 
         await InitializeFolderAsync();
     }
@@ -1853,10 +1850,27 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private bool MatchesActiveListSeed(MailCopy mail)
         => MatchesActiveListScope(mail) && !ShouldPreventItemAdd(mail);
 
-    private bool ShouldRetainAfterActiveFilterMutation(MailCopy mail, MailCopyChangeFlags changedProperties)
+    private bool IsUnreadOnlyList()
+        => SelectedFilterOption?.Type == FilterOptionType.Unread ||
+           ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread;
+
+    private bool ShouldRetainAfterActiveFilterMutation(MailItemViewModel item, MailCopyChangeFlags changedProperties)
     {
+        var mail = item.MailCopy;
+
         if (!MatchesActiveListScope(mail))
             return false;
+
+        if (changedProperties.HasFlag(MailCopyChangeFlags.IsRead) &&
+            mail.IsRead &&
+            IsUnreadOnlyList() &&
+            (item.IsSelected || ReferenceEquals(item, _activeMailItem)))
+        {
+            readWhileSelectedUniqueIds.Add(item.UniqueId);
+        }
+
+        if (readWhileSelectedUniqueIds.Contains(item.UniqueId))
+            return true;
 
         return ShouldRetainFilterMutation(
             SelectedFilterOption?.Type ?? FilterOptionType.All,
@@ -2062,7 +2076,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             }
 
             var shouldRetainAfterFilterMutation =
-                ShouldRetainAfterActiveFilterMutation(listedItem.MailCopy, changedProperties);
+                ShouldRetainAfterActiveFilterMutation(listedItem, changedProperties);
             if (!shouldRetainAfterFilterMutation &&
                 PreferencesService.IsThreadingEnabled &&
                 !string.IsNullOrWhiteSpace(listedItem.ThreadId))
@@ -2117,7 +2131,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             await MailCollection.UpdateMailStateAsync(updatedState, source);
             var listedItem = MailCollection.Find(updatedState.UniqueId);
             if (listedItem != null &&
-                !ShouldRetainAfterActiveFilterMutation(listedItem.MailCopy, updatedState.ChangedProperties) &&
+                !ShouldRetainAfterActiveFilterMutation(listedItem, updatedState.ChangedProperties) &&
                 !MatchesActiveListSeed(listedItem.MailCopy))
             {
                 if (PreferencesService.IsThreadingEnabled &&
@@ -2291,7 +2305,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             }
 
             var changedProperties = getChangedProperties?.Invoke(item) ?? MailCopyChangeFlags.None;
-            if (ShouldRetainAfterActiveFilterMutation(item.MailCopy, changedProperties))
+            if (ShouldRetainAfterActiveFilterMutation(item, changedProperties))
                 continue;
 
             if (MatchesActiveListSeed(item.MailCopy))
@@ -2348,9 +2362,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // Remove only if this specific mail copy currently exists in this list.
             // Using AssignedFolder-based checks is unreliable for move flows because the
             // same MailCopy instance can be updated before this message is handled.
-            bool removedItemExistsInCurrentList = MailCollection.ContainsMailUniqueId(removedMail.UniqueId);
-
-            gmailUnreadFolderMarkedAsReadUniqueIds.Remove(removedMail.UniqueId);
+            bool removedItemExistsInCurrentList = MailCollection.ContainsMailUniqueId(removedMail.UniqueId) &&
+                                                  !IsUnreadLabelRemovalOfRetainedMail(removedMail);
 
             if (removedItemExistsInCurrentList)
             {
@@ -2385,6 +2398,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
+    // Reading a mail removes its copy from Gmail's Unread label folder.
+    private bool IsUnreadLabelRemovalOfRetainedMail(MailCopy removedMail)
+        => removedMail.AssignedFolder?.SpecialFolderType == SpecialFolderType.Unread &&
+           readWhileSelectedUniqueIds.Contains(removedMail.UniqueId);
+
     protected override async void OnBulkMailRemoved(IReadOnlyList<MailCopy> removedMails, EntityUpdateSource source)
     {
         var targetMails = removedMails?
@@ -2403,7 +2421,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             acquired = true;
 
             var existingMails = targetMails
-                .Where(mail => MailCollection.ContainsMailUniqueId(mail.UniqueId))
+                .Where(mail => MailCollection.ContainsMailUniqueId(mail.UniqueId) &&
+                               !IsUnreadLabelRemovalOfRetainedMail(mail))
                 .ToList();
 
             if (existingMails.Count == 0)
@@ -3228,7 +3247,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
                 NotifyItemSelected();
                 ActiveFolder = message.BaseFolderMenuItem;
-                gmailUnreadFolderMarkedAsReadUniqueIds.Clear();
+                readWhileSelectedUniqueIds.Clear();
                 trackingSynchronizationId = null;
                 completedTrackingSynchronizationCount = 0;
                 OnPropertyChanged(nameof(IsArchiveSpecialFolder));
