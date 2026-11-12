@@ -76,7 +76,7 @@ Android libraries build on a Mac or Windows through the Android head (see the [A
 dotnet build src/Wino.Mail.Android/Wino.Mail.Android.csproj -c Debug -p:WinoTargetPlatform=Android
 ```
 
-After the first successful restore, add `--no-restore` unless package or project references changed. Prefer the narrow affected-project build; build the playground when UI, resources, templates, or public control integration changes.
+Prefer the narrow affected-project build; build the playground when UI, resources, templates, or public control integration changes.
 
 If the WinUI compiler reports only `XamlCompiler.exe exited with code 1`, rerun the failing build with diagnostic file logging and inspect the first `WMC` or binding error instead of guessing.
 
@@ -131,13 +131,13 @@ When a public control is added or its important states change, update `Wino.Mail
 ## Verification
 
 The playground remains a sample app. The remote mail lab (`tools/lab/README.md`) is the application testing environment.
-Agent-driven UI automation is retired.
+Agent-driven UI test suites are retired; do not add UI test projects or scripts. On Windows, verify UI behavior in the running Debug app with `winapp ui`, as the repository-level `AGENTS.md` describes.
 
 Match verification to the change:
 
 - Core-only logic: build `Wino.Mail.Controls.Core` and its consumers.
-- WinUI control or template: build `Wino.Mail.Controls.WinUI` and the playground, then request manual verification of the affected control in the app with the lab accounts.
-- Editor C#, XAML, or web assets: build `Wino.Editor.WinUI` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
+- WinUI control or template: build `Wino.Mail.Controls.WinUI` and the playground, then verify the affected control in the running Debug app with `winapp ui` against the remote lab.
+- Editor C#, XAML, or web assets: build `Wino.Editor.WinUI` and the playground, then check initialization, editing/rendering, theme changes, navigation, and disposal in the running Debug app with `winapp ui` against the remote lab.
 - AppKit control: build the Mac head for arm64 and x64, then request manual verification in the Mac app. There is no AppKit playground.
 - UIKit control: build the iOS head for the Simulator, then request manual verification on iPhone and iPad simulators. There is no UIKit playground.
 - WKWebView session (`Wino.Editor.WebKit`): build both Apple heads and request manual checks in both apps.
