@@ -136,6 +136,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     /// <summary>Client-side ordering. Persisted nowhere; resets with the page.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SortDisplayText))]
+    [NotifyPropertyChangedFor(nameof(CanReorderTasks))]
     public partial TaskSortKind SelectedSort { get; set; } = TaskSortKind.DueDate;
 
     [ObservableProperty]
@@ -226,6 +227,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         OnPropertyChanged(nameof(CanCreateTask));
         OnPropertyChanged(nameof(IsQuickAddVisible));
         OnPropertyChanged(nameof(IsNamedListSelected));
+        OnPropertyChanged(nameof(CanReorderTasks));
         OnPropertyChanged(nameof(IsSmartViewSelected));
         OnPropertyChanged(nameof(IsCompletedScopeAvailable));
         OnPropertyChanged(nameof(IsMyDaySelected));
@@ -298,6 +300,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private string GetEmptyAccountName()
         => IsEmptyAccountSelected ? Accounts.FirstOrDefault(account => account.Id == _emptyAccountId)?.Name : null;
     public bool IsNamedListSelected => SelectedList is not null;
+
+    /// <summary>Manual order is kept per list, so a smart view that mixes lists has none to edit.</summary>
+    public bool CanReorderTasks => SelectedList is not null && SelectedSort == TaskSortKind.Manual && _taskMutationService is not null;
     public bool IsSmartViewSelected => SelectedList is null;
     public bool IsMyDaySelected => SelectedList is null && SelectedView == TaskViewKind.MyDay;
     public bool CanEditSelectedList => SelectedList is { IsReadOnly: false };
@@ -440,6 +445,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         TaskSortKind.MyDay => Translator.ToDoPage_SortMyDay,
         TaskSortKind.Alphabetical => Translator.ToDoPage_SortAlphabetically,
         TaskSortKind.CreationDate => Translator.ToDoPage_SortCreationDate,
+        TaskSortKind.Manual => Translator.ToDoPage_SortManual,
         _ => Translator.ToDoPage_SortDueDate
     };
 
@@ -1586,8 +1592,47 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             "myday" => TaskSortKind.MyDay,
             "alphabetical" => TaskSortKind.Alphabetical,
             "created" => TaskSortKind.CreationDate,
+            "manual" when SelectedList is not null => TaskSortKind.Manual,
             _ => TaskSortKind.DueDate
         };
+
+    /// <summary>
+    /// Moves <paramref name="moved"/> next to <paramref name="target"/> in the selected list's manual order.
+    /// The whole list is renumbered, including tasks the current filter hides, so positions stay unique.
+    /// </summary>
+    public async Task ReorderTasksAsync(IReadOnlyList<TaskItemViewModel> moved, TaskItemViewModel target, bool insertAfter)
+    {
+        if (!CanReorderTasks || moved is null || moved.Count == 0 || target is null || moved.Contains(target))
+            return;
+
+        var sequence = OrderManually(_taskItems.Values).ToList();
+        var block = sequence.Where(moved.Contains).ToList();
+        if (block.Count == 0)
+            return;
+
+        sequence.RemoveAll(moved.Contains);
+        var targetIndex = sequence.IndexOf(target);
+        if (targetIndex < 0)
+            return;
+
+        sequence.InsertRange(insertAfter ? targetIndex + 1 : targetIndex, block);
+
+        var changed = new Dictionary<Guid, int>();
+        for (var index = 0; index < sequence.Count; index++)
+        {
+            if (sequence[index].Task.ManualOrder == index)
+                continue;
+
+            sequence[index].SetManualOrder(index);
+            changed[sequence[index].Id] = index;
+        }
+
+        if (changed.Count == 0)
+            return;
+
+        ReconcileTaskGroups();
+        await _taskMutationService.UpdateTaskManualOrderAsync(changed).ConfigureAwait(false);
+    }
 
     /// <summary>Takes the scope as a string for the same reason <see cref="SetSort"/> does.</summary>
     [RelayCommand]
@@ -2656,6 +2701,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             // Without one, the current choice carries over as before.
             if (list?.SortKind is { } listSort)
                 SelectedSort = listSort;
+            else if (list is null && SelectedSort == TaskSortKind.Manual)
+                SelectedSort = TaskSortKind.DueDate;
 
             if (list is not null)
             {
@@ -2913,12 +2960,22 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             TaskSortKind.MyDay => ordered.ThenByDescending(item => item.MyDayDateUtc ?? DateTime.MinValue).ThenBy(item => item.DueDate ?? DateTime.MaxValue),
             TaskSortKind.Alphabetical => ordered.ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
             TaskSortKind.CreationDate => ordered.ThenByDescending(item => item.Task.CreatedAtUtc),
+            TaskSortKind.Manual => OrderManually(ordered),
             _ => ordered.ThenBy(item => item.DueDate ?? DateTime.MaxValue)
         };
 
         return ordered
             .ThenBy(item => item.Task.ModifiedAtUtc)
             .ThenBy(item => _taskOrder.IndexOf(item.Id));
+    }
+
+    private static IOrderedEnumerable<TaskItemViewModel> OrderManually(IEnumerable<TaskItemViewModel> items)
+    {
+        var ordered = items as IOrderedEnumerable<TaskItemViewModel> ?? items.OrderBy(_ => 0);
+        return ordered
+            .ThenBy(item => item.Task.ManualOrder ?? int.MaxValue)
+            .ThenBy(item => item.Task.CreatedAtUtc)
+            .ThenBy(item => item.Id);
     }
 
     private static void ReconcileTaskGroupItems(TaskGroup group, IReadOnlyList<TaskItemViewModel> desired)

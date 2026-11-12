@@ -40,6 +40,12 @@ public partial class TaskItemViewModel : ObservableObject
 
     public AccountTask CreateOriginalSnapshot() => RequestEntityCloner.Task(_originalTask);
 
+    public void SetManualOrder(int order)
+    {
+        Task.ManualOrder = order;
+        _originalTask.ManualOrder = order;
+    }
+
     /// <summary>Applies a request snapshot without requiring the page to mutate item state.</summary>
     public void ApplySnapshot(AccountTask task)
     {

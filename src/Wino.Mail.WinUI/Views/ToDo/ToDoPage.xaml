@@ -489,6 +489,12 @@
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="created"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortCreationDate, Mode=OneTime}" />
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoSortManual"
+                                            Command="{x:Bind ViewModel.SetSortCommand}"
+                                            CommandParameter="manual"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}"
+                                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsNamedListSelected), Mode=OneWay}" />
                                     </MenuFlyout>
                                 </DropDownButton.Flyout>
                             </DropDownButton>
@@ -573,6 +579,12 @@
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="created"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortCreationDate, Mode=OneTime}" />
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoCompactSortManual"
+                                            Command="{x:Bind ViewModel.SetSortCommand}"
+                                            CommandParameter="manual"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}"
+                                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsNamedListSelected), Mode=OneWay}" />
                                     </MenuFlyoutSubItem>
 
                                     <MenuFlyoutSeparator />
@@ -709,7 +721,14 @@
                 Grid.Row="1"
                 Padding="16,0,16,4"
                 toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                AllowDrop="{x:Bind ViewModel.CanReorderTasks, Mode=OneWay}"
                 AutomationProperties.AutomationId="ToDoTaskListNavigation"
+                CanDragItems="{x:Bind ViewModel.CanReorderTasks, Mode=OneWay}"
+                DragItemsCompleted="TaskListView_DragItemsCompleted"
+                DragItemsStarting="TaskListView_DragItemsStarting"
+                DragLeave="TaskListView_DragLeave"
+                DragOver="TaskListView_DragOver"
+                Drop="TaskListView_Drop"
                 ItemTemplate="{StaticResource TaskRowTemplate}"
                 SelectionChanged="TaskListView_SelectionChanged"
                 SelectionMode="Extended">
@@ -755,6 +774,21 @@
                     </GroupStyle>
                 </listview:WinoListView.GroupStyle>
             </listview:WinoListView>
+
+            <Border
+                x:Name="TaskDropIndicator"
+                Grid.Row="1"
+                Height="2"
+                Margin="24,0"
+                VerticalAlignment="Top"
+                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                CornerRadius="1"
+                IsHitTestVisible="False"
+                Visibility="Collapsed">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="TaskDropIndicatorTransform" />
+                </Border.RenderTransform>
+            </Border>
 
             <!--  Empty state. Explains the absence and offers the next useful action.  -->
             <StackPanel

@@ -50,6 +50,9 @@ public interface ITaskService : ITaskQueryService
     Task<AccountTask> CreateTaskAsync(AccountTask task);
     Task UpdateTaskAsync(AccountTask task);
     Task DeleteTaskAsync(Guid taskId);
+
+    /// <summary>Stores the Manual sort position of each task. Never queued for the provider.</summary>
+    Task UpdateTaskManualOrderAsync(IReadOnlyDictionary<Guid, int> orders);
     Task<AccountTaskStep> CreateStepAsync(AccountTaskStep step);
     Task UpdateStepAsync(AccountTaskStep step);
     Task DeleteStepAsync(Guid stepId);

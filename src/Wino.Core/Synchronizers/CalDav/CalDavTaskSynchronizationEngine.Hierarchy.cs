@@ -312,6 +312,7 @@ public sealed partial class CalDavTaskSynchronizationEngine
             MyDayDateUtc = stored.MyDayDateUtc,
             CompletedAtUtc = stored.CompletedAtUtc,
             RemoteOrder = stored.RemoteOrder,
+            ManualOrder = stored.ManualOrder,
             CreatedAtUtc = stored.CreatedAtUtc,
             Steps = []
         };
