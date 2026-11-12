@@ -396,11 +396,12 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
 
     private MessageMenuDelegate? _messageMenuDelegate;
 
-    /// <summary>The configurable shortcut action behind a Message menu command (Forward has none).</summary>
+    /// <summary>The configurable shortcut action behind a Message menu command.</summary>
     private static KeyboardShortcutAction? ShortcutActionFor(ShellCommand command) => command switch
     {
         ShellCommand.Reply => KeyboardShortcutAction.Reply,
         ShellCommand.ReplyAll => KeyboardShortcutAction.ReplyAll,
+        ShellCommand.Forward => KeyboardShortcutAction.Forward,
         ShellCommand.Archive => KeyboardShortcutAction.ToggleArchive,
         ShellCommand.Delete => KeyboardShortcutAction.Delete,
         ShellCommand.Move => KeyboardShortcutAction.Move,

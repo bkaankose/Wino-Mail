@@ -191,6 +191,7 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
                 KeyboardShortcutAction.Move,
                 KeyboardShortcutAction.Reply,
                 KeyboardShortcutAction.ReplyAll,
+                KeyboardShortcutAction.Forward,
                 KeyboardShortcutAction.Send
             ],
             WinoApplicationMode.Calendar =>

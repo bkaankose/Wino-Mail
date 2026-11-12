@@ -1423,6 +1423,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 await CreateDraftForShortcutTargetAsync(DraftCreationReason.ReplyAll);
                 args.Handled = true;
                 break;
+            case KeyboardShortcutAction.Forward:
+                await CreateDraftForShortcutTargetAsync(DraftCreationReason.Forward);
+                args.Handled = true;
+                break;
         }
     }
 
