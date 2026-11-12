@@ -1477,12 +1477,8 @@ public class AccountService : BaseDatabaseService, IAccountService
         ReportUIChange(new AccountLayoutChanged());
     }
 
-    public async Task SetAccountGroupExpandedAsync(Guid groupId, bool isExpanded)
-    {
-        await Connection.ExecuteAsync("UPDATE MailAccountGroup SET IsExpanded = ? WHERE Id = ?", isExpanded, groupId).ConfigureAwait(false);
-
-        ReportUIChange(new AccountGroupExpansionChanged(groupId, isExpanded));
-    }
+    public Task SetAccountGroupExpandedAsync(Guid groupId, bool isExpanded)
+        => Connection.ExecuteAsync("UPDATE MailAccountGroup SET IsExpanded = ? WHERE Id = ?", isExpanded, groupId);
 
     public async Task SaveAccountLayoutOrderAsync(IEnumerable<AccountLayoutOrderEntry> topLevelEntries)
     {

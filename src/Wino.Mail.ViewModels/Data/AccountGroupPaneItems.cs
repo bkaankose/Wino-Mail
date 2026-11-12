@@ -19,6 +19,8 @@ namespace Wino.Mail.ViewModels.Data;
 /// </summary>
 public sealed class AccountGroupPaneItems : IRecipient<AccountGroupExpansionChanged>
 {
+    private static readonly System.Threading.SemaphoreSlim SaveGate = new(1, 1);
+
     private readonly Dictionary<Guid, AccountGroupMenuItem> _items = [];
     private readonly IAccountService _accountService;
     private readonly Func<IDispatcher?> _dispatcherProvider;
@@ -147,18 +149,30 @@ public sealed class AccountGroupPaneItems : IRecipient<AccountGroupExpansionChan
 
         group.IsExpanded = item.IsExpanded;
 
+        WeakReferenceMessenger.Default.Send(new AccountGroupExpansionChanged(group.Id, item.IsExpanded, this));
+
+        // Writes are serialized and store the state at write time, so quick toggles cannot be saved out of order.
+        await SaveGate.WaitAsync().ConfigureAwait(false);
+
         try
         {
-            await _accountService.SetAccountGroupExpandedAsync(group.Id, item.IsExpanded).ConfigureAwait(false);
+            await _accountService.SetAccountGroupExpandedAsync(group.Id, group.IsExpanded).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "Could not save the expansion of account group {GroupId}.", group.Id);
         }
+        finally
+        {
+            SaveGate.Release();
+        }
     }
 
     public void Receive(AccountGroupExpansionChanged message)
     {
+        if (ReferenceEquals(message.Origin, this))
+            return;
+
         void Apply()
         {
             if (!_items.TryGetValue(message.GroupId, out var item) || item.Parameter is not { } group)

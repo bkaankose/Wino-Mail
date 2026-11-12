@@ -53,6 +53,23 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
     public AccountNavigationItem()
     {
         DefaultStyleKey = typeof(AccountNavigationItem);
+        Loaded += (_, _) => UpdateEnabledVisualState();
+        DataContextChanged += (_, _) => QueueEnabledVisualStateUpdate();
+        IsEnabledChanged += (_, _) => QueueEnabledVisualStateUpdate();
+    }
+
+    /// <summary>
+    /// The pane reuses row containers between modes. A nested row that was disabled when its mode was left and is
+    /// bound to an enabled row of another mode can keep the presenter's Disabled state, so the state is applied
+    /// again after the row is bound or enabled.
+    /// </summary>
+    private void QueueEnabledVisualStateUpdate()
+        => DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, UpdateEnabledVisualState);
+
+    private void UpdateEnabledVisualState()
+    {
+        if (_presenter != null)
+            VisualStateManager.GoToState(_presenter, IsEnabled ? "Enabled" : "Disabled", false);
     }
 
     [DynamicWindowsRuntimeCast(typeof(ItemsRepeater))]
@@ -94,6 +111,7 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
     {
         UpdatePresenterContentGridMargin();
         UpdateIconBoxHeight();
+        UpdateEnabledVisualState();
     }
 
     private void UpdatePresenterContentGridMargin()
