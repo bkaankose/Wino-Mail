@@ -24,7 +24,7 @@ public static class ShellMenuItemRules
         ShellSectionHeaderMenuItem or SeperatorItem or FixAccountIssuesMenuItem => false,
         CalendarDatePickerMenuItem or AccountCalendarGroupMenuItem or UngroupedCalendarMenuItem => false,
         ContactCategoriesExpanderMenuItem or AccountTaskListGroupMenuItem or RateMenuItem or SettingsItem => false,
-        MergedAccountMenuItem => false,
+        MergedAccountMenuItem or AccountGroupMenuItem => false,
         IAccountNavigationMenuItem account => account.SelectsOnInvoked,
         FolderMenuItem folder => folder.IsMoveTarget,
         _ => true
@@ -35,7 +35,7 @@ public static class ShellMenuItemRules
         => item is not (ShellSectionHeaderMenuItem or SeperatorItem or CalendarDatePickerMenuItem or AccountCalendarGroupMenuItem);
 
     /// <summary>Rows that may show the selection fill.</summary>
-    public static bool IsHighlightable(IMenuItem item) => IsInteractive(item) && item is not UngroupedCalendarMenuItem;
+    public static bool IsHighlightable(IMenuItem item) => IsInteractive(item) && item is not (UngroupedCalendarMenuItem or AccountGroupMenuItem);
 
     /// <summary>
     /// Account rows follow IsNavigationEnabled only, like the Windows account templates: the shell turns IsEnabled off
@@ -81,6 +81,7 @@ public static class ShellMenuItemRules
         IBaseFolderMenuItem folder => folder.SubMenuItems ?? (IEnumerable<IMenuItem>)Array.Empty<IMenuItem>(),
         AccountTaskListAccountMenuItem taskAccount => taskAccount.SubMenuItems,
         AccountTaskListGroupMenuItem group => group.SubMenuItems,
+        AccountGroupMenuItem accountGroup => accountGroup.SubMenuItems,
         _ => Array.Empty<IMenuItem>()
     };
 }

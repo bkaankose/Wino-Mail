@@ -4,10 +4,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 
@@ -27,6 +29,8 @@ public partial class ContactsPageViewModel
     private readonly ContactCategoriesExpanderMenuItem _categoriesExpander = new(Translator.MailCategoryManagementPage_Title);
 
     private ShellMenu _shellMenu;
+    private readonly AccountGroupPaneItems _accountGroupItems;
+    private List<MailAccountGroup> _accountGroups = [];
     private Guid? _activeAccountId;
     private bool _isMenuInteractionEnabled = true;
     private bool _isPreparedForShellShutdown;
@@ -151,6 +155,7 @@ public partial class ContactsPageViewModel
         FilterGroups.Clear();
         _primaryFilterGroup.Clear();
         _accountFilterGroup.Clear();
+        _accountGroupItems.Clear();
         _addressBookFilterGroup.Clear();
         _listFilterGroup.Clear();
         _categoryFilterGroup.Clear();
@@ -227,7 +232,7 @@ public partial class ContactsPageViewModel
         if (_accountFilterGroup.Count > 0)
         {
             desired.Add(_accountSeparator);
-            desired.AddRange(_accountFilterGroup);
+            desired.AddRange(BuildAccountArea());
         }
 
         if (GetActiveAccountId() is Guid activeAccountId)
@@ -254,6 +259,26 @@ public partial class ContactsPageViewModel
         // The selected entry may have just been hidden or brought back; nudge the shell so
         // the pane re-applies the selection it should be showing.
         OnPropertyChanged(nameof(IShellMenuProvider.SelectedMenuItem));
+    }
+
+    /// <summary>
+    /// The account rows in pane order, with grouped accounts inside their group. Linked accounts are a Mail
+    /// concept, so their members are listed one by one.
+    /// </summary>
+    private List<IMenuItem> BuildAccountArea()
+    {
+        var filtersByAccountId = _accountFilterGroup
+            .Where(filter => filter.AccountId.HasValue)
+            .GroupBy(filter => filter.AccountId.Value)
+            .ToDictionary(group => group.Key, group => group.First());
+        var accounts = _accountFilterGroup
+            .Select(filter => filter.Account)
+            .Where(account => account != null)
+            .ToList();
+        var layout = AccountLayoutBuilder.Build(accounts, _accountGroups, includeLinkedAccounts: false);
+
+        return _accountGroupItems.Build(layout, entry =>
+            entry.Account is { } account && filtersByAccountId.TryGetValue(account.Id, out var filter) ? filter : null);
     }
 
     private static void AddSection(List<IMenuItem> desired, IMenuItem header, IEnumerable<IMenuItem> items)

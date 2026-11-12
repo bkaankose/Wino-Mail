@@ -305,6 +305,7 @@ VALUES
             Connection.CreateTableAsync<AccountSignature>(),
             Connection.CreateTableAsync<EmailTemplate>(),
             Connection.CreateTableAsync<MergedInbox>(),
+            Connection.CreateTableAsync<MailAccountGroup>(),
             Connection.CreateTableAsync<MailAccountPreferences>(),
             Connection.CreateTableAsync<MailAccountAlias>(),
             Connection.CreateTableAsync<Thumbnail>(),
@@ -1013,6 +1014,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_FolderConfigurationOverride_MailAccountId_RemoteFolderId ON FolderConfigurationOverride(MailAccountId, RemoteFolderId)").ConfigureAwait(false);
 
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccount_MergedInboxId ON MailAccount(MergedInboxId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccount_MailAccountGroupId ON MailAccount(MailAccountGroupId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailAccount_Order ON MailAccount([Order])").ConfigureAwait(false);
 
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_AccountSignature_MailAccountId ON AccountSignature(MailAccountId)").ConfigureAwait(false);

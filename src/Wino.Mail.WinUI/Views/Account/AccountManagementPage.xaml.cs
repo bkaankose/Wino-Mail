@@ -14,7 +14,18 @@ public sealed partial class AccountManagementPage : AccountManagementPageAbstrac
     }
 
     protected override void ReleasePageResources()
-        => ReleaseTemplateSelector("AccountProviderViewModelTemplateSelector");
+    {
+        ReleaseTemplateSelector("AccountProviderViewModelTemplateSelector");
+        ReleaseTemplateSelector("AccountGroupEntryTemplateSelector");
+    }
+
+    private void EditAccountGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is SettingsCard card && card.CommandParameter is AccountGroupProviderDetailViewModel accountGroup)
+        {
+            ViewModel.EditAccountGroupCommand.Execute(accountGroup);
+        }
+    }
 
     private void EditMergedAccounts_Click(object sender, RoutedEventArgs e)
     {

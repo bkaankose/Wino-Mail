@@ -48,6 +48,7 @@ public static class NavigationRouteTable
         Settings(WinoPage.AccountManagementPage, typeof(AccountManagementPage)),
         Settings(WinoPage.AccountDetailsPage, typeof(AccountDetailsPage)),
         Settings(WinoPage.MergedAccountDetailsPage, typeof(MergedAccountDetailsPage)),
+        Settings(WinoPage.AccountGroupDetailsPage, typeof(AccountGroupDetailsPage)),
         Settings(WinoPage.FolderCustomizationPage, typeof(FolderCustomizationPage)),
         Settings(WinoPage.SignatureManagementPage, typeof(SignatureManagementPage)),
         Settings(WinoPage.SignatureAndEncryptionPage, typeof(SignatureAndEncryptionPage)),

@@ -128,10 +128,36 @@ public interface IAccountService
     Task UnlinkMergedInboxAsync(Guid mergedInboxId);
 
     /// <summary>
-    /// Updates the account listing orders.
+    /// Updates the account listing orders. Keys are account or merged inbox ids; groups keep their accounts together.
     /// </summary>
     /// <param name="accountIdOrderPair">AccountId-OrderNumber pair for all accounts.</param>
     Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair);
+
+    /// <summary>Returns every account group.</summary>
+    Task<List<MailAccountGroup>> GetAccountGroupsAsync();
+
+    /// <summary>
+    /// Creates a group holding <paramref name="memberEntryIds"/> (account or merged inbox ids) in the given order.
+    /// Members that are in another group move to the new one.
+    /// </summary>
+    Task<MailAccountGroup> CreateAccountGroupAsync(string name, string? colorKey, IEnumerable<Guid> memberEntryIds);
+
+    /// <summary>
+    /// Saves the name, color and ordered members of a group. A group left without members is deleted.
+    /// </summary>
+    Task UpdateAccountGroupAsync(MailAccountGroup group, IEnumerable<Guid> memberEntryIds);
+
+    /// <summary>Deletes a group. Its accounts stay and return to the top level.</summary>
+    Task DeleteAccountGroupAsync(Guid groupId);
+
+    /// <summary>Persists whether a group is expanded in the navigation panes, without rebuilding them.</summary>
+    Task SetAccountGroupExpandedAsync(Guid groupId, bool isExpanded);
+
+    /// <summary>
+    /// Saves the order of the top-level entries (groups, merged inboxes, accounts) and of the entries inside each group.
+    /// Membership never changes here.
+    /// </summary>
+    Task SaveAccountLayoutOrderAsync(IEnumerable<AccountLayoutOrderEntry> topLevelEntries);
 
     /// <summary>
     /// Returns the account aliases.

@@ -3,29 +3,34 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
-    xmlns:controls="using:Wino.Controls"
+    xmlns:behaviors="using:Wino.Mail.WinUI.Behaviors"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
-    xmlns:local="using:Wino.Dialogs"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:selectors="using:Wino.Selectors"
-    Title="Reorder Accounts"
-    Closed="DialogClosed"
-    DefaultButton="Secondary"
-    Opened="DialogOpened"
+    Title="{x:Bind domain:Translator.SettingsReorderAccounts_Title}"
+    DefaultButton="Primary"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save}"
     SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
     Style="{StaticResource WinoDialogStyle}"
     mc:Ignorable="d">
 
     <ContentDialog.Resources>
-        <x:Double x:Key="ContentDialogMinWidth">420</x:Double>
+        <x:Double x:Key="ContentDialogMinWidth">460</x:Double>
 
-        <DataTemplate x:Key="RootAccountReorderTemplate" x:DataType="interfaces:IAccountProviderDetailViewModel">
+        <Style x:Key="AccountReorderItemContainerStyle" TargetType="ListViewItem">
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+
+        <DataTemplate x:Key="RootAccountReorderTemplate" x:DataType="data:AccountReorderItem">
             <Border
-                Padding="12"
+                Padding="12,8"
+                AutomationProperties.Name="{x:Bind Title}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
@@ -35,6 +40,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <coreControls:WinoFontIcon
                         VerticalAlignment="Center"
@@ -51,18 +57,59 @@
                         Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
-                        <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind StartupEntityTitle}" />
+                        <TextBlock
+                            Style="{ThemeResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind Title}"
+                            TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{ThemeResource CaptionTextBlockStyle}"
-                            Text="{x:Bind StartupEntityAddresses}" />
+                            Text="{x:Bind Subtitle}"
+                            TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <StackPanel
+                        Grid.Column="3"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+                        <Button
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            AutomationProperties.AutomationId="AccountReorderMoveUpButton"
+                            AutomationProperties.Name="{x:Bind MoveUpAutomationName}"
+                            Click="MoveUp_Click"
+                            CommandParameter="{x:Bind}"
+                            Style="{ThemeResource SubtleButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.AccountGroupDetailsPage_MoveUp}">
+                            <coreControls:WinoFontIcon
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="14"
+                                Icon="ChevronUp" />
+                        </Button>
+                        <Button
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            AutomationProperties.AutomationId="AccountReorderMoveDownButton"
+                            AutomationProperties.Name="{x:Bind MoveDownAutomationName}"
+                            Click="MoveDown_Click"
+                            CommandParameter="{x:Bind}"
+                            Style="{ThemeResource SubtleButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.AccountGroupDetailsPage_MoveDown}">
+                            <coreControls:WinoFontIcon
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="14"
+                                Icon="ChevronDown" />
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
         </DataTemplate>
-        <DataTemplate x:Key="MergedAccountReorderTemplate" x:DataType="interfaces:IAccountProviderDetailViewModel">
+
+        <DataTemplate x:Key="MergedAccountReorderTemplate" x:DataType="data:AccountReorderItem">
             <Border
-                Padding="12"
+                Padding="12,8"
+                AutomationProperties.Name="{x:Bind Title}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
@@ -72,6 +119,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <coreControls:WinoFontIcon
                         VerticalAlignment="Center"
@@ -88,35 +136,184 @@
                         Grid.Column="2"
                         VerticalAlignment="Center"
                         Spacing="2">
-                        <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind StartupEntityTitle}" />
+                        <TextBlock
+                            Style="{ThemeResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind Title}"
+                            TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{ThemeResource CaptionTextBlockStyle}"
-                            Text="{x:Bind StartupEntityAddresses}" />
+                            Text="{x:Bind Subtitle}"
+                            TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <StackPanel
+                        Grid.Column="3"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+                        <Button
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            AutomationProperties.AutomationId="AccountReorderMoveUpButton"
+                            AutomationProperties.Name="{x:Bind MoveUpAutomationName}"
+                            Click="MoveUp_Click"
+                            CommandParameter="{x:Bind}"
+                            Style="{ThemeResource SubtleButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.AccountGroupDetailsPage_MoveUp}">
+                            <coreControls:WinoFontIcon
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="14"
+                                Icon="ChevronUp" />
+                        </Button>
+                        <Button
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            AutomationProperties.AutomationId="AccountReorderMoveDownButton"
+                            AutomationProperties.Name="{x:Bind MoveDownAutomationName}"
+                            Click="MoveDown_Click"
+                            CommandParameter="{x:Bind}"
+                            Style="{ThemeResource SubtleButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.AccountGroupDetailsPage_MoveDown}">
+                            <coreControls:WinoFontIcon
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="14"
+                                Icon="ChevronDown" />
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
         </DataTemplate>
 
         <selectors:AccountReorderTemplateSelector
+            x:Key="GroupEntryReorderTemplateSelector"
+            MergedAccountReorderTemplate="{StaticResource MergedAccountReorderTemplate}"
+            RootAccountReorderTemplate="{StaticResource RootAccountReorderTemplate}" />
+
+        <!--  A group moves as one block; its entries reorder only inside it.  -->
+        <DataTemplate x:Key="AccountGroupReorderTemplate" x:DataType="data:AccountReorderItem">
+            <Border
+                Padding="12,8"
+                AutomationProperties.Name="{x:Bind Title}"
+                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                            FontSize="16"
+                            Icon="ReOrderDotsVertical"
+                            Opacity="0.5" />
+                        <coreControls:WinoFontIcon
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                            Icon="GroupList" />
+                        <StackPanel
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <TextBlock
+                                behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey}"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind Title}"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{ThemeResource CaptionTextBlockStyle}"
+                                Text="{x:Bind Subtitle}"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel
+                            Grid.Column="3"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal">
+                            <Button
+                                Width="32"
+                                Height="32"
+                                Padding="0"
+                                AutomationProperties.AutomationId="AccountReorderMoveUpButton"
+                                AutomationProperties.Name="{x:Bind MoveUpAutomationName}"
+                                Click="MoveUp_Click"
+                                CommandParameter="{x:Bind}"
+                                Style="{ThemeResource SubtleButtonStyle}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.AccountGroupDetailsPage_MoveUp}">
+                                <coreControls:WinoFontIcon
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontSize="14"
+                                    Icon="ChevronUp" />
+                            </Button>
+                            <Button
+                                Width="32"
+                                Height="32"
+                                Padding="0"
+                                AutomationProperties.AutomationId="AccountReorderMoveDownButton"
+                                AutomationProperties.Name="{x:Bind MoveDownAutomationName}"
+                                Click="MoveDown_Click"
+                                CommandParameter="{x:Bind}"
+                                Style="{ThemeResource SubtleButtonStyle}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.AccountGroupDetailsPage_MoveDown}">
+                                <coreControls:WinoFontIcon
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontSize="14"
+                                    Icon="ChevronDown" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <ListView
+                        Grid.Row="1"
+                        Margin="24,0,0,0"
+                        AllowDrop="True"
+                        AutomationProperties.AutomationId="AccountReorderDialogGroupListView"
+                        AutomationProperties.Name="{x:Bind GroupEntriesAutomationName}"
+                        CanReorderItems="True"
+                        ItemContainerStyle="{StaticResource AccountReorderItemContainerStyle}"
+                        ItemTemplateSelector="{StaticResource GroupEntryReorderTemplateSelector}"
+                        ItemsSource="{x:Bind Children}"
+                        SelectionMode="None" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <selectors:AccountReorderTemplateSelector
             x:Key="AccountReorderTemplateSelector"
+            AccountGroupReorderTemplate="{StaticResource AccountGroupReorderTemplate}"
             MergedAccountReorderTemplate="{StaticResource MergedAccountReorderTemplate}"
             RootAccountReorderTemplate="{StaticResource RootAccountReorderTemplate}" />
     </ContentDialog.Resources>
 
-    <ListView
-        AllowDrop="True"
-        AutomationProperties.AutomationId="AccountReorderDialogListView"
-        CanReorderItems="True"
-        ItemTemplateSelector="{StaticResource AccountReorderTemplateSelector}"
-        ItemsSource="{x:Bind Accounts}"
-        SelectionMode="None">
-        <ListView.ItemContainerStyle>
-            <Style TargetType="ListViewItem">
-                <Setter Property="Margin" Value="0,2" />
-                <Setter Property="Padding" Value="0" />
-                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            </Style>
-        </ListView.ItemContainerStyle>
-    </ListView>
+    <Grid RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Style="{ThemeResource CaptionTextBlockStyle}"
+            Text="{x:Bind domain:Translator.AccountReorderDialog_Description}"
+            TextWrapping="Wrap" />
+        <ListView
+            Grid.Row="1"
+            AllowDrop="True"
+            AutomationProperties.AutomationId="AccountReorderDialogListView"
+            AutomationProperties.Name="{x:Bind domain:Translator.SettingsReorderAccounts_Title}"
+            CanReorderItems="True"
+            ItemContainerStyle="{StaticResource AccountReorderItemContainerStyle}"
+            ItemTemplateSelector="{StaticResource AccountReorderTemplateSelector}"
+            ItemsSource="{x:Bind Items}"
+            SelectionMode="None" />
+    </Grid>
 </ContentDialog>

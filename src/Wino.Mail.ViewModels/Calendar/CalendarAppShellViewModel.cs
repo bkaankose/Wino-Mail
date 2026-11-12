@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
@@ -33,6 +34,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     ICalendarShellClient,
     IRecipient<CalendarDisplayTypeChangedMessage>,
     IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountLayoutChanged>,
     IRecipient<PreferenceChangedMessage>
 {
     public IPreferencesService PreferencesService { get; }
@@ -120,6 +122,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _dateContextProvider = dateContextProvider;
 
         AccountCalendarStateService.PropertyChanged += AccountCalendarStateServicePropertyChanged;
+        _accountGroupItems = new AccountGroupPaneItems(accountService, () => Dispatcher);
     }
 
     /// <summary>
@@ -405,6 +408,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             await Dispatcher.ExecuteOnUIThread(() => AccountCalendarStateService.ClearGroupedAccountCalendars());
 
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+            var accountGroups = await _accountService.GetAccountGroupsAsync().ConfigureAwait(false);
+            await ExecuteUIThread(() => _accountGroups = accountGroups).ConfigureAwait(false);
 
             foreach (var account in accounts)
             {
@@ -638,6 +643,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         Messenger.Register<CalendarDisplayTypeChangedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<AccountLayoutChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -646,6 +652,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         Messenger.Unregister<CalendarDisplayTypeChangedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
+        Messenger.Unregister<AccountLayoutChanged>(this);
     }
 
     private void UpdateDateNavigationHeaderItems()
@@ -664,6 +671,15 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             OnPropertyChanged(nameof(IsVerticalCalendar));
             UpdateDateNavigationHeaderItems();
         });
+    }
+
+    public async void Receive(AccountLayoutChanged message)
+    {
+        // An inactive calendar mode reads the new layout when it is activated again.
+        if (!_runtimeSubscriptionsAttached || Dispatcher == null)
+            return;
+
+        await InitializeAccountCalendarsAsync().ConfigureAwait(false);
     }
 
     public async void Receive(AccountRemovedMessage message)

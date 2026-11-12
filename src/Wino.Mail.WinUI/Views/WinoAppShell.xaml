@@ -35,6 +35,7 @@
             <coreSelectors:ShellMenuTemplateSelector
                 x:Key="ShellMenuTemplateSelector"
                 AccountCalendarGroupTemplate="{StaticResource AccountCalendarGroupTemplate}"
+                AccountGroupTemplate="{StaticResource AccountGroupTemplate}"
                 AccountTaskListGroupTemplate="{StaticResource AccountTaskListGroupTemplate}"
                 AccountTaskListTemplate="{StaticResource AccountTaskListTemplate}"
                 CalendarDatePickerTemplate="{StaticResource CalendarDatePickerTemplate}"

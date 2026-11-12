@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:behaviors="using:Wino.Mail.WinUI.Behaviors"
     xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -82,7 +83,64 @@
         </DataTemplate>
 
         <selectors:AccountProviderViewModelTemplateSelector
+            x:Key="AccountGroupEntryTemplateSelector"
+            MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
+            RootAccountTemplate="{StaticResource RootAccountTemplate}" />
+
+        <!--  Account group: its accounts and linked accounts, in layout order, behind an edit card.  -->
+        <DataTemplate x:Key="AccountGroupTemplate" x:DataType="data:AccountGroupProviderDetailViewModel">
+            <winuiControls:SettingsExpander
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Name, DescriptionText), Mode=OneWay}"
+                AutomationProperties.AutomationId="AccountManagementPageAccountGroupExpander"
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Name, DescriptionText), Mode=OneWay}"
+                Description="{x:Bind DescriptionText}">
+                <winuiControls:SettingsExpander.Header>
+                    <TextBlock
+                        behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey}"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind Name}"
+                        TextWrapping="Wrap" />
+                </winuiControls:SettingsExpander.Header>
+                <winuiControls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="GroupList" />
+                </winuiControls:SettingsExpander.HeaderIcon>
+                <winuiControls:SettingsExpander.Items>
+                    <accessibilityControls:WinoSettingsCard
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        AutomationInvoked="EditAccountGroup_Click"
+                        AutomationProperties.AutomationId="AccountManagementPageEditAccountGroupCard"
+                        Click="EditAccountGroup_Click"
+                        CommandParameter="{x:Bind}"
+                        Description="{x:Bind domain:Translator.SettingsEditAccountGroup_Description}"
+                        Header="{x:Bind domain:Translator.SettingsEditAccountGroup_Title}"
+                        IsClickEnabled="True">
+                        <winuiControls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Edit" />
+                        </winuiControls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                    <winuiControls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="AccountManagementPageAccountGroupEntriesCard"
+                        ContentAlignment="Vertical">
+                        <ListView
+                            Padding="-12,0"
+                            AutomationProperties.AutomationId="AccountManagementPageAccountGroupListView"
+                            AutomationProperties.Name="{x:Bind Name}"
+                            IsItemClickEnabled="False"
+                            ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
+                            ItemTemplateSelector="{StaticResource AccountGroupEntryTemplateSelector}"
+                            ItemsSource="{x:Bind Entries}"
+                            SelectionMode="None" />
+                    </winuiControls:SettingsCard>
+                </winuiControls:SettingsExpander.Items>
+            </winuiControls:SettingsExpander>
+        </DataTemplate>
+
+        <selectors:AccountProviderViewModelTemplateSelector
             x:Key="AccountProviderViewModelTemplateSelector"
+            AccountGroupTemplate="{StaticResource AccountGroupTemplate}"
             MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
             RootAccountTemplate="{StaticResource RootAccountTemplate}" />
     </Page.Resources>
@@ -229,7 +287,7 @@
             CanReorderItems="True"
             ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
             ItemTemplateSelector="{StaticResource AccountProviderViewModelTemplateSelector}"
-            ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}"
+            ItemsSource="{x:Bind ViewModel.AccountLayoutItems, Mode=OneWay}"
             SelectionMode="None">
             <ListView.Header>
                 <StackPanel>
@@ -254,6 +312,17 @@
                         </Border>
                         <winuiControls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Icon="PeopleLink" />
+                        </winuiControls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                    <accessibilityControls:WinoSettingsCard
+                        AutomationProperties.AutomationId="AccountManagementPageCreateAccountGroupCard"
+                        Command="{x:Bind ViewModel.CreateAccountGroupCommand}"
+                        Description="{x:Bind domain:Translator.SettingsCreateAccountGroup_Description}"
+                        Header="{x:Bind domain:Translator.SettingsCreateAccountGroup_Title}"
+                        IsActionIconVisible="False"
+                        IsClickEnabled="True">
+                        <winuiControls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="GroupList" />
                         </winuiControls:SettingsCard.HeaderIcon>
                     </accessibilityControls:WinoSettingsCard>
                     <accessibilityControls:WinoSettingsCard

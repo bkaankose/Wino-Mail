@@ -14,6 +14,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -37,6 +38,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     IRecipient<BulkTaskChanged>,
     IRecipient<AccountUpdatedMessage>,
     IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountLayoutChanged>,
     IRecipient<PreferenceChangedMessage>
 {
     public event EventHandler<TaskComposerFocusRequestedEventArgs> TaskComposerFocusRequested;
@@ -44,6 +46,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly ITaskQueryService _taskService;
     private readonly ITaskService _taskMutationService;
     private readonly IAccountService _accountService;
+    private readonly AccountGroupPaneItems _accountGroupItems;
+    private List<MailAccountGroup> _accountGroups = [];
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly INavigationService _navigationService;
     private readonly ICalendarService _calendarService;
@@ -504,6 +508,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
         _accountService = accountService;
+        _accountGroupItems = new AccountGroupPaneItems(accountService, () => Dispatcher);
         _requestDelegator = requestDelegator;
         _navigationService = navigationService;
         _calendarService = calendarService;
@@ -568,6 +573,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Register<BulkTaskChanged>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<AccountLayoutChanged>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
     }
 
@@ -578,6 +584,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Unregister<BulkTaskChanged>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
+        Messenger.Unregister<AccountLayoutChanged>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
         base.UnregisterRecipients();
     }
@@ -608,6 +615,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     void IRecipient<AccountRemovedMessage>.Receive(AccountRemovedMessage message)
         => _ = ExecuteUIThread(() => ApplyAccountRemoval(message.Account.Id));
+
+    void IRecipient<AccountLayoutChanged>.Receive(AccountLayoutChanged message)
+    {
+        if (!_isPreparedForShellShutdown)
+            _ = ReloadAsync();
+    }
 
     private void ApplyTaskState(TaskStateChanged message)
     {
@@ -1206,6 +1219,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _pendingListStates.Clear();
         _pendingDeletedListIds.Clear();
         _accountGroupMenuItems.Clear();
+        _accountGroupItems.Clear();
         foreach (var groupMenuItem in _taskListGroupMenuItems.Values)
             groupMenuItem.PropertyChanged -= TaskListGroupMenuItem_PropertyChanged;
         _taskListGroupMenuItems.Clear();
@@ -1280,6 +1294,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 .ToList();
             var lists = await _taskService.GetTaskListsAsync().ConfigureAwait(false);
             var listGroups = await _taskService.GetTaskListGroupsAsync().ConfigureAwait(false) ?? [];
+            var accountGroups = await _accountService.GetAccountGroupsAsync().ConfigureAwait(false);
 
             foreach (var account in accounts.Where(RequiresLocalFallbackList))
             {
@@ -1313,6 +1328,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             {
                 if (_isPreparedForShellShutdown) return;
                 var selectedListId = SelectedList?.Id;
+                _accountGroups = accountGroups;
                 ReconcileAccounts(accounts);
                 ReconcileTaskListGroups(listGroups);
                 ReconcileTaskLists(MergePendingLists(lists));
@@ -3022,9 +3038,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         var prefixCount = desired.Count;
         var activeAccountIds = new HashSet<Guid>();
         var activeListIds = new HashSet<Guid>();
+        var accountRows = new Dictionary<Guid, IMenuItem>();
         IReadOnlyList<IMenuItem> selectedAccountChildren = [];
+        var orderedAccounts = Accounts.OrderBy(account => account.Order).ThenBy(account => account.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
-        foreach (var account in Accounts.OrderBy(account => account.Order).ThenBy(account => account.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (var account in orderedAccounts)
         {
             var accountLists = TaskLists.Where(list => list.MailAccountId == account.Id).ToList();
             // Ordering never keys on Title: a rename would move the item, and a moved item makes
@@ -3087,11 +3105,16 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
             ApplyDesiredSubMenuItems(header.SubMenuItems, accountChildren);
             header.IsSelected = account.Id == _selectedAccountId;
-            desired.Add(header);
+            accountRows[account.Id] = header;
 
             if (header.IsSelected)
                 selectedAccountChildren = accountChildren;
         }
+
+        // Linked accounts are a Mail concept, so their members are listed one by one.
+        var accountLayout = AccountLayoutBuilder.Build(orderedAccounts, _accountGroups, includeLinkedAccounts: false);
+        desired.AddRange(_accountGroupItems.Build(accountLayout, entry =>
+            entry.Account is { } layoutAccount && accountRows.TryGetValue(layoutAccount.Id, out var row) ? row : null));
 
         foreach (var accountId in _accountGroupMenuItems.Keys.Where(id => !activeAccountIds.Contains(id)).ToList())
             _accountGroupMenuItems.Remove(accountId);

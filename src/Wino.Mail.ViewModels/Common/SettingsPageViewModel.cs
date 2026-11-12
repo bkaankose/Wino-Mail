@@ -247,6 +247,8 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 return string.Format(Translator.SettingsAccountDetails_Subtitle, accountName ?? pageTitle ?? Translator.AccountDetailsPage_Title);
             case WinoPage.MergedAccountDetailsPage:
                 return Translator.SettingsEditLinkedInbox_Description;
+            case WinoPage.AccountGroupDetailsPage:
+                return Translator.AccountGroupDetailsPage_Description;
             case WinoPage.AliasManagementPage:
                 return Translator.SettingsManageAliases_Description;
             case WinoPage.FolderCustomizationPage:

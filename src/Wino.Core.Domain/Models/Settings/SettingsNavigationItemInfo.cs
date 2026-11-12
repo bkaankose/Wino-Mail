@@ -333,6 +333,7 @@ public static class SettingsNavigationInfoProvider
             WinoPage.AccountManagementPage => WinoPage.ManageAccountsPage,
             WinoPage.AccountDetailsPage => WinoPage.ManageAccountsPage,
             WinoPage.MergedAccountDetailsPage => WinoPage.ManageAccountsPage,
+            WinoPage.AccountGroupDetailsPage => WinoPage.ManageAccountsPage,
             WinoPage.AliasManagementPage => WinoPage.ManageAccountsPage,
             WinoPage.FolderCustomizationPage => WinoPage.ManageAccountsPage,
             WinoPage.MailCategoryManagementPage => WinoPage.ManageAccountsPage,

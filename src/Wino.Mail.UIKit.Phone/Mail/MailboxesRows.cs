@@ -123,8 +123,9 @@ internal sealed class MailboxesRows : UITableViewSource
             }
             var children = ShellMenuItemRules.Children(item);
             Observe(children);
-            // Accounts always show their folders; other parents only while expanded.
-            if (item is IAccountMenuItem || item.IsExpanded) Add(children, depth + 1);
+            // Accounts always show their folders; other parents only while expanded. Account groups have no
+            // collapsible row here yet, so their accounts always show under the group caption.
+            if (item is IAccountMenuItem or AccountGroupMenuItem || item.IsExpanded) Add(children, item is AccountGroupMenuItem ? depth : depth + 1);
         }
     }
 
@@ -149,7 +150,7 @@ internal sealed class MailboxesRows : UITableViewSource
 
     private static WinoShellRowKind? Kind(IMenuItem item) => item switch
     {
-        ShellSectionHeaderMenuItem => WinoShellRowKind.Header,
+        ShellSectionHeaderMenuItem or AccountGroupMenuItem => WinoShellRowKind.Header,
         IAccountMenuItem => WinoShellRowKind.Account,
         IBaseFolderMenuItem or MergedAccountMoreFolderMenuItem => WinoShellRowKind.Folder,
         _ => null
@@ -169,6 +170,9 @@ internal sealed class MailboxesRows : UITableViewSource
         {
             case ShellSectionHeaderMenuItem header:
                 cell.ConfigureHeader(header.Title);
+                break;
+            case AccountGroupMenuItem accountGroup:
+                cell.ConfigureHeader(accountGroup.Name);
                 break;
             case MergedAccountMenuItem merged:
                 cell.ConfigureAccount(MailAccountIconInfoFactory.CreateProviderFallback(MailProviderType.IMAP4, SpecialImapProvider.None),
@@ -193,16 +197,16 @@ internal sealed class MailboxesRows : UITableViewSource
                 break;
         }
         // After Configure*, which resets the row: interaction follows the shared rules.
-        cell.Highlightable = ShellMenuItemRules.IsHighlightable(item) && item is not ShellSectionHeaderMenuItem;
+        cell.Highlightable = ShellMenuItemRules.IsHighlightable(item) && item is not (ShellSectionHeaderMenuItem or AccountGroupMenuItem);
         cell.ShowsIndicator = ShellMenuItemRules.ShowsIndicator(item);
-        if (HasChildren(item))
+        if (HasChildren(item) && item is not AccountGroupMenuItem)
             cell.AccessibilityValue = string.Join(", ", new[] { cell.AccessibilityValue, item.IsExpanded ? Translator.Accessibility_MailThreadExpanded : Translator.Accessibility_MailThreadCollapsed }
                 .Where(static part => !string.IsNullOrEmpty(part)));
         return cell;
     }
 
     public override NSIndexPath? WillSelectRow(UITableView tableView, NSIndexPath indexPath)
-        => ItemAt(indexPath) is { } item && ShellMenuItemRules.IsInteractive(item) && ShellMenuItemRules.IsEnabled(item) ? indexPath : null;
+        => ItemAt(indexPath) is { } item and not AccountGroupMenuItem && ShellMenuItemRules.IsInteractive(item) && ShellMenuItemRules.IsEnabled(item) ? indexPath : null;
 
     public override void RowSelected(UITableView tableView, NSIndexPath indexPath)
     {

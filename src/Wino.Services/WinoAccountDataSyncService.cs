@@ -314,10 +314,11 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             document.Categories = await ExportCategoriesAsync(accounts).ConfigureAwait(false);
             document.Aliases = await ExportAliasesAsync(accounts).ConfigureAwait(false);
             document.MergedInboxes = ExportMergedInboxes(accounts);
+            document.AccountGroups = ExportAccountGroups(accounts);
             document.AccountCapabilities = ExportAccountCapabilities(accounts);
 
             exportedAppDataCount += (document.Filters?.Count ?? 0) + (document.Categories?.Count ?? 0)
-                + (document.Aliases?.Count ?? 0) + (document.MergedInboxes?.Count ?? 0);
+                + (document.Aliases?.Count ?? 0) + (document.MergedInboxes?.Count ?? 0) + (document.AccountGroups?.Count ?? 0);
         }
 
         return new PreparedSyncExport(
@@ -506,6 +507,20 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             })
             .ToList();
 
+    private static List<SnapshotAccountGroup> ExportAccountGroups(List<MailAccount> accounts)
+        => accounts
+            .Where(a => a.MailAccountGroupId.HasValue && !string.IsNullOrWhiteSpace(a.MailAccountGroup?.Name))
+            .GroupBy(a => a.MailAccountGroupId!.Value)
+            .Select(g => new SnapshotAccountGroup
+            {
+                Name = g.First().MailAccountGroup.Name.Trim(),
+                ColorKey = AccountGroupColors.Normalize(g.First().MailAccountGroup.ColorKey),
+                Members = g.OrderBy(a => a.Order)
+                    .Select(a => new SnapshotMailboxReference { AccountAddress = a.Address, ProviderType = (int)a.ProviderType })
+                    .ToList()
+            })
+            .ToList();
+
     #endregion
 
     #region Import
@@ -623,6 +638,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             appliedAppDataCount += await ApplyCategoriesAsync(document.Categories, accountsByKey).ConfigureAwait(false);
             appliedAppDataCount += await ApplyAliasesAsync(document.Aliases, accountsByKey).ConfigureAwait(false);
             appliedAppDataCount += await ApplyMergedInboxesAsync(document.MergedInboxes).ConfigureAwait(false);
+            appliedAppDataCount += await ApplyAccountGroupsAsync(document.AccountGroups).ConfigureAwait(false);
         }
 
         await RepairStartupEntityAsync().ConfigureAwait(false);
@@ -995,6 +1011,63 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             catch (Exception ex)
             {
                 _logger.Warning(ex, "Merged inbox {Name} could not be restored.", mergedInbox.Name);
+            }
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Account groups match by name, ignoring case. Members are resolved by address and provider and keep the
+    /// snapshot's order after the group's local members; accounts already in another local group stay there.
+    /// </summary>
+    private async Task<int> ApplyAccountGroupsAsync(List<SnapshotAccountGroup>? accountGroups)
+    {
+        if (accountGroups == null || accountGroups.Count == 0) return 0;
+
+        var applied = 0;
+        foreach (var snapshotGroup in accountGroups.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
+        {
+            try
+            {
+                var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+                var groups = await _accountService.GetAccountGroupsAsync().ConfigureAwait(false);
+                var accountsByKey = accounts.ToDictionary(CreateMailboxKey, StringComparer.Ordinal);
+                var name = snapshotGroup.Name.Trim();
+
+                var members = (snapshotGroup.Members ?? [])
+                    .Select(m => accountsByKey.GetValueOrDefault(CreateMailboxKey(m.AccountAddress, m.ProviderType)))
+                    .Where(a => a != null)
+                    .Select(a => a!)
+                    .Distinct()
+                    .ToList();
+
+                var existing = groups.FirstOrDefault(g => string.Equals(g.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    var existingId = existing.Id;
+                    var currentIds = accounts.Where(a => a.MailAccountGroupId == existingId).OrderBy(a => a.Order).Select(a => a.Id).ToList();
+                    var addedIds = members.Where(a => !a.MailAccountGroupId.HasValue).Select(a => a.Id).Except(currentIds).ToList();
+                    var colorKey = AccountGroupColors.Normalize(snapshotGroup.ColorKey) ?? existing.ColorKey;
+
+                    if (addedIds.Count == 0 && string.Equals(colorKey, existing.ColorKey, StringComparison.Ordinal))
+                        continue;
+
+                    existing.ColorKey = colorKey;
+                    await _accountService.UpdateAccountGroupAsync(existing, currentIds.Concat(addedIds).ToList()).ConfigureAwait(false);
+                    applied++;
+                    continue;
+                }
+
+                var free = members.Where(a => !a.MailAccountGroupId.HasValue).Select(a => a.Id).ToList();
+                if (free.Count == 0) continue;
+
+                await _accountService.CreateAccountGroupAsync(name, snapshotGroup.ColorKey, free).ConfigureAwait(false);
+                applied++;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Account group {Name} could not be restored.", snapshotGroup.Name);
             }
         }
 

@@ -96,8 +96,16 @@ public class AccountService : BaseDatabaseService, IAccountService
         parameters.AddRange(accountIdList.Cast<object>());
 
         await Connection.ExecuteAsync(sql, parameters.ToArray());
+        await ReportLinkedAccountLayoutAsync().ConfigureAwait(false);
 
         WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
+    }
+
+    /// <summary>A linked account takes the group of its first member, which can move accounts between groups.</summary>
+    private async Task ReportLinkedAccountLayoutAsync()
+    {
+        if (await NormalizeAccountLayoutAsync().ConfigureAwait(false))
+            ReportUIChange(new AccountLayoutChanged());
     }
 
     public async Task<string> UpdateSyncIdentifierRawAsync(Guid accountId, string syncIdentifier)
@@ -209,8 +217,10 @@ public class AccountService : BaseDatabaseService, IAccountService
         {
             account.MergedInboxId = mergedInbox.Id;
 
-            await Connection.UpdateAsync(account, typeof(MailAccount));
+            await Connection.ExecuteAsync("UPDATE MailAccount SET MergedInboxId = ? WHERE Id = ?", mergedInbox.Id, account.Id);
         }
+
+        await ReportLinkedAccountLayoutAsync().ConfigureAwait(false);
 
         WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
     }
@@ -251,9 +261,13 @@ public class AccountService : BaseDatabaseService, IAccountService
     public async Task<List<MailAccount>> GetAccountsAsync()
     {
         var accounts = await Connection.Table<MailAccount>().OrderBy(a => a.Order).ToListAsync();
+        var groupsById = (await GetAccountGroupsAsync()).ToDictionary(group => group.Id);
 
         foreach (var account in accounts)
         {
+            if (account.MailAccountGroupId is Guid groupId)
+                account.MailAccountGroup = groupsById.GetValueOrDefault(groupId);
+
             // Load IMAP server configuration.
             if (account.ProviderType.IsCustomMailProvider())
             {
@@ -490,6 +504,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences.Id);
 
         await Connection.DeleteAsync<MailAccount>(account.Id);
+        var isLayoutStructureChanged = await NormalizeAccountLayoutAsync().ConfigureAwait(false);
         await _credentialPersistence.DeleteMailAccountSecretsAsync(account.Id).ConfigureAwait(false);
         await DeleteProviderTokenAsync(account).ConfigureAwait(false);
         if (_davCredentialStore is not null)
@@ -539,6 +554,9 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
 
         ReportUIChange(new AccountRemovedMessage(account));
+
+        if (isLayoutStructureChanged)
+            ReportUIChange(new AccountLayoutChanged());
     }
 
     public async Task DeleteAccountAuthenticationDataAsync(Guid accountId)
@@ -761,6 +779,16 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateAccountAsync(MailAccount account)
     {
+        // Callers often hold a copy loaded before a reorder or a group change; writing it back must not undo them.
+        var accountId = account.Id;
+        var storedAccount = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId).ConfigureAwait(false);
+
+        if (storedAccount != null)
+        {
+            account.Order = storedAccount.Order;
+            account.MailAccountGroupId = storedAccount.MailAccountGroupId;
+        }
+
         if (account.Preferences is not null)
         {
             account.Preferences.PrepareForStorage();
@@ -1170,7 +1198,8 @@ public class AccountService : BaseDatabaseService, IAccountService
         {
             // Set the order of the account.
             // This can be changed by the user later in manage accounts page.
-            account.Order = accountCount;
+            var lastOrder = await Connection.ExecuteScalarAsync<int>("SELECT MAX([Order]) FROM MailAccount").ConfigureAwait(false);
+            account.Order = Math.Max(accountCount, lastOrder + 1);
         }
 
         await Connection.InsertAsync(account, typeof(MailAccount));
@@ -1379,23 +1408,294 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair)
     {
-        foreach (var pair in accountIdOrderPair)
-        {
-            var account = await GetAccountAsync(pair.Key);
+        if (accountIdOrderPair == null)
+            return;
 
-            if (account == null)
+        var accounts = await GetOrderedLayoutAccountsAsync().ConfigureAwait(false);
+        var orderedEntryIds = accountIdOrderPair.OrderBy(pair => pair.Value).Select(pair => pair.Key);
+
+        await SaveFlattenedOrderAsync(ExpandEntryIds(orderedEntryIds, accounts), accounts).ConfigureAwait(false);
+    }
+
+    #region Account groups
+
+    public Task<List<MailAccountGroup>> GetAccountGroupsAsync() => Connection.Table<MailAccountGroup>().ToListAsync();
+
+    public async Task<MailAccountGroup> CreateAccountGroupAsync(string name, string? colorKey, IEnumerable<Guid> memberEntryIds)
+    {
+        Guard.IsNotNullOrWhiteSpace(name);
+
+        var group = new MailAccountGroup
+        {
+            Id = Guid.NewGuid(),
+            Name = name.Trim(),
+            ColorKey = AccountGroupColors.Normalize(colorKey),
+            IsExpanded = true
+        };
+
+        await Connection.InsertAsync(group, typeof(MailAccountGroup)).ConfigureAwait(false);
+        await ApplyGroupMembershipAsync(group.Id, memberEntryIds).ConfigureAwait(false);
+
+        ReportUIChange(new AccountLayoutChanged());
+
+        return group;
+    }
+
+    public async Task UpdateAccountGroupAsync(MailAccountGroup group, IEnumerable<Guid> memberEntryIds)
+    {
+        Guard.IsNotNull(group);
+        Guard.IsNotNullOrWhiteSpace(group.Name);
+
+        group.Name = group.Name.Trim();
+        group.ColorKey = AccountGroupColors.Normalize(group.ColorKey);
+
+        var groupId = group.Id;
+        var storedGroup = await Connection.Table<MailAccountGroup>().FirstOrDefaultAsync(a => a.Id == groupId).ConfigureAwait(false);
+
+        if (storedGroup == null)
+        {
+            await Connection.InsertAsync(group, typeof(MailAccountGroup)).ConfigureAwait(false);
+        }
+        else
+        {
+            // The expansion is owned by the panes; a page holding an older copy must not reset it.
+            group.IsExpanded = storedGroup.IsExpanded;
+            await Connection.ExecuteAsync("UPDATE MailAccountGroup SET Name = ?, ColorKey = ? WHERE Id = ?", group.Name, group.ColorKey, groupId).ConfigureAwait(false);
+        }
+
+        await ApplyGroupMembershipAsync(groupId, memberEntryIds).ConfigureAwait(false);
+
+        ReportUIChange(new AccountLayoutChanged());
+    }
+
+    public async Task DeleteAccountGroupAsync(Guid groupId)
+    {
+        await Connection.ExecuteAsync("UPDATE MailAccount SET MailAccountGroupId = NULL WHERE MailAccountGroupId = ?", groupId).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM MailAccountGroup WHERE Id = ?", groupId).ConfigureAwait(false);
+        await NormalizeAccountLayoutAsync().ConfigureAwait(false);
+
+        ReportUIChange(new AccountLayoutChanged());
+    }
+
+    public async Task SetAccountGroupExpandedAsync(Guid groupId, bool isExpanded)
+    {
+        await Connection.ExecuteAsync("UPDATE MailAccountGroup SET IsExpanded = ? WHERE Id = ?", isExpanded, groupId).ConfigureAwait(false);
+
+        ReportUIChange(new AccountGroupExpansionChanged(groupId, isExpanded));
+    }
+
+    public async Task SaveAccountLayoutOrderAsync(IEnumerable<AccountLayoutOrderEntry> topLevelEntries)
+    {
+        if (topLevelEntries == null)
+            return;
+
+        var accounts = await GetOrderedLayoutAccountsAsync().ConfigureAwait(false);
+        var groupIds = (await GetAccountGroupsAsync().ConfigureAwait(false)).Select(group => group.Id).ToHashSet();
+        var orderedEntryIds = new List<Guid>();
+
+        foreach (var entry in topLevelEntries.Where(entry => entry != null))
+        {
+            if (!groupIds.Contains(entry.Id))
             {
-                _logger.Information("Could not find account with id {Key} for reordering. It may be a linked account.", pair.Key);
+                orderedEntryIds.Add(entry.Id);
                 continue;
             }
 
-            account.Order = pair.Value;
+            orderedEntryIds.AddRange(entry.ChildIds ?? []);
 
-            await Connection.UpdateAsync(account, typeof(MailAccount));
+            // Entries the dialog did not list stay in the group after the listed ones.
+            var groupId = entry.Id;
+            orderedEntryIds.AddRange(accounts.Where(account => account.MailAccountGroupId == groupId).Select(account => account.Id));
         }
 
-        Messenger.Send(new AccountMenuItemsReordered(accountIdOrderPair));
+        await SaveFlattenedOrderAsync(ExpandEntryIds(orderedEntryIds, accounts), accounts).ConfigureAwait(false);
     }
+
+    private async Task<List<MailAccount>> GetOrderedLayoutAccountsAsync()
+        => (await Connection.Table<MailAccount>().ToListAsync().ConfigureAwait(false))
+            .OrderBy(account => account.Order)
+            .ToList();
+
+    /// <summary>
+    /// Resolves account and merged inbox ids to account ids in the given order. A merged inbox, and an account
+    /// that belongs to one, always brings every member, so a linked account is never split.
+    /// </summary>
+    private static List<Guid> ExpandEntryIds(IEnumerable<Guid> entryIds, List<MailAccount> orderedAccounts)
+    {
+        var accountsById = orderedAccounts.ToDictionary(account => account.Id);
+        var result = new List<Guid>();
+        var added = new HashSet<Guid>();
+
+        foreach (var entryId in entryIds ?? Enumerable.Empty<Guid>())
+        {
+            Guid? mergedInboxId = accountsById.TryGetValue(entryId, out var account)
+                ? account.MergedInboxId
+                : orderedAccounts.Any(candidate => candidate.MergedInboxId == entryId) ? entryId : null;
+
+            if (mergedInboxId is Guid linkedId)
+            {
+                foreach (var member in orderedAccounts.Where(candidate => candidate.MergedInboxId == linkedId))
+                {
+                    if (added.Add(member.Id))
+                        result.Add(member.Id);
+                }
+            }
+            else if (account != null && added.Add(account.Id))
+            {
+                result.Add(account.Id);
+            }
+        }
+
+        return result;
+    }
+
+    private async Task SaveFlattenedOrderAsync(List<Guid> orderedAccountIds, List<MailAccount> orderedAccounts)
+    {
+        var listed = orderedAccountIds.ToHashSet();
+        var accountsById = orderedAccounts.ToDictionary(account => account.Id);
+        var newOrder = orderedAccountIds
+            .Where(accountsById.ContainsKey)
+            .Select(id => accountsById[id])
+            .Concat(orderedAccounts.Where(account => !listed.Contains(account.Id)))
+            .ToList();
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            for (var index = 0; index < newOrder.Count; index++)
+            {
+                if (newOrder[index].Order == index)
+                    continue;
+
+                newOrder[index].Order = index;
+                transaction.Execute("UPDATE MailAccount SET [Order] = ? WHERE Id = ?", index, newOrder[index].Id);
+            }
+        }).ConfigureAwait(false);
+
+        await NormalizeAccountLayoutAsync().ConfigureAwait(false);
+
+        ReportUIChange(new AccountLayoutChanged());
+    }
+
+    /// <summary>
+    /// Makes <paramref name="memberEntryIds"/> the ordered members of the group. The members are placed together
+    /// where the earliest of them is now; accounts that leave the group stay where they are, at the top level.
+    /// </summary>
+    private async Task ApplyGroupMembershipAsync(Guid groupId, IEnumerable<Guid> memberEntryIds)
+    {
+        var accounts = await GetOrderedLayoutAccountsAsync().ConfigureAwait(false);
+        var memberIds = ExpandEntryIds(memberEntryIds, accounts);
+        var memberSet = memberIds.ToHashSet();
+        var accountsById = accounts.ToDictionary(account => account.Id);
+        var newOrder = new List<MailAccount>(accounts.Count);
+        var areMembersPlaced = false;
+
+        foreach (var account in accounts)
+        {
+            if (!memberSet.Contains(account.Id))
+            {
+                newOrder.Add(account);
+                continue;
+            }
+
+            if (areMembersPlaced)
+                continue;
+
+            newOrder.AddRange(memberIds.Select(id => accountsById[id]));
+            areMembersPlaced = true;
+        }
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            for (var index = 0; index < newOrder.Count; index++)
+            {
+                var account = newOrder[index];
+                Guid? newGroupId = memberSet.Contains(account.Id)
+                    ? groupId
+                    : account.MailAccountGroupId == groupId ? null : account.MailAccountGroupId;
+
+                if (account.Order == index && account.MailAccountGroupId == newGroupId)
+                    continue;
+
+                account.Order = index;
+                account.MailAccountGroupId = newGroupId;
+                transaction.Execute("UPDATE MailAccount SET MailAccountGroupId = ?, [Order] = ? WHERE Id = ?", newGroupId, index, account.Id);
+            }
+        }).ConfigureAwait(false);
+
+        await NormalizeAccountLayoutAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Restores the layout invariants: no account points at a missing group, every member of a merged inbox carries
+    /// the group of its first member, a group without accounts is deleted, and each group's accounts (and each linked
+    /// account's members inside it) are contiguous in <see cref="MailAccount.Order"/>.
+    /// </summary>
+    /// <returns>Whether a membership changed or a group was deleted.</returns>
+    private async Task<bool> NormalizeAccountLayoutAsync()
+    {
+        var accounts = await GetOrderedLayoutAccountsAsync().ConfigureAwait(false);
+        var groups = await GetAccountGroupsAsync().ConfigureAwait(false);
+        var groupIds = groups.Select(group => group.Id).ToHashSet();
+        var changedAccounts = new HashSet<MailAccount>();
+
+        foreach (var account in accounts)
+        {
+            if (account.MailAccountGroupId is Guid groupId && !groupIds.Contains(groupId))
+            {
+                account.MailAccountGroupId = null;
+                changedAccounts.Add(account);
+            }
+        }
+
+        foreach (var linkedAccount in accounts.Where(account => account.MergedInboxId.HasValue).GroupBy(account => account.MergedInboxId))
+        {
+            var linkedGroupId = linkedAccount.First().MailAccountGroupId;
+
+            foreach (var member in linkedAccount.Where(member => member.MailAccountGroupId != linkedGroupId))
+            {
+                member.MailAccountGroupId = linkedGroupId;
+                changedAccounts.Add(member);
+            }
+        }
+
+        var isStructureChanged = changedAccounts.Count > 0;
+
+        var usedGroupIds = accounts.Where(account => account.MailAccountGroupId.HasValue)
+            .Select(account => account.MailAccountGroupId.Value)
+            .ToHashSet();
+        var emptyGroupIds = groups.Where(group => !usedGroupIds.Contains(group.Id)).Select(group => group.Id).ToList();
+
+        var layoutOrder = AccountLayoutBuilder.Flatten(AccountLayoutBuilder.Build(accounts, groups));
+
+        for (var index = 0; index < layoutOrder.Count; index++)
+        {
+            if (layoutOrder[index].Order == index)
+                continue;
+
+            layoutOrder[index].Order = index;
+            changedAccounts.Add(layoutOrder[index]);
+        }
+
+        if (changedAccounts.Count == 0 && emptyGroupIds.Count == 0)
+            return false;
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            foreach (var account in changedAccounts)
+            {
+                transaction.Execute("UPDATE MailAccount SET MailAccountGroupId = ?, [Order] = ? WHERE Id = ?", account.MailAccountGroupId, account.Order, account.Id);
+            }
+
+            foreach (var emptyGroupId in emptyGroupIds)
+            {
+                transaction.Execute("DELETE FROM MailAccountGroup WHERE Id = ?", emptyGroupId);
+            }
+        }).ConfigureAwait(false);
+
+        return isStructureChanged || emptyGroupIds.Count > 0;
+    }
+
+    #endregion
 
     public async Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId)
     {

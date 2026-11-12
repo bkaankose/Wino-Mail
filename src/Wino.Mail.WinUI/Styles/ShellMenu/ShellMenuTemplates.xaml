@@ -502,6 +502,41 @@
         </controls:AccountNavigationItem>
     </DataTemplate>
 
+    <!--
+        Account group in every mode pane. It is never selected; a click only expands or collapses it.
+        A collapsed group shows the unread count its hidden account rows would show.
+    -->
+    <DataTemplate x:Key="AccountGroupTemplate" x:DataType="menu:AccountGroupMenuItem">
+        <coreControls:WinoNavigationViewItem
+            MinHeight="36"
+            AutomationProperties.AutomationId="ShellAccountGroup"
+            AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}"
+            DataContext="{x:Bind}"
+            IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+            MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
+            SelectsOnInvoked="False"
+            ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="GroupList" />
+            </muxc:NavigationViewItem.Icon>
+            <muxc:NavigationViewItem.InfoBadge>
+                <muxc:InfoBadge
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsUnreadCountVisible), Mode=OneWay}"
+                    Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
+            </muxc:NavigationViewItem.InfoBadge>
+            <TextBlock
+                VerticalAlignment="Center"
+                behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey, Mode=OneWay}"
+                FontWeight="SemiBold"
+                MaxLines="1"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="{x:Bind Name, Mode=OneWay}"
+                TextTrimming="CharacterEllipsis" />
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
     <!--  Merged Account Common Folder Item  -->
     <DataTemplate x:Key="MergedAccountFolderMenuItemTemplate" x:DataType="menu:MergedAccountFolderMenuItem">
         <coreControls:WinoNavigationViewItem

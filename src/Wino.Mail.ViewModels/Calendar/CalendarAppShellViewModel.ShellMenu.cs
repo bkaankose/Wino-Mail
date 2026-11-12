@@ -4,9 +4,12 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -24,6 +27,8 @@ public partial class CalendarAppShellViewModel
     private readonly Dictionary<Guid, CalendarAccountMenuItem> _calendarAccountMenuItems = [];
     private readonly Dictionary<Guid, UngroupedCalendarMenuItem> _ungroupedCalendarMenuItems = [];
     private readonly HashSet<GroupedAccountCalendarViewModel> _subscribedAccountCalendarGroups = [];
+    private readonly AccountGroupPaneItems _accountGroupItems;
+    private List<MailAccountGroup> _accountGroups = [];
 
     private bool _isAccountCalendarSubscriptionAttached;
     private bool _isAccountCalendarInitializationInProgress;
@@ -155,32 +160,23 @@ public partial class CalendarAppShellViewModel
                 if (!_isPaneCompact)
                 {
                     desired.Add(_calendarsSeparator);
-
-                    foreach (var group in groups)
-                    {
-                        desired.Add(GetAccountCalendarMenuItem(group));
-                    }
+                    desired.AddRange(BuildCalendarAccountArea(groups, GetAccountCalendarMenuItem));
                 }
             }
             else
             {
                 desired.Add(_calendarsSeparator);
 
-                var eligibleGroups = groups
-                    .Where(group => group.AccountCalendars.Count > 0)
-                    .OrderBy(group => group.Account.Order)
-                    .ThenBy(group => group.Account.Name, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(group => group.Account.Id)
-                    .ToList();
+                var eligibleGroups = OrderByAccountLayout(groups.Where(group => group.AccountCalendars.Count > 0));
 
                 ReconcileSelectedCalendarAccount(eligibleGroups);
 
-                foreach (var group in eligibleGroups)
+                desired.AddRange(BuildCalendarAccountArea(eligibleGroups, group =>
                 {
                     var accountMenuItem = GetCalendarAccountMenuItem(group);
                     accountMenuItem.IsSelected = group.Account.Id == _selectedCalendarAccountId;
-                    desired.Add(accountMenuItem);
-                }
+                    return accountMenuItem;
+                }));
 
                 var selectedGroup = eligibleGroups.FirstOrDefault(group => group.Account.Id == _selectedCalendarAccountId);
                 if (selectedGroup != null)
@@ -202,6 +198,40 @@ public partial class CalendarAppShellViewModel
 
         ApplyDesiredMenuItems(desired);
         PruneShellMenuItemCaches();
+    }
+
+    /// <summary>
+    /// The calendar accounts in pane order: grouped accounts sit inside their group where its first account falls.
+    /// Linked accounts are a Mail concept, so their members are listed one by one.
+    /// </summary>
+    private List<IMenuItem> BuildCalendarAccountArea(IEnumerable<GroupedAccountCalendarViewModel> calendarGroups,
+                                                     Func<GroupedAccountCalendarViewModel, IMenuItem> createRow)
+    {
+        var orderedGroups = OrderByAccountLayout(calendarGroups);
+        var groupsByAccountId = orderedGroups
+            .GroupBy(group => group.Account.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        var layout = AccountLayoutBuilder.Build(orderedGroups.Select(group => group.Account), _accountGroups, includeLinkedAccounts: false);
+
+        return _accountGroupItems.Build(layout, entry =>
+            entry.Account is { } account && groupsByAccountId.TryGetValue(account.Id, out var calendarGroup)
+                ? createRow(calendarGroup)
+                : null);
+    }
+
+    private List<GroupedAccountCalendarViewModel> OrderByAccountLayout(IEnumerable<GroupedAccountCalendarViewModel> calendarGroups)
+    {
+        var ordered = calendarGroups
+            .Where(group => group?.Account != null)
+            .OrderBy(group => group.Account.Order)
+            .ThenBy(group => group.Account.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(group => group.Account.Id)
+            .ToList();
+        var layoutOrder = AccountLayoutBuilder.Flatten(AccountLayoutBuilder.Build(ordered.Select(group => group.Account), _accountGroups, includeLinkedAccounts: false))
+            .Select((account, index) => (account.Id, index))
+            .ToDictionary(pair => pair.Id, pair => pair.index);
+
+        return ordered.OrderBy(group => layoutOrder.GetValueOrDefault(group.Account.Id, int.MaxValue)).ToList();
     }
 
     private AccountCalendarGroupMenuItem GetAccountCalendarMenuItem(GroupedAccountCalendarViewModel group)
@@ -327,6 +357,7 @@ public partial class CalendarAppShellViewModel
 
         _calendarAccountMenuItems.Clear();
         _ungroupedCalendarMenuItems.Clear();
+        _accountGroupItems.Clear();
         _selectedCalendarAccountId = null;
     }
 

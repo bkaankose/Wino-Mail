@@ -12,7 +12,7 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 {
     // Which types to remove from the list when folders are changing due to selection of new account.
     // We don't clear the whole list since we want to keep the New Mail button and account menu items.
-    private readonly Type[] _preservingTypesForFolderArea = [typeof(AccountMenuItem), typeof(NewMailMenuItem), typeof(MergedAccountMenuItem)];
+    private readonly Type[] _preservingTypesForFolderArea = [typeof(AccountMenuItem), typeof(NewMailMenuItem), typeof(MergedAccountMenuItem), typeof(AccountGroupMenuItem)];
     private readonly IDispatcher _dispatcher;
 
     public MenuItemCollection(IDispatcher dispatcher)
@@ -20,9 +20,15 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
         _dispatcher = dispatcher;
     }
 
+    /// <summary>The root items with the entries of every account group in their place.</summary>
+    public List<IMenuItem> GetAccountAreaItems()
+        => this.SelectMany(static item => item is AccountGroupMenuItem group ? group.SubMenuItems.ToArray() : new[] { item }).ToList();
+
+    public IEnumerable<AccountGroupMenuItem> GetAccountGroupMenuItems() => this.OfType<AccountGroupMenuItem>().ToList();
+
     public IEnumerable<IAccountMenuItem> GetAllAccountMenuItems()
     {
-        var rootItems = this.ToList();
+        var rootItems = GetAccountAreaItems();
 
         foreach (var item in rootItems)
         {
@@ -67,9 +73,13 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
         }
     }
 
+    /// <summary>The top-level account entry (account or linked account) with <paramref name="entityId"/>, wherever its group puts it.</summary>
+    public IAccountMenuItem FindAccountAreaItem(Guid entityId)
+        => GetAccountAreaItems().OfType<IAccountMenuItem>().FirstOrDefault(item => item.EntityId == entityId);
+
     public bool TryGetAccountMenuItem(Guid accountId, out IAccountMenuItem value)
     {
-        var rootItems = this.ToList();
+        var rootItems = GetAccountAreaItems();
 
         value = rootItems.OfType<AccountMenuItem>().FirstOrDefault(a => a.AccountId == accountId);
         value ??= rootItems.OfType<MergedAccountMenuItem>().FirstOrDefault(a => a.SubMenuItems.OfType<AccountMenuItem>().Any(b => b.AccountId == accountId));
@@ -170,7 +180,7 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     public AccountMenuItem GetSpecificAccountMenuItem(Guid accountId)
     {
         AccountMenuItem accountMenuItem = null;
-        var rootItems = this.ToList();
+        var rootItems = GetAccountAreaItems();
 
         accountMenuItem = rootItems.OfType<AccountMenuItem>().FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId));
 
@@ -200,7 +210,8 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     public async Task SetAccountMenuItemEnabledStatusAsync(bool isEnabled)
     {
         // Accounts linked into a merged inbox sit under it, and the clicked one was disabled while it loaded too.
-        var accountItems = this.OfType<IAccountMenuItem>()
+        var accountItems = GetAccountAreaItems()
+            .OfType<IAccountMenuItem>()
             .SelectMany(static item => item is MergedAccountMenuItem merged
                 ? merged.SubMenuItems.OfType<IAccountMenuItem>().Prepend(item)
                 : new IAccountMenuItem[] { item })
@@ -215,9 +226,9 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
         });
     }
 
-    public void AddAccountMenuItem(IAccountMenuItem accountMenuItem)
+    public void AddAccountMenuItem(IMenuItem accountMenuItem)
     {
-        var lastAccount = Items.OfType<IAccountMenuItem>().LastOrDefault();
+        var lastAccount = Items.LastOrDefault(static item => item is IAccountMenuItem or AccountGroupMenuItem);
 
         // Indexes 0 and 1 are reserved for New Mail and Daily Briefing.
         var insertIndex = lastAccount == null ? 2 : Items.IndexOf(lastAccount) + 1;
