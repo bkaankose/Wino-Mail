@@ -290,8 +290,12 @@ function Start-Wino([string]$Root, [switch]$ForceBuild, [ValidateSet('local', 's
 
         $profilePath = Join-Path $app 'release-profile.Debug.json'
         $packageName = [string](Get-Content -LiteralPath $profilePath -Raw | ConvertFrom-Json).PackageName
-        Stop-WinoDebugPackage -ProfilePath $profilePath -Target $Target
-        if ($Target -eq 'sandbox') { Initialize-SandboxWebView2 }
+        # The host app and its tray process run from the build output that Sandbox deployment also rewrites.
+        Stop-WinoDebugPackage -ProfilePath $profilePath -Target local
+        if ($Target -eq 'sandbox') {
+            Stop-WinoDebugPackage -ProfilePath $profilePath -Target sandbox
+            Initialize-SandboxWebView2
+        }
         # Invalidate before starting: build or deployment failure must force the next run to build.
         [IO.File]::WriteAllText($statePath, '{}')
         # Sandbox registers without launching, so WebView2 and the accounts are in place before Wino first starts.

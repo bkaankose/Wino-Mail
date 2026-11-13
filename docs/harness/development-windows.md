@@ -194,8 +194,9 @@ The same named task is available through **Tasks: Run Task**. Both invoke the ex
 pwsh -NoProfile -File scripts/development/windows/start-wino.ps1 -Target sandbox
 ```
 
-The helper checks the guest package identity and development status, closes its app and tray processes,
-prepares WebView2 (below), registers the build with `winapp run -c Debug --arch x64 --on sandbox --no-launch`,
+The helper closes the host's Debug app and tray processes (they run from the build output that the Sandbox
+deployment also rewrites), checks the guest package identity and development status, closes the guest's app and
+tray processes, prepares WebView2 (below), registers the build with `winapp run -c Debug --arch x64 --on sandbox --no-launch`,
 seeds the lab accounts, and only then starts Wino, so every Sandbox launch opens with accounts and WebView2.
 
 Seeding needs the lab manifest `~/.wino-lab/fixtures.json`; without it the helper warns and starts Wino without
