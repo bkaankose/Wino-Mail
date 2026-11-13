@@ -595,43 +595,34 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (await TryNavigateToUnreadBadgeLocationAsync())
             return;
 
-        if (PreferencesService.StartupEntityId == null)
+        // The startup entity is an account, merged inbox or account group id kept in local settings. It is
+        // missing when those settings were not carried over with the database (restored or seeded data), and
+        // stale when the entity was removed; both open the first account instead of the welcome page.
+        var startupEntityMenuItem = PreferencesService.StartupEntityId is { } startupEntityId
+            ? MenuItems.FindAccountAreaItem(startupEntityId)
+            : null;
+
+        if (startupEntityMenuItem != null)
         {
-            NavigateToWelcomeWizard();
+            startupEntityMenuItem.Expand();
+
+            if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
+            {
+                await ChangeLoadedAccountAsync(startupAccountMenuItem);
+            }
+
+            return;
+        }
+
+        var firstMailAccountMenuItem = MenuItems.GetAccountAreaItems().OfType<IAccountMenuItem>().FirstOrDefault();
+        if (firstMailAccountMenuItem != null)
+        {
+            firstMailAccountMenuItem.Expand();
+            await ChangeLoadedAccountAsync(firstMailAccountMenuItem);
         }
         else
         {
-            var startupEntityId = PreferencesService.StartupEntityId.Value;
-
-            // startupEntityId is the id of the entity to be expanded on startup.
-            // This can be either AccountId or MergedAccountId right now.
-            // If accountId, we'll find the root account and extend Inbox folder for it.
-            // If mergedAccountId, merged account's Inbox folder will be extended.
-
-            var startupEntityMenuItem = MenuItems.FindAccountAreaItem(startupEntityId);
-
-            if (startupEntityMenuItem != null)
-            {
-                startupEntityMenuItem.Expand();
-
-                if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
-                {
-                    await ChangeLoadedAccountAsync(startupAccountMenuItem);
-                }
-            }
-            else
-            {
-                var firstMailAccountMenuItem = MenuItems.GetAccountAreaItems().OfType<IAccountMenuItem>().FirstOrDefault();
-                if (firstMailAccountMenuItem != null)
-                {
-                    firstMailAccountMenuItem.Expand();
-                    await ChangeLoadedAccountAsync(firstMailAccountMenuItem);
-                }
-                else
-                {
-                    NavigateToWelcomeWizard();
-                }
-            }
+            NavigateToWelcomeWizard();
         }
     }
 
