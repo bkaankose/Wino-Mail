@@ -562,13 +562,22 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         foreach (var attachment in ViewModel.Attachments)
         {
             var captured = attachment;
-            var icon = new WinoIconView(WinoIconGlyph.Attachment, 16, WinoStyle.SecondaryText);
+            var icon = AttachmentFileIcons.ImageView(attachment.FileName, 28);
             var name = WinoStyle.Label(attachment.FileName, WinoStyle.Body);
-            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
+            name.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
+            name.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            var details = WinoStyle.Label(attachment.DetailsText, WinoStyle.Caption, WinoStyle.SecondaryText);
+            var text = WinoLayout.VStack(1, name, details);
+            text.Alignment = NSLayoutAttribute.Leading;
+            text.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             var remove = new NSButton { Image = WinoIcons.Image(WinoIconGlyph.Dismiss, 12), Bordered = false, TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = Translator.CalendarEventCompose_RemoveAttachment };
             remove.Activated += (_, _) => ViewModel.RemoveAttachmentCommand.Execute(captured);
-            var row = WinoLayout.HStack(8, icon, name, size, WinoLayout.Spacer(), remove);
+            var row = WinoLayout.HStack(8, icon, text, WinoLayout.Spacer(), remove);
             row.EdgeInsets = new NSEdgeInsets(4, 6, 4, 6);
+            row.ToolTip = attachment.FileName;
+            row.AccessibilityElement = true;
+            row.AccessibilityRole = NSAccessibilityRoles.GroupRole;
+            WinoAccessibility.Label(row, $"{attachment.FileName}, {attachment.DetailsText}");
             _attachmentList.AddArrangedSubview(row);
             row.WidthAnchor.ConstraintEqualTo(_attachmentList.WidthAnchor).Active = true;
         }

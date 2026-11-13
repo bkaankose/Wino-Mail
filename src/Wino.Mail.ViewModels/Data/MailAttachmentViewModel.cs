@@ -19,7 +19,7 @@ public partial class MailAttachmentViewModel : AttachmentViewModelBase
 
     public override string FileName { get; }
     public string FilePath { get; set; } = string.Empty;
-    public string ReadableSize { get; }
+    public override string ReadableSize { get; }
     public byte[] Content { get; set; }
     public IMimeContent? MimeContent => _mimePart?.Content;
     public string? DeclaredMimeType => _mimePart?.ContentType?.MimeType;

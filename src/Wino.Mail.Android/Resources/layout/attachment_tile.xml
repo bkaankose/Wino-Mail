@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One attachment in the reader, the composer and the calendar pages (AttachmentTiles): the file-type badge, the name
+     ellipsized in the middle so the extension stays visible, "size · type" with the content-type warning glyph, and
+     Remove when the page allows it. The code sets the badge, glyphs, texts and outline from the tokens. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.Wino.AttachmentTile"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:foreground="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+  <TextView
+      android:id="@+id/attachment_badge"
+      style="@style/Widget.Wino.AttachmentBadge"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:importantForAccessibility="no" />
+
+  <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/wino_attachment_tile_text_margin"
+      android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/attachment_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ellipsize="middle"
+        android:maxWidth="@dimen/wino_attachment_tile_name_max_width"
+        android:singleLine="true"
+        android:textAppearance="@style/TextAppearance.Wino.AttachmentName" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+      <TextView
+          android:id="@+id/attachment_warning"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginEnd="@dimen/wino_attachment_tile_warning_margin"
+          android:textColor="@color/wino_caution"
+          android:visibility="gone" />
+
+      <TextView
+          android:id="@+id/attachment_details"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:maxWidth="@dimen/wino_attachment_tile_name_max_width"
+          android:singleLine="true"
+          android:textAppearance="@style/TextAppearance.Wino.Caption" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <ImageButton
+      android:id="@+id/attachment_remove"
+      android:layout_width="@dimen/wino_attachment_tile_remove"
+      android:layout_height="@dimen/wino_attachment_tile_remove"
+      android:layout_marginTop="@dimen/wino_attachment_tile_remove_overlap"
+      android:layout_marginBottom="@dimen/wino_attachment_tile_remove_overlap"
+      android:background="?attr/selectableItemBackgroundBorderless"
+      android:visibility="gone" />
+</LinearLayout>

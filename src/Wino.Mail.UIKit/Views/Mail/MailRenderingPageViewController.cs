@@ -177,7 +177,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
         // ---- Attachments ----
         var tileScroll = new UIScrollView { TranslatesAutoresizingMaskIntoConstraints = false, ShowsHorizontalScrollIndicator = false, AlwaysBounceHorizontal = true };
-        tileScroll.HeightAnchor.ConstraintEqualTo(60).Active = true;
         tileScroll.AddSubview(_attachmentTiles);
         NSLayoutConstraint.ActivateConstraints(
         [
@@ -509,19 +508,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
     private UIView CreateTile(MailAttachmentViewModel attachment)
     {
-        var extension = Path.GetExtension(attachment.FileName ?? string.Empty).TrimStart('.').ToUpperInvariant();
-        if (extension.Length > 4) extension = extension[..4];
-        var icon = new WinoSurfaceView { Fill = ExtensionColor(extension), CornerRadius = 6 };
-        WinoLayout.Size(icon, 36, 36);
-        var iconLabel = WinoStyle.Label(extension, WinoStyle.Fixed(10, UIFontWeight.Bold), UIColor.White);
-        icon.AddSubview(iconLabel);
-        iconLabel.CenterXAnchor.ConstraintEqualTo(icon.CenterXAnchor).Active = true;
-        iconLabel.CenterYAnchor.ConstraintEqualTo(icon.CenterYAnchor).Active = true;
+        var icon = AttachmentBadge.Create(attachment, 36);
         var name = WinoStyle.Label(attachment.FileName, WinoStyle.Fixed(13, UIFontWeight.Semibold));
         name.LineBreakMode = UILineBreakMode.MiddleTruncation;
         name.WidthAnchor.ConstraintLessThanOrEqualTo(180).Active = true;
-        var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
-        var row = WinoLayout.Insets(WinoLayout.HStack(10, icon, WinoLayout.VStack(1, name, size)), 8, 8, 8, 12);
+        var details = WinoStyle.Label(attachment.DetailsText, WinoStyle.Caption, WinoStyle.SecondaryText);
+        var text = WinoLayout.VStack(1, name, details);
+        text.Alignment = UIStackViewAlignment.Leading;
+        var row = WinoLayout.Insets(WinoLayout.HStack(10, icon, text), 8, 8, 8, 12);
         var tile = new WinoPressableView
         {
             Fill = WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06)),
@@ -530,7 +524,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         };
         row.UserInteractionEnabled = false;
         WinoLayout.Fill(row, tile);
-        WinoAccessibility.Element(tile, UIAccessibilityTrait.Button, $"{attachment.FileName}, {attachment.ReadableSize}");
+        WinoAccessibility.Element(tile, UIAccessibilityTrait.Button, $"{attachment.FileName}, {attachment.DetailsText}");
         tile.Clicked += (_, _) => Observe(ViewModel.OpenAttachmentCommand.ExecuteAsync(attachment));
         tile.AddInteraction(new UIContextMenuInteraction(new MenuInteraction(() => UIMenu.Create(
         [
@@ -539,16 +533,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ]))));
         return tile;
     }
-
-    private static UIColor ExtensionColor(string extension) => extension switch
-    {
-        "DOC" or "DOCX" => WinoStyle.Hex(0x2B579A),
-        "XLS" or "XLSX" or "CSV" => WinoStyle.Hex(0x217346),
-        "PPT" or "PPTX" => WinoStyle.Hex(0xB7472A),
-        "PDF" => WinoStyle.Hex(0xD13438),
-        "ZIP" or "RAR" or "7Z" => WinoStyle.Hex(0x795548),
-        _ => WinoStyle.Hex(0x6E6E73)
-    };
 
     // ---- Rendering ----
 

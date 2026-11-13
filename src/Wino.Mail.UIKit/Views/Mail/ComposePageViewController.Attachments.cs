@@ -12,7 +12,7 @@ namespace Wino.Mail.UIKit.Views.Mail;
 
 /// <summary>
 /// The attachment tray (Mac Attachments partial, Windows AttachmentsTray): a summary row with "Remove all", then one
-/// tile per file in a horizontally scrolling row with its type glyph, a content-type warning when the bytes don't match
+/// tile per file in a horizontally scrolling row with its file-type badge, a content-type warning when the bytes don't match
 /// the name, a tap to open, and a "More options" menu (open, save, remove) that is also the tile's context menu.
 /// </summary>
 public sealed partial class ComposePageViewController
@@ -47,8 +47,7 @@ public sealed partial class ComposePageViewController
             _attachmentTray.TrailingAnchor.ConstraintEqualTo(scroll.ContentLayoutGuide.TrailingAnchor, -16),
             _attachmentTray.TopAnchor.ConstraintEqualTo(scroll.ContentLayoutGuide.TopAnchor),
             _attachmentTray.BottomAnchor.ConstraintEqualTo(scroll.ContentLayoutGuide.BottomAnchor),
-            _attachmentTray.HeightAnchor.ConstraintEqualTo(scroll.FrameLayoutGuide.HeightAnchor),
-            scroll.HeightAnchor.ConstraintEqualTo(56)
+            _attachmentTray.HeightAnchor.ConstraintEqualTo(scroll.FrameLayoutGuide.HeightAnchor)
         ]);
 
         var stack = WinoLayout.VStack(6, summaryRow, scroll, new WinoSeparator());
@@ -123,7 +122,7 @@ public sealed partial class ComposePageViewController
     }
 
     /// <summary>
-    /// One attachment: type glyph, name, size (with the caution glyph on a content-type mismatch) and the "…" menu.
+    /// One attachment: file-type badge, name, size and type (with the caution glyph on a content-type mismatch) and the "…" menu.
     /// A mismatch also outlines the tile.
     /// </summary>
     private sealed class AttachmentTile : WinoSurfaceView
@@ -140,13 +139,14 @@ public sealed partial class ComposePageViewController
             StrokeWidth = 1;
 
             var fileName = attachment.FileName ?? string.Empty;
-            var icon = new WinoIconView(EditorDialogs.IsImage(fileName) ? WinoIconGlyph.Image : WinoIconGlyph.Document, 22);
+            var icon = AttachmentBadge.Create(attachment, 32);
             var name = WinoStyle.Label(fileName, WinoStyle.Fixed(13, UIFontWeight.Semibold));
             name.LineBreakMode = UILineBreakMode.MiddleTruncation;
             name.WidthAnchor.ConstraintLessThanOrEqualTo(180).Active = true;
-            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
-            var sizeRow = WinoLayout.HStack(4, _warning, size);
-            var text = WinoLayout.VStack(1, name, sizeRow);
+            var details = WinoStyle.Label(attachment.DetailsText, WinoStyle.Caption, WinoStyle.SecondaryText);
+            var detailsRow = WinoLayout.HStack(4, _warning, details);
+            var text = WinoLayout.VStack(1, name, detailsRow);
+            text.Alignment = UIStackViewAlignment.Leading;
 
             var configuration = UIButtonConfiguration.PlainButtonConfiguration;
             configuration.Image = WinoIcons.Image(WinoIconGlyph.More, 14, null, Translator.Composer_AttachmentMoreOptions);
@@ -165,7 +165,7 @@ public sealed partial class ComposePageViewController
             // VoiceOver reads the name (activating it opens the file) and the "More options" button separately.
             ShouldGroupAccessibilityChildren = true;
             name.AccessibilityTraits = UIAccessibilityTrait.Button;
-            name.AccessibilityLabel = $"{fileName}, {attachment.ReadableSize}";
+            name.AccessibilityLabel = $"{fileName}, {attachment.DetailsText}";
             _nameLabel = name;
             UpdateWarning();
         }

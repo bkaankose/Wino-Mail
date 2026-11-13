@@ -1,8 +1,6 @@
-using TooltipCompat = AndroidX.AppCompat.Widget.TooltipCompat;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using Android.Content;
-using Android.Graphics.Drawables;
 using Android.Views;
 using Android.Widget;
 using Google.Android.Material.Button;
@@ -20,9 +18,9 @@ namespace Wino.Mail.Android.Views.Mail.Compose;
 
 /// <summary>
 /// The attachment strip (Mac and iOS Attachments partials, Windows AttachmentsTray): "N attachments · size" with Remove
-/// all, then one tile per file in a horizontal row with its type glyph, name, size (and the caution glyph when the bytes
-/// do not match the name) and a remove button; a tap opens the file. Attach opens the system document picker through the
-/// shared AttachFilesCommand; Insert picture in the format bar uses the system photo picker.
+/// all, then one tile per file in a horizontal row with its type badge, name, "size · type" (and the caution glyph when
+/// the bytes do not match the name) and a remove button; a tap opens the file. Attach opens the system document picker
+/// through the shared AttachFilesCommand; Insert picture in the format bar uses the system photo picker.
 /// </summary>
 public sealed partial class ComposeFragment
 {
@@ -79,11 +77,11 @@ public sealed partial class ComposeFragment
         foreach (var attachment in viewModel.IncludedAttachments.ToArray())
         {
             if (attachment is null) continue;
-            var (tile, warning) = CreateTile(context, viewModel, attachment);
+            var tile = CreateTile(context, viewModel, attachment);
             PropertyChangedEventHandler handler = (_, args) =>
             {
                 if (args.PropertyName is nameof(MailAttachmentViewModel.HasContentTypeMismatch) or nameof(MailAttachmentViewModel.ContentTypeDetection) or null)
-                    _ = Entry?.Dispatcher.ExecuteOnUIThread(() => warning.Visibility = attachment.HasContentTypeMismatch ? ViewStates.Visible : ViewStates.Gone);
+                    _ = Entry?.Dispatcher.ExecuteOnUIThread(() => AttachmentTiles.ApplyWarning(tile, attachment));
             };
             attachment.PropertyChanged += handler;
             _attachmentHandlers.Add((attachment, handler));
@@ -99,46 +97,18 @@ public sealed partial class ComposeFragment
         _attachmentHandlers.Clear();
     }
 
-    /// <summary>One attachment tile (compose_attachment_tile.xml): type glyph, name and size (with the caution glyph on a mismatch), and Remove.</summary>
-    private (View Tile, View Warning) CreateTile(Context context, ComposePageViewModel viewModel, MailAttachmentViewModel attachment)
+    /// <summary>One attachment tile (AttachmentTiles): a tap opens the file, Remove drops it from the draft.</summary>
+    private View CreateTile(Context context, ComposePageViewModel viewModel, MailAttachmentViewModel attachment)
     {
-        var fileName = attachment.FileName ?? string.Empty;
-        var tile = LayoutInflater.From(context)?.Inflate(Resource.Layout.compose_attachment_tile, _attachmentTiles, false)
-            ?? throw new InvalidOperationException("The attachment tile layout did not inflate.");
-        var fill = new GradientDrawable();
-        fill.SetCornerRadius(ComposeStyle.Px(context, Resource.Dimension.wino_compose_tile_radius));
-        fill.SetColor(WinoColors.SubtleFill(context));
-        fill.SetStroke(ComposeStyle.Px(context, Resource.Dimension.wino_compose_tile_stroke), attachment.HasContentTypeMismatch
-            ? WinoColors.WithAlpha(WinoColors.Caution(context), ComposeStyle.Float(context, Resource.Dimension.wino_compose_tile_warning_stroke_alpha))
-            : WinoColors.CardStroke(context));
-        tile.Background = fill;
-
-        WinoIcons.Apply(tile.Require<TextView>(Resource.Id.tile_icon), IsImage(fileName) ? WinoIconGlyph.Image : WinoIconGlyph.Document,
-            ComposeStyle.Dp(context, Resource.Dimension.wino_compose_glyph_tile));
-        tile.Require<TextView>(Resource.Id.tile_name).Text = fileName;
-        tile.Require<TextView>(Resource.Id.tile_size).Text = attachment.ReadableSize;
-        var warning = tile.Require<TextView>(Resource.Id.tile_warning);
-        WinoIcons.Apply(warning, WinoIconGlyph.Warning, ComposeStyle.Dp(context, Resource.Dimension.wino_compose_glyph_tile_warning));
-        warning.Visibility = attachment.HasContentTypeMismatch ? ViewStates.Visible : ViewStates.Gone;
-        warning.ContentDescription = attachment.ContentTypeWarningText;
-
-        var remove = tile.Require<ImageButton>(Resource.Id.tile_remove);
-        remove.ContentDescription = $"{Translator.Buttons_Remove} {fileName}";
-        remove.SetImageDrawable(WinoIcons.Drawable(context, WinoIconGlyph.Dismiss, ComposeStyle.Dp(context, Resource.Dimension.wino_compose_glyph_tile_remove), WinoColors.SecondaryText(context)));
-        TooltipCompat.SetTooltipText(remove, Translator.Buttons_Remove);
-        remove.Click += (_, _) =>
-        {
-            viewModel.RemoveAttachmentCommand.Execute(attachment);
-            ScheduleAutosave();
-        };
-
-        tile.ContentDescription = $"{fileName}, {attachment.ReadableSize}";
-        tile.Click += (_, _) => Observe(viewModel.OpenAttachmentCommand.ExecuteAsync(attachment));
-        return (tile, warning);
+        var parent = _attachmentTiles ?? throw new InvalidOperationException("The attachment strip is not built.");
+        return AttachmentTiles.Create(context, parent, attachment,
+            open: () => Observe(viewModel.OpenAttachmentCommand.ExecuteAsync(attachment)),
+            remove: () =>
+            {
+                viewModel.RemoveAttachmentCommand.Execute(attachment);
+                ScheduleAutosave();
+            });
     }
-
-    private static bool IsImage(string fileName)
-        => Path.GetExtension(fileName).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp" or ".heic" or ".svg";
 
     /// <summary>Insert picture: the system photo picker, then each picture inline as a data URI.</summary>
     private async Task InsertPicturesAsync()

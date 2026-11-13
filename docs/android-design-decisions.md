@@ -41,7 +41,7 @@ Build, emulator, and verification commands are in [Android development](harness/
 | Drawer | `NavigationView` hosting a `RecyclerView` of account headers, folder rows, info bar, and footer rows; mode card only on expanded |
 | Folder list | `RecyclerView` with the Wino list adapter (`DiffUtil`), sticky group strips, swipes, `SwipeRefreshLayout`, FAB anchored to the zone |
 | Two panes | Fixed `LinearLayout` panes on medium (list 360 dp, reader fills); fixed three-zone grid on expanded (pane 320 dp, list 420 dp, reader fills) |
-| Reader | Header, `WebView` over `Wino.Editor.Core` (`controls/Wino.Editor.Android`), attachments as assist chips; `BottomAppBar` on compact. The intelligence card is not built. |
+| Reader | Header, `WebView` over `Wino.Editor.Core` (`controls/Wino.Editor.Android`), attachments as outlined tiles (`AttachmentTiles`: a file-type badge on the shared accent color, the name ellipsized in the middle, "size · type"; the same tile in compose and the calendar pages, issue #1000); `BottomAppBar` on compact. The intelligence card is not built. |
 | Compose | Full-screen fragment: recipient `ChipGroup`, subject field, `WebView` body, format bar above the keyboard through the IME insets |
 | Search | An inline 56 dp search bar (not Material `SearchView`) with Local/Online, filter chips, and scope; results in the same list adapter |
 | Calendar | Phone: week strip and agenda list with sticky day headers. Tablet: week grid over the shared calendar layout calculator, month grid in the pane, event details zone. `MaterialDatePicker` and `MaterialTimePicker`. |

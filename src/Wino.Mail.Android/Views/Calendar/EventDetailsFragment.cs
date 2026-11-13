@@ -6,7 +6,6 @@ using Android.Views;
 using Android.Widget;
 using Google.Android.Material.AppBar;
 using Google.Android.Material.Button;
-using Google.Android.Material.Chip;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Data;
@@ -241,14 +240,17 @@ public sealed class EventDetailsFragment : WinoFragment<EventDetailsPageViewMode
         {
             _column.AddView(CalendarFormRow.Divider(context));
             AddSubheader(context, Translator.CalendarEventDetails_Attachments);
-            var chips = new ChipGroup(context);
+            var tiles = new LinearLayout(context) { Orientation = global::Android.Widget.Orientation.Horizontal };
             foreach (var attachment in viewModel.Attachments)
             {
-                var chip = new Chip(context) { Text = attachment.FileName };
-                chip.Click += (_, _) => { if (viewModel.OpenAttachmentCommand.CanExecute(attachment)) viewModel.OpenAttachmentCommand.Execute(attachment); };
-                chips.AddView(chip);
+                tiles.AddView(AttachmentTiles.Create(context, tiles, attachment, open: () =>
+                {
+                    if (viewModel.OpenAttachmentCommand.CanExecute(attachment)) viewModel.OpenAttachmentCommand.Execute(attachment);
+                }));
             }
-            _column.AddView(chips, Margins(context, padding, 0));
+            var strip = new HorizontalScrollView(context) { HorizontalScrollBarEnabled = false };
+            strip.AddView(tiles, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent));
+            _column.AddView(strip, Margins(context, padding, 0));
         }
     }
 

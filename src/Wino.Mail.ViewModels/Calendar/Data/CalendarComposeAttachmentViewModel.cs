@@ -19,7 +19,7 @@ public partial class CalendarComposeAttachmentViewModel : AttachmentViewModelBas
     public string FilePath { get; }
     public string FileExtension { get; }
     public long Size { get; }
-    public string ReadableSize => Size.GetBytesReadable();
+    public override string ReadableSize => Size.GetBytesReadable();
 
     public bool IsExisting { get; }
 

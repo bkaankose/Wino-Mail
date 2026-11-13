@@ -40,7 +40,8 @@ public sealed class CalendarEventComposeFragment : WinoFragment<CalendarEventCom
     private CalendarFormRow? _startRow;
     private CalendarFormRow? _endRow;
     private ChipGroup? _attendees;
-    private ChipGroup? _attachments;
+    private HorizontalScrollView? _attachmentStrip;
+    private LinearLayout? _attachments;
     private string _originalNotesHtml = string.Empty;
     private bool _notesEdited;
 
@@ -379,8 +380,10 @@ public sealed class CalendarEventComposeFragment : WinoFragment<CalendarEventCom
             attach.Alpha = can ? 1f : WinoColors.Fraction(context, Resource.Fraction.wino_m3_disabled_alpha) * 2;
             attach.Supporting = can ? null : viewModel.AttachmentsDisabledTooltipText;
         });
-        _attachments = new ChipGroup(context);
-        _column.AddView(_attachments, Indented(context));
+        _attachments = new LinearLayout(context) { Orientation = global::Android.Widget.Orientation.Horizontal };
+        _attachmentStrip = new HorizontalScrollView(context) { HorizontalScrollBarEnabled = false };
+        _attachmentStrip.AddView(_attachments, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent));
+        _column.AddView(_attachmentStrip, Indented(context));
         NotifyCollectionChangedEventHandler attachmentsChanged = (_, _) => View?.Post(() => ApplyAttachments(context, viewModel));
         viewModel.Attachments.CollectionChanged += attachmentsChanged;
         Bindings.Own(new ActionDisposable(() => viewModel.Attachments.CollectionChanged -= attachmentsChanged));
@@ -389,15 +392,15 @@ public sealed class CalendarEventComposeFragment : WinoFragment<CalendarEventCom
 
     private void ApplyAttachments(Context context, CalendarEventComposePageViewModel viewModel)
     {
-        if (_attachments is null) return;
+        if (_attachments is null || _attachmentStrip is null) return;
         _attachments.RemoveAllViews();
         foreach (var attachment in viewModel.Attachments)
         {
-            var chip = new Chip(context) { Text = attachment.FileName, CloseIconVisible = true, CloseIconContentDescription = Translator.CalendarEventCompose_RemoveAttachment };
-            chip.SetOnCloseIconClickListener(new ClickListener(() => viewModel.RemoveAttachmentCommand.Execute(attachment)));
-            _attachments.AddView(chip);
+            _attachments.AddView(AttachmentTiles.Create(context, _attachments, attachment,
+                remove: () => viewModel.RemoveAttachmentCommand.Execute(attachment),
+                removeDescription: Translator.CalendarEventCompose_RemoveAttachment));
         }
-        _attachments.Visibility = viewModel.Attachments.Count == 0 ? ViewStates.Gone : ViewStates.Visible;
+        _attachmentStrip.Visibility = viewModel.Attachments.Count == 0 ? ViewStates.Gone : ViewStates.Visible;
     }
 
     /// <summary>An inline text field row (location, notes) with the leading glyph.</summary>

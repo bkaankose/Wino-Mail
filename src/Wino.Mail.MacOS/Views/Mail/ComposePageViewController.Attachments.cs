@@ -3,7 +3,6 @@ using System.ComponentModel;
 using AppKit;
 using CoreGraphics;
 using Foundation;
-using UniformTypeIdentifiers;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.MacOS.Infrastructure;
@@ -99,7 +98,7 @@ public sealed partial class ComposePageViewController
         }
         foreach (var attachment in ViewModel.IncludedAttachments.ToArray())
         {
-            var tile = new AttachmentTile(attachment, Icon(attachment.FileName), CreateAttachmentMenu,
+            var tile = new AttachmentTile(attachment, AttachmentFileIcons.Icon(attachment.FileName), CreateAttachmentMenu,
                 () => Observe(ViewModel.OpenAttachmentCommand.ExecuteAsync(attachment)),
                 () => ViewModel.RemoveAttachmentCommand.Execute(attachment));
             PropertyChangedEventHandler handler = (_, args) =>
@@ -122,20 +121,6 @@ public sealed partial class ComposePageViewController
     }
 
     private void DisposeAttachments() => UnsubscribeAttachments();
-
-    /// <summary>The Finder icon for the file's type.</summary>
-    private static readonly Dictionary<string, NSImage> IconsByExtension = new(StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>The Finder icon for the file type, looked up once per extension.</summary>
-    private static NSImage Icon(string? fileName)
-    {
-        var extension = Path.GetExtension(fileName ?? string.Empty).TrimStart('.');
-        if (IconsByExtension.TryGetValue(extension, out var cached)) return cached;
-        var type = string.IsNullOrEmpty(extension) ? null : UTType.CreateFromExtension(extension);
-        var icon = NSWorkspace.SharedWorkspace.GetIcon(type ?? UTTypes.Data);
-        IconsByExtension[extension] = icon;
-        return icon;
-    }
 
     // Mirrors the WinUI composer attachment menu: open, save, then remove.
     private NSMenu CreateAttachmentMenu(MailAttachmentViewModel attachment)
@@ -177,7 +162,7 @@ public sealed partial class ComposePageViewController
             var name = WinoStyle.Label(attachment.FileName, NSFont.SystemFontOfSize(12, NSFontWeight.Semibold));
             name.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
             name.WidthAnchor.ConstraintLessThanOrEqualTo(180).Active = true;
-            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
+            var size = WinoStyle.Label(attachment.DetailsText, WinoStyle.Caption, WinoStyle.SecondaryText);
             _warning = new WinoIconView(WinoIconGlyph.Warning, 12, WinoStyle.Caution);
             var sizeRow = WinoLayout.HStack(4, _warning, size);
             var text = WinoLayout.VStack(1, name, sizeRow);
@@ -203,7 +188,7 @@ public sealed partial class ComposePageViewController
             ToolTip = attachment.FileName;
             AccessibilityElement = true;
             AccessibilityRole = NSAccessibilityRoles.GroupRole;
-            WinoAccessibility.Label(this, $"{attachment.FileName}, {attachment.ReadableSize}");
+            WinoAccessibility.Label(this, $"{attachment.FileName}, {attachment.DetailsText}");
             UpdateWarning();
         }
 

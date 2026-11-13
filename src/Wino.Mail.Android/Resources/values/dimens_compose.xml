@@ -60,22 +60,6 @@
   <dimen name="wino_compose_attachments_strip_padding_horizontal">12dp</dimen>
   <dimen name="wino_compose_attachments_strip_padding_bottom">8dp</dimen>
   <dimen name="wino_compose_glyph_attachment_summary">14dp</dimen>
-  <dimen name="wino_compose_tile_padding_start">10dp</dimen>
-  <dimen name="wino_compose_tile_padding_vertical">6dp</dimen>
-  <dimen name="wino_compose_tile_padding_end">2dp</dimen>
-  <dimen name="wino_compose_tile_radius">6dp</dimen>
-  <dimen name="wino_compose_tile_stroke">1dp</dimen>
-  <dimen name="wino_compose_tile_margin">8dp</dimen>
-  <dimen name="wino_compose_tile_icon_margin">8dp</dimen>
-  <dimen name="wino_compose_tile_name_max_width">180dp</dimen>
-  <dimen name="wino_compose_tile_warning_margin">4dp</dimen>
-  <!-- Remove: a 48 dp touch target that overlaps the tile padding, so the tile keeps its 40 dp button height. -->
-  <dimen name="wino_compose_tile_remove">48dp</dimen>
-  <dimen name="wino_compose_tile_remove_overlap">-4dp</dimen>
-  <dimen name="wino_compose_glyph_tile">22dp</dimen>
-  <dimen name="wino_compose_glyph_tile_warning">12dp</dimen>
-  <dimen name="wino_compose_glyph_tile_remove">12dp</dimen>
-  <item name="wino_compose_tile_warning_stroke_alpha" format="float" type="dimen">0.6</item>
 
   <!-- Body and format bar -->
   <dimen name="wino_compose_body_min_height">96dp</dimen>

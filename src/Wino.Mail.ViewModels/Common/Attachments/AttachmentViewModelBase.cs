@@ -12,7 +12,17 @@ public abstract partial class AttachmentViewModelBase : ObservableObject
 {
     public abstract string FileName { get; }
 
+    public abstract string ReadableSize { get; }
+
     public MailAttachmentType AttachmentType => AttachmentFileTypeHelper.GetAttachmentType(FileName);
+
+    public string FileExtensionLabel => AttachmentFileTypeHelper.GetExtensionLabel(FileName);
+
+    public uint AccentColor => AttachmentFileTypeHelper.GetAccentColor(FileName);
+
+    public string DetailsText => string.IsNullOrEmpty(FileExtensionLabel)
+        ? ReadableSize
+        : $"{ReadableSize} · {FileExtensionLabel}";
 
     public bool HasContentTypeMismatch => ContentTypeDetection.RequiresOpenConfirmation;
 

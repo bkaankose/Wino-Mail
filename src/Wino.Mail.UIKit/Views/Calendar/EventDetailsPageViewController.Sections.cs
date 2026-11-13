@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Editor;
 using Wino.Editor.WebKit;
 using Wino.Mail.Controls.UIKit.Common;
+using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
 
@@ -225,17 +226,19 @@ public sealed partial class EventDetailsPageViewController
     private UIView AttachmentRow(CalendarAttachmentViewModel attachment, BindingScope scope)
     {
         string fileName = attachment.FileName ?? string.Empty;
-        var icon = new WinoIconView(WinoIconGlyph.Attachment, 16, WinoStyle.SecondaryText);
-        WinoLayout.Size(icon, 16, 16);
+        var icon = AttachmentBadge.Create(attachment, 32);
         var name = WinoStyle.Label(fileName, WinoStyle.Subheadline);
         name.LineBreakMode = UILineBreakMode.MiddleTruncation;
-        WinoLayout.Priorities(name, UILayoutConstraintAxis.Horizontal, 1, 250);
-        var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
-        WinoLayout.Priorities(size, UILayoutConstraintAxis.Horizontal, 750, 750);
+        var details = WinoStyle.Label(attachment.DetailsText, WinoStyle.Caption, WinoStyle.SecondaryText);
+        details.LineBreakMode = UILineBreakMode.MiddleTruncation;
+        var text = WinoLayout.VStack(1, name, details);
+        text.Alignment = UIStackViewAlignment.Fill;
+        WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
         var open = InlineButton(Translator.Buttons_Open, $"{Translator.Buttons_Open} {fileName}", () => OpenAttachment(attachment));
         var save = InlineButton(Translator.Buttons_Save, $"{Translator.Buttons_Save} {fileName}", () => SaveAttachment(attachment));
         var spinner = new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { TranslatesAutoresizingMaskIntoConstraints = false, HidesWhenStopped = true };
-        var content = WinoLayout.HStack(8, icon, name, size, spinner, open, save);
+        var content = WinoLayout.HStack(8, icon, text, spinner, open, save);
+        content.Alignment = UIStackViewAlignment.Center;
 
         var row = new WinoSurfaceView();
         WinoLayout.Fill(content, row);
@@ -243,9 +246,9 @@ public sealed partial class EventDetailsPageViewController
         // Buttons keep their own taps; a tap elsewhere on the row opens the file.
         row.AddGestureRecognizer(new UITapGestureRecognizer(() => OpenAttachment(attachment)));
         row.AddInteraction(new UIContextMenuInteraction(new AttachmentMenuInteraction(() => AttachmentMenu(attachment))));
-        name.IsAccessibilityElement = true;
-        name.AccessibilityTraits = UIAccessibilityTrait.Button;
-        name.AccessibilityLabel = $"{fileName}, {attachment.ReadableSize}";
+        text.IsAccessibilityElement = true;
+        text.AccessibilityTraits = UIAccessibilityTrait.Button;
+        text.AccessibilityLabel = $"{fileName}, {attachment.DetailsText}";
 
         scope.Own(new PropertyBinding<CalendarAttachmentViewModel, bool>(attachment, nameof(attachment.IsBusy), a => a.IsBusy, busy =>
         {

@@ -17,7 +17,7 @@ public partial class CalendarAttachmentViewModel : AttachmentViewModelBase
     public CalendarAttachment Attachment { get; }
     public Guid Id => Attachment.Id;
     public override string FileName => Attachment.FileName;
-    public string ReadableSize { get; }
+    public override string ReadableSize { get; }
     public bool IsDownloaded => Attachment.IsDownloaded;
 
     [ObservableProperty]

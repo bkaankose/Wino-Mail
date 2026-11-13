@@ -137,20 +137,36 @@
     <item name="android:paddingBottom">@dimen/wino_space_l</item>
   </style>
 
-  <style name="Widget.Wino.Mail.AttachmentChip" parent="Widget.Material3.Chip.Assist">
-    <item name="android:layout_marginEnd">@dimen/wino_m3_chip_spacing</item>
-    <item name="android:ellipsize">middle</item>
-    <item name="android:maxWidth">@dimen/wino_size_readable_max</item>
-    <item name="chipMinHeight">@dimen/wino_m3_chip_height</item>
-    <item name="chipCornerRadius">@dimen/wino_m3_chip_radius</item>
-    <item name="chipStrokeColor">@color/wino_outline</item>
-    <item name="chipStrokeWidth">@dimen/wino_m3_stroke</item>
-    <item name="chipBackgroundColor">@android:color/transparent</item>
-    <item name="chipIconSize">@dimen/wino_m3_chip_icon</item>
-    <item name="chipIconVisible">true</item>
-    <item name="ensureMinTouchTargetSize">false</item>
-    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Label</item>
-    <item name="android:textColor">@color/wino_text_secondary</item>
+  <!-- An attachment tile (attachment_tile.xml) in the reader, the composer and the calendar pages. -->
+  <style name="Widget.Wino.AttachmentTile">
+    <item name="android:layout_marginEnd">@dimen/wino_attachment_tile_margin</item>
+    <item name="android:minHeight">@dimen/wino_attachment_tile_min_height</item>
+    <item name="android:paddingStart">@dimen/wino_attachment_tile_padding_start</item>
+    <item name="android:paddingTop">@dimen/wino_attachment_tile_padding_vertical</item>
+    <item name="android:paddingEnd">@dimen/wino_attachment_tile_padding_end</item>
+    <item name="android:paddingBottom">@dimen/wino_attachment_tile_padding_vertical</item>
+  </style>
+
+  <style name="Widget.Wino.AttachmentBadge">
+    <item name="android:minWidth">@dimen/wino_attachment_badge_size</item>
+    <item name="android:minHeight">@dimen/wino_attachment_badge_size</item>
+    <item name="android:paddingStart">@dimen/wino_attachment_badge_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_attachment_badge_padding</item>
+    <item name="android:gravity">center</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.Wino.AttachmentBadge</item>
+  </style>
+
+  <style name="TextAppearance.Wino.AttachmentBadge" parent="TextAppearance.Material3.LabelSmall">
+    <item name="android:textSize">10sp</item>
+    <item name="android:textStyle">bold</item>
+    <item name="android:letterSpacing">0</item>
+    <item name="android:textColor">@android:color/white</item>
+  </style>
+
+  <style name="TextAppearance.Wino.AttachmentName" parent="TextAppearance.Wino.RowTitle">
+    <item name="android:textSize">13sp</item>
+    <item name="android:textStyle">bold</item>
   </style>
 
   <style name="Widget.Wino.Mail.ReaderCommandBar">

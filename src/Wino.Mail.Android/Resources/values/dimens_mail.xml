@@ -9,4 +9,28 @@
   <dimen name="wino_mail_pivot_radius">16dp</dimen>
   <dimen name="wino_mail_pivot_padding">12dp</dimen>
   <dimen name="wino_mail_pivot_text">13sp</dimen>
+
+  <!-- Attachment tiles (attachment_tile.xml): a type badge, the name over "size · type", and an optional Remove. -->
+  <dimen name="wino_attachment_tile_margin">8dp</dimen>
+  <dimen name="wino_attachment_tile_min_height">48dp</dimen>
+  <dimen name="wino_attachment_tile_padding_start">8dp</dimen>
+  <dimen name="wino_attachment_tile_padding_vertical">6dp</dimen>
+  <!-- With Remove the button's own touch target is the end padding. -->
+  <dimen name="wino_attachment_tile_padding_end">2dp</dimen>
+  <dimen name="wino_attachment_tile_padding_end_plain">12dp</dimen>
+  <dimen name="wino_attachment_tile_radius">8dp</dimen>
+  <dimen name="wino_attachment_tile_stroke">1dp</dimen>
+  <dimen name="wino_attachment_tile_text_margin">10dp</dimen>
+  <dimen name="wino_attachment_tile_name_max_width">180dp</dimen>
+  <dimen name="wino_attachment_tile_warning_margin">4dp</dimen>
+  <!-- Remove: a 48 dp touch target that overlaps the tile padding, so the tile keeps its 40 dp button height. -->
+  <dimen name="wino_attachment_tile_remove">48dp</dimen>
+  <dimen name="wino_attachment_tile_remove_overlap">-4dp</dimen>
+  <dimen name="wino_attachment_glyph_warning">12dp</dimen>
+  <dimen name="wino_attachment_glyph_remove">12dp</dimen>
+  <item name="wino_attachment_tile_warning_stroke_alpha" format="float" type="dimen">0.6</item>
+  <dimen name="wino_attachment_badge_size">32dp</dimen>
+  <dimen name="wino_attachment_badge_padding">3dp</dimen>
+  <dimen name="wino_attachment_badge_radius">6dp</dimen>
+  <dimen name="wino_attachment_badge_glyph">16dp</dimen>
 </resources>

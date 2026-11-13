@@ -1032,15 +1032,19 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         foreach (var attachment in ViewModel.Attachments)
         {
             var captured = attachment;
-            var icon = new WinoIconView(WinoIconGlyph.Attachment, 16, WinoStyle.SecondaryText);
+            var icon = AttachmentBadge.Create(attachment, 32);
             var name = WinoStyle.Label(attachment.FileName, WinoStyle.Body);
             name.LineBreakMode = UILineBreakMode.MiddleTruncation;
-            name.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
-            name.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);
-            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
-            size.SetContentCompressionResistancePriority(1000, UILayoutConstraintAxis.Horizontal);
+            var details = WinoStyle.Label(attachment.DetailsText, WinoStyle.Caption, WinoStyle.SecondaryText);
+            details.LineBreakMode = UILineBreakMode.MiddleTruncation;
+            var text = WinoLayout.VStack(1, name, details);
+            text.Alignment = UIStackViewAlignment.Fill;
+            text.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
+            text.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);
+            text.IsAccessibilityElement = true;
+            text.AccessibilityLabel = $"{attachment.FileName}, {attachment.DetailsText}";
             var remove = RemoveButton(Translator.CalendarEventCompose_RemoveAttachment, () => ViewModel.RemoveAttachmentCommand.Execute(captured));
-            var row = WinoLayout.HStack(8, icon, name, size, remove);
+            var row = WinoLayout.HStack(8, icon, text, remove);
             row.Alignment = UIStackViewAlignment.Center;
             _attachmentList.AddArrangedSubview(ComposeCard.Row(row, rule: _attachmentList.ArrangedSubviews.Length > 0));
         }

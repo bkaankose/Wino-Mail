@@ -75,78 +75,68 @@
         </DataTemplate>
 
         <!--  Attachment Template  -->
-        <!--  Margin -8 0 is used to remove the padding from the ListViewItem  -->
         <DataTemplate x:Key="FileAttachmentTemplate" x:DataType="viewModelData:MailAttachmentViewModel">
-            <Grid Height="51">
+            <Grid
+                Padding="2,6,6,6"
+                Background="Transparent"
+                ContextRequested="AttachmentContextRequested">
+                <ToolTipService.ToolTip>
+                    <ToolTip Content="{x:Bind FileName}" />
+                </ToolTipService.ToolTip>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="50" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <Grid
-                    Grid.Row="0"
-                    Height="50"
-                    Margin="0"
-                    Background="Transparent"
-                    ColumnSpacing="3"
-                    ContextRequested="AttachmentContextRequested">
-                    <ToolTipService.ToolTip>
-                        <ToolTip Content="{x:Bind FileName}" />
-                    </ToolTipService.ToolTip>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="40" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="32" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                    <!--  Icon  -->
-                    <ContentControl
-                        VerticalAlignment="Center"
-                        Content="{x:Bind AttachmentType}"
-                        ContentTemplateSelector="{StaticResource FileTypeIconSelector}" />
+                <ContentControl
+                    Width="32"
+                    Height="32"
+                    VerticalAlignment="Center"
+                    Content="{x:Bind AttachmentType}"
+                    ContentTemplateSelector="{StaticResource FileTypeIconSelector}"
+                    IsTabStop="False" />
 
-                    <!--  Name && Size  -->
-                    <Grid
-                        Grid.Column="1"
-                        MaxWidth="200"
-                        VerticalAlignment="Center">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
+                <!--  The full name wraps; it only trims past two lines.  -->
+                <StackPanel
+                    Grid.Column="1"
+                    MinWidth="96"
+                    MaxWidth="220"
+                    Margin="10,0,0,0"
+                    VerticalAlignment="Center">
+                    <TextBlock
+                        MaxLines="2"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind FileName}"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind DetailsText}" />
+                </StackPanel>
 
-                        <TextBlock
-                            MaxLines="1"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind FileName}"
-                            TextTrimming="CharacterEllipsis"
-                            TextWrapping="Wrap" />
+                <coreControls:WinoFontIcon
+                    Grid.Column="2"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="MailAttachmentContentTypeWarning"
+                    AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                    Icon="Important"
+                    ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                    Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
 
-                        <TextBlock
-                            Grid.Row="1"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Bottom"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind ReadableSize}" />
-                    </Grid>
-
-                    <coreControls:WinoFontIcon
-                        Grid.Column="2"
-                        Margin="8,0,0,0"
-                        VerticalAlignment="Center"
-                        AutomationProperties.AutomationId="MailAttachmentContentTypeWarning"
-                        AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
-                        FontFamily="{ThemeResource WinoIconFontFamily}"
-                        Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                        Icon="Important"
-                        ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
-                        Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
-                </Grid>
                 <ProgressBar
                     Grid.Row="1"
-                    Margin="0"
+                    Grid.ColumnSpan="3"
+                    Margin="0,4,0,0"
                     HorizontalAlignment="Stretch"
-                    VerticalAlignment="Top"
                     IsIndeterminate="{x:Bind IsBusy, Mode=OneWay}"
                     ShowError="False"
                     ShowPaused="False"

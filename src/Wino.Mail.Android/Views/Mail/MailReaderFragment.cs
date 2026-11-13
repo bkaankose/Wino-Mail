@@ -570,24 +570,18 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         if (_attachments is null || ViewModel is not { } viewModel || View?.Context is not { } context) return;
         _attachments.RemoveAllViews();
         var attachments = viewModel.Attachments.ToArray();
-        foreach (var attachment in attachments) _attachments.AddView(CreateTile(context, attachment));
+        foreach (var attachment in attachments) _attachments.AddView(CreateTile(context, _attachments, attachment));
         if (_attachmentStrip is not null) _attachmentStrip.Visibility = attachments.Length == 0 ? ViewStates.Gone : ViewStates.Visible;
         if (_saveAll is not null) _saveAll.Visibility = attachments.Length < 2 ? ViewStates.Gone : ViewStates.Visible;
     }
 
-    /// <summary>An attachment as a Material 3 assist chip (canvas Material pass Reader): the type-coloured attachment glyph, "name · size".</summary>
-    private View CreateTile(Context context, MailAttachmentViewModel attachment)
+    /// <summary>An attachment tile (AttachmentTiles): a tap opens the file, a long press offers Open and Save.</summary>
+    private View CreateTile(Context context, ViewGroup parent, MailAttachmentViewModel attachment)
     {
-        var extension = Path.GetExtension(attachment.FileName ?? string.Empty).TrimStart('.').ToUpperInvariant();
-        var chip = LayoutInflater.From(context)?.Inflate(Resource.Layout.reader_attachment_chip, _attachments, false) as Google.Android.Material.Chip.Chip
-            ?? throw new InvalidOperationException("reader_attachment_chip.xml did not inflate to a Chip.");
-        chip.Text = $"{attachment.FileName} · {attachment.ReadableSize}";
-        chip.ChipIcon = WinoIcons.Drawable(context, WinoIconGlyph.Attachment, WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph_small), ExtensionColor(extension));
-        chip.ContentDescription = $"{attachment.FileName}, {attachment.ReadableSize}";
-        chip.Click += (_, _) => Observe(ViewModel?.OpenAttachmentCommand.ExecuteAsync(attachment));
-        chip.LongClick += (_, _) =>
+        var tile = AttachmentTiles.Create(context, parent, attachment, open: () => Observe(ViewModel?.OpenAttachmentCommand.ExecuteAsync(attachment)));
+        tile.LongClick += (_, _) =>
         {
-            var popup = new PopupMenu(context, chip);
+            var popup = new PopupMenu(context, tile);
             popup.Menu.Add(0, 0, 0, Translator.Buttons_Open);
             popup.Menu.Add(0, 1, 1, Translator.Buttons_Save);
             popup.MenuItemClick += (_, args) =>
@@ -597,18 +591,8 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
             };
             popup.Show();
         };
-        return chip;
+        return tile;
     }
-
-    private static global::Android.Graphics.Color ExtensionColor(string extension) => extension switch
-    {
-        "DOC" or "DOCX" => WinoColors.Hex(0x2B579A),
-        "XLS" or "XLSX" or "CSV" => WinoColors.Hex(0x217346),
-        "PPT" or "PPTX" => WinoColors.Hex(0xB7472A),
-        "PDF" => WinoColors.Hex(0xD13438),
-        "ZIP" or "RAR" or "7Z" => WinoColors.Hex(0x795548),
-        _ => WinoColors.Hex(0x6E6E73)
-    };
 
     // ---- Body ----
 

@@ -559,18 +559,25 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         foreach (var attachment in ViewModel.Attachments)
         {
             var captured = attachment;
-            var icon = new WinoIconView(WinoIconGlyph.Attachment, 16, WinoStyle.SecondaryText);
+            var icon = AttachmentFileIcons.ImageView(attachment.FileName, 28);
             var name = WinoStyle.Label(attachment.FileName, WinoStyle.Body);
             name.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
             name.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
+            var details = WinoStyle.Label(attachment.DetailsText, WinoStyle.Caption, WinoStyle.SecondaryText);
+            var text = WinoLayout.VStack(1, name, details);
+            text.Alignment = NSLayoutAttribute.Leading;
+            text.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             var open = InlineButton(Translator.Buttons_Open, $"{Translator.Buttons_Open} {attachment.FileName}", () => OpenAttachment(captured));
             var save = InlineButton(Translator.Buttons_Save, $"{Translator.Buttons_Save} {attachment.FileName}", () => SaveAttachment(captured));
             var spinner = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
-            var content = WinoLayout.HStack(8, icon, name, size, WinoLayout.Spacer(), spinner, open, save);
+            var content = WinoLayout.HStack(8, icon, text, WinoLayout.Spacer(), spinner, open, save);
             var row = new AttachmentRow(() => OpenAttachment(captured), () => AttachmentMenu(captured));
             WinoLayout.Fill(content, row);
-            WinoLayout.Size(row, -1, 30);
+            WinoLayout.Size(row, -1, 42);
+            row.ToolTip = attachment.FileName;
+            row.AccessibilityElement = true;
+            row.AccessibilityRole = NSAccessibilityRoles.GroupRole;
+            WinoAccessibility.Label(row, $"{attachment.FileName}, {attachment.DetailsText}");
             _attachmentBindings.Own(new PropertyBinding<CalendarAttachmentViewModel, bool>(attachment, nameof(attachment.IsBusy), a => a.IsBusy, busy =>
             {
                 open.Hidden = save.Hidden = busy;

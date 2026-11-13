@@ -192,7 +192,7 @@
                                     FontSize="11"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind ReadableSize}" />
+                                    Text="{x:Bind DetailsText}" />
                             </StackPanel>
                         </StackPanel>
 

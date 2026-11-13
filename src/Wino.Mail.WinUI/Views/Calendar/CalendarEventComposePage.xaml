@@ -879,7 +879,7 @@
                                                 <TextBlock
                                                     FontSize="11"
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Text="{x:Bind ReadableSize}" />
+                                                    Text="{x:Bind DetailsText}" />
                                             </StackPanel>
 
                                             <coreControls:WinoFontIcon
