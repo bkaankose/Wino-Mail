@@ -1201,7 +1201,10 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (_synchronizationManager.IsAccountSynchronizing(account.Id))
+        // Calendar sync has its own per-account lock and runs beside mail sync. Gating it on the
+        // mail state skipped slow mail servers at launch and left them without calendars until
+        // the next calendar tick.
+        if (_synchronizationManager.GetSynchronizationProgress(account.Id, SynchronizationProgressCategory.Calendar).IsInProgress)
             return;
 
         await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
