@@ -19,7 +19,7 @@ namespace Wino.Core.Services;
 /// <summary>
 /// Mail and CalDAV endpoint discovery with Thunderbird-style methods and fallbacks.
 /// </summary>
-public class AutoDiscoveryService : IAutoDiscoveryService
+public partial class AutoDiscoveryService : IAutoDiscoveryService
 {
     private const string ThunderbirdIspdbUrl = "https://autoconfig.thunderbird.net/v1.1/";
     private const string FiretrustUrl = "https://emailsettings.firetrust.com/settings?q=";
@@ -56,6 +56,7 @@ public class AutoDiscoveryService : IAutoDiscoveryService
 
         var settings = await TryGetThunderbirdSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
                        ?? await TryGetIspdbSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
+                       ?? await TryGetOutlookAutodiscoverSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, autoDiscoveryMinimalSettings.Password, incomingProtocol, cancellationToken).ConfigureAwait(false)
                        ?? await TryGetMxBasedSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
                        ?? await TryGetSrvBasedSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, incomingProtocol, cancellationToken).ConfigureAwait(false)
                        ?? await TryGetGuessedHostSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, incomingProtocol, cancellationToken).ConfigureAwait(false)
@@ -84,9 +85,10 @@ public class AutoDiscoveryService : IAutoDiscoveryService
     /// 2. HTTPS on the targets of a plain <c>_caldav._tcp</c> record, when no TLS record exists.
     /// 3. <c>https://domain/.well-known/caldav</c> and <c>https://caldav.domain/</c>.
     /// 4. TLS SRV records of the domains the MX hosts belong to (hosted mail).
-    /// 5. The well-known URI on the hoster's groupware host, read from the <c>_autodiscover._tcp</c> SRV target
+    /// 5. The DAV address from Outlook Autodiscover XML (SmarterMail publishes one).
+    /// 6. The well-known URI on the hoster's groupware host, read from the <c>_autodiscover._tcp</c> SRV target
     ///    and the <c>autodiscover</c> and <c>autoconfig</c> CNAME targets (hosted groupware, for example).
-    /// 6. Plain HTTP on the <c>_caldav._tcp</c> targets, only when nothing secure answered.
+    /// 7. Plain HTTP on the <c>_caldav._tcp</c> targets, only when nothing secure answered.
     /// </summary>
     private async Task<Uri> DiscoverDavServiceUriAsync(DavService service, string mailAddress, CancellationToken cancellationToken)
     {
@@ -118,6 +120,13 @@ public class AutoDiscoveryService : IAutoDiscoveryService
             {
                 resolved = await TryResolveSrvCandidatesAsync(service, mxDomains, insecureCandidates, probed, cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        if (resolved == null)
+        {
+            var outlookDavUri = await TryGetOutlookAutodiscoverDavUriAsync(mailAddress, cancellationToken).ConfigureAwait(false);
+            if (outlookDavUri != null)
+                resolved = await TryResolveFirstCandidateAsync([outlookDavUri], probed, cancellationToken).ConfigureAwait(false);
         }
 
         if (resolved == null)
