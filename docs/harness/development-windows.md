@@ -195,9 +195,34 @@ pwsh -NoProfile -File scripts/development/windows/start-wino.ps1 -Target sandbox
 ```
 
 The helper checks the guest package identity and development status, closes its app and tray processes,
-then uses `winapp run -c Debug --arch x64 --on sandbox --detach --json`.
+prepares WebView2 (below), registers the build with `winapp run -c Debug --arch x64 --on sandbox --no-launch`,
+seeds the lab accounts, and only then starts Wino, so every Sandbox launch opens with accounts and WebView2.
+
+Seeding needs the lab manifest `~/.wino-lab/fixtures.json`; without it the helper warns and starts Wino without
+accounts. The first launch in a new Sandbox publishes `tools/lab/DatabaseGenerator` self-contained to
+`artifacts/sandbox/generator`, copies it and the manifest into the guest, generates `Wino210.db` and the DPAPI
+`secure\` items there (DPAPI binds them to the guest user), puts them in the package's LocalState, and deletes the
+manifest and the generator output from the guest. A `wino-lab.seeded` marker keeps later launches from replacing
+the guest's data; pass `-Reseed` to start again from fresh lab accounts.
+
+To work on the welcome window or account setup, select **Run Wino Mail (Sandbox, no accounts)** or pass
+`-NoAccounts`. It skips seeding and removes the guest's Wino database, credentials and seeding marker before Wino
+starts, so the next launch without the switch seeds the lab accounts again.
+
+Windows Sandbox has no WebView2 Runtime, so mail rendering and the composer need a fixed-version runtime, and the
+guest never downloads one. Download the x64 fixed-version `.cab` once from Microsoft's
+[WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/) and extract it on the host:
+
+```powershell
+expand.exe Microsoft.WebView2.FixedVersionRuntime.<version>.x64.cab -F:* "$HOME\.wino-lab\sandbox\webview2"
+```
+
+Before every Sandbox launch the helper copies the newest runtime folder under `~/.wino-lab/sandbox/webview2`
+(or `WINO_SANDBOX_WEBVIEW2`) to `C:\WinApp\work\webview2\<version>` in the guest, skipping unchanged files, grants
+app packages read access, and sets the machine variable `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` to it. Without a
+runtime it warns and launches anyway.
 It shares the host build cache with local F5; add `-ForceBuild` to bypass that cache.
-Guest preflight failure stops deployment. The helper preserves application data and leaves Sandbox running.
+Guest preflight failure stops deployment. The helper preserves application data after the first seeding (unless `-Reseed` or `-NoAccounts`) and leaves Sandbox running.
 This F5 option uses VS Code's built-in terminal launcher to run the Debug build; it does not attach a C# debugger.
 For managed debugging on the host, select **Debug Wino Mail (packaged, x64)**.
 
