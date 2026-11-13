@@ -113,6 +113,13 @@ internal sealed class AppActivationHandler
                 MailToUri: mailToUri);
         }
 
+        // Calendar, To Do and People entries and file launches open their mode in the shell, which needs an account.
+        if (!_host.HasConfiguredAccounts)
+        {
+            Program.TryConsumePendingBootstrapActivation(out _);
+            return new LaunchActivationRoute(AppActivationPath.WelcomeWithoutAccounts, launchArgs, activationArgs);
+        }
+
         if (Program.TryConsumePendingBootstrapActivation(out var pendingBootstrapActivation) &&
             CanHandlePendingBootstrapActivation(pendingBootstrapActivation))
         {
@@ -136,9 +143,6 @@ internal sealed class AppActivationHandler
                 ActivationMode: fileMode,
                 FilePaths: filePaths);
         }
-
-        if (!_host.HasConfiguredAccounts)
-            return new LaunchActivationRoute(AppActivationPath.WelcomeWithoutAccounts, launchArgs, activationArgs);
 
         if (ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments) &&
             _host.TryMarkInitialNotificationActivationHandled())
