@@ -70,16 +70,22 @@ public static partial class CalDavIcsMutator
     /// Answering the series also answers every exception that lists the user. Answering one
     /// occurrence adds an exception for it when there is none yet.
     /// </summary>
+    /// <param name="attendeeAddress">
+    /// The address added as the user's ATTENDEE when the event does not list the user (a forwarded
+    /// invitation); the identity's ORGANIZER address when empty.
+    /// </param>
     public static string SetOwnParticipation(
         string existingIcs,
         string remoteEventId,
         CalDavUserIdentity identity,
-        AttendeeStatus status)
+        AttendeeStatus status,
+        string attendeeAddress = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(existingIcs);
         ArgumentNullException.ThrowIfNull(identity);
 
-        return SetOwnParticipationLines(existingIcs, remoteEventId, identity, status);
+        var addedAddress = string.IsNullOrWhiteSpace(attendeeAddress) ? identity.OrganizerAddress : attendeeAddress.Trim();
+        return SetOwnParticipationLines(existingIcs, remoteEventId, identity, status, addedAddress);
     }
 
     /// <summary>
@@ -128,10 +134,11 @@ public static partial class CalDavIcsMutator
         => calendar.Events.FirstOrDefault(value =>
             string.Equals(value.Uid, uid, StringComparison.Ordinal) && value.RecurrenceIdentifier == null);
 
-    public static string RemoveOccurrence(string existingIcs, string remoteEventId)
+    /// <param name="identity">The user, to tell whether the user organizes the series; without it SEQUENCE always goes up.</param>
+    public static string RemoveOccurrence(string existingIcs, string remoteEventId, CalDavUserIdentity identity = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(existingIcs);
-        return RemoveOccurrenceLines(existingIcs, remoteEventId);
+        return RemoveOccurrenceLines(existingIcs, remoteEventId, identity);
     }
 
     private static CalendarEvent FindEvent(IcalCalendar calendar, string uid, string occurrenceKey)

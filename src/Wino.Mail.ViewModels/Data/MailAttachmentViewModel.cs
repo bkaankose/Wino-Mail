@@ -24,6 +24,25 @@ public partial class MailAttachmentViewModel : AttachmentViewModelBase
     public IMimeContent? MimeContent => _mimePart?.Content;
     public string? DeclaredMimeType => _mimePart?.ContentType?.MimeType;
 
+    /// <summary>
+    /// The full Content-Type of an attachment that came from a message, parameters included
+    /// (a forwarded invite.ics needs its method=REQUEST, RFC 6047 2.4).
+    /// </summary>
+    public ContentType? DeclaredContentType
+    {
+        get
+        {
+            if (_mimePart?.ContentType is not { } source)
+                return null;
+
+            var copy = new ContentType(source.MediaType, source.MediaSubtype);
+            foreach (var parameter in source.Parameters)
+                copy.Parameters.Add(parameter.Name, parameter.Value);
+
+            return copy;
+        }
+    }
+
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 

@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     x:Class="Wino.Controls.CalendarMailItemDisplayInformationControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -6,7 +6,9 @@
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     HorizontalAlignment="Stretch"
-    VerticalAlignment="Stretch">
+    VerticalAlignment="Stretch"
+    Loaded="OnControlLoaded"
+    Unloaded="OnControlUnloaded">
     <Grid x:DefaultBindMode="OneWay">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -18,8 +20,8 @@
             ActionItem="{x:Bind MailItem, Mode=OneWay}"
             DisplayMode="{x:Bind DisplayMode, Mode=OneWay}"
             MailItemInformation="{x:Bind MailItem, Mode=OneWay}"
-            TimeFormatPreference="{x:Bind TimeFormatPreference, Mode=OneWay}"
-            ShowPreviewText="False" />
+            ShowPreviewText="False"
+            TimeFormatPreference="{x:Bind TimeFormatPreference, Mode=OneWay}" />
 
         <Grid
             x:Name="EventDateContainer"
@@ -34,7 +36,6 @@
                 Grid.Column="0"
                 Margin="0,0,4,0"
                 VerticalAlignment="Center"
-                x:Load="{x:Bind MailItem.IsCalendarEvent, Mode=OneWay}"
                 ContentTemplate="{StaticResource CalendarInvitationSymbolControlTemplate}" />
             <TextBlock
                 x:Name="EventDateText"

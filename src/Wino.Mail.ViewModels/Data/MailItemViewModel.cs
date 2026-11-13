@@ -374,6 +374,12 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public bool IsCalendarEvent => MailCopy.ItemType == MailItemType.CalendarInvitation;
 
+    /// <summary>
+    /// The reader loaded this message's calendar part, so rows that show event details from it
+    /// (IMAP sync stores no MIME) can read them now.
+    /// </summary>
+    public void NotifyCalendarDetailsAvailable() => OnPropertyChanged(nameof(IsCalendarEvent));
+
     public MailImportance Importance
     {
         get => MailCopy.Importance;

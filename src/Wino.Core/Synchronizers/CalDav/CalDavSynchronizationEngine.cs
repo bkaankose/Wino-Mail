@@ -1207,7 +1207,8 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
 
         if (item.IsRecurringChild)
         {
-            var icsContent = CalDavIcsMutator.RemoveOccurrence(snapshot.IcsContent, item.RemoteEventId);
+            var identity = await GetUserIdentityAsync(account, cancellationToken).ConfigureAwait(false);
+            var icsContent = CalDavIcsMutator.RemoveOccurrence(snapshot.IcsContent, item.RemoteEventId, identity);
             var result = await _client.UpsertCalendarEventAsync(
                 connection,
                 calendar,
