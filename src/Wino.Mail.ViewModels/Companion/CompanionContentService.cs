@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Itenso.TimePeriod;
+using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -145,9 +146,10 @@ public sealed class CompanionContentService(
     }
 
     /// <summary>
-    /// Timed events from now until <paramref name="end"/> in the calendars checked in the calendar's account list
+    /// Events from now until <paramref name="end"/> in the calendars checked in the calendar's account list
     /// (IsExtended), so this lists what the calendar shows, including secondary and subscribed calendars and their
-    /// recurring events. Events the account declined are left out.
+    /// recurring events. Events the account declined are left out. Ordered by <see cref="DisplayDay"/>, with each
+    /// day's all-day events first, as the calendar's agenda lists them.
     /// </summary>
     public async Task<List<CalendarItemViewModel>> GetUpcomingEventsAsync(
         IReadOnlyList<MailAccount> accounts,
@@ -167,7 +169,6 @@ public sealed class CompanionContentService(
             {
                 var items = await calendarService.GetCalendarEventsAsync(calendar, period);
                 foreach (var item in items.Where(item =>
-                             !item.IsAllDayEvent &&
                              item.LocalEndDate > now &&
                              item.LocalStartDate < end))
                 {
@@ -187,9 +188,19 @@ public sealed class CompanionContentService(
         }
 
         return events
-            .OrderBy(static item => item.StartDate)
+            .OrderBy(item => DisplayDay(item, now))
+            .ThenBy(item => CalendarAgenda.IsAllDayOn(item, DisplayDay(item, now)) ? 0 : 1)
+            .ThenBy(static item => item.StartDate)
             .ThenBy(static item => item.Id)
             .Take(take)
             .ToList();
     }
+
+    /// <summary>The day an upcoming event is listed under: its start day, or today for an event that began earlier.</summary>
+    public static DateOnly DisplayDay(CalendarItemViewModel item, DateTime now)
+        => DateOnly.FromDateTime(item.StartDate.Date > now.Date ? item.StartDate : now);
+
+    /// <summary>True when the event fills the day it is listed under, so it reads "All day" instead of a time range.</summary>
+    public static bool IsAllDayUpcoming(CalendarItemViewModel item, DateTime now)
+        => CalendarAgenda.IsAllDayOn(item, DisplayDay(item, now));
 }

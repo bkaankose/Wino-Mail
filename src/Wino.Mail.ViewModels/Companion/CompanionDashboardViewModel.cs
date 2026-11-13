@@ -37,6 +37,9 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     /// <summary>Events listed as rows; the rest of today goes behind a "more today" button.</summary>
     public const int MaximumListedEvents = 3;
 
+    /// <summary>All-day events among the listed rows, so a day of them never pushes the meetings behind the button.</summary>
+    public const int MaximumListedAllDayEvents = 1;
+
     /// <summary>Messages are coalesced for this long before the content reloads.</summary>
     public static readonly TimeSpan RefreshDebounce = TimeSpan.FromMilliseconds(250);
 
@@ -186,18 +189,30 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
 
     public bool IsCustomSnoozeVisible => IsCustomSnoozeActive && SnoozedUntil is not null;
 
-    public string NextEventTimeText => NextEvent is null
-        ? string.Empty
-        : string.Format(
-            Translator.Companion_EventTimeFormat,
-            NextEvent.StartDate.ToString("t"),
-            NextEvent.EndDate.ToString("t"));
+    public string NextEventTimeText
+    {
+        get
+        {
+            if (NextEvent is null)
+                return string.Empty;
+
+            return IsNextEventAllDay
+                ? CompanionContentService.DisplayDay(NextEvent, _loadedAt.LocalDateTime).ToString("M")
+                : string.Format(
+                    Translator.Companion_EventTimeFormat,
+                    NextEvent.StartDate.ToString("t"),
+                    NextEvent.EndDate.ToString("t"));
+        }
+    }
     public string NextEventCountdownText
     {
         get
         {
             if (NextEvent is null)
                 return string.Empty;
+
+            if (IsNextEventAllDay)
+                return Translator.QuickEventDialog_IsAllDay;
 
             var minutes = (int)Math.Round((NextEvent.StartDate - _loadedAt.LocalDateTime).TotalMinutes);
             if (minutes <= 0)
@@ -221,6 +236,13 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     public bool IsNextEventOnline => NextEvent is not null && HasJoinUri(NextEvent);
     public bool HasNextEventCalendar => !string.IsNullOrWhiteSpace(NextEventCalendarName);
     public bool HasNextEventAttendees => NextEvent?.Attendees.Count > 0;
+    public bool IsNextEventAllDay => NextEvent is not null && CompanionContentService.IsAllDayUpcoming(NextEvent, _loadedAt.LocalDateTime);
+
+    /// <summary>A later event's start as a list shows it: "All day", or the start time.</summary>
+    public string GetEventStartText(CalendarItemViewModel item)
+        => CompanionContentService.IsAllDayUpcoming(item, _loadedAt.LocalDateTime)
+            ? Translator.QuickEventDialog_IsAllDay
+            : item.DisplayStartTime;
 
     /// <summary>True between <see cref="OpenAsync"/> and <see cref="Close"/>.</summary>
     public bool IsOpen => _recipientsRegistered;
@@ -344,11 +366,22 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         Replace(UnreadMail, mail);
         Replace(Tasks, tasks);
         Replace(Favorites, contacts);
-        NextEvent = events.FirstOrDefault();
-        Replace(LaterEvents, events.Skip(1));
+        // The next-event card counts down to a start time, so it takes the first timed event when there is one.
+        var nextEvent = events.FirstOrDefault(item => !CompanionContentService.IsAllDayUpcoming(item, loadedAt.LocalDateTime))
+            ?? events.FirstOrDefault();
+        NextEvent = nextEvent;
+        Replace(LaterEvents, events.Where(item => !ReferenceEquals(item, nextEvent)));
         var rows = events.Select(item => new CompanionEventItem(item, loadedAt.LocalDateTime, HasJoinUri(item))).ToList();
-        Replace(ListedEvents, rows.Take(MaximumListedEvents));
-        Replace(MoreEvents, rows.Skip(MaximumListedEvents));
+        var allDayCount = rows.Count(static row => row.IsAllDay);
+        var listedTimed = rows.Where(static row => !row.IsAllDay)
+            .Take(MaximumListedEvents - Math.Min(allDayCount, MaximumListedAllDayEvents))
+            .ToList();
+        var listedAllDay = rows.Where(static row => row.IsAllDay)
+            .Take(MaximumListedEvents - listedTimed.Count)
+            .ToList();
+        var listed = rows.Where(row => listedAllDay.Contains(row) || listedTimed.Contains(row)).ToList();
+        Replace(ListedEvents, listed);
+        Replace(MoreEvents, rows.Where(row => !listed.Contains(row)));
         UnreadTotal = unreadTotal;
         RefreshSnoozeState();
         GreetingText = loadedAt.Hour switch
@@ -415,6 +448,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsNextEventOnline));
         OnPropertyChanged(nameof(HasNextEventCalendar));
         OnPropertyChanged(nameof(HasNextEventAttendees));
+        OnPropertyChanged(nameof(IsNextEventAllDay));
     }
 
     private void RegisterRecipients()

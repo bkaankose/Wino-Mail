@@ -138,7 +138,7 @@ public sealed partial class WidgetsAndTilesService
             return Tile(empty, empty, empty);
         }
 
-        var next = upcoming[0];
+        var next = upcoming.FirstOrDefault(static item => !item.IsAllDay) ?? upcoming[0];
         var medium = dayNumber + dayName + TileText(next.Title, "base") + TileText($"{FormatStart(next, day)} · {count}", "captionSubtle");
         var wide =
             "<group><subgroup hint-weight=\"30\">" + dayNumber + dayName + "</subgroup><subgroup>" +
@@ -167,12 +167,17 @@ public sealed partial class WidgetsAndTilesService
     }
 
     private static string FormatStart(WidgetEventItem item, DateTime day)
-        => item.Start.Date > day.Date
-            ? $"{Translator.ToDoPage_DuePresetTomorrow} {item.Start.ToString("t", CultureInfo.CurrentCulture)}"
-            : item.Start.ToString("t", CultureInfo.CurrentCulture);
+    {
+        var start = item.IsAllDay ? item.TimeText : item.Start.ToString("t", CultureInfo.CurrentCulture);
+        return item.Start.Date > day.Date
+            ? $"{Translator.ToDoPage_DuePresetTomorrow} {start}"
+            : start;
+    }
 
     private static string FormatRange(WidgetEventItem item, DateTime day)
-        => $"{FormatStart(item, day)} – {item.End.ToString("t", CultureInfo.CurrentCulture)}";
+        => item.IsAllDay
+            ? FormatStart(item, day)
+            : $"{FormatStart(item, day)} – {item.End.ToString("t", CultureInfo.CurrentCulture)}";
 
     private static string Tile(string medium, string wide, string large)
     {

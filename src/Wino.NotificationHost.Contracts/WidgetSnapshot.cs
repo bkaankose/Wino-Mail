@@ -87,6 +87,7 @@ public sealed class WidgetEventItem
     public string ColorHex { get; set; } = string.Empty;
     public bool IsOnline { get; set; }
     public bool IsTomorrow { get; set; }
+    public bool IsAllDay { get; set; }
     public DateTimeOffset Start { get; set; }
     public DateTimeOffset End { get; set; }
 }

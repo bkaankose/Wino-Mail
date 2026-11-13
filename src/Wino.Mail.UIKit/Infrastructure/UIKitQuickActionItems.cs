@@ -112,15 +112,25 @@ public sealed class UIKitQuickActionItems(
         var calendarAccounts = all.Where(static account => account.IsCalendarAccessGranted).ToList();
         if (calendarAccounts.Count > 0)
         {
-            var upcoming = await companion.GetUpcomingEventsAsync(calendarAccounts, DateTime.Now.Date.AddDays(1), 3, cancellationToken);
-            if (upcoming.FirstOrDefault(static item => !item.IsCancelled) is { } next)
+            var upcoming = await companion.GetUpcomingEventsAsync(calendarAccounts, DateTime.Now.Date.AddDays(1), 20, cancellationToken);
+            var now = DateTime.Now;
+            var candidates = upcoming.Where(static item => !item.IsCancelled).ToList();
+            if ((candidates.FirstOrDefault(item => !CompanionContentService.IsAllDayUpcoming(item, now)) ?? candidates.FirstOrDefault()) is { } next)
             {
                 var culture = CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
                 var display = DateTimeDisplayFormatter.GetTimeDisplayType(preferences.CalendarTimeFormatPreference, culture);
-                var time = string.Format(Translator.Companion_EventTimeFormat,
-                    DateTimeDisplayFormatter.FormatTime(next.StartDate, display, culture),
-                    DateTimeDisplayFormatter.FormatTime(next.EndDate, display, culture));
-                var subtitle = next.StartDate <= DateTime.Now ? $"{Translator.Companion_EventNow} · {time}" : time;
+                string subtitle;
+                if (CompanionContentService.IsAllDayUpcoming(next, now))
+                {
+                    subtitle = Translator.QuickEventDialog_IsAllDay;
+                }
+                else
+                {
+                    var time = string.Format(Translator.Companion_EventTimeFormat,
+                        DateTimeDisplayFormatter.FormatTime(next.StartDate, display, culture),
+                        DateTimeDisplayFormatter.FormatTime(next.EndDate, display, culture));
+                    subtitle = next.StartDate <= now ? $"{Translator.Companion_EventNow} · {time}" : time;
+                }
                 var title = string.IsNullOrWhiteSpace(next.Title) ? Translator.QuickAction_UntitledEvent : next.Title;
                 var symbol = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(next.CalendarItem, out _) ? "video" : "clock";
                 items.Add(new(QuickActionIdentifiers.NextMeeting, title, subtitle, symbol, next.Id));

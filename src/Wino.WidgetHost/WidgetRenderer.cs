@@ -109,7 +109,8 @@ internal static class WidgetRenderer
         var calendar = snapshot.Calendar;
         var strings = snapshot.Strings;
         var events = calendar.Events;
-        var next = events.FirstOrDefault();
+        // The next line counts down to a start time, so it names the first timed event when there is one.
+        var next = events.FirstOrDefault(static item => !item.IsAllDay) ?? events.FirstOrDefault();
 
         return new WidgetCard(TemplateName("calendar", size), Json(writer =>
         {
@@ -129,15 +130,28 @@ internal static class WidgetRenderer
             writer.WriteString("newEventIcon", Icon(WidgetIcons.Add, IconColor));
             writer.WriteString("joinIcon", Icon(WidgetIcons.EventJoinOnline, AccentColor));
 
-            var today = events.Where(static item => !item.IsTomorrow).Take(size == WidgetSize.Large ? 4 : 3).ToList();
+            var today = Rows(events.Where(static item => !item.IsTomorrow), size == WidgetSize.Large ? 4 : 3);
             var tomorrow = size == WidgetSize.Large
-                ? events.Where(static item => item.IsTomorrow).Take(Math.Max(2, 6 - today.Count)).ToList()
+                ? Rows(events.Where(static item => item.IsTomorrow), Math.Max(2, 6 - today.Count))
                 : [];
             writer.WriteBoolean("hasToday", today.Count > 0);
             writer.WriteBoolean("hasTomorrow", tomorrow.Count > 0);
             WriteEvents(writer, "today", today, size);
             WriteEvents(writer, "tomorrow", tomorrow, size);
         }));
+    }
+
+    /// <summary>
+    /// A day's rows: at most one all-day event while meetings remain, so a day of all-day events never pushes the
+    /// meetings out; all-day events fill the rows meetings leave empty. Keeps the snapshot's order.
+    /// </summary>
+    private static List<WidgetEventItem> Rows(IEnumerable<WidgetEventItem> dayEvents, int count)
+    {
+        var items = dayEvents.ToList();
+        var allDayCount = items.Count(static item => item.IsAllDay);
+        var timed = items.Where(static item => !item.IsAllDay).Take(count - Math.Min(allDayCount, 1)).ToList();
+        var allDay = items.Where(static item => item.IsAllDay).Take(count - timed.Count).ToList();
+        return items.Where(item => timed.Contains(item) || allDay.Contains(item)).ToList();
     }
 
     private static void WriteEvents(Utf8JsonWriter writer, string name, List<WidgetEventItem> events, WidgetSize size)
@@ -161,6 +175,9 @@ internal static class WidgetRenderer
     {
         if (item.IsTomorrow)
             return $"{strings.Tomorrow} {item.TimeText}";
+
+        if (item.IsAllDay)
+            return item.TimeText;
 
         if (item.Start <= now)
             return $"{item.TimeText} · {strings.Now}";

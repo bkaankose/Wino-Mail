@@ -29,6 +29,7 @@ public sealed partial class WidgetsAndTilesService(
     private const int MaximumMail = 5;
     private const int MaximumEvents = 50;
     private const int MaximumEventsPerDay = 8;
+    private const int MaximumAllDayEventsPerDay = 3;
     private const int MaximumTasks = 5;
     private const int MaximumPeople = 8;
 
@@ -226,15 +227,21 @@ public sealed partial class WidgetsAndTilesService(
 
         if (calendar)
         {
-            var tomorrow = now.Date.AddDays(1);
+            var tomorrow = DateOnly.FromDateTime(now.Date.AddDays(1));
             var events = await content
                 .GetUpcomingEventsAsync(accounts, now.Date.AddDays(2), MaximumEvents, CancellationToken.None)
                 .ConfigureAwait(false);
 
-            // Per day, so a busy today never crowds tomorrow out of the large widget and the midnight tile.
+            // Per day, so a busy today never crowds tomorrow out of the large widget and the midnight tile. All-day
+            // events lead each day and get their own cap, so a day of them never pushes the day's meetings out.
             var shown = events
-                .GroupBy(static item => item.StartDate.Date)
-                .SelectMany(static day => day.Take(MaximumEventsPerDay))
+                .GroupBy(item => CompanionContentService.DisplayDay(item, now))
+                .SelectMany(day => day
+                    .Where(item => CompanionContentService.IsAllDayUpcoming(item, now))
+                    .Take(MaximumAllDayEventsPerDay)
+                    .Concat(day
+                        .Where(item => !CompanionContentService.IsAllDayUpcoming(item, now))
+                        .Take(MaximumEventsPerDay)))
                 .ToList();
 
             snapshot.Calendar = new WidgetCalendarSection
@@ -242,22 +249,26 @@ public sealed partial class WidgetsAndTilesService(
                 DayName = now.ToString("ddd", CultureInfo.CurrentCulture),
                 DayNumber = now.Day.ToString(CultureInfo.CurrentCulture),
                 DateText = $"{now.ToString("ddd", CultureInfo.CurrentCulture)}, {now.ToString("M", CultureInfo.CurrentCulture)}",
-                TodayCountText = string.Format(Translator.LiveTiles_EventsTodayFormat, shown.Count(item => item.StartDate < tomorrow)),
+                TodayCountText = string.Format(Translator.LiveTiles_EventsTodayFormat, shown.Count(item => CompanionContentService.DisplayDay(item, now) < tomorrow)),
                 Events = shown.Select(item =>
                 {
                     var hidden = IsHidden(item.AssignedCalendar?.AccountId);
+                    var isAllDay = CompanionContentService.IsAllDayUpcoming(item, now);
                     return new WidgetEventItem
                     {
                         Id = item.Id.ToString("D"),
                         Title = hidden ? Translator.Busy : item.Title ?? string.Empty,
-                        TimeText = string.Format(
-                            Translator.Companion_EventTimeFormat,
-                            item.StartDate.ToString("t", CultureInfo.CurrentCulture),
-                            item.EndDate.ToString("t", CultureInfo.CurrentCulture)),
+                        TimeText = isAllDay
+                            ? Translator.QuickEventDialog_IsAllDay
+                            : string.Format(
+                                Translator.Companion_EventTimeFormat,
+                                item.StartDate.ToString("t", CultureInfo.CurrentCulture),
+                                item.EndDate.ToString("t", CultureInfo.CurrentCulture)),
                         Location = hidden ? string.Empty : item.Location ?? string.Empty,
                         ColorHex = Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(item) ?? string.Empty,
                         IsOnline = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(item.CalendarItem, out _),
-                        IsTomorrow = item.StartDate >= tomorrow,
+                        IsTomorrow = CompanionContentService.DisplayDay(item, now) >= tomorrow,
+                        IsAllDay = isAllDay,
                         Start = new DateTimeOffset(item.StartDate),
                         End = new DateTimeOffset(item.EndDate)
                     };

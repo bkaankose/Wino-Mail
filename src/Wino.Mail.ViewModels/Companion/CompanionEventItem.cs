@@ -19,16 +19,21 @@ public sealed class CompanionEventItem
     {
         Item = item;
         IsOnline = isOnline;
-        TimeText = string.Format(Translator.Companion_EventTimeFormat, item.StartDate.ToString("t"), item.EndDate.ToString("t"));
+        IsAllDay = CompanionContentService.IsAllDayUpcoming(item, now);
+        TimeText = IsAllDay
+            ? Translator.QuickEventDialog_IsAllDay
+            : string.Format(Translator.Companion_EventTimeFormat, item.StartDate.ToString("t"), item.EndDate.ToString("t"));
         CalendarName = item.AssignedCalendar?.Name ?? string.Empty;
         CalendarColorHex = Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(item) ?? string.Empty;
         AttendeeCount = item.Attendees.Count;
 
         var minutes = (int)Math.Round((item.StartDate - now).TotalMinutes);
-        IsImminent = minutes < ImminentMinutes;
-        LeadText = minutes <= 0
-            ? Translator.Companion_EventNow
-            : IsImminent ? string.Format(Translator.Companion_EventInMinutesFormat, minutes) : item.StartDate.ToString("t");
+        IsImminent = !IsAllDay && minutes < ImminentMinutes;
+        LeadText = IsAllDay
+            ? Translator.QuickEventDialog_IsAllDay
+            : minutes <= 0
+                ? Translator.Companion_EventNow
+                : IsImminent ? string.Format(Translator.Companion_EventInMinutesFormat, minutes) : item.StartDate.ToString("t");
 
         var details = new List<string> { Title, TimeText };
         if (HasLocation)
@@ -56,6 +61,8 @@ public sealed class CompanionEventItem
     public string LocationSuffix => HasLocation ? " · " + Location : string.Empty;
 
     public string TimeText { get; }
+
+    public bool IsAllDay { get; }
 
     /// <summary>"Now" or "in N min" within the next hour, otherwise the start time.</summary>
     public string LeadText { get; }

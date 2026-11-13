@@ -531,7 +531,7 @@ public sealed class CompanionPopoverViewController : NSViewController
         {
             var item = later;
             var title = string.IsNullOrWhiteSpace(item.Location) ? item.Title : $"{item.Title} · {item.Location}";
-            menu.AddItem(new NSMenuItem($"{item.DisplayStartTime}  {title}", (_, _) => Run(_viewModel.OpenCalendarEventCommand.ExecuteAsync(item))));
+            menu.AddItem(new NSMenuItem($"{_viewModel.GetEventStartText(item)}  {title}", (_, _) => Run(_viewModel.OpenCalendarEventCommand.ExecuteAsync(item))));
         }
         PopUpBelow(menu, anchor);
     }
