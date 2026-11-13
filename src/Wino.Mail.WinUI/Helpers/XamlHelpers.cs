@@ -741,6 +741,12 @@ public static class XamlHelpers
     public static string GetAccountAutomationName(string? name, string? address)
         => JoinAutomationDetails(name, address);
 
+    public static string GetMergedAccountToolTip(string? name, IEnumerable<MailAccount>? accounts)
+        => string.Join(Environment.NewLine,
+            new[] { name }
+                .Concat(accounts?.Select(account => account.Address) ?? Enumerable.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+
     public static string GetContactAutomationName(string? name, string? address, string? source, bool isFavorite)
         => JoinAutomationDetails(name, address, source, isFavorite ? Translator.ContactEditor_Favorite : null);
 

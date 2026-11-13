@@ -161,6 +161,12 @@ public interface IFolderService
     Task UpdateFolderHighestModeSeqAsync(Guid folderId, long highestModeSeq);
 
     /// <summary>
+    /// Stores the IMAP UIDVALIDITY of a folder that has none yet and returns the stored value, which is
+    /// the existing one when another operation established it first.
+    /// </summary>
+    Task<uint> InitializeFolderUidValidityAsync(Guid folderId, uint uidValidity);
+
+    /// <summary>
     /// Returns the active folder menu items for the given account for UI.
     /// </summary>
     /// <param name="accountMenuItem">Account to get folder menu items for.</param>

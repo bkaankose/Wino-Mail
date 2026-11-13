@@ -354,7 +354,8 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
                 KeyboardShortcutAction.ToggleReadUnread or KeyboardShortcutAction.ToggleFlag or
                 KeyboardShortcutAction.ToggleArchive or KeyboardShortcutAction.Delete or
                 KeyboardShortcutAction.Move or KeyboardShortcutAction.Reply or
-                KeyboardShortcutAction.ReplyAll or KeyboardShortcutAction.Send,
+                KeyboardShortcutAction.ReplyAll or KeyboardShortcutAction.Forward or
+                KeyboardShortcutAction.Send,
             WinoApplicationMode.Calendar => action is KeyboardShortcutAction.NewEvent or KeyboardShortcutAction.Delete,
             WinoApplicationMode.Contacts => action is KeyboardShortcutAction.NewContact or KeyboardShortcutAction.Delete,
             WinoApplicationMode.Tasks => action is KeyboardShortcutAction.NewTask or KeyboardShortcutAction.Delete,

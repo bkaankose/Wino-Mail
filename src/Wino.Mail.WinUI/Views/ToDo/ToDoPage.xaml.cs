@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.ApplicationModel.DataTransfer;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -46,6 +47,8 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
     public SearchBarMode SearchMode => SearchBarMode.Tasks;
     public string SearchText { get; set; } = string.Empty;
+
+    private List<TaskItemViewModel> _draggedTasks = [];
 
     private CollectionViewSource TaskCollectionViewSource
     {
@@ -187,6 +190,93 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 
     private void TaskListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => ViewModel.SetSelectedTasks(TaskListView.SelectedItems.OfType<TaskItemViewModel>());
+
+    private void TaskListView_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
+    {
+        _draggedTasks = e.Items.OfType<TaskItemViewModel>().ToList();
+        if (_draggedTasks.Count == 0 || !ViewModel.CanReorderTasks)
+        {
+            _draggedTasks = [];
+            e.Cancel = true;
+            return;
+        }
+
+        e.Data.RequestedOperation = DataPackageOperation.Move;
+    }
+
+    private void TaskListView_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        _draggedTasks = [];
+        HideTaskDropIndicator();
+    }
+
+    private void TaskListView_DragLeave(object sender, DragEventArgs e) => HideTaskDropIndicator();
+
+    private void TaskListView_DragOver(object sender, DragEventArgs e)
+    {
+        if (ResolveTaskDropTarget(e) is not { } drop)
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            HideTaskDropIndicator();
+            return;
+        }
+
+        e.AcceptedOperation = DataPackageOperation.Move;
+        e.DragUIOverride.IsCaptionVisible = false;
+        e.DragUIOverride.IsGlyphVisible = false;
+        TaskDropIndicatorTransform.Y = drop.IndicatorY;
+        TaskDropIndicator.Visibility = Visibility.Visible;
+    }
+
+    private async void TaskListView_Drop(object sender, DragEventArgs e)
+    {
+        var drop = ResolveTaskDropTarget(e);
+        var moved = _draggedTasks;
+        _draggedTasks = [];
+        HideTaskDropIndicator();
+
+        if (drop is null || moved.Count == 0)
+            return;
+
+        await ViewModel.ReorderTasksAsync(moved, drop.Target, drop.InsertAfter);
+    }
+
+    private void HideTaskDropIndicator() => TaskDropIndicator.Visibility = Visibility.Collapsed;
+
+    /// <summary>
+    /// The list is bound to a grouped view, where the built-in ListView reorder mode is unavailable,
+    /// so the drop position is resolved from the realized row containers.
+    /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(ListViewItem))]
+    private TaskDropTarget? ResolveTaskDropTarget(DragEventArgs e)
+    {
+        if (_draggedTasks.Count == 0 || !ViewModel.CanReorderTasks)
+            return null;
+
+        var pointerY = e.GetPosition(TaskListView).Y;
+        TaskDropTarget? nearest = null;
+        var nearestDistance = double.MaxValue;
+
+        foreach (var item in ViewModel.TaskGroups.SelectMany(group => group))
+        {
+            if (TaskListView.ContainerFromItem(item) is not ListViewItem container || container.ActualHeight <= 0)
+                continue;
+
+            var top = container.TransformToVisual(TaskListView).TransformPoint(default).Y;
+            var bottom = top + container.ActualHeight;
+            var insertAfter = pointerY > top + (container.ActualHeight / 2);
+            var distance = pointerY < top ? top - pointerY : pointerY > bottom ? pointerY - bottom : 0;
+            if (distance >= nearestDistance)
+                continue;
+
+            nearestDistance = distance;
+            nearest = new TaskDropTarget(item, insertAfter, insertAfter ? bottom + 1 : top - 3);
+        }
+
+        return nearest is null || _draggedTasks.Contains(nearest.Target) ? null : nearest;
+    }
+
+    private sealed record TaskDropTarget(TaskItemViewModel Target, bool InsertAfter, double IndicatorY);
 
     private async void TaskCheckBox_Click(object sender, RoutedEventArgs e)
     {

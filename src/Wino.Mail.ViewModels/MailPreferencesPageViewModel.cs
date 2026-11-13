@@ -196,18 +196,18 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
     }
 
     /// <summary>
-    /// Linked inboxes are offered as a single entry and their members are not listed separately,
-    /// mirroring how the shell presents them.
+    /// Groups that combine folders are offered as a single entry and their members are not listed separately,
+    /// mirroring how the shell presents them. Members of other groups are offered one by one.
     /// </summary>
     private List<IAccountProviderDetailViewModel> BuildStartupCandidates(IEnumerable<MailAccount> accounts)
     {
         var candidates = new List<IAccountProviderDetailViewModel>();
 
         var groupedAccounts = accounts
-            .OrderBy(account => account.MergedInboxId == null ? 1 : 0)
+            .OrderBy(account => account.MergedInbox?.CombineFolders == true ? 0 : 1)
             .ThenBy(account => account.Order)
             .ThenBy(account => account.Name)
-            .GroupBy(account => account.MergedInboxId);
+            .GroupBy(account => account.MergedInbox?.CombineFolders == true ? account.MergedInboxId : null);
 
         foreach (var accountGroup in groupedAccounts)
         {

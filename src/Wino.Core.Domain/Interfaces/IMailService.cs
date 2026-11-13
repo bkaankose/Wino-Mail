@@ -204,14 +204,6 @@ public interface IMailService
     Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
 
     /// <summary>
-    /// Gets the most recent mail IDs for a folder.
-    /// Used for notification purposes after sync completes.
-    /// </summary>
-    /// <param name="folderId">Folder ID.</param>
-    /// <param name="count">Number of recent mails to return.</param>
-    Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count);
-
-    /// <summary>
     /// Returns all mail copies for the account created before the given UTC date.
     /// </summary>
     Task<List<MailCopy>> GetMailCopiesBeforeDateAsync(Guid accountId, DateTime cutoffDateUtc);

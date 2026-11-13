@@ -34,6 +34,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     IRecipient<ContactListMembershipStateChanged>,
     IRecipient<ContactAddressBookStateChanged>,
     IRecipient<AccountUpdatedMessage>,
+    IRecipient<AccountLayoutChanged>,
     IRecipient<PreferenceChangedMessage>,
     IBackNavigationAware,
     IShellMenuOwner,
@@ -152,6 +153,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     public ObservableCollection<ContactList> ContactLists { get; } = [];
 
     public ContactsPageViewModel(IContactQueryService contactService, IAccountService accountService,
+        AccountGroupExpansionStore accountGroupExpansion,
         ISynchronizationManager synchronizationManager, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService,
         IActivationStateService activationStateService,
@@ -170,6 +172,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Readiness.ReadinessChanged += ReadinessChanged;
         _contactService = contactService;
         _accountService = accountService;
+        _accountGroupItems = new AccountGroupPaneItems(accountGroupExpansion, () => Dispatcher);
         _synchronizationManager = synchronizationManager;
         _requestDelegator = requestDelegator;
         _navigationService = navigationService;
@@ -205,6 +208,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
         if (mode == NavigationMode.Back && _isInitialized)
         {
+            await LoadAccountsAsync();
             await RefreshCreateDestinationAvailabilityAsync();
             await RefreshCardDavCreationAvailabilityAsync();
             await BuildFiltersAsync();
@@ -212,9 +216,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             return;
         }
 
-        _accounts = (await _accountService.GetAccountsAsync())
-            .Where(account => account.IsContactAccessEnabled)
-            .ToDictionary(account => account.Id);
+        await LoadAccountsAsync();
 
         // The title bar button is bound before this runs, so it has to be told that there
         // is now something to synchronize.
@@ -253,6 +255,17 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
     }
 
+    private async Task LoadAccountsAsync()
+    {
+        var accounts = await _accountService.GetAccountsAsync();
+        var accountGroups = await _accountService.GetAccountGroupsAsync();
+
+        _accounts = accounts
+            .Where(account => account.IsContactAccessEnabled)
+            .ToDictionary(account => account.Id);
+        _accountGroups = accountGroups;
+    }
+
     /// <summary>
     /// People just became usable: a sign-in finished, an account was added or People was
     /// turned on. The account set this page loaded on arrival is stale, so load it again.
@@ -264,9 +277,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
         try
         {
-            _accounts = (await _accountService.GetAccountsAsync())
-                .Where(account => account.IsContactAccessEnabled)
-                .ToDictionary(account => account.Id);
+            await LoadAccountsAsync();
 
             RefreshShellSynchronizationState();
 
@@ -456,7 +467,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             .Distinct()
             .Where(_accounts.ContainsKey)
             .Select(accountId => _accounts[accountId])
-            .OrderBy(account => account.Name, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(account => account.Order)
+            .ThenBy(account => account.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
         var desired = new List<ContactFilterViewModel>(accounts.Count);
 
@@ -793,6 +805,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Messenger.Register<ContactListMembershipStateChanged>(this);
         Messenger.Register<ContactAddressBookStateChanged>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
+        Messenger.Register<AccountLayoutChanged>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
     }
 
@@ -806,6 +819,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ContactListMembershipStateChanged>(this);
         Messenger.Unregister<ContactAddressBookStateChanged>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
+        Messenger.Unregister<AccountLayoutChanged>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
     }
 
@@ -842,6 +856,22 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message)
         => _ = ExecuteUIThread(() => ApplyAccountUpdate(message.Account));
+
+    async void IRecipient<AccountLayoutChanged>.Receive(AccountLayoutChanged message)
+    {
+        if (!_isPageActive)
+            return;
+
+        try
+        {
+            await LoadAccountsAsync();
+            await BuildFiltersAsync();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "Failed to apply the new account layout to People.");
+        }
+    }
 
     void IRecipient<PreferenceChangedMessage>.Receive(PreferenceChangedMessage message)
     {

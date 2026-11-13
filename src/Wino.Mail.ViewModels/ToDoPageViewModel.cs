@@ -9,11 +9,13 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -37,6 +39,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     IRecipient<BulkTaskChanged>,
     IRecipient<AccountUpdatedMessage>,
     IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountLayoutChanged>,
     IRecipient<PreferenceChangedMessage>
 {
     public event EventHandler<TaskComposerFocusRequestedEventArgs> TaskComposerFocusRequested;
@@ -44,6 +47,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly ITaskQueryService _taskService;
     private readonly ITaskService _taskMutationService;
     private readonly IAccountService _accountService;
+    private readonly AccountGroupPaneItems _accountGroupItems;
+    private List<MergedInbox> _accountGroups = [];
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly INavigationService _navigationService;
     private readonly ICalendarService _calendarService;
@@ -133,6 +138,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     /// <summary>Client-side ordering. Persisted nowhere; resets with the page.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SortDisplayText))]
+    [NotifyPropertyChangedFor(nameof(CanReorderTasks))]
     public partial TaskSortKind SelectedSort { get; set; } = TaskSortKind.DueDate;
 
     [ObservableProperty]
@@ -223,6 +229,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         OnPropertyChanged(nameof(CanCreateTask));
         OnPropertyChanged(nameof(IsQuickAddVisible));
         OnPropertyChanged(nameof(IsNamedListSelected));
+        OnPropertyChanged(nameof(CanReorderTasks));
         OnPropertyChanged(nameof(IsSmartViewSelected));
         OnPropertyChanged(nameof(IsCompletedScopeAvailable));
         OnPropertyChanged(nameof(IsMyDaySelected));
@@ -296,6 +303,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private string GetEmptyAccountName()
         => IsEmptyAccountSelected ? Accounts.FirstOrDefault(account => account.Id == _emptyAccountId)?.Name : null;
     public bool IsNamedListSelected => SelectedList is not null;
+
+    /// <summary>Manual order is kept per list, so a smart view that mixes lists has none to edit.</summary>
+    public bool CanReorderTasks => SelectedList is not null && SelectedSort == TaskSortKind.Manual && _taskMutationService is not null;
     public bool IsSmartViewSelected => SelectedList is null;
     public bool IsMyDaySelected => SelectedList is null && SelectedView == TaskViewKind.MyDay;
     public bool CanEditSelectedList => SelectedList is { IsReadOnly: false };
@@ -445,6 +455,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         TaskSortKind.MyDay => Translator.ToDoPage_SortMyDay,
         TaskSortKind.Alphabetical => Translator.ToDoPage_SortAlphabetically,
         TaskSortKind.CreationDate => Translator.ToDoPage_SortCreationDate,
+        TaskSortKind.Manual => Translator.ToDoPage_SortManual,
         _ => Translator.ToDoPage_SortDueDate
     };
 
@@ -499,6 +510,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public ToDoPageViewModel(
         ITaskQueryService taskService,
         IAccountService accountService,
+        AccountGroupExpansionStore accountGroupExpansion,
         IWinoRequestDelegator requestDelegator,
         INavigationService navigationService,
         ICalendarService calendarService,
@@ -513,6 +525,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
         _accountService = accountService;
+        _accountGroupItems = new AccountGroupPaneItems(accountGroupExpansion, () => Dispatcher);
         _requestDelegator = requestDelegator;
         _navigationService = navigationService;
         _calendarService = calendarService;
@@ -577,6 +590,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Register<BulkTaskChanged>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<AccountLayoutChanged>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
     }
 
@@ -587,6 +601,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Unregister<BulkTaskChanged>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
+        Messenger.Unregister<AccountLayoutChanged>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
         base.UnregisterRecipients();
     }
@@ -617,6 +632,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     void IRecipient<AccountRemovedMessage>.Receive(AccountRemovedMessage message)
         => _ = ExecuteUIThread(() => ApplyAccountRemoval(message.Account.Id));
+
+    void IRecipient<AccountLayoutChanged>.Receive(AccountLayoutChanged message)
+    {
+        if (!_isPreparedForShellShutdown)
+            _ = ReloadAsync();
+    }
 
     private void ApplyTaskState(TaskStateChanged message)
     {
@@ -1215,6 +1236,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _pendingListStates.Clear();
         _pendingDeletedListIds.Clear();
         _accountGroupMenuItems.Clear();
+        _accountGroupItems.Clear();
         foreach (var groupMenuItem in _taskListGroupMenuItems.Values)
             groupMenuItem.PropertyChanged -= TaskListGroupMenuItem_PropertyChanged;
         _taskListGroupMenuItems.Clear();
@@ -1289,6 +1311,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 .ToList();
             var lists = await _taskService.GetTaskListsAsync().ConfigureAwait(false);
             var listGroups = await _taskService.GetTaskListGroupsAsync().ConfigureAwait(false) ?? [];
+            var accountGroups = await _accountService.GetAccountGroupsAsync().ConfigureAwait(false);
 
             foreach (var account in accounts.Where(RequiresLocalFallbackList))
             {
@@ -1322,6 +1345,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             {
                 if (_isPreparedForShellShutdown) return;
                 var selectedListId = SelectedList?.Id;
+                _accountGroups = accountGroups;
                 ReconcileAccounts(accounts);
                 ReconcileTaskListGroups(listGroups);
                 ReconcileTaskLists(MergePendingLists(lists));
@@ -1579,8 +1603,47 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             "myday" => TaskSortKind.MyDay,
             "alphabetical" => TaskSortKind.Alphabetical,
             "created" => TaskSortKind.CreationDate,
+            "manual" when SelectedList is not null => TaskSortKind.Manual,
             _ => TaskSortKind.DueDate
         };
+
+    /// <summary>
+    /// Moves <paramref name="moved"/> next to <paramref name="target"/> in the selected list's manual order.
+    /// The whole list is renumbered, including tasks the current filter hides, so positions stay unique.
+    /// </summary>
+    public async Task ReorderTasksAsync(IReadOnlyList<TaskItemViewModel> moved, TaskItemViewModel target, bool insertAfter)
+    {
+        if (!CanReorderTasks || moved is null || moved.Count == 0 || target is null || moved.Contains(target))
+            return;
+
+        var sequence = OrderManually(_taskItems.Values).ToList();
+        var block = sequence.Where(moved.Contains).ToList();
+        if (block.Count == 0)
+            return;
+
+        sequence.RemoveAll(moved.Contains);
+        var targetIndex = sequence.IndexOf(target);
+        if (targetIndex < 0)
+            return;
+
+        sequence.InsertRange(insertAfter ? targetIndex + 1 : targetIndex, block);
+
+        var changed = new Dictionary<Guid, int>();
+        for (var index = 0; index < sequence.Count; index++)
+        {
+            if (sequence[index].Task.ManualOrder == index)
+                continue;
+
+            sequence[index].SetManualOrder(index);
+            changed[sequence[index].Id] = index;
+        }
+
+        if (changed.Count == 0)
+            return;
+
+        ReconcileTaskGroups();
+        await _taskMutationService.UpdateTaskManualOrderAsync(changed).ConfigureAwait(false);
+    }
 
     /// <summary>Takes the scope as a string for the same reason <see cref="SetSort"/> does.</summary>
     [RelayCommand]
@@ -2651,6 +2714,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             // Without one, the current choice carries over as before.
             if (list?.SortKind is { } listSort)
                 SelectedSort = listSort;
+            else if (list is null && SelectedSort == TaskSortKind.Manual)
+                SelectedSort = TaskSortKind.DueDate;
 
             if (list is not null)
             {
@@ -2908,12 +2973,22 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             TaskSortKind.MyDay => ordered.ThenByDescending(item => item.MyDayDateUtc ?? DateTime.MinValue).ThenBy(item => item.DueDate ?? DateTime.MaxValue),
             TaskSortKind.Alphabetical => ordered.ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
             TaskSortKind.CreationDate => ordered.ThenByDescending(item => item.Task.CreatedAtUtc),
+            TaskSortKind.Manual => OrderManually(ordered),
             _ => ordered.ThenBy(item => item.DueDate ?? DateTime.MaxValue)
         };
 
         return ordered
             .ThenBy(item => item.Task.ModifiedAtUtc)
             .ThenBy(item => _taskOrder.IndexOf(item.Id));
+    }
+
+    private static IOrderedEnumerable<TaskItemViewModel> OrderManually(IEnumerable<TaskItemViewModel> items)
+    {
+        var ordered = items as IOrderedEnumerable<TaskItemViewModel> ?? items.OrderBy(_ => 0);
+        return ordered
+            .ThenBy(item => item.Task.ManualOrder ?? int.MaxValue)
+            .ThenBy(item => item.Task.CreatedAtUtc)
+            .ThenBy(item => item.Id);
     }
 
     private static void ReconcileTaskGroupItems(TaskGroup group, IReadOnlyList<TaskItemViewModel> desired)
@@ -3033,9 +3108,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         var prefixCount = desired.Count;
         var activeAccountIds = new HashSet<Guid>();
         var activeListIds = new HashSet<Guid>();
+        var accountRows = new Dictionary<Guid, IMenuItem>();
         IReadOnlyList<IMenuItem> selectedAccountChildren = [];
+        var orderedAccounts = Accounts.OrderBy(account => account.Order).ThenBy(account => account.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
-        foreach (var account in Accounts.OrderBy(account => account.Order).ThenBy(account => account.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (var account in orderedAccounts)
         {
             var accountLists = TaskLists.Where(list => list.MailAccountId == account.Id).ToList();
             // Ordering never keys on Title: a rename would move the item, and a moved item makes
@@ -3098,11 +3175,16 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
             ApplyDesiredSubMenuItems(header.SubMenuItems, accountChildren);
             header.IsSelected = account.Id == _selectedAccountId;
-            desired.Add(header);
+            accountRows[account.Id] = header;
 
             if (header.IsSelected)
                 selectedAccountChildren = accountChildren;
         }
+
+        // Combining folders is a Mail behavior, so every group is a plain group here.
+        var accountLayout = AccountLayoutBuilder.Build(orderedAccounts, _accountGroups);
+        desired.AddRange(_accountGroupItems.Build(accountLayout, entry =>
+            entry.Account is { } layoutAccount && accountRows.TryGetValue(layoutAccount.Id, out var row) ? row : null));
 
         foreach (var accountId in _accountGroupMenuItems.Keys.Where(id => !activeAccountIds.Contains(id)).ToList())
             _accountGroupMenuItems.Remove(accountId);

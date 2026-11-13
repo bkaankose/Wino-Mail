@@ -1,54 +1,22 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Linq;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Core.Domain.Interfaces;
-using Wino.Mail.WinUI;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Dialogs;
 
+/// <summary>
+/// Orders groups and accounts at the top level, and the accounts inside each group.
+/// The dialog never changes group membership; the dialog service saves the order when Save is chosen.
+/// </summary>
 public sealed partial class AccountReorderDialog : ContentDialog
 {
-    public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = null!;
+    internal ObservableCollection<AccountReorderItem> Items { get; }
 
-    private int count;
-    private bool isOrdering = false;
-
-    private readonly IAccountService? _accountService = App.Current.Services.GetService<IAccountService>();
-
-    public AccountReorderDialog(ObservableCollection<IAccountProviderDetailViewModel>? accounts)
+    public AccountReorderDialog(ObservableCollection<AccountReorderItem> items)
     {
-        Accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
-
-        count = accounts.Count;
+        Items = items ?? throw new ArgumentNullException(nameof(items));
 
         InitializeComponent();
-    }
-
-    private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
-    {
-        Accounts.CollectionChanged -= AccountsChanged;
-        Accounts.CollectionChanged += AccountsChanged;
-    }
-
-    private void DialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args) => Accounts.CollectionChanged -= AccountsChanged;
-
-    private async void AccountsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        if (count - 1 == Accounts.Count)
-            isOrdering = true;
-
-        if (count == Accounts.Count && isOrdering)
-        {
-            // Order is completed. Apply changes.
-
-            var dict = Accounts.ToDictionary(a => a.StartupEntityId, a => Accounts.IndexOf(a));
-
-            if (_accountService != null)
-                await _accountService.UpdateAccountOrdersAsync(dict);
-
-            isOrdering = false;
-        }
     }
 }

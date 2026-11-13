@@ -212,7 +212,8 @@
     <Content Include="Assets\AppEntries\ToDo.svg" />
     <Content Include="Assets\AppEntries\Calendar.svg" />
     <Content Include="Assets\AppEntries\People.svg" />
-    <Content Include="release-profile.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="release-profile.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoDebugIdentity)' != 'true'" />
+    <Content Include="release-profile.Debug.json" Link="release-profile.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoDebugIdentity)' == 'true'" />
     <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="Assets\Wino_Icon_Unread.ico" />
     <Content Include="Assets\WinoLogo.png" />
@@ -386,9 +387,6 @@
     <Page Update="Views\Account\ImapCalDavSettingsPage.xaml">
       <SubType>Designer</SubType>
     </Page>
-    <Page Update="Views\Account\MergedAccountDetailsPage.xaml">
-      <SubType>Designer</SubType>
-    </Page>
     <Page Update="Views\ComposePage.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -504,6 +502,45 @@
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
   </PropertyGroup>
+
+  <!--
+    Debug builds install as WinoMail.Debug with plum (#6D214F) artwork, beside the Store, Beta and Sideload packages.
+    Pass -p:WinoDebugIdentity=false to build Debug under the Store identity, for example to test Store add-ons.
+  -->
+  <PropertyGroup>
+    <WinoDebugIdentity Condition="'$(WinoDebugIdentity)' == '' and '$(Configuration)' == 'Debug'">true</WinoDebugIdentity>
+    <WinoDebugIdentity Condition="'$(Configuration)' != 'Debug'">false</WinoDebugIdentity>
+    <WinoDebugManifest>$(BaseIntermediateOutputPath)WinoDebugIdentity\Package.appxmanifest</WinoDebugManifest>
+    <WinoDebugAssetsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', 'scripts', 'development', 'windows', 'DebugAssets'))</WinoDebugAssetsRoot>
+    <WinoPackageProfileScript>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', '..', 'scripts', 'release', 'windows', 'WinoPackageProfile.ps1'))</WinoPackageProfileScript>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(WinoDebugIdentity)' == 'true'">
+    <AppxManifest Include="$(WinoDebugManifest)">
+      <SubType>Designer</SubType>
+    </AppxManifest>
+  </ItemGroup>
+
+  <Target Name="WinoGenerateDebugManifest" BeforeTargets="PrepareForBuild" Condition="'$(WinoDebugIdentity)' == 'true'"
+          Inputs="Package.appxmanifest;release-profile.Debug.json;$(WinoPackageProfileScript)" Outputs="$(WinoDebugManifest)">
+    <Exec Command="powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(WinoPackageProfileScript)&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\Package.appxmanifest&quot; -ProfilePath &quot;$(MSBuildProjectDirectory)\release-profile.Debug.json&quot; -OutputPath &quot;$(WinoDebugManifest)&quot;" />
+    <ItemGroup>
+      <FileWrites Include="$(WinoDebugManifest)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Replace each packaged branding file that has a Debug counterpart; the package path stays the same. -->
+  <Target Name="WinoUseDebugArtwork" BeforeTargets="AssignTargetPaths" Condition="'$(WinoDebugIdentity)' == 'true'">
+    <ItemGroup>
+      <_WinoStableArtwork Include="@(Content)" Condition="Exists('$(WinoDebugAssetsRoot)%(Identity)')" />
+      <_WinoStableArtwork>
+        <Link>%(Identity)</Link>
+      </_WinoStableArtwork>
+      <Content Remove="@(_WinoStableArtwork)" />
+      <Content Include="@(_WinoStableArtwork->'$(WinoDebugAssetsRoot)%(Identity)')" />
+      <_WinoStableArtwork Remove="@(_WinoStableArtwork)" />
+    </ItemGroup>
+  </Target>
 
   <Import Project="..\..\scripts\release\windows\Wino.Release.targets" Condition="'$(WinoReleaseStagingRoot)' != ''" />
 

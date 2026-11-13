@@ -256,9 +256,7 @@ Build and tooling facts:
 - Commands follow the repository style: `dotnet build src/Wino.Mail.Android -f net10.0-android -t:Run` for
   deploy-and-run on the emulator; `dotnet publish -c Release -r android-arm64` for the AAB; `adb logcat` for
   logs. The VS Code F5 helper would get an Android launch configuration.
-- Lab: the Docker lab is reachable from the emulator at `10.0.2.2` (host loopback); physical devices need the
-  host's LAN address and the lab ports bound beyond loopback. The lab README is Windows-centric and would gain
-  an Android paragraph.
+- Lab: the [mail lab](../tools/lab/README.md) is remote, on public names with TLS, so emulators and physical devices reach it directly.
 - Signing and store: Play Console developer account, upload key, Play App Signing (two certificate hashes to
   register with Entra and Google OAuth), AAB upload, internal testing track for the lab phase. Sideload APK
   releases on GitHub stay possible, like the DMG channel; no Sparkle equivalent is needed because Play updates

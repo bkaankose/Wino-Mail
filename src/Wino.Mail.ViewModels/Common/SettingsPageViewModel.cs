@@ -11,6 +11,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Core.ViewModels;
 
@@ -246,7 +247,9 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 var accountName = await GetAccountNameAsync(parameter).ConfigureAwait(false);
                 return string.Format(Translator.SettingsAccountDetails_Subtitle, accountName ?? pageTitle ?? Translator.AccountDetailsPage_Title);
             case WinoPage.MergedAccountDetailsPage:
-                return Translator.SettingsEditLinkedInbox_Description;
+                return parameter is AccountGroupDetailsNavigationContext { GroupId: null }
+                    ? Translator.AccountGroupDetailsPage_NewDescription
+                    : Translator.SettingsEditLinkedInbox_Description;
             case WinoPage.AliasManagementPage:
                 return Translator.SettingsManageAliases_Description;
             case WinoPage.FolderCustomizationPage:

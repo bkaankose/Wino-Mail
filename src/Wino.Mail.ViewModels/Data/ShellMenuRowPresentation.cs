@@ -169,6 +169,14 @@ public static class ShellMenuRowPresentation
                 return row with { Glyph = WinoIconGlyph.Calendar, Title = Translator.ToDoPage_Planned, UnreadCount = planned.Count, IsExpanded = null };
             case ImportantTaskMenuItem important:
                 return row with { Glyph = WinoIconGlyph.Star, Title = Translator.ToDoPage_Important, UnreadCount = important.Count, IsExpanded = null };
+            case AccountGroupMenuItem accountGroup:
+                return row with
+                {
+                    Glyph = accountGroup.IconGlyph,
+                    Title = accountGroup.Name,
+                    Subtitle = AccountGroupPresentation.GetAccountCountText(accountGroup.AccountCount),
+                    UnreadCount = accountGroup.IsUnreadCountVisible ? accountGroup.UnreadItemCount : 0
+                };
             case AccountTaskListGroupMenuItem taskGroup:
                 return row with { Glyph = WinoIconGlyph.PanelLeft, Title = taskGroup.Title ?? string.Empty };
             case AccountTaskListMenuItem list:

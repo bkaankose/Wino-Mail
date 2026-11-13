@@ -15,6 +15,20 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "Run Wino Mail (Sandbox, no accounts)",
+      "type": "process",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "${workspaceFolder}/scripts/development/windows/start-wino.ps1",
+        "-Target",
+        "sandbox",
+        "-NoAccounts"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "Build Wino Mail (Debug, x64)",
       "type": "process",
       "command": "dotnet",

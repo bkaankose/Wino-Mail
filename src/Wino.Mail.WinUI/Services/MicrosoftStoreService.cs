@@ -235,6 +235,7 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
                     HasAvailableUpdate = await AppInstallerUpdater.IsUpdateAvailableAsync();
                     return HasAvailableUpdate;
                 case WindowsAppDistribution.Beta:
+                case WindowsAppDistribution.Debug:
                     return false;
             }
 

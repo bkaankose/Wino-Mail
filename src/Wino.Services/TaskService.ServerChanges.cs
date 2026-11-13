@@ -208,6 +208,7 @@ public sealed partial class TaskService
             MyDayDateUtc = task.MyDayDateUtc,
             CompletedAtUtc = task.CompletedAtUtc,
             RemoteOrder = task.RemoteOrder,
+            ManualOrder = task.ManualOrder,
             PendingMutation = task.PendingMutation,
             CreatedAtUtc = task.CreatedAtUtc,
             ModifiedAtUtc = task.ModifiedAtUtc,

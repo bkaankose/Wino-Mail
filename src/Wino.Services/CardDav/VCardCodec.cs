@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
+using SkiaSharp;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -10,10 +12,17 @@ using Wino.Core.Domain.Models.CardDav;
 
 namespace Wino.Services.CardDav;
 
-public sealed class VCardCodec : IVCardCodec
+public sealed partial class VCardCodec : IVCardCodec
 {
     private const string AppleKind = "X-ADDRESSBOOKSERVER-KIND";
     private const string AppleMember = "X-ADDRESSBOOKSERVER-MEMBER";
+    private const int MaximumPhotoBytes = 8 * 1024 * 1024;
+
+    // The content line each parsed property came from, and how it serializes unchanged. A property
+    // that still serializes the same way is written back as the server sent it.
+    private static readonly ConditionalWeakTable<VCardProperty, ParsedLine> ParsedLines = new();
+
+    private sealed record ParsedLine(string Raw, string Canonical);
 
     public VCardDocument Parse(string content)
     {
@@ -69,6 +78,7 @@ public sealed class VCardCodec : IVCardCodec
             if (property.Name == "VERSION")
                 document.Version = value.Trim();
 
+            ParsedLines.AddOrUpdate(property, new ParsedLine(line, SerializeProperty(property)));
             document.Properties.Add(property);
         }
 
@@ -197,56 +207,6 @@ public sealed class VCardCodec : IVCardCodec
         return document;
     }
 
-    public void Patch(VCardDocument document, AccountContact contact)
-    {
-        ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(contact);
-
-        PatchSingle(document, "FN", EscapeText(contact.DisplayValue));
-        PatchSingle(document, "N", JoinStructured(contact.Surname, contact.GivenName, contact.MiddleName, contact.HonorificPrefix, contact.HonorificSuffix));
-        PatchSingle(document, "NICKNAME", EscapeText(contact.Nickname));
-        PatchSingle(document, "SORT-STRING", EscapeText(contact.FileAs));
-        PatchSingle(document, "ORG", JoinStructured(contact.CompanyName, contact.Department));
-        PatchSingle(document, "TITLE", EscapeText(contact.JobTitle));
-        PatchSingle(document, "ROLE", EscapeText(contact.Profession));
-        PatchSingle(document, "NOTE", EscapeText(contact.Notes));
-        PatchSingle(document, "URL", EscapeText(contact.Website));
-        PatchSingle(document, "BDAY", FormatBirthday(contact));
-
-        PatchRepeated(document, "EMAIL", contact.EmailAddresses?.OrderBy(item => item.Order).Select(item =>
-        {
-            var property = Property("EMAIL", EscapeText(item.Address));
-            AddType(property, item.Label);
-            if (item.IsPrimary) AddPreference(property, document.Version);
-            return property;
-        }) ?? []);
-
-        PatchRepeated(document, "TEL", contact.PhoneNumbers?.OrderBy(item => item.Order).Select(item =>
-        {
-            var property = Property("TEL", EscapeText(item.Number));
-            AddType(property, item.Kind.ToString());
-            if (item.IsPrimary) AddPreference(property, document.Version);
-            return property;
-        }) ?? []);
-
-        PatchRepeated(document, "ADR", contact.PostalAddresses?.Select(item =>
-        {
-            var property = Property("ADR", JoinStructured(item.PostOfficeBox, null, item.Street, item.City, item.Region, item.PostalCode, item.Country));
-            AddType(property, item.Kind.ToString());
-            return property;
-        }) ?? []);
-
-        PatchRepeated(document, "IMPP", contact.ImAddresses?.OrderBy(item => item.Order).Select(item =>
-            Property("IMPP", EscapeText(item.Address))) ?? []);
-
-        PatchRepeated(document, "RELATED", contact.Relations?.OrderBy(item => item.Order).Select(item =>
-        {
-            var property = Property("RELATED", EscapeText(item.Name));
-            AddType(property, item.Kind.ToString());
-            return property;
-        }) ?? []);
-    }
-
     public string Serialize(VCardDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -259,6 +219,9 @@ public sealed class VCardCodec : IVCardCodec
         foreach (var property in document.Properties)
         {
             var line = SerializeProperty(property);
+            if (ParsedLines.TryGetValue(property, out var parsed) && string.Equals(parsed.Canonical, line, StringComparison.Ordinal))
+                line = parsed.Raw;
+
             foreach (var folded in Fold(line))
                 builder.Append(folded).Append("\r\n");
         }
@@ -285,6 +248,52 @@ public sealed class VCardCodec : IVCardCodec
         property.Parameters.Add(encoding);
         property.Parameters.Add(type);
         document.Properties.Add(property);
+    }
+
+    /// <summary>
+    /// The card's inline photo: base64 with ENCODING=b in vCard 3 (RFC 2426 section 3.1.4) or a
+    /// data: URI in vCard 4 (RFC 6350 section 6.2.4, RFC 2397). A photo given by URL is not
+    /// downloaded, and anything that is not a readable image of at most 8 MB is ignored.
+    /// </summary>
+    public byte[] GetPhoto(VCardDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var property = First(document, "PHOTO");
+        if (property is null || string.IsNullOrWhiteSpace(property.Value))
+            return null;
+
+        string base64 = null;
+        var value = property.Value.Trim();
+        if (value.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            // Some servers escape the ';' and ',' of the URI as if it were text.
+            var uri = value.Replace("\\;", ";").Replace("\\,", ",").Replace("\\:", ":");
+            var comma = uri.IndexOf(',');
+            if (comma > 0 && uri[..comma].EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
+                base64 = uri[(comma + 1)..];
+        }
+        else if (property.Parameters.Any(parameter => parameter.Name == "ENCODING" &&
+                 parameter.Values.Any(item => item.Equals("b", StringComparison.OrdinalIgnoreCase) || item.Equals("BASE64", StringComparison.OrdinalIgnoreCase))))
+        {
+            base64 = value;
+        }
+
+        if (string.IsNullOrEmpty(base64) || base64.Length > MaximumPhotoBytes / 3 * 4 + 4096)
+            return null;
+
+        try
+        {
+            var bytes = Convert.FromBase64String(new string(base64.Where(character => !char.IsWhiteSpace(character)).ToArray()));
+            if (bytes.Length == 0 || bytes.Length > MaximumPhotoBytes)
+                return null;
+
+            var bounds = SKBitmap.DecodeBounds(bytes);
+            return bounds.Width > 0 && bounds.Height > 0 ? bytes : null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 
     public void RemovePhoto(VCardDocument document)
@@ -356,8 +365,13 @@ public sealed class VCardCodec : IVCardCodec
     public void SetGroupName(VCardDocument document, string name)
     {
         ArgumentNullException.ThrowIfNull(document);
-        PatchSingle(document, "FN", EscapeText(name));
-        PatchSingle(document, "N", JoinStructured(name, null, null, null, null));
+        var fullName = First(document, "FN");
+        if (fullName is null) Insert(document, Property("FN", EscapeText(name)));
+        else SetValue(fullName, EscapeText(name));
+
+        var structured = First(document, "N");
+        if (structured is null) Insert(document, Property("N", JoinStructured(name, null, null, null, null)));
+        else ReplaceComponents(structured, 5, (0, null, name ?? string.Empty));
     }
 
     public IReadOnlyList<string> GetGroupMembers(VCardDocument document)
@@ -370,6 +384,10 @@ public sealed class VCardCodec : IVCardCodec
             .ToList();
     }
 
+    /// <summary>
+    /// Makes the group name exactly the given members. A member the group already names keeps its
+    /// line as the server has it; a new one is added in the group's own member property.
+    /// </summary>
     public void SetGroupMembers(VCardDocument document, IEnumerable<string> memberUids)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -378,66 +396,26 @@ public sealed class VCardCodec : IVCardCodec
         var name = All(document, "MEMBER").Any() || (First(document, AppleKind) is null && First(document, "KIND") is not null)
             ? "MEMBER"
             : AppleMember;
-        document.Properties.RemoveAll(property => property.Name is AppleMember or "MEMBER");
-        foreach (var uid in (memberUids ?? []).Where(uid => !string.IsNullOrWhiteSpace(uid)).Distinct(StringComparer.OrdinalIgnoreCase))
-            document.Properties.Add(Property(name, "urn:uuid:" + uid.Trim()));
-    }
+        var desired = (memberUids ?? [])
+            .Where(uid => !string.IsNullOrWhiteSpace(uid))
+            .GroupBy(VCardUid.Normalize, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+        var wanted = desired.Select(VCardUid.Normalize).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var kept = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-    private static string MemberUid(string value)
-    {
-        var trimmed = value?.Trim() ?? string.Empty;
-        return trimmed.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase) ? trimmed[9..] : trimmed;
-    }
-
-    private static void PatchSingle(VCardDocument document, string name, string value)
-    {
-        var existing = All(document, name).ToList();
-        if (string.IsNullOrWhiteSpace(value))
+        document.Properties.RemoveAll(property =>
         {
-            foreach (var property in existing)
-                document.Properties.Remove(property);
-            return;
-        }
+            if (property.Name is not (AppleMember or "MEMBER")) return false;
+            var uid = MemberUid(property.Value);
+            return !wanted.Contains(uid) || !kept.Add(uid);
+        });
 
-        if (existing.Count == 0)
-        {
-            document.Properties.Add(Property(name, value));
-            return;
-        }
-
-        existing[0].Value = value;
-        foreach (var property in existing.Skip(1))
-            document.Properties.Remove(property);
+        foreach (var uid in desired.Where(uid => !kept.Contains(VCardUid.Normalize(uid))))
+            Insert(document, Property(name, VCardUid.ToMemberReference(uid)));
     }
 
-    private static void PatchRepeated(VCardDocument document, string name, IEnumerable<VCardProperty> replacements)
-    {
-        var existing = All(document, name).ToList();
-        var incoming = replacements.Where(property => !string.IsNullOrWhiteSpace(property.Value)).ToList();
-        var common = Math.Min(existing.Count, incoming.Count);
-        for (var index = 0; index < common; index++)
-        {
-            // Retain the server's group and unsupported parameters while updating modeled values.
-            existing[index].Value = incoming[index].Value;
-            MergeModeledParameters(existing[index], incoming[index]);
-        }
-
-        foreach (var property in existing.Skip(common))
-            document.Properties.Remove(property);
-        foreach (var property in incoming.Skip(common))
-            document.Properties.Add(property);
-    }
-
-    private static void MergeModeledParameters(VCardProperty target, VCardProperty source)
-    {
-        target.Parameters.RemoveAll(parameter => parameter.Name is "TYPE" or "PREF");
-        foreach (var parameter in source.Parameters)
-        {
-            var copy = new VCardParameter { Name = parameter.Name };
-            copy.Values.AddRange(parameter.Values);
-            target.Parameters.Add(copy);
-        }
-    }
+    private static string MemberUid(string value) => VCardUid.Normalize(value);
 
     private static IEnumerable<string> Unfold(string content)
     {
@@ -682,26 +660,39 @@ public sealed class VCardCodec : IVCardCodec
         return ContactPostalAddressKind.Other;
     }
 
-    private static string FormatBirthday(AccountContact contact)
+    /// <summary>A date in the form of the card's version: RFC 6350 section 4.3.1 basic format, or RFC 2426 section 3.1.5.</summary>
+    private static string FormatBirthday(AccountContact contact, string version)
     {
         if (!contact.BirthdayMonth.HasValue || !contact.BirthdayDay.HasValue) return null;
-        return contact.BirthdayYear.HasValue
-            ? $"{contact.BirthdayYear:0000}-{contact.BirthdayMonth:00}-{contact.BirthdayDay:00}"
-            : $"--{contact.BirthdayMonth:00}{contact.BirthdayDay:00}";
+        if (!contact.BirthdayYear.HasValue) return $"--{contact.BirthdayMonth:00}{contact.BirthdayDay:00}";
+        return version == "4.0"
+            ? $"{contact.BirthdayYear:0000}{contact.BirthdayMonth:00}{contact.BirthdayDay:00}"
+            : $"{contact.BirthdayYear:0000}-{contact.BirthdayMonth:00}-{contact.BirthdayDay:00}";
     }
 
+    /// <summary>
+    /// Reads a date or date-time BDAY in the basic or extended format (RFC 6350 section 4.3,
+    /// RFC 2426 section 3.1.5), with or without a year. Only the date part is used.
+    /// </summary>
     private static void ApplyBirthday(AccountContact contact, string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return;
-        if (DateOnly.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        var trimmed = value.Trim();
+        var timeSeparator = trimmed.IndexOf('T', StringComparison.OrdinalIgnoreCase);
+        var datePart = timeSeparator > 0 ? trimmed[..timeSeparator] : trimmed;
+
+        if (DateOnly.TryParseExact(datePart, ["yyyy-MM-dd", "yyyyMMdd"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var exact) ||
+            DateOnly.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.None, out exact))
         {
-            contact.BirthdayYear = date.Year;
-            contact.BirthdayMonth = date.Month;
-            contact.BirthdayDay = date.Day;
+            contact.BirthdayYear = exact.Year;
+            contact.BirthdayMonth = exact.Month;
+            contact.BirthdayDay = exact.Day;
             return;
         }
-        var partial = value.Trim().TrimStart('-').Replace("-", string.Empty);
-        if (partial.Length == 4 && int.TryParse(partial[..2], out var month) && int.TryParse(partial[2..], out var day))
+
+        var partial = datePart.TrimStart('-').Replace("-", string.Empty);
+        if (partial.Length == 4 && int.TryParse(partial[..2], NumberStyles.None, CultureInfo.InvariantCulture, out var month) &&
+            int.TryParse(partial[2..], NumberStyles.None, CultureInfo.InvariantCulture, out var day) && month is >= 1 and <= 12 && day is >= 1 and <= 31)
         {
             contact.BirthdayMonth = month;
             contact.BirthdayDay = day;

@@ -6,7 +6,8 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 
 | Category | Script | Platform | Shell | Purpose |
 | --- | --- | --- | --- | --- |
-| Development | `development/windows/start-wino.ps1` | Windows | PowerShell 7.2+ | Check build inputs and output, then build if needed and launch the packaged Debug app |
+| Development | `development/windows/start-wino.ps1` | Windows | PowerShell 7.2+ | Check build inputs and output, then build if needed and launch the packaged Debug app locally or in Windows Sandbox with the host's fixed-version WebView2 runtime and the lab accounts seeded before Wino starts |
+| Development | `development/windows/generate-debug-artwork.py` | Windows | Python 3 with Pillow | Regenerate the plum (#6D214F) Debug package artwork in `development/windows/DebugAssets` from the stable branding files |
 | Release | `release/windows/build-releases.ps1` | Windows | PowerShell 7 | Optionally translate resources, then build and package Store, Beta, and sideload releases |
 | Release | `release/windows/publish-releases.ps1` | Windows | PowerShell 7 | Publish Beta and sideload releases to download.winomail.app |
 | Release | `release/windows/upload-sentry-symbols.ps1` | Windows | PowerShell 7 | Upload symbols for a selected release |
@@ -15,7 +16,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 | Release | `release/macos/build-macos-appstore.sh` | macOS | Bash | Optionally translate resources, then build, validate, and optionally upload the Mac App Store package |
 | Release | `release/release.ps1` | Both | PowerShell 7 | Bump the version, draft release notes with Claude Code, mark issues, and publish the GitHub release |
 | Release | `release/whats-new/validate.ps1` | Both | PowerShell 7 | Validate What's New notes and illustration references |
-| Lab | `lab/windows/local-lab.ps1` | Windows | PowerShell 7 | Start five Docker IMAP/SMTP/DAV servers, seed and verify them, generate test account data, and install it into the Debug app |
+| Lab | `lab/windows/lab.ps1` | Windows | PowerShell 7 | Check the remote mail lab, fetch its account manifest, install the lab accounts into the Debug app, and open a tunnel to its loopback ports |
 | Lab | `lab/windows/exchange-lab.ps1` | Windows | PowerShell 7 | Build and manage the Hyper-V Exchange Server SE lab VM (AD forest, mailboxes, trusted certificate, mail-flow and Autodiscover checks) |
 | Maintenance | `maintenance/windows/format-xaml.ps1` | Windows | PowerShell 7 | Format WinUI XAML or check formatting with the pinned XAML Styler |
 | Maintenance | `maintenance/windows/audit-xaml-accessibility.ps1` | Windows | PowerShell | Report XAML controls without accessible labels |
@@ -28,6 +29,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 
 `release/windows/profiles` contains release channel configuration.
 `release/windows/Wino.Release.targets` exports the release payload used by the Windows release script.
+`release/windows/WinoPackageProfile.ps1` applies a release profile to the package manifest for sideload packages and Debug builds.
 `release/Assets/Beta` contains the Windows beta artwork.
 The root `Directory.Build.targets` retains shared compiler and Native AOT rules; `build/Wino.Windows.targets` holds the Windows-only packaging rules.
 
@@ -37,7 +39,7 @@ Native-only scripts check the host first and stop on the wrong platform.
 
 ```powershell
 pwsh -File scripts/release/windows/build-releases.ps1
-pwsh -File scripts/lab/windows/local-lab.ps1 help
+pwsh -File scripts/lab/windows/lab.ps1 help
 pwsh -File scripts/maintenance/windows/format-xaml.ps1 -Changed -Check
 python scripts/localization/translate_resources.py --help
 ```
@@ -48,5 +50,5 @@ bash scripts/release/macos/publish-macos-release.sh --help
 bash scripts/maintenance/macos/setup-macos-debugger.sh
 ```
 
-See the [release guide](../docs/releases.md), [lab guide](../tools/local-lab/README.md), and [script environment](../docs/local-script-environment.md).
+See the [release guide](../docs/releases.md), [lab guide](../tools/lab/README.md), and [script environment](../docs/local-script-environment.md).
 The lab generator builds its helper project. Only the explicit `install-app` command builds, deploys, and launches the Wino app; nothing automates its UI.

@@ -122,6 +122,15 @@ internal sealed class SnapshotAlias
 internal sealed class SnapshotMergedInbox
 {
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>Missing in snapshots from builds before account groups, whose groups were all combined.</summary>
+    public bool? CombineFolders { get; set; }
+
+    public string? ColorKey { get; set; }
+
+    /// <summary>The stored <see cref="Wino.Core.Domain.Enums.AccountGroupIcon"/> value.</summary>
+    public int? Icon { get; set; }
+
     public List<SnapshotMailboxReference> Members { get; set; } = [];
 }
 

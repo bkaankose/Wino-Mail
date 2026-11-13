@@ -12,4 +12,4 @@ src/Wino.Core.ML/Models/Magika/** -text
 src/Wino.Core.ML/NativeRuntime/** -text
 
 # Lab shell scripts run inside Linux containers.
-tools/local-lab/**/*.sh text eol=lf
+tools/lab/**/*.sh text eol=lf

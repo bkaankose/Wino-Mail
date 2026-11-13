@@ -45,7 +45,7 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
             }
             else
             {
-                return LinkedAccounts.Any();
+                return !ShouldDeleteMergedAccount;
             }
         }
     }
@@ -83,6 +83,9 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
     [RelayCommand(CanExecute = nameof(CanSaveChanges))]
     private async Task SaveChangesAsync()
     {
+        // A new group needs two accounts; unlinking applies only to a saved one.
+        if (!IsMergedInboxSaved && ShouldDeleteMergedAccount) return;
+
         if (ShouldDeleteMergedAccount)
         {
             await UnlinkAccountsAsync();
@@ -98,8 +101,10 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
                 await _accountService.CreateMergeAccountsAsync(EditingMergedAccount.MergedInbox, LinkedAccounts.Select(a => a.Account).ToList());
             }
 
-            // Startup entity is linked now. Change the startup entity.
-            if (_preferencesService.StartupEntityId != null && LinkedAccounts.Any(a => a.StartupEntityId == _preferencesService.StartupEntityId))
+            // Startup entity is linked now. Change the startup entity. Only a combined group can open at startup.
+            if (EditingMergedAccount.MergedInbox.CombineFolders &&
+                _preferencesService.StartupEntityId != null &&
+                LinkedAccounts.Any(a => a.StartupEntityId == _preferencesService.StartupEntityId))
             {
                 _preferencesService.StartupEntityId = EditingMergedAccount.MergedInbox.Id;
             }

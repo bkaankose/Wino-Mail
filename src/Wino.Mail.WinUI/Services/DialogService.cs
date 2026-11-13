@@ -29,6 +29,7 @@ using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
@@ -330,14 +331,36 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         }
     }
 
+    /// <remarks>
+    /// The dialog reads the current layout itself, because the flat account list the settings pages pass
+    /// does not carry the groups.
+    /// </remarks>
     public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
     {
-        var accountReorderDialog = new AccountReorderDialog(availableAccounts)
+        var accountService = WinoApplication.Current.Services.GetRequiredService<IAccountService>();
+        var accounts = await accountService.GetAccountsAsync();
+        var groups = await accountService.GetAccountGroupsAsync();
+        var items = AccountReorderItem.FromLayout(AccountLayoutBuilder.Build(accounts, groups));
+
+        var accountReorderDialog = new AccountReorderDialog(items)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
 
-        await HandleDialogPresentationAsync(accountReorderDialog);
+        var result = await HandleDialogPresentationAsync(accountReorderDialog);
+
+        if (result != ContentDialogResult.Primary)
+            return;
+
+        try
+        {
+            await accountService.SaveAccountLayoutOrderAsync(AccountReorderItem.ToOrder(items));
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Could not save the account order.");
+            InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+        }
     }
 
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.

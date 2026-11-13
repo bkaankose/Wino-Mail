@@ -21,6 +21,9 @@
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
+    <!--  Account group icons are tinted with the group color, so they stay monochrome: a colorful glyph's accent layer would hide the tint.  -->
+    <FontFamily x:Key="WinoMonochromeIconFontFamily">ms-appx:///Assets/WinoIcons.ttf#WinoIcons</FontFamily>
+
     <Style TargetType="controls:WinoFontIcon">
         <Setter Property="FontFamily" Value="{ThemeResource WinoIconFontFamily}" />
     </Style>

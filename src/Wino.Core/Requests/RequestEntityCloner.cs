@@ -188,6 +188,7 @@ public static class RequestEntityCloner
             MyDayDateUtc = source.MyDayDateUtc,
             CompletedAtUtc = source.CompletedAtUtc,
             RemoteOrder = source.RemoteOrder,
+            ManualOrder = source.ManualOrder,
             PendingMutation = source.PendingMutation,
             CreatedAtUtc = source.CreatedAtUtc,
             ModifiedAtUtc = source.ModifiedAtUtc,

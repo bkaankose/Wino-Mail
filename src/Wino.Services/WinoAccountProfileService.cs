@@ -275,13 +275,17 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         var committed = await _sessions.CommitAsync(session, async () =>
         {
-            var current = await GetActiveAccountAsync().ConfigureAwait(false);
-            var refreshed = MergeAccountProfile(current!, response.Result);
-            if (!AreEquivalentProfiles(current!, refreshed))
+            var current = await Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+            if (current is null) return;
+            var previousReference = current.AccessToken;
+            await _credentialPersistence.RestoreWinoAccountSecretsAsync(current).ConfigureAwait(false);
+            var refreshed = MergeAccountProfile(current, response.Result);
+            if (!AreEquivalentProfiles(current, refreshed))
             {
                 var stored = await _credentialPersistence.PrepareWinoAccountForStorageAsync(refreshed, cancellationToken).ConfigureAwait(false);
                 await Connection.UpdateAsync(stored, typeof(WinoAccount)).ConfigureAwait(false);
-                if (current!.AvatarRevision != refreshed.AvatarRevision) ClearAvatarCache(refreshed.Id, refreshed.AvatarRevision);
+                await _credentialPersistence.DeleteSupersededSecretsAsync(refreshed.Id, previousReference, stored.AccessToken, CancellationToken.None).ConfigureAwait(false);
+                if (current.AvatarRevision != refreshed.AvatarRevision) ClearAvatarCache(refreshed.Id, refreshed.AvatarRevision);
                 PublishProfileUpdated(refreshed);
             }
         }, cancellationToken).ConfigureAwait(false);

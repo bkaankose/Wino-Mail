@@ -13,7 +13,16 @@ public interface IVCardCodec
     AccountContact Project(VCardDocument document);
     VCardDocument Create(AccountContact contact, string version, string uid = null);
     void Patch(VCardDocument document, AccountContact contact);
+
+    /// <summary>
+    /// Writes into the card only what differs between <paramref name="original"/> (the contact the
+    /// edit started from) and <paramref name="contact"/>. Everything else on the card is kept as it is.
+    /// </summary>
+    void Patch(VCardDocument document, AccountContact contact, AccountContact original);
     void SetPhoto(VCardDocument document, byte[] photo);
+
+    /// <summary>The inline photo of the card, or null when it has none or only a photo URL.</summary>
+    byte[] GetPhoto(VCardDocument document);
     void RemovePhoto(VCardDocument document);
 
     /// <summary>True for a group vCard (Apple X-ADDRESSBOOKSERVER-KIND or RFC 6350 KIND).</summary>

@@ -174,7 +174,9 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         Infrastructure.MacDebugBridge.Register("account-select", args =>
         {
             var text = string.Join(' ', args);
-            var match = ViewModel.CurrentMenu?.Items.OfType<IAccountMenuItem>().FirstOrDefault(item => item.HoldingAccounts.Any(account =>
+            var match = ViewModel.CurrentMenu?.Items
+                .SelectMany(item => item is AccountGroupMenuItem group ? group.SubMenuItems.ToArray() : new[] { item })
+                .OfType<IAccountMenuItem>().FirstOrDefault(item => item.HoldingAccounts.Any(account =>
                 (account.Name?.Contains(text, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (account.Address?.Contains(text, StringComparison.OrdinalIgnoreCase) ?? false)));
             if (match is null) return Task.FromResult("not found");

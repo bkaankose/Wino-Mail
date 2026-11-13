@@ -53,7 +53,8 @@ public enum TaskSortKind
     Importance = 1,
     MyDay = 2,
     Alphabetical = 3,
-    CreationDate = 4
+    CreationDate = 4,
+    Manual = 5
 }
 
 public enum TaskSynchronizerOperation

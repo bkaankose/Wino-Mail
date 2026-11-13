@@ -50,6 +50,9 @@ public class AccountTask
 
     public DateTime? CompletedAtUtc { get; set; }
     public string RemoteOrder { get; set; }
+
+    /// <summary>Position under the Manual sort. Local only: no provider receives or supplies it.</summary>
+    public int? ManualOrder { get; set; }
     public TaskPendingMutation PendingMutation { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedAtUtc { get; set; } = DateTime.UtcNow;

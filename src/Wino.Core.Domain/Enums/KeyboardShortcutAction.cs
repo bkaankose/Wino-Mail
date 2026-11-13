@@ -14,5 +14,6 @@ public enum KeyboardShortcutAction
     Send,
     NewEvent,
     NewContact,
-    NewTask
+    NewTask,
+    Forward
 }

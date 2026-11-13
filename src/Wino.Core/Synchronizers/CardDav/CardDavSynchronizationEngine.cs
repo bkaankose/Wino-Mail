@@ -41,7 +41,6 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     private readonly ICardDavSynchronizationStore _store;
     private readonly IVCardCodec _codec;
     private readonly IContactService _contactService;
-    private readonly IDavCredentialStore _credentialStore;
     private readonly IAccountService _accountService;
     private readonly ICardDavAddressBookService _addressBookService;
     private readonly IKnownImapProviderCatalog _providerCatalog;
@@ -54,7 +53,6 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         ICardDavSynchronizationStore store,
         IVCardCodec codec,
         IContactService contactService,
-        IDavCredentialStore credentialStore,
         IAccountService accountService,
         ICardDavAddressBookService addressBookService = null,
         ICardDavContactListService listService = null,
@@ -69,7 +67,6 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         _store = store;
         _codec = codec;
         _contactService = contactService;
-        _credentialStore = credentialStore;
         _accountService = accountService;
         _addressBookService = addressBookService;
         _providerCatalog = providerCatalog;
@@ -90,8 +87,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         try
         {
             await RestoreKnownServiceUrlAsync(account, cancellationToken).ConfigureAwait(false);
-            var settings = await CardDavConnection.CreateSettingsAsync(account, _credentialStore, _accountService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
-            var legacyPassword = account.ServerInformation?.CalDavPassword;
+            var settings = await CardDavConnection.CreateSettingsAsync(account, _accountService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
             var discovery = await RefreshAddressBooksAsync(account, settings, cancellationToken).ConfigureAwait(false);
             var remoteBooks = discovery.AddressBooks.ToDictionary(book => book.ExactHref, StringComparer.Ordinal);
             var bindings = await _store.GetAddressBooksAsync(account.Id, options?.AddressBookId).ConfigureAwait(false);
@@ -107,13 +103,6 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
                     options?.Type == ContactSynchronizationType.Full,
                     result,
                     cancellationToken).ConfigureAwait(false);
-            }
-
-            if (!string.IsNullOrWhiteSpace(legacyPassword) && result.CompletedState != SynchronizationCompletedState.Failed)
-            {
-                await _credentialStore.SavePasswordAsync(account.Id, legacyPassword, cancellationToken).ConfigureAwait(false);
-                account.ServerInformation.CalDavPassword = null;
-                await _accountService.UpdateAccountCustomServerInformationAsync(account.ServerInformation).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -368,7 +357,8 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         IReadOnlyList<string> deleted,
         string syncToken,
         ContactSynchronizationResult result,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool commitCheckpoint = true)
     {
         var addressBookId = context.Binding.State.AddressBookId;
         var offset = 0;
@@ -380,6 +370,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
             var (downloaded, gone) = await DownloadAsync(context, batch, cancellationToken).ConfigureAwait(false);
             var contacts = new List<(AccountContact Contact, string Uid)>();
+            var photos = new List<(AccountContact Contact, byte[] Photo, Guid? KnownContactId)>();
             var groups = new List<CardDavRemoteGroup>();
 
             // Deletions are held back to the last batch only because they need no download.
@@ -436,8 +427,17 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
                 contact.SourceKind = ContactSourceKind.CardDav;
                 contact.RemoteId = resource.ExactHref;
                 contact.RemoteVersion = etag;
+                var photo = _pictureStorageService is null ? null : _codec.GetPhoto(document);
+                if (photo is not null)
+                {
+                    contact.RemotePhotoKey = PhotoKey(photo);
+                    photos.Add((contact, photo, known.TryGetValue(resource.ExactHref, out var shadow) ? shadow.ContactId : null));
+                }
+
                 contacts.Add((contact, uid));
             }
+
+            await StorePhotosAsync(photos).ConfigureAwait(false);
 
             // Contact rows first: the store records the local id each resource ended up with.
             await _contactService.ApplyDeltaAsync(
@@ -451,7 +451,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
                 Contacts = contacts.Select(item => new CardDavRemoteContact(item.Contact.RemoteId, item.Contact.RemoteVersion, item.Uid, item.Contact.Id)).ToList(),
                 Groups = groups,
                 DeletedHrefs = deletedHrefs,
-                CommitCheckpoint = isLastBatch,
+                CommitCheckpoint = isLastBatch && commitCheckpoint,
                 SyncToken = syncToken,
                 CollectionTag = context.RemoteBook.CollectionTag
             }).ConfigureAwait(false);
@@ -520,6 +520,38 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         return (downloaded, gone);
     }
 
+    /// <summary>
+    /// Saves the inline photos of downloaded cards. A contact whose photo is unchanged keeps its
+    /// stored file: ContactService retains the picture when the photo key matches.
+    /// </summary>
+    private async Task StorePhotosAsync(IReadOnlyList<(AccountContact Contact, byte[] Photo, Guid? KnownContactId)> photos)
+    {
+        foreach (var (contact, photo, knownContactId) in photos)
+        {
+            if (knownContactId is Guid contactId)
+            {
+                var existing = await _contactService.GetContactAsync(contactId).ConfigureAwait(false);
+                if (existing?.ContactPictureFileId is not null && string.Equals(existing.RemotePhotoKey, contact.RemotePhotoKey, StringComparison.Ordinal))
+                    continue;
+            }
+
+            try
+            {
+                contact.ContactPictureFileId = await _pictureStorageService.SavePictureAsync(PictureKind.Contact, photo).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                // The contact is stored without its picture and the photo is saved on its next change.
+                Logger.Warning(ex, "Could not store the photo of CardDAV contact {Href}", contact.RemoteId);
+                contact.RemotePhotoKey = null;
+            }
+        }
+    }
+
+    /// <summary>Identifies the photo bytes, so an unchanged photo is not stored again.</summary>
+    private static string PhotoKey(byte[] photo)
+        => "vcard-photo:sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(photo));
+
     #endregion
 
     #region User changes
@@ -530,7 +562,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(account);
-        var settings = await CardDavConnection.CreateSettingsAsync(account, _credentialStore, _accountService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
+        var settings = await CardDavConnection.CreateSettingsAsync(account, _accountService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
 
         foreach (var request in requests)
         {
@@ -548,7 +580,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
                     await ExecuteCategoryRequestAsync(settings, categoryRequest, cancellationToken).ConfigureAwait(false);
                     break;
                 case ContactListRequest listRequest:
-                    await ExecuteListRequestAsync(listRequest, cancellationToken).ConfigureAwait(false);
+                    await ExecuteListRequestAsync(settings, listRequest, cancellationToken).ConfigureAwait(false);
                     break;
                 default:
                     throw new NotSupportedException($"CardDAV request {request.GetType().Name} is not supported.");
@@ -560,11 +592,33 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     /// Writes a list change to its group on the server. The local list only follows a
     /// change the server accepted.
     /// </summary>
-    private async Task ExecuteListRequestAsync(ContactListRequest request, CancellationToken cancellationToken)
+    private async Task ExecuteListRequestAsync(CardDavConnectionSettings settings, ContactListRequest request, CancellationToken cancellationToken)
     {
         if (_listService is null)
             throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable);
 
+        try
+        {
+            await WriteListAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DavRequestException ex) when (ex.StatusCode == 412)
+        {
+            var group = await _store.GetResourceByListAsync(request.List.Id).ConfigureAwait(false);
+            var binding = group is null ? null : (await _store.GetAddressBooksAsync(request.MailAccountId, group.AddressBookId).ConfigureAwait(false)).SingleOrDefault();
+            if (binding is not null)
+            {
+                using var bookLock = await CardDavConnection.LockAddressBookAsync(binding.State.AddressBookId, cancellationToken).ConfigureAwait(false);
+                await RefreshResourceAsync(binding, settings, group.ExactHref, cancellationToken).ConfigureAwait(false);
+            }
+
+            throw Conflict(ex);
+        }
+
+        await request.CommitAsync(_contactService).ConfigureAwait(false);
+    }
+
+    private async Task WriteListAsync(ContactListRequest request, CancellationToken cancellationToken)
+    {
         switch (request.Operation)
         {
             case ContactSynchronizerOperation.CreateList:
@@ -580,8 +634,6 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
                 await _listService.UpdateMembersAsync(request.List.Id, request.AddedContactIds, request.RemovedContactIds, cancellationToken).ConfigureAwait(false);
                 break;
         }
-
-        await request.CommitAsync(_contactService).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -611,12 +663,13 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
         var document = _codec.Parse(current.VCard);
         _codec.SetCategories(document, request.CategoryNames);
-        var written = await _client.PutResourceAsync(
+        var expected = await ExpectedETagAsync(contact.Id, contact.RemoteVersion, current.ETag).ConfigureAwait(false);
+        var written = await WriteConditionallyAsync(binding, settings, contact.RemoteId, () => _client.PutResourceAsync(
             settings,
             contact.RemoteId,
             _codec.Serialize(document),
-            current.ETag,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+            expected,
+            cancellationToken: cancellationToken), cancellationToken).ConfigureAwait(false);
 
         var resource = await _store.GetResourceByContactAsync(contact.Id).ConfigureAwait(false);
         if (resource is not null)
@@ -663,21 +716,22 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
                 if (string.IsNullOrWhiteSpace(contact.RemoteId))
                     throw new InvalidOperationException(Translator.DavError_NotFound);
 
-                // Edit the card as the server has it now. Properties Wino does not model
-                // (photo, labels, custom fields) are kept, and the write is conditional on
-                // exactly the version that was read.
+                // Edit the card as the server has it now, so properties Wino does not model are
+                // kept. The write is conditional on the version Wino synchronized: a card another
+                // client changed since is refused (412) instead of overwritten.
                 var current = await _client.GetResourceAsync(settings, contact.RemoteId, cancellationToken).ConfigureAwait(false);
                 if (current.IsDeleted)
                     throw new DavRequestException(404, Translator.DavError_NotFound);
 
                 var document = _codec.Parse(current.VCard);
-                _codec.Patch(document, contact);
-                var written = await _client.PutResourceAsync(
+                _codec.Patch(document, contact, request.OriginalContact);
+                var expected = await ExpectedETagAsync(contact.Id, request.OriginalContact?.RemoteVersion ?? contact.RemoteVersion, current.ETag).ConfigureAwait(false);
+                var written = await WriteConditionallyAsync(binding, settings, contact.RemoteId, () => _client.PutResourceAsync(
                     settings,
                     contact.RemoteId,
                     _codec.Serialize(document),
-                    current.ETag,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                    expected,
+                    cancellationToken: cancellationToken), cancellationToken).ConfigureAwait(false);
 
                 await CompleteWriteAsync(binding, contact, written, _codec.GetUid(document)).ConfigureAwait(false);
                 break;
@@ -685,7 +739,12 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
             case ContactSynchronizerOperation.Delete:
                 if (!string.IsNullOrWhiteSpace(contact.RemoteId))
                 {
-                    await _client.DeleteResourceAsync(settings, contact.RemoteId, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    var expected = await ExpectedETagAsync(contact.Id, contact.RemoteVersion, null).ConfigureAwait(false);
+                    await WriteConditionallyAsync(binding, settings, contact.RemoteId, async () =>
+                    {
+                        await _client.DeleteResourceAsync(settings, contact.RemoteId, expected, cancellationToken).ConfigureAwait(false);
+                        return true;
+                    }, cancellationToken).ConfigureAwait(false);
                     await _store.DeleteResourceAsync(binding.State.AddressBookId, contact.RemoteId).ConfigureAwait(false);
                 }
 
@@ -712,26 +771,89 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
                 else
                     _codec.RemovePhoto(document);
 
-                var written = await _client.PutResourceAsync(
+                var expected = await ExpectedETagAsync(stored.Id, stored.RemoteVersion, current.ETag).ConfigureAwait(false);
+                var written = await WriteConditionallyAsync(binding, settings, stored.RemoteId, () => _client.PutResourceAsync(
                     settings,
                     stored.RemoteId,
                     _codec.Serialize(document),
-                    current.ETag,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                    expected,
+                    cancellationToken: cancellationToken), cancellationToken).ConfigureAwait(false);
 
                 var photoContact = RequestEntityCloner.Contact(stored);
                 photoContact.ContactPictureFileId = setsPhoto
                     ? await _pictureStorageService.SavePictureAsync(PictureKind.Contact, request.Photo).ConfigureAwait(false)
                     : null;
+                photoContact.RemotePhotoKey = setsPhoto ? PhotoKey(request.Photo) : null;
                 await CompleteWriteAsync(binding, photoContact, written, _codec.GetUid(document)).ConfigureAwait(false);
                 if (!setsPhoto)
-                    await _contactService.SuppressContactPictureAsync(stored.Id, stored.RemotePhotoKey).ConfigureAwait(false);
+                    await _contactService.SuppressContactPictureAsync(stored.Id, null).ConfigureAwait(false);
                 break;
             }
             default:
                 throw new NotSupportedException($"CardDAV contact operation {request.Operation} is not supported.");
         }
     }
+
+    /// <summary>
+    /// The version a write must still find on the server, as a strong ETag (RFC 7232 section 3.1
+    /// compares strongly, so a weak tag could never match): the version the user's change was based
+    /// on, else the one Wino last synchronized, else the one just read. Null only when the server
+    /// offers no strong ETag at all.
+    /// </summary>
+    private async Task<string> ExpectedETagAsync(Guid contactId, string remoteVersion, string currentETag)
+    {
+        var expected = CardDavConnection.StrongETag(remoteVersion);
+        if (expected is null)
+        {
+            var resource = await _store.GetResourceByContactAsync(contactId).ConfigureAwait(false);
+            expected = CardDavConnection.StrongETag(resource?.ETag) ?? CardDavConnection.StrongETag(currentETag);
+        }
+
+        if (expected is null)
+            Logger.Information("CardDAV resource of contact {ContactId} has no strong ETag; the write is unconditional", contactId);
+        return expected;
+    }
+
+    /// <summary>
+    /// Runs a conditional write. When the server refuses it because the resource changed (412),
+    /// the resource is downloaded again so the contact shows the server's version, and the request
+    /// fails with a conflict instead of overwriting or deleting the other change.
+    /// </summary>
+    private async Task<T> WriteConditionallyAsync<T>(CardDavBookBinding binding, CardDavConnectionSettings settings, string href,
+        Func<Task<T>> write, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await write().ConfigureAwait(false);
+        }
+        catch (DavRequestException ex) when (ex.StatusCode == 412)
+        {
+            await RefreshResourceAsync(binding, settings, href, cancellationToken).ConfigureAwait(false);
+            throw Conflict(ex);
+        }
+    }
+
+    /// <summary>Downloads one resource and applies it, leaving the address book's sync checkpoint as it is. The caller holds the book lock.</summary>
+    private async Task RefreshResourceAsync(CardDavBookBinding binding, CardDavConnectionSettings settings, string href, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Logger.Information("CardDAV resource {Href} changed on the server since it was synchronized; refreshing it", href);
+            var known = (await _store.GetResourcesAsync(binding.State.AddressBookId).ConfigureAwait(false))
+                .ToDictionary(resource => resource.ExactHref, StringComparer.Ordinal);
+            var context = new BookContext(binding.State.AccountId, settings, binding, CardDavConnection.ToProtocolBook(binding));
+            await DownloadAndApplyAsync(context, known, [new CardDavResourceChange { ExactHref = href }], [], null,
+                ContactSynchronizationResult.Empty, cancellationToken, commitCheckpoint: false).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The next synchronization downloads it; the conflict is reported either way.
+            Logger.Warning(ex, "CardDAV resource {Href} could not be refreshed after a conflict", href);
+        }
+    }
+
+    private static DavRequestException Conflict(DavRequestException refused)
+        => new(412, Translator.DavError_Conflict, refused.ErrorNames, innerException: refused);
 
     /// <summary>
     /// Stores an accepted write. Recording the returned ETag lets the next pull recognize

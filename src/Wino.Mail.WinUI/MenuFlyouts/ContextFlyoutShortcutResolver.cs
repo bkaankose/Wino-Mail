@@ -68,6 +68,7 @@ internal sealed class ContextFlyoutShortcutResolver(IKeyboardShortcutService sho
             MailOperation.MarkAsRead or MailOperation.MarkAsUnread => KeyboardShortcutAction.ToggleReadUnread,
             MailOperation.Reply => KeyboardShortcutAction.Reply,
             MailOperation.ReplyAll => KeyboardShortcutAction.ReplyAll,
+            MailOperation.Forward => KeyboardShortcutAction.Forward,
             _ => null
         };
 

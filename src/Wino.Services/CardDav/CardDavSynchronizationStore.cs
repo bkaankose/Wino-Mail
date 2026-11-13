@@ -254,14 +254,17 @@ public sealed class CardDavSynchronizationStore : BaseDatabaseService, ICardDavS
     {
         var resources = transaction.Query<CardDavResourceShadow>("SELECT * FROM CardDavResourceShadow WHERE AddressBookId = ?", addressBookId);
         var contactsByUid = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        // A stored UID keeps the spelling of its card (urn:uuid:... or bare) and member UIDs are stored
+        // without the urn:uuid: prefix, so both are compared in their normalized form.
         foreach (var resource in resources.Where(item => item.Kind == CardDavResourceKind.Contact && item.ContactId.HasValue && !string.IsNullOrWhiteSpace(item.Uid)))
-            contactsByUid[resource.Uid] = resource.ContactId.Value;
+            contactsByUid[VCardUid.Normalize(resource.Uid)] = resource.ContactId.Value;
 
         foreach (var group in resources.Where(item => item.Kind == CardDavResourceKind.Group && item.ListId.HasValue))
         {
             var listId = group.ListId.Value;
             var desired = (group.MemberUids ?? string.Empty)
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(VCardUid.Normalize)
                 .Where(contactsByUid.ContainsKey)
                 .Select(uid => contactsByUid[uid])
                 .ToHashSet();

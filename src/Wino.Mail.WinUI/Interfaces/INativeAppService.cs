@@ -43,7 +43,7 @@ public interface INativeAppService
 
     /// <summary>
     /// The channel this package was built for, read from its validated release profile.
-    /// Debug builds report <see cref="WindowsAppDistribution.Store"/>.
+    /// Debug builds report <see cref="WindowsAppDistribution.Debug"/> unless built with WinoDebugIdentity=false.
     /// </summary>
     WindowsAppDistribution Distribution { get; }
 

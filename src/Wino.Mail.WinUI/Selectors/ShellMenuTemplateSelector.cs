@@ -38,6 +38,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? SharedAccountMenuTemplate { get; set; }
     public DataTemplate? SharedCompactAccountMenuTemplate { get; set; }
     public DataTemplate? AccountTaskListGroupTemplate { get; set; }
+    public DataTemplate? AccountGroupTemplate { get; set; }
     public DataTemplate? AccountTaskListTemplate { get; set; }
     public DataTemplate? ContactFilterTemplate { get; set; }
     public DataTemplate? ContactCategoryFilterTemplate { get; set; }
@@ -60,6 +61,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     {
         // Shared
         SeperatorItem => SeperatorTemplate,
+        AccountGroupMenuItem => AccountGroupTemplate,
         ShellSectionHeaderMenuItem => ShellSectionHeaderTemplate,
         RateMenuItem => RatingItemTemplate,
 

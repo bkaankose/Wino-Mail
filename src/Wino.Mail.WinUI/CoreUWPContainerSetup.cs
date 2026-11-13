@@ -6,6 +6,7 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Services.WidgetsAndTiles;
 using Wino.Services;
+using Wino.Services.Security;
 using Wino.Platform.Windows;
 using Wino.Platform.Windows.Authentication;
 using Wino.Platform.Windows.Services;
@@ -43,7 +44,8 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<ContactPictureThumbnailer>();
         services.AddSingleton<WidgetsAndTilesService>();
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
-        services.AddSingleton<IAccountCredentialPersistence, WindowsAccountCredentialPersistence>();
+        // DPAPI-protected secure items under LocalState\secure; earlier releases' plaintext columns and files move there at startup.
+        services.AddProtectedFileCredentialStorage();
         services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
         services.AddSingleton<IStartupIntegrationService, WindowsStartupIntegrationService>();
         services.AddSingleton<IReaderRuntimeService, WindowsReaderRuntimeService>();
@@ -69,7 +71,12 @@ public static class CoreUWPContainerSetup
             provider.GetRequiredService<IApplicationConfiguration>(),
             provider.GetRequiredService<IAuthenticatorConfig>(),
             () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
-        services.AddSingleton<IGoogleTokenStore, WindowsGoogleTokenStore>();
+        services.AddSingleton(provider => new WindowsMigratingGoogleTokenStore(
+            provider.GetRequiredService<ISecureItemStore>(),
+            provider.GetRequiredService<ProtectedFileSecureItemStore>().ItemPath,
+            new WindowsGoogleTokenStore(provider.GetRequiredService<IApplicationConfiguration>())));
+        services.AddSingleton<IGoogleTokenStore>(provider => provider.GetRequiredService<WindowsMigratingGoogleTokenStore>());
+        services.AddSingleton<ILegacyCredentialFileMigration>(provider => provider.GetRequiredService<WindowsMigratingGoogleTokenStore>());
         services.AddSingleton<IOAuthTokenStore, WindowsOAuthTokenStore>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();

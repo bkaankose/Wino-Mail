@@ -1,6 +1,8 @@
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Controls;
+using Wino.Core.Domain.Interfaces;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
@@ -67,12 +69,53 @@ public partial class WinoNavigationView : NavigationView
 
         if (args.Element is AccountNavigationItem accountItem)
             accountItem.SetPaneClosed(!IsPaneOpen);
+
+        if (args.Element is WinoNavigationViewItem { RemembersExpansion: true } groupItem)
+            ApplyRememberedExpansion(groupItem, isPrepared: true);
     }
 
     private void OnIsPaneOpenChanged(DependencyObject sender, DependencyProperty property)
     {
         UpdateAccountItems(_menuItemsHost);
         UpdateAccountItems(_footerMenuItemsHost);
+
+        // After the pane's own layout change, so the restored rows show their children.
+        if (IsPaneOpen)
+            DispatcherQueue?.TryEnqueue(DispatcherQueuePriority.Low, ApplyRememberedExpansions);
+        else
+            ApplyRememberedExpansions();
+    }
+
+    private void ApplyRememberedExpansions()
+    {
+        if (_menuItemsHost?.ItemsSourceView is not { } items)
+            return;
+
+        for (var index = 0; index < items.Count; index++)
+        {
+            if (_menuItemsHost.TryGetElement(index) is WinoNavigationViewItem { RemembersExpansion: true } groupItem)
+                ApplyRememberedExpansion(groupItem, isPrepared: false);
+        }
+    }
+
+    /// <summary>
+    /// An account group row shows its remembered expansion in the open pane. The closed pane keeps it collapsed,
+    /// because an expanded row there shows its chevron without its children.
+    /// </summary>
+    private void ApplyRememberedExpansion(WinoNavigationViewItem groupItem, bool isPrepared)
+    {
+        if (groupItem.DataContext is not IMenuItem menuItem)
+            return;
+
+        var isExpanded = IsPaneOpen && menuItem.IsExpanded;
+
+        // A container parked by a mode switch still follows its item's expansion, but NavigationView does not show or
+        // hide the children of a parked container. Toggling it once in the open pane makes the children match again.
+        if (isPrepared && IsPaneOpen && groupItem.IsExpanded == isExpanded)
+            groupItem.IsExpanded = !isExpanded;
+
+        if (groupItem.IsExpanded != isExpanded)
+            groupItem.IsExpanded = isExpanded;
     }
 
     private void UpdateAccountItems(ItemsRepeater? repeater)

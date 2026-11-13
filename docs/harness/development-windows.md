@@ -101,7 +101,7 @@ Build without deployment:
 dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 ```
 
-Build, deploy, and activate the checked-in package:
+Build, deploy, and activate the Debug package:
 
 ```powershell
 winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
@@ -113,7 +113,23 @@ Deploy an existing build without compilation:
 winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --no-build --detach
 ```
 
-The manifest supplies package name `58272BurakKSE.WinoMailPreview` and publisher `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911`.
+### Debug package identity
+
+Debug builds install as their own package, `WinoMail.Debug` (publisher `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911`), so they
+run beside the Microsoft Store, Beta and Sideload installations without replacing them.
+Before manifest and PRI generation, `WinoGenerateDebugManifest` applies `src/Wino.Mail.WinUI/release-profile.Debug.json` to
+`Package.appxmanifest` through `scripts/release/windows/WinoPackageProfile.ps1`, the same rewrite the release packager uses.
+The profile sets the display names (Wino Mail (Debug), Wino Calendar (Debug), Wino People (Debug), Wino To Do (Debug)) and
+its own notification, session-start and widget COM class IDs, and is packaged as `release-profile.json`.
+`WinoUseDebugArtwork` packages the plum (#6D214F) artwork from `scripts/development/windows/DebugAssets` in place of the stable branding files.
+After the stable artwork changes, regenerate it with `python scripts/development/windows/generate-debug-artwork.py` (requires Pillow).
+
+The Debug package has its own LocalState, so it starts without accounts and never migrates publisher data.
+It does not check for Store updates. Shared protocols (`wino:`, `mailto:`, `google.pw.oauth2:`) and file types are
+registered by every installed Wino package, so Windows may ask which app opens a sign-in redirect.
+To build Debug under the Store identity, for example to test Store add-ons, pass `-p:WinoDebugIdentity=false`;
+that build replaces a Store installation, so only use it on a machine without one.
+
 WinApp activates the registered package. It does not launch an unpackaged executable.
 A development layout provides MSIX identity without creating an installer on every run.
 
@@ -145,12 +161,13 @@ Changed inputs still use the normal SDK build. The helper does not replace any S
 Before deployment, inspect the installed package:
 
 ```powershell
-Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Select-Object Name, Publisher, IsDevelopmentMode, InstallLocation
+Get-AppxPackage -Name WinoMail.Debug | Select-Object Name, Publisher, IsDevelopmentMode, InstallLocation
 ```
 
-The publisher must match the source manifest. An existing installation must permit development deployment.
-If a signed Store installation owns this identity, use a development machine with the same checked-in identity.
-Preserve the existing installation and its data.
+The publisher must match `release-profile.Debug.json`. An existing installation must permit development deployment.
+Debug deployment never touches the Store, Beta or Sideload packages. Preserve those installations and their data.
+A development registration that still uses the Store identity, from a build before the Debug identity, blocks installing
+the Store package. Its owner removes it with `Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Where-Object IsDevelopmentMode | Remove-AppxPackage`.
 
 If deployment reports a locked file, exit Wino and its notification hosts before retrying.
 The [historical deployment investigation](debug-deployment-investigation.md) describes notification-host file locks.
@@ -178,16 +195,41 @@ pwsh -NoProfile -File scripts/development/windows/start-wino.ps1 -Target sandbox
 ```
 
 The helper checks the guest package identity and development status, closes its app and tray processes,
-then uses `winapp run -c Debug --arch x64 --on sandbox --detach --json`.
+prepares WebView2 (below), registers the build with `winapp run -c Debug --arch x64 --on sandbox --no-launch`,
+seeds the lab accounts, and only then starts Wino, so every Sandbox launch opens with accounts and WebView2.
+
+Seeding needs the lab manifest `~/.wino-lab/fixtures.json`; without it the helper warns and starts Wino without
+accounts. The first launch in a new Sandbox publishes `tools/lab/DatabaseGenerator` self-contained to
+`artifacts/sandbox/generator`, copies it and the manifest into the guest, generates `Wino210.db` and the DPAPI
+`secure\` items there (DPAPI binds them to the guest user), puts them in the package's LocalState, and deletes the
+manifest and the generator output from the guest. A `wino-lab.seeded` marker keeps later launches from replacing
+the guest's data; pass `-Reseed` to start again from fresh lab accounts.
+
+To work on the welcome window or account setup, select **Run Wino Mail (Sandbox, no accounts)** or pass
+`-NoAccounts`. It skips seeding and removes the guest's Wino database, credentials and seeding marker before Wino
+starts, so the next launch without the switch seeds the lab accounts again.
+
+Windows Sandbox has no WebView2 Runtime, so mail rendering and the composer need a fixed-version runtime, and the
+guest never downloads one. Download the x64 fixed-version `.cab` once from Microsoft's
+[WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/) and extract it on the host:
+
+```powershell
+expand.exe Microsoft.WebView2.FixedVersionRuntime.<version>.x64.cab -F:* "$HOME\.wino-lab\sandbox\webview2"
+```
+
+Before every Sandbox launch the helper copies the newest runtime folder under `~/.wino-lab/sandbox/webview2`
+(or `WINO_SANDBOX_WEBVIEW2`) to `C:\WinApp\work\webview2\<version>` in the guest, skipping unchanged files, grants
+app packages read access, and sets the machine variable `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` to it. Without a
+runtime it warns and launches anyway.
 It shares the host build cache with local F5; add `-ForceBuild` to bypass that cache.
-Guest preflight failure stops deployment. The helper preserves application data and leaves Sandbox running.
+Guest preflight failure stops deployment. The helper preserves application data after the first seeding (unless `-Reseed` or `-NoAccounts`) and leaves Sandbox running.
 This F5 option uses VS Code's built-in terminal launcher to run the Debug build; it does not attach a C# debugger.
 For managed debugging on the host, select **Debug Wino Mail (packaged, x64)**.
 
 Before deployment, inspect the guest installation:
 
 ```powershell
-winapp target exec sandbox --json -- powershell.exe -NoProfile -Command "Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Select-Object Name,Publisher,IsDevelopmentMode,InstallLocation | ConvertTo-Json"
+winapp target exec sandbox --json -- powershell.exe -NoProfile -Command "Get-AppxPackage -Name WinoMail.Debug | Select-Object Name,Publisher,IsDevelopmentMode,InstallLocation | ConvertTo-Json"
 ```
 
 If installed, its publisher must match `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911` and `IsDevelopmentMode` must be true.
@@ -219,8 +261,8 @@ The editor extension is a convenience. The pinned command-line result is the for
 
 The repository has no automated test projects. Verify behavior with builds and manual checks in the running application.
 
-The [local Docker lab](../../tools/local-lab/README.md) is the application testing environment. It currently runs on Windows only.
-Its entry point is `scripts/lab/windows/local-lab.ps1`. `up` provisions five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail and generates account data; `install-app` installs that data into the Debug package and launches Wino.
+The remote [mail lab](../../tools/lab/README.md) is the application testing environment: five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail, calendars and contacts, on public names with TLS.
+Its client script is `scripts/lab/windows/lab.ps1`. `status` checks the endpoints; `install-app` fetches the account manifest, generates the account data, installs it into the registered Debug package and launches Wino. Close Wino first.
 Report UI checks separately from compilation results.
 
 ## Agent UI checks

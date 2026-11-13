@@ -65,6 +65,7 @@ public partial class KeyboardShortcutViewModel : ObservableObject
                 KeyboardShortcutAction.Move => Translator.MailOperation_Move,
                 KeyboardShortcutAction.Reply => Translator.MailOperation_Reply,
                 KeyboardShortcutAction.ReplyAll => Translator.MailOperation_ReplyAll,
+                KeyboardShortcutAction.Forward => Translator.MailOperation_Forward,
                 KeyboardShortcutAction.Send => Translator.Buttons_Send,
                 KeyboardShortcutAction.NewEvent => Translator.CalendarEventCompose_NewEventButton,
                 KeyboardShortcutAction.NewContact => Translator.KeyboardShortcuts_ActionNewContact,

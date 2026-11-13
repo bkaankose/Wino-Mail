@@ -78,6 +78,8 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService, 
             }).ConfigureAwait(false);
             if (previous is not null && previous.Id != account?.Id)
                 await _credentialPersistence.DeleteWinoAccountSecretsAsync(previous.Id, CancellationToken.None).ConfigureAwait(false);
+            else if (previous is not null && stored is not null)
+                await _credentialPersistence.DeleteSupersededSecretsAsync(previous.Id, previous.AccessToken, stored.AccessToken, CancellationToken.None).ConfigureAwait(false);
         }
         finally { _stateLock.Release(); }
     }
@@ -105,13 +107,18 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService, 
             var saved = await CommitAsync(session, async () =>
             {
                 // Profile requests may have committed newer account data while credentials rotated.
-                committed = (await ReadAsync().ConfigureAwait(false))!;
+                var current = await ReadMetadataAsync().ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("The committed Wino account disappeared during a credential refresh.");
+                var previousReference = current.AccessToken;
+                await _credentialPersistence.RestoreWinoAccountSecretsAsync(current).ConfigureAwait(false);
+                committed = current;
                 committed.AccessToken = refreshed.AccessToken;
                 committed.AccessTokenExpiresAtUtc = refreshed.AccessTokenExpiresAtUtc;
                 committed.RefreshToken = refreshed.RefreshToken;
                 committed.RefreshTokenExpiresAtUtc = refreshed.RefreshTokenExpiresAtUtc;
                 var stored = await _credentialPersistence.PrepareWinoAccountForStorageAsync(committed, linked.Token).ConfigureAwait(false);
                 await databaseService.Connection.UpdateAsync(stored, typeof(WinoAccount)).ConfigureAwait(false);
+                await _credentialPersistence.DeleteSupersededSecretsAsync(committed.Id, previousReference, stored.AccessToken, CancellationToken.None).ConfigureAwait(false);
             }, linked.Token).ConfigureAwait(false);
 
             return saved ? committed : null;

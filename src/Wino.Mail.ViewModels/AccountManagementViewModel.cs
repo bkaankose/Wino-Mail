@@ -32,7 +32,8 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
+public partial class AccountManagementViewModel : AccountManagementPageViewModelBase,
+    IRecipient<AccountLayoutChanged>
 {
 
     private readonly IWinoAccountDataSyncService _syncService;
@@ -110,7 +111,27 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                  mergedAccountProviderDetailViewModel));
     }
 
+    [RelayCommand]
+    private void CreateAccountGroup()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.AccountGroupDetailsPage_NewTitle,
+                                                           WinoPage.MergedAccountDetailsPage,
+                                                           new AccountGroupDetailsNavigationContext(null)));
 
+    public async void Receive(AccountLayoutChanged message) => await InitializeAccountsAsync();
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<AccountLayoutChanged>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<AccountLayoutChanged>(this);
+    }
 
     [RelayCommand]
     private async Task AddNewAccountAsync()

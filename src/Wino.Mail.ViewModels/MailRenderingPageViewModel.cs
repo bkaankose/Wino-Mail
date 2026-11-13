@@ -225,6 +225,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             KeyboardShortcutAction.Move => MailOperation.Move,
             KeyboardShortcutAction.Reply => MailOperation.Reply,
             KeyboardShortcutAction.ReplyAll => MailOperation.ReplyAll,
+            KeyboardShortcutAction.Forward => MailOperation.Forward,
             _ => MailOperation.None
         };
 

@@ -1,9 +1,9 @@
 # Wino Exchange lab (Hyper-V)
 
 One Hyper-V VM running Exchange Server SE on its own Active Directory forest, for testing Wino's Exchange support (Autodiscover v2, EWS, MAPI over HTTP, NTLM) against a real on-premises server.
-It is separate from the [Docker IMAP lab](../local-lab/README.md) and talks to nothing outside the host except Windows activation and the prerequisite downloads during `create`.
+It is separate from the remote [mail lab](../lab/README.md) and talks to nothing outside the host except Windows activation and the prerequisite downloads during `create`.
 
-Every password is `1`, as in the Docker lab, except the AD restore-mode password (`Wino-Lab-Dsrm-2026!`), which Windows forces to be complex.
+Every password is `1`, except the AD restore-mode password (`Wino-Lab-Dsrm-2026!`), which Windows forces to be complex.
 
 ## What you get
 

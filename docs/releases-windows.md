@@ -76,6 +76,8 @@ pwsh -NoProfile -File .\scripts\release\windows\build-releases.ps1 -NonInteracti
 ## Beta artwork and runtime profiles
 
 The source `release-profile.json` describes Store stable. `scripts/release/windows/profiles` contains the two sideload profiles.
+`release-profile.Debug.json` describes the `WinoMail.Debug` development package that Debug builds install; it is never released.
+`WinoPackageProfile.ps1` applies a profile to the manifest for both the sideload packager and Debug builds.
 The packager checks profile identity, notification IDs, and the session-start task's COM class ID (`StartupTaskActivatorId`) against the generated manifest.
 The app reads its profile before activation. Mutex and event names use the installed package family name, without the version.
 

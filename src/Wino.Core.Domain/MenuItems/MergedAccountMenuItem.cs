@@ -3,7 +3,9 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.MenuItems;
@@ -51,6 +53,10 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
 
     [ObservableProperty]
     public partial string MergedAccountName { get; set; }
+
+    public string? ColorKey => AccountGroupColors.Normalize(Parameter?.ColorKey);
+
+    public WinoIconGlyph IconGlyph => AccountGroupIcons.GetGlyph(Parameter?.Icon ?? AccountGroupIcon.PeopleLink);
 
     public MergedAccountMenuItem(MergedInbox mergedInbox, IEnumerable<MailAccount> holdingAccounts, IMenuItem parent) : base(mergedInbox, mergedInbox.Id, parent)
     {

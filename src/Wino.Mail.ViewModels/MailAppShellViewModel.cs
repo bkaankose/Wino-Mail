@@ -19,6 +19,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
@@ -44,7 +45,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     IRecipient<AccountsMenuRefreshRequested>,
     IRecipient<MergedInboxRenamed>,
     IRecipient<LanguageChanged>,
-    IRecipient<AccountMenuItemsReordered>,
+    IRecipient<AccountLayoutChanged>,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>,
     IRecipient<NavigateAppPreferencesRequested>,
     IRecipient<AccountFolderConfigurationUpdated>,
@@ -112,6 +113,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private bool _isPreparedForShellShutdown;
 
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
+    private readonly AccountGroupPaneItems _accountGroupItems;
 
     public MailAppShellViewModel(IMailDialogService dialogService,
                              INavigationService navigationService,
@@ -122,6 +124,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IMailService mailService,
                              IMailCategoryService mailCategoryService,
                              IAccountService accountService,
+                             AccountGroupExpansionStore accountGroupExpansion,
                              IContextMenuItemService contextMenuItemService,
                              IMicrosoftStoreService storeService,
                              IPreferencesService preferencesService,
@@ -156,6 +159,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
         _accountReauthenticationService = accountReauthenticationService;
+        _accountGroupItems = new AccountGroupPaneItems(accountGroupExpansion, () => Dispatcher);
     }
 
     protected override void OnDispatcherAssigned()
@@ -211,64 +215,22 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         // First clear all account menu items.
         await ExecuteUIThread(() =>
-            MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem).ToList()))
+            MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem or AccountGroupMenuItem).ToList()))
             .ConfigureAwait(false);
 
         var accounts = await GetMailEnabledAccountsAsync().ConfigureAwait(false);
-
-        List<Guid> initializedAccountIds = new();
-
-        foreach (var account in accounts)
-        {
-            // Already initialized with one of the previous merged accounts.
-
-            if (initializedAccountIds.Contains(account.Id)) continue;
-
-            bool isMergedAccount = account.MergedInboxId != null;
-
-            if (isMergedAccount)
-            {
-                var mergedAccountId = account.MergedInboxId.Value;
-                var mergedAccounts = accounts.Where(a => a.MergedInboxId == mergedAccountId);
-                var mergedInbox = mergedAccounts.First().MergedInbox;
-
-                var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, mergedAccounts, null);
-
-                foreach (var mergedAccount in mergedAccounts)
-                {
-                    initializedAccountIds.Add(mergedAccount.Id);
-                    var accountMenuItem = new AccountMenuItem(mergedAccount, mergedAccountMenuItem);
-                    ApplySynchronizationProgress(accountMenuItem, SynchronizationProgressCategory.Mail);
-                    mergedAccountMenuItem.SubMenuItems.Add(accountMenuItem);
-                }
-
-                mergedAccountMenuItem.RefreshSynchronizationProgress();
-
-                await ExecuteUIThread(() =>
-                {
-                    MenuItems.Add(mergedAccountMenuItem);
-                }).ConfigureAwait(false);
-
-            }
-            else
-            {
-                var accountMenuItem = new AccountMenuItem(account, null);
-                ApplySynchronizationProgress(accountMenuItem, SynchronizationProgressCategory.Mail);
-
-                await ExecuteUIThread(() =>
-                {
-                    MenuItems.Add(accountMenuItem);
-                }).ConfigureAwait(false);
-
-                initializedAccountIds.Add(account.Id);
-            }
-        }
-
-        // Re-assign latest selected account menu item for containers to reflect changes better.
-        // Also , this will ensure that the latest selected account is still selected after re-creation.
+        var groups = await _accountService.GetAccountGroupsAsync().ConfigureAwait(false);
+        var layout = AccountLayoutBuilder.Build(accounts, groups);
 
         await ExecuteUIThread(() =>
         {
+            foreach (var entry in _accountGroupItems.Build(layout, CreateAccountAreaMenuItem))
+            {
+                MenuItems.Add(entry);
+            }
+
+            // Re-assign latest selected account menu item for containers to reflect changes better.
+            // Also , this will ensure that the latest selected account is still selected after re-creation.
             if (latestSelectedAccountMenuItem != null &&
                 TryGetLoadedAccountMenuItem(
                     latestSelectedAccountMenuItem.EntityId.GetValueOrDefault(),
@@ -277,6 +239,38 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 foundLatestSelectedAccountMenuItem.IsSelected = true;
             }
         }).ConfigureAwait(false);
+    }
+
+    private static IMenuItem CreateAccountAreaMenuItem(AccountLayoutEntry entry)
+    {
+        if (entry.Kind == AccountLayoutEntryKind.Group)
+        {
+            // A group that keeps folders separate is drawn as a group row holding its account rows.
+            if (entry.Group is not { CombineFolders: true } mergedInbox)
+                return null;
+
+            var members = entry.GetAccounts();
+            var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, members, null);
+
+            foreach (var mergedAccount in members)
+            {
+                var accountMenuItem = new AccountMenuItem(mergedAccount, mergedAccountMenuItem);
+                ApplySynchronizationProgress(accountMenuItem, SynchronizationProgressCategory.Mail);
+                mergedAccountMenuItem.SubMenuItems.Add(accountMenuItem);
+            }
+
+            mergedAccountMenuItem.RefreshSynchronizationProgress();
+
+            return mergedAccountMenuItem;
+        }
+
+        if (entry.Account is not { } account)
+            return null;
+
+        var singleAccountMenuItem = new AccountMenuItem(account, null);
+        ApplySynchronizationProgress(singleAccountMenuItem, SynchronizationProgressCategory.Mail);
+
+        return singleAccountMenuItem;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
@@ -323,7 +317,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         var shouldRunStartupFlows = (activationContext?.IsInitialActivation ?? true) &&
                                     activationContext?.SuppressStartupFlows != true;
         var isModeReactivation = activationContext?.IsInitialActivation == false;
-        var hasExistingAccountMenuItems = MenuItems?.OfType<IAccountMenuItem>().Any() == true;
+        var hasExistingAccountMenuItems = MenuItems?.GetAccountAreaItems().OfType<IAccountMenuItem>().Any() == true;
 
         await CreateFooterItemsAsync(true);
 
@@ -366,7 +360,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 ApplySynchronizationProgress(accountMenuItem, SynchronizationProgressCategory.Mail);
             }
 
-            foreach (var mergedAccountMenuItem in MenuItems.OfType<MergedAccountMenuItem>().ToList())
+            foreach (var mergedAccountMenuItem in MenuItems.GetAccountAreaItems().OfType<MergedAccountMenuItem>().ToList())
             {
                 mergedAccountMenuItem.RefreshSynchronizationProgress();
             }
@@ -601,43 +595,34 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (await TryNavigateToUnreadBadgeLocationAsync())
             return;
 
-        if (PreferencesService.StartupEntityId == null)
+        // The startup entity is an account, merged inbox or account group id kept in local settings. It is
+        // missing when those settings were not carried over with the database (restored or seeded data), and
+        // stale when the entity was removed; both open the first account instead of the welcome page.
+        var startupEntityMenuItem = PreferencesService.StartupEntityId is { } startupEntityId
+            ? MenuItems.FindAccountAreaItem(startupEntityId)
+            : null;
+
+        if (startupEntityMenuItem != null)
         {
-            NavigateToWelcomeWizard();
+            startupEntityMenuItem.Expand();
+
+            if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
+            {
+                await ChangeLoadedAccountAsync(startupAccountMenuItem);
+            }
+
+            return;
+        }
+
+        var firstMailAccountMenuItem = MenuItems.GetAccountAreaItems().OfType<IAccountMenuItem>().FirstOrDefault();
+        if (firstMailAccountMenuItem != null)
+        {
+            firstMailAccountMenuItem.Expand();
+            await ChangeLoadedAccountAsync(firstMailAccountMenuItem);
         }
         else
         {
-            var startupEntityId = PreferencesService.StartupEntityId.Value;
-
-            // startupEntityId is the id of the entity to be expanded on startup.
-            // This can be either AccountId or MergedAccountId right now.
-            // If accountId, we'll find the root account and extend Inbox folder for it.
-            // If mergedAccountId, merged account's Inbox folder will be extended.
-
-            var startupEntityMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == startupEntityId);
-
-            if (startupEntityMenuItem != null)
-            {
-                startupEntityMenuItem.Expand();
-
-                if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
-                {
-                    await ChangeLoadedAccountAsync(startupAccountMenuItem);
-                }
-            }
-            else
-            {
-                var firstMailAccountMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
-                if (firstMailAccountMenuItem != null)
-                {
-                    firstMailAccountMenuItem.Expand();
-                    await ChangeLoadedAccountAsync(firstMailAccountMenuItem);
-                }
-                else
-                {
-                    NavigateToWelcomeWizard();
-                }
-            }
+            NavigateToWelcomeWizard();
         }
     }
 
@@ -1086,11 +1071,14 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             // only toggles the group; otherwise it loads them and keeps the accounts visible.
             if (latestSelectedAccountMenuItem == clickedMergedAccountMenuItem)
             {
-                clickedMergedAccountMenuItem.IsExpanded = !clickedMergedAccountMenuItem.IsExpanded;
+                if (!_isPaneCompact)
+                    clickedMergedAccountMenuItem.IsExpanded = !clickedMergedAccountMenuItem.IsExpanded;
+
                 return;
             }
 
-            clickedMergedAccountMenuItem.IsExpanded = true;
+            if (!_isPaneCompact)
+                clickedMergedAccountMenuItem.IsExpanded = true;
 
             await ChangeLoadedAccountAsync(clickedMergedAccountMenuItem, true);
         }
@@ -1216,6 +1204,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                         ? accountBadge.UnreadCount
                         : 0;
                 }
+            }
+
+            foreach (var accountGroupMenuItem in MenuItems.GetAccountGroupMenuItems())
+            {
+                accountGroupMenuItem.RefreshUnreadItemCount();
             }
 
             foreach (var unreadCount in unreadCountResult)
@@ -1644,7 +1637,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task RestoreSelectedAccountAfterMenuRefreshAsync(bool automaticallyNavigateFirstItem)
+    private async Task RestoreSelectedAccountAfterMenuRefreshAsync(bool automaticallyNavigateFirstItem, Guid? preferredFolderId = null)
     {
         IAccountMenuItem validSelectedMenuItem = null;
         var hasPreviousSelection = false;
@@ -1670,12 +1663,24 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             if (validSelectedMenuItem == null)
             {
-                validSelectedMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
+                validSelectedMenuItem = MenuItems.GetAccountAreaItems().OfType<IAccountMenuItem>().FirstOrDefault();
                 hasPreviousSelection = false;
             }
         }).ConfigureAwait(false);
 
-        if (validSelectedMenuItem != null)
+        if (validSelectedMenuItem != null && hasPreviousSelection && preferredFolderId is Guid folderId)
+        {
+            await ChangeLoadedAccountAsync(validSelectedMenuItem, navigateInbox: false).ConfigureAwait(false);
+
+            IBaseFolderMenuItem preferredFolderMenuItem = null;
+            await ExecuteUIThread(() => MenuItems.TryGetFolderMenuItem(folderId, out preferredFolderMenuItem)).ConfigureAwait(false);
+
+            if (preferredFolderMenuItem != null)
+                await NavigateFolderAsync(preferredFolderMenuItem).ConfigureAwait(false);
+            else
+                await NavigateInboxAsync(validSelectedMenuItem).ConfigureAwait(false);
+        }
+        else if (validSelectedMenuItem != null)
         {
             await ChangeLoadedAccountAsync(
                 validSelectedMenuItem,
@@ -1694,7 +1699,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private bool TryGetLoadedAccountMenuItem(Guid entityId, out IAccountMenuItem accountMenuItem)
     {
-        accountMenuItem = MenuItems.FirstOrDefault(a => a.EntityId == entityId) as IAccountMenuItem;
+        accountMenuItem = MenuItems.FindAccountAreaItem(entityId);
         accountMenuItem ??= MenuItems.GetAllAccountMenuItems().FirstOrDefault(a => a.EntityId == entityId);
         accountMenuItem ??= MenuItems.TryGetAccountMenuItem(entityId, out var foundAccountMenuItem) ? foundAccountMenuItem : null;
 
@@ -1809,7 +1814,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         await ExecuteUIThread(() =>
         {
-            if (MenuItems.FirstOrDefault(a => a.EntityId == message.MergedInboxId) is MergedAccountMenuItem mergedAccountMenuItem)
+            if (MenuItems.FindAccountAreaItem(message.MergedInboxId) is MergedAccountMenuItem mergedAccountMenuItem)
             {
                 mergedAccountMenuItem.MergedAccountName = message.NewName;
             }
@@ -1823,19 +1828,21 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await RestoreSelectedAccountAfterMenuRefreshAsync(false);
     }
 
-    private void ReorderAccountMenuItems(Dictionary<Guid, int> newAccountOrder)
+    /// <summary>
+    /// Groups or the account order changed. The account area is rebuilt and the loaded account and folder stay selected.
+    /// </summary>
+    public async void Receive(AccountLayoutChanged message)
     {
-        foreach (var item in newAccountOrder)
-        {
-            if (!MenuItems.TryGetAccountMenuItem(item.Key, out IAccountMenuItem menuItem)) return;
+        if (MenuItems == null)
+            return;
 
-            // Adding +2 since the first items are New Mail and Daily Briefing.
-            MenuItems.Move(MenuItems.IndexOf(menuItem), item.Value + 2);
-        }
+        Guid? selectedFolderId = null;
+        await ExecuteUIThread(() =>
+            selectedFolderId = (SelectedMenuItem as IBaseFolderMenuItem)?.HandlingFolders?.FirstOrDefault()?.Id);
+
+        await RecreateMenuItemsAsync();
+        await RestoreSelectedAccountAfterMenuRefreshAsync(false, selectedFolderId);
     }
-
-    public async void Receive(AccountMenuItemsReordered message)
-        => await ExecuteUIThread(() => ReorderAccountMenuItems(message.newOrderDictionary));
 
     private async void UpdateFolderCollection(IMailItemFolder updatedMailItemFolder)
     {
@@ -1932,7 +1939,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Register<AccountsMenuRefreshRequested>(this);
         Messenger.Register<MergedInboxRenamed>(this);
         Messenger.Register<LanguageChanged>(this);
-        Messenger.Register<AccountMenuItemsReordered>(this);
+        Messenger.Register<AccountLayoutChanged>(this);
         Messenger.Register<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Register<NavigateAppPreferencesRequested>(this);
         Messenger.Register<AccountFolderConfigurationUpdated>(this);
@@ -1952,7 +1959,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountsMenuRefreshRequested>(this);
         Messenger.Unregister<MergedInboxRenamed>(this);
         Messenger.Unregister<LanguageChanged>(this);
-        Messenger.Unregister<AccountMenuItemsReordered>(this);
+        Messenger.Unregister<AccountLayoutChanged>(this);
         Messenger.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Unregister<NavigateAppPreferencesRequested>(this);
         Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
@@ -2056,9 +2063,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     /// <summary>
     /// Every mail pane entry renders through the navigation item icon slot, so the collapsed
-    /// pane shows them all correctly and nothing has to be dropped.
+    /// pane shows them all correctly and nothing has to be dropped. A click on a combined group
+    /// in the compact pane opens its flyout and leaves the group's remembered expansion alone.
     /// </summary>
-    public void SetPaneCompact(bool isCompact) { }
+    public void SetPaneCompact(bool isCompact) => _isPaneCompact = isCompact;
+
+    private bool _isPaneCompact;
 
     public void ActivateShellMenu(ShellModeActivationContext activationContext)
         => OnNavigatedTo(NavigationMode.New, activationContext);

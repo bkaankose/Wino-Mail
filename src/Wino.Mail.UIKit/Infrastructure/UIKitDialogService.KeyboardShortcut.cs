@@ -93,7 +93,7 @@ public sealed partial class UIKitDialogService
         [
             KeyboardShortcutAction.NewMail, KeyboardShortcutAction.ToggleReadUnread, KeyboardShortcutAction.ToggleFlag,
             KeyboardShortcutAction.ToggleArchive, KeyboardShortcutAction.Delete, KeyboardShortcutAction.Move,
-            KeyboardShortcutAction.Reply, KeyboardShortcutAction.ReplyAll, KeyboardShortcutAction.Send
+            KeyboardShortcutAction.Reply, KeyboardShortcutAction.ReplyAll, KeyboardShortcutAction.Forward, KeyboardShortcutAction.Send
         ],
         WinoApplicationMode.Calendar => [KeyboardShortcutAction.NewEvent, KeyboardShortcutAction.Delete],
         _ => Enum.GetValues<KeyboardShortcutAction>().Where(action => action != KeyboardShortcutAction.None).ToArray()

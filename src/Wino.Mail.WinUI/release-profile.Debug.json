@@ -1,0 +1,19 @@
+{
+  "Distribution": "Debug",
+  "PackageName": "WinoMail.Debug",
+  "Publisher": "CN=51FBDAF3-E212-4149-89A2-A2636B3BC911",
+  "DisplayNames": {
+    "Mail": "Wino Mail (Debug)",
+    "Calendar": "Wino Calendar (Debug)",
+    "People": "Wino People (Debug)",
+    "Tasks": "Wino To Do (Debug)"
+  },
+  "NotificationActivatorIds": {
+    "Mail": "db7c9526-ea72-493f-a264-386f15c6673a",
+    "Calendar": "3cf29dc6-9705-4f41-a3bb-9dc4bbdd0488",
+    "People": "c9feb1fb-2863-4930-ae34-afb496790bc6",
+    "Tasks": "652a5a75-0be6-4a0f-9d05-3768891ac4b0"
+  },
+  "StartupTaskActivatorId": "b6650c72-4c00-45d7-9cab-dca710c45a94",
+  "WidgetProviderId": "ceb422bc-36f2-404f-b7e4-0920bd7ecef9"
+}

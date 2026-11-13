@@ -872,6 +872,18 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         ReportServerChanges(changes);
     }
 
+    public async Task UpdateTaskManualOrderAsync(IReadOnlyDictionary<Guid, int> orders)
+    {
+        if (orders is null || orders.Count == 0)
+            return;
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            foreach (var (taskId, order) in orders)
+                transaction.Execute($"UPDATE TaskCard SET {nameof(AccountTask.ManualOrder)} = ? WHERE {nameof(AccountTask.Id)} = ?", order, taskId);
+        }).ConfigureAwait(false);
+    }
+
     public async Task<List<AccountTask>> GetTasksAsync(Guid? accountId = null, Guid? listId = null, TaskViewKind view = TaskViewKind.All, string search = null, TaskSortKind sort = TaskSortKind.DueDate)
     {
         var today = DateTime.UtcNow.Date;
@@ -906,6 +918,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
             TaskSortKind.MyDay => ordered.ThenByDescending(task => task.MyDayDateUtc ?? DateTime.MinValue).ThenBy(task => task.DueDate ?? DateTime.MaxValue),
             TaskSortKind.Alphabetical => ordered.ThenBy(task => task.Title, StringComparer.OrdinalIgnoreCase),
             TaskSortKind.CreationDate => ordered.ThenByDescending(task => task.CreatedAtUtc),
+            TaskSortKind.Manual => ordered.ThenBy(task => task.ManualOrder ?? int.MaxValue).ThenBy(task => task.CreatedAtUtc),
             _ => ordered.ThenBy(task => task.DueDate ?? DateTime.MaxValue)
         };
 
@@ -1228,6 +1241,8 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         {
             // A provider-side move creates the task in another list and removes the source
             // copy. Keep the existing local identity, but adopt the authoritative parent.
+            if (local.TaskListId != remoteTask.TaskListId)
+                local.ManualOrder = null;
             local.TaskListId = remoteTask.TaskListId;
             local.Title = remoteTask.Title;
             local.Notes = remoteTask.Notes;

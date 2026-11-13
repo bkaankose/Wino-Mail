@@ -557,6 +557,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             .Select(g => new SnapshotMergedInbox
             {
                 Name = g.First().MergedInbox.Name.Trim(),
+                CombineFolders = g.First().MergedInbox.CombineFolders,
+                ColorKey = AccountGroupColors.Normalize(g.First().MergedInbox.ColorKey),
+                Icon = (int)AccountGroupIcons.Normalize(g.First().MergedInbox.Icon),
                 Members = g.Select(a => new SnapshotMailboxReference { AccountAddress = a.Address, ProviderType = (int)a.ProviderType }).ToList()
             })
             .ToList();
@@ -1040,15 +1043,26 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                     .ToList();
                 if (members.Count < 2) continue;
 
-                var existing = accounts.FirstOrDefault(a => a.MergedInboxId.HasValue && string.Equals(a.MergedInbox?.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase));
-                if (existing?.MergedInboxId is { } existingId)
+                var existing = accounts.FirstOrDefault(a => a.MergedInboxId.HasValue && a.MergedInbox != null && string.Equals(a.MergedInbox.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase));
+                if (existing?.MergedInbox is { } existingGroup)
                 {
+                    var existingId = existingGroup.Id;
                     var linked = accounts.Where(a => a.MergedInboxId == existingId).Select(a => a.Id)
                         .Union(members.Where(a => !a.MergedInboxId.HasValue || a.MergedInboxId == existingId).Select(a => a.Id))
                         .Distinct()
                         .ToList();
 
-                    await _accountService.UpdateMergedInboxAsync(existingId, linked).ConfigureAwait(false);
+                    // A snapshot from a build before account groups carries no appearance; the local one stays.
+                    if (mergedInbox.CombineFolders is bool combineFolders)
+                        existingGroup.CombineFolders = combineFolders;
+
+                    if (mergedInbox.Icon.HasValue)
+                    {
+                        existingGroup.ColorKey = AccountGroupColors.Normalize(mergedInbox.ColorKey);
+                        existingGroup.Icon = AccountGroupIcons.FromStoredValue(mergedInbox.Icon);
+                    }
+
+                    await _accountService.SaveAccountGroupAsync(existingGroup, linked).ConfigureAwait(false);
                     applied++;
                     continue;
                 }
@@ -1056,12 +1070,20 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 var free = members.Where(a => !a.MergedInboxId.HasValue).ToList();
                 if (free.Count < 2) continue;
 
-                await _accountService.CreateMergeAccountsAsync(new MergedInbox { Name = name }, free).ConfigureAwait(false);
+                var group = new MergedInbox
+                {
+                    Name = name,
+                    CombineFolders = mergedInbox.CombineFolders ?? true,
+                    ColorKey = AccountGroupColors.Normalize(mergedInbox.ColorKey),
+                    Icon = AccountGroupIcons.FromStoredValue(mergedInbox.Icon)
+                };
+
+                await _accountService.CreateMergeAccountsAsync(group, free).ConfigureAwait(false);
                 applied++;
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "Merged inbox {Name} could not be restored.", mergedInbox.Name);
+                _logger.Warning(ex, "Account group {Name} could not be restored.", mergedInbox.Name);
             }
         }
 

@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:behaviors="using:Wino.Mail.WinUI.Behaviors"
     xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -37,15 +38,22 @@
             </accessibilityControls:WinoSettingsCard>
         </DataTemplate>
 
-        <!--  Merged Account Template  -->
+        <!--  Account Group Template  -->
         <DataTemplate x:Key="MergedAccountTemplate" x:DataType="data:MergedAccountProviderDetailViewModel">
             <winuiControls:SettingsExpander
-                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(MergedInbox.Name, AccountAddresses), Mode=OneWay}"
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(MergedInbox.Name, DescriptionText), Mode=OneWay}"
                 AutomationProperties.AutomationId="AccountManagementPageSettingsExpander"
-                Description="{x:Bind AccountAddresses}"
-                Header="{x:Bind MergedInbox.Name}">
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(MergedInbox.Name, DescriptionText), Mode=OneWay}"
+                Description="{x:Bind DescriptionText}">
+                <winuiControls:SettingsExpander.Header>
+                    <TextBlock
+                        behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey}"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind MergedInbox.Name}"
+                        TextWrapping="Wrap" />
+                </winuiControls:SettingsExpander.Header>
                 <winuiControls:SettingsExpander.Items>
-                    <!--  Edit Linked Inbox  -->
+                    <!--  Edit account group  -->
                     <accessibilityControls:WinoSettingsCard
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
@@ -57,7 +65,7 @@
                         Header="{x:Bind domain:Translator.SettingsEditLinkedInbox_Title}"
                         IsClickEnabled="True">
                         <winuiControls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Link" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Edit" />
                         </winuiControls:SettingsCard.HeaderIcon>
                     </accessibilityControls:WinoSettingsCard>
                     <!--  Individual accounts  -->
@@ -76,7 +84,10 @@
                     </winuiControls:SettingsCard>
                 </winuiControls:SettingsExpander.Items>
                 <winuiControls:SettingsExpander.HeaderIcon>
-                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
+                    <coreControls:WinoFontIcon
+                        behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey}"
+                        FontFamily="{StaticResource WinoMonochromeIconFontFamily}"
+                        Icon="{x:Bind IconGlyph}" />
                 </winuiControls:SettingsExpander.HeaderIcon>
             </winuiControls:SettingsExpander>
         </DataTemplate>
@@ -235,23 +246,11 @@
                 <StackPanel>
                     <accessibilityControls:WinoSettingsCard
                         AutomationProperties.AutomationId="AccountManagementPageSettingsCard7"
-                        Command="{x:Bind ViewModel.CreateMergedAccountCommand}"
+                        Command="{x:Bind ViewModel.CreateAccountGroupCommand}"
                         Description="{x:Bind domain:Translator.SettingsLinkAccounts_Description}"
                         Header="{x:Bind domain:Translator.SettingsLinkAccounts_Title}"
                         IsActionIconVisible="False"
                         IsClickEnabled="True">
-                        <!--  Linked inboxes group accounts, but only the Mail mode reads the grouping.  -->
-                        <Border
-                            Padding="8,2"
-                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="4">
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.SettingsLinkAccounts_MailOnlyScope}" />
-                        </Border>
                         <winuiControls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Icon="PeopleLink" />
                         </winuiControls:SettingsCard.HeaderIcon>
