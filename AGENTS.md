@@ -41,6 +41,7 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 - Add `Highlight: yes` only when the user calls the change a headline feature.
 - Never use closing keywords (`Fixes #N`, `Closes #N`). Issues close when the release is published, not when the fix reaches `main`.
 - Commit one issue per commit, also during bug bashes, so each fix becomes its own release-notes entry.
+- Name every worktree branch after the issue it works on, so the branch shows which `Refs: #N` its commits will carry: `<type>/<N>-<short-slug>` with `fix` or `feature` as the type, for example `fix/1073-sync-range-backfill`. Work on several issues lists each number (`fix/1186-1199-context-menu`). Work without an issue first goes through the issue search above; only work that confirmedly has none gets a plain descriptive name (`build/…`, `docs/…`, `feature/…`).
 - For user-visible work in another repository (API, relay, website), run `scripts/release/release.ps1 add "<user-facing text>"` when the user asks for it in the notes.
 
 ## Shared coding rules
