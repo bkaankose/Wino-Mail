@@ -60,6 +60,15 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
             : Translator.UnlimitedAccountsPurchaseDialog_WinoAccountSignInRequired;
 
     public int FREE_ACCOUNT_COUNT { get; } = Constants.FreeAccountLimit;
+
+    // Debug builds hold lab accounts next to real ones, so they never block account creation.
+    // The usage meter and purchase UI keep working so they can still be tested.
+#if DEBUG
+    private const bool IsFreeAccountLimitEnforced = false;
+#else
+    private const bool IsFreeAccountLimitEnforced = true;
+#endif
+
     protected IDialogServiceBase DialogService { get; }
     protected INavigationService NavigationService { get; }
     protected IAccountService AccountService { get; }
@@ -163,7 +172,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         {
             HasUnlimitedAccountProduct = hasUnlimitedAccountProduct;
             IsWinoAccountSignedIn = isWinoAccountSignedIn;
-            IsAccountCreationBlocked = !hasUnlimitedAccountProduct && UsedAccountCount >= FREE_ACCOUNT_COUNT;
+            IsAccountCreationBlocked = IsFreeAccountLimitEnforced && !hasUnlimitedAccountProduct && UsedAccountCount >= FREE_ACCOUNT_COUNT;
         });
     }
 
