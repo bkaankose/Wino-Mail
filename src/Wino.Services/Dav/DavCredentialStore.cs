@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,6 +9,10 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services.Dav;
 
+/// <summary>
+/// The DPAPI credential files of earlier Windows releases (LocalState\credentials\dav). Windows now reads it only
+/// through <see cref="LegacyMigratingDavCredentialStore"/>, which moves each file into the secure item store.
+/// </summary>
 public sealed class DavCredentialStore : IDavCredentialStore
 {
     private readonly string _root;
@@ -80,6 +85,20 @@ public sealed class DavCredentialStore : IDavCredentialStore
         if (File.Exists(path)) File.Delete(path);
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>The accounts that have a credential file.</summary>
+    public IReadOnlyList<Guid> GetStoredAccountIds()
+    {
+        var accountIds = new List<Guid>();
+        if (!Directory.Exists(_root))
+            return accountIds;
+
+        foreach (var path in Directory.EnumerateFiles(_root, "*.bin"))
+            if (Guid.TryParseExact(Path.GetFileNameWithoutExtension(path), "N", out var accountId))
+                accountIds.Add(accountId);
+
+        return accountIds;
     }
 
     private string PathFor(Guid accountId) => Path.Combine(_root, $"{accountId:N}.bin");

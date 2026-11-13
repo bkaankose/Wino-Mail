@@ -6,6 +6,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 using Wino.Mail.AI.Abstractions;
 using Wino.Services;
+using Wino.Services.Security;
 using Wino.Platform.Windows;
 using Wino.Platform.Windows.Services;
 using Wino.Authentication;
@@ -47,8 +48,13 @@ internal static class ConsoleServices
         // Registered by the WinUI app on top of the shared services.
         services.AddSingleton<IPlatformCapabilities>(new Wino.Core.Domain.Models.Platform.PlatformCapabilities(MicrosoftStore: true));
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
-        services.AddSingleton<IAccountCredentialPersistence, WindowsAccountCredentialPersistence>();
-        services.AddSingleton<IGoogleTokenStore, WindowsGoogleTokenStore>();
+        services.AddProtectedFileCredentialStorage();
+        services.AddSingleton(provider => new WindowsMigratingGoogleTokenStore(
+            provider.GetRequiredService<ISecureItemStore>(),
+            provider.GetRequiredService<ProtectedFileSecureItemStore>().ItemPath,
+            new WindowsGoogleTokenStore(provider.GetRequiredService<IApplicationConfiguration>())));
+        services.AddSingleton<IGoogleTokenStore>(provider => provider.GetRequiredService<WindowsMigratingGoogleTokenStore>());
+        services.AddSingleton<ILegacyCredentialFileMigration>(provider => provider.GetRequiredService<WindowsMigratingGoogleTokenStore>());
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new WindowsOutlookAuthenticationHost(
             provider.GetRequiredService<IApplicationConfiguration>(),
             provider.GetRequiredService<IAuthenticatorConfig>(), nativeAppService.GetCoreWindowHwnd));

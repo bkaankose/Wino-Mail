@@ -7,13 +7,19 @@ installs the lab accounts into the Debug app, and opens the tunnel the synchroni
 .EXAMPLE
 .\scripts\lab\windows\lab.ps1 install-app
 .EXAMPLE
+.\scripts\lab\windows\lab.ps1 install-app -LegacyPlaintext
+.EXAMPLE
 .\scripts\lab\windows\lab.ps1 tunnel
 #>
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
     [ValidateSet('status', 'manifest', 'generate-db', 'install-app', 'tunnel', 'help')]
-    [string]$Command = 'help'
+    [string]$Command = 'help',
+
+    # generate-db and install-app: write the pre-secure-store credential format (plaintext password columns and
+    # credentials\dav files) to test the upgrade migration.
+    [switch]$LegacyPlaintext
 )
 $ErrorActionPreference = 'Stop'
 $labRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../tools/lab'))
@@ -63,8 +69,10 @@ function New-Database {
     if (!(Test-Path -LiteralPath $manifestPath)) { Get-Manifest }
     Push-Location $repositoryRoot
     try {
+        $generatorArguments = @($generatedRoot, $manifestPath)
+        if ($LegacyPlaintext) { $generatorArguments += '--legacy-plaintext' }
         # The generator's summary line names the password; keep it out of the console.
-        & dotnet run --project (Join-Path $labRoot 'DatabaseGenerator/DatabaseGenerator.csproj') --configuration Debug --property:Platform=x64 -- $generatedRoot $manifestPath |
+        & dotnet run --project (Join-Path $labRoot 'DatabaseGenerator/DatabaseGenerator.csproj') --configuration Debug --property:Platform=x64 -- @generatorArguments |
             ForEach-Object { $_ -replace '\(password [^)]*\)', '(password hidden)' }
         if ($LASTEXITCODE -ne 0) { throw 'Database generation failed. Existing generated artifacts were preserved. Check the build output above.' }
     } finally { Pop-Location }
@@ -81,16 +89,18 @@ function Install-App {
     New-Item -ItemType Directory -Path $localState -Force | Out-Null
 
     $backupRoot = Join-Path $stateRoot "app-backups/$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-    $existing = @(Get-ChildItem -LiteralPath $localState -Force | Where-Object { $_.Name -like 'Wino2*.db*' -or $_.Name -eq 'credentials' })
+    $existing = @(Get-ChildItem -LiteralPath $localState -Force | Where-Object { $_.Name -like 'Wino2*.db*' -or $_.Name -in @('credentials', 'secure') })
     if ($existing.Count) {
         New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
         foreach ($item in $existing) { Move-Item -LiteralPath $item.FullName -Destination $backupRoot -Force }
         Write-Output "Previous application data moved to $backupRoot"
     }
     Copy-Item -LiteralPath (Join-Path $generatedRoot 'Wino210.db') -Destination $localState -Force
-    $credentialTarget = Join-Path $localState 'credentials/dav'
-    New-Item -ItemType Directory -Path $credentialTarget -Force | Out-Null
-    Copy-Item -Path (Join-Path $generatedRoot 'credentials/dav/*') -Destination $credentialTarget -Force
+    # The generated folder mirrors LocalState: secure\ (secure item store) or, with -LegacyPlaintext, credentials\dav.
+    foreach ($credentialFolder in @('secure', 'credentials')) {
+        $source = Join-Path $generatedRoot $credentialFolder
+        if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $localState -Recurse -Force }
+    }
 
     Start-Process explorer.exe "shell:AppsFolder\$($package.PackageFamilyName)!App"
     Write-Output "Wino ($($package.Name)) launched with the lab accounts."
@@ -116,9 +126,10 @@ this machine to it. See tools/lab/README.md.
 status         Reachability of the lab's public endpoints and the state of local artifacts.
 manifest       Fetch the account manifest (accounts, endpoints, password) from the lab host over SSH
                into ~/.wino-lab/fixtures.json, outside the repository.
-generate-db    Generate Wino210.db and DAV credentials for the lab accounts from the manifest.
+generate-db    Generate Wino210.db and the credentials (secure item store) for the lab accounts from the manifest.
+               -LegacyPlaintext writes the old format (plaintext columns, credentials\dav) for upgrade tests.
 install-app    Replace the registered Debug package's database with the generated one (the old data is
-               moved to ~/.wino-lab/app-backups) and launch Wino. Wino must be closed.
+               moved to ~/.wino-lab/app-backups) and launch Wino. Wino must be closed. Accepts -LegacyPlaintext.
 tunnel         Forward the lab's plaintext loopback ports to 127.0.0.1 (unauthenticated hub port,
                certificate test endpoints).
 help           This help.

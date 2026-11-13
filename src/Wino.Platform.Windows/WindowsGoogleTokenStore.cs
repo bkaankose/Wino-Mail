@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,7 +10,10 @@ using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Platform.Windows;
 
-/// <summary>Preserves the existing Windows plaintext Gmail token file representation.</summary>
+/// <summary>
+/// The plaintext Gmail token files of earlier Windows releases. Windows reads them only through
+/// <see cref="WindowsMigratingGoogleTokenStore"/>, which moves each file into the secure item store.
+/// </summary>
 public sealed class WindowsGoogleTokenStore : IGoogleTokenStore
 {
     private readonly string _root;
@@ -69,6 +73,23 @@ public sealed class WindowsGoogleTokenStore : IGoogleTokenStore
         if (File.Exists(path)) File.Delete(path);
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>The credential keys that have a token file.</summary>
+    public IReadOnlyList<string> GetStoredCredentialKeys()
+    {
+        var keys = new List<string>();
+        if (!Directory.Exists(_root))
+            return keys;
+
+        foreach (var path in Directory.EnumerateFiles(_root, "*.json"))
+        {
+            var key = Path.GetFileNameWithoutExtension(path);
+            if (key == "default" || Guid.TryParseExact(key, "N", out _))
+                keys.Add(key);
+        }
+
+        return keys;
     }
 
     private string GetPath(string credentialKey)

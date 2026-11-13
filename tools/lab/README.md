@@ -29,9 +29,11 @@ Every server answers on its own name under the lab's DNS suffix (`lab.winomail.a
 | --- | --- |
 | `status` | Checks that the public endpoints answer and shows which local artifacts exist |
 | `manifest` | Fetches the account manifest from the lab host over SSH into `~/.wino-lab/fixtures.json` |
-| `generate-db` | Runs [DatabaseGenerator](DatabaseGenerator) on the manifest: `Wino210.db` with one IMAP account per server, plus the DAV credentials, in `~/.wino-lab/generated` |
-| `install-app` | Replaces the registered Debug package's database with the generated one and launches Wino. The previous data moves to `~/.wino-lab/app-backups`. Wino must be closed |
+| `generate-db` | Runs [DatabaseGenerator](DatabaseGenerator) on the manifest into `~/.wino-lab/generated`, laid out like the app's LocalState: `Wino210.db` with one IMAP account per server, and the passwords in the app's DPAPI secure item store (`secure\`) with references in the database |
+| `install-app` | Replaces the registered Debug package's database and credentials with the generated ones and launches Wino. The previous data moves to `~/.wino-lab/app-backups`. Wino must be closed |
 | `tunnel` | Forwards the lab's plaintext loopback ports to `127.0.0.1`, for tools that need the unauthenticated hub port or the certificate test endpoints |
+
+`generate-db` and `install-app` accept `-LegacyPlaintext`, which writes the format of releases before the secure item store (plaintext password columns and `credentials\dav` files) to test the upgrade migration.
 
 `manifest` and `tunnel` need SSH access to the lab host. The script uses the SSH alias `wino-lab`; set `WINO_LAB_SSH_HOST` for another one. `WINO_LAB_HOST` overrides the DNS suffix.
 

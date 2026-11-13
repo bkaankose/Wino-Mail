@@ -654,7 +654,15 @@ public class AccountService : BaseDatabaseService, IAccountService
         else
         {
             if (account.ProviderType.IsCustomMailProvider())
-                account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id);
+            {
+                try { account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id); }
+                catch (AccountCredentialMissingException)
+                {
+                    // Same recovery shape as GetAccountsAsync: the account loads and asks for sign-in.
+                    account.ServerInformation = null;
+                    account.AttentionReason = AccountAttentionReason.InvalidCredentials;
+                }
+            }
 
             account.Preferences = await GetAccountPreferencesAsync(account.Id);
 
@@ -667,11 +675,26 @@ public class AccountService : BaseDatabaseService, IAccountService
     public async Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId)
     {
         var information = await ReadServerInformationMetadataAsync(accountId).ConfigureAwait(false);
-        if (information is not null)
+        if (information is null)
+            return null;
+
+        try
         {
             await _credentialPersistence.RestoreServerInformationSecretsAsync(information).ConfigureAwait(false);
-            await RestoreLegacyDavPasswordAsync(information).ConfigureAwait(false);
         }
+        catch (AccountCredentialMissingException)
+        {
+            // An update (possibly in another process) can replace the row and delete the revision it referenced
+            // between the row read and the item read; the new row then names a revision that exists.
+            var current = await ReadServerInformationMetadataAsync(accountId).ConfigureAwait(false);
+            if (current is null || string.Equals(current.IncomingServerPassword, information.IncomingServerPassword, StringComparison.Ordinal))
+                throw;
+
+            information = current;
+            await _credentialPersistence.RestoreServerInformationSecretsAsync(information).ConfigureAwait(false);
+        }
+
+        await RestoreLegacyDavPasswordAsync(information).ConfigureAwait(false);
         return information;
     }
 
@@ -773,6 +796,8 @@ public class AccountService : BaseDatabaseService, IAccountService
         var previous = await ReadServerInformationMetadataAsync(customServerInformation.AccountId).ConfigureAwait(false);
         var stored = await _credentialPersistence.PrepareServerInformationForStorageAsync(customServerInformation).ConfigureAwait(false);
         await Connection.InsertOrReplaceAsync(stored, typeof(CustomServerInformation)).ConfigureAwait(false);
+        await _credentialPersistence.DeleteSupersededSecretsAsync(customServerInformation.AccountId,
+            previous?.IncomingServerPassword, stored.IncomingServerPassword).ConfigureAwait(false);
         await DeleteLegacyDavPasswordAsync(customServerInformation.AccountId).ConfigureAwait(false);
         await UpdateCertificateTrustsAsync(previous, customServerInformation).ConfigureAwait(false);
     }
@@ -818,6 +843,8 @@ public class AccountService : BaseDatabaseService, IAccountService
         }).ConfigureAwait(false);
 
         customServerInformation.PendingCertificateTrusts.Clear();
+        await _credentialPersistence.DeleteSupersededSecretsAsync(account.Id,
+            previous?.IncomingServerPassword, stored.IncomingServerPassword).ConfigureAwait(false);
         await DeleteLegacyDavPasswordAsync(account.Id).ConfigureAwait(false);
         account.ServerInformation = customServerInformation;
         ReportUIChange(new AccountUpdatedMessage(account));

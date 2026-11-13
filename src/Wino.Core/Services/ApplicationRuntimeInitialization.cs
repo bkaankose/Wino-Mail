@@ -23,7 +23,8 @@ public sealed class ApplicationRuntimeInitialization(
     Func<IRelaySocketCoordinator?>? relaySocket = null,
     Func<ISyncCoordinator>? syncCoordinator = null,
     Func<IAppPolicyAcceptanceSyncService?>? policySync = null,
-    Func<IEnumerable<IStartupInitializer>>? startupInitializers = null)
+    Func<IEnumerable<IStartupInitializer>>? startupInitializers = null,
+    Func<ICredentialStoreMigrationService?>? credentialMigration = null)
 {
     private int _completedStep;
     private bool _startupInitializersCompleted;
@@ -36,16 +37,20 @@ public sealed class ApplicationRuntimeInitialization(
         await StepAsync(2, () => Task.WhenAll(database().InitializeAsync(), intelligenceStore().InitializeAsync(),
             translations().InitializeAsync(), synchronizationInitializer().InitializeAsync()), cancellationToken);
 
+        // Moves credentials an earlier release kept in plaintext into the secure store before any synchronizer reads them.
+        if (credentialMigration?.Invoke() is { } migration)
+            await StepAsync(3, () => migration.MigrateAsync(cancellationToken), cancellationToken);
+
         // Decides timer or relay for this install (fresh: relay; upgraded with accounts: timer plus the Windows
         // introduction) and the initial per-account coverage. Runs once the database is ready and before the first
         // synchronizer is created, so nothing reads the unconfigured sync method default.
         if (syncCoordinator is not null)
-            await StepAsync(3, () => syncCoordinator().InitializeAsync(cancellationToken), cancellationToken);
+            await StepAsync(4, () => syncCoordinator().InitializeAsync(cancellationToken), cancellationToken);
 
-        await StepAsync(4, () => shortcuts().InitializeAsync(), cancellationToken);
-        await StepAsync(5, () => pictures().MigrateLegacyAsync(), cancellationToken);
-        await StepAsync(6, () => senderPictures().InitializeAsync(), cancellationToken);
-        await StepAsync(7, async () =>
+        await StepAsync(5, () => shortcuts().InitializeAsync(), cancellationToken);
+        await StepAsync(6, () => pictures().MigrateLegacyAsync(), cancellationToken);
+        await StepAsync(7, () => senderPictures().InitializeAsync(), cancellationToken);
+        await StepAsync(8, async () =>
         {
             await entitlement().GetEntitlementAsync();
             _entitlementRefresh = entitlement().RefreshEntitlementAsync(cancellationToken);
@@ -53,7 +58,7 @@ public sealed class ApplicationRuntimeInitialization(
 
         // This method installs several subscriptions before returning. If it throws part
         // way through, the singleton cannot safely be retried without its own rollback.
-        await StepAsync(8, async () =>
+        await StepAsync(9, async () =>
         {
             var coordinator = intelligence();
             try
@@ -73,7 +78,7 @@ public sealed class ApplicationRuntimeInitialization(
             }
         }, cancellationToken);
 
-        await StepAsync(9, () => keys().InitializeAsync(cancellationToken), cancellationToken);
+        await StepAsync(10, () => keys().InitializeAsync(cancellationToken), cancellationToken);
     }
 
     public Task RunBackgroundStartupAsync(CancellationToken cancellationToken)
@@ -110,7 +115,7 @@ public sealed class ApplicationRuntimeInitialization(
 
         try
         {
-            // The sync method was decided in initialization step 3 (ISyncCoordinator), before any loop or
+            // The sync method was decided in initialization step 4 (ISyncCoordinator), before any loop or
             // synchronizer read it; the registration service starts against the configured value.
 
             // Retries an app policy upload that failed earlier; never waited on, and it never throws.

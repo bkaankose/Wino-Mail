@@ -9,17 +9,22 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Services;
 using Wino.Services.Dav;
+using Wino.Services.Security;
 
-// Generates Wino210.db with one IMAP account per lab server, the DAV credential files, and an
-// encrypted .winosnap backup. Account definitions come from the seed tool's fixtures.json.
+// Generates a LocalState folder for the lab: Wino210.db with one IMAP account per lab server, the credentials in
+// the app's secure item store (secure\), and an encrypted .winosnap backup. Account definitions come from the
+// seed tool's fixtures.json. --legacy-plaintext writes the pre-secure-store format instead (plaintext password
+// columns and credentials\dav files) to test the upgrade migration.
 if (!OperatingSystem.IsWindows())
-    throw new PlatformNotSupportedException("Run on Windows as the user who will run Wino (DAV credentials use CurrentUser DPAPI).");
+    throw new PlatformNotSupportedException("Run on Windows as the user who will run Wino (credentials use CurrentUser DPAPI).");
 
-if (args.Length != 2)
-    throw new ArgumentException("Usage: DatabaseGenerator <generated-directory> <fixtures.json>");
+var legacyPlaintext = args.Contains("--legacy-plaintext", StringComparer.Ordinal);
+var positional = args.Where(argument => !argument.StartsWith("--", StringComparison.Ordinal)).ToArray();
+if (positional.Length != 2 || args.Length - positional.Length != (legacyPlaintext ? 1 : 0))
+    throw new ArgumentException("Usage: DatabaseGenerator <generated-directory> <fixtures.json> [--legacy-plaintext]");
 
-var destination = Path.GetFullPath(args[0]);
-var fixtures = JsonNode.Parse(await File.ReadAllTextAsync(args[1]))!.AsObject();
+var destination = Path.GetFullPath(positional[0]);
+var fixtures = JsonNode.Parse(await File.ReadAllTextAsync(positional[1]))!.AsObject();
 var password = fixtures["password"]?.GetValue<string>() ?? "1";
 var definitions = fixtures["accounts"]!.AsArray().Select(a => a!.AsObject()).ToList();
 if (definitions.Count == 0)
@@ -42,7 +47,13 @@ var colors = new[] { "#2675BF", "#B05A32", "#577B49", "#7A4B9E", "#B8860B" };
 try
 {
     await database.InitializeAsync();
-    var credentials = new DavCredentialStore(configuration, new Wino.Platform.Windows.DpapiSecretProtector());
+    var protector = new Wino.Platform.Windows.DpapiSecretProtector();
+    var secureRoot = ProtectedFileCredentialStorage.GetSecureItemRoot(configuration);
+    // The same store and persistence the Windows app registers (ProtectedFileCredentialStorage).
+    var persistence = ProtectedFileCredentialStorage.CreateLegacyAwarePersistence(new ProtectedFileSecureItemStore(secureRoot, protector));
+    Wino.Core.Domain.Interfaces.IDavCredentialStore credentials = legacyPlaintext
+        ? new DavCredentialStore(configuration, protector)
+        : new SecureItemDavCredentialStore(new ProtectedFileSecureItemStore(secureRoot, protector));
     var accounts = new List<object>();
     var mailboxes = new List<UserMailboxSyncItemDto>();
     var capabilitiesSnapshot = new List<object>();
@@ -107,10 +118,11 @@ try
         preferences.PrepareForStorage();
         var signatureHtml = $"<p>{displayName}<br>Wino lab ({definition["server"]?.GetValue<string>()})</p>";
 
+        var storedServer = legacyPlaintext ? server : await persistence.PrepareServerInformationForStorageAsync(server);
         await database.Connection.RunInTransactionAsync(connection =>
         {
             connection.Insert(account);
-            connection.Insert(server);
+            connection.Insert(storedServer);
             connection.Insert(preferences);
             connection.Insert(new AccountSignature { Id = signatureId, MailAccountId = id, Name = "Lab signature", HtmlBody = signatureHtml });
             connection.Insert(new MailAccountAlias
@@ -126,6 +138,7 @@ try
         await credentials.SavePasswordAsync(id, password);
         if (await credentials.GetPasswordAsync(id) != password)
             throw new InvalidOperationException($"DAV credential decryption failed for {key}.");
+        await VerifyServerCredentialsAsync(database, secureRoot, protector, id, password, smtpAuth != ImapAuthenticationMethod.None, legacyPlaintext, key);
 
         mailboxes.Add(new UserMailboxSyncItemDto
         {
@@ -205,6 +218,7 @@ try
         schemaVersion = validation.SchemaVersion, generatedAtUtc = DateTime.UtcNow,
         windowsUser = Environment.UserDomainName + "\\" + Environment.UserName,
         machine = Environment.MachineName, database = DatabaseService.CurrentDatabaseName,
+        credentialFormat = legacyPlaintext ? "legacy-plaintext" : "secure",
         backup = backupName, backupPassword = password, anchorDate = fixtures["anchorDate"]?.GetValue<string>(),
         accounts
     };
@@ -226,13 +240,31 @@ try
         catch (IOException) { Console.WriteLine($"Previous artifacts remain in {backup}; the new artifacts are complete."); }
         catch (UnauthorizedAccessException) { Console.WriteLine($"Previous artifacts remain in {backup}; the new artifacts are complete."); }
     }
+    var credentialFormat = legacyPlaintext ? @"legacy plaintext columns and credentials\dav files" : "secure item store";
     Console.WriteLine($"Generated {destination}: schema {validation.SchemaVersion}, integrity {validation.IntegrityResult}, " +
-        $"{expected} accounts, {expected} decrypted DAV credentials, {backupName} (password {password}); no cached mail/events/contacts.");
+        $"{expected} accounts, credentials in the {credentialFormat} (verified), {backupName} (password {password}); no cached mail/events/contacts.");
 }
 finally
 {
     if (!closed) await database.Connection.CloseAsync();
     if (Directory.Exists(staging)) await RetryFileOperationAsync(() => Directory.Delete(staging, true));
+}
+
+// Reads the row back and restores it with a fresh persistence (no cache), as the app does after a restart.
+static async Task VerifyServerCredentialsAsync(DatabaseService database, string secureRoot, Wino.Platform.Windows.DpapiSecretProtector protector,
+    Guid accountId, string password, bool hasSmtpPassword, bool legacyPlaintext, string key)
+{
+    var stored = await database.Connection.Table<CustomServerInformation>().FirstOrDefaultAsync(row => row.AccountId == accountId)
+        ?? throw new InvalidOperationException($"The server information of {key} was not stored.");
+    var isReference = stored.IncomingServerPassword?.StartsWith("wino-keychain:v1:", StringComparison.Ordinal) == true;
+    if (isReference == legacyPlaintext)
+        throw new InvalidOperationException($"The stored password of {key} is not in the requested format.");
+
+    var restorer = ProtectedFileCredentialStorage.CreateLegacyAwarePersistence(new ProtectedFileSecureItemStore(secureRoot, protector));
+    await restorer.RestoreServerInformationSecretsAsync(stored);
+    if (stored.IncomingServerPassword != password || stored.CalDavPassword != password ||
+        stored.OutgoingServerPassword != (hasSmtpPassword ? password : string.Empty))
+        throw new InvalidOperationException($"The stored passwords of {key} did not restore.");
 }
 
 static Guid StableId(string key)
