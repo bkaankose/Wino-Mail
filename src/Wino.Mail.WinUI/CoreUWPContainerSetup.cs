@@ -14,6 +14,7 @@ using Wino.Platform.Windows.PushRelay;
 using Wino.PushRelay.Socket;
 using Wino.PushRelay.Socket.KeyStores;
 using Wino.Authentication;
+using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Models.Platform;
 
 namespace Wino.Mail.WinUI;
@@ -77,7 +78,7 @@ public static class CoreUWPContainerSetup
             new WindowsGoogleTokenStore(provider.GetRequiredService<IApplicationConfiguration>())));
         services.AddSingleton<IGoogleTokenStore>(provider => provider.GetRequiredService<WindowsMigratingGoogleTokenStore>());
         services.AddSingleton<ILegacyCredentialFileMigration>(provider => provider.GetRequiredService<WindowsMigratingGoogleTokenStore>());
-        services.AddSingleton<IOAuthTokenStore, WindowsOAuthTokenStore>();
+        services.AddSingleton<IOAuthTokenStore, SecureItemOAuthTokenStore>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
