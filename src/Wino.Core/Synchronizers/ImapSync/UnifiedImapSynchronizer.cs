@@ -39,6 +39,7 @@ public class UnifiedImapSynchronizer
 
     private readonly ConcurrentDictionary<Guid, ImapSyncStrategy> _mailboxFallbacks = new();
     private readonly ConcurrentDictionary<Guid, byte> _repairedFolders = new();
+    private readonly ConcurrentDictionary<Guid, byte> _unexplainedModSeqFolders = new();
 
     // UIDs of messages that are still in the mailbox with \Deleted (RFC 3501 section 2.3.2) and therefore not
     // cached. They stay in the flag checks so that removing \Deleted again restores the message. In memory only:
@@ -629,7 +630,20 @@ public class UnifiedImapSynchronizer
             var membershipReconciled = known.Count == 0;
             if (known.Count > 0)
             {
-                if (usedQResync && canUseDelta)
+                // Some servers (Purelymail, Apache James) advance HIGHESTMODSEQ but omit the FETCH responses that
+                // RFC 7162 requires on a QRESYNC open; Purelymail answers CHANGEDSINCE with nothing as well. Trusting that
+                // empty report would move the checkpoint past changes that were never applied. A compliant server
+                // explains every MODSEQ advance with a change, a vanished UID or a new message, so only an
+                // unexplained advance falls back to a full FLAGS fetch.
+                var unexplainedModSeqAdvance = usedQResync && canUseDelta
+                                               && modSeqBoundary > (ulong)folder.HighestModeSeq
+                                               && changedFlags.Count == 0 && vanished.Count == 0
+                                               && missingUids.Count == 0;
+
+                if (unexplainedModSeqAdvance && _unexplainedModSeqFolders.TryAdd(folder.Id, 0))
+                    _logger.Warning("QRESYNC open for folder {FolderId} reported no changes although HIGHESTMODSEQ advanced; reconciling all flags.", folder.Id);
+
+                if (usedQResync && canUseDelta && !unexplainedModSeqAdvance)
                 {
                     var (updated, deleted) = await ApplyFlagChangesAsync(folder, changedFlags, known, unknownUndeletedUids).ConfigureAwait(false);
                     changes.Updated += updated;
@@ -644,7 +658,7 @@ public class UnifiedImapSynchronizer
                 else
                 {
                     var flagsRequest = new FetchRequest(_existingMailSynchronizationFlags);
-                    if (strategy != ImapSyncStrategy.UidBased && canUseDelta)
+                    if (strategy != ImapSyncStrategy.UidBased && canUseDelta && !unexplainedModSeqAdvance)
                         flagsRequest.ChangedSince = (ulong)folder.HighestModeSeq;
 
                     // A compact range avoids thousands of UID arguments and repeated SEARCH round trips. UIDs kept
