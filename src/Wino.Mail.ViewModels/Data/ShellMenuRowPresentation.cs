@@ -172,7 +172,7 @@ public static class ShellMenuRowPresentation
             case AccountGroupMenuItem accountGroup:
                 return row with
                 {
-                    Glyph = WinoIconGlyph.GroupList,
+                    Glyph = accountGroup.IconGlyph,
                     Title = accountGroup.Name,
                     Subtitle = AccountGroupPresentation.GetAccountCountText(accountGroup.AccountCount),
                     UnreadCount = accountGroup.IsUnreadCountVisible ? accountGroup.UnreadItemCount : 0

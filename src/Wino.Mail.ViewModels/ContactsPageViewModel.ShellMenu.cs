@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
@@ -30,7 +30,7 @@ public partial class ContactsPageViewModel
 
     private ShellMenu _shellMenu;
     private readonly AccountGroupPaneItems _accountGroupItems;
-    private List<MailAccountGroup> _accountGroups = [];
+    private List<MergedInbox> _accountGroups = [];
     private Guid? _activeAccountId;
     private bool _isMenuInteractionEnabled = true;
     private bool _isPreparedForShellShutdown;
@@ -262,8 +262,8 @@ public partial class ContactsPageViewModel
     }
 
     /// <summary>
-    /// The account rows in pane order, with grouped accounts inside their group. Linked accounts are a Mail
-    /// concept, so their members are listed one by one.
+    /// The account rows in pane order, with grouped accounts inside their group. Combining folders is a Mail
+    /// behavior, so every group is a plain group here.
     /// </summary>
     private List<IMenuItem> BuildAccountArea()
     {
@@ -275,7 +275,7 @@ public partial class ContactsPageViewModel
             .Select(filter => filter.Account)
             .Where(account => account != null)
             .ToList();
-        var layout = AccountLayoutBuilder.Build(accounts, _accountGroups, includeLinkedAccounts: false);
+        var layout = AccountLayoutBuilder.Build(accounts, _accountGroups);
 
         return _accountGroupItems.Build(layout, entry =>
             entry.Account is { } account && filtersByAccountId.TryGetValue(account.Id, out var filter) ? filter : null);

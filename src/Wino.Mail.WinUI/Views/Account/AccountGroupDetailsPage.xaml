@@ -16,7 +16,7 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <!--  The swatch previews the group name color on the current theme.  -->
+        <!--  The swatch previews the group color on the current theme.  -->
         <DataTemplate x:Key="AccountGroupColorTemplate" x:DataType="data:AccountGroupColorOption">
             <Border
                 Width="40"
@@ -36,6 +36,23 @@
                     FontWeight="SemiBold"
                     Text="Aa" />
             </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="AccountGroupIconTemplate" x:DataType="data:AccountGroupIconOption">
+            <Grid
+                Width="40"
+                Height="40"
+                AutomationProperties.Name="{x:Bind DisplayName}"
+                ToolTipService.ToolTip="{x:Bind DisplayName}">
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey, Mode=OneWay}"
+                    AutomationProperties.AccessibilityView="Raw"
+                    FontFamily="{StaticResource WinoMonochromeIconFontFamily}"
+                    FontSize="20"
+                    Icon="{x:Bind Glyph}" />
+            </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="AccountGroupMemberTemplate" x:DataType="data:AccountGroupEntryViewModel">
@@ -59,17 +76,11 @@
                     FontSize="16"
                     Icon="ReOrderDotsVertical"
                     Opacity="0.5" />
-                <Grid Grid.Column="1" VerticalAlignment="Center">
-                    <accountIcon:WinoAccountIcon
-                        Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}"
-                        IconSize="28"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsLinkedAccount)}" />
-                    <coreControls:WinoFontIcon
-                        FontFamily="{ThemeResource WinoIconFontFamily}"
-                        FontSize="20"
-                        Icon="PeopleLink"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsLinkedAccount)}" />
-                </Grid>
+                <accountIcon:WinoAccountIcon
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}"
+                    IconSize="28" />
                 <StackPanel
                     Grid.Column="2"
                     VerticalAlignment="Center"
@@ -89,36 +100,6 @@
                     VerticalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="4">
-                    <Button
-                        Width="32"
-                        Height="32"
-                        Padding="0"
-                        AutomationProperties.AutomationId="AccountGroupMemberMoveUpButton"
-                        AutomationProperties.Name="{x:Bind MoveUpAutomationName}"
-                        Click="MoveMemberUp_Click"
-                        CommandParameter="{x:Bind}"
-                        Style="{ThemeResource SubtleButtonStyle}"
-                        ToolTipService.ToolTip="{x:Bind domain:Translator.AccountGroupDetailsPage_MoveUp}">
-                        <coreControls:WinoFontIcon
-                            FontFamily="{ThemeResource WinoIconFontFamily}"
-                            FontSize="14"
-                            Icon="ChevronUp" />
-                    </Button>
-                    <Button
-                        Width="32"
-                        Height="32"
-                        Padding="0"
-                        AutomationProperties.AutomationId="AccountGroupMemberMoveDownButton"
-                        AutomationProperties.Name="{x:Bind MoveDownAutomationName}"
-                        Click="MoveMemberDown_Click"
-                        CommandParameter="{x:Bind}"
-                        Style="{ThemeResource SubtleButtonStyle}"
-                        ToolTipService.ToolTip="{x:Bind domain:Translator.AccountGroupDetailsPage_MoveDown}">
-                        <coreControls:WinoFontIcon
-                            FontFamily="{ThemeResource WinoIconFontFamily}"
-                            FontSize="14"
-                            Icon="ChevronDown" />
-                    </Button>
                     <Button
                         AutomationProperties.AutomationId="AccountGroupMemberRemoveButton"
                         AutomationProperties.Name="{x:Bind RemoveAutomationName}"
@@ -143,17 +124,10 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Grid VerticalAlignment="Center">
-                    <accountIcon:WinoAccountIcon
-                        Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}"
-                        IconSize="28"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsLinkedAccount)}" />
-                    <coreControls:WinoFontIcon
-                        FontFamily="{ThemeResource WinoIconFontFamily}"
-                        FontSize="20"
-                        Icon="PeopleLink"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsLinkedAccount)}" />
-                </Grid>
+                <accountIcon:WinoAccountIcon
+                    VerticalAlignment="Center"
+                    Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}"
+                    IconSize="28" />
                 <StackPanel
                     Grid.Column="1"
                     VerticalAlignment="Center"
@@ -181,7 +155,7 @@
                     AutomationProperties.Name="{x:Bind AddAutomationName}"
                     Click="AddMember_Click"
                     CommandParameter="{x:Bind}"
-                    Content="{x:Bind AddActionText}" />
+                    Content="{x:Bind domain:Translator.Buttons_Add}" />
             </Grid>
         </DataTemplate>
 
@@ -198,7 +172,11 @@
             Description="{x:Bind domain:Translator.AccountGroupDetailsPage_NameRequired}"
             Header="{x:Bind domain:Translator.AccountGroupDetailsPage_NameHeader}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Rename" />
+                <coreControls:WinoFontIcon
+                    behaviors:AccountGroupTextColor.ColorKey="{x:Bind ViewModel.SelectedColorKey, Mode=OneWay}"
+                    AutomationProperties.Name="{x:Bind domain:Translator.AccountGroupDetailsPage_IconHeader}"
+                    FontFamily="{StaticResource WinoMonochromeIconFontFamily}"
+                    Icon="{x:Bind ViewModel.SelectedIconGlyph, Mode=OneWay}" />
             </controls:SettingsCard.HeaderIcon>
             <TextBox
                 MinWidth="240"
@@ -207,6 +185,19 @@
                 MaxLength="100"
                 PlaceholderText="{x:Bind domain:Translator.AccountGroupDetailsPage_NamePlaceholder}"
                 Text="{x:Bind ViewModel.GroupName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AccountGroupDetailsCombineFoldersCard"
+            Description="{x:Bind domain:Translator.AccountGroupDetailsPage_CombineFoldersDescription}"
+            Header="{x:Bind domain:Translator.AccountGroupDetailsPage_CombineFoldersHeader}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="PeopleLink" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="AccountGroupDetailsCombineFoldersToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.AccountGroupDetailsPage_CombineFoldersHeader}"
+                IsOn="{x:Bind ViewModel.CombineFolders, Mode=TwoWay}" />
         </controls:SettingsCard>
 
         <controls:SettingsCard
@@ -225,6 +216,25 @@
                 ItemTemplate="{StaticResource AccountGroupColorTemplate}"
                 ItemsSource="{x:Bind ViewModel.ColorOptions}"
                 SelectedItem="{x:Bind ViewModel.SelectedColorOption, Mode=TwoWay}"
+                SelectionMode="Single" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            AutomationProperties.AutomationId="AccountGroupDetailsIconCard"
+            ContentAlignment="Vertical"
+            Description="{x:Bind domain:Translator.AccountGroupDetailsPage_IconDescription}"
+            Header="{x:Bind domain:Translator.AccountGroupDetailsPage_IconHeader}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Emoji" />
+            </controls:SettingsCard.HeaderIcon>
+            <GridView
+                AutomationProperties.AutomationId="AccountGroupDetailsIconGridView"
+                AutomationProperties.Name="{x:Bind domain:Translator.AccountGroupDetailsPage_IconHeader}"
+                ItemTemplate="{StaticResource AccountGroupIconTemplate}"
+                ItemsSource="{x:Bind ViewModel.IconOptions}"
+                SelectedItem="{x:Bind ViewModel.SelectedIconOption, Mode=TwoWay}"
                 SelectionMode="Single" />
         </controls:SettingsCard>
 
@@ -264,6 +274,8 @@
                 <StackPanel Grid.Row="1">
                     <TextBlock
                         Margin="0,8"
+                        AutomationProperties.AutomationId="AccountGroupDetailsMemberRequiredText"
+                        AutomationProperties.LiveSetting="Polite"
                         Foreground="{ThemeResource SystemFillColorCautionBrush}"
                         Text="{x:Bind domain:Translator.AccountGroupDetailsPage_MemberRequired}"
                         TextWrapping="Wrap"
@@ -297,6 +309,20 @@
             </Grid>
         </controls:SettingsCard>
 
+        <accessibilityControls:WinoSettingsCard
+            x:Name="DeleteGroupCard"
+            x:Load="{x:Bind ViewModel.IsExistingGroup, Mode=OneWay}"
+            AutomationProperties.AutomationId="AccountGroupDetailsDeleteCard"
+            Command="{x:Bind ViewModel.DeleteGroupCommand}"
+            Description="{x:Bind domain:Translator.AccountGroupDetailsPage_DeleteGroupDescription}"
+            Header="{x:Bind domain:Translator.AccountGroupDetailsPage_DeleteGroup}"
+            IsActionIconVisible="False"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Foreground="{ThemeResource DeleteBrush}" Icon="Delete" />
+            </controls:SettingsCard.HeaderIcon>
+        </accessibilityControls:WinoSettingsCard>
+
         <StackPanel
             Margin="0,8"
             HorizontalAlignment="Right"
@@ -314,19 +340,5 @@
                 Command="{x:Bind ViewModel.CancelCommand}"
                 Content="{x:Bind domain:Translator.Buttons_Cancel}" />
         </StackPanel>
-
-        <accessibilityControls:WinoSettingsCard
-            x:Name="DeleteGroupCard"
-            x:Load="{x:Bind ViewModel.IsExistingGroup, Mode=OneWay}"
-            AutomationProperties.AutomationId="AccountGroupDetailsDeleteCard"
-            Command="{x:Bind ViewModel.DeleteGroupCommand}"
-            Description="{x:Bind domain:Translator.AccountGroupDetailsPage_DeleteGroupDescription}"
-            Header="{x:Bind domain:Translator.AccountGroupDetailsPage_DeleteGroup}"
-            IsActionIconVisible="False"
-            IsClickEnabled="True">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Foreground="{ThemeResource DeleteBrush}" Icon="Delete" />
-            </controls:SettingsCard.HeaderIcon>
-        </accessibilityControls:WinoSettingsCard>
     </StackPanel>
 </abstract:AccountGroupDetailsPageAbstract>

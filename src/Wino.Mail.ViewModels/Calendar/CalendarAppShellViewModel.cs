@@ -22,7 +22,6 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
-using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
@@ -122,7 +121,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _dateContextProvider = dateContextProvider;
 
         AccountCalendarStateService.PropertyChanged += AccountCalendarStateServicePropertyChanged;
-        _accountGroupItems = new AccountGroupPaneItems(accountService, () => Dispatcher);
     }
 
     /// <summary>

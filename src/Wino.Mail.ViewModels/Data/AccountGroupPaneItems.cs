@@ -3,56 +3,63 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using CommunityToolkit.Mvvm.Messaging;
-using Serilog;
-using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
-/// The account group rows of one mode pane. Rows are kept per group so a rebuild keeps their containers, an expansion
-/// toggled by the user is saved, and a toggle made in another mode's pane is applied here without a rebuild.
+/// The account group rows of one mode pane. Rows are kept per group so a rebuild keeps their containers. Every group
+/// row the pane shows, including a combined Mail group, takes its expansion from <see cref="AccountGroupExpansionStore"/>
+/// and reports a change of it there, so all modes show the same state.
 /// </summary>
-public sealed class AccountGroupPaneItems : IRecipient<AccountGroupExpansionChanged>
+public sealed class AccountGroupPaneItems
 {
-    private static readonly System.Threading.SemaphoreSlim SaveGate = new(1, 1);
-
     private readonly Dictionary<Guid, AccountGroupMenuItem> _items = [];
-    private readonly IAccountService _accountService;
+    private readonly Dictionary<Guid, MenuItemBase> _expansionRows = [];
+    private readonly AccountGroupExpansionStore _expansionStore;
     private readonly Func<IDispatcher?> _dispatcherProvider;
 
-    public AccountGroupPaneItems(IAccountService accountService, Func<IDispatcher?> dispatcherProvider)
+    public AccountGroupPaneItems(AccountGroupExpansionStore expansionStore, Func<IDispatcher?> dispatcherProvider)
     {
-        _accountService = accountService;
+        _expansionStore = expansionStore;
         _dispatcherProvider = dispatcherProvider;
 
-        WeakReferenceMessenger.Default.Register(this);
+        _expansionStore.ExpansionChanged += StoreExpansionChanged;
     }
 
     public IEnumerable<AccountGroupMenuItem> Items => _items.Values;
 
     /// <summary>
     /// Turns the layout into the pane's top-level account entries. <paramref name="mapEntry"/> returns the pane row of
-    /// an account or linked account, or null to leave it out; a group whose entries are all left out is not shown.
+    /// an account, or null to leave it out. It is asked for a group too: a row returned for it, such as a combined
+    /// Mail group, replaces the group row; otherwise a group row holds the group's accounts and is not shown when
+    /// all of them are left out.
     /// </summary>
     public List<IMenuItem> Build(IEnumerable<AccountLayoutEntry> layout, Func<AccountLayoutEntry, IMenuItem?> mapEntry)
     {
         var result = new List<IMenuItem>();
         var activeGroupIds = new HashSet<Guid>();
+        var shownGroupIds = new HashSet<Guid>();
 
         foreach (var entry in layout ?? Enumerable.Empty<AccountLayoutEntry>())
         {
-            if (entry.Kind != AccountLayoutEntryKind.Group)
+            if (mapEntry(entry) is { } row)
             {
-                if (mapEntry(entry) is { } row)
-                    result.Add(row);
+                if (entry.Kind == AccountLayoutEntryKind.Group && entry.Group is { } combinedGroup && row is MenuItemBase combinedRow)
+                {
+                    TrackExpansion(combinedGroup, combinedRow);
+                    shownGroupIds.Add(combinedGroup.Id);
+                }
 
+                result.Add(row);
                 continue;
             }
+
+            if (entry.Kind != AccountLayoutEntryKind.Group)
+                continue;
 
             if (entry.Group is not { } group)
                 continue;
@@ -67,16 +74,23 @@ public sealed class AccountGroupPaneItems : IRecipient<AccountGroupExpansionChan
                 continue;
 
             var groupItem = GetOrCreate(group);
+            TrackExpansion(group, groupItem);
             ApplyChildren(groupItem.SubMenuItems, children);
             groupItem.NotifyChildrenChanged();
 
             activeGroupIds.Add(group.Id);
+            shownGroupIds.Add(group.Id);
             result.Add(groupItem);
         }
 
         foreach (var groupId in _items.Keys.Where(id => !activeGroupIds.Contains(id)).ToList())
         {
             Release(groupId);
+        }
+
+        foreach (var groupId in _expansionRows.Keys.Where(id => !shownGroupIds.Contains(id)).ToList())
+        {
+            UntrackExpansion(groupId);
         }
 
         return result;
@@ -88,6 +102,11 @@ public sealed class AccountGroupPaneItems : IRecipient<AccountGroupExpansionChan
         foreach (var groupId in _items.Keys.ToList())
         {
             Release(groupId);
+        }
+
+        foreach (var groupId in _expansionRows.Keys.ToList())
+        {
+            UntrackExpansion(groupId);
         }
     }
 
@@ -114,7 +133,7 @@ public sealed class AccountGroupPaneItems : IRecipient<AccountGroupExpansionChan
         }
     }
 
-    private AccountGroupMenuItem GetOrCreate(MailAccountGroup group)
+    private AccountGroupMenuItem GetOrCreate(MergedInbox group)
     {
         if (_items.TryGetValue(group.Id, out var item))
         {
@@ -123,7 +142,6 @@ public sealed class AccountGroupPaneItems : IRecipient<AccountGroupExpansionChan
         }
 
         item = new AccountGroupMenuItem(group);
-        item.PropertyChanged += GroupItemPropertyChanged;
         _items.Add(group.Id, item);
 
         return item;
@@ -131,56 +149,45 @@ public sealed class AccountGroupPaneItems : IRecipient<AccountGroupExpansionChan
 
     private void Release(Guid groupId)
     {
-        if (!_items.Remove(groupId, out var item))
-            return;
-
-        item.PropertyChanged -= GroupItemPropertyChanged;
-        item.SubMenuItems.Clear();
+        if (_items.Remove(groupId, out var item))
+            item.SubMenuItems.Clear();
     }
 
-    private async void GroupItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void TrackExpansion(MergedInbox group, MenuItemBase row)
     {
-        if (e.PropertyName != nameof(AccountGroupMenuItem.IsExpanded) ||
-            sender is not AccountGroupMenuItem { Parameter: { } group } item ||
-            group.IsExpanded == item.IsExpanded)
+        if (_expansionRows.TryGetValue(group.Id, out var trackedRow))
         {
-            return;
+            if (!ReferenceEquals(trackedRow, row))
+            {
+                trackedRow.PropertyChanged -= RowPropertyChanged;
+                _expansionRows.Remove(group.Id);
+            }
         }
 
-        group.IsExpanded = item.IsExpanded;
+        row.IsExpanded = _expansionStore.IsExpanded(group);
 
-        WeakReferenceMessenger.Default.Send(new AccountGroupExpansionChanged(group.Id, item.IsExpanded, this));
-
-        // Writes are serialized and store the state at write time, so quick toggles cannot be saved out of order.
-        await SaveGate.WaitAsync().ConfigureAwait(false);
-
-        try
-        {
-            await _accountService.SetAccountGroupExpandedAsync(group.Id, group.IsExpanded).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Could not save the expansion of account group {GroupId}.", group.Id);
-        }
-        finally
-        {
-            SaveGate.Release();
-        }
+        if (_expansionRows.TryAdd(group.Id, row))
+            row.PropertyChanged += RowPropertyChanged;
     }
 
-    public void Receive(AccountGroupExpansionChanged message)
+    private void UntrackExpansion(Guid groupId)
     {
-        if (ReferenceEquals(message.Origin, this))
-            return;
+        if (_expansionRows.Remove(groupId, out var row))
+            row.PropertyChanged -= RowPropertyChanged;
+    }
 
+    private void RowPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MenuItemBase.IsExpanded) && sender is MenuItemBase { EntityId: Guid groupId } row)
+            _expansionStore.SetExpanded(groupId, row.IsExpanded);
+    }
+
+    private void StoreExpansionChanged(Guid groupId, bool isExpanded)
+    {
         void Apply()
         {
-            if (!_items.TryGetValue(message.GroupId, out var item) || item.Parameter is not { } group)
-                return;
-
-            // The entity first, so the property change below is not saved again.
-            group.IsExpanded = message.IsExpanded;
-            item.IsExpanded = message.IsExpanded;
+            if (_expansionRows.TryGetValue(groupId, out var row))
+                row.IsExpanded = isExpanded;
         }
 
         if (_dispatcherProvider() is { } dispatcher)

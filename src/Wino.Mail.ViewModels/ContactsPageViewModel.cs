@@ -153,6 +153,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     public ObservableCollection<ContactList> ContactLists { get; } = [];
 
     public ContactsPageViewModel(IContactQueryService contactService, IAccountService accountService,
+        AccountGroupExpansionStore accountGroupExpansion,
         ISynchronizationManager synchronizationManager, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService,
         IActivationStateService activationStateService,
@@ -171,7 +172,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Readiness.ReadinessChanged += ReadinessChanged;
         _contactService = contactService;
         _accountService = accountService;
-        _accountGroupItems = new AccountGroupPaneItems(accountService, () => Dispatcher);
+        _accountGroupItems = new AccountGroupPaneItems(accountGroupExpansion, () => Dispatcher);
         _synchronizationManager = synchronizationManager;
         _requestDelegator = requestDelegator;
         _navigationService = navigationService;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
@@ -8,27 +9,30 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
+using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 
 /// <summary>
-/// Creates or edits an account group: its name, its text color and its ordered accounts and linked accounts.
-/// Moving accounts between groups happens only here.
+/// Creates or edits an account group: its name, color, icon, whether its folders are combined, and its ordered
+/// accounts. Moving accounts between groups happens only here.
 /// </summary>
 public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
 {
+    private const int MinimumMemberCount = 2;
+
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
 
-    private MailAccountGroup? _group;
+    private MergedInbox? _group;
 
     public AccountGroupDetailsPageViewModel(IMailDialogService dialogService, IAccountService accountService)
     {
@@ -41,6 +45,8 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
     public AccountGroupColorOption[] ColorOptions { get; } =
         [new AccountGroupColorOption(null), .. AccountGroupColors.All.Select(color => new AccountGroupColorOption(color))];
 
+    public AccountGroupIconOption[] IconOptions { get; } = AccountGroupIcons.All.Select(icon => new AccountGroupIconOption(icon)).ToArray();
+
     public ObservableCollection<AccountGroupEntryViewModel> MemberEntries { get; } = [];
 
     public ObservableCollection<AccountGroupEntryViewModel> AvailableEntries { get; } = [];
@@ -51,7 +57,15 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
     public partial string GroupName { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedColorKey))]
     public partial AccountGroupColorOption? SelectedColorOption { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedIconGlyph))]
+    public partial AccountGroupIconOption? SelectedIconOption { get; set; }
+
+    [ObservableProperty]
+    public partial bool CombineFolders { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsExistingGroup))]
@@ -67,15 +81,30 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
 
     public bool IsNameMissing => string.IsNullOrWhiteSpace(GroupName);
 
-    public bool IsMemberMissing => MemberEntries.Count == 0;
+    public bool IsMemberMissing => MemberEntries.Count < MinimumMemberCount;
 
     public bool HasAvailableEntries => AvailableEntries.Count > 0;
+
+    public string? SelectedColorKey => SelectedColorOption?.Key;
+
+    public WinoIconGlyph SelectedIconGlyph => AccountGroupIcons.GetGlyph(SelectedIconOption?.Icon ?? AccountGroupIcon.PeopleLink);
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
-        await InitializeAsync(parameters as AccountGroupDetailsNavigationContext);
+        // Other entry points still open the page with the linked inbox they list.
+        var context = parameters switch
+        {
+            AccountGroupDetailsNavigationContext navigationContext => navigationContext,
+            MergedAccountProviderDetailViewModel { MergedInbox: { } mergedInbox } when mergedInbox.Id != Guid.Empty
+                => new AccountGroupDetailsNavigationContext(mergedInbox.Id),
+            MergedAccountProviderDetailViewModel { MergedInbox: { } newMergedInbox }
+                => new AccountGroupDetailsNavigationContext(null, newMergedInbox.Name),
+            _ => null
+        };
+
+        await InitializeAsync(context);
     }
 
     public async Task InitializeAsync(AccountGroupDetailsNavigationContext? context)
@@ -85,31 +114,33 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
             var groups = await _accountService.GetAccountGroupsAsync().ConfigureAwait(false);
             var group = context?.GroupId is Guid groupId ? groups.FirstOrDefault(item => item.Id == groupId) : null;
-            var layout = AccountLayoutBuilder.Build(accounts, groups);
+            var groupsById = groups.ToDictionary(item => item.Id);
 
             await ExecuteUIThread(() =>
             {
                 _group = group;
                 IsNewGroup = group == null;
-                GroupName = group?.Name ?? string.Empty;
+                GroupName = group?.Name ?? context?.Name ?? string.Empty;
+                CombineFolders = group?.CombineFolders ?? false;
                 SelectedColorOption = ColorOptions.FirstOrDefault(option => string.Equals(option.Key, AccountGroupColors.Normalize(group?.ColorKey), StringComparison.Ordinal))
                                       ?? ColorOptions[0];
+                SelectedIconOption = IconOptions.FirstOrDefault(option => option.Icon == AccountGroupIcons.Normalize(group?.Icon ?? AccountGroupIcon.PeopleLink))
+                                     ?? IconOptions[0];
 
                 MemberEntries.Clear();
                 AvailableEntries.Clear();
 
-                foreach (var topLevelEntry in layout)
+                foreach (var account in AccountLayoutBuilder.Flatten(AccountLayoutBuilder.Build(accounts, groups)))
                 {
-                    if (topLevelEntry.Kind != AccountLayoutEntryKind.Group)
-                    {
-                        AddEntry(new AccountGroupEntryViewModel(topLevelEntry, null));
-                        continue;
-                    }
+                    var currentGroup = account.MergedInboxId is Guid accountGroupId ? groupsById.GetValueOrDefault(accountGroupId) : null;
+                    var entry = new AccountGroupEntryViewModel(account, currentGroup);
 
-                    foreach (var child in topLevelEntry.Children)
-                    {
-                        AddEntry(new AccountGroupEntryViewModel(child, topLevelEntry.Group));
-                    }
+                    entry.SetEditedGroup(_group?.Id);
+
+                    if (_group != null && currentGroup?.Id == _group.Id)
+                        MemberEntries.Add(entry);
+                    else
+                        AvailableEntries.Add(entry);
                 }
 
                 OnPropertyChanged(nameof(HasAvailableEntries));
@@ -121,14 +152,12 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
         }
     }
 
-    private void AddEntry(AccountGroupEntryViewModel entry)
+    partial void OnSelectedColorOptionChanged(AccountGroupColorOption? value)
     {
-        entry.SetEditedGroup(_group?.Id);
-
-        if (_group != null && entry.CurrentGroup?.Id == _group.Id)
-            MemberEntries.Add(entry);
-        else
-            AvailableEntries.Add(entry);
+        foreach (var option in IconOptions)
+        {
+            option.ColorKey = value?.Key;
+        }
     }
 
     [RelayCommand]
@@ -151,24 +180,6 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
         OnPropertyChanged(nameof(HasAvailableEntries));
     }
 
-    [RelayCommand]
-    private void MoveMemberUp(AccountGroupEntryViewModel entry)
-    {
-        var index = MemberEntries.IndexOf(entry);
-
-        if (index > 0)
-            MemberEntries.Move(index, index - 1);
-    }
-
-    [RelayCommand]
-    private void MoveMemberDown(AccountGroupEntryViewModel entry)
-    {
-        var index = MemberEntries.IndexOf(entry);
-
-        if (index >= 0 && index < MemberEntries.Count - 1)
-            MemberEntries.Move(index, index + 1);
-    }
-
     private bool CanSave() => !IsBusy && !IsNameMissing && !IsMemberMissing;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
@@ -178,21 +189,14 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
 
         try
         {
-            var name = GroupName.Trim();
-            var colorKey = SelectedColorOption?.Key;
-            var memberIds = MemberEntries.Select(entry => entry.Id).ToList();
+            var group = _group ?? new MergedInbox { Id = Guid.Empty };
 
-            if (_group == null)
-            {
-                _group = await _accountService.CreateAccountGroupAsync(name, colorKey, memberIds);
-            }
-            else
-            {
-                _group.Name = name;
-                _group.ColorKey = colorKey;
+            group.Name = GroupName.Trim();
+            group.ColorKey = SelectedColorOption?.Key;
+            group.Icon = SelectedIconOption?.Icon ?? AccountGroupIcon.PeopleLink;
+            group.CombineFolders = CombineFolders;
 
-                await _accountService.UpdateAccountGroupAsync(_group, memberIds);
-            }
+            _group = await _accountService.SaveAccountGroupAsync(group, MemberEntries.Select(entry => entry.Id).ToList());
 
             Messenger.Send(new BackBreadcrumNavigationRequested());
         }
@@ -230,7 +234,7 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
 
         try
         {
-            await _accountService.DeleteAccountGroupAsync(_group.Id);
+            await _accountService.UnlinkMergedInboxAsync(_group.Id);
 
             Messenger.Send(new BackBreadcrumNavigationRequested());
         }

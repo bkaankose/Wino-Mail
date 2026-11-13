@@ -242,10 +242,10 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         var invokeTask = ViewModel.InvokeMenuItemAsync(menuItem);
 
-        // NavigationView toggles a group's expansion right after this handler returns. The mail mode
-        // sets the expansion it wants for a merged account before its first await, so it is inverted
-        // here for that toggle to restore it.
-        if (menuItem is IMergedAccountMenuItem && args.InvokedItemContainer is NavigationViewItem invokedContainer)
+        // NavigationView toggles a group's expansion right after this handler returns. In the open pane
+        // the mail mode sets the expansion it wants for a merged account before its first await, so it is
+        // inverted here for that toggle to restore it. In the closed pane the toggle opens its flyout.
+        if (menuItem is IMergedAccountMenuItem && sender.IsPaneOpen && args.InvokedItemContainer is NavigationViewItem invokedContainer)
         {
             invokedContainer.IsExpanded = !invokedContainer.IsExpanded;
         }

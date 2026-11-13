@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -47,7 +48,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly ITaskService _taskMutationService;
     private readonly IAccountService _accountService;
     private readonly AccountGroupPaneItems _accountGroupItems;
-    private List<MailAccountGroup> _accountGroups = [];
+    private List<MergedInbox> _accountGroups = [];
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly INavigationService _navigationService;
     private readonly ICalendarService _calendarService;
@@ -500,6 +501,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public ToDoPageViewModel(
         ITaskQueryService taskService,
         IAccountService accountService,
+        AccountGroupExpansionStore accountGroupExpansion,
         IWinoRequestDelegator requestDelegator,
         INavigationService navigationService,
         ICalendarService calendarService,
@@ -514,7 +516,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
         _accountService = accountService;
-        _accountGroupItems = new AccountGroupPaneItems(accountService, () => Dispatcher);
+        _accountGroupItems = new AccountGroupPaneItems(accountGroupExpansion, () => Dispatcher);
         _requestDelegator = requestDelegator;
         _navigationService = navigationService;
         _calendarService = calendarService;
@@ -3168,8 +3170,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 selectedAccountChildren = accountChildren;
         }
 
-        // Linked accounts are a Mail concept, so their members are listed one by one.
-        var accountLayout = AccountLayoutBuilder.Build(orderedAccounts, _accountGroups, includeLinkedAccounts: false);
+        // Combining folders is a Mail behavior, so every group is a plain group here.
+        var accountLayout = AccountLayoutBuilder.Build(orderedAccounts, _accountGroups);
         desired.AddRange(_accountGroupItems.Build(accountLayout, entry =>
             entry.Account is { } layoutAccount && accountRows.TryGetValue(layoutAccount.Id, out var row) ? row : null));
 

@@ -73,7 +73,7 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
         }
     }
 
-    /// <summary>The top-level account entry (account or linked account) with <paramref name="entityId"/>, wherever its group puts it.</summary>
+    /// <summary>The top-level account entry (account or combined group) with <paramref name="entityId"/>, wherever its group puts it.</summary>
     public IAccountMenuItem FindAccountAreaItem(Guid entityId)
         => GetAccountAreaItems().OfType<IAccountMenuItem>().FirstOrDefault(item => item.EntityId == entityId);
 

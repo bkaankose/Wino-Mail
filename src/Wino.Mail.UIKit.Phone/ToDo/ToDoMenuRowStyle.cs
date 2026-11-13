@@ -50,7 +50,7 @@ internal sealed class ToDoMenuRowStyle : IModeMenuRowStyle
                 cell.ConfigureFolder(WinoIconGlyph.Person, account.AccountName ?? string.Empty, 0, indent);
                 break;
             case AccountGroupMenuItem accountGroup:
-                cell.ConfigureFolder(WinoIconGlyph.GroupList, accountGroup.Name, 0, indent, hasChildren ? accountGroup.IsExpanded : null);
+                cell.ConfigureFolder(accountGroup.IconGlyph, accountGroup.Name, 0, indent, hasChildren ? accountGroup.IsExpanded : null);
                 break;
             case AccountTaskListGroupMenuItem group:
                 cell.ConfigureFolder(WinoIconGlyph.PanelLeft, group.Title ?? string.Empty, 0, indent, hasChildren ? group.IsExpanded : null);

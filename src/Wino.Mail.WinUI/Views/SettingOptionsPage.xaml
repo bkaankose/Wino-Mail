@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:behaviors="using:Wino.Mail.WinUI.Behaviors"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -51,7 +52,10 @@
                 Description="{x:Bind AccountAddresses}"
                 Header="{x:Bind MergedInbox.Name}">
                 <controls:SettingsExpander.HeaderIcon>
-                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
+                    <coreControls:WinoFontIcon
+                        behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey}"
+                        FontFamily="{StaticResource WinoMonochromeIconFontFamily}"
+                        Icon="{x:Bind IconGlyph}" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
                     <accessibilityControls:WinoSettingsCard
@@ -63,7 +67,7 @@
                         Header="{x:Bind domain:Translator.SettingsEditLinkedInbox_Title}"
                         IsClickEnabled="True">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Link" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Edit" />
                         </controls:SettingsCard.HeaderIcon>
                     </accessibilityControls:WinoSettingsCard>
                     <controls:SettingsCard

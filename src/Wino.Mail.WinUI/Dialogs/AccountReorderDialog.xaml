@@ -1,4 +1,4 @@
-<ContentDialog
+﻿<ContentDialog
     x:Class="Wino.Dialogs.AccountReorderDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -70,55 +70,7 @@
             </Border>
         </DataTemplate>
 
-        <DataTemplate x:Key="MergedAccountReorderTemplate" x:DataType="data:AccountReorderItem">
-            <Border
-                Padding="12,8"
-                AutomationProperties.Name="{x:Bind Title}"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="6">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <coreControls:WinoFontIcon
-                        VerticalAlignment="Center"
-                        FontFamily="{ThemeResource WinoIconFontFamily}"
-                        FontSize="16"
-                        Icon="ReOrderDotsVertical"
-                        Opacity="0.5" />
-                    <coreControls:WinoFontIcon
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        FontFamily="{ThemeResource WinoIconFontFamily}"
-                        Icon="PeopleLink" />
-                    <StackPanel
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        Spacing="2">
-                        <TextBlock
-                            Style="{ThemeResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind Title}"
-                            TextTrimming="CharacterEllipsis" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{ThemeResource CaptionTextBlockStyle}"
-                            Text="{x:Bind Subtitle}"
-                            TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-        </DataTemplate>
-
-        <selectors:AccountReorderTemplateSelector
-            x:Key="GroupEntryReorderTemplateSelector"
-            MergedAccountReorderTemplate="{StaticResource MergedAccountReorderTemplate}"
-            RootAccountReorderTemplate="{StaticResource RootAccountReorderTemplate}" />
-
-        <!--  A group moves as one block; its entries reorder only inside it.  -->
+        <!--  A group moves as one block; its accounts reorder only inside it.  -->
         <DataTemplate x:Key="AccountGroupReorderTemplate" x:DataType="data:AccountReorderItem">
             <Border
                 Padding="12,8"
@@ -147,8 +99,9 @@
                         <coreControls:WinoFontIcon
                             Grid.Column="1"
                             VerticalAlignment="Center"
-                            FontFamily="{ThemeResource WinoIconFontFamily}"
-                            Icon="GroupList" />
+                            behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey}"
+                            FontFamily="{StaticResource WinoMonochromeIconFontFamily}"
+                            Icon="{x:Bind IconGlyph}" />
                         <StackPanel
                             Grid.Column="2"
                             VerticalAlignment="Center"
@@ -173,7 +126,7 @@
                         AutomationProperties.Name="{x:Bind GroupEntriesAutomationName}"
                         CanReorderItems="True"
                         ItemContainerStyle="{StaticResource AccountReorderItemContainerStyle}"
-                        ItemTemplateSelector="{StaticResource GroupEntryReorderTemplateSelector}"
+                        ItemTemplate="{StaticResource RootAccountReorderTemplate}"
                         ItemsSource="{x:Bind Children}"
                         SelectionMode="None" />
                 </Grid>
@@ -183,7 +136,6 @@
         <selectors:AccountReorderTemplateSelector
             x:Key="AccountReorderTemplateSelector"
             AccountGroupReorderTemplate="{StaticResource AccountGroupReorderTemplate}"
-            MergedAccountReorderTemplate="{StaticResource MergedAccountReorderTemplate}"
             RootAccountReorderTemplate="{StaticResource RootAccountReorderTemplate}" />
     </ContentDialog.Resources>
 

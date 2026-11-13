@@ -45,9 +45,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     public IMailDialogService MailDialogService { get; }
 
-    /// <summary>The account list of this page: groups with their entries, then linked accounts and accounts, in layout order.</summary>
-    public ObservableCollection<IAccountProviderDetailViewModel> AccountLayoutItems { get; } = [];
-
     public AccountManagementViewModel(IMailDialogService dialogService,
                                       INavigationService navigationService,
                                       IAccountService accountService,
@@ -114,24 +111,11 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                  mergedAccountProviderDetailViewModel));
     }
 
-
-
     [RelayCommand]
     private void CreateAccountGroup()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.AccountGroupDetailsPage_NewTitle,
-                                                           WinoPage.AccountGroupDetailsPage,
+                                                           WinoPage.MergedAccountDetailsPage,
                                                            new AccountGroupDetailsNavigationContext(null)));
-
-    [RelayCommand]
-    private void EditAccountGroup(AccountGroupProviderDetailViewModel accountGroup)
-    {
-        if (accountGroup?.Group == null)
-            return;
-
-        Messenger.Send(new BreadcrumbNavigationRequested(accountGroup.Name,
-                                                         WinoPage.AccountGroupDetailsPage,
-                                                         new AccountGroupDetailsNavigationContext(accountGroup.Group.Id)));
-    }
 
     public async void Receive(AccountLayoutChanged message) => await InitializeAccountsAsync();
 
@@ -444,39 +428,41 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     public override async Task InitializeAccountsAsync()
     {
-        var accounts = await AccountService.GetAccountsAsync().ConfigureAwait(false);
-        var accountGroups = await AccountService.GetAccountGroupsAsync().ConfigureAwait(false);
-        var layout = AccountLayoutBuilder.Build(accounts, accountGroups);
-
         await ExecuteUIThread(() =>
         {
             StartupAccount = null;
             Accounts.Clear();
-            AccountLayoutItems.Clear();
+        }).ConfigureAwait(false);
 
-            // Accounts stays one flat list for the startup picker, the limits and the other platforms;
-            // the account list on this page shows the groups.
-            foreach (var entry in layout)
+        var accounts = await AccountService.GetAccountsAsync().ConfigureAwait(false);
+
+        // Group accounts and display merged ones at the top.
+        var groupedAccounts = accounts.GroupBy(a => a.MergedInboxId);
+
+        await ExecuteUIThread(() =>
+        {
+            foreach (var accountGroup in groupedAccounts)
             {
-                if (entry.Kind != AccountLayoutEntryKind.Group)
+                var mergedInboxId = accountGroup.Key;
+
+                if (mergedInboxId == null)
                 {
-                    var details = CreateLayoutEntryDetails(entry);
-                    Accounts.Add(details);
-                    AccountLayoutItems.Add(details);
-                    continue;
+                    foreach (var account in accountGroup)
+                    {
+                        var accountDetails = GetAccountProviderDetails(account);
+
+                        Accounts.Add(accountDetails);
+                    }
                 }
-
-                if (entry.Group is not { } group)
-                    continue;
-
-                var groupEntries = entry.Children.Select(CreateLayoutEntryDetails).ToList();
-
-                foreach (var groupEntry in groupEntries)
+                else
                 {
-                    Accounts.Add(groupEntry);
-                }
+                    var mergedInbox = accountGroup.First(a => a.MergedInboxId == mergedInboxId).MergedInbox;
 
-                AccountLayoutItems.Add(new AccountGroupProviderDetailViewModel(group, groupEntries));
+                    var holdingAccountProviderDetails = accountGroup.Select(a => GetAccountProviderDetails(a)).ToList();
+                    var mergedAccountViewModel = new MergedAccountProviderDetailViewModel(mergedInbox, holdingAccountProviderDetails);
+
+                    Accounts.Add(mergedAccountViewModel);
+                }
             }
 
             // Handle startup entity.
@@ -496,18 +482,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 ? string.Empty
                 : string.Format(Translator.WinoAccount_Management_UnlimitedAppStorePrice, price));
         }
-    }
-
-    private IAccountProviderDetailViewModel CreateLayoutEntryDetails(AccountLayoutEntry entry)
-    {
-        if (entry.Kind == AccountLayoutEntryKind.LinkedAccount)
-        {
-            var mergedInbox = entry.LinkedAccount ?? new MergedInbox { Id = entry.Id, Name = string.Empty };
-
-            return new MergedAccountProviderDetailViewModel(mergedInbox, entry.Members.Select(GetAccountProviderDetails).ToList());
-        }
-
-        return GetAccountProviderDetails(entry.Account);
     }
 
     private static string BuildExportSuccessMessage(Wino.Core.Domain.Models.Accounts.WinoAccountSyncExportResult result)

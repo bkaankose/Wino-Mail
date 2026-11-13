@@ -94,11 +94,6 @@ public class MailAccount
     public Guid? MergedInboxId { get; set; }
 
     /// <summary>
-    /// Gets or sets the id of the account group this account belongs to. Every member of a merged inbox carries the same group.
-    /// </summary>
-    public Guid? MailAccountGroupId { get; set; }
-
-    /// <summary>
     /// Gets or sets the additional IMAP provider assignment for the account.
     /// Providers that use IMAP as a synchronizer but have special requirements.
     /// </summary>
@@ -172,13 +167,6 @@ public class MailAccount
     /// </summary>
     [Ignore]
     public MergedInbox MergedInbox { get; set; }
-
-    /// <summary>
-    /// Contains the account group this account belongs to.
-    /// Ignored for all SQLite operations.
-    /// </summary>
-    [Ignore]
-    public MailAccountGroup MailAccountGroup { get; set; }
 
     /// <summary>
     /// Populated only when account has custom server information.

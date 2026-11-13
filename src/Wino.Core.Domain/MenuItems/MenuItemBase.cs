@@ -39,15 +39,22 @@ public partial class MenuItemBase : ObservableObject, IMenuItem
 
             while (parentMenuItem != null)
             {
-                parentMenuItem.IsExpanded = true;
+                if (!IsAccountGroup(parentMenuItem))
+                    parentMenuItem.IsExpanded = true;
 
                 parentMenuItem = parentMenuItem.ParentMenuItem;
             }
         }
 
         // Finally expand itself.
-        IsExpanded = true;
+        if (!IsAccountGroup(this))
+            IsExpanded = true;
     }
+
+    /// <summary>
+    /// An account group keeps the expansion its user chose; revealing an entry, such as the startup inbox, does not change it.
+    /// </summary>
+    private static bool IsAccountGroup(IMenuItem item) => item is MergedAccountMenuItem or AccountGroupMenuItem;
 }
 
 public partial class MenuItemBase<T> : MenuItemBase

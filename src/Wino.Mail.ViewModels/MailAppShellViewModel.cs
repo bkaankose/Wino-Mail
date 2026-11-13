@@ -124,6 +124,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IMailService mailService,
                              IMailCategoryService mailCategoryService,
                              IAccountService accountService,
+                             AccountGroupExpansionStore accountGroupExpansion,
                              IContextMenuItemService contextMenuItemService,
                              IMicrosoftStoreService storeService,
                              IPreferencesService preferencesService,
@@ -158,7 +159,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
         _accountReauthenticationService = accountReauthenticationService;
-        _accountGroupItems = new AccountGroupPaneItems(accountService, () => Dispatcher);
+        _accountGroupItems = new AccountGroupPaneItems(accountGroupExpansion, () => Dispatcher);
     }
 
     protected override void OnDispatcherAssigned()
@@ -242,12 +243,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private static IMenuItem CreateAccountAreaMenuItem(AccountLayoutEntry entry)
     {
-        if (entry.Kind == AccountLayoutEntryKind.LinkedAccount)
+        if (entry.Kind == AccountLayoutEntryKind.Group)
         {
-            var mergedInbox = entry.LinkedAccount ?? new MergedInbox { Id = entry.Id, Name = string.Empty };
-            var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, entry.Members, null);
+            // A group that keeps folders separate is drawn as a group row holding its account rows.
+            if (entry.Group is not { CombineFolders: true } mergedInbox)
+                return null;
 
-            foreach (var mergedAccount in entry.Members)
+            var members = entry.GetAccounts();
+            var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, members, null);
+
+            foreach (var mergedAccount in members)
             {
                 var accountMenuItem = new AccountMenuItem(mergedAccount, mergedAccountMenuItem);
                 ApplySynchronizationProgress(accountMenuItem, SynchronizationProgressCategory.Mail);
@@ -1072,11 +1077,14 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             // only toggles the group; otherwise it loads them and keeps the accounts visible.
             if (latestSelectedAccountMenuItem == clickedMergedAccountMenuItem)
             {
-                clickedMergedAccountMenuItem.IsExpanded = !clickedMergedAccountMenuItem.IsExpanded;
+                if (!_isPaneCompact)
+                    clickedMergedAccountMenuItem.IsExpanded = !clickedMergedAccountMenuItem.IsExpanded;
+
                 return;
             }
 
-            clickedMergedAccountMenuItem.IsExpanded = true;
+            if (!_isPaneCompact)
+                clickedMergedAccountMenuItem.IsExpanded = true;
 
             await ChangeLoadedAccountAsync(clickedMergedAccountMenuItem, true);
         }
@@ -2061,9 +2069,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     /// <summary>
     /// Every mail pane entry renders through the navigation item icon slot, so the collapsed
-    /// pane shows them all correctly and nothing has to be dropped.
+    /// pane shows them all correctly and nothing has to be dropped. A click on a combined group
+    /// in the compact pane opens its flyout and leaves the group's remembered expansion alone.
     /// </summary>
-    public void SetPaneCompact(bool isCompact) { }
+    public void SetPaneCompact(bool isCompact) => _isPaneCompact = isCompact;
+
+    private bool _isPaneCompact;
 
     public void ActivateShellMenu(ShellModeActivationContext activationContext)
         => OnNavigatedTo(NavigationMode.New, activationContext);

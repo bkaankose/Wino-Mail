@@ -26,18 +26,4 @@ public sealed partial class AccountGroupDetailsPage : AccountGroupDetailsPageAbs
         if (sender is Button { CommandParameter: AccountGroupEntryViewModel entry })
             ViewModel.RemoveMemberCommand.Execute(entry);
     }
-
-    [DynamicWindowsRuntimeCast(typeof(Button))]
-    private void MoveMemberUp_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button { CommandParameter: AccountGroupEntryViewModel entry })
-            ViewModel.MoveMemberUpCommand.Execute(entry);
-    }
-
-    [DynamicWindowsRuntimeCast(typeof(Button))]
-    private void MoveMemberDown_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button { CommandParameter: AccountGroupEntryViewModel entry })
-            ViewModel.MoveMemberDownCommand.Execute(entry);
-    }
 }

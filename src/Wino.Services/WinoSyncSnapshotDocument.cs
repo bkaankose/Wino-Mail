@@ -29,11 +29,6 @@ internal sealed class WinoSyncSnapshotDocument
     public List<SnapshotMergedInbox>? MergedInboxes { get; set; }
 
     /// <summary>
-    /// Account groups with their members in order. Missing in snapshots from builds without groups.
-    /// </summary>
-    public List<SnapshotAccountGroup>? AccountGroups { get; set; }
-
-    /// <summary>
     /// Which modes each mailbox had turned on. The server mailbox contract only carries calendar
     /// consent, so the rest travels here. A missing section restores with contacts and To Do off.
     /// </summary>
@@ -120,13 +115,15 @@ internal sealed class SnapshotAlias
 internal sealed class SnapshotMergedInbox
 {
     public string Name { get; set; } = string.Empty;
-    public List<SnapshotMailboxReference> Members { get; set; } = [];
-}
 
-internal sealed class SnapshotAccountGroup
-{
-    public string Name { get; set; } = string.Empty;
+    /// <summary>Missing in snapshots from builds before account groups, whose groups were all combined.</summary>
+    public bool? CombineFolders { get; set; }
+
     public string? ColorKey { get; set; }
+
+    /// <summary>The stored <see cref="Wino.Core.Domain.Enums.AccountGroupIcon"/> value.</summary>
+    public int? Icon { get; set; }
+
     public List<SnapshotMailboxReference> Members { get; set; } = [];
 }
 

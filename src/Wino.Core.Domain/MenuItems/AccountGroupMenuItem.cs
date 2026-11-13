@@ -1,24 +1,29 @@
 using System.ComponentModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Core.Domain.MenuItems;
 
 /// <summary>
-/// A user-named account group in a navigation pane. It is never selected: invoking it only expands or collapses it.
-/// Its accounts are not given the group as their parent, so expanding a folder or account never opens a collapsed group.
+/// An account group that keeps its accounts' folders separate. It is never selected: invoking it only expands or
+/// collapses it. Its accounts are not given the group as their parent, so expanding a folder or account never
+/// opens a collapsed group.
 /// </summary>
-public sealed partial class AccountGroupMenuItem : MenuItemBase<MailAccountGroup, IMenuItem>
+public sealed partial class AccountGroupMenuItem : MenuItemBase<MergedInbox, IMenuItem>
 {
-    public AccountGroupMenuItem(MailAccountGroup group) : base(group, group?.Id)
-        => IsExpanded = group?.IsExpanded ?? true;
+    public AccountGroupMenuItem(MergedInbox group) : base(group, group?.Id)
+    {
+    }
 
     public string Name => Parameter?.Name ?? string.Empty;
 
     public string? ColorKey => AccountGroupColors.Normalize(Parameter?.ColorKey);
+
+    public WinoIconGlyph IconGlyph => AccountGroupIcons.GetGlyph(Parameter?.Icon ?? AccountGroupIcon.PeopleLink);
 
     public int AccountCount => SubMenuItems.Count;
 
@@ -27,25 +32,25 @@ public sealed partial class AccountGroupMenuItem : MenuItemBase<MailAccountGroup
     [NotifyPropertyChangedFor(nameof(IsUnreadCountVisible))]
     public partial int UnreadItemCount { get; set; }
 
-    /// <summary>A collapsed group shows the unread count its hidden account rows would show.</summary>
+    /// <summary>
+    /// A collapsed group shows the unread count its hidden account rows would show. <see cref="MenuItemBase.IsExpanded"/>
+    /// is the remembered state; the Windows row reads its own on-screen state instead, because a closed pane collapses it.
+    /// </summary>
     public bool IsUnreadCountVisible => !IsExpanded && UnreadItemCount > 0;
 
-    public string AutomationName => string.Format(
-        IsExpanded ? Translator.AccountGroup_AutomationNameExpanded : Translator.AccountGroup_AutomationNameCollapsed,
-        Name);
+    /// <summary>The expansion is announced by the row's expand and collapse state, which can differ from <see cref="MenuItemBase.IsExpanded"/> while the pane is closed.</summary>
+    public string AutomationName => string.Format(Translator.AccountGroup_AutomationName, Name);
 
-    public void Update(MailAccountGroup group)
+    public void Update(MergedInbox group)
     {
         if (group == null)
             return;
 
         Parameter = group;
 
-        if (IsExpanded != group.IsExpanded)
-            IsExpanded = group.IsExpanded;
-
         OnPropertyChanged(nameof(Name));
         OnPropertyChanged(nameof(ColorKey));
+        OnPropertyChanged(nameof(IconGlyph));
         OnPropertyChanged(nameof(AutomationName));
     }
 
@@ -60,10 +65,7 @@ public sealed partial class AccountGroupMenuItem : MenuItemBase<MailAccountGroup
         base.OnPropertyChanged(e);
 
         if (e.PropertyName == nameof(IsExpanded))
-        {
             OnPropertyChanged(nameof(IsUnreadCountVisible));
-            OnPropertyChanged(nameof(AutomationName));
-        }
     }
 
     public override string ToString() => Name;

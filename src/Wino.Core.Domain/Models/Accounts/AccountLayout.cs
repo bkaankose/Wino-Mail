@@ -9,12 +9,11 @@ namespace Wino.Core.Domain.Models.Accounts;
 public enum AccountLayoutEntryKind
 {
     Account,
-    LinkedAccount,
     Group
 }
 
 /// <summary>
-/// One entry of the account layout: an account, a linked account with its members, or a group with its entries.
+/// One entry of the account layout: an account, or an account group with its accounts.
 /// </summary>
 public sealed class AccountLayoutEntry
 {
@@ -26,78 +25,59 @@ public sealed class AccountLayoutEntry
 
     public AccountLayoutEntryKind Kind { get; }
 
-    /// <summary>The account id, merged inbox id or group id.</summary>
+    /// <summary>The account id or the group (merged inbox) id.</summary>
     public Guid Id { get; }
 
     public MailAccount? Account { get; private init; }
 
-    public MergedInbox? LinkedAccount { get; private init; }
+    public MergedInbox? Group { get; private init; }
 
-    public MailAccountGroup? Group { get; private init; }
-
-    /// <summary>The member accounts of a linked account, in layout order.</summary>
-    public List<MailAccount> Members { get; } = [];
-
-    /// <summary>The entries of a group, in layout order.</summary>
+    /// <summary>The account entries of a group, in layout order.</summary>
     public List<AccountLayoutEntry> Children { get; } = [];
 
-    public string Name => Kind switch
-    {
-        AccountLayoutEntryKind.Group => Group?.Name ?? string.Empty,
-        AccountLayoutEntryKind.LinkedAccount => LinkedAccount?.Name ?? string.Empty,
-        _ => Account?.Name ?? string.Empty
-    };
+    public string Name => Kind == AccountLayoutEntryKind.Group
+        ? Group?.Name ?? string.Empty
+        : Account?.Name ?? string.Empty;
 
     /// <summary>Every account the entry holds, in layout order.</summary>
-    public IEnumerable<MailAccount> GetAccounts() => Kind switch
-    {
-        AccountLayoutEntryKind.Account => Account is null ? Array.Empty<MailAccount>() : new[] { Account },
-        AccountLayoutEntryKind.LinkedAccount => Members,
-        _ => Children.SelectMany(child => child.GetAccounts())
-    };
+    public List<MailAccount> GetAccounts() => Kind == AccountLayoutEntryKind.Account
+        ? Account is null ? [] : [Account]
+        : Children.SelectMany(child => child.GetAccounts()).ToList();
 
     public static AccountLayoutEntry ForAccount(MailAccount account)
         => new(AccountLayoutEntryKind.Account, account.Id) { Account = account };
 
-    public static AccountLayoutEntry ForLinkedAccount(Guid mergedInboxId, MergedInbox? mergedInbox)
-        => new(AccountLayoutEntryKind.LinkedAccount, mergedInboxId) { LinkedAccount = mergedInbox };
-
-    public static AccountLayoutEntry ForGroup(MailAccountGroup group)
+    public static AccountLayoutEntry ForGroup(MergedInbox group)
         => new(AccountLayoutEntryKind.Group, group.Id) { Group = group };
 }
 
-/// <summary>A top-level entry of a saved order, with the ordered entry ids of a group.</summary>
+/// <summary>A top-level entry of a saved order, with the ordered account ids of a group.</summary>
 public sealed record AccountLayoutOrderEntry(Guid Id, List<Guid> ChildIds);
 
 /// <summary>
 /// Turns accounts and groups into the ordered top-level entries every navigation pane and the settings pages show.
-/// A group sits where its first account falls in the given order, and a linked account where its first member falls.
+/// A group sits where its first account falls in the given order.
 /// </summary>
 public static class AccountLayoutBuilder
 {
     /// <param name="orderedAccounts">Accounts in <see cref="MailAccount.Order"/>; the order is used as given.</param>
     /// <param name="groups">The groups; an account whose group is missing stays at the top level.</param>
-    /// <param name="includeLinkedAccounts">False lists the members of a linked account as individual accounts.</param>
-    public static List<AccountLayoutEntry> Build(IEnumerable<MailAccount> orderedAccounts,
-                                                 IEnumerable<MailAccountGroup> groups,
-                                                 bool includeLinkedAccounts = true)
+    public static List<AccountLayoutEntry> Build(IEnumerable<MailAccount> orderedAccounts, IEnumerable<MergedInbox> groups)
     {
-        var groupsById = (groups ?? Enumerable.Empty<MailAccountGroup>()).Where(group => group != null)
+        var groupsById = (groups ?? Enumerable.Empty<MergedInbox>())
+            .Where(group => group != null)
             .GroupBy(group => group.Id)
             .ToDictionary(group => group.Key, group => group.First());
 
         var topLevel = new List<AccountLayoutEntry>();
         var groupEntries = new Dictionary<Guid, AccountLayoutEntry>();
-        var linkedEntries = new Dictionary<Guid, AccountLayoutEntry>();
 
         foreach (var account in orderedAccounts ?? Enumerable.Empty<MailAccount>())
         {
             if (account == null)
                 continue;
 
-            var container = topLevel;
-
-            if (account.MailAccountGroupId is Guid groupId && groupsById.TryGetValue(groupId, out var group))
+            if (account.MergedInboxId is Guid groupId && groupsById.TryGetValue(groupId, out var group))
             {
                 if (!groupEntries.TryGetValue(groupId, out var groupEntry))
                 {
@@ -106,23 +86,11 @@ public static class AccountLayoutBuilder
                     topLevel.Add(groupEntry);
                 }
 
-                container = groupEntry.Children;
-            }
-
-            if (includeLinkedAccounts && account.MergedInboxId is Guid mergedInboxId)
-            {
-                if (!linkedEntries.TryGetValue(mergedInboxId, out var linkedEntry))
-                {
-                    linkedEntry = AccountLayoutEntry.ForLinkedAccount(mergedInboxId, account.MergedInbox);
-                    linkedEntries.Add(mergedInboxId, linkedEntry);
-                    container.Add(linkedEntry);
-                }
-
-                linkedEntry.Members.Add(account);
+                groupEntry.Children.Add(AccountLayoutEntry.ForAccount(account));
                 continue;
             }
 
-            container.Add(AccountLayoutEntry.ForAccount(account));
+            topLevel.Add(AccountLayoutEntry.ForAccount(account));
         }
 
         return topLevel;

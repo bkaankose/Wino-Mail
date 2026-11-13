@@ -31,6 +31,9 @@ public static class WinoViewModelRegistration
         // Read by the companion and, on Windows, by the widgets and the Live Tile.
         services.AddSingleton<Companion.CompanionContentService>();
 
+        // Every mode pane shows the same expansion for an account group.
+        services.AddSingleton<AccountGroupExpansionStore>();
+
         // Mode providers remain application services so background synchronization can keep
         // running; the app shell owns window-specific binding state and dies with its window.
         services.AddSingleton<MailAppShellViewModel>();
