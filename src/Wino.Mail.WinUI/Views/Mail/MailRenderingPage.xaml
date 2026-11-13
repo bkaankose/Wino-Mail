@@ -713,75 +713,80 @@
             </Grid>
         </Border>
 
-        <StackPanel
-            Grid.Row="1"
-            Spacing="4"
-            Visibility="{x:Bind ViewModel.IsRemoteContentBarVisible, Mode=OneWay}">
-            <InfoBar
-                x:Name="RemoteContentWithheldBar"
-                Title="{x:Bind domain:Translator.Reader_Privacy_WithheldTitle, Mode=OneTime}"
-                HorizontalContentAlignment="Stretch"
-                x:Load="{x:Bind ViewModel.IsRemoteContentWithheld, Mode=OneWay}"
-                AutomationProperties.AutomationId="RemoteContentWithheldBar"
-                IsClosable="False"
-                IsOpen="True"
-                Message="{x:Bind ViewModel.WithheldBarMessage, Mode=OneWay}"
-                Severity="Informational">
-                <InfoBar.ActionButton>
-                    <Button
-                        HorizontalAlignment="Right"
-                        AutomationProperties.AutomationId="RemoteContentWithheldLoadOnceButton"
-                        Command="{x:Bind ViewModel.LoadOnceCommand}"
-                        Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}"
-                        Style="{ThemeResource AccentButtonStyle}" />
-                </InfoBar.ActionButton>
-            </InfoBar>
+        <StackPanel Grid.Row="1" Spacing="7">
+            <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsRemoteContentBarVisible, Mode=OneWay}">
+                <InfoBar
+                    x:Name="RemoteContentWithheldBar"
+                    Title="{x:Bind domain:Translator.Reader_Privacy_WithheldTitle, Mode=OneTime}"
+                    HorizontalContentAlignment="Stretch"
+                    x:Load="{x:Bind ViewModel.IsRemoteContentWithheld, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RemoteContentWithheldBar"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind ViewModel.WithheldBarMessage, Mode=OneWay}"
+                    Severity="Informational">
+                    <InfoBar.ActionButton>
+                        <Button
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="RemoteContentWithheldLoadOnceButton"
+                            Command="{x:Bind ViewModel.LoadOnceCommand}"
+                            Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}"
+                            Style="{ThemeResource AccentButtonStyle}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
 
-            <InfoBar
-                x:Name="RemoteContentJunkBar"
-                Title="{x:Bind domain:Translator.Reader_Privacy_JunkBarTitle, Mode=OneTime}"
-                HorizontalContentAlignment="Stretch"
-                x:Load="{x:Bind ViewModel.IsJunkBlocked, Mode=OneWay}"
-                AutomationProperties.AutomationId="RemoteContentJunkBar"
-                IsClosable="False"
-                IsOpen="True"
-                Message="{x:Bind domain:Translator.Reader_Privacy_JunkBarMessage, Mode=OneTime}"
-                Severity="Warning">
-                <InfoBar.ActionButton>
-                    <Button
-                        HorizontalAlignment="Right"
-                        AutomationProperties.AutomationId="RemoteContentJunkLoadOnceButton"
-                        Command="{x:Bind ViewModel.LoadOnceCommand}"
-                        Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}" />
-                </InfoBar.ActionButton>
-            </InfoBar>
+                <InfoBar
+                    x:Name="RemoteContentJunkBar"
+                    Title="{x:Bind domain:Translator.Reader_Privacy_JunkBarTitle, Mode=OneTime}"
+                    HorizontalContentAlignment="Stretch"
+                    x:Load="{x:Bind ViewModel.IsJunkBlocked, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RemoteContentJunkBar"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.Reader_Privacy_JunkBarMessage, Mode=OneTime}"
+                    Severity="Warning">
+                    <InfoBar.ActionButton>
+                        <Button
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="RemoteContentJunkLoadOnceButton"
+                            Command="{x:Bind ViewModel.LoadOnceCommand}"
+                            Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
 
-            <InfoBar
-                x:Name="RemoteContentRuleBar"
-                Title="{x:Bind ViewModel.RuleBarTitle, Mode=OneWay}"
-                HorizontalContentAlignment="Stretch"
-                x:Load="{x:Bind ViewModel.IsSenderBlockedByRule, Mode=OneWay}"
-                AutomationProperties.AutomationId="RemoteContentRuleBar"
-                IsClosable="False"
-                IsOpen="True"
-                Message="{x:Bind ViewModel.RuleBarMessage, Mode=OneWay}"
-                Severity="Error">
-                <InfoBar.ActionButton>
-                    <!--  InfoBar takes a single ButtonBase; this chromeless host only lays out the two real buttons.  -->
-                    <Button Style="{StaticResource InfoBarActionHostButtonStyle}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button
-                                AutomationProperties.AutomationId="RemoteContentRuleLoadOnceButton"
-                                Command="{x:Bind ViewModel.LoadOnceCommand}"
-                                Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}" />
-                            <Button
-                                AutomationProperties.AutomationId="RemoteContentRuleEditButton"
-                                Click="EditSenderRule_Click"
-                                Content="{x:Bind domain:Translator.Reader_Privacy_EditRule, Mode=OneTime}" />
-                        </StackPanel>
-                    </Button>
-                </InfoBar.ActionButton>
-            </InfoBar>
+                <InfoBar
+                    x:Name="RemoteContentRuleBar"
+                    Title="{x:Bind ViewModel.RuleBarTitle, Mode=OneWay}"
+                    HorizontalContentAlignment="Stretch"
+                    x:Load="{x:Bind ViewModel.IsSenderBlockedByRule, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RemoteContentRuleBar"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind ViewModel.RuleBarMessage, Mode=OneWay}"
+                    Severity="Error">
+                    <InfoBar.ActionButton>
+                        <!--  InfoBar takes a single ButtonBase; this chromeless host only lays out the two real buttons.  -->
+                        <Button Style="{StaticResource InfoBarActionHostButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button
+                                    AutomationProperties.AutomationId="RemoteContentRuleLoadOnceButton"
+                                    Command="{x:Bind ViewModel.LoadOnceCommand}"
+                                    Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}" />
+                                <Button
+                                    AutomationProperties.AutomationId="RemoteContentRuleEditButton"
+                                    Click="EditSenderRule_Click"
+                                    Content="{x:Bind domain:Translator.Reader_Privacy_EditRule, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </InfoBar.ActionButton>
+                </InfoBar>
+            </StackPanel>
+
+            <!--  Read from the MIME, so invitations synced before they were recognized still get the card.  -->
+            <controls:MailInvitationCard
+                x:Name="InvitationCard"
+                x:Load="{x:Bind ViewModel.Invitation.IsVisible, Mode=OneWay}"
+                Invitation="{x:Bind ViewModel.Invitation, Mode=OneTime}" />
         </StackPanel>
 
         <intelligenceControls:WinoIntelligenceHeader

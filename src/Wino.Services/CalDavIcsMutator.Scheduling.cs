@@ -20,7 +20,7 @@ public static partial class CalDavIcsMutator
     /// series also answers every exception that lists the user; answering one occurrence adds an
     /// exception for it when there is none yet. Every other line stays as stored.
     /// </summary>
-    private static string SetOwnParticipationLines(string existingIcs, string remoteEventId, CalDavUserIdentity identity, AttendeeStatus status)
+    private static string SetOwnParticipationLines(string existingIcs, string remoteEventId, CalDavUserIdentity identity, AttendeeStatus status, string addedAddress)
     {
         var calendar = IcalCalendar.Load(existingIcs)
             ?? throw new InvalidOperationException("The stored CalDAV resource is not a valid iCalendar object.");
@@ -65,10 +65,10 @@ public static partial class CalDavIcsMutator
 
             if (own == 0)
             {
-                if (!addWhenMissing || string.IsNullOrWhiteSpace(identity.OrganizerAddress))
+                if (!addWhenMissing || string.IsNullOrWhiteSpace(addedAddress))
                     return null;
 
-                result.Add(IcsOutputLine.New($"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT={partStat}:mailto:{identity.OrganizerAddress}"));
+                result.Add(IcsOutputLine.New($"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT={partStat}:mailto:{addedAddress}"));
             }
 
             return new Dictionary<string, List<IcsOutputLine>?>(StringComparer.OrdinalIgnoreCase)
@@ -117,10 +117,12 @@ public static partial class CalDavIcsMutator
 
     /// <summary>
     /// Removes one occurrence: the master gets an EXDATE in the value type of its DTSTART (sabre/dav
-    /// and iCloud do not match a UTC EXDATE against a zoned or all-day series) and a new SEQUENCE,
-    /// and an exception stored for that occurrence is dropped. Every other line stays as stored.
+    /// and iCloud do not match a UTC EXDATE against a zoned or all-day series) and an exception stored
+    /// for that occurrence is dropped. SEQUENCE belongs to the organizer (RFC 5545 section 3.8.7.4):
+    /// it goes up only when the user organizes the event or it has no ORGANIZER, so an attendee's copy
+    /// keeps the organizer's value and later iMIP updates still compare against it.
     /// </summary>
-    private static string RemoveOccurrenceLines(string existingIcs, string remoteEventId)
+    private static string RemoveOccurrenceLines(string existingIcs, string remoteEventId, CalDavUserIdentity? identity)
     {
         var (uid, occurrenceKey) = SplitRemoteEventId(remoteEventId);
         if (string.IsNullOrWhiteSpace(occurrenceKey))
@@ -143,15 +145,20 @@ public static partial class CalDavIcsMutator
         var exceptionDates = masterBlock.Properties(lines).Where(line => line.Name == "EXDATE").Select(IcsOutputLine.Keep).ToList();
         exceptionDates.Add(IcsOutputLine.New(FormatDateTimeProperty("EXDATE", exceptionDate)));
 
+        var masterChanges = new Dictionary<string, List<IcsOutputLine>?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["EXDATE"] = exceptionDates,
+            ["DTSTAMP"] = [IcsOutputLine.New($"DTSTAMP:{stamp}")],
+            ["LAST-MODIFIED"] = [IcsOutputLine.New($"LAST-MODIFIED:{stamp}")]
+        };
+
+        var organizer = master.Organizer?.Value?.OriginalString;
+        if (identity == null || string.IsNullOrWhiteSpace(organizer) || identity.IsUser(organizer))
+            masterChanges["SEQUENCE"] = [IcsOutputLine.New($"SEQUENCE:{master.Sequence + 1}")];
+
         var patches = new Dictionary<IcsBlock, Dictionary<string, List<IcsOutputLine>?>>
         {
-            [masterBlock] = new(StringComparer.OrdinalIgnoreCase)
-            {
-                ["EXDATE"] = exceptionDates,
-                ["SEQUENCE"] = [IcsOutputLine.New($"SEQUENCE:{master.Sequence + 1}")],
-                ["DTSTAMP"] = [IcsOutputLine.New($"DTSTAMP:{stamp}")],
-                ["LAST-MODIFIED"] = [IcsOutputLine.New($"LAST-MODIFIED:{stamp}")]
-            }
+            [masterBlock] = masterChanges
         };
 
         var removed = exception == null || exception.RecurrenceIdentifier == null

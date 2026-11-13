@@ -1,0 +1,272 @@
+﻿<UserControl
+    x:Class="Wino.Controls.MailInvitationCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:ctControls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Border
+        Padding="16,12"
+        AutomationProperties.AutomationId="MailInvitationCard"
+        AutomationProperties.Name="{x:Bind domain:Translator.MailInvitation_CardAutomationName, Mode=OneTime}"
+        Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="8">
+        <Grid ColumnSpacing="12" RowSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <coreControls:WinoFontIcon
+                Margin="0,2,0,0"
+                VerticalAlignment="Top"
+                AutomationProperties.AccessibilityView="Raw"
+                FontSize="20"
+                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                Icon="{x:Bind Invitation.HeaderIcon, Mode=OneWay}" />
+
+            <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock
+                    AutomationProperties.AutomationId="MailInvitationTitle"
+                    AutomationProperties.HeadingLevel="Level2"
+                    IsTextSelectionEnabled="True"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind Invitation.Title, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    Visibility="{x:Bind Invitation.HasDateRange, Mode=OneWay}">
+                    <coreControls:WinoFontIcon
+                        VerticalAlignment="Center"
+                        AutomationProperties.AccessibilityView="Raw"
+                        FontSize="14"
+                        Icon="Clock" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="MailInvitationDate"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind Invitation.DateRangeText, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    Visibility="{x:Bind Invitation.IsRecurring, Mode=OneWay}">
+                    <coreControls:WinoFontIcon
+                        VerticalAlignment="Center"
+                        AutomationProperties.AccessibilityView="Raw"
+                        FontSize="14"
+                        Icon="CalendarEventRepeat" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind domain:Translator.MailInvitation_Recurring, Mode=OneTime}" />
+                </StackPanel>
+
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    Visibility="{x:Bind Invitation.HasLocation, Mode=OneWay}">
+                    <coreControls:WinoFontIcon
+                        VerticalAlignment="Center"
+                        AutomationProperties.AccessibilityView="Raw"
+                        FontSize="14"
+                        Icon="Location" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="MailInvitationLocation"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind Invitation.Location, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    Visibility="{x:Bind Invitation.HasOrganizer, Mode=OneWay}">
+                    <coreControls:WinoFontIcon
+                        VerticalAlignment="Center"
+                        AutomationProperties.AccessibilityView="Raw"
+                        FontSize="14"
+                        Icon="Person" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="MailInvitationOrganizer"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind Invitation.OrganizerText, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel
+                Grid.Row="1"
+                Grid.Column="1"
+                Spacing="2">
+                <TextBlock
+                    AutomationProperties.AutomationId="MailInvitationStatus"
+                    AutomationProperties.LiveSetting="Polite"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind Invitation.StatusText, Mode=OneWay}"
+                    TextWrapping="Wrap"
+                    Visibility="{x:Bind Invitation.HasStatus, Mode=OneWay}" />
+                <TextBlock
+                    AutomationProperties.AutomationId="MailInvitationReason"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind Invitation.ReasonText, Mode=OneWay}"
+                    TextWrapping="Wrap"
+                    Visibility="{x:Bind Invitation.HasReason, Mode=OneWay}" />
+            </StackPanel>
+
+            <ctControls:WrapPanel
+                Grid.Row="2"
+                Grid.Column="1"
+                HorizontalSpacing="8"
+                VerticalSpacing="8">
+                <Button
+                    AutomationProperties.AutomationId="MailInvitationAcceptButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventRsvpPanel_Accept, Mode=OneTime}"
+                    Command="{x:Bind Invitation.RespondCommand, Mode=OneWay}"
+                    CommandParameter="{x:Bind enums:AttendeeStatus.Accepted}"
+                    Visibility="{x:Bind Invitation.CanRespond, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <coreControls:WinoFontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                            Icon="EventAccept" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Accept, Mode=OneTime}" />
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Icon="Checkmark"
+                            Visibility="{x:Bind Invitation.IsAcceptedResponse, Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
+
+                <Button
+                    AutomationProperties.AutomationId="MailInvitationTentativeButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventRsvpPanel_Tentative, Mode=OneTime}"
+                    Command="{x:Bind Invitation.RespondCommand, Mode=OneWay}"
+                    CommandParameter="{x:Bind enums:AttendeeStatus.Tentative}"
+                    Visibility="{x:Bind Invitation.CanRespond, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <coreControls:WinoFontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource SystemFillColorAttentionBrush}"
+                            Icon="EventTentative" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Tentative, Mode=OneTime}" />
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Icon="Checkmark"
+                            Visibility="{x:Bind Invitation.IsTentativeResponse, Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
+
+                <Button
+                    AutomationProperties.AutomationId="MailInvitationDeclineButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventRsvpPanel_Decline, Mode=OneTime}"
+                    Command="{x:Bind Invitation.RespondCommand, Mode=OneWay}"
+                    CommandParameter="{x:Bind enums:AttendeeStatus.Declined}"
+                    Visibility="{x:Bind Invitation.CanRespond, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <coreControls:WinoFontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource DeleteBrush}"
+                            Icon="EventDecline" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Decline, Mode=OneTime}" />
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Icon="Checkmark"
+                            Visibility="{x:Bind Invitation.IsDeclinedResponse, Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
+
+                <Button
+                    AutomationProperties.AutomationId="MailInvitationRemoveButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.MailInvitation_RemoveFromCalendar, Mode=OneTime}"
+                    Command="{x:Bind Invitation.RemoveFromCalendarCommand, Mode=OneWay}"
+                    Visibility="{x:Bind Invitation.CanRemoveFromCalendar, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <coreControls:WinoFontIcon FontSize="16" Icon="Delete" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.MailInvitation_RemoveFromCalendar, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
+
+                <HyperlinkButton
+                    AutomationProperties.AutomationId="MailInvitationOpenInCalendarButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.MailInvitation_OpenInCalendar, Mode=OneTime}"
+                    Command="{x:Bind Invitation.OpenInCalendarCommand, Mode=OneWay}"
+                    Visibility="{x:Bind Invitation.CanOpenInCalendar, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <coreControls:WinoFontIcon FontSize="16" Icon="Calendar" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.MailInvitation_OpenInCalendar, Mode=OneTime}" />
+                    </StackPanel>
+                </HyperlinkButton>
+            </ctControls:WrapPanel>
+
+            <TextBox
+                Grid.Row="3"
+                Grid.Column="1"
+                MaxHeight="120"
+                AcceptsReturn="True"
+                AutomationProperties.AutomationId="MailInvitationCommentTextBox"
+                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventRsvpPanel_Message, Mode=OneTime}"
+                IsEnabled="{x:Bind Invitation.CanEditComment, Mode=OneWay}"
+                PlaceholderText="{x:Bind domain:Translator.CalendarEventRsvpPanel_AddMessage, Mode=OneTime}"
+                Text="{x:Bind Invitation.Comment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                TextWrapping="Wrap"
+                Visibility="{x:Bind Invitation.CanRespond, Mode=OneWay}" />
+
+            <StackPanel
+                Grid.Row="4"
+                Grid.Column="1"
+                Spacing="8">
+                <StackPanel
+                    x:Name="BusyPanel"
+                    x:Load="{x:Bind Invitation.IsBusy, Mode=OneWay}"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <ProgressRing
+                        Width="16"
+                        Height="16"
+                        AutomationProperties.AccessibilityView="Raw"
+                        IsActive="True" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="MailInvitationBusyText"
+                        AutomationProperties.LiveSetting="Polite"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind domain:Translator.MailInvitation_Busy, Mode=OneTime}" />
+                </StackPanel>
+
+                <InfoBar
+                    x:Name="ErrorBar"
+                    Title="{x:Bind domain:Translator.MailInvitation_ActionFailedTitle, Mode=OneTime}"
+                    x:Load="{x:Bind Invitation.HasError, Mode=OneWay}"
+                    AutomationProperties.AutomationId="MailInvitationErrorBar"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind Invitation.ErrorMessage, Mode=OneWay}"
+                    Severity="Error" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

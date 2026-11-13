@@ -256,8 +256,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IRemoteContentRuleStore remoteContentRuleStore,
         ILinkSanitizer linkSanitizer,
         INavigationService navigationService,
+        ICalendarService calendarService,
         IAttachmentFileService attachmentFileService = null,
-        ILinkBrowserService linkBrowserService = null)
+        ILinkBrowserService linkBrowserService = null,
+        IMailInvitationService mailInvitationService = null)
     {
         _dialogService = dialogService;
         ExternalLauncher = externalLauncher;
@@ -281,6 +283,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _folderService = folderService;
         _fileService = fileService;
         _requestDelegator = requestDelegator;
+        Invitation = new MailInvitationCardViewModel(mailInvitationService, calendarService, navigationService, preferencesService, ExecuteUIThread);
         IsDarkWebviewRenderer = GetReaderThemeIsDark(_underlyingThemeService.IsUnderlyingThemeDark());
         ReaderDarkModeMethod = PreferencesService.ReaderDarkModeMethod;
     }
@@ -548,6 +551,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         CurrentMailItemDisplayInformation = null;
         CurrentRenderModel = null;
         ResetPrivacyState();
+        ResetInvitation();
 
         Subject = string.Empty;
         FromName = string.Empty;
@@ -723,6 +727,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
 
         initializedMailItemViewModel = mailItemViewModel;
+        BeginInvitationLoad(mailItemViewModel, mimeMessageInformation.MimeMessage, cancellationToken);
         await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
         await RenderAsync(mimeMessageInformation);
     }
@@ -851,6 +856,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
         CurrentMailItemDisplayInformation = null;
+        ResetInvitation();
 
         StatePersistenceService.IsReadingMail = false;
     }

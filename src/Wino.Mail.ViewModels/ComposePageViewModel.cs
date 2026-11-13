@@ -678,7 +678,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             if (path.Content == null) continue;
 
-            await bodyBuilder.Attachments.AddAsync(path.FileName, new MemoryStream(path.Content));
+            if (path.DeclaredContentType is { } contentType)
+                await bodyBuilder.Attachments.AddAsync(path.FileName, new MemoryStream(path.Content), contentType);
+            else
+                await bodyBuilder.Attachments.AddAsync(path.FileName, new MemoryStream(path.Content));
         }
     }
 

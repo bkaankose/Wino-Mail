@@ -17,6 +17,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Misc;
 using Wino.Core.Domain.Models.Intelligence;
@@ -2628,6 +2629,9 @@ public class MailService : BaseDatabaseService, IMailService
             }
         }
 
+        if (reason == DraftCreationReason.Forward)
+            AttachForwardedInvitation(referenceMessage, builder);
+
         return message;
 
         // Generates html representation of To/Cc/From/Time and so on from referenced message.
@@ -2660,6 +2664,46 @@ public class MailService : BaseDatabaseService, IMailService
         static string ParticipantsToHtml(InternetAddressList internetAddresses) =>
             string.Join("; ", internetAddresses.Mailboxes
                                         .Select(x => $"{x.Name ?? Translator.UnknownSender} &lt;<a href=\"mailto:{x.Address ?? Translator.UnknownAddress}\">{x.Address ?? Translator.UnknownAddress}</a>&gt;"));
+    }
+
+    /// <summary>
+    /// A forwarded invitation keeps its request so the recipient can still answer it: an inline
+    /// text/calendar alternative (RFC 6047 section 2.4) is not an attachment and would be lost.
+    /// Cancellations and replies are not forwarded as calendar data.
+    /// </summary>
+    private static void AttachForwardedInvitation(MimeMessage referenceMessage, BodyBuilder builder)
+    {
+        var calendarPart = MailInvitationReader.FindCalendarPart(referenceMessage);
+        if (calendarPart == null || calendarPart.IsAttachment)
+            return;
+
+        string icsContent;
+        try
+        {
+            icsContent = MailInvitationReader.ReadText(calendarPart);
+        }
+        catch (Exception ex)
+        {
+            Log.ForContext<MailService>().Warning(ex, "Could not read the invitation of a forwarded message");
+            return;
+        }
+
+        var invitation = MailInvitationReader.Parse(icsContent, MailInvitationReader.GetMethodParameter(calendarPart), defaultsToRequest: true);
+        if (invitation?.Method != MailInvitationMethod.Request)
+            return;
+
+        var contentType = new ContentType("text", "calendar") { Charset = "utf-8" };
+        contentType.Parameters.Add("method", "REQUEST");
+
+        var attachment = new MimePart(contentType)
+        {
+            Content = new MimeContent(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(icsContent))),
+            ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+            ContentTransferEncoding = ContentEncoding.Base64,
+            FileName = "invite.ics"
+        };
+
+        builder.Attachments.Add(attachment);
     }
 
     public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)

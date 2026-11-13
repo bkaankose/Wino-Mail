@@ -111,6 +111,8 @@ public static class CoreContainerSetup
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
         services.AddTransient<ICalDavSynchronizationEngine, CalDavSynchronizationEngine>();
+        services.AddTransient<CalDavSynchronizationEngine>();
+        services.AddTransient<IMailInvitationService, MailInvitationService>();
         services.AddTransient<ICalDavTaskSynchronizationEngine, CalDavTaskSynchronizationEngine>();
         services.AddTransient<ICardDavAddressBookService, CardDavAddressBookService>();
         services.AddTransient<ICardDavContactListService, CardDavContactListService>();
