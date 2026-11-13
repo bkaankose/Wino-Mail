@@ -140,6 +140,7 @@
             <ListView
                 AllowDrop="True"
                 AutomationProperties.AutomationId="FolderCustomizationPageListView"
+                CanDragItems="True"
                 CanReorderItems="True"
                 DragItemsCompleted="ListView_DragItemsCompleted"
                 ItemTemplate="{StaticResource FolderRowTemplate}"
@@ -169,6 +170,7 @@
             <ListView
                 AllowDrop="True"
                 AutomationProperties.AutomationId="FolderCustomizationPageListView2"
+                CanDragItems="True"
                 CanReorderItems="True"
                 DragItemsCompleted="ListView_DragItemsCompleted"
                 ItemTemplate="{StaticResource FolderRowTemplate}"
@@ -197,6 +199,7 @@
             <ListView
                 AllowDrop="True"
                 AutomationProperties.AutomationId="FolderCustomizationPageListView3"
+                CanDragItems="True"
                 CanReorderItems="True"
                 DragItemsCompleted="ListView_DragItemsCompleted"
                 ItemTemplate="{StaticResource FolderRowTemplate}"
