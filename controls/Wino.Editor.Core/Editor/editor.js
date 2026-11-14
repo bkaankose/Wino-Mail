@@ -714,7 +714,9 @@
     }
 
     function setTypography(fontFamily, fontSize) {
-        editor.style.fontFamily = fontFamily || "Calibri";
+        // Calibri and other Windows fonts are missing on Apple and Android, where a bare family falls back to a serif.
+        const family = String(fontFamily || "Calibri").replace(/["\\]/g, "");
+        editor.style.fontFamily = `"${family}", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
         editor.style.fontSize = `${Math.max(8, Math.min(72, Number(fontSize) || 14))}px`;
         sendState();
     }
