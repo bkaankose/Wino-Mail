@@ -15,7 +15,7 @@ namespace Wino.Mail.ViewModels.Voice;
 /// shortcuts and <see cref="VoiceBubbleController"/>) and the voice brain exist only while the entitlement grants access,
 /// and are torn down when it ends.
 /// </summary>
-public sealed class VoiceAssistantActivation : IDisposable
+public sealed partial class VoiceAssistantActivation : IDisposable
 {
     private readonly IWinoAccountIntelligenceSnapshotService _entitlements;
     private readonly IAgentRuntimeHost _runtime;

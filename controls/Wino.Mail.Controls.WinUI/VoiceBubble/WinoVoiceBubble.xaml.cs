@@ -16,6 +16,7 @@ using Windows.UI.Core;
 using Windows.UI.ViewManagement;
 using Wino.Mail.Controls.AccountIcon;
 using Wino.Mail.Controls.Core.VoiceBubble;
+using WinRT;
 
 namespace Wino.Mail.Controls.VoiceBubble;
 
@@ -222,6 +223,7 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
     private int _lastQuestionIndex = -1;
     private List<VoiceBubbleChoice>? _choices;
 
+    [DynamicWindowsRuntimeCast(typeof(Style))]
     public WinoVoiceBubble()
     {
         InitializeComponent();
@@ -418,6 +420,7 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
     /// Fades the text's own theme colour. Looking a theme brush up from code would follow the app theme,
     /// not a RequestedTheme set on the bubble or its host.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
     private SolidColorBrush? CreatePendingBrush()
     {
         if (TranscriptText.Foreground is not SolidColorBrush foreground)
@@ -775,6 +778,10 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
     private void UpdateSelectedConfirm()
         => StepsConfirmButton.IsEnabled = ConfirmationGroups?.Any(static group => group.CanSelect && group.IsSelected) == true;
 
+    [DynamicWindowsRuntimeCast(typeof(Border))]
+    [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
+    [DynamicWindowsRuntimeCast(typeof(TextBlock))]
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
     private FrameworkElement CreateNotice(string message)
     {
         // Drawn from XAML so the warning brushes follow the bubble's RequestedTheme. Its text block is the grid's second child.
@@ -845,6 +852,8 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
         return header;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
     private FrameworkElement CreateGroupIcon(VoiceBubbleStepGroup group)
     {
         if (group.Kind == VoiceBubbleStepGroupKind.Unresolved)

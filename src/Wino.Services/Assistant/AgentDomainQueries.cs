@@ -237,7 +237,7 @@ public sealed class AgentDomainQueries(
         var view = query.MyDay ? TaskViewKind.MyDay : query.Important ? TaskViewKind.Important : TaskViewKind.All;
         var listId = query.ListIds.Count == 1 ? query.ListIds[0] : (Guid?)null;
         List<AccountTask> tasks;
-        try { tasks = await taskQueryService.GetTasksAsync(accountId, listId, view, Blank(query.TitleWords), TaskSortKind.DueDate).ConfigureAwait(false) ?? []; }
+        try { tasks = await taskQueryService.GetTasksAsync(accountId, listId, view, Blank(query.TitleWords) ?? string.Empty, TaskSortKind.DueDate).ConfigureAwait(false) ?? []; }
         catch (Exception ex)
         {
             Log.Debug(ex, "Could not read the tasks for the assistant.");

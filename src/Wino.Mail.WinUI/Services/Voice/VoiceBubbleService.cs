@@ -18,7 +18,7 @@ namespace Wino.Mail.WinUI.Services.Voice;
 /// The Windows side of the voice bubble: the tray-anchored popup window, its global shortcut, the XAML frame clock
 /// and the theme. The flow itself runs in the shared <see cref="VoiceBubbleController"/>.
 /// </summary>
-internal sealed class VoiceBubbleService : IVoiceBubbleHost, IDisposable
+internal sealed partial class VoiceBubbleService : IVoiceBubbleHost, IDisposable
 {
     private readonly DispatcherQueue _dispatcher;
     private readonly INativeAppService _nativeAppService;

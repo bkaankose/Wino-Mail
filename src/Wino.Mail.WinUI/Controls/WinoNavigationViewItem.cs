@@ -141,6 +141,7 @@ public partial class WinoNavigationViewItem : NavigationViewItem
 
     /// <summary>Input on a child row bubbles through this row and does not toggle it.</summary>
     [DynamicWindowsRuntimeCast(typeof(NavigationViewItem))]
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private bool IsOwnRowInput(object? originalSource)
     {
         for (var element = originalSource as DependencyObject; element != null; element = VisualTreeHelper.GetParent(element))

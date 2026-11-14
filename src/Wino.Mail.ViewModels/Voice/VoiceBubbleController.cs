@@ -39,7 +39,7 @@ namespace Wino.Mail.ViewModels.Voice;
 /// <see cref="IVoiceBubbleHost"/> and the steps that open app windows through <see cref="IAgentPlanHost"/>.
 /// Everything except the audio callbacks runs on the host's UI thread.
 /// </summary>
-public sealed class VoiceBubbleController : IDisposable
+public sealed partial class VoiceBubbleController : IDisposable
 {
     private const double SpeechLevel = 0.45;
     private const double QuietLevel = 0.3;
@@ -1041,7 +1041,7 @@ public sealed class VoiceBubbleController : IDisposable
         var groups = plan.Steps.GroupBy(step => AccountOf(step)).ToList();
         _groupSteps = groups.Select(static g => g.Select(static step => step.N).ToList()).ToList();
         _bubbleGroups = groups.Select((g, index) => ToBubbleGroup(g.Key is { } id ? accounts.FirstOrDefault(a => a.Id == id) : null, g.ToList(),
-            index == 0 && plan.MayHaveMisunderstood ? [Translator.AssistantPlan_Misunderstood] : [])).ToArray();
+            index == 0 && plan.MayHaveMisunderstood ? (string[])[Translator.AssistantPlan_Misunderstood] : (string[])[])).ToArray();
 
         if ((_preferences.IsVoiceAutoConfirmEnabled || _selection is not null) && !plan.NeedsConfirmation && !plan.MayHaveMisunderstood)
         {

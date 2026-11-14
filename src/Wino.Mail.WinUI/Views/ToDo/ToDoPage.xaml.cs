@@ -381,6 +381,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             await ViewModel.SetTaskDueDateAsync(task, value.Date);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void ShowMoveTaskFlyout(TaskItemViewModel task)
     {
         _moveTaskTarget = task;
