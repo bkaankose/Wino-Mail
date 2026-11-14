@@ -2407,7 +2407,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     /// </summary>
     private static bool ShouldDownloadMimeForMessage(Message message, MailItemFolder folder, MailItemType itemType)
         => folder.SpecialFolderType == SpecialFolderType.Draft
-           || itemType == MailItemType.CalendarInvitation
+           || itemType != MailItemType.Mail
            || LooksLikeReadReceipt(message);
 
     private static bool LooksLikeReadReceipt(Message message)

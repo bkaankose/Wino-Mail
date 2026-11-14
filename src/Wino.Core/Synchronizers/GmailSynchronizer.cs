@@ -4034,6 +4034,10 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         return MailItemType.Mail;
     }
 
+    private static bool HasCalendarHint(global::Google.Apis.Gmail.v1.Data.MessagePart part)
+        => part != null
+           && (MailInvitationReader.IsCalendarHint(part.MimeType, part.Filename) || part.Parts?.Any(HasCalendarHint) == true);
+
     private static MailItemType GetCalendarMailItemType(ContentType contentType)
     {
         if (contentType?.IsMimeType("text", "calendar") != true)
@@ -4197,10 +4201,10 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         // Create base MailCopy from the available metadata and MIME part headers.
         var baseMailCopy = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
 
-        // Initial sync metadata flow does not include MIME, but calendar invitations need MIME
-        // for date rendering and invitation-to-calendar mapping.
+        // Initial sync metadata flow does not include MIME, but calendar mail needs MIME for date
+        // rendering and invitation-to-calendar mapping. Any calendar part or .ics file is enough.
         if (mimeMessage == null &&
-            (baseMailCopy?.ItemType == MailItemType.CalendarInvitation || LooksLikeReadReceipt(message?.Payload?.Headers)) &&
+            (baseMailCopy?.ItemType == MailItemType.CalendarInvitation || HasCalendarHint(message?.Payload) || LooksLikeReadReceipt(message?.Payload?.Headers)) &&
             !string.IsNullOrEmpty(message?.Id))
         {
             try

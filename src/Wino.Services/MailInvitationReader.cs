@@ -36,6 +36,27 @@ public static class MailInvitationReader
         return part == null ? MailItemType.Mail : GetItemType(MapPartMethod(GetMethodParameter(part.ContentType), part.IsAttachment));
     }
 
+    /// <summary>
+    /// Whether a BODYSTRUCTURE carries calendar data anywhere: a text/calendar or application/ics part,
+    /// or a .ics/.vcs file, including inside attached (forwarded) messages. Synchronizers download such
+    /// messages in full, because the mail list reads the event from the MIME.
+    /// </summary>
+    public static bool HasCalendarHint(BodyPart? body)
+        => body switch
+        {
+            BodyPartMultipart multipart => multipart.BodyParts.Any(HasCalendarHint),
+            BodyPartMessage message => HasCalendarHint(message.Body),
+            BodyPartBasic basic => IsCalendarHint(basic.ContentType?.MimeType, basic.FileName),
+            _ => false
+        };
+
+    /// <summary>Whether a part's media type or file name marks it as calendar data.</summary>
+    public static bool IsCalendarHint(string? mimeType, string? fileName)
+        => string.Equals(mimeType, "text/calendar", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(mimeType, "application/ics", StringComparison.OrdinalIgnoreCase)
+           || fileName?.EndsWith(".ics", StringComparison.OrdinalIgnoreCase) == true
+           || fileName?.EndsWith(".vcs", StringComparison.OrdinalIgnoreCase) == true;
+
     /// <summary>The item type of a downloaded message, by the same rule as <see cref="GetItemType(BodyPart?)"/>.</summary>
     public static MailItemType GetItemType(MimeMessage? message)
     {

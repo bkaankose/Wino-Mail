@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
+using MimeKit;
 using MoreLinq;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
@@ -487,13 +488,16 @@ public class UnifiedImapSynchronizer
                         throw new IOException("IMAP FETCH omitted messages that still exist. The synchronization checkpoint was not advanced.");
                 }
 
+                var calendarMimeByUid = await DownloadCalendarHintedMimeAsync(remoteFolder, newSummaryBatch, cancellationToken).ConfigureAwait(false);
+
                 downloadedMessageIds.AddRange(await ProcessSummariesCoreAsync(
                     synchronizer,
                     localFolder,
                     newSummaryBatch,
                     existingByUid,
                     cancellationToken,
-                    suppressMatchingLocalFilters).ConfigureAwait(false));
+                    suppressMatchingLocalFilters,
+                    calendarMimeByUid).ConfigureAwait(false));
             }
         }
 
@@ -836,7 +840,8 @@ public class UnifiedImapSynchronizer
         IList<IMessageSummary> summaries,
         IReadOnlyDictionary<uint, MailCopy> existingByUid,
         CancellationToken cancellationToken,
-        bool suppressMatchingLocalFilters)
+        bool suppressMatchingLocalFilters,
+        IReadOnlyDictionary<uint, MimeMessage> mimeByUid = null)
     {
         var downloadedMessageIds = new List<string>();
 
@@ -875,7 +880,7 @@ public class UnifiedImapSynchronizer
                 continue;
             }
 
-            var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage: null);
+            var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage: mimeByUid?.GetValueOrDefault(summary.UniqueId.Id));
             var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, localFolder, cancellationToken).ConfigureAwait(false);
 
             if (mailPackages == null)
@@ -917,6 +922,35 @@ public class UnifiedImapSynchronizer
         }
 
         return downloadedMessageIds;
+    }
+
+    /// <summary>
+    /// Downloads the whole message for summaries whose BODYSTRUCTURE carries calendar data. The mail
+    /// list reads an invitation's event from the MIME, so it would otherwise stay empty until opened.
+    /// A message that can't be downloaded is cached without MIME, as before; opening it downloads it.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<uint, MimeMessage>> DownloadCalendarHintedMimeAsync(
+        IMailFolder remoteFolder,
+        IEnumerable<IMessageSummary> summaries,
+        CancellationToken cancellationToken)
+    {
+        var mimeByUid = new Dictionary<uint, MimeMessage>();
+
+        foreach (var summary in summaries.Where(summary => MailInvitationReader.HasCalendarHint(summary.Body)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                mimeByUid[summary.UniqueId.Id] = await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is MessageNotFoundException or ImapCommandException or FormatException)
+            {
+                _logger.Warning(ex, "Could not download calendar message {Uid} in {FolderName}; it is cached without MIME.", summary.UniqueId.Id, remoteFolder.FullName);
+            }
+        }
+
+        return mimeByUid;
     }
 
     private async Task<int> ApplySummaryFlagUpdatesAsync(
