@@ -48,9 +48,9 @@ public sealed partial class MailListPageViewController
     private readonly WinoStateView _emptyState = new(WinoIconGlyph.Mail, Translator.NoMessageEmptyFolder, null) { Hidden = true };
     private readonly WinoStateView _loadingState = new(WinoIconGlyph.Mail, string.Empty, null) { Hidden = true };
     private readonly WinoInfoBar _undoBar = new() { Hidden = true, IsClosable = false, ActionTitle = Translator.UndoActions_Button };
-    private readonly WinoSurfaceView _undoBarHost = new() { Fill = UIColor.SystemBackground, CornerRadius = WinoStyle.GroupRadius, Hidden = true };
+    private readonly WinoSurfaceView _undoBarHost = FloatingBarHost();
     private readonly WinoInfoBar _infoBar = new() { Hidden = true, IsClosable = false, AutoDismissInterval = TimeSpan.FromSeconds(2) };
-    private readonly WinoSurfaceView _infoBarHost = new() { Fill = UIColor.SystemBackground, CornerRadius = WinoStyle.GroupRadius, Hidden = true };
+    private readonly WinoSurfaceView _infoBarHost = FloatingBarHost();
     private readonly UIRefreshControl _refresh = new();
     private UITableViewDiffableDataSource<NSString, NSString>? _dataSource;
     private ListDelegate? _delegate;
@@ -93,7 +93,7 @@ public sealed partial class MailListPageViewController
         WinoAccessibility.Label(_selectButton, Translator.Buttons_Multiselect);
         _selectButton.PrimaryActionTriggered += (_, _) => ViewModel.IsMultiSelectionModeEnabled = true;
         WinoLayout.Priorities(_selectButton, UILayoutConstraintAxis.Horizontal, 1000, 1000);
-        var header = WinoLayout.Insets(WinoLayout.HStack(8, _pivotBar, WinoLayout.Spacer(), _emptyFolderButton, _filterButton, _selectButton), 6, 10, 2, 6);
+        var header = WinoLayout.Insets(WinoLayout.HStack(8, _pivotBar, WinoLayout.Spacer(), _emptyFolderButton, _filterButton, _selectButton), 6, 16, 2, 10);
         header.Alignment = UIStackViewAlignment.Center;
         WinoLayout.Fill(header, _headerRow);
 
@@ -121,14 +121,23 @@ public sealed partial class MailListPageViewController
         _onlineSearchButton.Configuration = onlineConfiguration;
         _onlineSearchButton.HorizontalAlignment = UIControlContentHorizontalAlignment.Leading;
         _onlineSearchButton.PrimaryActionTriggered += (_, _) => Observe(RunOnlineSearchAsync());
-        WinoLayout.Fill(_onlineSearchButton, _onlineSearchRow, 6, 10, 10, 10);
+        _onlineSearchButton.TranslatesAutoresizingMaskIntoConstraints = false;
+        _onlineSearchRow.AddSubview(_onlineSearchButton);
+        // The column runs under the floating tab bar, so the last row keeps its button inside the safe area.
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            _onlineSearchButton.TopAnchor.ConstraintEqualTo(_onlineSearchRow.TopAnchor, 6),
+            _onlineSearchButton.LeadingAnchor.ConstraintEqualTo(_onlineSearchRow.LeadingAnchor, 16),
+            _onlineSearchButton.TrailingAnchor.ConstraintEqualTo(_onlineSearchRow.TrailingAnchor, -16),
+            _onlineSearchButton.BottomAnchor.ConstraintEqualTo(_onlineSearchRow.SafeAreaLayoutGuide.BottomAnchor, -10)
+        ]);
 
         // The table: Wino rows over the shared projection. The date headers have no background, so a header the table
         // pins at the top hides its label (WinoMailGroupHeaderView.HidesWhenPinned) and headers read as scrolling rows.
         _table.BackgroundColor = UIColor.Clear;
         _table.SeparatorStyle = UITableViewCellSeparatorStyle.None;
         _table.SectionHeaderTopPadding = 0;
-        // iOS 26 blurs the top edge of the bar's content scroll view; the zone starts below the bar, so the blur only
+        // iOS 26 blurs the top edge of the bar's content scroll view; the list starts below the bar, so the blur only
         // left an empty band over the first row once the header row slid away.
         if (OperatingSystem.IsIOSVersionAtLeast(26)) _table.TopEdgeEffect.Hidden = true;
         _table.EstimatedRowHeight = 90;
@@ -152,8 +161,8 @@ public sealed partial class MailListPageViewController
 
         var listHost = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(_table, listHost);
-        _emptyState.Place(listHost);
-        _loadingState.Place(listHost);
+        PlaceInSafeArea(_emptyState, listHost);
+        PlaceInSafeArea(_loadingState, listHost);
         _loadingSpinner = _loadingState.UseSpinner();
         _loadingState.Title.Hidden = true;
 
@@ -164,14 +173,67 @@ public sealed partial class MailListPageViewController
         _undoBar.ActionInvoked += (_, _) => Observe(ViewModel.UndoLatestQueuedActionCommand.ExecuteAsync(null));
         _undoBar.Closed += (_, _) => ViewModel.IsUndoMailActionBarOpen = false;
         _infoBar.Closed += (_, _) => ViewModel.IsBarOpen = false;
-        foreach (var (bar, host) in new (UIView Bar, WinoSurfaceView Host)[] { (_undoBar, _undoBarHost), (_infoBar, _infoBarHost) })
+        foreach (var (bar, host) in new (UIView Bar, UIView Host)[] { (_undoBar, _undoBarHost), (_infoBar, _infoBarHost) })
         {
-            host.Layer.ShadowColor = UIColor.Black.CGColor;
-            host.Layer.ShadowOpacity = 0.18f;
-            host.Layer.ShadowRadius = 10;
-            host.Layer.ShadowOffset = new CoreGraphics.CGSize(0, 3);
             WinoLayout.Fill(bar, host);
-            page.Overlay.AddArrangedSubview(host);
+            page.Overlay.AddArrangedSubview(host.Superview ?? host);
+        }
+    }
+
+    /// <summary>
+    /// The undo and status bars float over the rows above the tab bar, so each carries its own card: radius 14, a light
+    /// stroke and a soft shadow. The shadow sits on an unclipped wrapper because the rounded card clips its content.
+    /// </summary>
+    private static WinoSurfaceView FloatingBarHost()
+    {
+        var card = new WinoSurfaceView
+        {
+            Fill = WinoStyle.Dynamic(UIColor.White, WinoStyle.Hex(0x2A2A30)),
+            Stroke = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.08), WinoStyle.Hex(0xFFFFFF, 0.10)),
+            CornerRadius = 14
+        };
+        var shadow = new FloatingBarShadow { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(card, shadow);
+        shadow.Hidden = true;
+        return card;
+    }
+
+    private static void PlaceInSafeArea(UIView state, UIView host)
+    {
+        host.AddSubview(state);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            state.TopAnchor.ConstraintEqualTo(host.TopAnchor),
+            state.LeadingAnchor.ConstraintEqualTo(host.LeadingAnchor),
+            state.TrailingAnchor.ConstraintEqualTo(host.TrailingAnchor),
+            state.BottomAnchor.ConstraintEqualTo(host.SafeAreaLayoutGuide.BottomAnchor)
+        ]);
+    }
+
+    private static void ShowFloatingBar(WinoSurfaceView card, bool open)
+    {
+        if (card.Superview is { } shadow) shadow.Hidden = !open;
+    }
+
+    private sealed class FloatingBarShadow : UIView
+    {
+        public FloatingBarShadow()
+        {
+            Layer.ShadowColor = UIColor.Black.CGColor;
+            Layer.ShadowOpacity = 0.16f;
+            Layer.ShadowRadius = 12;
+            Layer.ShadowOffset = new CoreGraphics.CGSize(0, 4);
+        }
+
+        // Only the native view tree holds the wrapper, so the runtime may collect the managed peer and rebuild it here.
+        public FloatingBarShadow(ObjCRuntime.NativeHandle handle) : base(handle)
+        {
+        }
+
+        public override void LayoutSubviews()
+        {
+            base.LayoutSubviews();
+            Layer.ShadowPath = UIBezierPath.FromRoundedRect(Bounds, 14).CGPath;
         }
     }
 
@@ -402,7 +464,7 @@ public sealed partial class MailListPageViewController
         _infoBar.Severity = MapSeverity(ViewModel.BarSeverity);
         // Host first: the bar starts its auto-dismiss countdown only when it is really visible, so un-hiding it inside a
         // still-hidden host left it on screen for good.
-        _infoBarHost.Hidden = !open;
+        ShowFloatingBar(_infoBarHost, open);
         _infoBar.Hidden = !open;
     }
 
@@ -412,7 +474,7 @@ public sealed partial class MailListPageViewController
         _undoBar.Title = ViewModel.UndoMailActionBarTitle;
         _undoBar.Severity = MapSeverity(ViewModel.UndoMailActionBarSeverity);
         _undoBar.AutoDismissInterval = TimeSpan.FromSeconds(ViewModel.UndoMailActionBarDismissInterval);
-        _undoBarHost.Hidden = !open;
+        ShowFloatingBar(_undoBarHost, open);
         _undoBar.Hidden = !open;
     }
 

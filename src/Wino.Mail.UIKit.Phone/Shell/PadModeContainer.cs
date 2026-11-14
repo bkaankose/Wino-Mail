@@ -83,6 +83,7 @@ internal sealed class PadModeContainer : UIViewController
     private readonly ModeStackController _stack;
     private readonly UINavigationController _item;
     private readonly UIViewController? _idle;
+    private readonly UIView _listEdge = new() { BackgroundColor = WinoStyle.Separator, Hidden = true, UserInteractionEnabled = false };
     private readonly bool _detailsPanel;
     private readonly Action _changed;
     private bool _paired;
@@ -125,6 +126,7 @@ internal sealed class PadModeContainer : UIViewController
         AddChildViewController(_stack);
         if (_stack.View is { } stackView) root.AddSubview(stackView);
         _stack.DidMoveToParentViewController(this);
+        root.AddSubview(_listEdge);
         AddChildViewController(_item);
         if (_item.View is { } itemView)
         {
@@ -198,11 +200,15 @@ internal sealed class PadModeContainer : UIViewController
         {
             stackView.Frame = bounds;
             itemView.Hidden = true;
+            _listEdge.Hidden = true;
             return;
         }
         double itemWidth = _detailsPanel ? DetailsWidth : (double)bounds.Width - safe.Left - ListWidth - Gutter - safe.Right - Gutter;
         double listWidth = _detailsPanel ? (double)bounds.Width - safe.Right - Gutter - DetailsWidth - Gutter : safe.Left + ListWidth;
         stackView.Frame = new CGRect(0, 0, listWidth, bounds.Height);
+        var hairline = 1 / Math.Max(1, (double)TraitCollection.DisplayScale);
+        _listEdge.Frame = new CGRect(listWidth - hairline, 0, hairline, bounds.Height);
+        _listEdge.Hidden = false;
         double top = (double)safe.Top;
         double bottom = (double)(bounds.Height - safe.Bottom) - Gutter;
         itemView.Frame = new CGRect(listWidth + Gutter, top, itemWidth, Math.Max(0, bottom - top));

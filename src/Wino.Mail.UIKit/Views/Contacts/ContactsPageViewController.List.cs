@@ -53,7 +53,7 @@ public abstract partial class ContactsPageViewController
         _refresh.ValueChanged += (_, _) => Refresh();
         _table.RefreshControl = _refresh;
         WinoAccessibility.Label(_table, Translator.ContactsPage_Title);
-        WinoLayout.Fill(_table, host, 0, 4, 0, 4);
+        WinoLayout.Fill(_table, host);
 
         var addFirst = new UIButton(UIButtonType.System);
         addFirst.SetTitle(Translator.ContactsPage_AddFirstContact, UIControlState.Normal);

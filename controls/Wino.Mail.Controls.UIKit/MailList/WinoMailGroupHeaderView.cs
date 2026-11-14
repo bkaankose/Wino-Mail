@@ -28,7 +28,7 @@ public class WinoMailGroupHeaderView : UITableViewHeaderFooterView
     {
         // The system header background (a blur in plain tables) would cover the rows under a pinned header.
         BackgroundConfiguration = UIBackgroundConfiguration.ClearConfiguration;
-        _title = WinoStyle.Label(string.Empty, WinoMailRowMeasure.Font(WinoMailRowMetrics.GroupHeaderFontSize, UIFontWeight.Semibold), WinoStyle.SecondaryText);
+        _title = WinoStyle.Label(string.Empty, WinoMailRowMeasure.Font(WinoMailRowMeasure.GroupHeaderFontSize, UIFontWeight.Semibold), WinoStyle.SecondaryText);
         ContentView.AddSubview(_title);
         NSLayoutConstraint.ActivateConstraints(
         [

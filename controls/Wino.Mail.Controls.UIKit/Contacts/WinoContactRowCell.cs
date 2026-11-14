@@ -48,7 +48,7 @@ public sealed class WinoContactRowCell : UITableViewCell
 {
     public new const string ReuseIdentifier = "WinoContactRow";
 
-    private readonly WinoSurfaceView _fill = new() { CornerRadius = WinoContactStyle.RowRadius, Hidden = true };
+    private readonly WinoSurfaceView _fill = new() { Hidden = true };
     private readonly WinoContactPicture _picture = new(WinoContactStyle.AvatarSize);
     private readonly UILabel _name = WinoStyle.Label(string.Empty, WinoStyle.Scaled(16));
     private readonly UILabel _secondary = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
@@ -72,7 +72,7 @@ public sealed class WinoContactRowCell : UITableViewCell
 #endif
         SelectionStyle = UITableViewCellSelectionStyle.None;
         BackgroundColor = UIColor.Clear;
-        WinoLayout.Fill(_fill, ContentView, 1, 4, 1, 4);
+        WinoLayout.Fill(_fill, ContentView);
         WinoLayout.Priorities(_name, UILayoutConstraintAxis.Horizontal, 1, 250);
         WinoLayout.Priorities(_secondary, UILayoutConstraintAxis.Horizontal, 1, 250);
         // The source ("Account · Address book") is the third line, as on the Mac: as a trailing column it was cut
@@ -89,7 +89,7 @@ public sealed class WinoContactRowCell : UITableViewCell
         _star.OnPrimaryAction(this, static cell => cell._toggleFavorite?.Invoke());
         WinoLayout.Size(_star, 44, 44);
 
-        var row = WinoLayout.Insets(WinoLayout.HStack(12, _picture, text, WinoLayout.Spacer(), _star), 6, 12, 6, 4);
+        var row = WinoLayout.Insets(WinoLayout.HStack(12, _picture, text, WinoLayout.Spacer(), _star), 6, 16, 6, 4);
         row.Distribution = UIStackViewDistribution.Fill;
         WinoLayout.Fill(row, ContentView);
         IsAccessibilityElement = false;

@@ -1,3 +1,4 @@
+using Foundation;
 using CoreAnimation;
 using UIKit;
 
@@ -113,5 +114,58 @@ public class WinoZoneView : UIView
         base.LayoutSubviews();
         // A shadow path keeps scrolling cheap: the layer does not have to derive the shape from its content.
         Layer.ShadowPath = UIBezierPath.FromRoundedRect(Bounds, (nfloat)_surface.CornerRadius).CGPath;
+    }
+}
+
+/// <summary>
+/// The full-bleed surface of a phone mode root (iOS refresh, 14 Nov 2026): the zone fill from edge to edge with no radius,
+/// stroke or shadow. Pin it to the page view's edges, not the safe area, so the bar band shows the same colour. While a
+/// theme paints a backdrop, a gradient mask lets the wallpaper show behind the status bar and the bar buttons and fades it
+/// out by the safe-area top, before the first row.
+/// </summary>
+public sealed class WinoPageSurfaceView : WinoSurfaceView
+{
+    private readonly CAGradientLayer _fade = new()
+    {
+        Colors = [UIColor.Clear.CGColor, UIColor.Clear.CGColor, UIColor.Black.CGColor, UIColor.Black.CGColor]
+    };
+
+    public WinoPageSurfaceView()
+    {
+        Fill = WinoStyle.ZoneFill;
+        UserInteractionEnabled = false;
+        WinoStyle.BackdropWatchers.Add(this, static view => view.SetNeedsLayout());
+    }
+
+    public override void SafeAreaInsetsDidChange()
+    {
+        base.SafeAreaInsetsDidChange();
+        SetNeedsLayout();
+    }
+
+    public override void LayoutSubviews()
+    {
+        base.LayoutSubviews();
+        var height = (double)Bounds.Height;
+        if (!WinoStyle.HasBackdrop || height <= 0)
+        {
+            Layer.Mask = null;
+            return;
+        }
+        // The window's top inset is the status bar; the view's own top inset adds the navigation bar.
+        double barContentTop = Math.Max(0, (double)(Window?.SafeAreaInsets.Top ?? 0));
+        double safeTop = Math.Max(barContentTop, (double)SafeAreaInsets.Top);
+        CATransaction.Begin();
+        CATransaction.DisableActions = true;
+        _fade.Frame = Bounds;
+        _fade.Locations = [NSNumber.FromDouble(0), NSNumber.FromDouble(barContentTop / height), NSNumber.FromDouble(Math.Max(safeTop, barContentTop + 1) / height), NSNumber.FromDouble(1)];
+        Layer.Mask = _fade;
+        CATransaction.Commit();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) WinoStyle.BackdropWatchers.Remove(this);
+        base.Dispose(disposing);
     }
 }

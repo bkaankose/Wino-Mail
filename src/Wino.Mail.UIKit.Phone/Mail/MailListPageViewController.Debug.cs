@@ -64,7 +64,7 @@ public sealed partial class MailListPageViewController
         UIKitDebugBridge.Register("barinfo", _ => Task.FromResult(
             $"title='{NavigationItem.Title}' left=[{string.Join(",", (NavigationItem.LeftBarButtonItems ?? []).Select(static item => item.AccessibilityLabel ?? item.Title))}] " +
             $"right=[{string.Join(",", (NavigationItem.RightBarButtonItems ?? []).Select(static item => item.AccessibilityLabel ?? item.Title))}] " +
-            $"search={(NavigationItem.SearchController is not null)} bar={NavigationController?.NavigationBar.Frame} zone={_page.ListZone.Frame} " +
+            $"search={(NavigationItem.SearchController is not null)} bar={NavigationController?.NavigationBar.Frame} column={_page.Column.Frame} " +
             $"largeTitles={NavigationController?.NavigationBar.PrefersLargeTitles} editing={_table.Editing}"));
         UIKitDebugBridge.Register("search", async args =>
         {

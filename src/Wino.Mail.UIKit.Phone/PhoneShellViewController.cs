@@ -399,7 +399,9 @@ public sealed class PhoneShellViewController : UIKitShellViewController
             {
                 var scroll = (UIScrollView)view;
                 var baseInset = _baseBottomInsets.GetValue(scroll, static target => new StrongBox<nfloat>(target.ContentInset.Bottom));
-                var bottom = root.ConvertRectFromView(scroll.Bounds, scroll).Bottom;
+                // A full-bleed list already insets its rows by the tab bar (its bottom safe area); only the rest is added.
+                var bottom = root.ConvertRectFromView(scroll.Bounds, scroll).Bottom
+                    - (scroll.ContentInsetAdjustmentBehavior == UIScrollViewContentInsetAdjustmentBehavior.Never ? 0 : scroll.SafeAreaInsets.Bottom);
                 nfloat overlap = _floatingButtonVisible && !view.Hidden ? (nfloat)Math.Max(0, (double)(bottom - buttonTop)) : 0;
                 var inset = scroll.ContentInset;
                 if (Math.Abs((double)(inset.Bottom - (baseInset.Value + overlap))) < 0.5) continue;
@@ -689,23 +691,11 @@ internal sealed class MailRootViewController : UIViewController
 
     public override void LoadView()
     {
-        var root = new UIView { BackgroundColor = UIColor.Clear };
-        var zone = new WinoZoneView();
-        root.AddSubview(zone);
-        var guide = root.SafeAreaLayoutGuide;
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, 8),
-            zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, (nfloat)WinoStyle.ZoneGutter),
-            zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -(nfloat)WinoStyle.ZoneGutter),
-            zone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -(nfloat)WinoStyle.ZoneGutter)
-        ]);
-        new WinoStateView(WinoIconGlyph.Mail, Translator.IOS_MailboxesTitle, null).Place(zone.ContentView);
-        View = root;
+        View = PlaceholderSurface.Create(new WinoStateView(WinoIconGlyph.Mail, Translator.IOS_MailboxesTitle, null));
     }
 }
 
-/// <summary>A mode's stack root before its page is built: the mode glyph and title in a Wino zone.</summary>
+/// <summary>A mode's stack root before its page is built: the mode glyph and title on the full-bleed surface.</summary>
 internal sealed class ModePlaceholderViewController : UIViewController
 {
     private readonly WinoModeSegment _segment;
@@ -718,18 +708,25 @@ internal sealed class ModePlaceholderViewController : UIViewController
 
     public override void LoadView()
     {
+        View = PlaceholderSurface.Create(new WinoStateView(_segment.Regular, _segment.Title, Translator.Info_UnsupportedFunctionalityDescription));
+    }
+}
+
+internal static class PlaceholderSurface
+{
+    public static UIView Create(WinoStateView state)
+    {
         var root = new UIView { BackgroundColor = UIColor.Clear };
-        var zone = new WinoZoneView();
-        root.AddSubview(zone);
+        WinoLayout.Fill(new WinoPageSurfaceView(), root);
+        root.AddSubview(state);
         var guide = root.SafeAreaLayoutGuide;
         NSLayoutConstraint.ActivateConstraints(
         [
-            zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, (nfloat)WinoStyle.ZoneGutter),
-            zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, (nfloat)WinoStyle.ZoneGutter),
-            zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -(nfloat)WinoStyle.ZoneGutter),
-            zone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -(nfloat)WinoStyle.ZoneGutter)
+            state.TopAnchor.ConstraintEqualTo(guide.TopAnchor),
+            state.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor),
+            state.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor),
+            state.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor)
         ]);
-        new WinoStateView(_segment.Regular, _segment.Title, Translator.Info_UnsupportedFunctionalityDescription).Place(zone.ContentView);
-        View = root;
+        return root;
     }
 }

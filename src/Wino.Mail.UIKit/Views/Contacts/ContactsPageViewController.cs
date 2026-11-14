@@ -14,7 +14,7 @@ namespace Wino.Mail.UIKit.Views.Contacts;
 
 /// <summary>
 /// The Contacts mode content page on both idioms (Windows ContactsPage, Mac ContactsPageViewController): the
-/// letter-indexed contact list in one Wino zone with search, pull to refresh, swipe and long-press actions, paging and
+/// letter-indexed contact list on the full-bleed surface with search, pull to refresh, swipe and long-press actions, paging and
 /// the blocked (readiness) state. The idiom decides where the contact card goes: the iPhone pushes it, the iPad shows it
 /// in the reader column. Partial files: List (table, sections, search) and Menus (context menu, swipes, filters).
 /// </summary>
@@ -22,7 +22,7 @@ public abstract partial class ContactsPageViewController : WinoViewController<Co
 {
     private readonly IPictureStorageService _pictures;
     private readonly Dictionary<Guid, UIImage?> _pictureCache = new();
-    private readonly WinoZoneView _zone = new();
+    private readonly UIView _content = new() { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly WinoStateView _blocked = new(WinoIconGlyph.People, string.Empty, string.Empty) { Hidden = true };
     private readonly UIButton _blockedAction = new(UIButtonType.System);
     private bool _released;
@@ -64,16 +64,16 @@ public abstract partial class ContactsPageViewController : WinoViewController<Co
     public override void LoadView()
     {
         var root = new UIView { BackgroundColor = UIColor.Clear };
-        root.AddSubview(_zone);
-        var guide = root.SafeAreaLayoutGuide;
+        WinoLayout.Fill(new WinoPageSurfaceView(), root);
+        root.AddSubview(_content);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, 2),
-            _zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, (nfloat)WinoStyle.ZoneGutter),
-            _zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -(nfloat)WinoStyle.ZoneGutter),
-            _zone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -(nfloat)WinoStyle.ZoneGutter)
+            _content.TopAnchor.ConstraintEqualTo(root.SafeAreaLayoutGuide.TopAnchor),
+            _content.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
+            _content.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
+            _content.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
         ]);
-        BuildList(_zone.ContentView);
+        BuildList(_content);
 
         // Windows ModeReadinessPanel: covers the list while People cannot be used.
         _blockedAction.PrimaryActionTriggered += (_, _) =>
@@ -82,7 +82,7 @@ public abstract partial class ContactsPageViewController : WinoViewController<Co
         };
         _blocked.Add(_blockedAction);
         _blocked.BackgroundColor = WinoStyle.ZoneFill;
-        _blocked.Place(_zone.ContentView);
+        _blocked.Place(_content);
         View = root;
     }
 

@@ -100,6 +100,7 @@ public sealed partial class MailListPageViewController
         _selectionMode = enabled;
         if (enabled) SetHeaderCollapsed(false);
         PhoneShellViewController.Of(this)?.UpdateFloatingButton();
+        _page.AvoidsFloatingButton = !enabled;
         // A two-finger pan that starts edit mode selects as it goes; only the button and the ViewModel start from nothing.
         if (!_enteringSelectionByInteraction) ClearSelection();
         if (_table.Editing != enabled) _table.SetEditing(enabled, true);

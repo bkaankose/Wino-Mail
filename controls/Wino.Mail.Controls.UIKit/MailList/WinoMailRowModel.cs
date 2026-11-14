@@ -115,8 +115,11 @@ public static class WinoMailRowMeasure
         return height;
     }
 
-    /// <summary>Group header strip height (shared <see cref="WinoMailRowMetrics.GroupRowHeight"/>).</summary>
-    public static double GroupRowHeight => WinoMailRowMetrics.GroupRowHeight(LineHeight(WinoMailRowMetrics.GroupHeaderFontSize));
+    /// <summary>The iOS date header is 13pt (iOS refresh, 14 Nov 2026), larger than the desktop's shared 11pt.</summary>
+    public const double GroupHeaderFontSize = 13;
+
+    /// <summary>Group header height: 32pt at the default text size, growing with Dynamic Type.</summary>
+    public static double GroupRowHeight => Math.Max(32, LineHeight(GroupHeaderFontSize) + 14);
 
     private static void ResetOnTextSizeChange()
     {

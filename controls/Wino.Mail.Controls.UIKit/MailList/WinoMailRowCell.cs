@@ -97,9 +97,17 @@ public class WinoMailRowCell : UITableViewCell
             _box.BottomAnchor.ConstraintEqualTo(ContentView.BottomAnchor, -(nfloat)WinoMailRowMetrics.RowGap)
         ]);
 
-        // Windows ListViewItem selection: a subtle rounded fill with a 3pt accent pill inside its leading edge.
-        _highlight = new WinoSurfaceView { CornerRadius = 6, Hidden = true };
-        WinoLayout.Fill(_highlight, _box);
+        // Windows ListViewItem selection with a 3pt accent pill inside its leading edge. The list is full-bleed on iOS
+        // (refresh of 14 Nov 2026), so the fill runs from edge to edge with no radius, under the edit-mode indent too.
+        _highlight = new WinoSurfaceView { Hidden = true };
+        InsertSubview(_highlight, 0);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            _highlight.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
+            _highlight.TrailingAnchor.ConstraintEqualTo(TrailingAnchor),
+            _highlight.TopAnchor.ConstraintEqualTo(TopAnchor),
+            _highlight.BottomAnchor.ConstraintEqualTo(BottomAnchor)
+        ]);
         _pill = new WinoSurfaceView { CornerRadius = WinoMailRowMetrics.PillWidth / 2, Fill = WinoStyle.Accent };
         _highlight.AddSubview(_pill);
         _pillHeight = _pill.HeightAnchor.ConstraintEqualTo(16);
@@ -337,7 +345,7 @@ public class WinoMailRowCell : UITableViewCell
         set { if (_hovered == value) return; _hovered = value; UpdateHover(); ApplySelection(); }
     }
 
-    /// <summary>Select mode shows the round check and draws a tint instead of the pill.</summary>
+    /// <summary>Select mode shows the round check and draws the selection fill without the pill.</summary>
     public bool IsSelectionMode
     {
         get => _selectionMode;
@@ -392,14 +400,13 @@ public class WinoMailRowCell : UITableViewCell
         ApplySelection();
     }
 
-    /// <summary>The Windows look: selected rows get the subtle fill and accent pill; select mode a 12% accent tint.</summary>
+    /// <summary>The Windows look: selected rows get the subtle fill and accent pill; select mode the same fill without the pill.</summary>
     private void ApplySelection()
     {
         bool selected = Selected;
         bool pressed = Highlighted && !selected;
         _highlight.Hidden = !(selected || pressed || (_hovered && !selected));
-        if (selected && _selectionMode) _highlight.Fill = WinoStyle.Accent.ColorWithAlpha(0.12f);
-        else if (selected) _highlight.Fill = WinoStyle.SelectedFill;
+        if (selected) _highlight.Fill = WinoStyle.SelectedFill;
         else _highlight.Fill = UIColor.Label.ColorWithAlpha(pressed ? 0.08f : 0.045f);
         _pill.Hidden = !selected || _selectionMode;
         _pill.Fill = WinoStyle.Accent;

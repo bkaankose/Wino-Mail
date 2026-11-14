@@ -25,7 +25,7 @@ namespace Wino.Mail.UIKit.Views.ToDo;
 /// </summary>
 public abstract partial class ToDoPageViewController : WinoViewController<ToDoPageViewModel>, IShellSearchTarget
 {
-    private readonly WinoZoneView _zone = new();
+    private readonly UIView _content = new() { TranslatesAutoresizingMaskIntoConstraints = false };
     // iPadToDo board (15 Oct 2026): the list title is a compact 17pt semibold header line, not a large accent title.
     private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoStyle.Scaled(17, UIFontWeight.Semibold));
     private readonly UILabel _subtitle = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
@@ -126,19 +126,21 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
     public override void LoadView()
     {
         var root = new UIView { BackgroundColor = UIColor.Clear };
-        root.AddSubview(_zone);
+        WinoLayout.Fill(new WinoPageSurfaceView(), root);
+        root.AddSubview(_content);
         var guide = root.SafeAreaLayoutGuide;
+        // The quick add bar rests on the content's foot, so the content stops at the safe area above the tab bar.
         NSLayoutConstraint.ActivateConstraints(
         [
-            _zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, 2),
-            _zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, (nfloat)WinoStyle.ZoneGutter),
-            _zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -(nfloat)WinoStyle.ZoneGutter),
-            _zone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -(nfloat)WinoStyle.ZoneGutter)
+            _content.TopAnchor.ConstraintEqualTo(guide.TopAnchor),
+            _content.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor),
+            _content.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor),
+            _content.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor)
         ]);
-        var content = _zone.ContentView;
+        var content = _content;
 
         _title.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);
-        _header = WinoLayout.Insets(WinoLayout.VStack(2, _title, _subtitle), 14, 18, 6, 18);
+        _header = WinoLayout.Insets(WinoLayout.VStack(2, _title, _subtitle), 14, 16, 6, 16);
         _header.Alignment = UIStackViewAlignment.Fill;
 
         BuildTable();
