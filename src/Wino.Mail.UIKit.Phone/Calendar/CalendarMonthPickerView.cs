@@ -9,36 +9,32 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Phone.Calendar;
 
 /// <summary>
-/// The iPhone calendar's month grid in the date picker sheet (replaces the shared <c>WinoMiniCalendarView</c> on the
-/// phone): a header with previous and next month buttons around the month title, the weekday initials, and a paging
-/// strip of three month pages so a horizontal swipe moves a month. The visible range shows as an accent band, today as
-/// an accent circle; tapping the title returns to today's month. Each day is its own 40pt button for touch and
-/// VoiceOver. The view is <see cref="PreferredHeight"/> tall; the host only sets its width.
+/// The iPhone calendar's month grid in the date selector (replaces the shared <c>WinoMiniCalendarView</c> on the
+/// phone; calendar refresh of 14 Nov 2026): the weekday initials and a paging strip of three month pages so a
+/// horizontal swipe moves a month. The selector draws the month title and the chevrons and pages through
+/// <see cref="Page"/>. The visible week shows as a fully rounded accent band, the picked day (or today inside the band)
+/// as an accent circle, today elsewhere in accent digits. Each day is its own 38pt button for touch and VoiceOver. The
+/// view is <see cref="PreferredHeight"/> tall; the host only sets its width.
 /// </summary>
 public sealed class CalendarMonthPickerView : UIView
 {
-    public const double PreferredHeight = HeaderHeight + HeaderGap + WeekdayHeight + Rows * CellHeight;
+    public const double PreferredHeight = WeekdayHeight + Rows * CellHeight;
 
-    private const double HeaderHeight = 44;
-    private const double HeaderGap = 8;
-    private const double WeekdayHeight = 20;
-    private const double CellHeight = 40;
+    private const double WeekdayHeight = 22;
+    private const double CellHeight = 38;
     private const double TodayCircle = 36;
     private const double BandHeight = 36;
-    private const double BandRadius = 8;
+    private const double BandRadius = BandHeight / 2;
     private const int Rows = WinoMiniCalendarGrid.Rows;
     private const int Columns = WinoMiniCalendarGrid.Columns;
-    private const string MonthFormat = "MMMM yyyy";
 
-    private readonly UIButton _previous;
-    private readonly UIButton _next;
-    private readonly UIButton _title;
     private readonly UILabel[] _weekdays = new UILabel[Columns];
     private readonly UIScrollView _pager;
     private readonly MonthPage[] _pages = new MonthPage[3];
 
     private DateOnly _displayMonth = WinoMiniCalendarGrid.MonthStart(DateOnly.FromDateTime(DateTime.Today));
     private IReadOnlySet<DateOnly> _selected = new HashSet<DateOnly>();
+    private DateOnly? _circleDate;
     private DayOfWeek _firstDayOfWeek = CultureInfo.CurrentCulture.DateTimeFormat.FirstDayOfWeek;
     private int _pendingShift;
     private nfloat _laidOutWidth = -1;
@@ -50,24 +46,6 @@ public sealed class CalendarMonthPickerView : UIView
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
         BackgroundColor = UIColor.Clear;
-
-        _previous = ChevronButton(WinoIconGlyph.ChevronLeft);
-        _previous.PrimaryActionTriggered += (_, _) => Page(-1);
-        _next = ChevronButton(WinoIconGlyph.ChevronRight);
-        _next.PrimaryActionTriggered += (_, _) => Page(1);
-
-        _title = new UIButton(UIButtonType.Custom) { TranslatesAutoresizingMaskIntoConstraints = false };
-        _title.TitleLabel.Font = WinoStyle.Fixed(20, UIFontWeight.Bold);
-        _title.TitleLabel.LineBreakMode = UILineBreakMode.TailTruncation;
-        _title.SetTitleColor(WinoStyle.PrimaryText, UIControlState.Normal);
-        _title.SetTitleColor(WinoStyle.SecondaryText, UIControlState.Highlighted);
-        _title.AccessibilityTraits = UIAccessibilityTrait.Header | UIAccessibilityTrait.Button;
-        _title.PrimaryActionTriggered += (_, _) => GoToToday();
-        _title.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);
-
-        var header = WinoLayout.HStack(0, _previous, _title, _next);
-        header.Alignment = UIStackViewAlignment.Center;
-        header.Distribution = UIStackViewDistribution.EqualCentering;
 
         var weekdays = WinoLayout.HStack(0);
         weekdays.Distribution = UIStackViewDistribution.FillEqually;
@@ -105,16 +83,11 @@ public sealed class CalendarMonthPickerView : UIView
         _pager.DraggingEnded += (_, args) => { if (!args.Decelerate) Settle(); };
         _pager.ScrollAnimationEnded += (_, _) => Settle();
 
-        AddSubview(header);
         AddSubview(weekdays);
         AddSubview(_pager);
         NSLayoutConstraint.ActivateConstraints(
         [
-            header.TopAnchor.ConstraintEqualTo(TopAnchor),
-            header.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
-            header.TrailingAnchor.ConstraintEqualTo(TrailingAnchor),
-            header.HeightAnchor.ConstraintEqualTo((nfloat)HeaderHeight),
-            weekdays.TopAnchor.ConstraintEqualTo(header.BottomAnchor, (nfloat)HeaderGap),
+            weekdays.TopAnchor.ConstraintEqualTo(TopAnchor),
             weekdays.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
             weekdays.TrailingAnchor.ConstraintEqualTo(TrailingAnchor),
             weekdays.HeightAnchor.ConstraintEqualTo((nfloat)WeekdayHeight),
@@ -154,6 +127,18 @@ public sealed class CalendarMonthPickerView : UIView
         }
     }
 
+    /// <summary>The day drawn as the accent circle (the picked day, or today inside the visible week); null for none.</summary>
+    public DateOnly? CircleDate
+    {
+        get => _circleDate;
+        set
+        {
+            if (_circleDate == value) return;
+            _circleDate = value;
+            Refresh();
+        }
+    }
+
     public DayOfWeek FirstDayOfWeek
     {
         get => _firstDayOfWeek;
@@ -187,21 +172,12 @@ public sealed class CalendarMonthPickerView : UIView
         _laidOutWidth = size.Width;
     }
 
-    private static UIButton ChevronButton(WinoIconGlyph glyph)
-    {
-        var button = new UIButton(UIButtonType.Custom) { TranslatesAutoresizingMaskIntoConstraints = false };
-        button.SetImage(WinoIcons.TemplateImage(glyph, 16), UIControlState.Normal);
-        button.TintColor = WinoStyle.SecondaryText;
-        WinoLayout.Size(button, 44, 44);
-        return button;
-    }
-
     private void AccentChanged(object? sender, EventArgs args) => Refresh();
 
     private void RecenterPager() => _pager.SetContentOffset(new CGPoint((double)_pager.Bounds.Width, 0), false);
 
     /// <summary>A chevron tap: slide to the neighbour page, then settle like a swipe.</summary>
-    private void Page(int delta)
+    public void Page(int delta)
     {
         if (_pendingShift != 0 || _pager.Dragging || _pager.Decelerating) return;
         var width = _pager.Bounds.Width;
@@ -238,34 +214,21 @@ public sealed class CalendarMonthPickerView : UIView
         MonthChanged?.Invoke(this, _displayMonth);
     }
 
-    private void GoToToday()
-    {
-        var month = WinoMiniCalendarGrid.MonthStart(DateOnly.FromDateTime(DateTime.Today));
-        if (month == _displayMonth) return;
-        _displayMonth = month;
-        Refresh();
-        RecenterPager();
-        MonthChanged?.Invoke(this, _displayMonth);
-    }
-
     private void Refresh()
     {
         var culture = CultureInfo.CurrentCulture;
-        _title.SetTitle(_displayMonth.ToString(MonthFormat, culture), UIControlState.Normal);
-        _title.AccessibilityLabel = _displayMonth.ToString(MonthFormat, culture);
-        // No dedicated strings exist yet, so the paging buttons announce the month they open.
-        _previous.AccessibilityLabel = _displayMonth.AddMonths(-1).ToString(MonthFormat, culture);
-        _next.AccessibilityLabel = _displayMonth.AddMonths(1).ToString(MonthFormat, culture);
-
         var names = culture.DateTimeFormat.ShortestDayNames;
         for (int column = 0; column < Columns; column++)
-            _weekdays[column].Text = names[WinoMiniCalendarGrid.DayNameIndex(column, _firstDayOfWeek)].ToUpper(culture);
+        {
+            var name = names[WinoMiniCalendarGrid.DayNameIndex(column, _firstDayOfWeek)];
+            _weekdays[column].Text = (name.Length > 0 ? name[..1] : name).ToUpper(culture);
+        }
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         var todayText = WinoStyle.ReadableText(WinoStyle.Accent, TraitCollection);
         for (int index = 0; index < _pages.Length; index++)
         {
-            _pages[index].Update(_displayMonth.AddMonths(index - 1), _firstDayOfWeek, _selected, today, todayText, culture);
+            _pages[index].Update(_displayMonth.AddMonths(index - 1), _firstDayOfWeek, _selected, _circleDate, today, todayText, culture);
             // Only the shown month is reachable by VoiceOver; the chevrons page.
             _pages[index].AccessibilityElementsHidden = index != 1;
         }
@@ -285,7 +248,7 @@ public sealed class CalendarMonthPickerView : UIView
         private readonly List<(int Row, int Start, int End, bool RoundLeading, bool RoundTrailing)> _runs = [];
         private readonly UIView _todayCircle;
         private DateOnly _gridStart;
-        private int _todayIndex = -1;
+        private int _circleIndex = -1;
 
         public event EventHandler<DateOnly>? DateClicked;
 
@@ -305,10 +268,10 @@ public sealed class CalendarMonthPickerView : UIView
             }
         }
 
-        public void Update(DateOnly month, DayOfWeek firstDayOfWeek, IReadOnlySet<DateOnly> selected, DateOnly today, UIColor todayText, CultureInfo culture)
+        public void Update(DateOnly month, DayOfWeek firstDayOfWeek, IReadOnlySet<DateOnly> selected, DateOnly? circleDate, DateOnly today, UIColor circleText, CultureInfo culture)
         {
             _gridStart = WinoMiniCalendarGrid.GridStart(month, firstDayOfWeek);
-            _todayIndex = -1;
+            _circleIndex = -1;
             _runs.Clear();
             int runStart = -1;
             bool runLeading = false;
@@ -318,7 +281,8 @@ public sealed class CalendarMonthPickerView : UIView
                 int column = index % Columns;
                 bool isSelected = selected.Contains(date);
                 bool isToday = date == today;
-                if (isToday) _todayIndex = index;
+                bool isCircled = date == circleDate && date.Month == month.Month;
+                if (isCircled) _circleIndex = index;
 
                 if (isSelected)
                 {
@@ -336,15 +300,15 @@ public sealed class CalendarMonthPickerView : UIView
                 }
 
                 var button = _cells[index];
-                var color = isToday ? todayText : date.Month == month.Month ? WinoStyle.PrimaryText : WinoStyle.TertiaryText;
+                var color = isCircled ? circleText : isToday ? WinoStyle.Accent : date.Month == month.Month ? WinoStyle.PrimaryText : WinoStyle.TertiaryText;
                 button.SetTitle(date.Day.ToString(culture), UIControlState.Normal);
                 button.SetTitleColor(color, UIControlState.Normal);
-                button.TitleLabel.Font = WinoStyle.Fixed(16, isToday ? UIFontWeight.Semibold : UIFontWeight.Regular);
+                button.TitleLabel.Font = WinoStyle.Fixed(18, isToday || isCircled ? UIFontWeight.Semibold : UIFontWeight.Regular);
                 button.AccessibilityLabel = date.ToString("D", culture);
                 button.AccessibilityTraits = isSelected ? UIAccessibilityTrait.Button | UIAccessibilityTrait.Selected : UIAccessibilityTrait.Button;
             }
 
-            _todayCircle.Hidden = _todayIndex < 0;
+            _todayCircle.Hidden = _circleIndex < 0;
             _todayCircle.BackgroundColor = WinoStyle.Accent;
 
             while (_bands.Count < _runs.Count)
@@ -360,7 +324,7 @@ public sealed class CalendarMonthPickerView : UIView
                 band.Hidden = index >= _runs.Count;
                 if (band.Hidden) continue;
                 var run = _runs[index];
-                band.BackgroundColor = WinoStyle.Accent.ColorWithAlpha(0.16f);
+                band.BackgroundColor = WinoStyle.Dynamic(WinoStyle.Accent.ColorWithAlpha(0.14f), WinoStyle.Accent.ColorWithAlpha(0.22f));
                 var corners = (CACornerMask)0;
                 if (run.RoundLeading) corners |= CACornerMask.MinXMinYCorner | CACornerMask.MinXMaxYCorner;
                 if (run.RoundTrailing) corners |= CACornerMask.MaxXMinYCorner | CACornerMask.MaxXMaxYCorner;
@@ -385,9 +349,9 @@ public sealed class CalendarMonthPickerView : UIView
                 _bands[index].Frame = new CGRect(x, y, right - x, BandHeight);
             }
 
-            if (_todayIndex >= 0)
+            if (_circleIndex >= 0)
             {
-                var cell = CellRect(_todayIndex, columnWidth);
+                var cell = CellRect(_circleIndex, columnWidth);
                 _todayCircle.Frame = new CGRect((double)cell.GetMidX() - TodayCircle / 2, (double)cell.GetMidY() - TodayCircle / 2, TodayCircle, TodayCircle);
             }
         }

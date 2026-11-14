@@ -74,6 +74,24 @@ public sealed partial class WinoCalendarSurfaceView : UIView
     private const double GridIntervalMinutes = WinoCalendarSurfaceGeometry.GridIntervalMinutes;
     private const double AutoScrollEdge = 40;
 
+    /// <summary>The iOS day header (calendar refresh of 14 Nov 2026), taller than the shared 44pt row.</summary>
+    public const double DayHeaderHeight = 52;
+
+    /// <summary>The weekday row over the compact month grid.</summary>
+    public const double CompactMonthHeaderHeight = 30;
+
+    /// <summary>One week row of the compact month grid.</summary>
+    public const double CompactMonthRowHeight = 46;
+
+    /// <summary>The compact month grid's full height: the weekday row and six week rows.</summary>
+    public const double CompactMonthHeight = CompactMonthHeaderHeight + CompactMonthRowHeight * CalendarLayoutCalculator.MonthRows;
+
+    /// <summary>Below this cell width the month shows day numbers with colour dots instead of event tiles.</summary>
+    public const double CompactMonthCellWidth = 90;
+
+    /// <summary>Below this column width overlapping tiles cascade instead of splitting the column.</summary>
+    private const double CascadeColumnWidth = 64;
+
     private readonly HeaderView _header;
     private readonly RailClipView _headerClip;
     private readonly HeaderRailView _headerRail;
@@ -97,6 +115,8 @@ public sealed partial class WinoCalendarSurfaceView : UIView
     private DragSession? _drag;
     private SlotPress? _slotPress;
     private double _allDayHeight;
+    private DateOnly? _selectedDate;
+    private double _gridBottomInset;
 
     public WinoCalendarSurfaceView()
     {
@@ -133,6 +153,11 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         AddSubview(_scroll);
         AddSubview(_month);
         _railPan = CreateRailPan();
+        _scroll.ContentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentBehavior.Never;
+        _header.AddGestureRecognizer(new UITapGestureRecognizer(HeaderTapped));
+        var pinch = new UIPinchGestureRecognizer(Pinched);
+        pinch.ShouldBegin = _ => !IsMonth && _drag is null && _slotPress is null && Dates.Count > 0;
+        _scroll.AddGestureRecognizer(pinch);
         WinoTraits.OnAppearanceChanged(this, static view => view.Invalidate());
         WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
     }
@@ -172,6 +197,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             _range = value;
             if (value?.DisplayType != _lastDisplayType) { _scrolledToStart = false; _lastDisplayType = value?.DisplayType; }
             ApplyRange(fullRelayout: false);
+            if (_range is not null && _unitSize > 0) UpdateAllDayHeight(animated: true);
         }
     }
 
@@ -182,9 +208,12 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         {
             // The first scroll waits for settings; a new hour height or work-day start scrolls to the start again, because
             // the offset was computed for the previous canvas.
-            if (value is not null && (_settings is null || _settings.HourHeight != value.HourHeight
+            // A pinch that saved its hour height already placed the grid; its settings echo keeps the scroll position.
+            bool pinchEcho = value is not null && _hourHeightOverride is { } pinched && Math.Abs(WinoCalendarSurfaceGeometry.HourHeight(value.HourHeight) - pinched) < 0.5;
+            if (value is not null && !pinchEcho && (_settings is null || _settings.HourHeight != value.HourHeight
                 || _settings.IsWorkingHoursEnabled != value.IsWorkingHoursEnabled || _settings.WorkingHourStart != value.WorkingHourStart))
                 _scrolledToStart = false;
+            if (pinchEcho && !_pinching) _hourHeightOverride = null;
             _settings = value;
             ApplyRange(fullRelayout: true);
         }
@@ -232,6 +261,55 @@ public sealed partial class WinoCalendarSurfaceView : UIView
     }
 
     private bool _showsDayHeader = true;
+
+    /// <summary>The day the compact month marks as selected (the iPhone month's day list); null for none.</summary>
+    public DateOnly? SelectedDate
+    {
+        get => _selectedDate;
+        set
+        {
+            if (_selectedDate == value) return;
+            _selectedDate = value;
+            _monthRail.SetNeedsDisplay();
+        }
+    }
+
+    /// <summary>A day header was tapped, or a compact month cell double-tapped: the page opens that day.</summary>
+    public event EventHandler<DateOnly>? DayOpenRequested;
+
+    /// <summary>Space under the last hour, so it scrolls clear of the floating tab bar.</summary>
+    public double GridBottomInset
+    {
+        get => _gridBottomInset;
+        set
+        {
+            if (Math.Abs(_gridBottomInset - value) < 0.5) return;
+            _gridBottomInset = value;
+            _scroll.ContentInset = new UIEdgeInsets(0, 0, (nfloat)value, 0);
+            _scroll.ScrollIndicatorInsets = _scroll.ContentInset;
+        }
+    }
+
+    /// <summary>All-day lanes before the "n more" row; the iPhone shows two, the iPad the shared maximum.</summary>
+    public int AllDayMaxLanes { get; set; } = CalendarItemOverflow.MaxAllDayLanes;
+
+    /// <summary>The height of one all-day lane.</summary>
+    public double AllDayLaneHeight { get; set; } = 22;
+
+    /// <summary>Whether the month grid is the compact one (cells under <see cref="CompactMonthCellWidth"/>).</summary>
+    public bool IsCompactMonth => Bounds.Width > 0 && Bounds.Width / CalendarLayoutCalculator.MonthColumns < CompactMonthCellWidth;
+
+    private void HeaderTapped(UITapGestureRecognizer recognizer)
+    {
+        if (IsMonth || !_showsDayHeader || Dates.Count == 0 || DayWidth <= 0) return;
+        var point = recognizer.LocationInView(_header);
+        if (point.X < HourColumnWidth) return;
+        var railPoint = _headerRail.ConvertPointFromView(point, _header);
+        int index = WinoCalendarSurfaceGeometry.DayIndexAt(railPoint.X, Dates.Count, DayWidth);
+        if (index >= 0 && index < Dates.Count) DayOpenRequested?.Invoke(this, Dates[index]);
+    }
+
+    internal void RaiseDayOpenRequested(DateOnly date) => DayOpenRequested?.Invoke(this, date);
 
     /// <summary>True while an empty-slot drag is selecting a range.</summary>
     public bool IsSelectingRange => _slotPress?.Dragging == true;
@@ -295,16 +373,73 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         _clock = NSTimer.CreateRepeatingScheduledTimer(60, _ => { if (self.TryGetTarget(out var surface)) surface._timedRail.SetNeedsDisplay(); });
     }
 
-    internal double HourHeight => WinoCalendarSurfaceGeometry.HourHeight(_settings?.HourHeight ?? 0);
+    internal double HourHeight => _hourHeightOverride ?? WinoCalendarSurfaceGeometry.HourHeight(_settings?.HourHeight ?? 0);
+
+    private const double MinimumPinchHourHeight = 36;
+    private const double MaximumPinchHourHeight = 96;
+    private double? _hourHeightOverride;
+    private bool _pinching;
+    private double _pinchStartHeight;
+    private double _pinchAnchorHours;
+
+#if DEBUG
+    /// <summary>The end state of a pinch to <paramref name="height"/>, for the debug bridge.</summary>
+    public string DebugPinch(double height)
+    {
+        _hourHeightOverride = Math.Clamp(height, MinimumPinchHourHeight, MaximumPinchHourHeight);
+        Invalidate();
+        HourHeightChanged?.Invoke(this, Math.Round(_hourHeightOverride.Value));
+        return $"hourHeight={HourHeight:0.#} settings={_settings?.HourHeight:0.#}";
+    }
+#endif
+
+    /// <summary>A pinch on the hour grid ended on a new hour height; the page saves it as the preference.</summary>
+    public event EventHandler<double>? HourHeightChanged;
+
+    /// <summary>
+    /// Pinching the hour grid scales the hour height between 36 and 96pt and keeps the time under the fingers in place;
+    /// the new height applies at once and is raised once the pinch ends.
+    /// </summary>
+    private void Pinched(UIPinchGestureRecognizer recognizer)
+    {
+        switch (recognizer.State)
+        {
+            case UIGestureRecognizerState.Began:
+                _pinching = true;
+                _pinchStartHeight = HourHeight;
+                _pinchAnchorHours = ((double)recognizer.LocationInView(_timed).Y - TimelinePadding) / HourHeight;
+                break;
+            case UIGestureRecognizerState.Changed:
+                double height = Math.Clamp(_pinchStartHeight * (double)recognizer.Scale, MinimumPinchHourHeight, MaximumPinchHourHeight);
+                if (Math.Abs(height - HourHeight) < 0.25) return;
+                double fingerInViewport = (double)recognizer.LocationInView(_scroll).Y - (double)_scroll.ContentOffset.Y;
+                _hourHeightOverride = height;
+                _railDirty = true;
+                PlaceTimedFrames();
+                UpdateRailWindow(force: true);
+                _timed.SetNeedsDisplay();
+                _timedRail.SetNeedsDisplay();
+                double maximum = Math.Max(0, (double)_scroll.ContentSize.Height - (double)_scroll.Bounds.Height + _gridBottomInset);
+                double offset = Math.Clamp(TimelinePadding + _pinchAnchorHours * height - fingerInViewport, 0, maximum);
+                _scroll.ContentOffset = new CGPoint(0, offset);
+                break;
+            case UIGestureRecognizerState.Ended:
+                _pinching = false;
+                if (_hourHeightOverride is { } final && Math.Abs(final - _pinchStartHeight) >= 0.5) HourHeightChanged?.Invoke(this, Math.Round(final));
+                break;
+            case UIGestureRecognizerState.Cancelled or UIGestureRecognizerState.Failed:
+                _pinching = false;
+                break;
+        }
+    }
     internal double TimelineHeight => HourHeight * 24;
     internal VisibleDateRange? Range => _range;
     internal CalendarSettings? CurrentSettings => _settings;
     internal CultureInfo Culture => _settings?.CultureInfo ?? CultureInfo.CurrentCulture;
 
-    internal static UIColor LineColor => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.08), WinoStyle.Hex(0xFFFFFF, 0.09));
-    internal static UIColor MinorLineColor => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.04), WinoStyle.Hex(0xFFFFFF, 0.045));
-    internal static UIColor HeaderFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.045), WinoStyle.Hex(0xFFFFFF, 0.07));
-    internal static UIColor WeekendFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.035), WinoStyle.Hex(0xFFFFFF, 0.05));
+    internal static UIColor LineColor => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.09), WinoStyle.Hex(0xFFFFFF, 0.11));
+    internal static UIColor MinorLineColor => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.045), WinoStyle.Hex(0xFFFFFF, 0.055));
+    internal static UIColor WeekendFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.025), WinoStyle.Hex(0xFFFFFF, 0.03));
     internal static UIColor NowColor => WinoStyle.Hex(0xD63031);
     private static UIColor SelectionFill => WinoStyle.Accent.ColorWithAlpha(0.18f);
 
@@ -338,8 +473,9 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         if (month)
         {
             _header.Hidden = false;
-            _header.Frame = new CGRect(0, 0, bounds.Width, MonthHeaderHeight);
-            _month.Frame = new CGRect(0, MonthHeaderHeight, bounds.Width, Math.Max(0, bounds.Height - MonthHeaderHeight));
+            double headerHeight = IsCompactMonth ? CompactMonthHeaderHeight : MonthHeaderHeight;
+            _header.Frame = new CGRect(0, 0, bounds.Width, headerHeight);
+            _month.Frame = new CGRect(0, headerHeight, bounds.Width, Math.Max(0, bounds.Height - headerHeight));
             SetUnitSize(_month.Bounds.Height / Math.Max(1, VisibleUnitCount));
         }
         else
@@ -365,7 +501,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
     private void PlaceTimedFrames()
     {
         var bounds = Bounds;
-        double headerHeight = _showsDayHeader ? TimedHeaderHeight : 0;
+        double headerHeight = _showsDayHeader ? DayHeaderHeight : 0;
         _header.Hidden = !_showsDayHeader;
         _header.Frame = new CGRect(0, 0, bounds.Width, headerHeight);
         _allDay.Frame = new CGRect(0, headerHeight, bounds.Width, _allDayHeight);
@@ -377,6 +513,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         double dayArea = Math.Max(0, bounds.Width - HourColumnWidth);
         _headerClip.Frame = new CGRect(HourColumnWidth, 0, dayArea, headerHeight);
         _allDayClip.Frame = new CGRect(HourColumnWidth, 0, dayArea, _allDayHeight);
+        _allDay.ClipsToBounds = true;
         _timedClip.Frame = new CGRect(HourColumnWidth, 0, dayArea, canvasHeight);
     }
 
@@ -397,22 +534,51 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         }
 
         _monthRail.Clear();
-        var (allDayLanes, hasAllDayOverflow) = CalendarLayoutCalculator.GetAllDayLaneCount(Dates, _items);
-        double allDayHeight = CalendarLayoutCalculator.GetAllDayHeight(allDayLanes, hasAllDayOverflow);
-        if (allDayHeight != _allDayHeight)
-        {
-            _allDayHeight = allDayHeight;
-            PlaceTimedFrames();
-        }
+        UpdateAllDayHeight(animated: false);
         double width = HourColumnWidth + span;
-        _headerRail.Frame = new CGRect(_headerRail.Frame.X, 0, width, _showsDayHeader ? TimedHeaderHeight : 0);
-        _allDayRail.Frame = new CGRect(_allDayRail.Frame.X, 0, width, _allDayHeight);
+        _headerRail.Frame = new CGRect(_headerRail.Frame.X, 0, width, _showsDayHeader ? DayHeaderHeight : 0);
+        _allDayRail.Frame = new CGRect(_allDayRail.Frame.X, 0, width, AllDayRailHeight);
         _timedRail.Frame = new CGRect(_timedRail.Frame.X, 0, width, WinoCalendarSurfaceGeometry.CanvasHeight(HourHeight));
         _allDayRail.Relayout();
         _timedRail.Relayout();
         _headerRail.SetNeedsDisplay();
         _allDay.SetNeedsDisplay();
         _timed.SetNeedsDisplay();
+    }
+
+    /// <summary>The rail always holds every lane a realized day can show; the strip clips it to the visible period's lanes.</summary>
+    private double AllDayRailHeight => AllDayStripHeight(Math.Max(1, AllDayMaxLanes), true);
+
+    /// <summary>The strip height for <paramref name="lanes"/> lanes (4pt padding, 2pt gaps) and the "n more" row.</summary>
+    internal double AllDayStripHeight(int lanes, bool moreRow)
+    {
+        if (lanes <= 0) return 0;
+        double height = AllDayLaneTop(lanes) - AllDayLaneGap + AllDayPadding;
+        return moreRow ? height + CalendarItemOverflow.MoreButtonHeight : height;
+    }
+
+    private const double AllDayPadding = 4;
+    private const double AllDayLaneGap = 2;
+
+    internal double AllDayLaneTop(int row) => AllDayPadding + row * (AllDayLaneHeight + AllDayLaneGap);
+
+    /// <summary>
+    /// Sizes the all-day strip from the lanes of the visible period only (not the rail's off-screen days), so a busy
+    /// neighbour week does not reserve space; the height animates when the rail settles on another period.
+    /// </summary>
+    private void UpdateAllDayHeight(bool animated)
+    {
+        if (IsMonth) return;
+        IReadOnlyList<DateOnly> visible = _range?.Dates is { } dates ? dates.ToList() : Dates;
+        var (lanes, overflow) = CalendarLayoutCalculator.GetAllDayLaneCount(visible, _items);
+        int maxLanes = Math.Max(1, AllDayMaxLanes);
+        double height = AllDayStripHeight(Math.Min(lanes, maxLanes), overflow || lanes > maxLanes);
+        if (Math.Abs(height - _allDayHeight) < 0.5) return;
+        _allDayHeight = height;
+        _allDay.SetNeedsDisplay();
+        if (animated && Window is not null && !UIAccessibility.IsReduceMotionEnabled)
+            UIView.Animate(0.2, 0, UIViewAnimationOptions.BeginFromCurrentState | UIViewAnimationOptions.CurveEaseOut, PlaceTimedFrames, null);
+        else PlaceTimedFrames();
     }
 
     /// <summary>Moves the rails to the current position; the only work a frame of motion does inside the window.</summary>
@@ -731,10 +897,13 @@ public sealed partial class WinoCalendarSurfaceView : UIView
                 view.Item = placement.Item;
                 view.Kind = placement.Kind;
                 view.Date = placement.Date;
+                view.ChipTitleSize = Owner.VisibleUnitCount == 1 ? 12 : 11;
                 view.Model = Owner.Tile(placement.Item, placement.Date);
                 view.Frame = placement.Bounds;
                 view.AllowsResize = Owner.AllowsResize(placement.Item, placement.Kind);
+                // Reused tiles keep their old stacking; cascaded tiles must stack in placement order.
                 if (placement.Kind == CalendarPlacementKind.MultiDayGhost) SendSubviewToBack(view);
+                else BringSubviewToFront(view);
             }
             foreach (var key in _active.Keys.Where(k => !seen.Contains(k)).ToList())
             {
@@ -809,8 +978,13 @@ public sealed partial class WinoCalendarSurfaceView : UIView
 
         private void DoubleTapped(UITapGestureRecognizer recognizer)
         {
-            if (TileAt(recognizer.LocationInView(this)) is { } tile) Owner.RaiseItem(tile, recognizer, 2);
+            var point = recognizer.LocationInView(this);
+            if (TileAt(point) is { } tile) Owner.RaiseItem(tile, recognizer, 2);
+            else SlotDoubleTapped(point);
         }
+
+        /// <summary>A double tap on empty space.</summary>
+        protected virtual void SlotDoubleTapped(CGPoint point) { }
 
         private void LongPressed(UILongPressGestureRecognizer recognizer)
         {
@@ -880,27 +1054,25 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         public override void Draw(CGRect rect)
         {
             var bounds = Bounds;
-            HeaderFill.SetFill();
-            FillRect(bounds);
+            nfloat hairline = 1 / (nfloat)Math.Max(1, (double)ContentScaleFactor);
             LineColor.SetFill();
-            FillRect(new CGRect(0, bounds.Height - 1, bounds.Width, 1));
+            FillRect(new CGRect(0, bounds.Height - hairline, bounds.Width, hairline));
 
             if (_owner.IsMonth)
             {
                 var culture = _owner.Culture;
+                bool compact = _owner.IsCompactMonth;
                 double cellWidth = bounds.Width / CalendarLayoutCalculator.MonthColumns;
                 var first = _owner.CurrentSettings?.FirstDayOfWeek ?? DayOfWeek.Monday;
-                var font = WinoStyle.Fixed(12, UIFontWeight.Semibold);
+                var font = WinoStyle.Fixed(compact ? 11 : 12, UIFontWeight.Semibold);
                 for (int column = 0; column < CalendarLayoutCalculator.MonthColumns; column++)
                 {
                     var day = (DayOfWeek)(((int)first + column) % 7);
-                    DrawCentered(culture.DateTimeFormat.AbbreviatedDayNames[(int)day], font, WinoStyle.SecondaryText, new CGRect(column * cellWidth, 0, cellWidth, bounds.Height));
+                    string name = culture.DateTimeFormat.AbbreviatedDayNames[(int)day];
+                    if (compact) name = name.ToUpper(culture);
+                    DrawCentered(name, font, WinoStyle.SecondaryText, new CGRect(column * cellWidth, 0, cellWidth, bounds.Height));
                 }
-                return;
             }
-
-            LineColor.SetFill();
-            FillRect(new CGRect(HourColumnWidth - 1, 0, 1, bounds.Height));
         }
     }
 
@@ -919,6 +1091,10 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             IsAccessibilityElement = false;
         }
 
+        /// <summary>
+        /// Weekday over the number (calendar refresh of 14 Nov 2026): 10.5pt upper-case weekday, a single letter in columns
+        /// under 56pt, and the number in a 30pt circle, today's filled with the accent.
+        /// </summary>
         public override void Draw(CGRect rect)
         {
             var bounds = Bounds;
@@ -928,61 +1104,32 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             var today = _owner.Today();
             double dayWidth = _owner.DayWidth;
             bool singleDay = _owner.VisibleUnitCount == 1;
-            var nameFont = WinoStyle.Fixed(12);
-            var numberFont = WinoStyle.Fixed(14, UIFontWeight.Semibold);
-            string NameOf(DateOnly date) => singleDay
-                ? date.ToDateTime(TimeOnly.MinValue).ToString("dddd", culture)
-                : culture.DateTimeFormat.AbbreviatedDayNames[(int)date.DayOfWeek];
-            // Narrow phone columns stack the weekday over the number. One decision for the whole rail, so a short name
-            // ("Fri") never sits inline next to stacked neighbours.
-            bool stacked = false;
-            for (int index = 0; index < dates.Count && !stacked; index++)
-            {
-                var date = dates[index];
-                stacked = dayWidth < Measure(NameOf(date), nameFont).Width + 6 + Math.Max(26, Measure(date.Day.ToString(culture), numberFont).Width) + 8;
-            }
+            bool letter = dayWidth < 56;
+            var nameFont = WinoStyle.Fixed(10.5, UIFontWeight.Semibold);
+            var numberFont = WinoStyle.Fixed(16, UIFontWeight.Medium);
+            const double circle = 30;
             for (int index = 0; index < dates.Count; index++)
             {
                 var date = dates[index];
                 double x = WinoCalendarSurfaceGeometry.DayX(index, dayWidth);
                 if (x > rect.GetMaxX() || x + dayWidth < rect.X) continue;
-                // Boundary lines sit just left of each column, so the one resting on the gutter is clipped.
-                LineColor.SetFill();
-                FillRect(new CGRect(Math.Round(x) - 1, 0, 1, bounds.Height));
-                string name = NameOf(date);
+                string name = singleDay
+                    ? date.ToDateTime(TimeOnly.MinValue).ToString("dddd", culture)
+                    : culture.DateTimeFormat.AbbreviatedDayNames[(int)date.DayOfWeek];
+                if (letter && name.Length > 0) name = name[..1];
+                name = name.ToUpper(culture);
                 string number = date.Day.ToString(culture);
                 bool isToday = date == today;
                 var nameSize = Measure(name, nameFont);
-                var numberSize = Measure(number, numberFont);
-                double circle = 26;
-                double numberWidth = isToday ? circle : numberSize.Width;
-                if (stacked)
-                {
-                    DrawCentered(name, nameFont, WinoStyle.SecondaryText, new CGRect(x, 2, dayWidth, nameSize.Height));
-                    var numberRect = new CGRect(x + (dayWidth - circle) / 2, bounds.Height - circle - 2, circle, circle);
-                    if (isToday)
-                    {
-                        WinoStyle.Accent.SetFill();
-                        UIBezierPath.FromOval(numberRect).Fill();
-                    }
-                    DrawCentered(number, numberFont, isToday ? UIColor.White : WinoStyle.PrimaryText, numberRect);
-                    continue;
-                }
-                double total = nameSize.Width + 6 + numberWidth;
-                double start = x + (dayWidth - total) / 2;
-                DrawText(name, nameFont, WinoStyle.SecondaryText, new CGPoint(start, (bounds.Height - nameSize.Height) / 2));
-                double numberX = start + nameSize.Width + 6;
+                DrawCentered(name, nameFont, WinoStyle.SecondaryText, new CGRect(x, 5, dayWidth, nameSize.Height));
+                var numberRect = new CGRect(x + (dayWidth - circle) / 2, bounds.Height - circle - 5, circle, circle);
                 if (isToday)
                 {
-                    var circleRect = new CGRect(numberX, (bounds.Height - circle) / 2, circle, circle);
                     WinoStyle.Accent.SetFill();
-                    UIBezierPath.FromOval(circleRect).Fill();
-                    DrawCentered(number, numberFont, UIColor.White, circleRect);
+                    UIBezierPath.FromOval(numberRect).Fill();
                 }
-                else
-                {
-                    DrawText(number, numberFont, WinoStyle.PrimaryText, new CGPoint(numberX, (bounds.Height - numberSize.Height) / 2));
-                }
+                DrawCentered(number, isToday ? WinoStyle.Fixed(16, UIFontWeight.Semibold) : numberFont,
+                    isToday ? WinoStyle.ReadableText(WinoStyle.Accent, TraitCollection) : WinoStyle.PrimaryText, numberRect);
             }
         }
     }
@@ -992,9 +1139,11 @@ public sealed partial class WinoCalendarSurfaceView : UIView
     /// <summary>The fixed all-day strip: the "All day" label, the gutter border and the hairline above the hour grid.</summary>
     private sealed class AllDayView : UIView
     {
+        private readonly WinoCalendarSurfaceView _owner;
+
         public AllDayView(WinoCalendarSurfaceView owner)
         {
-            _ = owner;
+            _owner = owner;
             Opaque = false;
             BackgroundColor = UIColor.Clear;
             ContentMode = UIViewContentMode.Redraw;
@@ -1011,7 +1160,8 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             FillRect(new CGRect(HourColumnWidth - 1, 0, 1, bounds.Height));
             var font = WinoStyle.Fixed(11);
             var size = Measure(Translator.CalendarItemAllDay, font);
-            DrawText(Translator.CalendarItemAllDay, font, WinoStyle.SecondaryText, new CGPoint(HourColumnWidth - 8 - size.Width, (bounds.Height - size.Height) / 2));
+            double laneMid = _owner.AllDayLaneTop(0) + _owner.AllDayLaneHeight / 2;
+            DrawText(Translator.CalendarItemAllDay, font, WinoStyle.SecondaryText, new CGPoint(HourColumnWidth - 8 - size.Width, laneMid - size.Height / 2));
         }
     }
 
@@ -1023,8 +1173,35 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         public void Relayout()
         {
             var (items, overflows) = CalendarLayoutCalculator.CalculateAllDay(Owner.Dates, Owner.Items, Owner.DayWidth);
-            var placements = items.Select(p => p with { Bounds = new CGRect(p.Bounds.X + HourColumnWidth, p.Bounds.Y, p.Bounds.Width, p.Bounds.Height) });
-            _overflows = overflows.ConvertAll(o => o with { Bounds = new CGRect(o.Bounds.X + HourColumnWidth, o.Bounds.Y, o.Bounds.Width, o.Bounds.Height) });
+            // The shared lanes are 32pt with 4pt gaps under 6pt of padding; the iOS strip remaps them to its compact lanes
+            // and moves lanes past AllDayMaxLanes behind the day's "n more" row.
+            int maxLanes = Math.Max(1, Owner.AllDayMaxLanes);
+            double laneHeight = Owner.AllDayLaneHeight;
+            var hidden = new Dictionary<DateOnly, List<ICalendarItem>>();
+            var columns = new Dictionary<DateOnly, CGRect>();
+            var placements = new List<CalendarItemPlacement>();
+            foreach (var placement in items)
+            {
+                int row = (int)Math.Round((placement.Bounds.Y - CalendarSurfaceLayoutCalculator.AllDaySectionPadding)
+                    / (CalendarSurfaceLayoutCalculator.AllDayItemHeight + CalendarSurfaceLayoutCalculator.AllDayItemGap));
+                columns[placement.Date] = placement.Bounds;
+                if (row >= maxLanes)
+                {
+                    if (!hidden.TryGetValue(placement.Date, out var list)) hidden[placement.Date] = list = new();
+                    list.Add(placement.Item);
+                    continue;
+                }
+                placements.Add(placement with { Bounds = new CGRect(placement.Bounds.X + HourColumnWidth, Owner.AllDayLaneTop(row), placement.Bounds.Width, laneHeight) });
+            }
+            foreach (var overflow in overflows)
+            {
+                columns[overflow.Date] = overflow.Bounds;
+                if (!hidden.TryGetValue(overflow.Date, out var list)) hidden[overflow.Date] = list = new();
+                list.AddRange(overflow.HiddenItems);
+            }
+            double moreY = Owner.AllDayLaneTop(maxLanes) - 2;
+            _overflows = hidden.Select(pair => new CalendarOverflowCell(pair.Key, pair.Value,
+                new CGRect(columns[pair.Key].X + HourColumnWidth, moreY, columns[pair.Key].Width, CalendarItemOverflow.MoreButtonHeight))).ToList();
             SyncTiles(placements);
             SetNeedsDisplay();
         }
@@ -1110,11 +1287,37 @@ public sealed partial class WinoCalendarSurfaceView : UIView
 
         public void Relayout()
         {
-            var placements = CalendarLayoutCalculator.CalculateTimed(Owner.Dates, Owner.Items, Owner.DayWidth, Owner.HourHeight,
-                    Owner.CurrentSettings?.EventDisplayMode ?? CalendarEventDisplayMode.Stacked)
-                .Select(p => p with { Bounds = new CGRect(p.Bounds.X + HourColumnWidth, p.Bounds.Y + TimelinePadding, p.Bounds.Width, p.Bounds.Height) });
+            // Narrow phone columns cascade overlaps: side-by-side tiles there are too thin to read.
+            var mode = Owner.DayWidth < CascadeColumnWidth ? CalendarEventDisplayMode.Overlapped
+                : Owner.CurrentSettings?.EventDisplayMode ?? CalendarEventDisplayMode.Stacked;
+            var placements = CalendarLayoutCalculator.CalculateTimed(Owner.Dates, Owner.Items, Owner.DayWidth, Owner.HourHeight, mode)
+                .Select(p => p with { Bounds = new CGRect(p.Bounds.X + HourColumnWidth, p.Bounds.Y + TimelinePadding, p.Bounds.Width, p.Bounds.Height) })
+                .ToList();
+            if (mode == CalendarEventDisplayMode.Overlapped && Owner.CurrentSettings?.EventDisplayMode != CalendarEventDisplayMode.Overlapped)
+                placements = WidenLoneTiles(placements, Owner.DayWidth);
             SyncTiles(placements);
             SetNeedsDisplay();
+        }
+
+        /// <summary>
+        /// The forced cascade narrows every tile for the indent of the next one; a tile that overlaps nothing gets the
+        /// whole column back, as in the stacked layout.
+        /// </summary>
+        private static List<CalendarItemPlacement> WidenLoneTiles(List<CalendarItemPlacement> placements, double dayWidth)
+        {
+            if (dayWidth <= 0) return placements;
+            var result = new List<CalendarItemPlacement>(placements.Count);
+            foreach (var placement in placements)
+            {
+                var bounds = placement.Bounds;
+                bool overlaps = placements.Any(other => !ReferenceEquals(other, placement) && other.Date == placement.Date
+                    && other.Bounds.Y < bounds.Bottom - 0.5 && bounds.Y < other.Bounds.Bottom - 0.5);
+                if (overlaps) { result.Add(placement); continue; }
+                int index = (int)Math.Floor((bounds.X - HourColumnWidth + 0.5) / dayWidth);
+                double x = WinoCalendarSurfaceGeometry.DayX(index, dayWidth) + 2;
+                result.Add(placement with { Bounds = new CGRect(x, bounds.Y, Math.Max(0, dayWidth - 4), bounds.Height) });
+            }
+            return result;
         }
 
         public override void Draw(CGRect rect)
@@ -1213,16 +1416,19 @@ public sealed partial class WinoCalendarSurfaceView : UIView
     /// <summary>The realized week rows of the month grid: day cells (dimmed outside the dominant month), lines, the selection and the month tiles.</summary>
     private sealed class MonthRailView(WinoCalendarSurfaceView owner) : TileHostView(owner)
     {
-        /// <summary>Below this cell width (iPhone) a day shows only its event count; event tiles are unreadable there.</summary>
-        private const double CountOnlyCellWidth = 90;
+        private const int MaxDots = 3;
+        private const double DotSize = 5;
+        private const double DotGap = 3;
+        private const double NumberCircle = 30;
 
         private List<CalendarMonthCell> _cells = new();
         private List<CalendarOverflowCell> _overflows = new();
-        private readonly Dictionary<DateOnly, int> _counts = new();
+        private readonly Dictionary<DateOnly, List<UIColor>> _dots = new();
 
         protected override bool SelectsRanges => true;
 
-        private bool CountOnly => Bounds.Width / CalendarLayoutCalculator.MonthColumns < CountOnlyCellWidth;
+        /// <summary>Compact cells (iPhone) show the day number and colour dots; event tiles are unreadable there.</summary>
+        private bool CountOnly => Bounds.Width / CalendarLayoutCalculator.MonthColumns < CompactMonthCellWidth;
 
         protected override bool IsMonthHost => true;
 
@@ -1232,12 +1438,12 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             if (dates.Count == 0) { _cells = new(); _overflows = new(); SyncTiles(Array.Empty<CalendarItemPlacement>()); return; }
             var (cells, items, overflows) = CalendarLayoutCalculator.CalculateMonth(dates, Owner.Items, Bounds.Width, Owner.UnitSize * CalendarLayoutCalculator.MonthRows);
             _cells = cells;
-            _counts.Clear();
+            _dots.Clear();
             if (CountOnly)
             {
-                // The count pill already stands for every event of the day.
+                // The dots stand for every event of the day, so no "n more" links.
                 _overflows = new();
-                foreach (var cell in cells) _counts[cell.Date] = CountOn(cell.Date);
+                foreach (var cell in cells) _dots[cell.Date] = DotsOn(cell.Date);
                 SyncTiles(Array.Empty<CalendarItemPlacement>());
             }
             else
@@ -1254,6 +1460,11 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         {
             var bounds = Bounds;
             if (_cells.Count == 0) return;
+            if (CountOnly)
+            {
+                DrawCompact(rect);
+                return;
+            }
             var dominant = Owner.DominantMonth;
             var culture = Owner.Culture;
             var today = Owner.Today();
@@ -1285,18 +1496,76 @@ public sealed partial class WinoCalendarSurfaceView : UIView
                     var color = inMonth ? WinoStyle.PrimaryText : WinoStyle.PrimaryText.ColorWithAlpha(0.45f);
                     DrawText(label, font, color, new CGPoint(cell.Bounds.X + 6, cell.Bounds.Y + 3));
                 }
-                if (_counts.TryGetValue(cell.Date, out var count) && count > 0) DrawCount(cell.Bounds, count, inMonth);
             }
             double cellWidth = bounds.Width / CalendarLayoutCalculator.MonthColumns;
-            double rowHeight = Owner.UnitSize;
-            int rows = (_cells.Count + CalendarLayoutCalculator.MonthColumns - 1) / CalendarLayoutCalculator.MonthColumns;
             LineColor.SetFill();
-            // Row lines sit just above each row, so the one under the weekday header is clipped.
-            for (int row = 0; row <= rows; row++)
-                FillRect(new CGRect(0, Math.Round(row * rowHeight) - 1, bounds.Width, 1));
+            DrawRowLines(bounds);
             for (int column = 1; column < CalendarLayoutCalculator.MonthColumns; column++)
                 FillRect(new CGRect(Math.Round(column * cellWidth), 0, 1, bounds.Height));
             DrawMoreLinks(_overflows);
+            Owner.DrawMonthSelection(_cells);
+        }
+
+        private void DrawRowLines(CGRect bounds)
+        {
+            double rowHeight = Owner.UnitSize;
+            int rows = (_cells.Count + CalendarLayoutCalculator.MonthColumns - 1) / CalendarLayoutCalculator.MonthColumns;
+            nfloat hairline = 1 / (nfloat)Math.Max(1, (double)ContentScaleFactor);
+            // Row lines sit just above each row, so the one under the weekday header is clipped.
+            for (int row = 0; row <= rows; row++)
+                FillRect(new CGRect(0, Math.Round(row * rowHeight) - hairline, bounds.Width, hairline));
+        }
+
+        /// <summary>
+        /// The compact month (calendar refresh of 14 Nov 2026): the day number centred in a 30pt circle, up to three colour
+        /// dots under it, row hairlines only. Selected today is an accent circle, another selected day a label-coloured
+        /// circle, today unselected accent digits; days outside the month are tertiary with faded dots.
+        /// </summary>
+        private void DrawCompact(CGRect rect)
+        {
+            var dominant = Owner.DominantMonth;
+            var culture = Owner.Culture;
+            var today = Owner.Today();
+            var selected = Owner.SelectedDate;
+            var traits = TraitCollection;
+            LineColor.SetFill();
+            DrawRowLines(Bounds);
+            foreach (var cell in _cells)
+            {
+                if (!cell.Bounds.IntersectsWith(rect)) continue;
+                bool inMonth = cell.Date.Month == dominant.Month && cell.Date.Year == dominant.Year;
+                bool isToday = cell.Date == today;
+                bool isSelected = cell.Date == selected;
+                var circle = new CGRect(cell.Bounds.GetMidX() - NumberCircle / 2, cell.Bounds.Y + 4, NumberCircle, NumberCircle);
+                UIColor digits;
+                var weight = UIFontWeight.Regular;
+                if (isSelected)
+                {
+                    var fill = isToday ? WinoStyle.Accent : WinoStyle.PrimaryText;
+                    fill.SetFill();
+                    UIBezierPath.FromOval(circle).Fill();
+                    digits = isToday ? WinoStyle.ReadableText(WinoStyle.Accent, traits) : WinoStyle.ZoneFill;
+                    weight = UIFontWeight.Semibold;
+                }
+                else if (isToday)
+                {
+                    digits = WinoStyle.Accent;
+                    weight = UIFontWeight.Semibold;
+                }
+                else digits = inMonth ? WinoStyle.PrimaryText : WinoStyle.TertiaryText;
+                DrawCentered(cell.Date.Day.ToString(culture), WinoStyle.Fixed(17, weight), digits, circle);
+
+                if (!_dots.TryGetValue(cell.Date, out var dots) || dots.Count == 0) continue;
+                double width = dots.Count * DotSize + (dots.Count - 1) * DotGap;
+                double x = cell.Bounds.GetMidX() - width / 2;
+                double y = circle.Bottom + 2;
+                foreach (var dot in dots)
+                {
+                    (inMonth ? dot : dot.ColorWithAlpha(0.4f)).SetFill();
+                    UIBezierPath.FromOval(new CGRect(x, y, DotSize, DotSize)).Fill();
+                    x += DotSize + DotGap;
+                }
+            }
             Owner.DrawMonthSelection(_cells);
         }
 
@@ -1306,27 +1575,27 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             SetNeedsDisplay();
         }
 
-        /// <summary>Events that touch <paramref name="date"/> (an all-day event's exclusive end does not count).</summary>
-        private int CountOn(DateOnly date)
+        /// <summary>
+        /// One dot per distinct calendar colour among the events that touch <paramref name="date"/> (an all-day event's
+        /// exclusive end does not count), in event order.
+        /// </summary>
+        private List<UIColor> DotsOn(DateOnly date)
         {
             var start = date.ToDateTime(TimeOnly.MinValue);
             var end = start.AddDays(1);
-            return Owner.Items.Count(item => item.StartDate < end && (item.EndDate > start || (item.EndDate <= item.StartDate && item.StartDate >= start)));
-        }
-
-        /// <summary>The count badge: an accent-tinted capsule centred in the space under the day number.</summary>
-        private static void DrawCount(CGRect cell, int count, bool inMonth)
-        {
-            string text = count > 99 ? "99+" : count.ToString(System.Globalization.CultureInfo.CurrentCulture);
-            var font = WinoStyle.Fixed(11, UIFontWeight.Semibold);
-            var size = Measure(text, font);
-            double width = Math.Max(20, size.Width + 10), height = 18;
-            double top = cell.Y + 24;
-            var badge = new CGRect(cell.X + (cell.Width - width) / 2, top + Math.Max(0, (cell.Bottom - top - height) / 2 - 2), width, height);
-            (inMonth ? WinoStyle.Accent.ColorWithAlpha(0.18f) : WinoStyle.Accent.ColorWithAlpha(0.08f)).SetFill();
-            UIBezierPath.FromRoundedRect(badge, (nfloat)(height / 2)).Fill();
-            // Label-coloured digits on the accent tint: accent digits on it measured 2.26:1 in dark mode.
-            DrawCentered(text, font, WinoStyle.PrimaryText, badge);
+            var seen = new HashSet<string>();
+            var dots = new List<UIColor>();
+            foreach (var item in Owner.Items.Where(item => item.StartDate < end && (item.EndDate > start || (item.EndDate <= item.StartDate && item.StartDate >= start)))
+                         .OrderBy(item => item.StartDate))
+            {
+                var fill = Owner.Tile(item, date).Fill;
+                var resolved = fill.GetResolvedColor(TraitCollection);
+                resolved.GetRGBA(out var red, out var green, out var blue, out _);
+                if (!seen.Add($"{red:0.00}{green:0.00}{blue:0.00}")) continue;
+                dots.Add(fill);
+                if (dots.Count == MaxDots) break;
+            }
+            return dots;
         }
 
         /// <summary>Month tiles move by whole days to the cell under the finger, keeping their time of day.</summary>
@@ -1346,6 +1615,14 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         {
             var cell = _cells.FirstOrDefault(c => c.Bounds.Contains(point));
             if (cell is not null) Owner.RaiseSlotClicked(cell.Date.ToDateTime(TimeOnly.MinValue), cell.Bounds, this, true);
+        }
+
+        /// <summary>A double tap on a compact cell opens that day.</summary>
+        protected override void SlotDoubleTapped(CGPoint point)
+        {
+            if (!CountOnly) return;
+            var cell = _cells.FirstOrDefault(c => c.Bounds.Contains(point));
+            if (cell is not null) Owner.RaiseDayOpenRequested(cell.Date);
         }
 
         /// <summary>The day cell under <paramref name="point"/>; with <paramref name="clamp"/>, the nearest visible cell when outside the grid.</summary>

@@ -81,9 +81,10 @@ public static class CalendarLayoutCalculator
 }
 
 /// <summary>
-/// The Windows CalendarItemControl on UIKit (twin of the AppKit <c>WinoCalendarItemView</c>): a 3pt "show as" stripe,
-/// the calendar colour at 0.9 opacity, a semibold title, time and location lines, and repeat and multi-day glyphs in the
-/// top right (shared <see cref="WinoCalendarTileAppearance"/>). The surface reuses these views between layouts; the
+/// The calendar event tile on UIKit (iOS calendar refresh of 14 Nov 2026, owner-approved departure from the Windows
+/// show-as stripe): the calendar colour as a tint over the surface with a 3pt stripe in the calendar colour (dashed for
+/// Tentative, purple for Out of office), a label-coloured semibold title, time and location lines, and repeat and
+/// multi-day glyphs in the top right. The surface reuses these views between layouts; the
 /// surface's gestures handle taps, long presses and drags.
 /// </summary>
 public sealed class WinoCalendarItemView : UIView
@@ -152,95 +153,121 @@ public sealed class WinoCalendarItemView : UIView
     /// <summary>Black or white, whichever reads on the fill (the shared perceived-brightness rule).</summary>
     public static UIColor ReadableTextColor(UIColor fill, UITraitCollection? traits = null) => WinoStyle.ReadableText(fill, traits);
 
-    private static double LongestWordWidth(string? text, UIFont font)
+    /// <summary>The all-day and month chip title size; the surface sets 12pt in Day, where chips have room.</summary>
+    internal double ChipTitleSize { get; set; } = 11;
+
+    private const double NarrowTitleSize = 10.5;
+    private const double NarrowLineHeight = 12.5;
+    private const double TwoLineTitleMinHeight = 44;
+    private static readonly UIColor OutOfOfficeStripe = WinoStyle.Hex(0x9C27B0);
+
+    /// <summary>
+    /// The calendar colour's tint over the opaque surface (iOS calendar refresh of 14 Nov 2026): Free and Tentative are
+    /// lighter, a pending change (busy) fades the tint, hover strengthens it.
+    /// </summary>
+    private double TintOpacity(bool dark)
     {
-        double widest = 0;
-        if (string.IsNullOrEmpty(text)) return 0;
-        var attributes = new UIStringAttributes { Font = font };
-        foreach (var word in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
-            widest = Math.Max(widest, (double)new NSAttributedString(word, attributes).Size.Width);
-        return widest;
+        if (_model is null) return 0;
+        bool light = _model.ShowAs is CalendarItemShowAs.Free or CalendarItemShowAs.Tentative;
+        double tint = light ? (dark ? 0.18 : 0.10) : (dark ? 0.33 : 0.18);
+        if (_model.IsBusy) tint *= 0.6;
+        return _hover ? tint + 0.06 : tint;
     }
 
     public override void Draw(CGRect rect)
     {
         if (_model is null) return;
         var bounds = Bounds;
-        bool ghost = _kind == CalendarPlacementKind.MultiDayGhost;
+        var traits = TraitCollection;
+        bool dark = traits.UserInterfaceStyle == UIUserInterfaceStyle.Dark;
+        var calendar = _model.Fill.GetResolvedColor(traits);
+        var surface = WinoStyle.ZoneFill.GetResolvedColor(traits);
+
+        if (_kind == CalendarPlacementKind.MultiDayGhost)
+        {
+            calendar.ColorWithAlpha((nfloat)(dark ? 0.16 : 0.10)).SetFill();
+            UIBezierPath.FromRect(bounds).Fill();
+            return;
+        }
+
         bool compact = WinoCalendarTileAppearance.IsSingleLine(_kind);
-        double opacity = WinoCalendarTileAppearance.FillOpacity(_kind, _model.IsBusy, _model.IsMultiDay, _hover);
-        nfloat radius = (nfloat)(ghost ? 0 : WinoCalendarTileAppearance.CornerRadius);
-
+        bool narrow = bounds.Width < NarrowTileWidth && !compact;
+        bool selected = _model.IsSelected;
+        nfloat radius = narrow ? 5 : 6;
         var path = UIBezierPath.FromRoundedRect(bounds, radius);
-        var fill = _model.Fill.GetResolvedColor(TraitCollection);
-        fill.ColorWithAlpha((nfloat)opacity).SetFill();
+        surface.SetFill();
         path.Fill();
-        if (ghost) return;
+        (selected ? calendar : calendar.ColorWithAlpha((nfloat)TintOpacity(dark))).SetFill();
+        path.Fill();
 
-        // Show-as stripe, clipped to the rounded shape.
         var context = UIGraphics.GetCurrentContext();
-        context.SaveState();
-        path.AddClip();
-        StripeColor(_model.ShowAs).SetFill();
-        UIGraphics.RectFill(new CGRect(0, 0, WinoCalendarTileAppearance.StripeWidth, bounds.Height));
-        context.RestoreState();
-
-        if (_model.IsSelected)
+        if (!selected)
         {
-            var inner = UIBezierPath.FromRoundedRect(bounds.Inset(1, 1), radius);
-            inner.LineWidth = 1.5f;
-            WinoStyle.Accent.SetStroke();
-            inner.Stroke();
+            double stripeWidth = narrow ? 2.5 : WinoCalendarTileAppearance.StripeWidth;
+            context.SaveState();
+            path.AddClip();
+            (_model.ShowAs == CalendarItemShowAs.OutOfOffice ? OutOfOfficeStripe : calendar).SetFill();
+            if (_model.ShowAs == CalendarItemShowAs.Tentative)
+            {
+                for (double top = 0; top < bounds.Height; top += 7)
+                    UIGraphics.RectFill(new CGRect(0, top, stripeWidth, Math.Min(4, bounds.Height - top)));
+            }
+            else UIGraphics.RectFill(new CGRect(0, 0, stripeWidth, bounds.Height));
+            context.RestoreState();
         }
 
-        var textColor = ReadableTextColor(fill, TraitCollection);
-        var paragraph = new NSMutableParagraphStyle { LineBreakMode = UILineBreakMode.TailTruncation, Alignment = UITextAlignment.Left };
+        // A hairline in the surface colour separates cascaded and adjacent tiles.
+        var outline = UIBezierPath.FromRoundedRect(bounds.Inset(0.5f, 0.5f), radius);
+        outline.LineWidth = 1;
+        surface.SetStroke();
+        outline.Stroke();
+
+        var titleColor = selected ? ReadableTextColor(calendar, traits) : WinoStyle.PrimaryText;
+        var detailColor = selected ? titleColor.ColorWithAlpha(0.85f) : WinoStyle.SecondaryText;
+        if (narrow)
+        {
+            DrawNarrowTitle(bounds, titleColor);
+            return;
+        }
+
         double glyphSize = WinoCalendarTileAppearance.GlyphSize;
-        // Narrow tiles (week columns on iPhone and iPad portrait, overlapping events) give the title every point: tighter
-        // insets, no glyph column, a smaller font and, in a tall tile, the title wrapped over several lines instead of the
-        // time and location, so it never shrinks to one letter.
-        bool narrow = bounds.Width < NarrowTileWidth;
-        double textLeft = WinoCalendarTileAppearance.StripeWidth + (narrow ? 3 : 6);
-        double textRight = bounds.Width - (narrow ? 2 : 4) - (narrow ? 0 : WinoCalendarTileAppearance.GlyphColumnWidth(_model.IsRecurring, _model.IsMultiDay));
+        double textLeft = WinoCalendarTileAppearance.StripeWidth + 5;
+        double textRight = bounds.Width - 4 - WinoCalendarTileAppearance.GlyphColumnWidth(_model.IsRecurring, _model.IsMultiDay);
         double textWidth = Math.Max(0, textRight - textLeft);
+        var paragraph = new NSMutableParagraphStyle { LineBreakMode = UILineBreakMode.TailTruncation, Alignment = UITextAlignment.Left };
 
-        double titleSize = WinoCalendarTileAppearance.TitleFontSize(_kind, _model.IsMultiDay, bounds.Height);
-        var titleFont = WinoStyle.Fixed(narrow ? Math.Min(titleSize, 11) : titleSize, UIFontWeight.Semibold);
-        double titleHeight = titleFont.LineHeight + 2;
-        int titleLines = narrow && !compact ? Math.Clamp((int)Math.Floor((bounds.Height - 3) / titleFont.LineHeight), 1, 4) : 1;
+        double titleSize = compact ? ChipTitleSize : 13;
+        var titleFont = WinoStyle.Fixed(titleSize, UIFontWeight.Semibold);
+        int titleLines = !compact && bounds.Height >= TwoLineTitleMinHeight ? 2 : 1;
+        double titleHeight = titleLines * titleFont.LineHeight;
+        if (titleLines > 1) paragraph.LineBreakMode = UILineBreakMode.WordWrap;
+        var titleAttributes = new UIStringAttributes { Font = titleFont, ForegroundColor = titleColor, ParagraphStyle = paragraph };
+        double y = compact ? (bounds.Height - titleFont.LineHeight) / 2 : 3;
         if (titleLines > 1)
         {
-            // Word wrap breaks inside a word that is wider than the column ("Spri/nt/plan/ning"): the font shrinks to 9pt
-            // until the longest word fits, and a word that still does not fit keeps one truncated line.
-            for (double size = (double)titleFont.PointSize; size > 9 && LongestWordWidth(_model.Title, titleFont) > textWidth; size -= 0.5)
-                titleFont = WinoStyle.Fixed(size - 0.5, UIFontWeight.Semibold);
-            titleLines = LongestWordWidth(_model.Title, titleFont) > textWidth
-                ? 1
-                : Math.Clamp((int)Math.Floor((bounds.Height - 3) / titleFont.LineHeight), 1, 4);
-            titleHeight = titleFont.LineHeight + 2;
+            // Two lines when the title needs them; the second ends in an ellipsis.
+            var measured = new NSAttributedString(_model.Title, titleAttributes).GetBoundingRect(new CGSize(textWidth, titleHeight),
+                NSStringDrawingOptions.UsesLineFragmentOrigin | NSStringDrawingOptions.TruncatesLastVisibleLine, null);
+            titleHeight = Math.Min(titleHeight, Math.Ceiling((double)measured.Height));
+            new NSAttributedString(_model.Title, titleAttributes).DrawString(new CGRect(textLeft, y, textWidth, titleHeight),
+                NSStringDrawingOptions.UsesLineFragmentOrigin | NSStringDrawingOptions.TruncatesLastVisibleLine, null);
         }
-        if (titleLines > 1)
+        else if (bounds.Height >= titleFont.LineHeight - 2)
         {
-            paragraph.LineBreakMode = UILineBreakMode.WordWrap;
-            titleHeight = titleLines * titleFont.LineHeight;
+            new NSAttributedString(_model.Title, titleAttributes).DrawString(new CGRect(textLeft, y, textWidth, titleFont.LineHeight + 1));
         }
-        var titleAttributes = new UIStringAttributes { Font = titleFont, ForegroundColor = textColor, ParagraphStyle = paragraph };
-        double y = compact ? (bounds.Height - titleHeight) / 2 : 3;
-        if (bounds.Height >= titleFont.LineHeight)
-            new NSAttributedString(_model.Title, titleAttributes).DrawString(new CGRect(textLeft, y, textWidth, titleHeight));
-        y += titleHeight + 2;
-        if (narrow) return;
+        y += titleHeight + 1;
 
         if (!compact && bounds.Height >= WinoCalendarTileAppearance.DetailLinesMinHeight)
         {
             var detailFont = WinoStyle.Fixed(11);
-            var detailAttributes = new UIStringAttributes { Font = detailFont, ForegroundColor = textColor.ColorWithAlpha(0.92f), ParagraphStyle = paragraph };
-            double detailHeight = detailFont.LineHeight + 2;
+            var detailAttributes = new UIStringAttributes { Font = detailFont, ForegroundColor = detailColor, ParagraphStyle = new NSMutableParagraphStyle { LineBreakMode = UILineBreakMode.TailTruncation } };
+            double detailHeight = detailFont.LineHeight + 1;
             foreach (var line in new[] { _model.TimeRange, _model.Location })
             {
                 if (string.IsNullOrWhiteSpace(line) || y + detailHeight > bounds.Height) continue;
                 new NSAttributedString(line, detailAttributes).DrawString(new CGRect(textLeft, y, textWidth, detailHeight));
-                y += detailHeight + 2;
+                y += detailHeight + 1;
             }
         }
 
@@ -248,11 +275,37 @@ public sealed class WinoCalendarItemView : UIView
         double glyphX = bounds.Width - 4 - glyphSize;
         if (_model.IsMultiDay)
         {
-            WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.CalendarEventMuiltiDay), new CGRect(glyphX, glyphY, glyphSize, glyphSize), textColor, TraitCollection, false);
+            WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.CalendarEventMuiltiDay), new CGRect(glyphX, glyphY, glyphSize, glyphSize), detailColor, traits, false);
             glyphX -= glyphSize + WinoCalendarTileAppearance.GlyphSpacing;
         }
         if (_model.IsRecurring)
-            WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.CalendarEventRepeat), new CGRect(glyphX, glyphY, glyphSize, glyphSize), textColor, TraitCollection, false);
+            WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.CalendarEventRepeat), new CGRect(glyphX, glyphY, glyphSize, glyphSize), detailColor, traits, false);
+    }
+
+    /// <summary>
+    /// Narrow week columns and cascaded tiles: 10.5pt titles that wrap by word (a word wider than the tile breaks by
+    /// character) and are clipped by the tile, with no ellipsis and no detail lines, so "Stand-up" never reads "Sta…".
+    /// </summary>
+    private void DrawNarrowTitle(CGRect bounds, UIColor color)
+    {
+        if (_model is null) return;
+        double left = 2.5 + 2.5, top = 2, right = 1;
+        double width = Math.Max(0, bounds.Width - left - right);
+        double height = Math.Max(0, bounds.Height - top - 1);
+        if (width <= 0 || height <= 0) return;
+        var paragraph = new NSMutableParagraphStyle
+        {
+            LineBreakMode = UILineBreakMode.WordWrap,
+            MinimumLineHeight = (nfloat)NarrowLineHeight,
+            MaximumLineHeight = (nfloat)NarrowLineHeight
+        };
+        var attributes = new UIStringAttributes { Font = WinoStyle.Fixed(NarrowTitleSize, UIFontWeight.Semibold), ForegroundColor = color, ParagraphStyle = paragraph };
+        var context = UIGraphics.GetCurrentContext();
+        context.SaveState();
+        context.ClipToRect(new CGRect(left, top, width, height));
+        int lines = Math.Max(1, (int)Math.Ceiling(height / NarrowLineHeight));
+        new NSAttributedString(_model.Title, attributes).DrawString(new CGRect(left, top, width, lines * NarrowLineHeight), NSStringDrawingOptions.UsesLineFragmentOrigin, null);
+        context.RestoreState();
     }
 
     protected override void Dispose(bool disposing)

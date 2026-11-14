@@ -29,7 +29,9 @@ public sealed partial class WinoCalendarSurfaceView
         var attributes = new UIStringAttributes { Font = WinoStyle.Fixed(11, UIFontWeight.Semibold), ForegroundColor = WinoStyle.Accent, ParagraphStyle = paragraph };
         foreach (var overflow in overflows)
         {
-            var text = new NSAttributedString(overflow.Text, attributes);
+            // Narrow phone columns show "+N"; "1 more" would truncate there.
+            var label = overflow.Bounds.Width < WinoCalendarItemView.NarrowTileWidth ? $"+{overflow.HiddenItems.Count}" : overflow.Text;
+            var text = new NSAttributedString(label, attributes);
             double height = text.Size.Height;
             var bounds = overflow.Bounds;
             text.DrawString(new CGRect(bounds.X + 4, bounds.Y + (bounds.Height - height) / 2, Math.Max(0, bounds.Width - 8), height));
