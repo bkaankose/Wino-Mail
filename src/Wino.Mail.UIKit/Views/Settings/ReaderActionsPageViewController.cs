@@ -31,9 +31,8 @@ public sealed class ReaderActionsPageViewController(ReaderActionsPageViewModel v
     {
         var vm = ViewModel;
 
-        AddGroup(null,
-            Card(Translator.SettingsMailRendering_ActionLabels_Title, Translator.SettingsMailRendering_ActionLabels_Description, WinoIconGlyph.ToggleLeft,
-                Bind.Switch(vm, nameof(vm.ShowActionLabels), s => s.ShowActionLabels, (s, v) => s.ShowActionLabels = v, Translator.SettingsMailRendering_ActionLabels_Title)));
+        var actionLabels = Card(Translator.SettingsMailRendering_ActionLabels_Title, null, WinoIconGlyph.ToggleLeft,
+            Bind.Switch(vm, nameof(vm.ShowActionLabels), s => s.ShowActionLabels, (s, v) => s.ShowActionLabels = v, Translator.SettingsMailRendering_ActionLabels_Title));
 
         _group.Dropped = (_, from, _, target) =>
         {
@@ -49,14 +48,26 @@ public sealed class ReaderActionsPageViewController(ReaderActionsPageViewModel v
         var arrange = Expander(Translator.ReaderActions_ArrangeHeader, Translator.ReaderActions_ArrangeDescription, WinoIconGlyph.ReOrderDotsVertical, null);
         arrange.IsExpanded = true;
         arrange.Add(list, 8, WinoSettingsStyle.CardPadding, 8, WinoSettingsStyle.CardPadding);
-        AddGroup(null, arrange);
+        arrange.MoveDescriptionToPage();
+        AddGroup(null, actionLabels, arrange);
+        AddGroup(null, ActionRow(Bind.Button(Translator.ReaderActions_ResetToDefault, vm.ResetToDefaultCommand)));
 
         var unsaved = Caption(Translator.ReaderActions_UnsavedChanges);
         Bind.Visible(unsaved, vm, nameof(vm.IsDirty), s => s.IsDirty);
-        var buttons = Row(
-            Bind.Button(Translator.Buttons_Apply, vm.ApplyCommand, primary: true),
-            Bind.Button(Translator.Buttons_Discard, vm.DiscardCommand),
-            Bind.Button(Translator.ReaderActions_ResetToDefault, vm.ResetToDefaultCommand));
+        var apply = Bind.Button(Translator.Buttons_Apply, vm.ApplyCommand, primary: true);
+        var discard = Bind.Button(Translator.Buttons_Discard, vm.DiscardCommand);
+        foreach (var button in new[] { apply, discard })
+        {
+            if (button.Configuration is { } configuration)
+            {
+                configuration.CornerStyle = UIButtonConfigurationCornerStyle.Fixed;
+                configuration.Background.CornerRadius = 14;
+                button.Configuration = configuration;
+            }
+            button.HeightAnchor.ConstraintEqualTo(44).Active = true;
+        }
+        var buttons = WinoLayout.HStack(WinoStyle.Space2, apply, discard);
+        buttons.Distribution = UIStackViewDistribution.FillEqually;
         Add(buttons);
         Add(unsaved);
     }

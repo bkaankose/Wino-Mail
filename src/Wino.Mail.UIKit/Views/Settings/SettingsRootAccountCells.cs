@@ -32,7 +32,7 @@ public sealed class MailAccountsCardCell : UITableViewCell
 
     public MailAccountsCardCell() : base(UITableViewCellStyle.Default, (string?)null)
     {
-        BackgroundColor = WinoSettingsStyle.CardFill;
+        BackgroundColor = WinoSettingsStyle.GroupFill;
         Accessory = UITableViewCellAccessory.DisclosureIndicator;
         AccessibilityIdentifier = "SettingsMailAccountsCard";
 
@@ -60,7 +60,7 @@ public sealed class MailAccountsCardCell : UITableViewCell
         WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
         var row = WinoLayout.HStack(14, _single, _pair, _placeholder, text);
         row.Alignment = UIStackViewAlignment.Center;
-        WinoLayout.Fill(row, ContentView, 10, 14, 10, 8);
+        WinoLayout.Fill(row, ContentView, 10, 16, 10, 8);
 
         IsAccessibilityElement = true;
         AccessibilityTraits = UIAccessibilityTrait.Button;
@@ -116,10 +116,10 @@ public sealed class WinoAccountRowCell : UITableViewCell
 
     public WinoAccountRowCell() : base(UITableViewCellStyle.Default, (string?)null)
     {
-        BackgroundColor = WinoSettingsStyle.CardFill;
+        BackgroundColor = WinoSettingsStyle.GroupFill;
         Accessory = UITableViewCellAccessory.DisclosureIndicator;
         AccessibilityIdentifier = "SettingsWinoAccountRow";
-        SeparatorInset = new UIEdgeInsets(0, 14 + 28 + 12, 0, 0);
+        SeparatorInset = new UIEdgeInsets(0, 16 + 28 + 12, 0, 0);
         Update(false, string.Empty, string.Empty, null);
     }
 
@@ -140,7 +140,7 @@ public sealed class WinoAccountRowCell : UITableViewCell
         content.ImageProperties.ReservedLayoutSize = new CGSize(glyph + 6, glyph);
         content.ImageProperties.MaximumSize = signedIn ? new CGSize(pictureSize, pictureSize) : new CGSize(glyph, glyph);
         content.ImageToTextPadding = 12;
-        content.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(11, 14, 11, 12);
+        content.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(11, 16, 11, 12);
         ContentConfiguration = content;
         AccessibilityHint = signedIn ? email : null;
     }

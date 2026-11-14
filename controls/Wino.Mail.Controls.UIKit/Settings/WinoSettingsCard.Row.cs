@@ -29,6 +29,19 @@ public partial class WinoSettingsCard
     private UILabel? _rowBelowLabel;
     private UIButton? _checkButton;
     private IDisposable? _actionEnabledObserver;
+    private UISwitch? _rowSwitch;
+    private UISwitch? _headerSwitch;
+    private string? _rowValueText;
+
+    /// <summary>The note under the control on the pushed page when the row itself shows no description.</summary>
+    public string? PageNote { get; set; }
+
+    /// <summary>A fixed value shown before the chevron of a push row (an account's badge rule or size).</summary>
+    public string? RowValueText
+    {
+        get => _rowValueText;
+        set { _rowValueText = value; if (_listMode) ApplyListContent(); }
+    }
 
     /// <summary>
     /// Renders the card as a settings-page row. One way: settings groups, settings pages and the detail page turn it on;
@@ -67,6 +80,7 @@ public partial class WinoSettingsCard
 
     private bool IsTappable => _listMode
         ? _isEnabled && (_isClickable || _isExpanderHeader || _rowKind is WinoSettingsRowKind.Value or WinoSettingsRowKind.Push
+                         || _rowSwitch is { Enabled: true }
                          || _rowKind == WinoSettingsRowKind.Action && _actionButton is { Enabled: true }
                          || _checkButton is { Enabled: true })
         : _isClickable && _isEnabled;
@@ -76,6 +90,13 @@ public partial class WinoSettingsCard
         if (!_listMode) { Activated?.Invoke(this, EventArgs.Empty); return; }
         if (_isExpanderHeader && ExpanderDetail is { } openExpander) { openExpander(); return; }
         if (_isClickable) { Activated?.Invoke(this, EventArgs.Empty); return; }
+        if (_rowSwitch is { Enabled: true } toggle)
+        {
+            toggle.SetState(!toggle.On, true);
+            toggle.SendActionForControlEvents(UIControlEvent.ValueChanged);
+            UpdateListAccessibility();
+            return;
+        }
         switch (_rowKind)
         {
             case WinoSettingsRowKind.Action when _actionButton is { } button:
@@ -122,7 +143,7 @@ public partial class WinoSettingsCard
 
         _rowValue = WinoStyle.Label(string.Empty, WinoSettingsStyle.RowValue, WinoStyle.SecondaryText);
         _rowValue.TextAlignment = UITextAlignment.Right;
-        _rowValue.LineBreakMode = UILineBreakMode.TailTruncation;
+        _rowValue.LineBreakMode = UILineBreakMode.MiddleTruncation;
         WinoLayout.Priorities(_rowValue, UILayoutConstraintAxis.Horizontal, 251, 760);
         _rowChevron = new WinoIconView(WinoIconGlyph.ChevronRight, 12, WinoSettingsStyle.Chevron);
         WinoLayout.Size(_rowChevron, 12, 12);
@@ -146,7 +167,7 @@ public partial class WinoSettingsCard
             _rowTrailing.TopAnchor.ConstraintGreaterThanOrEqualTo(_surface.TopAnchor, vpad),
             _rowTrailing.BottomAnchor.ConstraintLessThanOrEqualTo(_surface.BottomAnchor, -vpad),
             _rowText.TrailingAnchor.ConstraintLessThanOrEqualTo(_rowTrailing.LeadingAnchor, -12),
-            _rowValue.WidthAnchor.ConstraintLessThanOrEqualTo(_surface.WidthAnchor, 0.45f),
+            _rowValue.WidthAnchor.ConstraintLessThanOrEqualTo(_surface.WidthAnchor, 0.5f),
             _separator.LeadingAnchor.ConstraintEqualTo(_rowText.LeadingAnchor)
         ]);
         // The title takes the free width so a short value sits at the trailing edge.
@@ -201,6 +222,12 @@ public partial class WinoSettingsCard
         _actionButton = null;
         _actionShowsButtonTitle = false;
         _checkButton = null;
+        _rowSwitch = null;
+        if (_headerSwitch is not null)
+        {
+            _headerSwitch.ValueChanged -= HeaderSwitchChanged;
+            _headerSwitch = null;
+        }
 
         var kind = WinoSettingsRowContent.Classify(_content, _bottomContent);
         _rowKind = kind;
@@ -212,8 +239,15 @@ public partial class WinoSettingsCard
 
         if (_isExpanderHeader)
         {
-            // An expander pushes its items; a switch in its header stays on the row so it toggles without the push.
-            if (kind == WinoSettingsRowKind.Switch || kind == WinoSettingsRowKind.Inline) trailing = _content;
+            // An expander pushes its items. A switch in its header reads as On or Off on the row and leads the pushed page
+            // (14 Nov 2026), so the row never carries a switch and a chevron together.
+            if (kind == WinoSettingsRowKind.Switch && _content is not null && WinoSettingsRowContent.Controls(_content).OfType<UISwitch>().FirstOrDefault() is { } headerSwitch)
+            {
+                _headerSwitch = headerSwitch;
+                headerSwitch.ValueChanged += HeaderSwitchChanged;
+                showValue = true;
+            }
+            else if (kind == WinoSettingsRowKind.Inline) trailing = _content;
             else showValue = kind == WinoSettingsRowKind.Value;
             showChevron = true;
         }
@@ -229,6 +263,7 @@ public partial class WinoSettingsCard
             {
                 case WinoSettingsRowKind.Switch:
                     trailing = _content;
+                    _rowSwitch = _content is null ? null : WinoSettingsRowContent.Controls(_content).OfType<UISwitch>().FirstOrDefault();
                     break;
                 case WinoSettingsRowKind.Inline:
                     trailing = _content;
@@ -300,7 +335,7 @@ public partial class WinoSettingsCard
                 caption.TextAlignment = UITextAlignment.Right;
                 caption.Font = WinoSettingsStyle.RowValue;
                 caption.Lines = 1;
-                caption.LineBreakMode = UILineBreakMode.TailTruncation;
+                caption.LineBreakMode = UILineBreakMode.MiddleTruncation;
                 WinoLayout.Priorities(caption, UILayoutConstraintAxis.Horizontal, 751, 730);
             }
             _rowTrailing.InsertArrangedSubview(trailing, 0);
@@ -309,6 +344,7 @@ public partial class WinoSettingsCard
                 foreach (var control in WinoSettingsRowContent.Controls(_content))
                     if (string.IsNullOrEmpty(control.AccessibilityLabel)) control.AccessibilityLabel = title;
         }
+        if (!string.IsNullOrEmpty(_rowValueText) && trailing is null && !showValue && showChevron && !_actionShowsButtonTitle) showValue = true;
         _rowValue.Hidden = !showValue;
         _rowChevron.Hidden = !showChevron;
         if (_actionIcon != WinoIconGlyph.None && showChevron) { _rowChevron.Icon = _actionIcon; _rowChevron.PointSize = 14; }
@@ -322,6 +358,7 @@ public partial class WinoSettingsCard
 
         _description.Hidden = string.IsNullOrEmpty(_description.Text);
         _description.Font = WinoSettingsStyle.CardDescription;
+        _minHeight.Constant = (nfloat)(_description.Hidden ? WinoSettingsStyle.RowMinHeight : WinoSettingsStyle.RowWithSubtitleMinHeight);
         RefreshValue();
         ApplyListEnabled();
     }
@@ -345,8 +382,17 @@ public partial class WinoSettingsCard
     /// <summary>Re-reads the value text from the content (after the detail page pops, or when the binder changes it).</summary>
     public void RefreshValue()
     {
+        if (_listMode && _rowValue is { Hidden: false } && !string.IsNullOrEmpty(_rowValueText) && _headerSwitch is null
+            && (_content is null || WinoSettingsRowContent.Classify(_content, _bottomContent) != WinoSettingsRowKind.Value))
+        {
+            _rowValue.Text = _rowValueText;
+            UpdateListAccessibility();
+            return;
+        }
         if (!_listMode || _rowValue is null || _rowValue.Hidden || _content is null || _actionShowsButtonTitle) return;
-        _rowValue.Text = WinoSettingsRowContent.ValueText(_content);
+        _rowValue.Text = _headerSwitch is { } headerSwitch
+            ? headerSwitch.On ? Translator.CalendarSettings_Toggle_On : Translator.CalendarSettings_Toggle_Off
+            : WinoSettingsRowContent.ValueText(_content);
         UpdateListAccessibility();
     }
 
@@ -355,6 +401,11 @@ public partial class WinoSettingsCard
         base.MovedToWindow();
         if (Window is not null) RefreshValue();
     }
+
+    private void HeaderSwitchChanged(object? sender, EventArgs args) => RefreshValue();
+
+    /// <summary>The header switch of an expander row, which its pushed page shows as its first row.</summary>
+    internal UISwitch? HeaderSwitch => _headerSwitch;
 
     private void UpdateListSurface()
     {
@@ -367,7 +418,7 @@ public partial class WinoSettingsCard
         }
         _surface.CornerRadius = WinoSettingsStyle.CardRadius;
         _surface.Fill = _pressed ? WinoSettingsStyle.SubtleFill : WinoSettingsStyle.GroupFill;
-        _surface.Stroke = WinoSettingsStyle.CardStroke;
+        _surface.Stroke = WinoSettingsStyle.GroupStroke;
     }
 
     private void ApplyListEnabled()
@@ -407,6 +458,15 @@ public partial class WinoSettingsCard
 
     private void UpdateListAccessibility()
     {
+        // A switch row is one element with the switch's traits and value; the row tap toggles it.
+        if (_rowSwitch is { } toggle)
+        {
+            IsAccessibilityElement = true;
+            AccessibilityLabel = _description.Hidden ? _header.Text : $"{_header.Text}, {_description.Text}";
+            AccessibilityValue = toggle.AccessibilityValue;
+            AccessibilityTraits = toggle.AccessibilityTraits | (IsTappable ? UIAccessibilityTrait.None : UIAccessibilityTrait.NotEnabled);
+            return;
+        }
         var tappable = _isClickable || _isExpanderHeader || _rowKind is WinoSettingsRowKind.Value or WinoSettingsRowKind.Push or WinoSettingsRowKind.Action;
         var hasOwnControl = _rowTrailing?.ArrangedSubviews.Any(view => view != _rowValue && view != _rowChevron) == true;
         IsAccessibilityElement = tappable && !hasOwnControl || _rowKind == WinoSettingsRowKind.Static && !_isClickable;
@@ -420,7 +480,13 @@ public partial class WinoSettingsCard
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _actionEnabledObserver?.Dispose(); _actionEnabledObserver = null; }
+        if (disposing)
+        {
+            _actionEnabledObserver?.Dispose();
+            _actionEnabledObserver = null;
+            if (_headerSwitch is not null) _headerSwitch.ValueChanged -= HeaderSwitchChanged;
+            _headerSwitch = null;
+        }
         base.Dispose(disposing);
     }
 }

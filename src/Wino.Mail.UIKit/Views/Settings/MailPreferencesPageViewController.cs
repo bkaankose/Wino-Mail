@@ -25,12 +25,15 @@ public sealed class MailPreferencesPageViewController(MailPreferencesPageViewMod
             nameof(vm.StartupAccount), s => s.StartupAccount, (s, v) => s.StartupAccount = v,
             itemsCollection: vm.StartupAccounts);
 
-        AddGroup(null,
-            StackedCard(Translator.SettingsStartupItem_Title, Translator.IOS_SettingsHint_StartupItem, WinoIconGlyph.Home, startup),
-            vm.IsSyncIntervalAvailable ? StackedCard(Translator.SettingsAppPreferences_EmailSyncInterval_Title, Translator.IOS_SettingsHint_EmailSyncInterval, WinoIconGlyph.Sync,
+        var startupFooter = vm.IsSyncIntervalAvailable
+            ? $"{Translator.IOS_SettingsHint_SearchMode} {Translator.IOS_SettingsHint_EmailSyncInterval}"
+            : Translator.IOS_SettingsHint_SearchMode;
+        AddSection(Translator.IOS_SettingsSection_StartupSearch, startupFooter,
+            StackedCard(Translator.SettingsStartupItem_Title, null, WinoIconGlyph.Home, startup),
+            vm.IsSyncIntervalAvailable ? StackedCard(Translator.SettingsAppPreferences_EmailSyncInterval_Title, null, WinoIconGlyph.Sync,
                 Bind.Stepper(vm, nameof(vm.EmailSyncIntervalMinutes), s => s.EmailSyncIntervalMinutes, (s, v) => s.EmailSyncIntervalMinutes = v, 1, 1440,
                     accessibilityLabel: Translator.SettingsAppPreferences_EmailSyncInterval_Title)) : null,
-            StackedCard(Translator.SettingsAppPreferences_SearchMode_Title, Translator.IOS_SettingsHint_SearchMode, WinoIconGlyph.Find,
+            StackedCard(Translator.SettingsAppPreferences_SearchMode_Title, null, WinoIconGlyph.Find,
                 Bind.PopUp<MailPreferencesPageViewModel, string>(vm, s => s.SearchModes, item => item,
                     nameof(vm.SelectedDefaultSearchMode), s => s.SelectedDefaultSearchMode, (s, v) => s.SelectedDefaultSearchMode = v)));
 
@@ -54,24 +57,24 @@ public sealed class MailPreferencesPageViewController(MailPreferencesPageViewMod
         var delay = Bind.Stepper(vm, nameof(vm.MarkAsDelay), s => s.MarkAsDelay, (s, v) => s.MarkAsDelay = v, 0, 120,
             accessibilityLabel: Translator.Settings_SecondsToWait_Title);
 
-        AddGroup(null,
-            Expander(Translator.SettingsAppPreferences_UndoActions_Title, Translator.IOS_SettingsHint_UndoActions, WinoIconGlyph.ArrowUndo, null,
+        AddSection(Translator.IOS_SettingsSection_ReadingUndo, null,
+            Expander(Translator.SettingsAppPreferences_UndoActions_Title, null, WinoIconGlyph.ArrowUndo, null,
                 undoSend,
                 undoSendDelay,
                 undoDelete,
                 undoDeleteDelay),
-            Expander(Translator.SettingsMarkAsRead_Title, Translator.IOS_SettingsHint_MarkAsRead, WinoIconGlyph.MarkRead, null,
+            Expander(Translator.SettingsMarkAsRead_Title, null, WinoIconGlyph.MarkRead, null,
                 StackedCard(Translator.SettingsMarkAsRead_Title, Translator.IOS_SettingsHint_MarkAsRead, WinoIconGlyph.None,
                     Bind.PopUp(vm, markOptions, nameof(vm.SelectedMarkAsOptionIndex), s => s.SelectedMarkAsOptionIndex, (s, v) => s.SelectedMarkAsOptionIndex = v)),
                 Bind.Enabled(Card(Translator.Settings_SecondsToWait_Title, Translator.IOS_SettingsHint_MarkAsReadDelay, WinoIconGlyph.None, delay),
-                    vm, nameof(vm.SelectedMarkAsOptionIndex), s => s.SelectedMarkAsOptionIndex == 2)));
-
-        AddGroup(null,
+                    vm, nameof(vm.SelectedMarkAsOptionIndex), s => s.SelectedMarkAsOptionIndex == 2)),
             Card(Translator.SettingsAutoSelectNextItem_Title, Translator.IOS_SettingsHint_AutoSelectNextItem, WinoIconGlyph.List,
-                Bind.Switch(p, nameof(p.AutoSelectNextItem), s => s.AutoSelectNextItem, (s, v) => s.AutoSelectNextItem = v, Translator.SettingsAutoSelectNextItem_Title)),
-            Card(Translator.SettingsDeleteProtection_Title, Translator.IOS_SettingsHint_DeleteProtection, WinoIconGlyph.ShieldError,
+                Bind.Switch(p, nameof(p.AutoSelectNextItem), s => s.AutoSelectNextItem, (s, v) => s.AutoSelectNextItem = v, Translator.SettingsAutoSelectNextItem_Title)));
+
+        AddSection(Translator.IOS_SettingsSection_Deleting, Translator.IOS_SettingsFooter_Deleting,
+            Card(Translator.SettingsDeleteProtection_Title, null, WinoIconGlyph.ShieldError,
                 Bind.Switch(p, nameof(p.IsHardDeleteProtectionEnabled), s => s.IsHardDeleteProtectionEnabled, (s, v) => s.IsHardDeleteProtectionEnabled = v, Translator.SettingsDeleteProtection_Title)),
-            Card(Translator.SettingsEmptyJunkFolderCommand_Title, Translator.IOS_SettingsHint_EmptyJunkFolderCommand, WinoIconGlyph.Delete,
+            Card(Translator.SettingsEmptyJunkFolderCommand_Title, null, WinoIconGlyph.Delete,
                 Bind.Switch(p, nameof(p.IsShowEmptyJunkFolderEnabled), s => s.IsShowEmptyJunkFolderEnabled, (s, v) => s.IsShowEmptyJunkFolderEnabled = v, Translator.SettingsEmptyJunkFolderCommand_Title)));
     }
 

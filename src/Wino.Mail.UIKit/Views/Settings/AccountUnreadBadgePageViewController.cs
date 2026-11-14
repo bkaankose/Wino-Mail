@@ -47,10 +47,12 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
         Bind.Bind(vm, nameof(vm.PreferenceError), s => s.PreferenceError, text => { error.Message = text; error.Hidden = string.IsNullOrEmpty(text); });
         Add(error);
 
-        Add(TotalsCard());
-        Add(LocationsExpander());
-        Add(CountSourceExpander());
-        Add(FoldersExpander());
+        AddGroup(null, TotalsCard());
+        var locations = LocationsExpander();
+        var countSource = CountSourceExpander();
+        locations.MoveDescriptionToPage();
+        countSource.MoveDescriptionToPage();
+        AddGroup(null, locations, countSource, FoldersExpander());
 
         var restore = Bind.Button(Translator.UnreadBadges_RestoreDefaults, vm.RestoreDefaultsCommand, icon: WinoIconGlyph.ArrowReset);
         AddGroup(null, ActionRow(restore));
@@ -286,11 +288,10 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
     private WinoSettingsExpander FoldersExpander()
     {
         var vm = ViewModel;
-        var expander = new WinoSettingsExpander(Translator.UnreadBadges_Folders_Title, Translator.IOS_UnreadBadges_Folders_Description, WinoIconGlyph.Library, null, isExpanded: true);
-        // The counted / badged summary joins the header description; a trailing label has no room at phone width.
-        Bind.Bind(vm, nameof(vm.FolderSummary), s => s.FolderSummary, summary => expander.HeaderCard.Description = string.IsNullOrEmpty(summary)
-            ? Translator.IOS_UnreadBadges_Folders_Description
-            : $"{Translator.IOS_UnreadBadges_Folders_Description}\n{summary}");
+        var expander = new WinoSettingsExpander(Translator.UnreadBadges_Folders_Title, null, WinoIconGlyph.Library, null, isExpanded: true);
+        // The counted / badged summary is the row's status; the folders description is the note on the pushed page.
+        expander.PageNote = Translator.IOS_UnreadBadges_Folders_Description;
+        Bind.Bind(vm, nameof(vm.FolderSummary), s => s.FolderSummary, summary => expander.HeaderCard.Description = string.IsNullOrEmpty(summary) ? null : summary);
 
         var inboxHint = Hint(Translator.UnreadBadges_Folders_InboxOnlyHint, Translator.UnreadBadges_Folders_UseSelectedFolders, vm.UseSelectedFoldersCommand);
         Bind.Visible(inboxHint, vm, nameof(vm.IsInboxOnlySource), s => s.IsInboxOnlySource);

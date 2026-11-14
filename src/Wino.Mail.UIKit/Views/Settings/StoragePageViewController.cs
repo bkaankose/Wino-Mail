@@ -19,7 +19,7 @@ namespace Wino.Mail.UIKit.Views.Settings;
 public sealed class StoragePageViewController(StoragePageViewModel viewModel, IPictureStorageService pictures, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<StoragePageViewModel>(viewModel, dispatcher, logger)
 {
-    private readonly WinoSettingsGroup _accounts = new();
+    private readonly WinoSettingsGroup _accounts = new(Translator.IOS_SettingsSection_Accounts);
     private BindingScope? _rowScope;
 
     protected override void BuildPage()
@@ -28,9 +28,10 @@ public sealed class StoragePageViewController(StoragePageViewModel viewModel, IP
         var summary = Bind.Label(vm, nameof(vm.SummaryText), s => s.SummaryText, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         var scan = Bind.Button(Translator.SettingsStorage_ScanFolder, vm.RefreshStorageCommand, primary: true);
         Bind.Enabled(scan, vm, nameof(vm.IsBusy), s => !s.IsBusy);
-        var hero = Card(Translator.SettingsStorage_Title, Translator.SettingsStorage_Description, WinoIconGlyph.Storage, scan);
+        var hero = Card(Translator.SettingsStorage_Title, null, WinoIconGlyph.Storage, scan);
         hero.BottomContent = summary;
-        AddGroup(null, hero);
+        hero.PageNote = Translator.SettingsStorage_Description;
+        AddSection(null, Translator.IOS_SettingsFooter_Storage, hero);
 
         Add(_accounts);
         Bind.Collection(vm.AccountStorageItems, RebuildAccounts);
@@ -48,10 +49,12 @@ public sealed class StoragePageViewController(StoragePageViewModel viewModel, IP
 
         foreach (var item in ViewModel.AccountStorageItems.ToList())
         {
-            var expander = new WinoSettingsExpander(item.AccountName, item.SizeDescription);
+            // The row shows the size as its value; the full sentence is the note on the account's page.
+            var expander = new WinoSettingsExpander(item.AccountName);
             var icon = new WinoAccountIconView(28) { Account = MailAccountIconInfoFactory.Create(item.Account, pictures) };
             expander.HeaderCard.LeadingView = icon;
-            rows.Bind(item, nameof(item.SizeDescription), i => i.SizeDescription, text => expander.HeaderCard.Description = text);
+            rows.Bind(item, nameof(item.SizeText), i => i.SizeText, text => expander.HeaderCard.RowValueText = text);
+            rows.Bind(item, nameof(item.SizeDescription), i => i.SizeDescription, text => expander.PageNote = text);
 
             var deleteAll = rows.Button(Translator.SettingsStorage_DeleteAll_Button, item.DeleteAllCommand, () => item);
             expander.Add(rows.Enabled(new WinoSettingsCard(Translator.SettingsStorage_DeleteAll_Title, Translator.IOS_SettingsHint_StorageDeleteAll, WinoIconGlyph.None, deleteAll),

@@ -28,27 +28,27 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         // the live preview sits on this page under it.
         var modePopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, CalendarEventDisplayModeOption>(vm, s => s.EventDisplayModeOptions, option => option.DisplayName,
             nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption, (s, v) => s.SelectedEventDisplayModeOption = v);
-        var overlap = Card(Translator.CalendarSettings_Overlap_Header, Translator.IOS_SettingsHint_Overlap, WinoIconGlyph.None, modePopup);
-        AddGroup(null, overlap);
+        var overlap = Card(Translator.CalendarSettings_Overlap_Header, null, WinoIconGlyph.None, modePopup);
+        var overlapGroup = AddSection(Translator.IOS_SettingsSection_OverlappingEvents, null, overlap);
 
+        // The live preview shares the group under a hairline; the selected mode's caption is the group footer.
         var preview = new OverlapPreviewView();
         Bind.Bind(vm, nameof(vm.OverlapPreviewItems), s => s.OverlapPreviewItems, items => preview.Items = items);
-        var modeDescription = WinoStyle.Label(string.Empty, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
-        Bind.Bind(vm, nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption?.Description, text => modeDescription.Text = text ?? string.Empty);
-        Add(PreviewSurface(preview, modeDescription));
+        overlapGroup.AddAttached(SettingsCardLayout.Leading(preview));
+        Bind.Bind(vm, nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption?.Description, text => overlapGroup.Footer = text);
 
-        var sync = StackedCard(Translator.CalendarSettings_SyncInterval_Title, Translator.IOS_SettingsHint_CalendarSyncInterval, WinoIconGlyph.Sync,
+        var sync = StackedCard(Translator.CalendarSettings_SyncInterval_Title, null, WinoIconGlyph.Sync,
             Bind.Stepper(vm, nameof(vm.CalendarSyncIntervalMinutes), s => s.CalendarSyncIntervalMinutes, (s, v) => s.CalendarSyncIntervalMinutes = v, 1, 1440,
                 accessibilityLabel: Translator.CalendarSettings_SyncInterval_Title));
 
         // Grouping is a switch row; the startup account follows as its own value row while accounts are not grouped.
-        var grouping = Card(Translator.CalendarSettings_AccountGrouping_Header, Translator.IOS_SettingsHint_CalendarGrouping, WinoIconGlyph.Folder,
+        var grouping = Card(Translator.CalendarSettings_AccountGrouping_Header, null, WinoIconGlyph.Folder,
             Bind.Switch(vm, nameof(vm.IsCalendarAccountsGrouped), s => s.IsCalendarAccountsGrouped, (s, v) => s.IsCalendarAccountsGrouped = v, Translator.CalendarSettings_AccountGrouping_Header));
         var startupPopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, MailAccount>(vm, s => s.CalendarStartupAccounts.ToList(),
             account => string.IsNullOrWhiteSpace(account.Name) ? account.Address ?? string.Empty : $"{account.Name} — {account.Address}",
             nameof(vm.SelectedCalendarStartupAccount), s => s.SelectedCalendarStartupAccount, (s, v) => s.SelectedCalendarStartupAccount = v,
             itemsCollection: vm.CalendarStartupAccounts);
-        var startup = Card(Translator.CalendarSettings_StartupAccount_Header, Translator.IOS_SettingsHint_CalendarStartupAccount, WinoIconGlyph.None, startupPopup);
+        var startup = Card(Translator.CalendarSettings_StartupAccount_Header, null, WinoIconGlyph.None, startupPopup);
         Bind.Visible(startup, vm, nameof(vm.ShouldShowCalendarStartupAccount), s => s.ShouldShowCalendarStartupAccount);
 
         // The New Event behaviour and, when it names one, the calendar it opens: two value rows.
@@ -61,25 +61,10 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         var calendar = Card(Translator.CalendarSettings_NewEventCalendar_Header, null, WinoIconGlyph.None, calendarPopup);
         Bind.Visible(calendar, vm, nameof(vm.ShouldShowSpecificNewEventCalendar), s => s.ShouldShowSpecificNewEventCalendar);
 
-        AddGroup(null, vm.IsSyncIntervalAvailable ? sync : null, grouping, startup, newEvent, calendar);
-    }
-
-    /// <summary>The preview sample on its own surface, with the selected mode's explanation under it.</summary>
-    private static UIView PreviewSurface(UIView preview, UILabel description)
-    {
-        var caption = WinoStyle.Label(Translator.CalendarSettings_Overlap_Preview, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText);
-        var content = WinoLayout.VStack(WinoStyle.Space2, caption, SettingsCardLayout.Leading(preview), description);
-        content.Alignment = UIStackViewAlignment.Fill;
-        var surface = new WinoSurfaceView
-        {
-            Fill = WinoSettingsStyle.GroupFill,
-            Stroke = WinoSettingsStyle.CardStroke,
-            StrokeWidth = 1,
-            CornerRadius = WinoSettingsStyle.CardRadius,
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        WinoLayout.Fill(content, surface, 12, WinoSettingsStyle.CardPadding, 12, WinoSettingsStyle.CardPadding);
-        return surface;
+        var calendars = AddSection(Translator.IOS_SettingsSection_Calendars, null, vm.IsSyncIntervalAvailable ? sync : null, grouping, startup);
+        Bind.Bind(vm, nameof(vm.ShouldShowCalendarStartupAccount), s => s.ShouldShowCalendarStartupAccount,
+            shown => calendars.Footer = shown ? Translator.IOS_SettingsHint_CalendarStartupAccount : null);
+        AddSection(Translator.IOS_SettingsSection_NewEvents, null, newEvent, calendar);
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)

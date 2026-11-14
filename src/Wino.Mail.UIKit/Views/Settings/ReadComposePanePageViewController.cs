@@ -36,8 +36,8 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
         Bind.Bind(vm, nameof(vm.CurrentComposerFont), s => s.CurrentComposerFont, _ => UpdateComposer());
         Bind.Bind(vm, nameof(vm.CurrentComposerFontSize), s => s.CurrentComposerFontSize, _ => UpdateComposer());
 
-        AddGroup(null,
-            Expander(Translator.SettingsReaderFont_Title, Translator.IOS_SettingsHint_ReaderFont, WinoIconGlyph.TextFont, null,
+        AddSection(Translator.IOS_SettingsSection_Fonts, null,
+            Expander(Translator.SettingsReaderFont_Title, null, WinoIconGlyph.TextFont, null,
                 StackedCard(Translator.SettingsFontFamily_Title, null, WinoIconGlyph.None,
                     Bind.PopUp<ReadComposePanePageViewModel, string>(vm, _ => fonts, font => font,
                         nameof(vm.CurrentReaderFont), s => s.CurrentReaderFont, (s, v) => s.CurrentReaderFont = v)),
@@ -45,14 +45,16 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
                     Bind.Stepper(vm, nameof(vm.CurrentReaderFontSize), s => s.CurrentReaderFontSize, (s, v) => s.CurrentReaderFontSize = v, 8, 48,
                         accessibilityLabel: Translator.SettingsFontSize_Title)),
                 StackedCard(Translator.SettingsFontPreview_Title, null, WinoIconGlyph.None, readerPreview)),
-            Expander(Translator.SettingsComposerFont_Title, Translator.IOS_SettingsHint_ComposerFont, WinoIconGlyph.TextFont, null,
+            Expander(Translator.SettingsComposerFont_Title, null, WinoIconGlyph.TextFont, null,
                 StackedCard(Translator.SettingsFontFamily_Title, null, WinoIconGlyph.None,
                     Bind.PopUp<ReadComposePanePageViewModel, string>(vm, _ => fonts, font => font,
                         nameof(vm.CurrentComposerFont), s => s.CurrentComposerFont, (s, v) => s.CurrentComposerFont = v)),
                 StackedCard(Translator.SettingsFontSize_Title, null, WinoIconGlyph.None,
                     Bind.Stepper(vm, nameof(vm.CurrentComposerFontSize), s => s.CurrentComposerFontSize, (s, v) => s.CurrentComposerFontSize = v, 8, 48,
                         accessibilityLabel: Translator.SettingsFontSize_Title)),
-                StackedCard(Translator.SettingsFontPreview_Title, null, WinoIconGlyph.None, composerPreview)),
+                StackedCard(Translator.SettingsFontPreview_Title, null, WinoIconGlyph.None, composerPreview)));
+
+        AddSection(Translator.IOS_SettingsSection_Composer, null,
             Expander(Translator.SettingsComposerSpellCheck_Title, null, WinoIconGlyph.TextProofingTools, null,
                 Card(Translator.SettingsComposerSpellCheckEnabled_Title, null, WinoIconGlyph.None,
                     Bind.Switch(p, nameof(p.IsComposerSpellCheckEnabled), s => s.IsComposerSpellCheckEnabled, (s, v) => s.IsComposerSpellCheckEnabled = v, Translator.SettingsComposerSpellCheckEnabled_Title)),
@@ -62,8 +64,8 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
                     Bind.PopUp<ReadComposePanePageViewModel, AppLanguageModel>(vm, s => s.AvailableSpellCheckLanguages, language => language.DisplayName,
                         nameof(vm.CurrentSpellCheckLanguage), s => s.CurrentSpellCheckLanguage, (s, v) => s.CurrentSpellCheckLanguage = v))));
 
-        AddGroup(null,
-            NavigationCard(Translator.ReaderActions_Title, Translator.IOS_SettingsHint_ReaderActions, WinoIconGlyph.ReOrderDotsVertical,
+        AddSection(Translator.IOS_SettingsSection_Reader, null,
+            NavigationCard(Translator.ReaderActions_Title, null, WinoIconGlyph.ReOrderDotsVertical,
                 () => vm.OpenReaderActionsCommand.Execute(null)),
             Card(Translator.SettingsLoadStyles_Title, null, WinoIconGlyph.Color,
                 Bind.Switch(p, nameof(p.RenderStyles), s => s.RenderStyles, (s, v) => s.RenderStyles = v, Translator.SettingsLoadStyles_Title)),

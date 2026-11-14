@@ -22,15 +22,13 @@ public sealed class UnreadBadgeSettingsPageViewController(UnreadBadgeSettingsPag
     protected override void BuildPage()
     {
         var vm = ViewModel;
+        // Opening the counted folder at launch needs a taskbar or Dock badge (not mobile).
+        if (vm.IsLaunchNavigationAvailable)
+            AddSection(null, Translator.IOS_SettingsHint_BadgeLaunch,
+                Card(Translator.UnreadBadges_Launch_Title, null, WinoIconGlyph.Open,
+                    Bind.Switch(vm, nameof(vm.IsLaunchNavigationEnabled), s => s.IsLaunchNavigationEnabled, (s, v) => s.IsLaunchNavigationEnabled = v, Translator.UnreadBadges_Launch_Title)));
         Add(_accounts);
         Bind.Collection(vm.Accounts, RebuildAccounts);
-
-        // Opening the counted folder at launch needs a taskbar or Dock badge (not mobile).
-        if (!vm.IsLaunchNavigationAvailable) return;
-
-        AddGroup(Translator.UnreadBadges_LaunchBehaviour_Title,
-            Card(Translator.UnreadBadges_Launch_Title, Translator.IOS_SettingsHint_BadgeLaunch, WinoIconGlyph.Open,
-                Bind.Switch(vm, nameof(vm.IsLaunchNavigationEnabled), s => s.IsLaunchNavigationEnabled, (s, v) => s.IsLaunchNavigationEnabled = v, Translator.UnreadBadges_Launch_Title)));
     }
 
     private void RebuildAccounts()
@@ -41,10 +39,8 @@ public sealed class UnreadBadgeSettingsPageViewController(UnreadBadgeSettingsPag
         _accounts.Clear();
         foreach (var account in ViewModel.Accounts.ToList())
         {
-            var description = string.IsNullOrWhiteSpace(account.CountSourceDescription)
-                ? account.DescriptionText
-                : $"{account.DescriptionText}\n{account.CountSourceDescription}";
-            var card = new WinoSettingsCard(account.AccountName ?? string.Empty, description, WinoIconGlyph.Person,
+            // The row names the account and its badge rule; the pushed page keeps the switch and the count.
+            var card = new WinoSettingsCard(account.AccountName ?? string.Empty, null, WinoIconGlyph.Person,
                 rows.Switch(account, nameof(account.ContributesToTaskbar), a => a.ContributesToTaskbar, (a, v) => a.ContributesToTaskbar = v, Translator.UnreadBadges_Account_Contribute));
 
             var count = WinoStyle.Label(string.Format(Translator.UnreadBadges_Account_UnreadFormat, account.UnreadCount), WinoStyle.BodyStrong, WinoStyle.SecondaryText);
@@ -52,6 +48,7 @@ public sealed class UnreadBadgeSettingsPageViewController(UnreadBadgeSettingsPag
             var footer = WinoLayout.HStack(WinoStyle.Space3, count, WinoLayout.Spacer(), configure);
             footer.Alignment = UIStackViewAlignment.Center;
             card.BottomContent = footer;
+            card.RowValueText = account.CountSourceDescription;
             _accounts.Add(card);
         }
         _accounts.Hidden = _accounts.RowCount == 0;

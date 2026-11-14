@@ -21,8 +21,8 @@ public sealed class WinoSettingDetailViewController : UIViewController
     /// <summary>Longer choices in an expander page (fonts, languages) push their own list so the page's other rows stay in view.</summary>
     private const int InlineOptionLimit = 6;
 
-    /// <summary>Phone padding inside the zone and the readable width (the settings page values).</summary>
-    private const double SidePadding = 10;
+    /// <summary>Phone padding and the readable width (the settings page values).</summary>
+    private const double SidePadding = 16;
     private const double ContentMaxWidth = 836;
 
     private readonly Action<WinoSettingDetailViewController> _build;
@@ -100,7 +100,7 @@ public sealed class WinoSettingDetailViewController : UIViewController
         _disappearing.Add(card.RefreshValue);
         var content = card.Content;
         var bottom = card.DetailBottomContent;
-        var note = card.DescriptionText;
+        var note = card.PageNote ?? card.DescriptionText;
         var kind = WinoSettingsRowContent.Classify(content, bottom);
         if (kind == WinoSettingsRowKind.Value && content is not null)
         {
@@ -127,8 +127,10 @@ public sealed class WinoSettingDetailViewController : UIViewController
         _disappearing.Add(header.RefreshValue);
 
         // A value in the expander header (a pop-up beside its title) leads the page, with the header's description under it;
-        // a header switch stays on the parent row.
-        if (header.Content is { } headerContent && WinoSettingsRowContent.Classify(headerContent, null) == WinoSettingsRowKind.Value)
+        // so does a header switch, whose row shows On or Off.
+        if (header.HeaderSwitch is not null && header.Content is { } switchContent)
+            AddControlCell(header.Header, switchContent, header, header.DescriptionText);
+        else if (header.Content is { } headerContent && WinoSettingsRowContent.Classify(headerContent, null) == WinoSettingsRowKind.Value)
         {
             var control = WinoSettingsRowContent.ValueControl(headerContent);
             if (control is not null && WinoSettingsRowContent.IsChoiceControl(control)) AddOptions(null, control, header.DescriptionText, header);
@@ -168,6 +170,15 @@ public sealed class WinoSettingDetailViewController : UIViewController
                     break;
             }
         }
+        AddPageNote(expander.PageNote);
+    }
+
+    private void AddPageNote(string? note)
+    {
+        if (string.IsNullOrEmpty(note)) return;
+        if (Page.ArrangedSubviews.OfType<WinoSettingsGroup>().FirstOrDefault() is { } first && string.IsNullOrEmpty(first.Note) && string.IsNullOrEmpty(first.Footer))
+            first.Note = note;
+        else Page.InsertArrangedSubview(new WinoSettingsGroup(note: note), 0);
     }
 
     private WinoSettingsGroup NewGroup()
@@ -284,7 +295,7 @@ public sealed class WinoSettingDetailViewController : UIViewController
     private static WinoSurfaceView Surface() => new()
     {
         Fill = WinoSettingsStyle.GroupFill,
-        Stroke = WinoSettingsStyle.CardStroke,
+        Stroke = WinoSettingsStyle.GroupStroke,
         CornerRadius = WinoSettingsStyle.CardRadius,
         ClipsToBounds = true,
         TranslatesAutoresizingMaskIntoConstraints = false
@@ -312,21 +323,9 @@ public sealed class WinoSettingDetailViewController : UIViewController
 
     private static UIView CreateScrollRoot(UIView content)
     {
-        var root = new UIView { BackgroundColor = UIColor.Clear };
-        var zone = new WinoZoneView { Fill = WinoSettingsStyle.PageFill };
-        root.AddSubview(zone);
-        var guide = root.SafeAreaLayoutGuide;
-        var gutter = (nfloat)WinoStyle.ZoneGutter;
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter),
-            zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, gutter),
-            zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -gutter),
-            zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
-        ]);
-
+        var root = new UIView { BackgroundColor = WinoSettingsStyle.PageFill };
         var scroll = new WinoSettingsScrollView();
-        WinoLayout.Fill(scroll, zone.ContentView);
+        WinoLayout.Fill(scroll, root);
         content.TranslatesAutoresizingMaskIntoConstraints = false;
         scroll.AddSubview(content);
         var frame = scroll.FrameLayoutGuide;
@@ -359,7 +358,7 @@ public sealed class WinoSettingDetailViewController : UIViewController
             _control = control;
             _changed = changed;
             Fill = WinoSettingsStyle.GroupFill;
-            Stroke = WinoSettingsStyle.CardStroke;
+            Stroke = WinoSettingsStyle.GroupStroke;
             CornerRadius = WinoSettingsStyle.CardRadius;
             ClipsToBounds = true;
             TranslatesAutoresizingMaskIntoConstraints = false;

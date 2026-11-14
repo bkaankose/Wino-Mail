@@ -64,9 +64,8 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         }, UIControlEvent.ValueChanged);
         var presets = Bind.PopUp<NotificationSettingsPageViewModel, SnoozePresetOption>(vm, s => s.SnoozePresets, option => option.DisplayText,
             nameof(vm.SelectedSnoozePreset), s => s.SelectedSnoozePreset, (s, v) => s.StartSnoozeCommand.Execute(v.Value));
-        var snooze = Card(Translator.NotificationSettings_Snooze_Title, Translator.IOS_SettingsHint_Snooze, WinoIconGlyph.AlertOff, snoozeSwitch);
+        var snooze = Card(Translator.NotificationSettings_Snooze_Title, null, WinoIconGlyph.AlertOff, snoozeSwitch);
         snooze.BottomContent = presets;
-        AddGroup(null, snooze);
 
         // Quiet hours.
         bool QuietOn(IPreferencesService s) => s.AreQuietHoursEnabled;
@@ -91,7 +90,9 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             Bind.Switch(p, nameof(p.AreQuietHoursEnabled), QuietOn, (s, v) => { s.AreQuietHoursEnabled = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_Title),
             Bind.Enabled(StackedCard(Translator.NotificationSettings_QuietHours_From_Title, Translator.NotificationSettings_QuietHours_From_Description, WinoIconGlyph.None, hours), p, nameof(p.AreQuietHoursEnabled), QuietOn),
             Bind.Enabled(StackedCard(Translator.NotificationSettings_QuietHours_Days_Title, null, WinoIconGlyph.None, days), p, nameof(p.AreQuietHoursEnabled), QuietOn));
-        Bind.Bind(vm, nameof(vm.QuietHoursSummary), s => s.QuietHoursSummary, text => quiet.HeaderCard.Description = text);
+        // The row reads On or Off; the schedule summary is the note on the Quiet hours page.
+        Bind.Bind(vm, nameof(vm.QuietHoursSummary), s => s.QuietHoursSummary, text => quiet.PageNote = text);
+        AddSection(Translator.IOS_SettingsSection_Pause, null, snooze, quiet);
 
         // Mail.
         var mail = Expander(Translator.NotificationSettings_Mail_Title, null, WinoIconGlyph.Mail,
@@ -130,14 +131,13 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
                 TypeSoundPicker(NotificationSoundKind.Task)));
         Bind.Bind(vm, nameof(vm.TaskSummary), s => s.TaskSummary, text => tasks.HeaderCard.Description = text);
 
-        AddGroup(null, quiet, mail, calendar, tasks);
+        AddSection(Translator.IOS_SettingsSection_NotifyAbout, null, mail, calendar, tasks);
 
         // Per-account overrides.
         Add(_accounts);
         Bind.Collection(vm.Accounts, RebuildAccounts);
 
-        AddGroup(null, StackedCard(Translator.NotificationSettings_Reset_Title, Translator.IOS_SettingsHint_ResetNotifications, WinoIconGlyph.ArrowReset,
-            SettingsCardLayout.Leading(Bind.Button(Translator.NotificationSettings_Reset_Title, ResetAsync))));
+        AddSection(null, Translator.IOS_SettingsHint_ResetNotifications, ActionRow(Bind.Button(Translator.NotificationSettings_Reset_Title, ResetAsync)));
     }
 
     /// <summary>
@@ -352,9 +352,12 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             bool Overrides(AccountNotificationSettingsViewModel a) => a.AreOverrideFieldsEnabled;
             bool Enabled(AccountNotificationSettingsViewModel a) => a.AreNotificationsEnabled;
             var sources = new[] { Translator.NotificationSettings_Account_UseDefaults, Translator.NotificationSettings_Account_Customise };
-            var expander = new WinoSettingsExpander(account.Account.Name ?? string.Empty, account.AccountAddress, WinoIconGlyph.Person,
+            var expander = new WinoSettingsExpander(account.Account.Name ?? string.Empty, null, WinoIconGlyph.Person,
                 rows.Switch(account, nameof(account.AreNotificationsEnabled), Enabled, (a, v) => a.AreNotificationsEnabled = v, account.Account.Name));
-            rows.Bind(account, nameof(account.StatusText), a => a.StatusText, text => expander.HeaderCard.Description = string.IsNullOrEmpty(text) ? account.AccountAddress : text);
+            // Only a customised account carries a subtitle; "Following defaults" is not repeated on every row.
+            void ApplyStatus() => expander.HeaderCard.Description = account.HasCustomNotificationSettings && !string.IsNullOrEmpty(account.StatusText) ? account.StatusText : null;
+            rows.Bind(account, nameof(account.StatusText), a => a.StatusText, _ => ApplyStatus());
+            rows.Bind(account, nameof(account.HasCustomNotificationSettings), a => a.HasCustomNotificationSettings, _ => ApplyStatus());
             expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Account_Source_Title, Translator.IOS_SettingsHint_AccountSource, WinoIconGlyph.None,
                 rows.PopUp(account, sources, nameof(account.HasCustomNotificationSettings), a => a.HasCustomNotificationSettings ? 1 : 0, (a, v) => a.HasCustomNotificationSettings = v == 1)),
                 account, nameof(account.AreNotificationsEnabled), Enabled));

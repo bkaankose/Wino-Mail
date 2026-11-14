@@ -25,7 +25,7 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
             Bind.PopUp(vm, days, nameof(vm.SelectedFirstDayOfWeekIndex), s => s.SelectedFirstDayOfWeekIndex, (s, v) => s.SelectedFirstDayOfWeekIndex = v));
 
         bool WorkingOn(CalendarRenderingSettingsPageViewModel s) => s.IsWorkingHoursEnabled;
-        var working = Expander(Translator.CalendarSettings_WorkingDays_Header, Translator.IOS_SettingsHint_WorkingDays, WinoIconGlyph.CalendarWorkWeek, null,
+        var working = Expander(Translator.CalendarSettings_WorkingDays_Header, null, WinoIconGlyph.CalendarWorkWeek, null,
             Card(Translator.CalendarSettings_HighlightWorkingHours_Label, null, WinoIconGlyph.None,
                 Bind.Switch(vm, nameof(vm.IsWorkingHoursEnabled), WorkingOn, (s, v) => s.IsWorkingHoursEnabled = v, Translator.CalendarSettings_HighlightWorkingHours_Label)),
             Bind.Enabled(StackedCard(Translator.CalendarSettings_WorkingDays_From, null, WinoIconGlyph.None, DayAndTime(
@@ -91,7 +91,7 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
         rendering.Add(timeFormat);
         rendering.Add(headerFormat);
 
-        AddGroup(null, firstDay, working, rendering);
+        AddSection(null, Translator.IOS_SettingsHint_WorkingDays, firstDay, working, rendering);
     }
 
     /// <summary>The day pop-up with its time picker trailing on the same line.</summary>

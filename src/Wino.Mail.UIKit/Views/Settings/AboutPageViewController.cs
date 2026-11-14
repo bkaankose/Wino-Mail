@@ -29,19 +29,19 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
         appIcon.Hidden = appIcon.Image is null;
         WinoLayout.Size(appIcon, 56, 56);
         var name = WinoStyle.Label("Wino Mail", WinoStyle.Heading, WinoStyle.PrimaryText);
-        var description = WinoStyle.Label(Translator.SettingsAboutWino_AppDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0);
         var version = WinoStyle.Label(Translator.SettingsAboutVersion + vm.VersionName, WinoStyle.Description, WinoStyle.SecondaryText, 0);
-        var hero = WinoLayout.HStack(WinoStyle.Space4, appIcon, WinoLayout.VStack(2, name, description, version));
+        version.TextAlignment = UITextAlignment.Center;
+        var hero = WinoLayout.VStack(WinoStyle.Space2, appIcon, name, version);
         hero.Alignment = UIStackViewAlignment.Center;
         Add(hero);
 
         AddGroup(null,
-            CommandCard(Translator.SettingsWhatsNew_Title, Translator.IOS_SettingsHint_WhatsNew, WinoIconGlyph.Announcement, vm.OpenWhatsNewCommand));
+            CommandCard(Translator.SettingsWhatsNew_Title, null, WinoIconGlyph.Announcement, vm.OpenWhatsNewCommand));
 
         var links = Group(null,
             Link(Translator.SettingsWebsite_Title, null, WinoIconGlyph.Globe, () => vm.WebsiteUrl),
-            Link(Translator.SettingsAboutGithub_Title, Translator.IOS_SettingsHint_GitHub, WinoIconGlyph.GitHub, () => vm.GitHubUrl),
-            Link(Translator.SettingsDiscord_Title, Translator.IOS_SettingsHint_Discord, WinoIconGlyph.Discord, () => vm.DiscordChannelUrl));
+            Link(Translator.SettingsAboutGithub_Title, null, WinoIconGlyph.GitHub, () => vm.GitHubUrl),
+            Link(Translator.SettingsDiscord_Title, null, WinoIconGlyph.Discord, () => vm.DiscordChannelUrl));
         if (vm.IsMicrosoftStoreAvailable)
             links.Add(Link(Translator.SettingsStore_Title, null, WinoIconGlyph.MicrosoftStore, () => "Store"));
         links.Add(Link(Translator.SettingsPaypal_Title, null, WinoIconGlyph.PayPal, () => vm.PaypalUrl));
@@ -62,8 +62,10 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
         var identifier = Card(p.DiagnosticId ?? string.Empty, null, WinoIconGlyph.None, copy);
         Bind.Bind(p, nameof(p.DiagnosticId), s => s.DiagnosticId, id => identifier.Header = id ?? string.Empty);
 
-        AddGroup(null, Expander(Translator.SettingsDiagnostics_Title, Translator.SettingsDiagnostics_Description, WinoIconGlyph.Bug, null,
-            logsCard, share, upload, diagnosticCard, identifier));
+        var diagnostics = Expander(Translator.SettingsDiagnostics_Title, Translator.SettingsDiagnostics_Description, WinoIconGlyph.Bug, null,
+            logsCard, share, upload, diagnosticCard, identifier);
+        diagnostics.MoveDescriptionToPage();
+        AddGroup(null, diagnostics);
     }
 
     private WinoSettingsCard Link(string header, string? description, WinoIconGlyph icon, Func<string> url)

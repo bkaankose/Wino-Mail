@@ -35,9 +35,12 @@ public sealed class ContactsPreferenceSettingsPageViewController(ContactsPrefere
                     nameof(vm.SelectedNameDisplay), s => s.SelectedNameDisplay, (s, v) => s.SelectedNameDisplay = v)),
             StackedCard(Translator.PeopleSettings_Sort_Header, null, WinoIconGlyph.ArrowSort,
                 Bind.PopUp<ContactsPreferenceSettingsPageViewModel, ContactSortOption>(vm, s => s.SortOptions.ToList(), o => o.DisplayText,
-                    nameof(vm.SelectedSort), s => s.SelectedSort, (s, v) => s.SelectedSort = v)),
-            StackedCard(Translator.PeopleSettings_SuggestedRecipients_Header, Translator.IOS_SettingsHint_SuggestedRecipients, WinoIconGlyph.History,
-                SettingsCardLayout.Leading(Bind.Button(Translator.PeopleSettings_SuggestedRecipients_Clear, vm.ClearSuggestedRecipientsCommand))));
+                    nameof(vm.SelectedSort), s => s.SelectedSort, (s, v) => s.SelectedSort = v)));
+
+        // An action row named after the setting shows "Clear" on its trailing side.
+        AddSection(null, Translator.IOS_SettingsHint_SuggestedRecipients,
+            Card(Translator.PeopleSettings_SuggestedRecipients_Header, null, WinoIconGlyph.History,
+                Bind.Button(Translator.PeopleSettings_SuggestedRecipients_Clear, vm.ClearSuggestedRecipientsCommand)));
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)

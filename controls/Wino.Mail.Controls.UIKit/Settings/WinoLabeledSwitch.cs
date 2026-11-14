@@ -9,8 +9,9 @@ namespace Wino.Mail.Controls.UIKit.Settings;
 /// The Windows ToggleSwitch with its On/Off content (UIKit twin of the AppKit <c>WinoLabeledSwitch</c>): an optional
 /// secondary label followed by a native <see cref="UISwitch"/>. iOS switches carry no text, so the label is hidden unless
 /// a page turns <see cref="ShowsLabel"/> on; it keeps the width of the longer word so the switch never moves when it
-/// toggles. The switch keeps its native 51 × 31 size (design decision 15 Oct 2026: a scaled UISwitch blurs the knob,
-/// breaks VoiceOver's frame and, with a widened hit area, lost its touches); settings rows are 52pt tall so it has room.
+/// toggles. The native switch is drawn 24pt tall (iOS refresh, 14 Nov 2026: 63 × 28 on iOS 26 becomes 54 × 24, a whole
+/// point at 2x and 3x) by a transform inside a container of the scaled size; its hit area is not widened, because the
+/// settings row toggles it on a tap (15 Oct 2026: a widened hit area lost touches).
 /// </summary>
 public sealed class WinoLabeledSwitch : UIView
 {
@@ -37,7 +38,7 @@ public sealed class WinoLabeledSwitch : UIView
         _label.IsAccessibilityElement = false;
         _label.Hidden = true;
 
-        var row = WinoLayout.HStack(8, _label, Switch);
+        var row = WinoLayout.HStack(8, _label, ScaledHost(Switch));
         row.Alignment = UIStackViewAlignment.Center;
         WinoLayout.Fill(row, this);
         WinoLayout.Priorities(this, UILayoutConstraintAxis.Horizontal, 750, 750);
@@ -73,6 +74,28 @@ public sealed class WinoLabeledSwitch : UIView
     {
         _label.Text = IsOn ? _onText : _offText;
         Switch.AccessibilityValue = _label.Text;
+    }
+
+    public const double SwitchHeight = 24;
+
+    private static UIView ScaledHost(UISwitch control)
+    {
+        var size = control.IntrinsicContentSize;
+        if (size.Height <= 0 || size.Width <= 0) size = control.SizeThatFits(CoreGraphics.CGSize.Empty);
+        var scale = size.Height > 0 ? Math.Min(1, SwitchHeight / (double)size.Height) : 1;
+        var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
+        host.Layer.ShouldRasterize = false;
+        control.Layer.ShouldRasterize = false;
+        host.AddSubview(control);
+        control.Transform = CoreGraphics.CGAffineTransform.MakeScale((nfloat)scale, (nfloat)scale);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            host.WidthAnchor.ConstraintEqualTo((nfloat)Math.Ceiling((double)size.Width * scale)),
+            host.HeightAnchor.ConstraintEqualTo((nfloat)Math.Ceiling((double)size.Height * scale)),
+            control.CenterXAnchor.ConstraintEqualTo(host.CenterXAnchor),
+            control.CenterYAnchor.ConstraintEqualTo(host.CenterYAnchor)
+        ]);
+        return host;
     }
 
     private static double Measure(string text, UIFont font)

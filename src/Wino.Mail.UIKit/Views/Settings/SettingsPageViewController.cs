@@ -25,8 +25,7 @@ public interface ISettingsPageTitleSource
 }
 
 /// <summary>
-/// Base for Settings sheet pages (the Mac SettingsPageViewController): a Wino zone over the theme backdrop holding a
-/// vertical scroll view, whose content stack follows the readable width (max 836pt), and a <see cref="SettingsBinder"/>
+/// Base for Settings sheet pages (the Mac SettingsPageViewController): the page fill holding a vertical scroll view, whose content stack follows the readable width (max 836pt), and a <see cref="SettingsBinder"/>
 /// owned by the page's binding scope. Pages describe their cards in <see cref="BuildPage"/> in Windows order; every card
 /// and expander renders as a settings row on an inset-grouped surface (<see cref="WinoSettingsCard.IsListRow"/>), and
 /// anything that is not a switch pushes the generic <see cref="WinoSettingDetailViewController"/>. The compact
@@ -39,8 +38,8 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     /// <summary>Windows: MaxWidth 900 with 32pt padding inside the zone.</summary>
     public const double ContentMaxWidth = 836;
 
-    /// <summary>Phone-width padding inside the zone; wider sheets centre the content at <see cref="ContentMaxWidth"/>.</summary>
-    public const double SidePadding = 10;
+    /// <summary>Phone-width padding from the screen edge; wider sheets centre the content at <see cref="ContentMaxWidth"/>.</summary>
+    public const double SidePadding = 16;
 
     private SettingsBinder? _binder;
     private UIStackView? _page;
@@ -128,6 +127,8 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
             group.Add(view);
             return view;
         }
+        if (view is WinoSettingsGroup { Title.Length: > 0 } && Page.ArrangedSubviews.LastOrDefault() is { } previous)
+            Page.SetCustomSpacing((nfloat)WinoSettingsStyle.GroupSpacingBeforeHeader, previous);
         Page.AddArrangedSubview(view);
         return view;
     }
@@ -144,6 +145,14 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     }
 
     protected WinoSettingsGroup AddGroup(string? title, params UIView?[] rows) => Add(Group(title, rows));
+
+    /// <summary>A group with a section header and a footer under its rows (either may be null).</summary>
+    protected WinoSettingsGroup AddSection(string? title, string? footer, params UIView?[] rows)
+    {
+        var group = Group(title, rows);
+        group.Footer = footer;
+        return Add(group);
+    }
 
     protected WinoSettingsCard Card(string header, string? description, WinoIconGlyph icon = WinoIconGlyph.None, UIView? content = null)
         => new(header, string.IsNullOrWhiteSpace(description) ? null : description, icon, content);
@@ -279,26 +288,14 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     }
 }
 
-/// <summary>The scroll container shared by settings pages: a Wino zone over the sheet backdrop with the content stack inside.</summary>
+/// <summary>The scroll container shared by settings pages: the page fill from edge to edge with the content stack inside (no zone since 14 Nov 2026).</summary>
 public static class SettingsPageScrollView
 {
     public static (UIView Root, UIScrollView Scroll) Create(UIView content)
     {
-        var root = new UIView { BackgroundColor = UIColor.Clear };
-        var zone = new WinoZoneView { Fill = WinoSettingsStyle.PageFill };
-        root.AddSubview(zone);
-        var guide = root.SafeAreaLayoutGuide;
-        var gutter = (nfloat)WinoStyle.ZoneGutter;
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter),
-            zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, gutter),
-            zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -gutter),
-            zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
-        ]);
-
+        var root = new UIView { BackgroundColor = WinoSettingsStyle.PageFill };
         var scroll = new WinoSettingsScrollView();
-        WinoLayout.Fill(scroll, zone.ContentView);
+        WinoLayout.Fill(scroll, root);
         content.TranslatesAutoresizingMaskIntoConstraints = false;
         scroll.AddSubview(content);
 

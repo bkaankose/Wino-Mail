@@ -35,7 +35,10 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
     public override void LoadView()
     {
         Title = Translator.MenuSettings;
-        _table.BackgroundColor = WinoStyle.ZoneFill;
+        _table.BackgroundColor = WinoSettingsStyle.PageFill;
+        // Groups sit 16pt from the screen edge, as on every settings page (14 Nov 2026).
+        _table.PreservesSuperviewLayoutMargins = false;
+        _table.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(0, 16, 0, 16);
         _table.RegisterClassForCellReuse(typeof(UITableViewCell), RootSource.CellId);
         // Inset-grouped density: rows size from their 44pt content, section spacing comes from the header heights.
         _table.RowHeight = UITableView.AutomaticDimension;
@@ -169,7 +172,7 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
         public const double TitledHeaderHeight = 38;
         private const double GlyphSize = 22;
         /// <summary>Leading padding plus the glyph column and its gap: separators start at the row text.</summary>
-        private const double TextInset = 14 + 28 + 12;
+        private const double TextInset = 16 + 28 + 12;
 
         public List<SettingsCatalogSection> Sections { get; set; } = [];
         public MailAccountsCardCell MailAccounts { get; } = new();
@@ -214,16 +217,16 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
             var label = WinoStyle.Label(title, WinoSettingsStyle.GroupHeader, WinoStyle.SecondaryText, 0);
             label.AccessibilityTraits = UIAccessibilityTrait.Header;
             label.TranslatesAutoresizingMaskIntoConstraints = false;
-            // The header follows the table's margins, where the inset-grouped sections start; the title aligns with the rows' 14pt padding.
+            // The header follows the table's margins, where the inset-grouped sections start; the title aligns with the rows' 16pt padding.
             var header = new UIView { PreservesSuperviewLayoutMargins = true };
             header.AddSubview(label);
             var margins = header.LayoutMarginsGuide;
             NSLayoutConstraint.ActivateConstraints(
             [
                 label.TopAnchor.ConstraintEqualTo(header.TopAnchor, (nfloat)(TitledHeaderHeight - 22)),
-                label.BottomAnchor.ConstraintEqualTo(header.BottomAnchor, -6),
-                label.LeadingAnchor.ConstraintEqualTo(margins.LeadingAnchor, 14),
-                label.TrailingAnchor.ConstraintEqualTo(margins.TrailingAnchor, -14)
+                label.BottomAnchor.ConstraintEqualTo(header.BottomAnchor, -7),
+                label.LeadingAnchor.ConstraintEqualTo(margins.LeadingAnchor, 16),
+                label.TrailingAnchor.ConstraintEqualTo(margins.TrailingAnchor, -16)
             ]);
             return header;
         }
@@ -231,8 +234,8 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
         public override UITableViewCell GetCell(UITableView tableView, NSIndexPath indexPath)
         {
             var entry = Visible[indexPath.Section].Entries[indexPath.Row];
-            if (!IsSearching && entry.Page == WinoPage.WinoAccountManagementPage) return WinoAccount;
-            if (!IsSearching && entry.Page == WinoPage.ManageAccountsPage) return MailAccounts;
+            if (!IsSearching && entry.Page == WinoPage.WinoAccountManagementPage) return GroupBackground(WinoAccount);
+            if (!IsSearching && entry.Page == WinoPage.ManageAccountsPage) return GroupBackground(MailAccounts);
             var cell = tableView.DequeueReusableCell(CellId, indexPath);
             // A search result explains itself with its description under the title.
             var content = IsSearching ? UIListContentConfiguration.SubtitleCellConfiguration : UIListContentConfiguration.ValueCellConfiguration;
@@ -240,7 +243,7 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
             content.TextProperties.Font = WinoStyle.Scaled(16);
             content.TextProperties.Color = WinoStyle.PrimaryText;
             content.SecondaryText = IsSearching ? entry.Description : null;
-            content.SecondaryTextProperties.Font = WinoStyle.Scaled(IsSearching ? 13 : 15);
+            content.SecondaryTextProperties.Font = WinoStyle.Scaled(IsSearching ? 13 : 16);
             content.SecondaryTextProperties.Color = WinoStyle.SecondaryText;
             content.SecondaryTextProperties.NumberOfLines = IsSearching ? 2 : 1;
             content.PrefersSideBySideTextAndSecondaryText = !IsSearching;
@@ -249,11 +252,21 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
             content.ImageProperties.ReservedLayoutSize = new CoreGraphics.CGSize(glyph + 6, glyph);
             content.ImageProperties.MaximumSize = new CoreGraphics.CGSize(glyph, glyph);
             content.ImageToTextPadding = 12;
-            content.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(IsSearching ? 8 : 11, 14, IsSearching ? 8 : 11, 12);
+            content.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(IsSearching ? 8 : 11, 16, IsSearching ? 8 : 11, 12);
             cell.ContentConfiguration = content;
-            cell.BackgroundColor = WinoSettingsStyle.CardFill;
+            GroupBackground(cell);
             cell.SeparatorInset = new UIEdgeInsets(0, (nfloat)TextInset, 0, 0);
             cell.Accessory = UITableViewCellAccessory.DisclosureIndicator;
+            return cell;
+        }
+
+        /// <summary>The settings group surface: GroupFill with the 20pt corners of every settings page.</summary>
+        private static UITableViewCell GroupBackground(UITableViewCell cell)
+        {
+            var background = cell.DefaultBackgroundConfiguration;
+            background.BackgroundColor = WinoSettingsStyle.GroupFill;
+            background.CornerRadius = (nfloat)WinoSettingsStyle.CardRadius;
+            cell.BackgroundConfiguration = background;
             return cell;
         }
 
