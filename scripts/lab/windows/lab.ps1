@@ -29,7 +29,7 @@ $manifestPath = Join-Path $stateRoot 'fixtures.json'
 $generatedRoot = Join-Path $stateRoot "generated"
 $labHost = if ($env:WINO_LAB_HOST) { $env:WINO_LAB_HOST } else { 'lab.winomail.app' }
 $sshHost = if ($env:WINO_LAB_SSH_HOST) { $env:WINO_LAB_SSH_HOST } else { 'wino-lab' }
-$servers = @('dovecot', 'condstore', 'stalwart', 'greenmail', 'james')
+$servers = @('dovecot', 'condstore', 'stalwart', 'greenmail', 'james', 'pop3')
 # The lab's plaintext loopback ports, forwarded one to one by `tunnel`.
 $tunnelPorts = @(1143, 1587, 4025, 2143, 2587, 3143, 3587, 8803, 4143, 5143, 5587, 8800, 8802, 8804, 8805,
     1993, 2993, 3993, 4993, 1465, 2465, 3465, 4465, 8443, 8444, 8445, 8446, 8807)
@@ -45,7 +45,7 @@ function Test-Endpoint {
 function Show-Status {
     foreach ($server in $servers) {
         $name = "$server.$labHost"
-        $ports = if ($server -eq 'greenmail') { @(993, 443) } else { @(993, 465, 443) }
+        $ports = switch ($server) { 'greenmail' { @(993, 443) } 'pop3' { @(995, 993, 465) } default { @(993, 465, 443) } }
         foreach ($port in $ports) { Write-Output "${name}:$port reachable=$(Test-Endpoint -HostName $name -Port $port)" }
     }
     Write-Output "Manifest: $manifestPath (exists=$(Test-Path -LiteralPath $manifestPath))"
@@ -139,7 +139,7 @@ Settings (environment):
   WINO_LAB_SSH_HOST  SSH host or alias of the lab machine (default wino-lab); needed by manifest and tunnel
   WINO_LAB_STATE     folder for the manifest and generated data (default ~/.wino-lab)
 
-Public endpoints, TLS: IMAP 993, SMTP 465, CalDAV/CardDAV 443 on <server>.$labHost
+Public endpoints, TLS: IMAP 993, SMTP 465, CalDAV/CardDAV 443 on <server>.$labHost; POP3 995 on pop3.$labHost
   dovecot (QRESYNC), condstore (CONDSTORE only), stalwart (IMAP4rev2), greenmail (UID only, IMAP and DAV only), james
 "@
 }

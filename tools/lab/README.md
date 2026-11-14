@@ -1,6 +1,6 @@
 # Wino mail lab
 
-The lab is five mail servers with different IMAP capability sets, each with CalDAV and CardDAV, seeded with generated mail, calendars and contacts. It runs permanently on a remote Linux host and is **not part of this repository**. This folder holds only what connects a development machine to it.
+The lab is five mail servers with different IMAP capability sets, each with CalDAV and CardDAV, seeded with generated mail, calendars and contacts, plus one POP3 server. It runs permanently on a remote Linux host and is **not part of this repository**. This folder holds only what connects a development machine to it.
 
 ## Servers
 
@@ -13,11 +13,13 @@ Every server answers on its own name under the lab's DNS suffix (`lab.winomail.a
 | `stalwart` | `carol@stalwart.test` | `stalwart.lab.winomail.app` | 993 | 465 | `https://stalwart.lab.winomail.app/dav/cal/` and `/dav/card/` | QRESYNC, IMAP4rev2, delimiter `/` |
 | `greenmail` | `dave@greenmail.test` | `greenmail.lab.winomail.app` | 993 | none | `https://greenmail.lab.winomail.app/` (login `dave`) | UID only, in memory, Radicale |
 | `james` | `eve@james.test` | `james.lab.winomail.app` | 993 | 465 | `https://james.lab.winomail.app/` (login `eve`) | QRESYNC advertised, in memory, Radicale |
+| `pop3` | `frank@pop3.test` | `pop3.lab.winomail.app` | POP3 995 (IMAP 993 for inspection) | 465 | none | Dovecot POP3: UIDL, TOP, SASL PLAIN/LOGIN |
 
 - Security is implicit TLS on every public port. Plaintext and STARTTLS are not published.
 - The IMAP and SMTP login is the full address. All accounts share one password; it is in the manifest and is never written into this repository.
 - GreenMail has no authenticated submission. Its Wino account sends through `dovecot.lab.winomail.app:465` with the Dovecot account's login.
-- Mail never leaves the lab: the hub delivers only to the five lab domains.
+- Mail never leaves the lab: the hub delivers only to the lab domains.
+- The POP3 account is listed in the manifest under `pop3Accounts`, not `accounts`, so `generate-db` does not turn it into an IMAP account. Add it by hand with the POP3 provider. On the lab host, `lab.sh pop3-seed` sends its fixture messages again (plain, HTML, attachments, non-ASCII, a thread, an invitation, and messages 400 and 730 days old) and `lab.sh pop3-new` sends one new message for polling tests.
 - GreenMail and James keep everything in memory. The lab host reseeds them when it starts, so their content can reset.
 - The servers' admin consoles are not published.
 
