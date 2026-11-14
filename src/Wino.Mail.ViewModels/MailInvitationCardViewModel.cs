@@ -58,6 +58,7 @@ public partial class MailInvitationCardViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDateRange))]
+    [NotifyPropertyChangedFor(nameof(HeaderSummaryText))]
     public partial string DateRangeText { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -65,6 +66,7 @@ public partial class MailInvitationCardViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasLocation))]
+    [NotifyPropertyChangedFor(nameof(HeaderSummaryText))]
     public partial string Location { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -116,6 +118,7 @@ public partial class MailInvitationCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasError))]
     public partial string ErrorMessage { get; set; } = string.Empty;
 
+    public string HeaderSummaryText => string.Join(" · ", new[] { DateRangeText, Location }.Where(static part => !string.IsNullOrEmpty(part)));
     public bool HasDateRange => !string.IsNullOrEmpty(DateRangeText);
     public bool HasLocation => !string.IsNullOrEmpty(Location);
     public bool HasOrganizer => !string.IsNullOrEmpty(OrganizerText);
