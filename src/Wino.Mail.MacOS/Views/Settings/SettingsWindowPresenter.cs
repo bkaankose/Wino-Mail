@@ -196,7 +196,7 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
 
     /// <summary>
     /// Mirrors SettingsMenuProvider: rebuild the sidebar when the entitlement changes, and leave the
-    /// Wino Intelligence pages for Wino Account when access is lost.
+    /// Wino Intelligence sub-pages for the Wino Intelligence page when access is lost (Windows SettingsPage).
     /// </summary>
     public void Receive(WinoIntelligenceEntitlementChanged message)
     {
@@ -213,9 +213,15 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
     private async Task ReloadForEntitlementAsync(bool canAccess)
     {
         await _dispatcher.ExecuteOnUIThread(() => _window?.Sidebar.Reload());
-        if (!canAccess && _current is { } current && SettingsPageCatalog.RootPage(current.Page) == WinoPage.WinoIntelligencePage)
-            await NavigateAsync(new Entry(WinoPage.WinoAccountManagementPage, null), NavigationMode.New);
+        if (!canAccess && _current is { } current && IsIntelligenceSubPage(current.Page))
+            await NavigateAsync(new Entry(WinoPage.WinoIntelligencePage, null), NavigationMode.New);
     }
+
+    private static bool IsIntelligenceSubPage(WinoPage page)
+        => page is WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage or WinoPage.MailClassificationPage;
+
+    private bool CanAccessIntelligence()
+        => _services.GetService<IWinoAccountIntelligenceSnapshotService>()?.CurrentEntitlement?.CanAccessSurfaces ?? false;
 
     private async Task ReloadAsync()
     {
@@ -291,6 +297,9 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
                 _ => requested
             };
             if (target is null) return;
+            // The Wino Intelligence page is always listed and explains the subscription; only its sub-pages need access.
+            if (mode == NavigationMode.New && IsIntelligenceSubPage(target.Page) && !CanAccessIntelligence())
+                target = new Entry(WinoPage.WinoIntelligencePage, null);
 
             NSViewController controller = null!;
             string title = string.Empty;

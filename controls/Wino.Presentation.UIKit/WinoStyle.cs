@@ -135,6 +135,26 @@ public static class WinoStyle
 
     public static UIColor AvatarColor(string? key) => AvatarPalette[WinoTokens.AvatarPaletteIndex(key)];
 
+    private static readonly Dictionary<string, UIColor> AccountGroupColorCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The text and icon colour of an account group (<see cref="Wino.Core.Domain.Models.Accounts.AccountGroupColors"/>), resolved
+    /// per appearance. Null for the default colour and while Darker System Colors (Increase Contrast) is on, where
+    /// Windows also keeps the system text colour.
+    /// </summary>
+    public static UIColor? AccountGroupColor(string? key)
+    {
+        if (UIAccessibility.DarkerSystemColorsEnabled) return null;
+        if (Wino.Core.Domain.Models.Accounts.AccountGroupColors.Find(key) is not { } color) return null;
+        lock (AccountGroupColorCache)
+        {
+            if (AccountGroupColorCache.TryGetValue(color.Key, out var cached)) return cached;
+            var resolved = Dynamic(FromHexString(color.LightHex) ?? PrimaryText, FromHexString(color.DarkHex) ?? PrimaryText);
+            AccountGroupColorCache[color.Key] = resolved;
+            return resolved;
+        }
+    }
+
     /// <summary>Black or white, whichever reads on the fill (the shared perceived-brightness rule).</summary>
     public static UIColor ReadableText(UIColor fill, UITraitCollection? traits = null)
     {

@@ -62,6 +62,9 @@ internal sealed class AndroidWebViewSession
         settings.MediaPlaybackRequiresUserGesture = true;
         settings.MixedContentMode = MixedContentHandling.NeverAllow;
         settings.SaveFormData = false;
+        // The shell is the only first-party origin, so remote images and fonts in mail (tracking pixels included)
+        // can neither set nor read cookies. Cookies are not turned off app-wide: other web views need them.
+        CookieManager.Instance?.SetAcceptThirdPartyCookies(browser, false);
         // Follow the system font size (Settings > Display > Font size) like native text does.
         settings.TextZoom = (int)Math.Round(100 * (browser.Resources?.Configuration?.FontScale ?? 1f));
         browser.SetWebViewClient(_client);
@@ -91,6 +94,12 @@ internal sealed class AndroidWebViewSession
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
 
+    /// <summary>
+    /// The WebView's renderer process ended. The WebView cannot be used again; the host replaces it and creates a new
+    /// session (Windows WinoMailRenderer/WinoMailEditor recovery).
+    /// </summary>
+    public event EventHandler? BrowserLost;
+
     /// <summary>The reader's hovered or focused link changed (the host shows its address).</summary>
     public event EventHandler<RendererLinkHoverEventArgs>? LinkHovered;
 
@@ -118,7 +127,7 @@ internal sealed class AndroidWebViewSession
     {
         string id = Guid.NewGuid().ToString("N");
         string document = editor
-            ? await AppleMailDocumentBuilder.BuildEditorAsync(id, dark, token, useCommandKey: false)
+            ? await AppleMailDocumentBuilder.BuildEditorAsync(id, dark, token, useCommandKey: false, policy: policy)
             : await AppleMailDocumentBuilder.BuildReaderAsync(id, policy, dark, token, useCommandKey: false);
         await OnUIAsync(() =>
         {
@@ -255,14 +264,31 @@ internal sealed class AndroidWebViewSession
                 catch (Java.Lang.Exception) { }
             }
             else Browser.RemoveJavascriptInterface("winoMail");
-            Message = null; NavigationRequested = null; OperationFailed = null; LinkHovered = null;
+            Message = null; NavigationRequested = null; OperationFailed = null; LinkHovered = null; BrowserLost = null;
             releaseVisual();
             return Task.CompletedTask;
         });
     });
 
+    private void OnRendererGone()
+    {
+        if (_disposed) return;
+        _sessionId = null;
+        _document = null;
+        _ready.TrySetException(new InvalidOperationException("The mail document's renderer ended."));
+        _ = _ready.Task.Exception;
+        BrowserLost?.Invoke(this, EventArgs.Empty);
+    }
+
     private sealed class Client(AndroidWebViewSession owner) : WebViewClient
     {
+        // Returning true keeps the app alive; without the override Android ends the whole process.
+        public override bool OnRenderProcessGone(WebView? view, RenderProcessGoneDetail? detail)
+        {
+            owner.OnRendererGone();
+            return true;
+        }
+
         public override WebResourceResponse? ShouldInterceptRequest(WebView? view, IWebResourceRequest? request)
         {
             var url = request?.Url;

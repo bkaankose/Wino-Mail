@@ -405,7 +405,8 @@ public sealed class WinoModeSwitcher : NSView
 
     /// <summary>
     /// One glyph button. Hover and press keep their own subtle fill; the selected look lives on the thumb beneath,
-    /// so selection only recolours the glyph and swaps it for the Filled twin.
+    /// so selection only swaps the glyph for its Filled twin in the primary text colour; an accent glyph on the
+    /// accent thumb lost contrast.
     /// </summary>
     private sealed class ModeItemView : WinoSurfaceView
     {
@@ -459,7 +460,7 @@ public sealed class WinoModeSwitcher : NSView
         public void Refresh()
         {
             Fill = _pressed ? PressFill : _hovered ? WinoStyle.RowHoverFill : null;
-            _icon.Tint = _selected ? WinoStyle.Accent : _hovered ? WinoStyle.PrimaryText : WinoStyle.SecondaryText;
+            _icon.Tint = _selected ? WinoStyle.PrimaryText : _hovered ? WinoStyle.PrimaryText : WinoStyle.SecondaryText;
             _icon.AlphaValue = _selected && _pressed ? 0.7f : 1f;
             AccessibilityValue = _selected ? NSNumber.FromInt32(1) : NSNumber.FromInt32(0);
         }

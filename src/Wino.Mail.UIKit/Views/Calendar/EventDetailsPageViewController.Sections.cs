@@ -337,7 +337,7 @@ public sealed partial class EventDetailsPageViewController
     /// <summary>The description web view: transparent over its card, as tall as its document (the page scroll owns vertical scrolling), horizontal panning kept for wide content.</summary>
     private sealed class DescriptionWebView : WKWebView
     {
-        public DescriptionWebView() : base(CGRect.Empty, new WKWebViewConfiguration())
+        public DescriptionWebView() : base(CGRect.Empty, WebKitMailConfiguration.Create())
         {
             TranslatesAutoresizingMaskIntoConstraints = false;
             Opaque = false;

@@ -161,6 +161,27 @@ public static class WinoStyle
 
     public static NSColor AvatarColor(string? key) => AvatarPalette[WinoTokens.AvatarPaletteIndex(key)];
 
+    private static readonly Dictionary<string, NSColor> AccountGroupColorCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The text and icon colour of an account group (<see cref="Wino.Core.Domain.Models.Accounts.AccountGroupColors"/>), resolved
+    /// per appearance. Null for the default colour and while Increase Contrast is on, where Windows also keeps the system text colour.
+    /// </summary>
+    public static NSColor? AccountGroupColor(string? key)
+    {
+        if (NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldIncreaseContrast) return null;
+        if (Wino.Core.Domain.Models.Accounts.AccountGroupColors.Find(key) is not { } color) return null;
+        lock (AccountGroupColorCache)
+        {
+            if (AccountGroupColorCache.TryGetValue(color.Key, out var cached)) return cached;
+            var light = FromHexString(color.LightHex) ?? PrimaryText;
+            var dark = FromHexString(color.DarkHex) ?? PrimaryText;
+            var resolved = Dynamic(light, dark);
+            AccountGroupColorCache[color.Key] = resolved;
+            return resolved;
+        }
+    }
+
     public static NSTextField Label(string? text, NSFont? font = null, NSColor? color = null, int maximumLines = 1)
     {
         var label = NSTextField.CreateLabel(text ?? string.Empty);

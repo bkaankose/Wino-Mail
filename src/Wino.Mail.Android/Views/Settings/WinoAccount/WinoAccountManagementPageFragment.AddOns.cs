@@ -10,7 +10,7 @@ using Wino.Presentation.Android;
 namespace Wino.Mail.Android.Views.Settings.WinoAccount;
 
 /// <summary>
-/// Wino add-ons: Wino Intelligence (the promotion while not purchased, the billing and allowance expander once it is),
+/// Wino add-ons: Wino Intelligence (status row; the offer, usage and settings are on the Wino Intelligence page),
 /// Unlimited Accounts (usage meter, purchase or Unlocked) and the Store redeem card. The purchase buttons, the price
 /// note and the redeem card exist only where the platform sells through a store (IPlatformCapabilities.MicrosoftStore
 /// or AppleAppStore); Android v1 has neither, so the cards inform and the purchases made elsewhere still show.
@@ -21,149 +21,59 @@ public sealed partial class WinoAccountManagementPageFragment
 
     private IEnumerable<View> AddOnCards()
     {
-        yield return IntelligencePurchaseCard();
-        yield return IntelligenceExpander();
+        yield return IntelligenceCard();
         yield return UnlimitedAccountsCard();
         if (SellsAddOns) yield return StoreRedeemCard();
     }
 
-    /// <summary>Wino Intelligence, not yet purchased: one card that says what the subscription does.</summary>
-    private View IntelligencePurchaseCard()
+    /// <summary>
+    /// Wino Intelligence at a glance (Windows WinoAccountIntelligenceCard): active, not active or ended with the
+    /// renewal date. Usage and settings live on the Wino Intelligence page, which "See what's included" opens. Get and
+    /// Renew exist only where the platform sells add-ons; without them an ended subscription also links to the page.
+    /// </summary>
+    private View IntelligenceCard()
     {
         var vm = VM;
         var addOn = vm.AiPackAddOn;
         var context = Ctx;
+
+        var active = IntelligenceViews.SuccessPill(context, Translator.WinoAccount_Management_ActiveShort);
+        Bind.Visible(active, addOn, nameof(addOn.IsPurchased), a => a.IsPurchased);
+        var notActive = IntelligenceViews.NeutralPill(context, Translator.WinoAccount_Management_NotActiveShort);
+        Bind.Visible(notActive, vm, nameof(vm.IsAiPackNotActive), s => s.IsAiPackNotActive);
+        var ended = IntelligenceViews.NeutralPill(context, Translator.WinoIntelligence_Status_Ended);
+        Bind.Visible(ended, vm, nameof(vm.IsAiPackEnded), s => s.IsAiPackEnded);
+
+        var seeIncluded = LinkButton(Translator.WinoAccount_Management_SeeWhatsIncluded, vm.OpenIntelligencePageCommand);
+        var controls = new List<View> { BusySpinner(addOn, nameof(addOn.IsLoading), a => a.IsLoading), active, notActive, ended, seeIncluded };
+        if (SellsAddOns)
+        {
+            Bind.Visible(seeIncluded, vm, nameof(vm.IsAiPackNotActive), s => s.IsAiPackNotActive);
+            // Stripe Checkout states the price in the customer's own currency; the app does not repeat it.
+            var get = Bind.Button(Translator.WinoAccount_Management_AiPackGetButton, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
+            Bind.Visible(get, vm, nameof(vm.IsAiPackNotActive), s => s.IsAiPackNotActive);
+            var renew = Bind.Button(Translator.WinoAccount_Management_Renew, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
+            Bind.Visible(renew, vm, nameof(vm.IsAiPackEnded), s => s.IsAiPackEnded);
+            controls.Add(get);
+            controls.Add(renew);
+        }
+        else
+        {
+            Bind.Views.BindAny(vm, s => s.IsAiPackNotActive || s.IsAiPackEnded,
+                show => seeIncluded.Visibility = show ? ViewStates.Visible : ViewStates.Gone);
+        }
+
+        var error = Bind.Label(addOn, nameof(addOn.ErrorText), a => a.ErrorText, WinoTextStyle.Caption, maximumLines: 0);
+        error.SetTextColor(WinoColors.Caution(context));
+        Bind.Visible(error, addOn, nameof(addOn.ShowErrorState), a => a.ShowErrorState);
 
         var mark = new BrandIconView(context, WinoIconGlyph.WinoIntelligence, Resource.Dimension.wino_glyph_l);
         var name = Text(Translator.WinoAddOn_AI_PACK_Name);
-        var subtitle = Bind.Label(vm, nameof(vm.AiPackSubtitleText), s => s.AiPackSubtitleText, WinoTextStyle.Description, maximumLines: 0);
-        var text = Stack(Resource.Dimension.wino_space_hairline, name, subtitle);
-        var status = Row(BusySpinner(addOn, nameof(addOn.IsLoading), a => a.IsLoading), IntelligenceViews.NeutralPill(context, Translator.WinoAccount_Management_NotActiveShort));
-        var header = IntelligenceViews.HStack(context, Resource.Dimension.wino_space_l, text, mark, text, status);
-
-        var note = Text(Translator.WinoAccount_Management_AiPackLocalNote, WinoTextStyle.Caption);
-        var stack = Stack(Resource.Dimension.wino_space_m, header, IntelligencePromo(addOn), note);
-
-        var card = Surface(stack, Resource.Dimension.wino_space_l, Resource.Dimension.wino_radius_small);
-        Bind.Visible(card, addOn, nameof(addOn.IsPurchased), a => a.IsNotPurchased);
-        return card;
-    }
-
-    /// <summary>
-    /// The promotion on the brand surface: illustration and pitch, feature chips, then Get / Learn more / price note /
-    /// error. The Mac row (art, copy, button column) stacks vertically on phone width.
-    /// </summary>
-    private View IntelligencePromo(WinoAddOnItemViewModel addOn)
-    {
-        var vm = VM;
-        var context = Ctx;
-        var art = new WinoIntelligencePromotionIllustrationView(context, Resource.Dimension.wino_winoaccount_promo_art_small);
-        var title = Text(Translator.WinoAccount_Management_AiPackPromoTitle, WinoTextStyle.BodyStrong);
-        var description = Text(Translator.WinoAccount_Management_AiPackPromoDescription, WinoTextStyle.Description);
-        var pitch = Stack(Resource.Dimension.wino_space_2xs, title, description);
-        var top = new LinearLayout(context) { Orientation = Orientation.Horizontal };
-        top.AddView(art);
-        top.AddView(pitch, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1) { MarginStart = WinoTokens.Px(context, Resource.Dimension.wino_space_l) });
-        var chips = FeatureChips();
-
-        var column = Stack(Resource.Dimension.wino_space_m, top);
-        AddTo(column, chips, Resource.Dimension.wino_space_m);
-        if (SellsAddOns)
-        {
-            // The store sheet states the price in the customer's currency; the app does not repeat it.
-            var get = Bind.Button(Translator.WinoAccount_Management_AiPackGetButton, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
-            AddTo(column, get, Resource.Dimension.wino_space_l);
-        }
-        var learn = IntelligenceViews.LinkButton(context, Translator.Buttons_LearnMore);
-        Bind.Views.Click(learn, () => IntelligenceViews.OpenUrl(IntelligenceLearnMoreUrl));
-        var learnRow = new FrameLayout(context);
-        learnRow.AddView(learn, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent, GravityFlags.CenterHorizontal));
-        AddTo(column, learnRow, SellsAddOns ? Resource.Dimension.wino_space_2xs : Resource.Dimension.wino_space_m);
-        if (SellsAddOns)
-        {
-            var price = Text(Translator.WinoAccount_Management_AiPackPriceAtCheckout, WinoTextStyle.Caption);
-            price.Gravity = GravityFlags.CenterHorizontal;
-            AddTo(column, price, 0);
-        }
-        var error = Bind.Label(addOn, nameof(addOn.ErrorText), a => a.ErrorText, WinoTextStyle.Caption, maximumLines: 0);
-        error.SetTextColor(WinoColors.Caution(context));
-        error.Gravity = GravityFlags.CenterHorizontal;
-        Bind.Visible(error, addOn, nameof(addOn.ShowErrorState), a => a.ShowErrorState);
-        AddTo(column, error, Resource.Dimension.wino_space_m);
-
-        // Windows WinoIntelligenceBrandSurfaceBrush: a faint wash of the brand colour.
-        var wash = WinoTokens.Color(context, Resource.Color.wino_winoaccount_brand_wash);
-        var surface = new FrameLayout(context) { Background = IntelligenceViews.Shape(context, wash, null, Resource.Dimension.wino_radius_small) };
-        WinoTokens.Pad(surface, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_l);
-        surface.AddView(column, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
-        return surface;
-    }
-
-    /// <summary>The five feature chips of the Wino Intelligence promotion (shared with the Intelligence page).</summary>
-    internal static View FeatureChips(global::Android.Content.Context context) => IntelligenceViews.Flow(context,
-    [
-        IntelligenceViews.Chip(context, WinoIconGlyph.DailyBriefing, Translator.WinoAccount_Management_AiPackFeatureBriefing),
-        IntelligenceViews.Chip(context, WinoIconGlyph.Note, Translator.WinoAccount_Management_AiPackFeatureSummarize),
-        IntelligenceViews.Chip(context, WinoIconGlyph.Translate, Translator.WinoAccount_Management_AiPackFeatureTranslate),
-        IntelligenceViews.Chip(context, WinoIconGlyph.Edit, Translator.WinoAccount_Management_AiPackFeatureRewrite),
-        IntelligenceViews.Chip(context, WinoIconGlyph.Tag, Translator.WinoAccount_Management_AiPackFeatureLabels),
-    ], Resource.Dimension.wino_space_s);
-
-    private View FeatureChips() => FeatureChips(Ctx);
-
-    /// <summary>Wino Intelligence, purchased: billing period, monthly allowance and usage, then where mailboxes and consent are managed.</summary>
-    private View IntelligenceExpander()
-    {
-        var vm = VM;
-        var addOn = vm.AiPackAddOn;
-        var context = Ctx;
-
-        var status = Row(BusySpinner(addOn, nameof(addOn.IsLoading), a => a.IsLoading), IntelligenceViews.SuccessPill(context, Translator.WinoAccount_Management_ActiveShort));
-        var expander = new WinoSettingsExpander(context, Translator.WinoAddOn_AI_PACK_Name, null, WinoIconGlyph.None, status, isExpanded: true);
-        expander.HeaderCard.LeadingView = new BrandIconView(context, WinoIconGlyph.WinoIntelligence, Resource.Dimension.wino_glyph_l);
-        Bind.Bind(vm, nameof(vm.AiPackSubtitleText), s => s.AiPackSubtitleText, text => expander.HeaderCard.Description = text);
-
-        expander.Add(UsageSummary(), WinoTokens.Dp(context, Resource.Dimension.wino_space_ml), WinoTokens.Dp(context, Resource.Dimension.wino_space_l), WinoTokens.Dp(context, Resource.Dimension.wino_space_l), WinoTokens.Dp(context, Resource.Dimension.wino_space_l));
-
-        var mailboxes = StackedCard(Translator.WinoAccount_Management_BriefingMailboxesTitle, null, WinoIconGlyph.Mail,
-            Row(Bind.Button(Translator.Buttons_Manage, vm.OpenIntelligenceManagementCommand)));
-        Bind.Bind(vm, nameof(vm.IntelligenceMailboxesSummary), s => s.IntelligenceMailboxesSummary, text => mailboxes.Description = text);
-        expander.Add(mailboxes);
-        expander.Add(StackedCard(Translator.WinoAccount_ConsentNavigationTitle, Translator.WinoAccount_ConsentNavigationDescription, WinoIconGlyph.LockClosed,
-            Row(Bind.Button(Translator.Buttons_Manage, vm.OpenIntelligenceManagementCommand))));
-
-        Bind.Visible(expander, addOn, nameof(addOn.IsPurchased), a => a.IsPurchased);
-        return expander;
-    }
-
-    /// <summary>The Windows usage card: two facts side by side, the requests meter with its summary, renewal and reset lines, and the limits note.</summary>
-    private View UsageSummary()
-    {
-        var vm = VM;
-        var context = Ctx;
-        LinearLayout Fact(string caption, string property, Func<WinoAccountManagementPageViewModel, string> read)
-            => Stack(Resource.Dimension.wino_space_3xs, Text(caption, WinoTextStyle.Caption), Bind.Label(vm, property, read, WinoTextStyle.Body, maximumLines: 0));
-        // The amount is the store's to state; the period is the fact Wino can report.
-        var facts = new LinearLayout(context) { Orientation = Orientation.Horizontal, WeightSum = 2 };
-        facts.AddView(Fact(Translator.WinoAccount_Management_AiPackBillingPeriodLabel, nameof(vm.AiPackBillingPeriodText), s => s.AiPackBillingPeriodText),
-            new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1));
-        facts.AddView(Fact(Translator.WinoAccount_Management_IncludedEachMonth, nameof(vm.IntelligenceIncludedText), s => s.IntelligenceIncludedText),
-            new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1) { MarginStart = WinoTokens.Px(context, Resource.Dimension.wino_space_2xl) });
-
-        var requests = Text(Translator.WinoAccount_Management_AiPackRequestsUsed);
-        var summary = Bind.Label(vm, nameof(vm.IntelligenceUsageSummary), s => s.IntelligenceUsageSummary, WinoTextStyle.Caption);
-        var meter = IntelligenceViews.Meter(context);
-        meter.ContentDescription = Translator.WinoAccount_Management_AiPackRequestsUsed;
-        Bind.Bind(vm, nameof(vm.IntelligenceUsagePercentage), s => s.IntelligenceUsagePercentage, value => IntelligenceViews.SetMeter(meter, value));
-        Bind.Visible(meter, vm, nameof(vm.IsIntelligenceUsageAvailable), s => s.IsIntelligenceUsageAvailable);
-        // Renewal and reset sit side by side on the Mac; they stack on phone width.
-        var renewal = Bind.Label(vm, nameof(vm.AiPackRenewalOrCancellationText), s => s.AiPackRenewalOrCancellationText, WinoTextStyle.Caption, maximumLines: 0);
-        var reset = Bind.Label(vm, nameof(vm.IntelligenceResetText), s => s.IntelligenceResetText, WinoTextStyle.Caption, maximumLines: 0);
-        var usage = Stack(Resource.Dimension.wino_space_xs, IntelligenceViews.HStack(context, Resource.Dimension.wino_space_s, requests, requests, summary), meter, renewal);
-        AddTo(usage, reset, Resource.Dimension.wino_space_3xs);
-
-        var note = Text(Translator.WinoAccount_Management_UsageOtherLimitsNote, WinoTextStyle.Caption);
-        return Stack(Resource.Dimension.wino_space_l, facts, usage, note);
+        var status = Bind.Label(vm, nameof(vm.AiPackStatusText), s => s.AiPackStatusText, WinoTextStyle.Description, maximumLines: 0);
+        var text = Stack(Resource.Dimension.wino_space_hairline, name, status);
+        var header = IntelligenceViews.HStack(context, Resource.Dimension.wino_space_l, text, mark, text);
+        var stack = Stack(Resource.Dimension.wino_space_m, header, IntelligenceViews.Flow(context, controls, Resource.Dimension.wino_space_s), error);
+        return Surface(stack, Resource.Dimension.wino_space_l, Resource.Dimension.wino_radius_small);
     }
 
     /// <summary>

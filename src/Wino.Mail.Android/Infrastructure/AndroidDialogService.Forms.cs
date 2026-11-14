@@ -13,11 +13,13 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.Android.Views.Dialogs;
 using Wino.Mail.Controls.Android.Common;
+using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Presentation.Android;
@@ -244,44 +246,43 @@ public sealed partial class AndroidDialogService
     }
 
     /// <summary>
-    /// Windows AccountReorderDialog: the accounts with Move up and Move down per row (TalkBack reachable; Android has no
-    /// always-on reorder handles). Save stores the order the way Windows, the Mac and iOS do (start-up entity id to index)
-    /// and mirrors it in the bound collection; Cancel changes nothing.
+    /// Windows AccountReorderDialog: the account layout with Move up and Move down per row (TalkBack reachable; Android has
+    /// no always-on reorder handles). Top-level accounts and groups move among themselves; a group's accounts follow it,
+    /// indented, and move only inside the group (membership changes on the group's page). The dialog reads the layout
+    /// itself, because the flat list the settings page passes does not carry the groups. Save stores the layout order;
+    /// Cancel changes nothing.
     /// </summary>
     public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
     {
-        var accounts = (availableAccounts ?? []).ToList();
-        var order = await FormAsync<List<IAccountProviderDetailViewModel>?>(activity =>
+        if (services.GetService<IAccountService>() is not { } accountService) return;
+        ObservableCollection<AccountReorderItem> items;
+        try
         {
-            var form = new AndroidFormDialog<List<IAccountProviderDetailViewModel>?>(activity, Translator.SettingsReorderAccounts_Title,
+            var accounts = await accountService.GetAccountsAsync();
+            var groups = await accountService.GetAccountGroupsAsync();
+            items = AccountReorderItem.FromLayout(AccountLayoutBuilder.Build(accounts, groups));
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Warning(exception, "Could not read the account layout.");
+            InfoBarMessage(Translator.GeneralTitle_Error, exception.Message, InfoBarMessageType.Error);
+            return;
+        }
+
+        await FormAsync<bool?>(activity =>
+        {
+            var form = new AndroidFormDialog<bool?>(activity, Translator.SettingsReorderAccounts_Title,
                 Translator.SettingsReorderAccounts_Description, Translator.Buttons_Save);
-            var working = accounts.ToList();
             var list = form.Add(new LinearLayout(activity) { Orientation = Orientation.Vertical });
             void Render()
             {
                 list.RemoveAllViews();
-                for (int index = 0; index < working.Count; index++)
+                for (int index = 0; index < items.Count; index++)
                 {
-                    int position = index;
-                    var account = working[index];
-                    var row = new LinearLayout(activity) { Orientation = Orientation.Horizontal };
-                    row.SetGravity(GravityFlags.CenterVertical);
-                    row.SetMinimumHeight(WinoTokens.Px(activity, Resource.Dimension.wino_size_touch_large));
-                    var title = WinoTokens.Style(new TextView(activity) { Text = account.StartupEntityTitle }, WinoTextStyle.Body);
-                    title.SetMaxLines(1);
-                    title.Ellipsize = global::Android.Text.TextUtils.TruncateAt.End;
-                    row.AddView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1));
-                    row.AddView(MoveButton(activity, WinoIconGlyph.ChevronUp, $"{Translator.MailFilters_MoveUp}: {account.StartupEntityTitle}", position > 0, () =>
-                    {
-                        (working[position - 1], working[position]) = (working[position], working[position - 1]);
-                        Render();
-                    }));
-                    row.AddView(MoveButton(activity, WinoIconGlyph.ChevronDown, $"{Translator.MailFilters_MoveDown}: {account.StartupEntityTitle}", position < working.Count - 1, () =>
-                    {
-                        (working[position + 1], working[position]) = (working[position], working[position + 1]);
-                        Render();
-                    }));
-                    list.AddView(row);
+                    var item = items[index];
+                    list.AddView(ReorderRow(activity, item, items, index, indented: false, Render));
+                    for (int child = 0; child < item.Children.Count; child++)
+                        list.AddView(ReorderRow(activity, item.Children[child], item.Children, child, indented: true, Render));
                 }
             }
             Render();
@@ -290,9 +291,8 @@ public sealed partial class AndroidDialogService
                 form.SetBusy(true);
                 try
                 {
-                    if (services.GetService<IAccountService>() is { } service)
-                        await service.UpdateAccountOrdersAsync(working.ToDictionary(account => account.StartupEntityId, account => working.IndexOf(account)));
-                    form.Finish(working);
+                    await accountService.SaveAccountLayoutOrderAsync(AccountReorderItem.ToOrder(items));
+                    form.Finish(true);
                 }
                 catch (Exception exception)
                 {
@@ -302,16 +302,61 @@ public sealed partial class AndroidDialogService
             };
             return form;
         }, null);
-        if (order is null || availableAccounts is null) return;
-        // Mirror the new order in the bound collection so the settings page updates in place.
-        await dispatcher.ExecuteOnUIThread(() =>
+    }
+
+    /// <summary>
+    /// One row of the reorder dialog: a group shows its icon and name in its colour, an account its name; both with the
+    /// supporting line and Move up / Move down inside <paramref name="siblings"/>.
+    /// </summary>
+    private static View ReorderRow(Context context, AccountReorderItem item, ObservableCollection<AccountReorderItem> siblings, int position, bool indented, Action changed)
+    {
+        var row = new LinearLayout(context) { Orientation = Orientation.Horizontal };
+        row.SetGravity(GravityFlags.CenterVertical);
+        row.SetMinimumHeight(WinoTokens.Px(context, Resource.Dimension.wino_size_touch_large));
+        // Members line up with their group's name, after the group icon.
+        if (indented) row.SetPaddingRelative(WinoTokens.Px(context, Resource.Dimension.wino_size_swatch_large) + WinoTokens.Px(context, Resource.Dimension.wino_space_s), 0, 0, 0);
+
+        if (item.IsGroup)
         {
-            for (int index = 0; index < order.Count; index++)
+            var tint = WinoColors.AccountGroupColor(context, item.ColorKey) ?? WinoColors.PrimaryText(context);
+            var glyph = new WinoIconView(context) { Icon = item.IconGlyph, Colorful = false, GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_glyph_l), Gravity = GravityFlags.Center };
+            glyph.SetTextColor(tint);
+            glyph.ImportantForAccessibility = ImportantForAccessibility.No;
+            row.AddView(glyph, new LinearLayout.LayoutParams(WinoTokens.Px(context, Resource.Dimension.wino_size_swatch_large), WinoTokens.Px(context, Resource.Dimension.wino_size_swatch_large))
             {
-                var current = availableAccounts.IndexOf(order[index]);
-                if (current >= 0 && current != index) availableAccounts.Move(current, index);
-            }
-        });
+                MarginEnd = WinoTokens.Px(context, Resource.Dimension.wino_space_s)
+            });
+        }
+
+        var text = new LinearLayout(context) { Orientation = Orientation.Vertical };
+        var title = WinoTokens.Style(new TextView(context) { Text = item.Title }, item.IsGroup ? WinoTextStyle.BodyStrong : WinoTextStyle.Body);
+        if (item.IsGroup) title.SetTextColor(WinoColors.AccountGroupColor(context, item.ColorKey) ?? WinoColors.PrimaryText(context));
+        title.SetMaxLines(1);
+        title.Ellipsize = global::Android.Text.TextUtils.TruncateAt.End;
+        text.AddView(title);
+        if (!string.IsNullOrWhiteSpace(item.Subtitle))
+        {
+            var subtitle = WinoTokens.Style(new TextView(context) { Text = item.Subtitle }, WinoTextStyle.Caption);
+            subtitle.SetTextColor(WinoColors.SecondaryText(context));
+            subtitle.SetMaxLines(1);
+            subtitle.Ellipsize = global::Android.Text.TextUtils.TruncateAt.End;
+            text.AddView(subtitle);
+        }
+        text.Focusable = true;
+        text.ContentDescription = string.IsNullOrWhiteSpace(item.Subtitle) ? item.Title : $"{item.Title}, {item.Subtitle}";
+        row.AddView(text, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1));
+
+        row.AddView(MoveButton(context, WinoIconGlyph.ChevronUp, $"{Translator.MailFilters_MoveUp}: {item.Title}", position > 0, () =>
+        {
+            siblings.Move(position, position - 1);
+            changed();
+        }));
+        row.AddView(MoveButton(context, WinoIconGlyph.ChevronDown, $"{Translator.MailFilters_MoveDown}: {item.Title}", position < siblings.Count - 1, () =>
+        {
+            siblings.Move(position, position + 1);
+            changed();
+        }));
+        return row;
     }
 
     private static View MoveButton(Context context, WinoIconGlyph glyph, string label, bool enabled, Action move)

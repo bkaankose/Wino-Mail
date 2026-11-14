@@ -1049,8 +1049,7 @@
       "framework7": "doc_richtext"
     },
     "Announcement": {
-      "material": "campaign",
-      "framework7": "speaker_3"
+      "material": "campaign"
     },
     "Message": {
       "material": "chat",

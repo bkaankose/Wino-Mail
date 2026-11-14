@@ -91,27 +91,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     public partial bool IsDataTransferInProgress { get; set; }
 
     [RelayCommand]
-    private async Task CreateMergedAccountAsync()
-    {
-        var linkName = await DialogService.ShowTextInputDialogAsync(string.Empty, Translator.DialogMessage_CreateLinkedAccountTitle, Translator.DialogMessage_CreateLinkedAccountMessage, Translator.Buttons_Create);
-
-        if (string.IsNullOrEmpty(linkName)) return;
-
-        // Create arbitary empty merged inbox with an empty Guid and go to edit page.
-        var mergedInbox = new MergedInbox()
-        {
-            Id = Guid.Empty,
-            Name = linkName
-        };
-
-        var mergedAccountProviderDetailViewModel = new MergedAccountProviderDetailViewModel(mergedInbox, new List<AccountProviderDetailViewModel>());
-
-        Messenger.Send(new BreadcrumbNavigationRequested(mergedAccountProviderDetailViewModel.MergedInbox.Name,
-                                 WinoPage.MergedAccountDetailsPage,
-                                 mergedAccountProviderDetailViewModel));
-    }
-
-    [RelayCommand]
     private void CreateAccountGroup()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.AccountGroupDetailsPage_NewTitle,
                                                            WinoPage.MergedAccountDetailsPage,

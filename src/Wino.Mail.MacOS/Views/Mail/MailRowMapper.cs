@@ -39,7 +39,7 @@ internal static class MailRowMapper
 
     public static WinoMailRowModel Map(MailListRow row, IPreferencesService preferences, bool showAccountColor, WinoMailRowDensity? densityOverride = null)
     {
-        var content = MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference)
+        var content = MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference, preferences.AlwaysShowSenderAddress)
             ?? throw new InvalidOperationException("A mail list row must stand for a mail item.");
 
         return new WinoMailRowModel

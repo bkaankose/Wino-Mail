@@ -336,13 +336,13 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         var view = new NSMenu(Translator.MacOSMenu_View);
         // Mode shortcuts follow the pane switcher order: Mail, Calendar, Contacts, To Do.
         view.AddItem(Item(Translator.KeyboardShortcuts_ModeMail, "1", NSEventModifierMask.CommandKeyMask,
-            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Mail))));
+            () => Observe(ChangeModeAsync(WinoApplicationMode.Mail))));
         view.AddItem(Item(Translator.KeyboardShortcuts_ModeCalendar, "2", NSEventModifierMask.CommandKeyMask,
-            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Calendar))));
+            () => Observe(ChangeModeAsync(WinoApplicationMode.Calendar))));
         view.AddItem(Item(Translator.KeyboardShortcuts_ModeContacts, "3", NSEventModifierMask.CommandKeyMask,
-            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Contacts))));
+            () => Observe(ChangeModeAsync(WinoApplicationMode.Contacts))));
         view.AddItem(Item(Translator.KeyboardShortcuts_ModeTasks, "4", NSEventModifierMask.CommandKeyMask,
-            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Tasks))));
+            () => Observe(ChangeModeAsync(WinoApplicationMode.Tasks))));
         view.AddItem(NSMenuItem.SeparatorItem);
         view.AddItem(Item(Translator.MacOSMenu_ToggleSidebar, "s", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ControlKeyMask, () => Shell()?.ToggleSidebar()));
         view.AddItem(new NSMenuItem(Translator.MacOSMenu_EnterFullScreen, new ObjCRuntime.Selector("toggleFullScreen:"), "f")
@@ -419,6 +419,21 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
     private void Navigate(Func<AppKitNavigationService, bool> navigate)
     {
         if (_services != null) navigate(_services.GetRequiredService<AppKitNavigationService>());
+    }
+
+    /// <summary>Without accounts the welcome page stays in the main window instead of an empty shell.</summary>
+    private async Task<bool> EnsureAccountsOrShowWelcomeAsync()
+    {
+        if (_services is null) return false;
+        if ((await _services.GetRequiredService<IAccountService>().GetAccountsAsync()).Count > 0) return true;
+        await _dispatcher.ExecuteOnUIThread(ShowMainWindow);
+        return false;
+    }
+
+    private async Task ChangeModeAsync(WinoApplicationMode mode)
+    {
+        if (!await EnsureAccountsOrShowWelcomeAsync()) return;
+        await _dispatcher.ExecuteOnUIThread(() => Navigate(navigation => navigation.ChangeApplicationMode(mode)));
     }
 
     /// <summary>Shows Message menu availability while it is open; re-enables afterwards so shortcuts keep working.</summary>

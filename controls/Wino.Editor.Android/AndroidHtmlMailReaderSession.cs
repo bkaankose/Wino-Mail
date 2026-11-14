@@ -27,6 +27,9 @@ public sealed class AndroidHtmlMailReaderSession : IHtmlMailReaderSession
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
 
+    /// <summary>The WebView's renderer ended; replace the WebView and this session.</summary>
+    public event EventHandler? BrowserLost;
+
     /// <summary>The link under the mouse or keyboard focus changed; the host shows its address (Windows link bar).</summary>
     public event EventHandler<RendererLinkHoverEventArgs>? LinkHovered;
 
@@ -36,6 +39,7 @@ public sealed class AndroidHtmlMailReaderSession : IHtmlMailReaderSession
         _host.NavigationRequested += (_, e) => NavigationRequested?.Invoke(this, e);
         _host.LinkHovered += (_, e) => LinkHovered?.Invoke(this, e);
         _host.OperationFailed += (_, e) => OperationFailed?.Invoke(this, e);
+        _host.BrowserLost += (_, e) => BrowserLost?.Invoke(this, e);
     }
 
     public void Configure(IExternalLauncher launcher) => _host.Configure(launcher);
@@ -172,6 +176,7 @@ public sealed class AndroidHtmlMailReaderSession : IHtmlMailReaderSession
     {
         NavigationRequested = null;
         OperationFailed = null;
+        BrowserLost = null;
         _originalHtml = string.Empty;
     });
     internal static string Quote(string? value) => JsonSerializer.Serialize(value, EditorJsonContext.Default.String);

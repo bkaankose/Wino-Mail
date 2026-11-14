@@ -1,8 +1,7 @@
 using System.Windows.Input;
 using Android.Views;
 using Android.Widget;
-using AndroidX.AppCompat.Widget;
-using Google.Android.Material.CheckBox;
+using Google.Android.Material.Button;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -10,10 +9,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Android.Settings;
-using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
@@ -21,58 +18,47 @@ using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 namespace Wino.Mail.Android.Views.Settings.WinoAccount;
 
 /// <summary>
-/// Wino Intelligence hub (Windows WinoIntelligencePage, iOS WinoIntelligencePageViewController; shared
-/// WinoAccountManagementPageViewModel): the signed-out and not-subscribed promotions, the subscription card with the
-/// quota sheet, consent and mailbox rows, and the translation languages. The Mac side-by-side promotions stack
-/// vertically on phone width. Android v1 sells nothing in the app (IPlatformCapabilities.MicrosoftStore and
-/// AppleAppStore are false), so the not-subscribed promotion has no Get button or price note.
+/// Wino Intelligence home (Windows WinoIntelligencePage, Mac WinoIntelligencePageViewController; shared
+/// WinoAccountManagementPageViewModel). The page is always listed, so it also explains the subscription. Without access:
+/// the hero with the one call to action, "What's included" and the locked features. With access: the status (plan and
+/// this month's usage), Wino Assistant where the platform has voice control, Smart Labels and Daily Briefing, the
+/// languages, and the Privacy section with AI provider access. Android v1 sells nothing in the app
+/// (IPlatformCapabilities.Purchases is false), so the hero offers Sign in and Learn more instead of checkout.
 /// </summary>
 public sealed class WinoIntelligencePageFragment : SettingsPageFragment<WinoAccountManagementPageViewModel>
 {
-    private IPictureStorageService? _pictures;
     private IMailDialogService? _dialogs;
     private bool _sellsAddOns;
-    private LinearLayout? _mailboxRows;
     private WinoTextSwitch? _consent;
     private LinearLayout? _content;
     private View? _loading;
-    private BindingScope? _rowScope;
     private bool _applyingConsent;
     private bool _revealed;
-    private bool _mailboxRebuildQueued;
 
     protected override void BuildPage()
     {
         var vm = VM;
-        var services = MainApplication.Services;
-        _pictures = services?.GetService<IPictureStorageService>();
-        _dialogs = services?.GetService<IMailDialogService>();
-        var capabilities = services?.GetService<IPlatformCapabilities>();
-        _sellsAddOns = capabilities?.Purchases == true;
+        _dialogs = MainApplication.Services?.GetService<IMailDialogService>();
+        _sellsAddOns = vm.IsPurchaseAvailable;
         _revealed = false;
         _applyingConsent = false;
-        _mailboxRebuildQueued = false;
 
-        // First load: the page starts with default ViewModel state (signed out, not subscribed, no mailboxes). Showing
-        // it would flash the promotions before the cached account state lands, so the content stays hidden behind one
-        // spinner until the cached state is applied.
+        // First load: the page starts with default ViewModel state (signed out, no access). Showing it would flash the
+        // offer before the cached account state lands, so the content stays hidden behind one spinner until then.
         _loading = Add(IntelligenceViews.LoadingState(Ctx));
-        var content = Stack(Resource.Dimension.wino_space_m);
+        var content = Stack(0);
         content.Visibility = ViewStates.Gone;
         _content = content;
         Add(content);
         Bindings.Own(new ActionDisposable(() =>
         {
-            _rowScope?.Dispose();
-            _rowScope = null;
             _content = null;
             _loading = null;
-            _mailboxRows = null;
             _consent = null;
         }));
 
-        // Status rows shared by every state. The network refresh row appears only when the refresh is slow, so a quick
-        // refresh does not push the cards down and back up.
+        // The network refresh row appears only when the refresh is slow, so a quick refresh does not push the cards
+        // down and back up.
         var spinner = IntelligenceViews.Spinner(Ctx);
         var updating = Row(spinner, Text(Translator.WinoIntelligence_Updating));
         var showUpdating = IntelligenceViews.DelayedProgressRow(updating, spinner, () => !Bindings.IsDisposed);
@@ -82,33 +68,17 @@ public sealed class WinoIntelligencePageFragment : SettingsPageFragment<WinoAcco
             if (on) Reveal();
             showUpdating(on);
         });
-        AddTo(content, updating, Resource.Dimension.wino_space_m);
-        AddTo(content, CommandBar(WinoInfoBarSeverity.Informational, nameof(vm.PurchaseStatusMessage), s => s.PurchaseStatusMessage,
-            Translator.WinoAccount_Management_RefreshPurchases, vm.RefreshPurchasesCommand), Resource.Dimension.wino_space_m);
-        // Windows: the refresh error bar is IsClosable="True"; the purchase status bar is not closable.
+        AddInset(content, updating);
+        AddInset(content, CommandBar(WinoInfoBarSeverity.Informational, nameof(vm.PurchaseStatusMessage), s => s.PurchaseStatusMessage,
+            vm.RefreshPurchasesText, vm.RefreshPurchasesCommand));
         var refreshError = CommandBar(WinoInfoBarSeverity.Warning, nameof(vm.IntelligenceRefreshError), s => s.IntelligenceRefreshError,
             Translator.Buttons_Retry, vm.RetryIntelligenceRefreshCommand);
         refreshError.IsClosable = true;
-        AddTo(content, refreshError, Resource.Dimension.wino_space_m);
+        AddInset(content, refreshError);
+        AddInset(content, Bar(WinoInfoBarSeverity.Warning, nameof(vm.SubscriptionEndedText), s => s.SubscriptionEndedText));
 
-        AddTo(content, Bind.Visible(SignedOutPromo(), vm, nameof(vm.IsSignedIn), s => s.IsSignedOut), Resource.Dimension.wino_space_m);
-
-        var promo = NotSubscribedPromo();
-        Bind.Bind(vm.AiPackAddOn, nameof(WinoAddOnItemViewModel.IsPurchased), a => a.IsNotPurchased,
-            show => promo.Visibility = show ? ViewStates.Visible : ViewStates.Gone);
-        var signedIn = Stack(Resource.Dimension.wino_space_m,
-            promo,
-            SubscriptionCard(),
-            Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentErrorMessage), s => s.HasConsentError ? s.ConsentErrorMessage : null),
-            Bar(WinoInfoBarSeverity.Warning, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionPending ? Translator.WinoAccount_IntelligenceConsentDeletionPending : null),
-            Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionFailed ? Translator.WinoAccount_IntelligenceConsentDeletionFailed : null),
-            MailboxesExpander(),
-            Bind.Visible(TranslationsExpander(), vm, nameof(vm.HasIntelligenceAccess), s => s.HasIntelligenceAccess));
-        AddTo(content, Bind.Visible(signedIn, vm, nameof(vm.IsSignedIn), s => s.IsSignedIn), Resource.Dimension.wino_space_m);
-
-        // A snapshot apply clears and refills the mailbox collection; rebuild the rows once per batch.
-        Bind.Collection(vm.IntelligenceMailboxes, QueueMailboxRebuild);
-        Bind.Bind(vm, nameof(vm.IsConsentGranted), s => s.IsConsentGranted, _ => QueueMailboxRebuild());
+        AddTo(content, Bind.Visible(OfferPanel(), vm, nameof(vm.HasIntelligenceAccess), s => s.HasNoIntelligenceAccess), 0);
+        AddTo(content, Bind.Visible(SubscribedPanel(), vm, nameof(vm.HasIntelligenceAccess), s => s.HasIntelligenceAccess), 0);
 
         _ = RevealWhenLoadedAsync(vm);
     }
@@ -134,19 +104,24 @@ public sealed class WinoIntelligencePageFragment : SettingsPageFragment<WinoAcco
         if (_content is not null) _content.Visibility = ViewStates.Visible;
     }
 
-    private void QueueMailboxRebuild()
+    /// <summary>Appends notices and other text content with the section header's inset (a gone view takes no room).</summary>
+    private void AddInset(LinearLayout stack, View view)
     {
-        if (_mailboxRebuildQueued) return;
-        _mailboxRebuildQueued = true;
-        var scope = Bindings;
-        Page.Post(() =>
+        int inset = WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_header_start);
+        stack.AddView(view, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
         {
-            _mailboxRebuildQueued = false;
-            if (scope.IsDisposed) return;
-            try { RebuildMailboxes(); }
-            catch (Exception exception) { ReportError(exception); }
+            MarginStart = inset,
+            MarginEnd = inset,
+            TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_section_gap)
         });
     }
+
+    /// <summary>A bespoke panel placed like a settings section: the section gap above it, edge to edge with the cards.</summary>
+    private void AddPanel(LinearLayout stack, View view)
+        => stack.AddView(view, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
+        {
+            TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_section_gap)
+        });
 
     private WinoInfoBar Bar(WinoInfoBarSeverity severity, string property, Func<WinoAccountManagementPageViewModel, string?> message)
     {
@@ -173,99 +148,314 @@ public sealed class WinoIntelligencePageFragment : SettingsPageFragment<WinoAcco
         return bar;
     }
 
-    private View LearnMoreButton()
+    private MaterialButton LearnMoreButton()
     {
         var learn = IntelligenceViews.LinkButton(Ctx, Translator.Buttons_LearnMore);
         Bind.Views.Click(learn, () => IntelligenceViews.OpenUrl(WinoAccountManagementPageFragment.IntelligenceLearnMoreUrl));
-        var row = new FrameLayout(Ctx);
-        row.AddView(learn, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent, GravityFlags.CenterHorizontal));
+        return learn;
+    }
+
+    #region Offer
+
+    private LinearLayout OfferPanel()
+    {
+        var panel = new LinearLayout(Ctx) { Orientation = Orientation.Vertical };
+        AddPanel(panel, Hero());
+        AddPanel(panel, IncludedSurface());
+        AddPanel(panel, LockedGroup());
+        return panel;
+    }
+
+    /// <summary>
+    /// The illustration and pitch on the brand wash with the one call to action (Windows WinoIntelligenceHero). Signed
+    /// out: Get Wino Intelligence (or Sign in where the platform sells nothing) and Create account. Signed in: Subscribe
+    /// where the platform sells it. Learn more where the platform sells nothing, or signed in.
+    /// </summary>
+    private View Hero()
+    {
+        var vm = VM;
+        var context = Ctx;
+        var art = new WinoIntelligencePromotionIllustrationView(context, Resource.Dimension.wino_winoaccount_promo_art_small);
+        // The Windows title and text name Wino Assistant, which needs voice control.
+        var title = Text(vm.IsVoiceControlAvailable ? Translator.WinoIntelligence_Hero_Title : Translator.WinoIntelligence_PromotionTitle, WinoTextStyle.Subtitle);
+        if (OperatingSystem.IsAndroidVersionAtLeast(28)) title.AccessibilityHeading = true;
+        var description = Text(vm.IsVoiceControlAvailable ? Translator.WinoIntelligence_Hero_Description : Translator.WinoIntelligence_Hero_Description_NoAssistant, WinoTextStyle.Description);
+        var pitch = Stack(Resource.Dimension.wino_space_2xs, title, description);
+        var row = new LinearLayout(context) { Orientation = Orientation.Horizontal };
+        row.SetGravity(GravityFlags.CenterVertical);
+        row.AddView(art);
+        row.AddView(pitch, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1) { MarginStart = WinoTokens.Px(context, Resource.Dimension.wino_space_l) });
+
+        var signedOutButtons = new List<View>
+        {
+            _sellsAddOns
+                ? Bind.Button(Translator.WinoIntelligence_GetButton, vm.GetWinoIntelligenceCommand, primary: true)
+                : Bind.Button(Translator.Buttons_SignIn, vm.SignInCommand, primary: true),
+            Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand)
+        };
+        if (!_sellsAddOns) signedOutButtons.Add(LearnMoreButton());
+        var signedOut = Bind.Visible(IntelligenceViews.Flow(context, signedOutButtons, Resource.Dimension.wino_space_s), vm, nameof(vm.IsSignedIn), s => s.IsSignedOut);
+
+        var signedInButtons = new List<View>();
+        if (_sellsAddOns)
+        {
+            // Stripe Checkout states the price in the customer's own currency; the app does not repeat it.
+            var subscribe = Bind.Button(vm.HeroSubscribeButtonText, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
+            Bind.Bind(vm, nameof(vm.HeroSubscribeButtonText), s => s.HeroSubscribeButtonText, text => subscribe.Text = text);
+            signedInButtons.Add(subscribe);
+        }
+        signedInButtons.Add(LearnMoreButton());
+        var signedIn = Bind.Visible(IntelligenceViews.Flow(context, signedInButtons, Resource.Dimension.wino_space_s), vm, nameof(vm.IsSignedIn), s => s.IsSignedIn);
+
+        var column = Stack(Resource.Dimension.wino_space_l, row, signedOut, signedIn);
+        if (_sellsAddOns)
+        {
+            var addOn = vm.AiPackAddOn;
+            var error = Bind.Label(addOn, nameof(addOn.ErrorText), a => a.ErrorText, WinoTextStyle.Caption, maximumLines: 0);
+            error.SetTextColor(WinoColors.Caution(context));
+            Bind.Visible(error, addOn, nameof(addOn.ShowErrorState), a => a.ShowErrorState);
+            AddTo(column, error, Resource.Dimension.wino_space_xs);
+            AddTo(column, Bind.Label(vm, nameof(vm.IntelligenceHeroTermsText), s => s.IntelligenceHeroTermsText, WinoTextStyle.Caption, maximumLines: 0), Resource.Dimension.wino_space_xs);
+        }
+        else
+        {
+            // The checkout terms do not apply where the app sells nothing; the account requirement does.
+            AddTo(column, Text(Translator.WinoIntelligence_AccountRequired, WinoTextStyle.Caption), Resource.Dimension.wino_space_xs);
+        }
+
+        var wash = WinoTokens.Color(context, Resource.Color.wino_winoaccount_brand_wash);
+        var surface = new FrameLayout(context) { Background = IntelligenceViews.Shape(context, wash, WinoColors.CardStroke(context), Resource.Dimension.wino_radius_small) };
+        WinoTokens.Pad(surface, Resource.Dimension.wino_space_xl, Resource.Dimension.wino_space_xl, Resource.Dimension.wino_space_xl, Resource.Dimension.wino_space_xl);
+        surface.AddView(column, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+        return surface;
+    }
+
+    /// <summary>An icon, a title, a description and an optional caption (an allowance), with an optional trailing view.</summary>
+    private LinearLayout FeatureRow(WinoIconGlyph glyph, string title, string description, string? caption, View? trailing = null)
+    {
+        var icon = new WinoIconView(Ctx) { Icon = glyph, GlyphSize = WinoTokens.Dp(Ctx, Resource.Dimension.wino_glyph_l) };
+        icon.SetTextColor(WinoColors.PrimaryText(Ctx));
+        icon.ImportantForAccessibility = ImportantForAccessibility.No;
+        var text = Stack(Resource.Dimension.wino_space_hairline, Text(title), Text(description, WinoTextStyle.Description));
+        if (!string.IsNullOrWhiteSpace(caption)) AddTo(text, Text(caption, WinoTextStyle.Caption), Resource.Dimension.wino_space_2xs);
+        var row = trailing is null
+            ? IntelligenceViews.HStack(Ctx, Resource.Dimension.wino_space_l, text, icon, text)
+            : IntelligenceViews.HStack(Ctx, Resource.Dimension.wino_space_l, text, icon, text, trailing);
+        row.SetGravity(GravityFlags.Top);
         return row;
     }
 
-    /// <summary>The fixed-size illustration at the start of a column.</summary>
-    private View Art()
+    /// <summary>Appends a hairline divider, keeping its fixed height (<c>AddTo</c> would make it wrap content and fill).</summary>
+    private void AddSeparator(LinearLayout stack, int spacing)
     {
-        var host = new FrameLayout(Ctx);
-        host.AddView(new WinoIntelligencePromotionIllustrationView(Ctx, Resource.Dimension.wino_winoaccount_promo_art), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent, GravityFlags.Start));
-        return host;
+        var line = IntelligenceViews.Separator(Ctx);
+        var layout = (LinearLayout.LayoutParams)line.LayoutParameters!;
+        if (stack.ChildCount > 0 && spacing != 0) layout.TopMargin = WinoTokens.Px(Ctx, spacing);
+        stack.AddView(line, layout);
     }
 
-    /// <summary>Signed out: illustration, promotion text, the account note and Create account / Sign in.</summary>
-    private View SignedOutPromo()
+    private void AddRows(LinearLayout stack, IEnumerable<View> rows)
     {
-        var vm = VM;
-        var text = Stack(Resource.Dimension.wino_space_2xs, Text(Translator.WinoIntelligence_PromotionTitle, WinoTextStyle.BodyStrong), Text(Translator.WinoIntelligence_PromotionDescription, WinoTextStyle.Description));
-        var note = Text(Translator.WinoIntelligence_AccountRequired, WinoTextStyle.Caption);
-        var buttons = IntelligenceViews.Flow(Ctx, [Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand, primary: true), Bind.Button(Translator.Buttons_SignIn, vm.SignInCommand)], Resource.Dimension.wino_space_s);
-        return IntelligenceViews.Surface(Ctx, Stack(Resource.Dimension.wino_space_m, Art(), text, note, buttons));
-    }
-
-    /// <summary>Not subscribed: illustration, pitch, feature chips, local note, then Get / Learn more and the price note where the platform sells it.</summary>
-    private View NotSubscribedPromo()
-    {
-        var vm = VM;
-        var text = Stack(Resource.Dimension.wino_space_2xs, Text(Translator.WinoAccount_Management_AiPackPromoTitle, WinoTextStyle.BodyStrong), Text(Translator.WinoAccount_Management_AiPackPromoDescription, WinoTextStyle.Description));
-        var note = Text(Translator.WinoAccount_Management_AiPackLocalNote, WinoTextStyle.Caption);
-        var column = Stack(Resource.Dimension.wino_space_m, Art(), text, WinoAccountManagementPageFragment.FeatureChips(Ctx), note);
-        if (_sellsAddOns)
+        foreach (var row in rows)
         {
-            var get = Bind.Button(Translator.WinoAccount_Management_AiPackGetButton, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
-            AddTo(column, get, Resource.Dimension.wino_space_l);
-            AddTo(column, LearnMoreButton(), Resource.Dimension.wino_space_2xs);
-            var price = Text(Translator.WinoAccount_Management_AiPackPriceAtCheckout, WinoTextStyle.Caption);
-            price.Gravity = GravityFlags.CenterHorizontal;
-            AddTo(column, price, 0);
+            if (stack.ChildCount > 0) AddSeparator(stack, Resource.Dimension.wino_space_m);
+            AddTo(stack, row, stack.ChildCount > 0 ? Resource.Dimension.wino_space_m : 0);
         }
-        else AddTo(column, LearnMoreButton(), Resource.Dimension.wino_space_m);
-        return IntelligenceViews.Surface(Ctx, column);
     }
 
-    /// <summary>Subscription and AI credits, with the "Available quota" button that opens the usage sheet.</summary>
-    private View SubscriptionCard()
+    /// <summary>"What's included": Wino Assistant first where the platform has voice control, then one row per perk with its allowance.</summary>
+    private View IncludedSurface()
     {
         var vm = VM;
-        var quota = SettingsBinder.CreateButton(Ctx, Translator.WinoIntelligence_AvailableQuota, icon: WinoIconGlyph.ChevronDown);
-        quota.IconGravity = Google.Android.Material.Button.MaterialButton.IconGravityTextEnd;
-        Bind.Views.Enabled(quota, vm, nameof(vm.IsIntelligenceUsageAvailable), s => s.IsIntelligenceUsageAvailable);
-        Bind.Views.Click(quota, () => IntelligenceQuotaSheet.Present(Ctx, vm.IntelligenceUsageItems.ToList(), vm.IntelligenceResetText));
-        var card = StackedCard(Translator.WinoIntelligence_SubscriptionTitle, null, WinoIconGlyph.None, Row(quota));
-        card.LeadingView = new BrandIconView(Ctx, WinoIconGlyph.WinoIntelligence, Resource.Dimension.wino_glyph_l);
-        Bind.Bind(vm, nameof(vm.AiPackRenewalOrCancellationText), s => s.AiPackRenewalOrCancellationText, text => card.Description = text);
-        return Bind.Visible(card, vm, nameof(vm.HasIntelligenceAccess), s => s.HasIntelligenceAccess);
-    }
-
-    /// <summary>Mailboxes: the account-wide consent switch, then one row per mailbox while consent is granted.</summary>
-    private View MailboxesExpander()
-    {
-        var vm = VM;
-        var busy = IntelligenceViews.Spinner(Ctx);
-        var consent = new WinoTextSwitch(Ctx, Translator.WinoAccount_Allowed, Translator.WinoAccount_NotAllowed, Translator.WinoIntelligence_MailboxesTitle);
-        _consent = consent;
-        var expander = new WinoSettingsExpander(Ctx, Translator.WinoIntelligence_MailboxesTitle, null, WinoIconGlyph.None, Row(busy, consent));
-        expander.HeaderCard.LeadingView = new BrandIconView(Ctx, WinoIconGlyph.Mail, Resource.Dimension.wino_glyph_l);
-        Bind.Bind(vm, nameof(vm.IntelligenceConsentStatusText), s => s.IntelligenceConsentStatusText, text => expander.HeaderCard.Description = text);
-        Bind.Bind(vm, nameof(vm.IsConsentBusy), s => s.IsConsentBusy, on =>
+        var heading = Text(Translator.WinoIntelligence_Included_Title, WinoTextStyle.BodyStrong);
+        if (OperatingSystem.IsAndroidVersionAtLeast(28)) heading.AccessibilityHeading = true;
+        var headerText = Stack(Resource.Dimension.wino_space_hairline, heading, Text(Translator.WinoIntelligence_Included_Description, WinoTextStyle.Description));
+        var header = IntelligenceViews.HStack(Ctx, Resource.Dimension.wino_space_l, headerText,
+            new BrandIconView(Ctx, WinoIconGlyph.WinoIntelligence, Resource.Dimension.wino_glyph_l), headerText);
+        var rows = Stack(0);
+        void Rebuild()
         {
-            IntelligenceViews.SetSpinning(busy, on);
-            consent.IsEnabled = !on;
-        });
+            rows.RemoveAllViews();
+            var views = new List<View>();
+            if (vm.IsVoiceControlAvailable)
+            {
+                var badge = IntelligenceViews.Pill(Ctx, Translator.WinoIntelligence_NewBadge, WinoColors.OnAccent(Ctx), WinoColors.Accent(Ctx));
+                views.Add(FeatureRow(WinoIconGlyph.Microphone, Translator.WinoIntelligence_Perk_Voice_Title, Translator.WinoIntelligence_Perk_Voice_Description,
+                    Translator.WinoIntelligence_Perk_Voice_Allowance, badge));
+            }
+            views.AddRange(vm.OfferPerks.Select(perk => (View)FeatureRow(perk.Icon, perk.Title, perk.Description, perk.TrailingText)));
+            AddRows(rows, views);
+        }
+        Bind.Collection(vm.OfferPerks, Rebuild);
+        Rebuild();
+        var column = Stack(0, header);
+        AddSeparator(column, Resource.Dimension.wino_space_l);
+        AddTo(column, rows, Resource.Dimension.wino_space_m);
+        return IntelligenceViews.Surface(Ctx, column, Resource.Dimension.wino_space_l, Resource.Dimension.wino_radius_small);
+    }
+
+    /// <summary>"Available with Wino Intelligence": Smart Labels and Daily Briefing and the languages, dimmed with a lock.</summary>
+    private View LockedGroup()
+    {
+        View Lock()
+        {
+            var glyph = new WinoIconView(Ctx) { Icon = WinoIconGlyph.LockClosed, GlyphSize = WinoTokens.Dp(Ctx, Resource.Dimension.wino_glyph_m) };
+            glyph.SetTextColor(WinoColors.SecondaryText(Ctx));
+            glyph.ImportantForAccessibility = ImportantForAccessibility.No;
+            return glyph;
+        }
+        var rows = Stack(0);
+        AddRows(rows,
+        [
+            FeatureRow(WinoIconGlyph.Mail, Translator.WinoIntelligence_MailClassification_Title, Translator.WinoIntelligence_MailClassification_Description, null, Lock()),
+            FeatureRow(WinoIconGlyph.Translate, Translator.WinoIntelligence_Languages_Title, Translator.WinoIntelligence_Languages_Description, null, Lock()),
+        ]);
+        rows.Alpha = WinoColors.Fraction(Ctx, Resource.Fraction.wino_m3_settings_disabled_alpha);
+        rows.Enabled = false;
+        var title = WinoTokens.Style(new TextView(Ctx) { Text = Translator.WinoIntelligence_Locked_Caption }, WinoTextStyle.SettingsSectionHeader);
+        WinoTokens.Pad(title, Resource.Dimension.wino_m3_settings_header_start, 0, Resource.Dimension.wino_m3_settings_header_start, Resource.Dimension.wino_m3_settings_header_bottom);
+        AndroidX.Core.View.ViewCompat.SetAccessibilityHeading(title, true);
+        var stack = new LinearLayout(Ctx) { Orientation = Orientation.Vertical };
+        stack.AddView(title);
+        stack.AddView(IntelligenceViews.Surface(Ctx, rows, Resource.Dimension.wino_space_l, Resource.Dimension.wino_radius_small),
+            new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+        return stack;
+    }
+
+    #endregion
+
+    #region Subscribed
+
+    private LinearLayout SubscribedPanel()
+    {
+        var vm = VM;
+        var panel = new LinearLayout(Ctx) { Orientation = Orientation.Vertical };
+        AddPanel(panel, StatusSurface());
+
+        var assistant = CommandCard(Translator.WinoIntelligence_Voice_Title, vm.AssistantHomeDescription, WinoIconGlyph.None, vm.OpenVoiceControlCommand);
+        assistant.LeadingView = new BrandIconView(Ctx, WinoIconGlyph.WinoIntelligence, Resource.Dimension.wino_glyph_l);
+        Bind.Bind(vm, nameof(vm.AssistantHomeDescription), s => s.AssistantHomeDescription, text => assistant.Description = text);
+        Bind.Visible(assistant, vm, nameof(vm.ShowVoiceCommandsCard), s => s.ShowVoiceCommandsCard);
+        var classification = CommandCard(Translator.WinoIntelligence_MailClassification_Title, Translator.WinoIntelligence_MailClassification_HomeDescription,
+            WinoIconGlyph.Tag, vm.OpenMailClassificationCommand);
+        classification.ShowsChevron = true;
+        panel.AddView(Group(null, assistant, classification, LanguagesExpander()));
+
+        panel.AddView(PrivacyGroup());
+        return panel;
+    }
+
+    /// <summary>
+    /// The status panel (Windows status expander, open on a phone): the brand tile, Wino Intelligence, the renewal line
+    /// and Active or Limit reached; then the allowance notice, the plan row with Manage subscription and Refresh, and one
+    /// meter per usage bucket.
+    /// </summary>
+    private View StatusSurface()
+    {
+        var vm = VM;
+        var context = Ctx;
+        var active = IntelligenceViews.SuccessPill(context, Translator.WinoAccount_Management_ActiveShort);
+        Bind.Visible(active, vm, nameof(vm.IsWithinLimits), s => s.IsWithinLimits);
+        var limitReached = IntelligenceViews.NeutralPill(context, Translator.WinoIntelligence_Status_LimitReached);
+        Bind.Visible(limitReached, vm, nameof(vm.IsLimitReached), s => s.IsLimitReached);
+        var title = Text(Translator.WinoIntelligence_SettingsTitle, WinoTextStyle.Subtitle);
+        if (OperatingSystem.IsAndroidVersionAtLeast(28)) title.AccessibilityHeading = true;
+        var renewal = Bind.Label(vm, nameof(vm.SubscriptionRenewalLine), s => s.SubscriptionRenewalLine, WinoTextStyle.Description, maximumLines: 0);
+        var text = Stack(Resource.Dimension.wino_space_hairline, title, renewal);
+        var tile = new FrameLayout(context)
+        {
+            Background = IntelligenceViews.Shape(context, WinoColors.SettingsGroupFill(context), WinoColors.CardStroke(context), Resource.Dimension.wino_radius_small)
+        };
+        int tileSize = WinoTokens.Px(context, Resource.Dimension.wino_winoaccount_mailbox_icon) + WinoTokens.Px(context, Resource.Dimension.wino_space_l);
+        tile.AddView(new BrandIconView(context, WinoIconGlyph.WinoIntelligence, Resource.Dimension.wino_glyph_l),
+            new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent, GravityFlags.Center));
+        tile.LayoutParameters = new LinearLayout.LayoutParams(tileSize, tileSize);
+        var header = IntelligenceViews.HStack(context, Resource.Dimension.wino_space_l, text, tile, text, Row(active, limitReached));
+        header.SetGravity(GravityFlags.CenterVertical);
+
+        var exhausted = Bar(WinoInfoBarSeverity.Informational, nameof(vm.ExhaustedBucketsText), s => s.HasExhaustedBuckets ? s.ExhaustedBucketsText : null);
+
+        var planTitle = Text(Translator.WinoAccount_Management_SubscriptionLabel, WinoTextStyle.BodyStrong);
+        var manage = Bind.Views.Command(IntelligenceViews.LinkButton(context, Translator.WinoIntelligence_ManageSubscription), vm.ManageSubscriptionCommand);
+        Bind.Visible(manage, vm, nameof(vm.CanManageSubscription), s => s.CanManageSubscription);
+        var refresh = Bind.Button(Translator.Buttons_Refresh, vm.RefreshPurchasesCommand);
+        var plan = Stack(Resource.Dimension.wino_space_xs, planTitle, IntelligenceViews.Flow(context, [manage, refresh], Resource.Dimension.wino_space_s));
+
+        var usage = Stack(0);
+        void RebuildUsage()
+        {
+            usage.RemoveAllViews();
+            foreach (var item in vm.IntelligenceUsageItems.ToList())
+            {
+                var name = Text(item.DisplayName, WinoTextStyle.Body, maxLines: 1);
+                var value = Text(item.Value, WinoTextStyle.Description);
+                var top = IntelligenceViews.HStack(context, Resource.Dimension.wino_space_s, name, name, value);
+                var meter = IntelligenceViews.Meter(context);
+                meter.ContentDescription = item.DisplayName;
+                IntelligenceViews.SetMeter(meter, item.Percentage, item.IsExhausted);
+                AddTo(usage, Stack(Resource.Dimension.wino_space_xs, top, meter), Resource.Dimension.wino_space_l);
+            }
+        }
+        Bind.Collection(vm.IntelligenceUsageItems, RebuildUsage);
+        RebuildUsage();
+        var unavailable = Text(Translator.WinoAccount_Management_IntelligenceUsageUnavailable, WinoTextStyle.Description);
+        Bind.Visible(unavailable, vm, nameof(vm.IsIntelligenceUsageAvailable), s => !s.IsIntelligenceUsageAvailable);
+
+        var column = Stack(Resource.Dimension.wino_space_l, header, exhausted);
+        AddSeparator(column, Resource.Dimension.wino_space_l);
+        AddTo(column, plan, Resource.Dimension.wino_space_l);
+        AddSeparator(column, Resource.Dimension.wino_space_l);
+        AddTo(column, usage, Resource.Dimension.wino_space_xs);
+        AddTo(column, unavailable, Resource.Dimension.wino_space_m);
+
+        var wash = WinoTokens.Color(context, Resource.Color.wino_winoaccount_brand_wash);
+        var surface = new FrameLayout(context) { Background = IntelligenceViews.Shape(context, wash, WinoColors.CardStroke(context), Resource.Dimension.wino_radius_small) };
+        WinoTokens.Pad(surface, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_l);
+        surface.AddView(column, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+        return surface;
+    }
+
+    /// <summary>Languages: the default translation and summary languages.</summary>
+    private View LanguagesExpander()
+    {
+        var vm = VM;
+        var translate = Bind.PopUp<WinoAccountManagementPageViewModel, AiTranslateLanguageOption>(vm, s => s.AvailableAiLanguages, o => o.Label,
+            nameof(vm.SelectedDefaultTranslationLanguage), s => s.SelectedDefaultTranslationLanguage, (s, v) => s.SelectedDefaultTranslationLanguage = v);
+        var summarize = Bind.PopUp<WinoAccountManagementPageViewModel, AiTranslateLanguageOption>(vm, s => s.AvailableAiLanguages, o => o.Label,
+            nameof(vm.SelectedSummarizeLanguage), s => s.SelectedSummarizeLanguage, (s, v) => s.SelectedSummarizeLanguage = v);
+        return Expander(Translator.WinoIntelligence_Languages_Title, Translator.WinoIntelligence_Languages_Description, WinoIconGlyph.Translate, null,
+            StackedCard(Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Title, Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Description, WinoIconGlyph.None, Row(translate)),
+            StackedCard(Translator.SettingsAppPreferences_AiSummarizeLanguage_Title, Translator.SettingsAppPreferences_AiSummarizeLanguage_Description, WinoIconGlyph.None, Row(summarize)));
+    }
+
+    /// <summary>
+    /// Privacy: the consent notices, the account-wide AI provider access switch, and Review privacy policy; what the
+    /// switch allows and when it was accepted are the section footer.
+    /// </summary>
+    private View PrivacyGroup()
+    {
+        var vm = VM;
+        var group = new WinoSettingsGroup(Ctx, Translator.WinoIntelligence_Privacy_Header);
+        group.Add(Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentErrorMessage), s => s.HasConsentError ? s.ConsentErrorMessage : null));
+        group.Add(Bar(WinoInfoBarSeverity.Warning, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionPending ? Translator.WinoAccount_IntelligenceConsentDeletionPending : null));
+        group.Add(Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionFailed ? Translator.WinoAccount_IntelligenceConsentDeletionFailed : null));
+
+        var consent = new WinoTextSwitch(Ctx, Translator.WinoAccount_Allowed, Translator.WinoAccount_NotAllowed, Translator.WinoIntelligence_Privacy_Title);
+        _consent = consent;
+        Bind.Bind(vm, nameof(vm.IsConsentBusy), s => s.IsConsentBusy, on => consent.IsEnabled = !on);
         Bind.Bind(vm, nameof(vm.IsConsentGranted), s => s.IsConsentGranted, granted =>
         {
             if (!_applyingConsent) consent.IsOn = granted;
-            expander.IsExpanded = granted;
         });
         EventHandler toggled = async (_, _) => await ConsentToggledAsync();
         consent.Toggled += toggled;
         Bindings.Own(new ActionDisposable(() => consent.Toggled -= toggled));
-
-        var header = Text(Translator.WinoIntelligence_MailboxesDescription, WinoTextStyle.Description);
-        var dataError = Bar(WinoInfoBarSeverity.Error, nameof(vm.IntelligenceDataError), s => s.IntelligenceDataError);
-        var top = Stack(Resource.Dimension.wino_space_s, header, dataError);
-        WinoTokens.Pad(top, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_m, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_m);
-        var rows = Stack(0);
-        _mailboxRows = rows;
-        expander.Add(Stack(0, top, rows), 0, 0, 0, 0);
-        return expander;
+        group.Add(Card(Translator.WinoIntelligence_Privacy_Title, Translator.WinoIntelligence_ProviderAccess_Description, WinoIconGlyph.Shield, consent));
+        group.Add(ActionCard(Translator.WinoIntelligence_Policy_ReviewLink, vm.OpenConsentPolicyCommand));
+        Bind.Bind(vm, nameof(vm.ConsentAcceptedText), s => s.ConsentAcceptedText, text => group.Footer = string.IsNullOrWhiteSpace(text)
+            ? Translator.WinoIntelligence_ProviderAccess_Description
+            : $"{Translator.WinoIntelligence_ProviderAccess_Description} {text}");
+        return group;
     }
 
     private async Task ConsentToggledAsync()
@@ -293,91 +483,5 @@ public sealed class WinoIntelligencePageFragment : SettingsPageFragment<WinoAcco
         }
     }
 
-    private void RebuildMailboxes()
-    {
-        if (_mailboxRows is not { } stack) return;
-        _rowScope?.Dispose();
-        _rowScope = new BindingScope();
-        var rows = Bind.Child(_rowScope);
-        stack.RemoveAllViews();
-        if (!VM.IsConsentGranted) return;
-
-        foreach (var item in VM.IntelligenceMailboxes.ToList())
-        {
-            AddTo(stack, IntelligenceViews.Separator(Ctx), 0);
-            AddTo(stack, MailboxRow(item, rows), 0);
-        }
-    }
-
-    /// <summary>
-    /// Picture, address and summary, then Indexing enabled, Manage and Delete (Windows MailboxTemplate). The actions
-    /// wrap under the address on phone width; the Mac tooltips become long-press tooltips.
-    /// </summary>
-    private View MailboxRow(WinoIntelligenceMailboxItemViewModel item, SettingsBinder rows)
-    {
-        var context = Ctx;
-        var icon = new WinoAccountIconView(context)
-        {
-            Size = WinoTokens.Dp(context, Resource.Dimension.wino_winoaccount_mailbox_icon),
-            Account = item.Account is not null && _pictures is not null
-                ? MailAccountIconInfoFactory.Create(item.Account, _pictures)
-                : MailAccountIconInfoFactory.CreateProviderFallback(item.ProviderType, item.SpecialProvider)
-        };
-        var address = Text(item.Address);
-        address.SetSingleLine(true);
-        address.Ellipsize = global::Android.Text.TextUtils.TruncateAt.Middle;
-        var summary = Text(item.IntelligenceSummary, WinoTextStyle.Description);
-        var identity = IntelligenceViews.HStack(context, Resource.Dimension.wino_space_m, null, icon);
-        identity.AddView(Stack(Resource.Dimension.wino_space_hairline, address, summary), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1) { MarginStart = WinoTokens.Px(context, Resource.Dimension.wino_space_m) });
-
-        var actions = new LinearLayout(context) { Orientation = Orientation.Horizontal };
-        actions.SetGravity(GravityFlags.CenterVertical);
-        if (item.CanManage)
-        {
-            var enabled = new MaterialCheckBox(context) { Text = Translator.WinoIntelligence_MailboxEnabled, ContentDescription = Translator.WinoIntelligence_EnableMailbox };
-            enabled.SetTextColor(WinoColors.PrimaryText(context));
-            WinoMaterialAccent.Tint(enabled);
-            if (!string.IsNullOrWhiteSpace(item.ToggleUnavailableTooltip)) TooltipCompat.SetTooltipText(enabled, item.ToggleUnavailableTooltip);
-            rows.Bind(item, nameof(item.IsEnabled), i => i.IsEnabled, on => { if (enabled.Checked != on) enabled.Checked = on; });
-            rows.Views.Enabled(enabled, item, nameof(item.CanChangeEnabled), i => i.CanChangeEnabled);
-            rows.Views.Click(enabled, () =>
-            {
-                // The command owns the state; the box shows it again until the change lands.
-                enabled.Checked = item.IsEnabled;
-                if (item.ToggleEnabledCommand?.CanExecute(item) == true) item.ToggleEnabledCommand.Execute(item);
-            });
-            actions.AddView(enabled);
-        }
-        actions.AddView(IntelligenceViews.Spacer(context), new LinearLayout.LayoutParams(0, 1, 1));
-        var manage = SettingsBinder.CreateButton(context, Translator.Buttons_Manage);
-        manage.Enabled = item.CanManage;
-        if (!string.IsNullOrWhiteSpace(item.ManageUnavailableTooltip)) TooltipCompat.SetTooltipText(manage, item.ManageUnavailableTooltip);
-        rows.Views.Click(manage, () => { if (item.ManageCommand?.CanExecute(item) == true) item.ManageCommand.Execute(item); });
-        actions.AddView(manage);
-        if (item.HasServerIntelligence)
-        {
-            var delete = SettingsBinder.CreateButton(context, Translator.Buttons_Delete);
-            delete.SetTextColor(WinoColors.Critical(context));
-            rows.Views.Enabled(delete, item, nameof(item.IsDeleting), i => !i.IsDeleting);
-            rows.Views.Click(delete, () => { if (item.DeleteCommand?.CanExecute(item) == true) item.DeleteCommand.Execute(item); });
-            actions.AddView(delete, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = WinoTokens.Px(context, Resource.Dimension.wino_space_s) });
-        }
-
-        var stack = Stack(Resource.Dimension.wino_space_xs, identity, actions);
-        WinoTokens.Pad(stack, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_s, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_s);
-        return stack;
-    }
-
-    /// <summary>Translations: the default translation and summary languages.</summary>
-    private View TranslationsExpander()
-    {
-        var vm = VM;
-        var translate = Bind.PopUp<WinoAccountManagementPageViewModel, AiTranslateLanguageOption>(vm, s => s.AvailableAiLanguages, o => o.Label,
-            nameof(vm.SelectedDefaultTranslationLanguage), s => s.SelectedDefaultTranslationLanguage, (s, v) => s.SelectedDefaultTranslationLanguage = v);
-        var summarize = Bind.PopUp<WinoAccountManagementPageViewModel, AiTranslateLanguageOption>(vm, s => s.AvailableAiLanguages, o => o.Label,
-            nameof(vm.SelectedSummarizeLanguage), s => s.SelectedSummarizeLanguage, (s, v) => s.SelectedSummarizeLanguage = v);
-        return Expander(Translator.SettingsAppPreferences_AiActions_Title, Translator.SettingsAppPreferences_AiActions_Description, WinoIconGlyph.Translate, null,
-            StackedCard(Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Title, Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Description, WinoIconGlyph.None, Row(translate)),
-            StackedCard(Translator.SettingsAppPreferences_AiSummarizeLanguage_Title, Translator.SettingsAppPreferences_AiSummarizeLanguage_Description, WinoIconGlyph.None, Row(summarize)));
-    }
+    #endregion
 }

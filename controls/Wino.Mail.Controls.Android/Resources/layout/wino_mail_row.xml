@@ -81,14 +81,6 @@
             android:singleLine="true"
             android:textColor="@color/wino_text_primary"
             android:textSize="16sp" />
-        <TextView
-            android:id="@+id/wino_row_thread_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:textColor="@color/wino_text_secondary"
-            android:textSize="12sp"
-            android:visibility="gone" />
         <com.winomail.presentation.WinoIconView
             android:id="@+id/wino_row_pin"
             android:layout_width="wrap_content"

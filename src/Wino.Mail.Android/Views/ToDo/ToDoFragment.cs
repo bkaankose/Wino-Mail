@@ -91,6 +91,10 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
         });
         Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.IsEmpty), static vm => vm.IsEmpty, _ => UpdateEmpty());
         Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.EmptyStateTitle), static vm => vm.EmptyStateTitle, _ => UpdateEmpty());
+        Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.CanReorderTasks), static vm => vm.CanReorderTasks, canReorder =>
+        {
+            if (_adapter is not null) _adapter.CanReorder = canReorder;
+        });
         Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.SelectedTask), static vm => vm.SelectedTask, task =>
             _adapter?.SetSelected(IsCompact ? null : task?.Id));
 
@@ -129,7 +133,7 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
 
     private Shell.DockedSearchBar? _searchBar;
 
-    /// <summary>The docked search bar (the same in every mode): menu, "Search in <list>", the list options.</summary>
+    /// <summary>The docked search bar (the same in every mode): menu, "Search in &lt;list&gt;", the list options.</summary>
     private void BuildToolbar(View view, Context context, ToDoPageViewModel viewModel)
     {
         _toolbar = view.FindViewById<MaterialToolbar>(Resource.Id.todo_toolbar);
@@ -190,6 +194,9 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
             {
                 Add(sort, title, () => viewModel.SetSortCommand.Execute(key), check: viewModel.SelectedSort == kind);
             }
+            // Manual order belongs to a list; smart views have none.
+            if (viewModel.IsNamedListSelected)
+                Add(sort, Translator.ToDoPage_SortManual, () => viewModel.SetSortCommand.Execute("manual"), check: viewModel.SelectedSort == TaskSortKind.Manual);
         }
         Add(popup.Menu, Translator.ToDoPage_ClearFilters, () => viewModel.ClearFiltersCommand.Execute(null), viewModel.IsFiltered);
         if (viewModel.IsMyDaySelected) Add(popup.Menu, Translator.ToDoPage_Suggestions, () => ShowSuggestions(context, viewModel));
@@ -314,11 +321,18 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
         _adapter.TaskLongClicked += (_, args) => ShowMenu(args.Task, args.Anchor);
         _adapter.CompletionToggled += (_, task) => PeopleViews.Observe(viewModel.ToggleTaskCommand.ExecuteAsync(task), ReportError);
         _adapter.ImportanceToggled += (_, task) => PeopleViews.Observe(viewModel.ToggleImportanceCommand.ExecuteAsync(task), ReportError);
+        _adapter.ReorderRequested += (_, args) => PeopleViews.Observe(viewModel.ReorderTasksAsync([args.Moved], args.Target, args.InsertAfter), ReportError);
         _list.SetAdapter(_adapter);
+        _adapter.AttachReorder(_list);
         // Rows follow their long-lived task ViewModels; removing the adapter recycles every row, which drops those
         // handlers. Without it each visit kept the previous page's rows and fragment alive.
         var list = _list;
-        Bindings.Own(new ActionDisposable(() => list.SetAdapter(null)));
+        var adapter = _adapter;
+        Bindings.Own(new ActionDisposable(() =>
+        {
+            adapter.DetachReorder();
+            list.SetAdapter(null);
+        }));
         if (_refresh is not null)
         {
             _refresh.SetColorSchemeColors(WinoColors.Accent(context).ToArgb());

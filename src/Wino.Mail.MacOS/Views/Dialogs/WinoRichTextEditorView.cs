@@ -91,6 +91,7 @@ internal sealed class WinoRichTextEditorView : NSView
         _editor = new AppKitHtmlMailEditorSession(_webView);
         if (launcher is not null) _editor.Configure(launcher);
         _editor.OperationFailed += (_, exception) => _error?.Invoke(exception);
+        _editor.Restarted += EditorRestarted;
 
         // ---- Format toolbar ----
         var features = new EditorToolbarFeatures(options.Highlight, options.Table, options.Emoji, options.ClearFormatting,
@@ -198,6 +199,7 @@ internal sealed class WinoRichTextEditorView : NSView
         _initialized = true;
         if (_spellCheck is { } spell) await ApplySpellCheckAsync(spell.Enabled, spell.Language);
         if (_autoCorrect is { } autoCorrect) await _editor.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(autoCorrect));
+        _renderedHtml = html ?? string.Empty;
         await _editor.RenderHtmlAsync(html ?? string.Empty);
         OnMain(() =>
         {
@@ -222,11 +224,25 @@ internal sealed class WinoRichTextEditorView : NSView
             _error?.Invoke(new InvalidOperationException("SetHtmlAsync was called before the editor finished loading."));
             return;
         }
+        _renderedHtml = html ?? string.Empty;
         await _editor.RenderHtmlAsync(html ?? string.Empty);
     }
 
     /// <summary>The editor body. Deterministic: an unchanged document returns the same string every time.</summary>
-    public Task<string?> GetHtmlBodyAsync() => _editor.GetHtmlBodyAsync();
+    public async Task<string?> GetHtmlBodyAsync()
+    {
+        try { return await _editor.GetHtmlBodyAsync(); }
+        catch (InvalidOperationException) when (_editor.IsContentLost) { return _renderedHtml; }
+    }
+
+    private string _renderedHtml = string.Empty;
+
+    private async void EditorRestarted(object? sender, EventArgs e)
+    {
+        if (_disposed) return;
+        try { await _editor.RenderHtmlAsync(_renderedHtml); }
+        catch (Exception exception) { _error?.Invoke(exception); }
+    }
 
     /// <summary>
     /// Renders the editor light or dark. An explicit theme from the host wins over

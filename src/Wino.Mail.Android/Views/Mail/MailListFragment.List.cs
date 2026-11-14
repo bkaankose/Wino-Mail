@@ -123,7 +123,7 @@ public sealed partial class MailListFragment
         {
             if (name is nameof(IPreferencesService.IsShowPreviewEnabled) or nameof(IPreferencesService.IsShowSenderPicturesEnabled)
                 or nameof(IPreferencesService.AccountNicknamePosition) or nameof(IPreferencesService.MailTimeFormatPreference)
-                or nameof(IPreferencesService.MailItemDisplayMode))
+                or nameof(IPreferencesService.MailItemDisplayMode) or nameof(IPreferencesService.AlwaysShowSenderAddress))
                 RefreshRows();
             else if (name == nameof(IPreferencesService.IsOtherInboxUnreadNoticeEnabled)) UpdateOtherInboxLink();
         });

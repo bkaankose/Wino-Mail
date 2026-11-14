@@ -35,11 +35,12 @@ public static partial class UIKitViewRegistration
         services.AddTransient<IntelligenceCoveragePageViewController>();
         services.AddTransient<KeyboardShortcutsPageViewController>();
         services.AddTransient<MailCategoryManagementPageViewController>();
+        services.AddTransient<MailClassificationPageViewController>();
         services.AddTransient<MailFilterEditorPageViewController>();
         services.AddTransient<MailFiltersPageViewController>();
         services.AddTransient<MailPreferencesPageViewController>();
         services.AddTransient<ManageAccountsPageViewController>();
-        services.AddTransient<MergedAccountDetailsPageViewController>();
+        services.AddTransient<AccountGroupDetailsPageViewController>();
         services.AddTransient<MessageListPageViewController>();
         services.AddTransient<NotificationSettingsPageViewController>();
         services.AddTransient<PersonalizationPageViewController>();

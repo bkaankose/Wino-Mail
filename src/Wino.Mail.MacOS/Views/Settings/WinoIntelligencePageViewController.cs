@@ -64,7 +64,7 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
             Translator.Buttons_Retry, vm.RetryIntelligenceRefreshCommand);
         refreshError.IsClosable = true;
         AddTo(_content, refreshError);
-        AddTo(_content, Bar(WinoInfoBarSeverity.Informational, nameof(vm.SubscriptionEndedText), s => s.SubscriptionEndedText));
+        AddTo(_content, Bar(WinoInfoBarSeverity.Warning, nameof(vm.SubscriptionEndedText), s => s.SubscriptionEndedText));
         AddTo(_content, Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentErrorMessage), s => s.HasConsentError ? s.ConsentErrorMessage : null));
         AddTo(_content, Bar(WinoInfoBarSeverity.Warning, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionPending ? Translator.WinoAccount_IntelligenceConsentDeletionPending : null));
         AddTo(_content, Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionFailed ? Translator.WinoAccount_IntelligenceConsentDeletionFailed : null));

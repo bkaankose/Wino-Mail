@@ -30,12 +30,6 @@ public sealed class SettingsAdaptiveRow : NSView
         Apply(wide: false);
     }
 
-    /// <summary>The Wino Intelligence purchase row: illustration, text column and the optional button column.</summary>
-    public static SettingsAdaptiveRow IntelligencePromo(NSView art, NSView column, NSView? side, double breakpoint)
-        => side is null
-            ? new SettingsAdaptiveRow(breakpoint, 20, NSLayoutAttribute.CenterY, art, art, column)
-            : new SettingsAdaptiveRow(breakpoint, 20, NSLayoutAttribute.CenterY, art, art, column, side);
-
     public override void SetFrameSize(CGSize newSize)
     {
         base.SetFrameSize(newSize);

@@ -109,7 +109,6 @@ public static class WinoViewModelRegistration
         services.AddTransient<StoragePageViewModel>();
         services.AddTransient<AccountManagementViewModel>();
         services.AddTransient<AccountDetailsPageViewModel>();
-        services.AddTransient<MergedAccountDetailsPageViewModel>();
         services.AddTransient<AccountGroupDetailsPageViewModel>();
         services.AddTransient<FolderCustomizationPageViewModel>();
         services.AddTransient<AliasManagementPageViewModel>();

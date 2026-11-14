@@ -19,9 +19,9 @@ namespace Wino.Mail.Android.Views.Settings.Accounts;
 
 /// <summary>
 /// Manage accounts (iOS ManageAccountsPageViewController, Windows AccountManagementPage): Add account (the shared
-/// command opens onboarding), the account-limit card, the Merge inboxes and Reorder cards, the account identity rows
-/// (profile picture or provider icon, name, capability summary, attention state; a tap opens account details) and linked
-/// inboxes. Android v1 has no store billing (IPlatformCapabilities.MicrosoftStore and AppleAppStore are false), so the
+/// command opens onboarding), the account-limit card, the Create account group and Reorder cards, the account identity
+/// rows (profile picture or provider icon, name, capability summary, attention state; a tap opens account details) and
+/// account groups. Android v1 has no store billing (IPlatformCapabilities.MicrosoftStore and AppleAppStore are false), so the
 /// account-limit card with its purchase button is not shown; the shared AddNewAccount command still explains the limit.
 /// Reorder runs the shared command, which opens the account reorder dialog.
 /// </summary>
@@ -44,14 +44,13 @@ public sealed class ManageAccountsPageFragment : SettingsPageFragment<AccountMan
         // Purchase entry points exist only where the platform sells (IPlatformCapabilities.Purchases, in the ViewModel).
         Bind.Visible(Add(Group(null, PurchaseCard())), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
 
-        // Windows list header: Merge inboxes (with its "Mail only" scope tag) and Reorder, above the accounts.
-        var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateMergedAccountCommand);
-        merge.Content = ScopeTag(Translator.SettingsLinkAccounts_MailOnlyScope);
+        // Windows list header: Create account group and Reorder, above the accounts.
+        var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateAccountGroupCommand);
         var reorder = CommandCard(Translator.SettingsReorderAccounts_Title, Translator.SettingsReorderAccounts_Description, WinoIconGlyph.ArrowSort, vm.ReorderAccountsCommand);
         Bind.Visible(Add(Group(null, merge, reorder)), vm, nameof(vm.HasAccountsDefined), s => s.HasAccountsDefined);
 
         _accounts = Add(Group(Translator.SettingsManageAccountSettings_Title));
-        _merged = Add(Group(Translator.SettingsLinkAccounts_Title));
+        _merged = Add(Group(Translator.AccountManagement_GroupsHeader));
         _empty = Add(Text(Translator.SettingsNoAccountSetupMessage, WinoTextStyle.BodySecondary));
 
         Bindings.Own(new ActionDisposable(() => _rowScope?.Dispose()));
@@ -94,15 +93,6 @@ public sealed class ManageAccountsPageFragment : SettingsPageFragment<AccountMan
         var bottom = Stack(Resource.Dimension.wino_space_xs, channels, usage, meter, Row(purchase));
         card.BottomContent = bottom;
         return card;
-    }
-
-    /// <summary>The small bordered caption the Windows merge card shows ("Mail only").</summary>
-    private TextView ScopeTag(string text)
-    {
-        var tag = Caption(text);
-        WinoTokens.Pad(tag, Resource.Dimension.wino_space_s, Resource.Dimension.wino_space_3xs, Resource.Dimension.wino_space_s, Resource.Dimension.wino_space_3xs);
-        tag.Background = AccountSettingsParts.Surface(Ctx, WinoColors.CardFill(Ctx), WinoColors.CardStroke(Ctx));
-        return tag;
     }
 
     private void RebuildAccounts()
@@ -153,8 +143,19 @@ public sealed class ManageAccountsPageFragment : SettingsPageFragment<AccountMan
 
     private WinoSettingsExpander MergedRow(MergedAccountProviderDetailViewModel merged, SettingsBinder rows)
     {
-        var expander = new WinoSettingsExpander(Ctx, merged.MergedInbox?.Name ?? string.Empty, merged.AccountAddresses, WinoIconGlyph.People);
-        var edit = new WinoSettingsCard(Ctx, Translator.SettingsEditLinkedInbox_Title, Translator.SettingsEditLinkedInbox_Description, WinoIconGlyph.Link)
+        // Windows MergedAccountTemplate: the group's icon and semibold name in its colour, then "Account group · N accounts".
+        var name = merged.MergedInbox?.Name ?? string.Empty;
+        var expander = new WinoSettingsExpander(Ctx, name, merged.DescriptionText, merged.IconGlyph);
+        var tint = WinoColors.AccountGroupColor(Ctx, merged.ColorKey) ?? WinoColors.PrimaryText(Ctx);
+        var header = expander.HeaderCard;
+        var glyph = AccountSettingsParts.Glyph(Ctx, merged.IconGlyph, Resource.Dimension.wino_glyph_2xl, tint, colorful: false);
+        int side = WinoTokens.Px(Ctx, Resource.Dimension.wino_size_swatch_large);
+        glyph.LayoutParameters = new FrameLayout.LayoutParams(side, side);
+        glyph.ImportantForAccessibility = ImportantForAccessibility.No;
+        header.LeadingView = glyph;
+        header.HeaderColor = tint;
+        header.ContentDescription = $"{name}, {merged.DescriptionText}";
+        var edit = new WinoSettingsCard(Ctx, Translator.SettingsEditLinkedInbox_Title, Translator.SettingsEditLinkedInbox_Description, WinoIconGlyph.Edit)
         {
             IsClickable = true,
             ShowsChevron = true

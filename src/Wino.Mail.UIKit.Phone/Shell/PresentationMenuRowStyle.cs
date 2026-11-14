@@ -1,7 +1,9 @@
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.UIKit.Shell;
 using Wino.Mail.ViewModels.Data;
+using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Phone.Shell;
 
@@ -33,6 +35,13 @@ internal sealed class PresentationMenuRowStyle(string title, IPictureStorageServ
                 break;
             case ShellMenuRowKind.Header:
                 cell.ConfigureHeader(row.Title);
+                break;
+            case ShellMenuRowKind.Folder when item is AccountGroupMenuItem accountGroup:
+                cell.ConfigureGroup(row.Glyph, row.Title, row.UnreadCount, row.IsExpanded, WinoStyle.AccountGroupColor(row.ColorKey), accountGroup.AutomationName);
+                break;
+            case ShellMenuRowKind.Account when item is MergedAccountMenuItem:
+                cell.ConfigureGroup(row.Glyph, row.Title, row.UnreadCount, row.IsExpanded, WinoStyle.AccountGroupColor(row.ColorKey));
+                cell.SetSync(row.ShowsSync, row.IsSyncIndeterminate, row.SyncValue);
                 break;
             case ShellMenuRowKind.Account when row.AccountIcon is { } icon:
                 cell.ConfigureAccount(icon, row.Title, row.Subtitle, row.UnreadCount);

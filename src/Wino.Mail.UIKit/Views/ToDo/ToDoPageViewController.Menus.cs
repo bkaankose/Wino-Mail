@@ -35,14 +35,17 @@ public abstract partial class ToDoPageViewController
             scope.Add(ModeBarItems.Action(Translator.ToDoPage_All, WinoIconGlyph.None, () => ViewModel.SetCompletionScopeCommand.Execute("all"),
                 on: ViewModel.SelectedCompletionScope == TaskCompletionScope.All));
         }
-        var sort = new (string Title, string Key, TaskSortKind Kind)[]
+        var sortEntries = new List<(string Title, string Key, TaskSortKind Kind)>
         {
             (Translator.ToDoPage_SortImportance, "importance", TaskSortKind.Importance),
             (Translator.ToDoPage_SortDueDate, "due", TaskSortKind.DueDate),
             (Translator.ToDoPage_SortMyDay, "myday", TaskSortKind.MyDay),
             (Translator.ToDoPage_SortAlphabetically, "alphabetical", TaskSortKind.Alphabetical),
             (Translator.ToDoPage_SortCreationDate, "created", TaskSortKind.CreationDate)
-        }.Select(entry => (UIMenuElement)ModeBarItems.Action(entry.Title, WinoIconGlyph.None, () => ViewModel.SetSortCommand.Execute(entry.Key),
+        };
+        // Manual order is kept per list, so smart views that mix lists do not offer it.
+        if (ViewModel.IsNamedListSelected) sortEntries.Add((Translator.ToDoPage_SortManual, "manual", TaskSortKind.Manual));
+        var sort = sortEntries.Select(entry => (UIMenuElement)ModeBarItems.Action(entry.Title, WinoIconGlyph.None, () => ViewModel.SetSortCommand.Execute(entry.Key),
             on: ViewModel.SelectedSort == entry.Kind)).ToArray();
 
         return

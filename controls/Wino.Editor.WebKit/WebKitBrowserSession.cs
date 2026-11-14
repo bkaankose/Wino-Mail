@@ -22,6 +22,9 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
 
+    /// <summary>WebKit's content process ended; the document is gone until the next load.</summary>
+    public event EventHandler? ContentProcessTerminated;
+
     /// <summary>The reader's hovered or focused link changed (the host shows its address).</summary>
     public event EventHandler<RendererLinkHoverEventArgs>? LinkHovered;
 
@@ -32,6 +35,16 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
         Browser = browser;
         browser.Configuration.UserContentController.AddScriptMessageHandler(this, "winoMail");
         browser.NavigationDelegate = _navigation;
+        _navigation.Terminated = OnContentProcessTerminated;
+    }
+
+    private void OnContentProcessTerminated()
+    {
+        if (_disposed) return;
+        _sessionId = null;
+        _ready.TrySetException(new InvalidOperationException("The mail document's content process ended."));
+        _ = _ready.Task.Exception;
+        ContentProcessTerminated?.Invoke(this, EventArgs.Empty);
     }
     public void Configure(IExternalLauncher launcher)
     {
@@ -42,7 +55,7 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
     public async Task LoadAsync(bool editor, RemoteContentPolicy policy, bool dark, CancellationToken token)
     {
         string id = Guid.NewGuid().ToString("N");
-        string document = editor ? await AppleMailDocumentBuilder.BuildEditorAsync(id, dark, token)
+        string document = editor ? await AppleMailDocumentBuilder.BuildEditorAsync(id, dark, token, policy: policy)
             : await AppleMailDocumentBuilder.BuildReaderAsync(id, policy, dark, token);
         await OnUIAsync(() =>
         {
@@ -142,7 +155,8 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
             Browser.StopLoading();
             Browser.Configuration.UserContentController.RemoveScriptMessageHandler("winoMail");
             Browser.NavigationDelegate = null;
-            Message = null; NavigationRequested = null; OperationFailed = null; LinkHovered = null;
+            Message = null; NavigationRequested = null; OperationFailed = null; LinkHovered = null; ContentProcessTerminated = null;
+            _navigation.Terminated = null;
             releaseVisual();
             _navigation.Dispose();
             return Task.CompletedTask;
@@ -151,6 +165,9 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
     private sealed class NavigationGuard : WKNavigationDelegate
     {
         public bool AllowShell { get; set; }
+        public Action? Terminated { get; set; }
+
+        public override void ContentProcessDidTerminate(WKWebView webView) => Terminated?.Invoke();
         public override void DecidePolicy(WKWebView webView, WKNavigationAction action, Action<WKNavigationActionPolicy> decisionHandler)
         {
             bool allow = AllowShell && action.Request.Url?.AbsoluteString == "about:blank";

@@ -20,6 +20,7 @@ internal static class ShellPaneRows
         NewAddressListMenuItem => 44,
         NewMailMenuItem or NewContactMenuItem or NewTaskListMenuItem => 40,
         MergedAccountMenuItem => 44,
+        AccountGroupMenuItem => 36,
         IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account) => compactAccounts ? 36 : 44,
         FixAccountIssuesMenuItem => 58,
         ShellSectionHeaderMenuItem => 28,

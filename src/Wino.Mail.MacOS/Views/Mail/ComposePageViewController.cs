@@ -286,6 +286,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         ViewModel.ApplySignatureHtmlFunc = ApplySignatureHtmlAsync;
         ViewModel.RewriteErrorHandler = ShowRewriteError;
         _editor.ContentChanged += (_, _) => _ = Dispatcher.ExecuteOnUIThread(RefreshFindAfterEdit);
+        _editor.Restarted += EditorRestarted;
         InstallKeyMonitor();
 #if DEBUG
         RegisterComposeDebugCommands();
@@ -404,6 +405,14 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         if (_editor is null || _editorDisposed) return ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty;
         try { return await _editor.GetHtmlBodyAsync() ?? string.Empty; }
         catch (ObjectDisposedException) { return ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty; }
+        catch (InvalidOperationException) when (_editor.IsContentLost) { return ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty; }
+    }
+
+    /// <summary>Windows WinoMailEditor recovery: the editor came back empty after its content process ended, so the saved draft is rendered again.</summary>
+    private async void EditorRestarted(object? sender, EventArgs e)
+    {
+        try { await RenderBodyAsync(ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty); }
+        catch (Exception exception) { ReportError(exception); }
     }
 
     /// <summary>Windows RenderComposeHtmlAsync: spell check, its language and autocorrect, typography, then the body.</summary>
@@ -411,6 +420,8 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
     {
         if (_editor is null || _editorDisposed) return;
         var preferences = ViewModel.PreferencesService;
+        await _editor.SetRemoteContentPolicyAsync(
+            ViewModel.ShouldBlockRemoteContent ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed);
         await _editor.SetDefaultTypographyAsync(preferences.ComposerFont, preferences.ComposerFontSize);
         await _editor.Session.ExecuteCommandAsync(EditorCommand.ToggleSpellCheck(preferences.IsComposerSpellCheckEnabled));
         if (!string.IsNullOrWhiteSpace(preferences.ComposerSpellCheckLanguageCode))

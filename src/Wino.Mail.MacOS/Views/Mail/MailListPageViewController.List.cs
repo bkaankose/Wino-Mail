@@ -339,7 +339,8 @@ public sealed partial class MailListPageViewController
             if (name is nameof(_preferences.MailItemDisplayMode) or nameof(_preferences.IsShowPreviewEnabled)
                 or nameof(_preferences.IsShowSenderPicturesEnabled) or nameof(_preferences.IsHoverActionsEnabled)
                 or nameof(_preferences.HoverActionButtonSize) or nameof(_preferences.HoverActionPosition)
-                or nameof(_preferences.HoverActionAnimation) or nameof(_preferences.AccountNicknamePosition))
+                or nameof(_preferences.HoverActionAnimation) or nameof(_preferences.AccountNicknamePosition)
+                or nameof(_preferences.AlwaysShowSenderAddress) or nameof(_preferences.MailTimeFormatPreference))
                 ReloadNow();
             else BarsPreferenceChanged(name);
         });
@@ -539,6 +540,7 @@ public sealed partial class MailListPageViewController
         }
         finally { _restoringSelection = false; }
 
+        _animateThreadChange = false;
         SyncSelectionFromTable();
         UpdateOverlays();
         CheckLoadMore();
@@ -550,6 +552,9 @@ public sealed partial class MailListPageViewController
     /// delete cases). Existing row views stay realized, so the table neither re-measures every row
     /// nor rebinds every visible cell. Anything else (re-sorts, moves) falls back to a full reload.
     /// </summary>
+    private const double ThreadAnimationDuration = 0.22;
+    private bool _animateThreadChange;
+
     private bool TryApplyIncrementally(ListEntry[] previous)
     {
         if (previous.Length == 0 || _entries.Count == 0 || (nint)previous.Length != _table.RowCount) return false;
@@ -575,13 +580,28 @@ public sealed partial class MailListPageViewController
         }
         if (matched != shorter.Count) return false;
 
+        // A thread the user opens or closes slides its messages in or out, timed like the pane's calendar groups;
+        // synchronization and deletes stay instant.
+        bool animate = _animateThreadChange && !NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
+        var animation = !animate ? NSTableViewAnimation.None
+            : (inserting ? NSTableViewAnimation.SlideDown : NSTableViewAnimation.SlideUp) | NSTableViewAnimation.Fade;
+        if (animate)
+        {
+            NSAnimationContext.BeginGrouping();
+            NSAnimationContext.CurrentContext.Duration = ThreadAnimationDuration;
+            NSAnimationContext.CurrentContext.TimingFunction = CoreAnimation.CAMediaTimingFunction.FromName(CoreAnimation.CAMediaTimingFunction.EaseInEaseOut);
+        }
         _table.BeginUpdates();
         try
         {
-            if (inserting) _table.InsertRows(changed, NSTableViewAnimation.None);
-            else _table.RemoveRows(changed, NSTableViewAnimation.None);
+            if (inserting) _table.InsertRows(changed, animation);
+            else _table.RemoveRows(changed, animation);
         }
-        finally { _table.EndUpdates(); }
+        finally
+        {
+            _table.EndUpdates();
+            if (animate) NSAnimationContext.EndGrouping();
+        }
         RefreshVisibleCells();
         return true;
     }
@@ -673,6 +693,7 @@ public sealed partial class MailListPageViewController
     private void ToggleThread(MailListRow row)
     {
         if (_projection is null || row.Thread is null) return;
+        _animateThreadChange = true;
         if (row.IsExpanded) _projection.CollapseThread(row.Thread.Key);
         else _projection.ExpandThread(row.Thread.Key);
     }
@@ -684,6 +705,7 @@ public sealed partial class MailListPageViewController
     private void ThreadHeadClicked(nint index)
     {
         if (_projection is null || RowAt(index) is not { IsThreadHead: true, Thread: { Count: > 1 } thread } row) return;
+        _animateThreadChange = true;
         if (row.IsExpanded)
         {
             _projection.CollapseThread(thread.Key);
@@ -963,6 +985,21 @@ public sealed partial class MailListPageViewController
             if (ViewModel.SelectedItemsCount == 0) return Task.FromResult("no selection");
             RunSelectionOperation(Enum.Parse<MailOperation>(args[0], true));
             return Task.FromResult("ok");
+        });
+        // "thread-toggle [N]" expands or collapses the Nth thread head in the list (default the first).
+        MacDebugBridge.Register("thread-toggle", args =>
+        {
+            if (_released) return Task.FromResult("released");
+            var heads = _entries.Select(entry => entry.Row).OfType<MailListRow>().Where(row => row.IsThreadHead).ToList();
+            int index = args.Length > 0 ? int.Parse(args[0]) : 0;
+            if (index >= heads.Count) return Task.FromResult($"threads={heads.Count}");
+            if (args.Length > 1 && args[1] == "show")
+            {
+                _table.ScrollRowToVisible(_entries.FindIndex(entry => ReferenceEquals(entry.Row, heads[index])));
+                return Task.FromResult("shown");
+            }
+            ToggleThread(heads[index]);
+            return Task.FromResult($"toggled {index} of {heads.Count}");
         });
         // "mailinfo" reports the selection's state and the list size.
         MacDebugBridge.Register("mailinfo", _ => Task.FromResult(_released ? "released" :

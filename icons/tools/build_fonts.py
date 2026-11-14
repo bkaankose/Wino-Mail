@@ -92,7 +92,8 @@ def load_set_glyphs(manifest: dict) -> dict[str, dict]:
             errors.append(f"{set_name}: {path.relative_to(REPO_ROOT)} is missing (run import_icon_sets.py)")
             continue
         glyphs = json.loads(path.read_text(encoding="utf-8"))
-        errors += [f"{set_name}: no glyph for {n}" for n in sets["icons"] if n not in glyphs]
+        source = sets["sets"][set_name]["source"]
+        errors += [f"{set_name}: no glyph for {n}" for n, m in sets["icons"].items() if source in m and n not in glyphs]
         errors += [f"{set_name}: {n} is not in manifest.json" for n in glyphs if n not in names]
         result[set_name] = glyphs
     if errors:

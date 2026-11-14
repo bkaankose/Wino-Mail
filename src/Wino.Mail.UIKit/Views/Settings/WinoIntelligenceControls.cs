@@ -94,64 +94,28 @@ public sealed class WinoBarView : UIView
 }
 
 /// <summary>
-/// The "Available quota" flyout: one row per usage bucket (name, value, bar) and the reset line. Shown as a popover on
-/// iPad; on iPhone it adapts to a sheet with a Done button.
+/// What App Review requires next to an auto-renewable subscription (guideline 3.1.2): its length and renewal, and
+/// working Terms of Use (Apple's standard EULA) and Privacy Policy links (the Mac AppStoreSubscriptionTerms).
 /// </summary>
-public sealed class IntelligenceQuotaViewController(IReadOnlyList<IntelligenceUsageItem> items, string? resetText) : UIViewController
+internal static class AppStoreSubscriptionTerms
 {
-    public override void LoadView()
+    public static UIView Create()
     {
-        var stack = WinoLayout.VStack(12);
+        var terms = WinoStyle.Label(Translator.WinoAccount_Management_AiPackAppStoreTerms, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        var links = WinoLayout.HStack(16,
+            Link(Translator.WinoAccount_Management_TermsOfUse, AppUrls.AppleStandardEula),
+            Link(Translator.SettingsPrivacyPolicy_Title, AppUrls.PrivacyPolicy),
+            WinoLayout.Spacer());
+        var stack = WinoLayout.VStack(0, terms, links);
         stack.Alignment = UIStackViewAlignment.Fill;
-        foreach (var item in items)
-        {
-            var name = WinoStyle.Label(item.DisplayName, WinoStyle.Body, WinoStyle.PrimaryText);
-            name.LineBreakMode = UILineBreakMode.TailTruncation;
-            WinoLayout.Priorities(name, UILayoutConstraintAxis.Horizontal, 1, 250);
-            var value = WinoStyle.Label(item.Value, WinoStyle.Body, WinoStyle.SecondaryText);
-            WinoLayout.Priorities(value, UILayoutConstraintAxis.Horizontal, 750, 750);
-            var top = WinoLayout.HStack(8, name, value);
-            var bar = new WinoBarView { Value = item.Percentage, ShowError = item.IsExhausted };
-            WinoAccessibility.Label(bar, item.DisplayName);
-            var row = WinoLayout.VStack(6, top, bar);
-            row.Alignment = UIStackViewAlignment.Fill;
-            stack.AddArrangedSubview(row);
-        }
-        if (!string.IsNullOrWhiteSpace(resetText))
-            stack.AddArrangedSubview(WinoStyle.Label(resetText, WinoStyle.Description, WinoStyle.SecondaryText, 0));
-
-        var scroll = new UIScrollView { BackgroundColor = UIColor.SystemGroupedBackground, AlwaysBounceVertical = true };
-        stack.TranslatesAutoresizingMaskIntoConstraints = false;
-        scroll.AddSubview(stack);
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            stack.TopAnchor.ConstraintEqualTo(scroll.ContentLayoutGuide.TopAnchor, 16),
-            stack.BottomAnchor.ConstraintEqualTo(scroll.ContentLayoutGuide.BottomAnchor, -16),
-            stack.LeadingAnchor.ConstraintEqualTo(scroll.FrameLayoutGuide.LeadingAnchor, 16),
-            stack.TrailingAnchor.ConstraintEqualTo(scroll.FrameLayoutGuide.TrailingAnchor, -16)
-        ]);
-        View = scroll;
-        PreferredContentSize = new CGSize(352, Math.Min(480, 48 + items.Count * 52 + (string.IsNullOrWhiteSpace(resetText) ? 0 : 40)));
-        NavigationItem.RightBarButtonItem = new UIBarButtonItem(UIBarButtonSystemItem.Done, (_, _) => DismissViewController(true, null));
+        return stack;
     }
 
-    /// <summary>Presents the flyout anchored to <paramref name="source"/> (popover on iPad, sheet on iPhone).</summary>
-    public static void Present(UIViewController presenter, UIView source, IReadOnlyList<IntelligenceUsageItem> items, string? resetText)
+    private static UIButton Link(string title, string url)
     {
-        var content = new IntelligenceQuotaViewController(items, resetText) { Title = Translator.WinoIntelligence_AvailableQuota };
-        var navigation = new UINavigationController(content) { ModalPresentationStyle = UIModalPresentationStyle.Popover };
-        if (navigation.PopoverPresentationController is { } popover)
-        {
-            popover.SourceView = source;
-            popover.SourceRect = source.Bounds;
-            popover.PermittedArrowDirections = UIPopoverArrowDirection.Up | UIPopoverArrowDirection.Down;
-            if (popover.AdaptiveSheetPresentationController is { } sheet)
-            {
-                sheet.Detents = [UISheetPresentationControllerDetent.CreateMediumDetent(), UISheetPresentationControllerDetent.CreateLargeDetent()];
-                sheet.PrefersGrabberVisible = true;
-            }
-        }
-        presenter.PresentViewController(navigation, true, null);
+        var button = IntelligenceViews.LinkButton(title);
+        button.PrimaryActionTriggered += (_, _) => IntelligenceViews.OpenUrl(url);
+        return button;
     }
 }
 
@@ -231,14 +195,6 @@ internal static class IntelligenceViews
         };
         WinoLayout.Fill(content, surface, padding);
         return surface;
-    }
-
-    /// <summary>Wrapping flow of chips (Windows WrapPanel) that rewraps to the available width.</summary>
-    public static UIView Flow(IReadOnlyList<UIView> items, double spacing)
-    {
-        var wrap = new WrapView(spacing);
-        foreach (var item in items) wrap.AddItem(item);
-        return wrap;
     }
 
     /// <summary>An accent text button (Windows HyperlinkButton) with a 44pt touch height.</summary>

@@ -25,6 +25,8 @@ public sealed class AndroidHtmlMailEditorSession : IHtmlMailEditorSession
 
     private readonly AndroidWebViewSession _host;
     private bool _dark;
+    private RemoteContentPolicy _policy = RemoteContentPolicy.Blocked;
+    private RemoteContentPolicy _loadedPolicy = RemoteContentPolicy.Blocked;
     private bool _receivesImages;
     private string? _openLinkLabel;
     private string? _removeLinkLabel;
@@ -50,11 +52,15 @@ public sealed class AndroidHtmlMailEditorSession : IHtmlMailEditorSession
 
     public event EventHandler<Exception>? OperationFailed;
 
+    /// <summary>The WebView's renderer ended; replace the WebView and this session.</summary>
+    public event EventHandler? BrowserLost;
+
     public AndroidHtmlMailEditorSession(WebView browser)
     {
         _host = new(browser);
         _host.Message += MessageReceived;
         _host.OperationFailed += (_, e) => OperationFailed?.Invoke(this, e);
+        _host.BrowserLost += (_, e) => BrowserLost?.Invoke(this, e);
     }
 
     public WebView Browser => _host.Browser;
@@ -63,9 +69,25 @@ public sealed class AndroidHtmlMailEditorSession : IHtmlMailEditorSession
 
     private async Task EnsureReadyAsync(CancellationToken token)
     {
-        if (_host.IsReady) return;
-        await _host.LoadAsync(true, RemoteContentPolicy.Blocked, _dark, token);
+        if (_host.IsReady && _loadedPolicy == _policy) return;
+        var policy = _policy;
+        await _host.LoadAsync(true, policy, _dark, token);
+        _loadedPolicy = policy;
         await ApplyLinkLabelsAsync();
+    }
+
+    /// <summary>
+    /// Remote images and fonts in the draft (Windows WinoMailEditor.BlockRemoteResources). The policy is part of the
+    /// document's CSP, so a change reloads the editor shell; call it before the body and typography are applied.
+    /// </summary>
+    public Task SetRemoteContentPolicyAsync(RemoteContentPolicy policy, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(policy)) throw new ArgumentOutOfRangeException(nameof(policy));
+        return _host.Queue.RunAsync(async token =>
+        {
+            _policy = policy;
+            if (_host.IsReady) await EnsureReadyAsync(token);
+        }, cancellationToken);
     }
 
     /// <summary>Localized labels of the link bubble (Open link, Remove link); applied now and to every later document.</summary>
@@ -307,6 +329,7 @@ public sealed class AndroidHtmlMailEditorSession : IHtmlMailEditorSession
         ApplicationShortcutRequested = null;
         ImageInsertionRequested = null;
         OperationFailed = null;
+        BrowserLost = null;
     });
 
     /// <summary>Takes the image items of received content; the rest (text) is handled by the WebView.</summary>

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.UIKit.Infrastructure;
@@ -13,9 +14,11 @@ namespace Wino.Mail.UIKit.Views.Extras;
 /// Supplies the Daily briefing panel and tracks the badge state (Mac DailyBriefingPresenter, Windows ShellWindow): the
 /// briefing is unseen only while the signed-in Wino account can use Intelligence surfaces, at least one account is
 /// eligible and the local store has unseen content. The panel controller is created once and reused by the iPad
-/// overlay and the iPhone sheet.
+/// overlay and the iPhone sheet. "Open briefing" in Settings (DailyBriefingOpenRequested) closes the Settings sheet,
+/// switches to Mail and presents the panel, as Windows ShellWindow does.
 /// </summary>
-public sealed class DailyBriefingPresenter : IUIKitDailyBriefingPresenter,
+public sealed class DailyBriefingPresenter : IUIKitDailyBriefingPresenter, IDisposable,
+    IRecipient<DailyBriefingOpenRequested>,
     IRecipient<DailyBriefingStateChanged>,
     IRecipient<IntelligenceMetadataChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
@@ -45,6 +48,7 @@ public sealed class DailyBriefingPresenter : IUIKitDailyBriefingPresenter,
         _host = host;
         // One registration per message (trim-safe; RegisterAll needs reflection when trimmed).
         var messenger = WeakReferenceMessenger.Default;
+        messenger.Register<DailyBriefingOpenRequested>(this);
         messenger.Register<DailyBriefingStateChanged>(this);
         messenger.Register<IntelligenceMetadataChanged>(this);
         messenger.Register<WinoIntelligenceAccessChanged>(this);
@@ -91,6 +95,37 @@ public sealed class DailyBriefingPresenter : IUIKitDailyBriefingPresenter,
             sheet.PreferredCornerRadius = (nfloat)Wino.Presentation.UIKit.WinoStyle.ZoneRadius * 2;
         }
         presenter.PresentViewController(panel, true, null);
+    }
+
+    public void Receive(DailyBriefingOpenRequested message) => _ = _dispatcher.ExecuteOnUIThread(() => _ = OpenRequestedAsync());
+
+    private async Task OpenRequestedAsync()
+    {
+        try
+        {
+            if (_services.GetService<UIKitNavigationService>() is not { IsShellReady: true } navigation) return;
+            if (!await _host.CloseSheetsAsync(UIKitQuickActionCoordinator.IsEditor)) return;
+            if (navigation.Shell is { } shell && shell.ActiveMode != WinoApplicationMode.Mail)
+            {
+                if (!navigation.ChangeApplicationMode(WinoApplicationMode.Mail)) return;
+                await Task.WhenAny(shell.ContentSettled, Task.Delay(TimeSpan.FromSeconds(2)));
+            }
+            PresentSheet();
+        }
+        catch (Exception exception) { _logger.CaptureException(exception, nameof(DailyBriefingPresenter)); }
+    }
+
+    public void Dispose()
+    {
+        var messenger = WeakReferenceMessenger.Default;
+        messenger.Unregister<DailyBriefingOpenRequested>(this);
+        messenger.Unregister<DailyBriefingStateChanged>(this);
+        messenger.Unregister<IntelligenceMetadataChanged>(this);
+        messenger.Unregister<WinoIntelligenceAccessChanged>(this);
+        messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
+        messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
+        messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
+        UnseenItemsChanged = null;
     }
 
     public void Receive(DailyBriefingStateChanged message) => _ = RefreshStateAsync();

@@ -26,8 +26,9 @@ public static class AppleMailDocumentBuilder
         BuildAsync(false, sessionId, policy, darkMode, useCommandKey, cancellationToken);
 
     public static Task<string> BuildEditorAsync(string sessionId, bool darkMode,
-        CancellationToken cancellationToken = default, bool useCommandKey = true) =>
-        BuildAsync(true, sessionId, RemoteContentPolicy.Blocked, darkMode, useCommandKey, cancellationToken);
+        CancellationToken cancellationToken = default, bool useCommandKey = true,
+        RemoteContentPolicy policy = RemoteContentPolicy.Blocked) =>
+        BuildAsync(true, sessionId, policy, darkMode, useCommandKey, cancellationToken);
 
     private static async Task<string> BuildAsync(bool editor, string sessionId, RemoteContentPolicy policy,
         bool darkMode, bool useCommandKey, CancellationToken cancellationToken)

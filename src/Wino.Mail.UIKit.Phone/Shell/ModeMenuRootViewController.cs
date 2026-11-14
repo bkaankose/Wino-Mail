@@ -184,7 +184,9 @@ internal sealed class ModeMenuRootViewController : UIViewController
         {
             if (!ShellMenuItemRules.IsShown(item) || (item is not SeperatorItem && _style.Kind(item) is null)) continue;
             _rows.Add((item, depth));
-            if (item is IAccountMenuItem || item.IsExpanded) Add(ShellMenuItemRules.Children(item), depth + 1);
+            // Grouped accounts keep the depth of top-level accounts (no extra indent on mobile).
+            if ((item is IAccountMenuItem and not MergedAccountMenuItem) || item.IsExpanded)
+                Add(ShellMenuItemRules.Children(item), item is AccountGroupMenuItem ? depth : depth + 1);
         }
     }
 

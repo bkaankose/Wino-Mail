@@ -41,6 +41,7 @@ public class WinoSettingsCard : LinearLayout
     private string _header = string.Empty;
     private string? _description;
     private WinoIconGlyph _icon;
+    private global::Android.Graphics.Color? _headerColor;
     private View? _leading;
     private View? _content;
     private View? _bottom;
@@ -101,6 +102,13 @@ public class WinoSettingsCard : LinearLayout
     {
         get => _icon;
         set => _icon = value;
+    }
+
+    /// <summary>The title colour of a list item (an account group's colour); null keeps the primary text colour.</summary>
+    public global::Android.Graphics.Color? HeaderColor
+    {
+        get => _headerColor;
+        set { _headerColor = value; RaiseChanged(); }
     }
 
     /// <summary>A picture before the title (an account avatar, a colour chip): the row is a list item and keeps it.</summary>

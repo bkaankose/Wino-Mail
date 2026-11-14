@@ -58,7 +58,7 @@
   <!-- Other builds update through Sparkle (Wino.Core.Apple.Bindings/Sparkle): its feed, key and installer settings. -->
   <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore'">
     <PartialAppManifest Include="Sparkle.plist" />
-    <PartialAppManifest Include="Sparkle.Debug.plist" Condition="'$(Configuration)' == 'Debug'" />
+    <PartialAppManifest Include="Sparkle.Local.plist" Condition="'$(WinoVersionPlist)' == ''" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />

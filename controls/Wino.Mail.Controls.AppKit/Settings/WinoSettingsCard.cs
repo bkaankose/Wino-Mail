@@ -116,6 +116,12 @@ public class WinoSettingsCard : NSView
         set { _header.StringValue = value ?? string.Empty; AccessibilityLabel = value; }
     }
 
+    /// <summary>The header text colour (an account group colour); null keeps the primary text colour.</summary>
+    public NSColor? HeaderColor
+    {
+        set => _header.TextColor = value ?? WinoStyle.PrimaryText;
+    }
+
     public string? Description
     {
         get => _description.StringValue;

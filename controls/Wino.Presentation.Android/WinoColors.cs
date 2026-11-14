@@ -102,6 +102,30 @@ public static class WinoColors
     /// <summary>#RRGGBB or #AARRGGBB; null for anything else.</summary>
     public static Color? FromHexString(string? value) => WinoRgba.FromHexString(value) is { } color ? ToColor(color) : null;
 
+    /// <summary>
+    /// The text and icon colour of an account group (<see cref="Wino.Core.Domain.Models.Accounts.AccountGroupColors"/>) for the
+    /// context's appearance. Null for the default colour and while high-contrast text is on, where Windows also keeps the
+    /// system text colour.
+    /// </summary>
+    public static Color? AccountGroupColor(Context context, string? key)
+        => IsHighTextContrastEnabled(context)
+            ? null
+            : FromHexString(Wino.Core.Domain.Models.Accounts.AccountGroupColors.GetHex(key, IsDark(context)));
+
+    // AccessibilityManager.isHighTextContrastEnabled is hidden; the secure setting is its public backing value.
+    private static bool IsHighTextContrastEnabled(Context context)
+    {
+        try
+        {
+            return context.ContentResolver is { } resolver
+                && global::Android.Provider.Settings.Secure.GetInt(resolver, "high_text_contrast_enabled", 0) == 1;
+        }
+        catch (Java.Lang.SecurityException)
+        {
+            return false;
+        }
+    }
+
     public static Color Hex(uint rgb, double alpha = 1) => ToColor(WinoRgba.FromRgb(rgb, alpha));
 
     /// <summary>The stable avatar colour for an address or name (shared <see cref="ContactPictureAppearance"/> palette).</summary>

@@ -32,24 +32,6 @@ public static class WinoIntelligenceBrand
         var end = flipped ? new CGPoint(rect.Right, rect.Bottom) : new CGPoint(rect.Right, rect.Top);
         context.DrawLinearGradient(Gradient(dark), start, end, CGGradientDrawingOptions.DrawsBeforeStartLocation | CGGradientDrawingOptions.DrawsAfterEndLocation);
     }
-
-    /// <summary>The promotion pill used in the not-subscribed card: white capsule, 12pt brand glyph, caption.</summary>
-    public static NSView Chip(WinoIconGlyph glyph, string text)
-    {
-        var surface = new WinoSurfaceView
-        {
-            Fill = WinoStyle.Dynamic(NSColor.White, WinoStyle.Hex(0xFFFFFF, 0.08)),
-            Stroke = WinoSettingsStyle.CardStroke,
-            CornerRadius = 12
-        };
-        var icon = new BrandIconView(glyph, 12);
-        var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.PrimaryText);
-        var row = WinoLayout.HStack(6, icon, label);
-        row.EdgeInsets = new NSEdgeInsets(0, 10, 0, 10);
-        WinoLayout.Fill(row, surface);
-        surface.HeightAnchor.ConstraintEqualTo(24).Active = true;
-        return surface;
-    }
 }
 
 /// <summary>A Wino glyph filled with the brand gradient instead of a flat tint.</summary>

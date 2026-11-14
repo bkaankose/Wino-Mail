@@ -71,6 +71,7 @@ public sealed class ControlsGalleryActivity : AppCompatActivity
         scroll.AddView(content);
 
         AddMailList(content);
+        AddCompactMailRows(content);
         AddShellRows(content);
         AddCommon(content);
         AddSettings(content);
@@ -131,12 +132,42 @@ public sealed class ControlsGalleryActivity : AppCompatActivity
         };
     }
 
+    /// <summary>Compact rows: categories collapse to dots and intelligence tiles to round icons (a glyph, a warning, a dot).</summary>
+    private void AddCompactMailRows(LinearLayout content)
+    {
+        Section(content, "Compact mail rows");
+        WinoMailRowTile[] tiles =
+        [
+            new("Work", null, global::Android.Graphics.Color.ParseColor("#2E7D32"), null, false),
+            new("Action needed", WinoIcons.Glyph(WinoIconGlyph.Sparkle), null, null, true),
+            new("Follow up", WinoIcons.Glyph(WinoIconGlyph.Flag), null, null, true, IsWarning: true),
+            new("Summary", null, null, null, true)
+        ];
+        foreach (var (sender, subject, unread) in new[] { ("Stripe", "A new Wino Mail tax invoice is available", true), ("Sentry", "Security settings changed", false) })
+        {
+            var row = new WinoMailRowView(this);
+            row.Apply(new WinoMailRowModel
+            {
+                Kind = WinoMailRowKind.Single,
+                Density = WinoMailRowDensity.Compact,
+                Sender = sender,
+                SenderAddress = sender.ToLowerInvariant() + "@example.com",
+                Subject = subject,
+                DateText = "Fri",
+                IsUnread = unread,
+                Tiles = tiles,
+                AccessibilityText = $"{sender}, {subject}"
+            });
+            content.AddView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+        }
+    }
+
     private void AddShellRows(LinearLayout content)
     {
         Section(content, "Shell rows");
         var newItem = new WinoShellRowView(this);
         newItem.ConfigureNewItem("New mail");
-        var account = new WinoShellRowView(this) { ShowsIndicator = true };
+        var account = new WinoShellRowView(this) { ShowsIndicator = true, IsActiveAccount = true };
         account.ConfigureAccount(new AccountIconInfo(AccountIconProvider.Microsoft, null, "#2C3E50"), "Burak Kaan Köse", "bkaankose@outlook.com", 12);
         account.SetSync(true);
         var inbox = new WinoShellRowView(this) { IsRowSelected = true };

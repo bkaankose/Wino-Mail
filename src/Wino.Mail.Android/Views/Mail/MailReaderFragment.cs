@@ -479,6 +479,17 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         Bind(viewModel, dispatcher, nameof(MailRenderingPageViewModel.FromAddress), vm => vm.FromAddress, _ => UpdateSender());
         Bind(viewModel, dispatcher, nameof(MailRenderingPageViewModel.CreationDate), vm => vm.CreationDate, _ => UpdateRecipients());
         Bind(viewModel, dispatcher, nameof(MailRenderingPageViewModel.MenuItems), vm => vm.MenuItems, _ => UpdateCommands());
+        System.ComponentModel.PropertyChangedEventHandler preferenceChanged = (_, args) =>
+        {
+            if (args.PropertyName != nameof(IPreferencesService.IsShowActionLabelsEnabled)) return;
+            _ = dispatcher.ExecuteOnUIThread(() =>
+            {
+                _pillIconsOnly = false;
+                UpdateCommands();
+            });
+        };
+        viewModel.PreferencesService.PropertyChanged += preferenceChanged;
+        Bindings.Own(new ActionDisposable(() => viewModel.PreferencesService.PropertyChanged -= preferenceChanged));
         Bind(viewModel, dispatcher, nameof(MailRenderingPageViewModel.IsMailContentReady), vm => vm.IsMailContentReady, ready =>
         {
             ApplyLoading(ready);
@@ -607,6 +618,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         reader.OperationFailed += (_, exception) => ReportError(exception);
         reader.NavigationRequested += (_, _) => _web?.Post(HideLinkTarget);
         reader.LinkHovered += (_, args) => _web?.Post(() => ShowLinkTarget(args));
+        reader.BrowserLost += (_, _) => Entry?.Dispatcher.ExecuteOnUIThread(() => Observe(ReplaceBrowserAsync(reader)));
         // A finger tap also reports its link (compatibility mouse events and focus); only a mouse, a stylus or the
         // keyboard shows the address, as hovering does on Windows. The listeners observe and never consume input.
         _web.Touch += (_, args) =>
@@ -625,6 +637,29 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
             args.Handled = false;
         };
         Observe(InitializeReaderAsync(reader));
+    }
+
+    /// <summary>
+    /// Windows WinoMailRenderer recovery: a WebView whose renderer ended cannot be reused, so a new one takes its place
+    /// and the current message is rendered again instead of leaving a blank body.
+    /// </summary>
+    private async Task ReplaceBrowserAsync(AndroidHtmlMailReaderSession lost)
+    {
+        if (_disposed || !ReferenceEquals(_reader, lost) || _web is not { Context: { } context } old
+            || old.Parent is not ViewGroup parent || View is not { } root || ViewModel is not { } viewModel) return;
+        _reader = null;
+        var fresh = new WebView(context) { Id = old.Id };
+        int index = parent.IndexOfChild(old);
+        var layout = old.LayoutParameters;
+        parent.RemoveView(old);
+        if (layout is null) parent.AddView(fresh, index);
+        else parent.AddView(fresh, index, layout);
+        _web = fresh;
+        try { await lost.DisposeAsync(); }
+        catch (Exception exception) { ReportError(exception); }
+        old.Destroy();
+        BuildBody(root, viewModel);
+        if (_bridge?.Html is { } html) await RenderAsync(html);
     }
 
     /// <summary>Shows the hovered or focused link's address (Windows WinoMailRenderer link bar); a Safe Links address shows where it leads.</summary>

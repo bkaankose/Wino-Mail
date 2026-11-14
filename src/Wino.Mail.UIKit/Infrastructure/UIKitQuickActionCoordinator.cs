@@ -103,6 +103,7 @@ public sealed class UIKitQuickActionCoordinator(
         return await completion.Task;
     }
 
-    private static bool IsEditor(UIViewController controller)
+    /// <summary>Sheets that hold the user's unsaved work; opening something else never closes them.</summary>
+    internal static bool IsEditor(UIViewController controller)
         => controller is ComposePageViewController or CalendarEventComposePageViewController or ContactEditPageViewController;
 }

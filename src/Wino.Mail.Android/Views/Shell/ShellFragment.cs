@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Shell;
 using Wino.Mail.ViewModels.Data;
@@ -207,6 +208,20 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
     private void RowInvoked(IMenuItem item)
     {
         if (_shell is null || !ShellMenuItemRules.IsInteractive(item) || !ShellMenuItemRules.IsEnabled(item)) return;
+        // Group taps expand or collapse and never select. A combined group still goes to the Mail shell, which loads its
+        // merged folders and sets the expansion before its first await; the drawer toggles only when the shell did not.
+        if (item is MergedAccountMenuItem merged)
+        {
+            bool wasExpanded = merged.IsExpanded;
+            _shell.SelectMenuItem(merged);
+            if (merged.IsExpanded == wasExpanded && ShellMenuRowPresentation.HasChildren(merged)) merged.IsExpanded = !wasExpanded;
+            return;
+        }
+        if (ShellMenuAdapter.IsGroup(item))
+        {
+            if (ShellMenuRowPresentation.HasChildren(item)) item.IsExpanded = !item.IsExpanded;
+            return;
+        }
         // Parents that only group their children expand in place; everything else navigates and closes the drawer.
         if (ShellMenuRowPresentation.HasChildren(item) && item is not IAccountMenuItem && !ShellMenuItemRules.SelectsOnInvoked(item))
         {

@@ -10,194 +10,68 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS.Views.Settings;
 
 /// <summary>
-/// Wino add-ons: Wino Intelligence (the promotion while not purchased, the billing and allowance
-/// expander once it is), Unlimited Accounts (usage meter, purchase or Unlocked) and the Microsoft
-/// Store redeem card, which only exists where the platform sells through the Store.
+/// Wino add-ons: the Wino Intelligence status row, Unlimited Accounts (usage meter, purchase or Unlocked) and the
+/// store redeem card, which only exists where the platform sells through a store.
 /// Purchases go through PurchaseAddOnCommand, which asks for the channel where several exist.
 /// </summary>
 public sealed partial class WinoAccountManagementPageViewController
 {
-    private const string IntelligenceLearnMoreUrl = "https://www.winomail.app/intelligence";
-
     private IEnumerable<NSView> AddOnCards()
     {
-        yield return IntelligencePurchaseCard();
-        yield return IntelligenceExpander();
+        yield return IntelligenceCard();
         yield return UnlimitedAccountsCard();
         if (_capabilities.MicrosoftStore || _capabilities.AppleAppStore) yield return StoreRedeemCard();
     }
 
-    /// <summary>Wino Intelligence, not yet purchased: one card that says what the subscription does.</summary>
-    private NSView IntelligencePurchaseCard()
+    /// <summary>
+    /// Wino Intelligence at a glance (Windows WinoAccountIntelligenceCard): active or not and the renewal date. Usage and
+    /// settings live on the Wino Intelligence page, which "See what's included" opens.
+    /// </summary>
+    private NSView IntelligenceCard()
     {
         var vm = ViewModel;
         var addOn = vm.AiPackAddOn;
 
-        var mark = new BrandIconView(WinoIconGlyph.WinoIntelligence, 20);
-        var name = WinoStyle.Label(Translator.WinoAddOn_AI_PACK_Name, WinoStyle.Body, WinoStyle.PrimaryText);
-        var subtitle = Bind.Label(vm, nameof(vm.AiPackStatusText), s => s.AiPackStatusText, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
-        var text = WinoLayout.VStack(1, name, subtitle);
-        text.Alignment = NSLayoutAttribute.Leading;
-        text.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
-        subtitle.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
-        var notActive = Bind.Visible(NeutralPill(Translator.WinoAccount_Management_NotActiveShort), vm, nameof(vm.IsAiPackEnded), s => !s.IsAiPackEnded);
-        var ended = Bind.Visible(NeutralPill(Translator.WinoIntelligence_Status_Ended), vm, nameof(vm.IsAiPackEnded), s => s.IsAiPackEnded);
-        var status = WinoLayout.HStack(8, BusySpinner(addOn, nameof(addOn.IsLoading), a => a.IsLoading), notActive, ended);
-        var header = WinoLayout.HStack(16, mark, text, status);
-
-        var note = WinoStyle.Label(Translator.WinoAccount_Management_AiPackLocalNote, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
-        var stack = WinoLayout.VStack(12, header, IntelligencePromo(addOn), note);
-        stack.Alignment = NSLayoutAttribute.Leading;
-        foreach (var view in stack.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-
-        var card = Surface(stack, 16, 4);
-        card.AccessibilityIdentifier = "WinoAccountIntelligencePurchaseCard";
-        Bind.Visible(card, addOn, nameof(addOn.IsPurchased), a => a.IsNotPurchased);
-        return card;
-    }
-
-    /// <summary>The promotion on the brand surface: illustration, pitch, feature chips, then Get / Learn more / price note / error.</summary>
-    private NSView IntelligencePromo(WinoAddOnItemViewModel addOn)
-    {
-        var vm = ViewModel;
-        var art = new WinoIntelligencePromotionIllustrationView();
-        var title = WinoStyle.Label(Translator.WinoAccount_Management_AiPackPromoTitle, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
-        var description = WinoStyle.Label(Translator.WinoAccount_Management_AiPackPromoDescription, WinoStyle.Body, WinoStyle.SecondaryText, 0);
-        description.WidthAnchor.ConstraintLessThanOrEqualTo(520).Active = true;
-        var pitch = WinoLayout.VStack(4, title, description);
-        pitch.Alignment = NSLayoutAttribute.Leading;
-        var chips = IntelligenceViews.Flow(
-        [
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.DailyBriefing, Translator.WinoAccount_Management_AiPackFeatureBriefing),
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.Note, Translator.WinoAccount_Management_AiPackFeatureSummarize),
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.Translate, Translator.WinoAccount_Management_AiPackFeatureTranslate),
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.Edit, Translator.WinoAccount_Management_AiPackFeatureRewrite),
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.Tag, Translator.WinoAccount_Management_AiPackFeatureLabels),
-        ], 8, ChipFlowWidth);
-        var column = WinoLayout.VStack(12, pitch, chips);
-        column.Alignment = NSLayoutAttribute.Leading;
-        column.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
-
-        // Outside the App Store, Stripe Checkout states the price in the customer's currency; the app does not repeat it.
+        var active = SuccessPill(Translator.WinoAccount_Management_ActiveShort);
+        active.AccessibilityIdentifier = "WinoAccountIntelligenceActiveBadge";
+        Bind.Visible(active, addOn, nameof(addOn.IsPurchased), a => a.IsPurchased);
+        var ended = NeutralPill(Translator.WinoIntelligence_Status_Ended);
+        ended.AccessibilityIdentifier = "WinoAccountIntelligenceEndedBadge";
+        Bind.Visible(ended, vm, nameof(vm.IsAiPackEnded), s => s.IsAiPackEnded);
+        var included = LinkButton(Translator.WinoAccount_Management_SeeWhatsIncluded, vm.OpenIntelligencePageCommand);
+        included.SetValueForKey(new NSString("WinoAccountIntelligenceSeeWhatsIncludedButton"), new NSString("accessibilityIdentifier"));
+        Bind.Visible(included, vm, nameof(vm.IsAiPackNotActive), s => s.IsAiPackNotActive);
+        // Outside the App Store, Stripe Checkout states the price in the customer's own currency; the app does not repeat it.
         var get = Bind.Button(Translator.WinoAccount_Management_AiPackGetButton, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
         get.SetValueForKey(new NSString("WinoAccountAddOnPurchaseButton"), new NSString("accessibilityIdentifier"));
-        Bind.Bind(vm, nameof(vm.IsAiPackEnded), s => s.IsAiPackEnded,
-            isEnded => get.Title = isEnded ? Translator.WinoAccount_Management_Renew : Translator.WinoAccount_Management_AiPackGetButton);
-        var included = LinkButton(Translator.WinoAccount_Management_SeeWhatsIncluded, vm.OpenIntelligencePageCommand);
-        var learn = new NSButton { Bordered = false, TranslatesAutoresizingMaskIntoConstraints = false };
-        learn.SetButtonType(NSButtonType.MomentaryChange);
-        learn.AttributedTitle = new NSAttributedString(Translator.Buttons_LearnMore, new NSStringAttributes { ForegroundColor = WinoStyle.Accent, Font = NSFont.SystemFontOfSize(12) });
-        WinoAccessibility.Label(learn, Translator.Buttons_LearnMore);
-        Bind.OnActivated(learn, () => NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(IntelligenceLearnMoreUrl)));
-        var price = _capabilities.AppleAppStore
-            ? Bind.Label(vm, nameof(vm.AppStoreAiPackPriceText), s => s.AppStoreAiPackPriceText, WinoStyle.Caption, WinoStyle.SecondaryText, 0)
-            : WinoStyle.Label(Translator.WinoAccount_Management_AiPackPriceAtCheckout, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
-        price.Alignment = NSTextAlignment.Right;
+        Bind.Visible(get, vm, nameof(vm.IsAiPackNotActive), s => s.IsAiPackNotActive);
+        var renew = Bind.Button(Translator.WinoAccount_Management_Renew, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
+        renew.SetValueForKey(new NSString("WinoAccountAddOnRenewButton"), new NSString("accessibilityIdentifier"));
+        Bind.Visible(renew, vm, nameof(vm.IsAiPackEnded), s => s.IsAiPackEnded);
+        var controls = WinoLayout.HStack(8, BusySpinner(addOn, nameof(addOn.IsLoading), a => a.IsLoading), active, ended, included, get, renew);
+
         var error = Bind.Label(addOn, nameof(addOn.ErrorText), a => a.ErrorText, WinoStyle.Caption, WinoStyle.Caution, 0);
         error.Alignment = NSTextAlignment.Right;
+        error.WidthAnchor.ConstraintLessThanOrEqualTo(320).Active = true;
         Bind.Visible(error, addOn, nameof(addOn.ShowErrorState), a => a.ShowErrorState);
-        var side = WinoLayout.VStack(8, get, included, learn, price, error);
-        side.Alignment = NSLayoutAttribute.CenterX;
-        WinoLayout.Size(side, 180);
-        foreach (var view in new NSView[] { get, price, error }) view.WidthAnchor.ConstraintEqualTo(side.WidthAnchor).Active = true;
+        var side = WinoLayout.VStack(4, controls, error);
+        side.Alignment = NSLayoutAttribute.Trailing;
 
-        var row = SettingsAdaptiveRow.IntelligencePromo(art, column, side, PromoBreakpoint);
-        var surface = new WinoSurfaceView
-        {
-            // Windows WinoIntelligenceBrandSurfaceBrush: a faint wash of the brand colour.
-            Fill = WinoStyle.Dynamic(WinoStyle.Hex(0x3B84E8, 0.07), WinoStyle.Hex(0x7FBAFF, 0.08)),
-            CornerRadius = 4
-        };
+        var card = Card(Translator.WinoAddOn_AI_PACK_Name, null, WinoIconGlyph.None, side);
+        card.LeadingView = new BrandIconView(WinoIconGlyph.WinoIntelligence, 20);
+        card.AccessibilityIdentifier = "WinoAccountIntelligenceCard";
+        Bind.Bind(vm, nameof(vm.AiPackStatusText), s => s.AiPackStatusText, text => card.Description = text);
+
         if (_capabilities.AppleAppStore)
         {
-            // Guideline 3.1.2: the length, renewal and the Terms of Use and Privacy Policy links sit next to the purchase.
-            var stack = WinoLayout.VStack(14, row, AppStoreSubscriptionTerms.Create());
-            stack.Alignment = NSLayoutAttribute.Leading;
-            row.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-            WinoLayout.Fill(stack, surface, 20);
+            // Guideline 3.1.2: the price, length, renewal and the Terms of Use and Privacy Policy links sit next to the purchase.
+            var price = Bind.Label(vm, nameof(vm.AppStoreAiPackPriceText), s => s.AppStoreAiPackPriceText, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
+            var terms = WinoLayout.VStack(6, price, AppStoreSubscriptionTerms.Create());
+            terms.Alignment = NSLayoutAttribute.Leading;
+            Bind.Visible(terms, addOn, nameof(addOn.IsPurchased), a => a.IsNotPurchased);
+            card.BottomContent = terms;
         }
-        else
-        {
-            WinoLayout.Fill(row, surface, 20);
-        }
-        return surface;
-    }
-
-    /// <summary>The chip rows wrap at this width; with the illustration and button column it sets the row's minimum.</summary>
-    internal const double ChipFlowWidth = 300;
-
-    /// <summary>Above the side-by-side minimum (illustration 96 + chips 300 + buttons 180 + spacing 40).</summary>
-    internal const double PromoBreakpoint = 640;
-
-    /// <summary>Wino Intelligence, purchased: billing period, monthly allowance and usage, then where mailboxes and consent are managed.</summary>
-    private NSView IntelligenceExpander()
-    {
-        var vm = ViewModel;
-        var addOn = vm.AiPackAddOn;
-
-        var status = WinoLayout.HStack(8, BusySpinner(addOn, nameof(addOn.IsLoading), a => a.IsLoading), SuccessPill(Translator.WinoAccount_Management_ActiveShort));
-        var expander = new WinoSettingsExpander(Translator.WinoAddOn_AI_PACK_Name, null, WinoIconGlyph.None, status, isExpanded: true);
-        expander.HeaderCard.LeadingView = new BrandIconView(WinoIconGlyph.WinoIntelligence, 20);
-        expander.AccessibilityIdentifier = "WinoAccountIntelligenceExpander";
-        Bind.Bind(vm, nameof(vm.AiPackSubtitleText), s => s.AiPackSubtitleText, text => expander.HeaderCard.Description = text);
-
-        expander.Add(UsageSummary(), 14, WinoSettingsStyle.NestedIndent, 16, WinoSettingsStyle.CardPadding);
-
-        var mailboxes = Card(Translator.WinoAccount_Management_BriefingMailboxesTitle, null, WinoIconGlyph.Mail,
-            Bind.Button(Translator.Buttons_Manage, vm.OpenIntelligenceManagementCommand));
-        Bind.Bind(vm, nameof(vm.IntelligenceMailboxesSummary), s => s.IntelligenceMailboxesSummary, text => mailboxes.Description = text);
-        expander.Add(mailboxes);
-        expander.Add(Card(Translator.WinoAccount_ConsentNavigationTitle, Translator.WinoAccount_ConsentNavigationDescription, WinoIconGlyph.LockClosed,
-            Bind.Button(Translator.Buttons_Manage, vm.OpenIntelligenceManagementCommand)));
-
-        Bind.Visible(expander, addOn, nameof(addOn.IsPurchased), a => a.IsPurchased);
-        return expander;
-    }
-
-    /// <summary>The Windows usage card: two facts side by side, the requests meter with its summary, renewal and reset lines, and the limits note.</summary>
-    private NSView UsageSummary()
-    {
-        var vm = ViewModel;
-        NSStackView Fact(string caption, string property, Func<WinoAccountManagementPageViewModel, string> read)
-        {
-            var label = WinoStyle.Label(caption, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
-            var value = Bind.Label(vm, property, read, WinoStyle.Body, WinoStyle.PrimaryText, 0);
-            value.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
-            var fact = WinoLayout.VStack(2, label, value);
-            fact.Alignment = NSLayoutAttribute.Leading;
-            value.WidthAnchor.ConstraintEqualTo(fact.WidthAnchor).Active = true;
-            return fact;
-        }
-        // The amount is Stripe's to state; the period is the fact Wino can report.
-        var facts = WinoLayout.HStack(24,
-            Fact(Translator.WinoAccount_Management_AiPackBillingPeriodLabel, nameof(vm.AiPackBillingPeriodText), s => s.AiPackBillingPeriodText),
-            Fact(Translator.WinoAccount_Management_IncludedEachMonth, nameof(vm.IntelligenceIncludedText), s => s.IntelligenceIncludedText));
-        facts.Distribution = NSStackViewDistribution.FillEqually;
-        facts.Alignment = NSLayoutAttribute.Top;
-
-        var requests = WinoStyle.Label(Translator.WinoAccount_Management_AiPackRequestsUsed, WinoStyle.Body, WinoStyle.PrimaryText);
-        var summary = Bind.Label(vm, nameof(vm.IntelligenceUsageSummary), s => s.IntelligenceUsageSummary, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
-        var meter = new WinoBarView();
-        WinoAccessibility.Label(meter, Translator.WinoAccount_Management_AiPackRequestsUsed);
-        meter.AccessibilityIdentifier = "WinoAccountIntelligenceUsageProgressBar";
-        Bind.Bind(vm, nameof(vm.IntelligenceUsagePercentage), s => s.IntelligenceUsagePercentage, value => meter.Value = value);
-        Bind.Visible(meter, vm, nameof(vm.IsIntelligenceUsageAvailable), s => s.IsIntelligenceUsageAvailable);
-        var renewal = Bind.Label(vm, nameof(vm.AiPackRenewalOrCancellationText), s => s.AiPackRenewalOrCancellationText, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
-        renewal.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
-        var reset = Bind.Label(vm, nameof(vm.IntelligenceResetText), s => s.IntelligenceResetText, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
-        var usage = WinoLayout.VStack(7,
-            WinoLayout.HStack(8, requests, WinoLayout.Spacer(), summary),
-            meter,
-            WinoLayout.HStack(8, renewal, WinoLayout.Spacer(), reset));
-        usage.Alignment = NSLayoutAttribute.Leading;
-        foreach (var view in usage.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(usage.WidthAnchor).Active = true;
-
-        var note = WinoStyle.Label(Translator.WinoAccount_Management_UsageOtherLimitsNote, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
-        var stack = WinoLayout.VStack(18, facts, usage, note);
-        stack.Alignment = NSLayoutAttribute.Leading;
-        foreach (var view in stack.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-        stack.AccessibilityIdentifier = "WinoAccountIntelligenceUsageCard";
-        return stack;
+        return card;
     }
 
     /// <summary>

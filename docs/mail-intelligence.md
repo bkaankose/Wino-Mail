@@ -33,8 +33,11 @@ it needs application code, not a better question.
 Enrichment publishes an **empty stage** when no message qualified, so exactly two stages are always
 acknowledged per job.
 
-The mailbox id comes from the existing account/mailbox sync (`UserMailboxSyncEntry.Id`). If
-that sync has not run, job submission fails with a clear error rather than inventing an id.
+The mailbox id comes from the existing account/mailbox sync (`UserMailboxSyncEntry.Id`). Only a
+backup that includes accounts writes that list, so when the mailbox is missing the first submission
+adds it: the stored entries go back unchanged and the mailbox is added with its identity only
+(address, provider, name, colour, order), without server settings or preferences. If the server
+still has no id after that, submission fails with a clear error rather than inventing one.
 
 ## Local store
 
@@ -53,6 +56,10 @@ There are no embeddings and no mail bodies in this database.
 The briefing shows only messages Classification included, grouped by the day they arrived. "New" is
 first-import time. Ignoring a card keys on identity plus content hash, so a message that is
 later reprocessed can resurface.
+
+The shell's briefing badge means "today's page has a card you have not seen": it is computed from
+the same facts the panel shows for today, so classifying older mail, ignored cards, hidden accounts
+and removed mail never raise it.
 
 ## Wiring
 

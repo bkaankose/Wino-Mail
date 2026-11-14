@@ -31,6 +31,9 @@ public sealed partial class ToDoPageViewController
     private NSTextField _stepsSummary = null!;
     private NSStackView _stepsStack = null!;
     private WinoDrawerActionRow _addStepRow = null!;
+    private NSTextField _newStepField = null!;
+    private NSView _newStepRow = null!;
+    private TaskItemViewModel? _newStepTarget;
     private WinoDrawerActionRow _myDayRow = null!;
     private WinoDrawerActionRow _dueRow = null!;
     private NSMenuItem _removeDueItem = null!;
@@ -136,8 +139,17 @@ public sealed partial class ToDoPageViewController
         _stepsStack = WinoLayout.VStack(2);
         _stepsStack.EdgeInsets = new NSEdgeInsets(0, 8, 0, 8);
         _addStepRow = new WinoDrawerActionRow(WinoIconGlyph.Add, Translator.ToDoPage_AddStep, WinoStyle.Accent, WinoStyle.Accent) { Plain = true, FollowsAccent = true };
-        _addStepRow.Clicked += (_, _) => Observe(ViewModel.AddStepCommand.ExecuteAsync(null));
-        var steps = Section(stepsHeader, _stepsStack, Indent(_addStepRow));
+        _addStepRow.Clicked += (_, _) => OpenNewStepEditor();
+        _newStepField = new NSTextField
+        {
+            PlaceholderString = Translator.ToDoPage_AddStep,
+            Delegate = new NewStepFieldDelegate(this),
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        _newStepField.AccessibilityLabel = Translator.ToDoPage_AddStep;
+        _newStepRow = Indent(_newStepField, 12);
+        _newStepRow.Hidden = true;
+        var steps = Section(stepsHeader, _stepsStack, Indent(_addStepRow), _newStepRow);
 
         var scheduleLabel = Indent(WinoDrawerSection.Label(Translator.ToDoPage_Schedule), 12);
         _myDayRow = new WinoDrawerActionRow(WinoIconGlyph.WeatherSunny, Translator.ToDoPage_AddToMyDay, WinoStyle.Accent) { FollowsAccent = true };
@@ -237,6 +249,60 @@ public sealed partial class ToDoPageViewController
         return wrapper;
     }
 
+    /// <summary>Windows AddStepButton_Click: the step is named before it is created, so the server gets one write.</summary>
+    private void OpenNewStepEditor()
+    {
+        if (ViewModel.SelectedTask is not { IsEditable: true } task) return;
+        _newStepTarget = task;
+        _newStepField.StringValue = string.Empty;
+        Indent(_addStepRow).Hidden = true;
+        _newStepRow.Hidden = false;
+        _newStepField.Window?.MakeFirstResponder(_newStepField);
+    }
+
+    // The text is cleared before the await so ending the edit while the step is queued cannot commit it twice.
+    private void CommitNewStep()
+    {
+        var title = _newStepField.StringValue;
+        var target = _newStepTarget;
+        _newStepField.StringValue = string.Empty;
+        if (target is not null && !string.IsNullOrWhiteSpace(title)) Observe(ViewModel.AddNamedStepAsync(target, title));
+    }
+
+    private void CloseNewStepEditor()
+    {
+        _newStepTarget = null;
+        _newStepField.StringValue = string.Empty;
+        _newStepRow.Hidden = true;
+        Indent(_addStepRow).Hidden = false;
+    }
+
+    private sealed class NewStepFieldDelegate(ToDoPageViewController owner) : NSTextFieldDelegate
+    {
+        public override bool DoCommandBySelector(NSControl control, NSTextView textView, ObjCRuntime.Selector commandSelector)
+        {
+            switch (commandSelector.Name)
+            {
+                case "insertNewline:":
+                    owner.CommitNewStep();
+                    return true;
+                case "cancelOperation:":
+                    owner.CloseNewStepEditor();
+                    owner._addStepRow.Window?.MakeFirstResponder(owner._addStepRow);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public override void EditingEnded(NSNotification notification)
+        {
+            if (owner._newStepRow.Hidden) return;
+            owner.CommitNewStep();
+            owner.CloseNewStepEditor();
+        }
+    }
+
     private static NSStackView Section(params NSView[] rows)
     {
         var stack = WinoLayout.VStack(2, rows);
@@ -256,6 +322,7 @@ public sealed partial class ToDoPageViewController
             _detailTitle.Editable = value;
             _detailStar.Enabled = value;
             _addStepRow.Enabled = value;
+            if (!value && !_newStepRow.Hidden) CloseNewStepEditor();
             _myDayRow.Enabled = value;
             _dueRow.Enabled = value;
             _deleteRow.Enabled = value;
@@ -277,6 +344,11 @@ public sealed partial class ToDoPageViewController
     /// <summary>Binds the drawer to one task; the returned scope is disposed when the selection changes.</summary>
     private IDisposable BindTask(TaskItemViewModel task)
     {
+        if (!_newStepRow.Hidden && _newStepTarget != task)
+        {
+            CommitNewStep();
+            CloseNewStepEditor();
+        }
         _taskScope?.Dispose();
         var scope = _taskScope = new BindingScope();
         void On<TValue>(string property, Func<TaskItemViewModel, TValue> read, Action<TValue> apply)

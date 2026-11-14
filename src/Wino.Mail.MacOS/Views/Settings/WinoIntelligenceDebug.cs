@@ -119,6 +119,11 @@ internal static class WinoIntelligenceDebug
         if (state != "sub") return "ok";
 
         vm.AiPackRenewalOrCancellationText = "Renews 1 November 2026";
+        vm.SubscriptionRenewalLine = "Renews and usage resets on 1 November 2026";
+        vm.MailClassificationSummary = string.Format(Translator.WinoIntelligence_MailClassification_Summary, 1, 3);
+        vm.ExhaustedBucketsText = string.Format(Translator.WinoIntelligence_QuotaExhaustedInfo, Translator.WinoIntelligence_UsageBucketTranslate, DateTime.Now.AddDays(10));
+        vm.HasExhaustedBuckets = true;
+        vm.IsLimitReached = true;
         vm.IsIntelligenceUsageAvailable = true;
         vm.IntelligenceResetText = "Resets 1 November";
         vm.IntelligenceUsageItems.Clear();

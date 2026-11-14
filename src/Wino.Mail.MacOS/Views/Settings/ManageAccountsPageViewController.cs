@@ -17,9 +17,9 @@ namespace Wino.Mail.MacOS.Views.Settings;
 
 /// <summary>
 /// Manage accounts: Add account, the account-limit card (purchase channels, used/free meter and
-/// purchase), the Merge inboxes and Reorder cards, account identity rows (profile picture or provider
+/// purchase), the Create account group and Reorder cards, account identity rows (profile picture or provider
 /// icon like the shell pane, name, provider, capability summary and address, attention state, chevron
-/// to account details) and merged inboxes (Windows AccountManagementPage).
+/// to account details) and account groups (Windows AccountManagementPage).
 /// </summary>
 public sealed class ManageAccountsPageViewController(AccountManagementViewModel viewModel, IPictureStorageService pictures, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<AccountManagementViewModel>(viewModel, dispatcher, logger)
@@ -40,17 +40,16 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         var header = Add(new SettingsAdaptiveRow(HeaderBreakpoint, 12, NSLayoutAttribute.Top, null, AddAccountTile(), purchase));
         purchase.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor).Active = true;
 
-        // Windows list header: Merge inboxes (with its "Mail only" scope tag) and Reorder, above the accounts.
-        var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateMergedAccountCommand);
+        // Windows list header: Create account group and Reorder, above the accounts.
+        var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateAccountGroupCommand);
         merge.ShowsChevron = false;
-        merge.Content = ScopeTag(Translator.SettingsLinkAccounts_MailOnlyScope);
         var reorder = CommandCard(Translator.SettingsReorderAccounts_Title, Translator.SettingsReorderAccounts_Description, WinoIconGlyph.ArrowSort, vm.ReorderAccountsCommand);
         reorder.ShowsChevron = false;
         Bind.Visible(Add(Group(null, merge, reorder)), vm, nameof(vm.HasAccountsDefined), s => s.HasAccountsDefined);
 
         _accounts.Title = Translator.SettingsManageAccountSettings_Title;
         Add(_accounts);
-        _merged.Title = Translator.SettingsLinkAccounts_Title;
+        _merged.Title = Translator.AccountManagement_GroupsHeader;
         Add(_merged);
         Add(_empty);
 
@@ -157,15 +156,6 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         return card;
     }
 
-    /// <summary>The small bordered caption the Windows merge card shows ("Mail only").</summary>
-    private static NSView ScopeTag(string text)
-    {
-        var label = WinoStyle.Label(text, NSFont.SystemFontOfSize(11), WinoStyle.SecondaryText);
-        var tag = new WinoSurfaceView { Fill = WinoSettingsStyle.CardFill, Stroke = WinoSettingsStyle.CardStroke, CornerRadius = 4, TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Fill(label, tag, 2, 8, 2, 8);
-        return tag;
-    }
-
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
         => ViewModel.InitializeAsync(mode, parameter!);
 
@@ -224,8 +214,14 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
 
     private WinoSettingsExpander MergedRow(MergedAccountProviderDetailViewModel merged, SettingsBinder rows)
     {
-        var expander = new WinoSettingsExpander(merged.MergedInbox?.Name ?? string.Empty, merged.AccountAddresses, WinoIconGlyph.People);
-        var edit = new WinoSettingsCard(Translator.SettingsEditLinkedInbox_Title, Translator.SettingsEditLinkedInbox_Description, WinoIconGlyph.Link)
+        // Windows MergedAccountTemplate: the group icon and name in the group color, then what the group does.
+        var expander = new WinoSettingsExpander(merged.MergedInbox?.Name ?? string.Empty, merged.DescriptionText);
+        var color = WinoStyle.AccountGroupColor(merged.ColorKey);
+        var icon = new WinoIconView(merged.IconGlyph, 20, color) { Colorful = false };
+        WinoLayout.Size(icon, 32, 32);
+        expander.HeaderCard.LeadingView = icon;
+        expander.HeaderCard.HeaderColor = color;
+        var edit = new WinoSettingsCard(Translator.SettingsEditLinkedInbox_Title, Translator.SettingsEditLinkedInbox_Description, WinoIconGlyph.Edit)
         {
             IsClickable = true
         };

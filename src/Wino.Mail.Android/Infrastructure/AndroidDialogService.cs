@@ -86,26 +86,62 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
             return dialog;
         }, -1);
 
-    /// <summary>A single-choice list; null when cancelled. Items that cannot be chosen say why in a message.</summary>
+    /// <summary>
+    /// A single-choice list; null when cancelled. Items that cannot be chosen say why in a message. Long lists get a
+    /// search box above them (Windows WinoContextFlyout searchable submenus).
+    /// </summary>
     private Task<T?> PickAsync<T>(string title, IReadOnlyList<(T Item, string Text, string? Invalid)> items) where T : class
         => PresentAsync<T?>((activity, completion) =>
         {
-            var labels = items.Select(item => item.Invalid is null ? item.Text : $"{item.Text}  ·  {item.Invalid}").ToArray();
+            void Choose((T Item, string Text, string? Invalid) picked)
+            {
+                if (picked.Invalid is null) completion.TrySetResult(picked.Item);
+                else
+                {
+                    completion.TrySetResult(null);
+                    InfoBarMessage(picked.Text.Trim(), picked.Invalid, InfoBarMessageType.Warning);
+                }
+            }
+            static string Label((T Item, string Text, string? Invalid) item) => item.Invalid is null ? item.Text : $"{item.Text}  ·  {item.Invalid}";
+
             var builder = new MaterialAlertDialogBuilder(activity)
                 .SetTitle(title)
-                .SetItems(labels, (_, args) =>
-                {
-                    var picked = items[args.Which];
-                    if (picked.Invalid is null) completion.TrySetResult(picked.Item);
-                    else
-                    {
-                        completion.TrySetResult(null);
-                        InfoBarMessage(picked.Text, picked.Invalid, InfoBarMessageType.Warning);
-                    }
-                })
                 .SetNegativeButton(Translator.Buttons_Cancel, (_, _) => completion.TrySetResult(null));
-            return builder.Create();
+
+            if (items.Count <= SearchablePickerThreshold)
+            {
+                builder.SetItems(items.Select(Label).ToArray(), (_, args) => Choose(items[args.Which]));
+                return builder.Create();
+            }
+
+            var visible = items.ToList();
+            var adapter = new ArrayAdapter<string>(activity, global::Android.Resource.Layout.SimpleListItem1, visible.Select(Label).ToList());
+            var body = Body(activity);
+            var search = new EditText(activity) { Hint = Translator.ContextFlyout_SearchPlaceholder, ContentDescription = Translator.ContextFlyout_SearchPlaceholder };
+            search.SetSingleLine(true);
+            var list = new ListView(activity) { Adapter = adapter };
+            body.AddView(search, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+            body.AddView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(activity, 360)));
+            builder.SetView(body);
+            var dialog = builder.Create();
+            search.TextChanged += (_, _) =>
+            {
+                var query = search.Text?.Trim() ?? string.Empty;
+                visible = query.Length == 0 ? items.ToList() : items.Where(item => item.Text.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToList();
+                adapter.Clear();
+                adapter.AddAll(visible.Select(Label).ToList());
+                adapter.NotifyDataSetChanged();
+            };
+            list.ItemClick += (_, args) =>
+            {
+                if (args.Position < 0 || args.Position >= visible.Count) return;
+                Choose(visible[args.Position]);
+                dialog.Dismiss();
+            };
+            return dialog;
         }, null);
+
+    private const int SearchablePickerThreshold = 8;
 
     private static int Dp(Context context, int value)
         => (int)Math.Round(value * (context.Resources?.DisplayMetrics?.Density ?? 1f));
@@ -358,9 +394,25 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
 
     public async Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)
     {
-        var rows = (availableCalendarGroups ?? []).SelectMany(group => (group.Calendars ?? []).Select(calendar =>
-            (calendar, $"{calendar.Name} — {AccountLine(group.Account)}", calendar.IsReadOnly ? Translator.CalendarPicker_ReadOnly : (string?)null))).ToList();
-        var picked = await PickAsync(Translator.CalendarEventCompose_PickCalendarTitle, rows);
+        var groups = (availableCalendarGroups ?? []).Where(group => group.Calendars is { Count: > 0 }).ToList();
+        var picked = await PresentAsync<AccountCalendar?>((activity, completion) =>
+        {
+            var adapter = new CalendarPickerAdapter(activity, groups.Select(group => (AccountLine(group.Account), (IReadOnlyList<AccountCalendar>)group.Calendars)).ToList());
+            return new MaterialAlertDialogBuilder(activity)
+                .SetTitle(Translator.CalendarEventCompose_PickCalendarTitle)
+                .SetAdapter(adapter, (_, args) =>
+                {
+                    if (adapter.CalendarAt(args.Which) is not { } calendar) return;
+                    if (!calendar.IsReadOnly) completion.TrySetResult(calendar);
+                    else
+                    {
+                        completion.TrySetResult(null);
+                        InfoBarMessage(calendar.Name, Translator.CalendarPicker_ReadOnly, InfoBarMessageType.Warning);
+                    }
+                })
+                .SetNegativeButton(Translator.Buttons_Cancel, (_, _) => completion.TrySetResult(null))
+                .Create();
+        }, null);
         return new AccountCalendarPickingResult(picked, false);
     }
 

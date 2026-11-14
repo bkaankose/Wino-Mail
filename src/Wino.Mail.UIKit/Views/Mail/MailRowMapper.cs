@@ -48,7 +48,7 @@ public static class MailRowMapper
     /// <summary>The row snapshot, or null when the row does not stand for a mail item.</summary>
     public static WinoMailRowModel? TryMap(MailListRow row, IPreferencesService preferences, bool showAccountColor, WinoMailRowDensity? densityOverride = null)
     {
-        if (MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference) is not { } content) return null;
+        if (MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference, preferences.AlwaysShowSenderAddress) is not { } content) return null;
 
         return new WinoMailRowModel
         {

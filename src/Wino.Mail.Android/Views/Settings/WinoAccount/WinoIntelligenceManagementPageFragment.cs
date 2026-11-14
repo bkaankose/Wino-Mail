@@ -77,10 +77,10 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
 
         var wipe = Bind.Button(Translator.SemanticIndex_WipeData, vm.WipeIntelligenceDataCommand);
         wipe.SetTextColor(WinoColors.Critical(Ctx));
-        var data = StackedCard(Translator.SemanticIndex_DataTitle, Translator.SemanticIndex_DataDescription, WinoIconGlyph.LockClosed, Row(wipe));
+        var data = Group(Translator.SemanticIndex_CoverageIndexedDataGroupTitle,
+            StackedCard(Translator.SemanticIndex_DataTitle, Translator.SemanticIndex_DataDescription, WinoIconGlyph.LockClosed, Row(wipe)));
         Watch(s => s.IsIndexedDataGroupVisible, on => Show(data, on));
         Add(data);
-        if (data.LayoutParameters is LinearLayout.LayoutParams dataLayout) dataLayout.TopMargin += WinoTokens.Px(Ctx, Resource.Dimension.wino_space_s);
 
         ApplyPendingCoverageResult();
     }
@@ -335,17 +335,19 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         var vm = VM;
         var group = new WinoSettingsGroup(Ctx, Translator.SemanticIndex_CoverageFeaturesGroupTitle);
         var briefing = new WinoTextSwitch(Ctx, Translator.SemanticIndex_On, Translator.SemanticIndex_Off, Translator.SemanticIndex_DailyBriefingTitle);
-        Watch(s => s.IsDailyBriefingEnabled, on => briefing.IsOn = on);
+        Watch(s => s.IsDailyBriefingEnabled, on => { if (!_applying) briefing.IsOn = on; });
         Watch(s => s.CanChangeIntelligencePreferences, on => briefing.IsEnabled = on);
         EventHandler toggled = async (_, _) =>
         {
-            if (!vm.IsPageReady) return;
+            if (_applying || !vm.IsPageReady || briefing.IsOn == vm.IsDailyBriefingEnabled) return;
+            _applying = true;
             try { briefing.IsOn = await vm.SetDailyBriefingEnabledAsync(briefing.IsOn); }
             catch (Exception exception)
             {
                 ReportError(exception);
                 briefing.IsOn = vm.IsDailyBriefingEnabled;
             }
+            finally { _applying = false; }
         };
         briefing.Toggled += toggled;
         Bindings.Own(new ActionDisposable(() => briefing.Toggled -= toggled));

@@ -39,13 +39,14 @@ public sealed record ShellMenuRowContent(
     bool IsAttentionRequired,
     bool IsEnabled,
     bool IsHighlightable,
-    bool ShowsIndicator);
+    bool ShowsIndicator,
+    string? ColorKey = null);
 
 /// <summary>
 /// The Windows shell pane templates (ShellMenuTemplates.xaml) as plain row content for the iPad sidebar and the Android
 /// drawer, pane and Mailboxes rows: which glyph and title each menu item type shows, how deep it is indented and which
 /// rows expand. <see cref="Flatten"/> walks the menu the way the pane does: accounts always show their folders, other
-/// parents only while expanded. Visibility, selection and children come from <see cref="ShellMenuItemRules"/>.
+/// parents (combined account groups included) only while expanded. Visibility, selection and children come from <see cref="ShellMenuItemRules"/>.
 /// </summary>
 public static class ShellMenuRowPresentation
 {
@@ -67,9 +68,11 @@ public static class ShellMenuRowPresentation
             if (item is SeperatorItem || !ShellMenuItemRules.IsShown(item)) continue;
             if (!includeNewItems && KindOf(item) == ShellMenuRowKind.NewItem) continue;
             rows.Add((item, depth));
-            if (item is IAccountMenuItem || item.IsExpanded) Add(rows, ShellMenuItemRules.Children(item), depth + 1, includeNewItems);
+            if (AlwaysShowsChildren(item) || item.IsExpanded) Add(rows, ShellMenuItemRules.Children(item), depth + 1, includeNewItems);
         }
     }
+
+    private static bool AlwaysShowsChildren(IMenuItem item) => item is IAccountMenuItem and not MergedAccountMenuItem;
 
     public static ShellMenuRowKind KindOf(IMenuItem item) => item switch
     {
@@ -116,6 +119,9 @@ public static class ShellMenuRowPresentation
             case MergedAccountMenuItem merged:
                 return row with
                 {
+                    Glyph = merged.IconGlyph,
+                    IsExpanded = HasChildren(merged) ? merged.IsExpanded : null,
+                    ColorKey = merged.ColorKey,
                     Title = merged.MergedAccountName ?? string.Empty,
                     Subtitle = merged.IsSynchronizationProgressVisible && !string.IsNullOrWhiteSpace(merged.SynchronizationStatus)
                         ? merged.SynchronizationStatus
@@ -173,6 +179,7 @@ public static class ShellMenuRowPresentation
                 return row with
                 {
                     Glyph = accountGroup.IconGlyph,
+                    ColorKey = accountGroup.ColorKey,
                     Title = accountGroup.Name,
                     Subtitle = AccountGroupPresentation.GetAccountCountText(accountGroup.AccountCount),
                     UnreadCount = accountGroup.IsUnreadCountVisible ? accountGroup.UnreadItemCount : 0

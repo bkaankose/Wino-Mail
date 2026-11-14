@@ -38,6 +38,11 @@ public abstract partial class ToDoPageViewController
         _table.RegisterClassForHeaderFooterViewReuse(typeof(WinoTaskGroupHeaderView), WinoTaskGroupHeaderView.ReuseIdentifier);
         _table.DataSource = new TaskSource(this);
         _table.Delegate = new TaskDelegate(this);
+        // Manual sort: a long press lifts the row (the context menu gives way once the finger moves) and drops it in
+        // place without edit mode. The data source's MoveRow applies the drop.
+        _table.DragInteractionEnabled = true;
+        _table.DragDelegate = new TaskDragDelegate(this);
+        _table.DropDelegate = new TaskDropDelegate(this);
         _refresh.ValueChanged += (_, _) => Synchronize();
         _table.RefreshControl = _refresh;
         WinoAccessibility.Label(_table, Translator.ToDoPage_Tasks);
@@ -177,6 +182,34 @@ public abstract partial class ToDoPageViewController
         cell.ImportanceToggled += (sender, _) => { if (sender is UITableViewCell row && _table.IndexPathForCell(row) is { } path && TaskAt(path) is { } task) Observe(ViewModel.ToggleImportanceCommand.ExecuteAsync(task)); };
     }
 
+    /// <summary>
+    /// A row moved within its section to <paramref name="destination"/> (the row's final index): the task lands before
+    /// the task now at that index, or after the last one when it moved to the end.
+    /// </summary>
+    private void MoveTask(NSIndexPath source, NSIndexPath destination)
+    {
+        if (TaskAt(source) is not { } moved || source.Section != destination.Section || source.Row == destination.Row || !ViewModel.CanReorderTasks)
+        {
+            ScheduleReload();
+            return;
+        }
+        var others = _groups[(int)source.Section].Where(item => !ReferenceEquals(item, moved)).ToList();
+        if (others.Count == 0)
+        {
+            ScheduleReload();
+            return;
+        }
+        var insertAfter = destination.Row >= others.Count;
+        var target = others[insertAfter ? others.Count - 1 : (int)destination.Row];
+        Observe(ReorderAsync(moved, target, insertAfter));
+    }
+
+    private async Task ReorderAsync(TaskItemViewModel moved, TaskItemViewModel target, bool insertAfter)
+    {
+        try { await ViewModel.ReorderTasksAsync([moved], target, insertAfter); }
+        finally { OnUI(ScheduleReload); }
+    }
+
     private WinoTaskRowModel MapRow(TaskItemViewModel item)
         => TaskRowPresentation.Describe(item, ViewModel.TaskLists.FirstOrDefault(list => list.Id == item.Task.TaskListId)?.ColorHex);
 
@@ -197,6 +230,37 @@ public abstract partial class ToDoPageViewController
             if (owner.TaskAt(indexPath) is { } item) owner.BindCell(cell, item);
             return cell;
         }
+
+        public override bool CanMoveRow(UITableView tableView, NSIndexPath indexPath) => owner.ViewModel.CanReorderTasks;
+
+        public override void MoveRow(UITableView tableView, NSIndexPath sourceIndexPath, NSIndexPath destinationIndexPath)
+            => owner.MoveTask(sourceIndexPath, destinationIndexPath);
+    }
+
+    private sealed class TaskDragDelegate(ToDoPageViewController owner) : UITableViewDragDelegate
+    {
+        public override UIDragItem[] GetItemsForBeginningDragSession(UITableView tableView, IUIDragSession session, NSIndexPath indexPath)
+        {
+            if (!owner.ViewModel.CanReorderTasks || owner.TaskAt(indexPath) is not { } task) return [];
+            return [new UIDragItem(new NSItemProvider(new NSString(task.Title ?? string.Empty))) { LocalObject = indexPath }];
+        }
+
+        public override bool DragSessionAllowsMoveOperation(UITableView tableView, IUIDragSession session) => true;
+
+        public override bool DragSessionIsRestrictedToDraggingApplication(UITableView tableView, IUIDragSession session) => true;
+    }
+
+    private sealed class TaskDropDelegate(ToDoPageViewController owner) : UITableViewDropDelegate
+    {
+        public override bool CanHandleDropSession(UITableView tableView, IUIDropSession session) => session.LocalDragSession is not null;
+
+        public override UITableViewDropProposal DropSessionDidUpdate(UITableView tableView, IUIDropSession session, NSIndexPath? destinationIndexPath)
+            => session.LocalDragSession is not null && owner.ViewModel.CanReorderTasks
+                ? new UITableViewDropProposal(UIDropOperation.Move, UITableViewDropIntent.InsertAtDestinationIndexPath)
+                : new UITableViewDropProposal(UIDropOperation.Cancel);
+
+        // A local move goes through the data source's MoveRow instead.
+        public override void PerformDrop(UITableView tableView, IUITableViewDropCoordinator coordinator) { }
     }
 
     private sealed class TaskDelegate(ToDoPageViewController owner) : UITableViewDelegate
@@ -219,6 +283,14 @@ public abstract partial class ToDoPageViewController
         }
 
         public override void RowSelected(UITableView tableView, NSIndexPath indexPath) => owner.RowTapped(indexPath);
+
+        // Manual order changes within a group only (a completed task cannot move among the active ones).
+        public override NSIndexPath CustomizeMoveTarget(UITableView tableView, NSIndexPath sourceIndexPath, NSIndexPath proposedIndexPath)
+        {
+            if (proposedIndexPath.Section == sourceIndexPath.Section) return proposedIndexPath;
+            var count = sourceIndexPath.Section >= 0 && sourceIndexPath.Section < owner._groups.Count ? owner._groups[(int)sourceIndexPath.Section].Count : 1;
+            return NSIndexPath.FromRowSection(proposedIndexPath.Section < sourceIndexPath.Section ? 0 : Math.Max(0, count - 1), sourceIndexPath.Section);
+        }
 
         public override UISwipeActionsConfiguration? GetLeadingSwipeActionsConfiguration(UITableView tableView, NSIndexPath indexPath)
             => owner.SwipeActions(indexPath, leading: true);

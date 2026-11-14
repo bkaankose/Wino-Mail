@@ -21,8 +21,7 @@ public static partial class SettingsPageRoutes
             static (vm, mode, parameter) => vm.InitializeAsync(mode, parameter));
         registry.Register<AccountDetailsPageFragment, AccountDetailsPageViewModel>(WinoPage.AccountDetailsPage, host,
             static (vm, mode, parameter) => vm.InitializeAsync(mode, parameter));
-        registry.Register<MergedAccountDetailsPageFragment, MergedAccountDetailsPageViewModel>(WinoPage.MergedAccountDetailsPage, host,
-            static (vm, mode, parameter) => vm.InitializeAsync(mode, parameter));
+        registry.Register<AccountGroupDetailsPageFragment, AccountGroupDetailsPageViewModel>(WinoPage.MergedAccountDetailsPage, host);
         registry.Register<AliasManagementPageFragment, AliasManagementPageViewModel>(WinoPage.AliasManagementPage, host,
             static (vm, mode, parameter) => vm.InitializeAsync(mode, parameter));
         registry.Register<MailCategoryManagementPageFragment, MailCategoryManagementPageViewModel>(WinoPage.MailCategoryManagementPage, host,

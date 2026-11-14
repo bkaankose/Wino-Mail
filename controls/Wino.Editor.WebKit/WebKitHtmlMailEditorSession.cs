@@ -13,8 +13,17 @@ public sealed class WebKitHtmlMailEditorSession : NSObject, IHtmlMailEditorSessi
 {
     private readonly WebKitBrowserSession _host;
     private bool _dark;
+    private RemoteContentPolicy _policy = RemoteContentPolicy.Blocked;
+    private RemoteContentPolicy _loadedPolicy = RemoteContentPolicy.Blocked;
     private string? _openLinkLabel;
     private string? _removeLinkLabel;
+    private bool _isContentLost;
+
+    /// <summary>
+    /// True from a content process loss until the host renders the draft again. The reloaded editor is empty,
+    /// so reading the body in that window would save an empty draft over the real one.
+    /// </summary>
+    public bool IsContentLost => _isContentLost;
     public IHtmlMailEditorSession Session => this;
     public EditorState CurrentState { get; private set; } = new();
     public EditorCommandCapabilities Capabilities { get; } = new()
@@ -32,19 +41,52 @@ public sealed class WebKitHtmlMailEditorSession : NSObject, IHtmlMailEditorSessi
     public event EventHandler? ImageInsertionRequested;
     public event EventHandler<Exception>? OperationFailed;
 
+    /// <summary>The editor was reloaded after its content process ended; the host renders the draft again.</summary>
+    public event EventHandler? Restarted;
+
     public WebKitHtmlMailEditorSession(WKWebView browser)
     {
         _host = new(browser);
         _host.Message += MessageReceived;
         _host.OperationFailed += (_, e) => OperationFailed?.Invoke(this, e);
+        _host.ContentProcessTerminated += ContentProcessTerminated;
+    }
+
+    private async void ContentProcessTerminated(object? sender, EventArgs e)
+    {
+        _isContentLost = true;
+        try
+        {
+            await _host.Queue.RunAsync(EnsureReadyAsync, CancellationToken.None);
+            Restarted?.Invoke(this, EventArgs.Empty);
+        }
+        catch (ObjectDisposedException) { }
+        catch (OperationCanceledException) { }
+        catch (Exception error) { OperationFailed?.Invoke(this, error); }
     }
 
     public void Configure(IExternalLauncher launcher) => _host.Configure(launcher);
     private async Task EnsureReadyAsync(CancellationToken token)
     {
-        if (_host.IsReady) return;
-        await _host.LoadAsync(true, RemoteContentPolicy.Blocked, _dark, token);
+        if (_host.IsReady && _loadedPolicy == _policy) return;
+        var policy = _policy;
+        await _host.LoadAsync(true, policy, _dark, token);
+        _loadedPolicy = policy;
         await ApplyLinkLabelsAsync();
+    }
+
+    /// <summary>
+    /// Remote images and fonts in the draft (Windows WinoMailEditor.BlockRemoteResources). The policy is part of the
+    /// document's CSP, so a change reloads the editor shell; call it before the body and typography are applied.
+    /// </summary>
+    public Task SetRemoteContentPolicyAsync(RemoteContentPolicy policy, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(policy)) throw new ArgumentOutOfRangeException(nameof(policy));
+        return _host.Queue.RunAsync(async token =>
+        {
+            _policy = policy;
+            if (_host.IsReady) await EnsureReadyAsync(token);
+        }, cancellationToken);
     }
 
     /// <summary>Localized labels of the link bubble (Open link, Remove link); applied now and to every later document.</summary>
@@ -69,9 +111,18 @@ public sealed class WebKitHtmlMailEditorSession : NSObject, IHtmlMailEditorSessi
     public Task InitializeAsync(CancellationToken cancellationToken = default) =>
         _host.Queue.RunAsync(EnsureReadyAsync, cancellationToken);
     public Task RenderHtmlAsync(string htmlBody, CancellationToken cancellationToken = default) =>
-        RunAsync(() => _host.EvaluateAsync($"window.WinoEditor.setContent({Quote(Convert.ToBase64String(Encoding.UTF8.GetBytes(htmlBody)))}, 'replace')"), cancellationToken);
+        RunAsync(async () =>
+        {
+            await _host.EvaluateAsync($"window.WinoEditor.setContent({Quote(Convert.ToBase64String(Encoding.UTF8.GetBytes(htmlBody)))}, 'replace')");
+            _isContentLost = false;
+        }, cancellationToken);
     public Task<string?> GetHtmlBodyAsync(CancellationToken cancellationToken = default) =>
-        _host.Queue.RunAsync(async token => { await EnsureReadyAsync(token); return await _host.EvaluateAsync("window.WinoEditor.getBodyContent()"); }, cancellationToken);
+        _host.Queue.RunAsync(async token =>
+        {
+            if (_isContentLost) throw new InvalidOperationException("The editor content was lost and has not been restored yet.");
+            await EnsureReadyAsync(token);
+            return await _host.EvaluateAsync("window.WinoEditor.getBodyContent()");
+        }, cancellationToken);
     public Task SetThemeAsync(bool isDarkMode, CancellationToken cancellationToken = default) =>
         RunAsync(async () => { _dark = isDarkMode; await _host.EvaluateAsync($"window.WinoEditor.setTheme({Bool(_dark)})"); }, cancellationToken);
     public Task SetDefaultTypographyAsync(string? fontFamily, int fontSize, CancellationToken cancellationToken = default) =>
@@ -229,6 +280,7 @@ public sealed class WebKitHtmlMailEditorSession : NSObject, IHtmlMailEditorSessi
         ApplicationShortcutRequested = null;
         ImageInsertionRequested = null;
         OperationFailed = null;
+        Restarted = null;
 
     });
 }

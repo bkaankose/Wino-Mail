@@ -19,6 +19,8 @@ public static partial class SettingsPageRoutes
             static (vm, mode, parameter) => WinoAccountManagementPageFragment.InitializeAsync(vm, mode, parameter));
         registry.Register<WinoIntelligencePageFragment, WinoAccountManagementPageViewModel>(WinoPage.WinoIntelligencePage, host,
             static (vm, mode, parameter) => WinoIntelligencePageFragment.InitializeAsync(vm, mode, parameter));
+        registry.Register<MailClassificationPageFragment, WinoAccountManagementPageViewModel>(WinoPage.MailClassificationPage, host,
+            static (vm, mode, parameter) => vm.InitializeAsync(mode, parameter));
         registry.Register<WinoIntelligenceManagementPageFragment, WinoIntelligenceManagementPageViewModel>(WinoPage.WinoIntelligenceManagementPage, host,
             static (vm, mode, parameter) => vm.InitializeAsync(mode, parameter));
         registry.Register<IntelligenceCoveragePageFragment, IntelligenceCoveragePageViewModel>(WinoPage.IntelligenceCoveragePage, host,

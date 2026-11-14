@@ -435,6 +435,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         var editor = _editor = new AndroidHtmlMailEditorSession(_web);
         if (services.GetService<IExternalLauncher>() is { } launcher) editor.Configure(launcher);
         editor.OperationFailed += (_, exception) => ReportError(exception);
+        editor.BrowserLost += (_, _) => _dispatcher?.ExecuteOnUIThread(() => Observe(ReplaceEditorAsync(editor)));
         editor.ContentChanged += (_, _) => _dispatcher?.ExecuteOnUIThread(ScheduleAutosave);
         editor.StateChanged += (_, state) => _dispatcher?.ExecuteOnUIThread(() => UpdateFormatState(state));
         editor.ShortcutRequested += (_, kind) =>
@@ -444,6 +445,28 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         editor.ImageInsertionRequested += (_, _) => _dispatcher?.ExecuteOnUIThread(() => Observe(InsertPicturesAsync()));
         if (context.ContentResolver is { } resolver) editor.AcceptReceivedImages(resolver);
         Observe(InitializeEditorAsync(editor));
+    }
+
+    /// <summary>
+    /// Windows WinoMailEditor recovery: a WebView whose renderer ended cannot be reused, so a new one takes its place and
+    /// the last saved draft body is rendered again. Autosave reads no body while the editor is missing.
+    /// </summary>
+    private async Task ReplaceEditorAsync(AndroidHtmlMailEditorSession lost)
+    {
+        if (_editorDisposed || !ReferenceEquals(_editor, lost) || _web is not { Context: { } context } old
+            || old.Parent is not ViewGroup parent || View is not { } root || ViewModel is not { } viewModel || _services is not { } services) return;
+        _editor = null;
+        var fresh = new WebView(context, null, 0, Resource.Style.Widget_Wino_Compose_Body) { Id = old.Id };
+        int index = parent.IndexOfChild(old);
+        var layout = old.LayoutParameters;
+        parent.RemoveView(old);
+        if (layout is null) parent.AddView(fresh, index);
+        else parent.AddView(fresh, index, layout);
+        try { await lost.DisposeAsync(); }
+        catch (Exception exception) { ReportError(exception); }
+        old.Destroy();
+        BuildEditor(root, context, viewModel, services);
+        await RenderBodyAsync(viewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty);
     }
 
     private async Task InitializeEditorAsync(AndroidHtmlMailEditorSession editor)
@@ -461,6 +484,8 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
     {
         if (_editor is not { } editor || _editorDisposed || ViewModel is not { } viewModel) return;
         var preferences = viewModel.PreferencesService;
+        await editor.SetRemoteContentPolicyAsync(
+            viewModel.ShouldBlockRemoteContent ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed);
         await editor.SetThemeAsync(_darkEditor);
         await editor.SetDefaultTypographyAsync(preferences.ComposerFont, preferences.ComposerFontSize);
         await editor.ExecuteCommandAsync(EditorCommand.ToggleSpellCheck(preferences.IsComposerSpellCheckEnabled));

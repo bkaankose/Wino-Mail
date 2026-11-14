@@ -34,6 +34,7 @@ public sealed class WinoSettingsRow : LinearLayout
     private Action? _tap;
     private int _valueMax = -1;
     private int _titleMode = -1;
+    private Color? _titleColor;
     private const int LongValue = 28;
     private bool _syncing;
 
@@ -349,7 +350,7 @@ public sealed class WinoSettingsRow : LinearLayout
         if (_chevron.Icon != glyph) _chevron.Icon = glyph;
         if (card.ActionIcon != WinoIconGlyph.None && kind == WinoSettingsRowKind.Navigate) chevron = true;
 
-        SetTitle(title, action, destructive);
+        SetTitle(title, action, destructive, action ? null : card.HeaderColor);
         SetValue(value);
         Host(_trailing, trailing);
         SetChevron(chevron);
@@ -369,13 +370,20 @@ public sealed class WinoSettingsRow : LinearLayout
         if (_chevron.Visibility != visibility) _chevron.Visibility = visibility;
     }
 
-    private void SetTitle(string title, bool action, bool destructive)
+    private void SetTitle(string title, bool action, bool destructive, Color? color = null)
     {
         var context = this.RequireContext();
         if (_title.Text != title) _title.Text = title;
         int mode = action ? (destructive ? 2 : 1) : 0;
-        if (mode == _titleMode) return;
+        if (mode == _titleMode && color == _titleColor) return;
         _titleMode = mode;
+        _titleColor = color;
+        if (color is { } tint)
+        {
+            _title.SetTextColor(tint);
+            _title.Typeface = Typeface.Create("sans-serif-medium", TypefaceStyle.Normal);
+            return;
+        }
         if (action)
         {
             _title.SetTextColor(destructive ? WinoTokens.Color(context, Resource.Color.wino_settings_destructive) : WinoColors.AccentText(context));

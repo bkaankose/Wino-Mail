@@ -6,53 +6,47 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
-using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
-/// Wino Intelligence hub (Windows WinoIntelligencePage, shared WinoAccountManagementPageViewModel):
-/// the signed-out and not-subscribed promotions, the subscription card with the quota flyout,
-/// consent and mailbox rows, and the translation languages. The Mac side-by-side promotions stack
-/// vertically on phone width.
+/// Wino Intelligence home (Windows WinoIntelligencePage, shared WinoAccountManagementPageViewModel), in the Windows
+/// section order. Without access: the hero with the one call to action, "What's included" and the locked features.
+/// With access: the status group (subscription and this month's usage), Wino Assistant where the platform has it, Smart
+/// Labels and Daily Briefing, the languages and the Privacy section with the AI provider access switch.
 /// </summary>
-public sealed class WinoIntelligencePageViewController(WinoAccountManagementPageViewModel viewModel, IPictureStorageService pictures,
+public sealed class WinoIntelligencePageViewController(WinoAccountManagementPageViewModel viewModel,
     IMailDialogService dialogs, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<WinoAccountManagementPageViewModel>(viewModel, dispatcher, logger)
 {
-    private const string LearnMoreUrl = "https://www.winomail.app/intelligence";
-    private readonly UIStackView _mailboxRows = WinoLayout.VStack(0);
+    internal const string LearnMoreUrl = "https://www.winomail.app/intelligence";
+    private readonly UIStackView _usageRows = WinoLayout.VStack(14);
+    private readonly WinoSettingsGroup _perks = new(Translator.WinoIntelligence_Included_Title, Translator.WinoIntelligence_Included_Description);
+    private readonly UIStackView _content = WinoLayout.VStack(WinoSettingsStyle.GroupSpacing);
     private WinoTextSwitch? _consent;
-    private readonly UIStackView _content = WinoLayout.VStack(12);
     private UIView? _loading;
     private UIActivityIndicatorView? _loadingSpinner;
-    private BindingScope? _rowScope;
     private bool _applyingConsent;
     private bool _revealed;
-    private bool _mailboxRebuildQueued;
 
     protected override void BuildPage()
     {
         var vm = ViewModel;
-        Page.Spacing = 12;
 
-        // First load: the page starts with default ViewModel state (signed out, not subscribed, no
-        // mailboxes). Showing it would flash the promotions before the cached account state lands, so
-        // the content stays hidden behind one spinner until the cached state is applied.
+        // First load: the page starts with default ViewModel state (signed out, no access). Showing it would flash the
+        // offer before the cached account state lands, so the content stays hidden behind one spinner until then.
         _loading = Add(IntelligenceViews.LoadingState(out var loadingSpinner));
         _loadingSpinner = loadingSpinner;
         _content.Alignment = UIStackViewAlignment.Fill;
         _content.Hidden = true;
         Add(_content);
 
-        // Status rows shared by every state. The network refresh row appears only when the refresh
-        // is slow, so a quick refresh does not push the cards down and back up.
+        // The network refresh row appears only when the refresh is slow, so a quick refresh does not push the rows down.
         var spinner = IntelligenceViews.Spinner();
         var updating = Row(spinner, WinoStyle.Label(Translator.WinoIntelligence_Updating, WinoStyle.Body, WinoStyle.PrimaryText));
         var showUpdating = IntelligenceViews.DelayedProgressRow(updating, spinner, () => !Bindings.IsDisposed);
@@ -65,35 +59,25 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         AddContent(updating);
         AddContent(CommandBar(WinoInfoBarSeverity.Informational, nameof(vm.PurchaseStatusMessage), s => s.PurchaseStatusMessage,
             vm.RefreshPurchasesText, vm.RefreshPurchasesCommand));
-        // Windows: the refresh error bar is IsClosable="True"; the purchase status bar is not closable.
         var refreshError = CommandBar(WinoInfoBarSeverity.Warning, nameof(vm.IntelligenceRefreshError), s => s.IntelligenceRefreshError,
             Translator.Buttons_Retry, vm.RetryIntelligenceRefreshCommand);
         refreshError.IsClosable = true;
         AddContent(refreshError);
+        AddContent(Bar(WinoInfoBarSeverity.Warning, nameof(vm.SubscriptionEndedText), s => s.IsAiPackEnded ? s.SubscriptionEndedText : null, nameof(vm.IsAiPackEnded)));
+        AddContent(Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentErrorMessage), s => s.HasConsentError ? s.ConsentErrorMessage : null));
+        AddContent(Bar(WinoInfoBarSeverity.Warning, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionPending ? Translator.WinoAccount_IntelligenceConsentDeletionPending : null));
+        AddContent(Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionFailed ? Translator.WinoAccount_IntelligenceConsentDeletionFailed : null));
 
-        AddContent(Bind.Visible(SignedOutPromo(), vm, nameof(vm.IsSignedIn), s => s.IsSignedOut));
+        AddContent(Bind.Visible(OfferPanel(), vm, nameof(vm.HasIntelligenceAccess), s => s.HasNoIntelligenceAccess));
+        AddContent(Bind.Visible(SubscribedPanel(), vm, nameof(vm.HasIntelligenceAccess), s => s.HasIntelligenceAccess));
 
-        var signedIn = WinoLayout.VStack(12);
-        signedIn.Alignment = UIStackViewAlignment.Fill;
-        void AddSigned(UIView view)
-        {
-            view.TranslatesAutoresizingMaskIntoConstraints = false;
-            signedIn.AddArrangedSubview(view);
-        }
-        var promo = NotSubscribedPromo();
-        Bind.Bind(vm.AiPackAddOn, nameof(WinoAddOnItemViewModel.IsPurchased), a => a.IsNotPurchased, show => promo.Hidden = !show);
-        AddSigned(promo);
-        AddSigned(SubscriptionCard());
-        AddSigned(Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentErrorMessage), s => s.HasConsentError ? s.ConsentErrorMessage : null));
-        AddSigned(Bar(WinoInfoBarSeverity.Warning, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionPending ? Translator.WinoAccount_IntelligenceConsentDeletionPending : null));
-        AddSigned(Bar(WinoInfoBarSeverity.Error, nameof(vm.ConsentDataDeletionStatus), s => s.IsConsentDeletionFailed ? Translator.WinoAccount_IntelligenceConsentDeletionFailed : null));
-        AddSigned(MailboxesExpander());
-        AddSigned(Bind.Visible(TranslationsExpander(), vm, nameof(vm.HasIntelligenceAccess), s => s.HasIntelligenceAccess));
-        AddContent(Bind.Visible(signedIn, vm, nameof(vm.IsSignedIn), s => s.IsSignedIn));
+        // Windows keeps Refresh in the subscription card; on iOS a page's Refresh is a bar button (18 Oct 2026).
+        var refresh = BarButton(WinoIconGlyph.ArrowClockwise, Translator.Buttons_Refresh, vm.RefreshPurchasesCommand);
+        Bind.Bind(vm, nameof(vm.HasIntelligenceAccess), s => s.HasIntelligenceAccess, on => SetBarItemVisible(refresh, on));
 
-        // A snapshot apply clears and refills the mailbox collection; rebuild the rows once per batch.
-        Bind.Collection(vm.IntelligenceMailboxes, QueueMailboxRebuild);
-        Bind.Bind(vm, nameof(vm.IsConsentGranted), s => s.IsConsentGranted, _ => QueueMailboxRebuild());
+        // A snapshot apply clears and refills the collections.
+        Bind.Collection(vm.OfferPerks, RebuildPerks);
+        Bind.Collection(vm.IntelligenceUsageItems, RebuildUsage);
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
@@ -102,7 +86,6 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         finally { await Dispatcher.ExecuteOnUIThread(Reveal); }
     }
 
-    /// <summary>Replaces the first-load spinner with the page content, once.</summary>
     private void Reveal()
     {
         if (_revealed || Bindings.IsDisposed) return;
@@ -112,7 +95,6 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         _content.Hidden = false;
     }
 
-    /// <summary>Adds a section to the content stack (hidden during the first load) at the content width.</summary>
     private T AddContent<T>(T view) where T : UIView
     {
         view.TranslatesAutoresizingMaskIntoConstraints = false;
@@ -120,21 +102,19 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         return view;
     }
 
-    private void QueueMailboxRebuild()
+    private static UIStackView Panel(params UIView[] views)
     {
-        if (_mailboxRebuildQueued) return;
-        _mailboxRebuildQueued = true;
-        BeginInvokeOnMainThread(() =>
-        {
-            _mailboxRebuildQueued = false;
-            if (!Bindings.IsDisposed) RebuildMailboxes();
-        });
+        var panel = WinoLayout.VStack(WinoSettingsStyle.GroupSpacing, views);
+        panel.Alignment = UIStackViewAlignment.Fill;
+        return panel;
     }
 
-    private WinoInfoBar Bar(WinoInfoBarSeverity severity, string property, Func<WinoAccountManagementPageViewModel, string?> message)
+    /// <summary>An info bar whose message is re-read when <paramref name="property"/> or any of <paramref name="alsoWatch"/> changes.</summary>
+    private WinoInfoBar Bar(WinoInfoBarSeverity severity, string property, Func<WinoAccountManagementPageViewModel, string?> message, params string[] alsoWatch)
     {
         var bar = InfoBar(severity, null, null);
-        Bind.Bind(ViewModel, property, message, text => { bar.Message = text; bar.Hidden = string.IsNullOrWhiteSpace(text); });
+        foreach (var watched in alsoWatch.Prepend(property))
+            Bind.Bind(ViewModel, watched, message, text => { bar.Message = text; bar.Hidden = string.IsNullOrWhiteSpace(text); });
         return bar;
     }
 
@@ -148,139 +128,259 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         return bar;
     }
 
-    private static UILabel Strong(string text) => WinoStyle.Label(text, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
-
     private static UILabel Secondary(string text, UIFont? font = null)
         => WinoStyle.Label(text, font ?? WinoStyle.Description, WinoStyle.SecondaryText, 0);
 
-    private UIButton LearnMoreButton()
+    private static UIView Inset(UIView view)
     {
-        var learn = IntelligenceViews.LinkButton(Translator.Buttons_LearnMore);
-        Bind.OnActivated(learn, () => IntelligenceViews.OpenUrl(LearnMoreUrl));
-        return learn;
-    }
-
-    /// <summary>Signed out: illustration, promotion text, the account note and Create account / Sign in.</summary>
-    private UIView SignedOutPromo()
-    {
-        var vm = ViewModel;
-        var art = new WinoIntelligencePromotionIllustrationView(72);
-        var title = Strong(Translator.WinoIntelligence_PromotionTitle);
-        var description = Secondary(Translator.WinoIntelligence_PromotionDescription);
-        var text = WinoLayout.VStack(4, title, description);
-        text.Alignment = UIStackViewAlignment.Fill;
-        var note = Secondary(Translator.WinoIntelligence_AccountRequired, WinoStyle.Caption);
-        var buttons = Row(Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand, primary: true), Bind.Button(Translator.Buttons_SignIn, vm.SignInCommand), WinoLayout.Spacer());
-        var column = WinoLayout.VStack(12, art, text, note, buttons);
-        column.Alignment = UIStackViewAlignment.Fill;
-        return IntelligenceViews.Surface(WrapArt(column, art));
-    }
-
-    /// <summary>Keeps the fixed-size illustration at its size inside a fill-aligned column.</summary>
-    private static UIView WrapArt(UIStackView column, UIView art)
-    {
-        var index = Array.IndexOf(column.ArrangedSubviews, art);
-        if (index < 0) return column;
-        column.RemoveArrangedSubview(art);
-        art.RemoveFromSuperview();
         var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
-        host.AddSubview(art);
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            art.LeadingAnchor.ConstraintEqualTo(host.LeadingAnchor),
-            art.TopAnchor.ConstraintEqualTo(host.TopAnchor),
-            art.BottomAnchor.ConstraintEqualTo(host.BottomAnchor)
-        ]);
-        column.InsertArrangedSubview(host, (nuint)index);
-        return column;
+        WinoLayout.Fill(view, host, 0, WinoSettingsStyle.CardPadding, 0, WinoSettingsStyle.CardPadding);
+        return host;
     }
 
-    /// <summary>Not subscribed: illustration, pitch, feature chips, local note, then Get / Learn more and the price note.</summary>
-    private UIView NotSubscribedPromo()
+    private static void SetTitle(UIButton button, string? text)
+    {
+        if (button.Configuration is not { } configuration) return;
+        configuration.Title = text ?? string.Empty;
+        button.Configuration = configuration;
+    }
+
+    private static UIView Pill(string text, UIColor textColor, UIColor fill)
+    {
+        var label = WinoStyle.Label(text, WinoStyle.Caption, textColor);
+        WinoLayout.Priorities(label, UILayoutConstraintAxis.Horizontal, 1000, 1000);
+        var pill = new WinoSurfaceView { Fill = fill, CornerRadius = 10, TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(label, pill, 2, 10, 2, 10);
+        WinoLayout.Priorities(pill, UILayoutConstraintAxis.Horizontal, 751, 1000);
+        pill.IsAccessibilityElement = true;
+        pill.AccessibilityTraits = UIAccessibilityTrait.StaticText;
+        pill.AccessibilityLabel = text;
+        return pill;
+    }
+
+    /// <summary>The app logo (Windows StoreLogo) for the Wino Assistant rows, or the brand glyph when it is not bundled.</summary>
+    private static UIView AppLogo(double size)
+    {
+        if (UIImage.FromBundle("WinoLogo") is not { } logo) return new BrandIconView(WinoIconGlyph.WinoIntelligence, size * 0.6);
+        var image = new UIImageView(logo) { ContentMode = UIViewContentMode.ScaleAspectFit, IsAccessibilityElement = false, TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Size(image, size, size);
+        return image;
+    }
+
+    #region Offer
+
+    private UIView OfferPanel()
+        => Panel(Hero(), _perks, Group(Translator.WinoIntelligence_Locked_Caption,
+            LockedRow(Translator.WinoIntelligence_MailClassification_Title, Translator.WinoIntelligence_MailClassification_Description),
+            LockedRow(Translator.WinoIntelligence_Languages_Title, Translator.WinoIntelligence_Languages_Description)));
+
+    /// <summary>Illustration, headline and the one primary action: Get Wino Intelligence signed out, Subscribe signed in.</summary>
+    private UIView Hero()
     {
         var vm = ViewModel;
         var art = new WinoIntelligencePromotionIllustrationView(72);
-        var title = Strong(Translator.WinoAccount_Management_AiPackPromoTitle);
-        var description = Secondary(Translator.WinoAccount_Management_AiPackPromoDescription);
+        // Wino Assistant needs Voice Control; without it the hero leaves the assistant out of its promise.
+        var title = WinoStyle.Label(vm.IsVoiceControlAvailable ? Translator.WinoIntelligence_Hero_Title : Translator.WinoIntelligence_SettingsTitle,
+            WinoStyle.Heading, WinoStyle.PrimaryText, 0);
+        title.AccessibilityTraits = UIAccessibilityTrait.Header;
+        var description = Secondary(vm.IsVoiceControlAvailable ? Translator.WinoIntelligence_Hero_Description : Translator.WinoIntelligence_Hero_Description_NoAssistant);
         var text = WinoLayout.VStack(4, title, description);
         text.Alignment = UIStackViewAlignment.Fill;
-        var chips = IntelligenceViews.Flow(
-        [
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.DailyBriefing, Translator.WinoAccount_Management_AiPackFeatureBriefing),
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.Note, Translator.WinoAccount_Management_AiPackFeatureSummarize),
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.Translate, Translator.WinoAccount_Management_AiPackFeatureTranslate),
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.Edit, Translator.WinoAccount_Management_AiPackFeatureRewrite),
-            WinoIntelligenceBrand.Chip(WinoIconGlyph.Tag, Translator.WinoAccount_Management_AiPackFeatureLabels),
-        ], 8);
-        var note = Secondary(Translator.WinoAccount_Management_AiPackLocalNote, WinoStyle.Caption);
+        WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
+        var top = WinoLayout.HStack(16, art, text);
+        top.Alignment = UIStackViewAlignment.Center;
 
-        var get = Bind.Button(Translator.WinoAccount_Management_AiPackGetButton, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
-        get.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        var price = Secondary(Translator.WinoAccount_Management_AiPackPriceAtCheckout, WinoStyle.Caption);
-        price.TextAlignment = UITextAlignment.Center;
-        var learn = LearnMoreButton();
-        var learnRow = WinoLayout.HStack(0, WinoLayout.Spacer(), learn, WinoLayout.Spacer());
-        learnRow.Distribution = UIStackViewDistribution.EqualCentering;
+        var get = Bind.Button(Translator.WinoIntelligence_GetButton, vm.GetWinoIntelligenceCommand, primary: true);
+        get.AccessibilityIdentifier = "WinoIntelligenceSignInButton";
+        var create = Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand);
+        create.AccessibilityIdentifier = "WinoIntelligenceCreateAccountButton";
+        var signedOut = WinoLayout.VStack(8, get, create);
+        signedOut.Alignment = UIStackViewAlignment.Fill;
+        Bind.Visible(signedOut, vm, nameof(vm.IsSignedIn), s => s.IsSignedOut);
 
-        var column = WinoLayout.VStack(12, art, text, chips, note, get, learnRow, price);
+        var subscribe = Bind.Button(vm.HeroSubscribeButtonText, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
+        subscribe.AccessibilityIdentifier = "WinoIntelligenceSubscribeButton";
+        Bind.Bind(vm, nameof(vm.HeroSubscribeButtonText), s => s.HeroSubscribeButtonText, value => SetTitle(subscribe, value));
+        var learn = IntelligenceViews.LinkButton(Translator.Buttons_LearnMore);
+        learn.AccessibilityIdentifier = "WinoIntelligenceLearnMoreButton";
+        Bind.OnActivated(learn, () => IntelligenceViews.OpenUrl(LearnMoreUrl));
+        var signedInViews = new List<UIView> { subscribe };
+        if (vm.UsesAppStorePurchases)
+            signedInViews.Add(Bind.Label(vm, nameof(vm.AppStoreAiPackPriceText), s => s.AppStoreAiPackPriceText, WinoStyle.Caption, WinoStyle.SecondaryText, 0));
+        signedInViews.Add(WinoLayout.HStack(0, learn, WinoLayout.Spacer()));
+        var signedIn = WinoLayout.VStack(6, signedInViews.ToArray());
+        signedIn.Alignment = UIStackViewAlignment.Fill;
+        Bind.Visible(signedIn, vm, nameof(vm.IsSignedIn), s => s.IsSignedIn);
+
+        var addOn = vm.AiPackAddOn;
+        var error = Bind.Label(addOn, nameof(addOn.ErrorText), a => a.ErrorText, WinoStyle.Caption, WinoStyle.Caution, 0);
+        Bind.Visible(error, addOn, nameof(addOn.ShowErrorState), a => a.ShowErrorState);
+        var terms = Bind.Label(vm, nameof(vm.IntelligenceHeroTermsText), s => s.IntelligenceHeroTermsText, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+
+        var column = WinoLayout.VStack(8, top, signedOut, signedIn, error, terms);
         column.Alignment = UIStackViewAlignment.Fill;
-        column.SetCustomSpacing(16, note);
-        column.SetCustomSpacing(4, get);
-        column.SetCustomSpacing(0, learnRow);
-        return IntelligenceViews.Surface(WrapArt(column, art));
+        column.SetCustomSpacing(16, top);
+        column.SetCustomSpacing(12, signedOut);
+        column.SetCustomSpacing(12, signedIn);
+        if (vm.UsesAppStorePurchases)
+        {
+            // Guideline 3.1.2: the length, renewal and the Terms of Use and Privacy Policy links sit next to the purchase.
+            column.AddArrangedSubview(AppStoreSubscriptionTerms.Create());
+        }
+
+        var surface = new WinoSurfaceView
+        {
+            // Windows WinoIntelligenceBrandSurfaceBrush: a faint wash of the brand colour.
+            Fill = WinoStyle.Dynamic(WinoStyle.Hex(0x3B84E8, 0.07), WinoStyle.Hex(0x7FBAFF, 0.08)),
+            Stroke = WinoSettingsStyle.CardStroke,
+            CornerRadius = WinoSettingsStyle.CardRadius,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        surface.AccessibilityIdentifier = "WinoIntelligenceHero";
+        WinoLayout.Fill(column, surface, 16);
+        return surface;
     }
 
-    /// <summary>Subscription and AI credits, with the "Available quota" button that opens the usage flyout.</summary>
-    private UIView SubscriptionCard()
+    /// <summary>Wino Assistant first where the platform has Voice Control, then one row per perk with its allowance or usage.</summary>
+    private void RebuildPerks()
+    {
+        _perks.Clear();
+        _perks.AccessibilityIdentifier = "WinoIntelligenceIncludedExpander";
+        if (ViewModel.IsVoiceControlAvailable)
+        {
+            var assistant = Card(Translator.WinoIntelligence_Perk_Voice_Title,
+                $"{Translator.WinoIntelligence_Perk_Voice_Description}\n{Translator.WinoIntelligence_Perk_Voice_Allowance}",
+                WinoIconGlyph.None, Pill(Translator.WinoIntelligence_NewBadge, UIColor.White, WinoStyle.Accent));
+            assistant.LeadingView = AppLogo(36);
+            _perks.Add(assistant);
+        }
+        foreach (var perk in ViewModel.OfferPerks.ToList())
+        {
+            // The allowance reads under the description; beside it, long descriptions squeeze it to an ellipsis on phone width.
+            var allowance = WinoStyle.Label(perk.TrailingText, WinoSettingsStyle.CardDescription, WinoStyle.Accent);
+            _perks.Add(StackedCard(perk.Title, perk.Description, WinoIconGlyph.None, allowance));
+        }
+    }
+
+    private WinoSettingsCard LockedRow(string title, string description)
+    {
+        var card = Card(title, description, WinoIconGlyph.None, new WinoIconView(WinoIconGlyph.LockClosed, 14, WinoStyle.TertiaryText));
+        card.IsEnabled = false;
+        return card;
+    }
+
+    #endregion
+
+    #region Subscribed
+
+    private UIView SubscribedPanel() => Panel(StatusGroup(), FeaturesGroup(), LanguagesGroup(), PrivacyGroup());
+
+    /// <summary>Status: Active or Limit reached with the renewal line, the plan, then this month's usage per bucket.</summary>
+    private UIView StatusGroup()
     {
         var vm = ViewModel;
-        var quota = SettingsBinder.CreateButton(Translator.WinoIntelligence_AvailableQuota, icon: WinoIconGlyph.ChevronDown);
-        if (quota.Configuration is { } configuration)
-        {
-            configuration.ImagePlacement = NSDirectionalRectEdge.Trailing;
-            quota.Configuration = configuration;
-        }
-        quota.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        Bind.Enabled(quota, vm, nameof(vm.IsIntelligenceUsageAvailable), s => s.IsIntelligenceUsageAvailable);
-        Bind.OnActivated(quota, () => IntelligenceQuotaViewController.Present(this, quota, vm.IntelligenceUsageItems.ToList(), vm.IntelligenceResetText));
-        var card = StackedCard(Translator.WinoIntelligence_SubscriptionTitle, null, WinoIconGlyph.None, Row(quota, WinoLayout.Spacer()));
-        card.LeadingView = new BrandIconView(WinoIconGlyph.WinoIntelligence, 20);
-        Bind.Bind(vm, nameof(vm.AiPackRenewalOrCancellationText), s => s.AiPackRenewalOrCancellationText, text => card.Description = text);
-        return Bind.Visible(card, vm, nameof(vm.HasIntelligenceAccess), s => s.HasIntelligenceAccess);
+        var active = Bind.Visible(Pill(Translator.WinoAccount_Management_ActiveShort, WinoStyle.Success, WinoStyle.Dynamic(WinoStyle.Hex(0xDFF6DD), WinoStyle.Hex(0x393D1B))),
+            vm, nameof(vm.IsLimitReached), s => s.IsWithinLimits);
+        var limit = Bind.Visible(Pill(Translator.WinoIntelligence_Status_LimitReached, WinoStyle.Critical, WinoStyle.Dynamic(WinoStyle.Hex(0xFDE7E9), WinoStyle.Hex(0x442726))),
+            vm, nameof(vm.IsLimitReached), s => s.IsLimitReached);
+        var status = Card(Translator.WinoIntelligence_SettingsTitle, null, WinoIconGlyph.None, WinoLayout.HStack(8, active, limit));
+        status.LeadingView = new BrandIconView(WinoIconGlyph.WinoIntelligence, 22);
+        Bind.Bind(vm, nameof(vm.SubscriptionRenewalLine), s => s.SubscriptionRenewalLine, text => status.Description = string.IsNullOrWhiteSpace(text) ? null : text);
+
+        // App Store subscriptions are managed in the App Store, so the plan row is left out there.
+        var manage = Bind.Button(Translator.WinoIntelligence_ManageSubscription, vm.ManageSubscriptionCommand);
+        manage.AccessibilityIdentifier = "WinoIntelligenceManageSubscriptionButton";
+        var plan = Bind.Visible(Card(Translator.WinoAccount_Management_SubscriptionLabel, null, WinoIconGlyph.None, manage),
+            vm, nameof(vm.CanManageSubscription), s => s.CanManageSubscription);
+
+        var group = Group(null, status, plan);
+        group.AccessibilityIdentifier = "WinoIntelligenceStatusExpander";
+        group.Add(Bar(WinoInfoBarSeverity.Informational, nameof(vm.ExhaustedBucketsText), s => s.HasExhaustedBuckets ? s.ExhaustedBucketsText : null, nameof(vm.HasExhaustedBuckets)));
+        _usageRows.Alignment = UIStackViewAlignment.Fill;
+        var usage = IntelligenceViews.Surface(_usageRows, 16, WinoSettingsStyle.CardRadius);
+        usage.AccessibilityIdentifier = "WinoIntelligenceUsageCard";
+        Bind.Visible(usage, vm, nameof(vm.IsIntelligenceUsageAvailable), s => s.IsIntelligenceUsageAvailable);
+        group.Add(usage);
+        var unavailable = Inset(Secondary(Translator.WinoAccount_Management_IntelligenceUsageUnavailable));
+        Bind.Visible(unavailable, vm, nameof(vm.IsIntelligenceUsageAvailable), s => !s.IsIntelligenceUsageAvailable);
+        group.Add(unavailable);
+        return group;
     }
 
-    /// <summary>Mailboxes: the account-wide consent switch, then one row per mailbox while consent is granted.</summary>
-    private UIView MailboxesExpander()
+    /// <summary>Windows IntelligenceUsageBucketTemplate: name and value, then the bar (red once the bucket is used up).</summary>
+    private void RebuildUsage()
+    {
+        IntelligenceViews.Clear(_usageRows);
+        foreach (var item in ViewModel.IntelligenceUsageItems.ToList())
+        {
+            var name = WinoStyle.Label(item.DisplayName, WinoStyle.Body, WinoStyle.PrimaryText);
+            name.LineBreakMode = UILineBreakMode.TailTruncation;
+            WinoLayout.Priorities(name, UILayoutConstraintAxis.Horizontal, 1, 250);
+            var value = WinoStyle.Label(item.Value, WinoStyle.Description, WinoStyle.SecondaryText);
+            WinoLayout.Priorities(value, UILayoutConstraintAxis.Horizontal, 750, 750);
+            var top = WinoLayout.HStack(8, name, value);
+            var bar = new WinoBarView { Value = item.Percentage, ShowError = item.IsExhausted };
+            WinoAccessibility.Label(bar, item.DisplayName);
+            bar.AccessibilityIdentifier = item.Bucket;
+            var row = WinoLayout.VStack(6, top, bar);
+            row.Alignment = UIStackViewAlignment.Fill;
+            _usageRows.AddArrangedSubview(row);
+        }
+    }
+
+    /// <summary>Wino Assistant (only where the platform has Voice Control), then Smart Labels and Daily Briefing.</summary>
+    private UIView FeaturesGroup()
+    {
+        var vm = ViewModel;
+        var assistant = CommandCard(Translator.WinoIntelligence_Voice_Title, vm.AssistantHomeDescription, WinoIconGlyph.None, vm.OpenVoiceControlCommand);
+        assistant.AccessibilityIdentifier = "WinoIntelligenceVoiceCommandsCard";
+        assistant.LeadingView = AppLogo(32);
+        Bind.Bind(vm, nameof(vm.AssistantHomeDescription), s => s.AssistantHomeDescription, text => assistant.Description = text);
+        Bind.Visible(assistant, vm, nameof(vm.HasIntelligenceAccess), s => s.ShowVoiceCommandsCard);
+
+        var classification = CommandCard(Translator.WinoIntelligence_MailClassification_Title, Translator.WinoIntelligence_MailClassification_HomeDescription,
+            WinoIconGlyph.None, vm.OpenMailClassificationCommand);
+        classification.AccessibilityIdentifier = "WinoIntelligenceMailClassificationCard";
+        return Group(null, assistant, classification);
+    }
+
+    /// <summary>Languages: the default translation and summary languages, each a value row that pushes its list.</summary>
+    private UIView LanguagesGroup()
+    {
+        var vm = ViewModel;
+        var translate = Bind.PopUp<WinoAccountManagementPageViewModel, AiTranslateLanguageOption>(vm, s => s.AvailableAiLanguages, o => o.Label,
+            nameof(vm.SelectedDefaultTranslationLanguage), s => s.SelectedDefaultTranslationLanguage, (s, v) => s.SelectedDefaultTranslationLanguage = v);
+        var summarize = Bind.PopUp<WinoAccountManagementPageViewModel, AiTranslateLanguageOption>(vm, s => s.AvailableAiLanguages, o => o.Label,
+            nameof(vm.SelectedSummarizeLanguage), s => s.SelectedSummarizeLanguage, (s, v) => s.SelectedSummarizeLanguage = v);
+        var group = Group(Translator.WinoIntelligence_Languages_Title,
+            Card(Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Title, Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Description, WinoIconGlyph.None, translate),
+            Card(Translator.SettingsAppPreferences_AiSummarizeLanguage_Title, Translator.SettingsAppPreferences_AiSummarizeLanguage_Description, WinoIconGlyph.None, summarize));
+        group.Footer = Translator.WinoIntelligence_Languages_Description;
+        group.AccessibilityIdentifier = "WinoIntelligenceLanguagesExpander";
+        return group;
+    }
+
+    /// <summary>Privacy: the account-wide AI provider access switch with the accepted date, and the policy link.</summary>
+    private UIView PrivacyGroup()
     {
         var vm = ViewModel;
         var busy = IntelligenceViews.Spinner();
-        var consent = new WinoTextSwitch(Translator.WinoAccount_Allowed, Translator.WinoAccount_NotAllowed, Translator.WinoIntelligence_MailboxesTitle, showsLabel: true);
+        var consent = new WinoTextSwitch(Translator.WinoAccount_Allowed, Translator.WinoAccount_NotAllowed, Translator.WinoIntelligence_Privacy_Title);
         _consent = consent;
-        var content = Row(busy, consent);
-        var expander = new WinoSettingsExpander(Translator.WinoIntelligence_MailboxesTitle, null, WinoIconGlyph.None, content);
-        expander.HeaderCard.LeadingView = new BrandIconView(WinoIconGlyph.Mail, 20);
-        Bind.Bind(vm, nameof(vm.IntelligenceConsentStatusText), s => s.IntelligenceConsentStatusText, text => expander.HeaderCard.Description = text);
+        var card = Card(Translator.WinoIntelligence_Privacy_Title, Translator.WinoIntelligence_ProviderAccess_Description, WinoIconGlyph.None, Row(busy, consent));
+        card.AccessibilityIdentifier = "WinoIntelligenceProviderAccessCard";
+        Bind.Bind(vm, nameof(vm.ConsentAcceptedText), s => s.ConsentAcceptedText, text => card.Description = string.IsNullOrWhiteSpace(text)
+            ? Translator.WinoIntelligence_ProviderAccess_Description
+            : $"{Translator.WinoIntelligence_ProviderAccess_Description}\n{text}");
         Bind.Bind(vm, nameof(vm.IsConsentBusy), s => s.IsConsentBusy, on => { IntelligenceViews.SetSpinning(busy, on); consent.IsEnabled = !on; });
-        Bind.Bind(vm, nameof(vm.IsConsentGranted), s => s.IsConsentGranted, granted =>
-        {
-            if (!_applyingConsent) consent.IsOn = granted;
-            expander.IsExpanded = granted;
-        });
+        Bind.Bind(vm, nameof(vm.IsConsentGranted), s => s.IsConsentGranted, granted => { if (!_applyingConsent) consent.IsOn = granted; });
         EventHandler toggled = async (_, _) => await ConsentToggledAsync();
         consent.Toggled += toggled;
         Bindings.Own(new ActionDisposable(() => consent.Toggled -= toggled));
 
-        var header = Secondary(Translator.WinoIntelligence_MailboxesDescription);
-        var dataError = Bar(WinoInfoBarSeverity.Error, nameof(vm.IntelligenceDataError), s => s.IntelligenceDataError);
-        var top = WinoLayout.VStack(8, header, dataError);
-        top.Alignment = UIStackViewAlignment.Fill;
-        var topHost = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Fill(top, topHost, 12, 16, 12, 16);
-        _mailboxRows.Alignment = UIStackViewAlignment.Fill;
-        var items = WinoLayout.VStack(0, topHost, _mailboxRows);
-        items.Alignment = UIStackViewAlignment.Fill;
-        expander.Add(items, 0, 0, 0, 0);
-        return expander;
+        var policy = Bind.Button(Translator.WinoIntelligence_Policy_ReviewLink, vm.OpenConsentPolicyCommand);
+        policy.AccessibilityIdentifier = "WinoIntelligencePolicyReviewButton";
+        return Group(Translator.WinoIntelligence_Privacy_Header, card, ActionRow(policy));
     }
 
     private async Task ConsentToggledAsync()
@@ -308,94 +408,5 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         }
     }
 
-    private void RebuildMailboxes()
-    {
-        _rowScope?.Dispose();
-        _rowScope = Bindings.Own(new BindingScope());
-        var rows = Bind.Child(_rowScope);
-        IntelligenceViews.Clear(_mailboxRows);
-        if (!ViewModel.IsConsentGranted) return;
-
-        foreach (var item in ViewModel.IntelligenceMailboxes.ToList())
-        {
-            _mailboxRows.AddArrangedSubview(new WinoSeparator { Fill = WinoSettingsStyle.CardStroke });
-            _mailboxRows.AddArrangedSubview(MailboxRow(item, rows));
-        }
-    }
-
-    /// <summary>
-    /// Picture, address and summary, then Indexing enabled, Manage and Delete (Windows MailboxTemplate). The actions
-    /// wrap under the address on phone width; the Mac tooltips become accessibility hints.
-    /// </summary>
-    private UIView MailboxRow(WinoIntelligenceMailboxItemViewModel item, SettingsBinder rows)
-    {
-        var icon = new WinoAccountIconView(28)
-        {
-            Account = item.Account is not null
-                ? MailAccountIconInfoFactory.Create(item.Account, pictures)
-                : MailAccountIconInfoFactory.CreateProviderFallback(item.ProviderType, item.SpecialProvider)
-        };
-        var address = WinoStyle.Label(item.Address, WinoStyle.Body, WinoStyle.PrimaryText);
-        address.LineBreakMode = UILineBreakMode.MiddleTruncation;
-        var summary = WinoStyle.Label(item.IntelligenceSummary, WinoStyle.Description, WinoStyle.SecondaryText, 0);
-        var text = WinoLayout.VStack(1, address, summary);
-        text.Alignment = UIStackViewAlignment.Fill;
-        WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
-        foreach (var label in new[] { address, summary }) WinoLayout.Priorities(label, UILayoutConstraintAxis.Horizontal, 1, 250);
-        var identity = WinoLayout.HStack(12, icon, text);
-
-        var actions = new List<UIView>();
-        if (item.CanManage)
-        {
-            var enabled = IntelligenceViews.CheckButton(Translator.WinoIntelligence_MailboxEnabled);
-            WinoAccessibility.Label(enabled, Translator.WinoIntelligence_EnableMailbox);
-            WinoAccessibility.Help(enabled, item.ToggleUnavailableTooltip);
-            rows.Bind(item, nameof(item.IsEnabled), i => i.IsEnabled, on => IntelligenceViews.SetChecked(enabled, on));
-            rows.Enabled(enabled, item, nameof(item.CanChangeEnabled), i => i.CanChangeEnabled);
-            rows.OnActivated(enabled, () =>
-            {
-                IntelligenceViews.SetChecked(enabled, item.IsEnabled);
-                if (item.ToggleEnabledCommand?.CanExecute(item) == true) item.ToggleEnabledCommand.Execute(item);
-            });
-            actions.Add(enabled);
-        }
-        actions.Add(WinoLayout.Spacer());
-        var manage = SettingsBinder.CreateButton(Translator.Buttons_Manage);
-        manage.Enabled = item.CanManage;
-        WinoAccessibility.Help(manage, item.ManageUnavailableTooltip);
-        rows.OnActivated(manage, () => { if (item.ManageCommand?.CanExecute(item) == true) item.ManageCommand.Execute(item); });
-        actions.Add(manage);
-        if (item.HasServerIntelligence)
-        {
-            var delete = SettingsBinder.CreateButton(Translator.Buttons_Delete);
-            if (delete.Configuration is { } configuration)
-            {
-                configuration.BaseForegroundColor = WinoStyle.Critical;
-                delete.Configuration = configuration;
-            }
-            rows.Enabled(delete, item, nameof(item.IsDeleting), i => !i.IsDeleting);
-            rows.OnActivated(delete, () => { if (item.DeleteCommand?.CanExecute(item) == true) item.DeleteCommand.Execute(item); });
-            actions.Add(delete);
-        }
-        var actionRow = WinoLayout.HStack(8, actions.ToArray());
-
-        var stack = WinoLayout.VStack(6, identity, actionRow);
-        stack.Alignment = UIStackViewAlignment.Fill;
-        var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Fill(stack, host, 8, 16, 8, 16);
-        return host;
-    }
-
-    /// <summary>Translations: the default translation and summary languages.</summary>
-    private UIView TranslationsExpander()
-    {
-        var vm = ViewModel;
-        var translate = Bind.PopUp<WinoAccountManagementPageViewModel, AiTranslateLanguageOption>(vm, s => s.AvailableAiLanguages, o => o.Label,
-            nameof(vm.SelectedDefaultTranslationLanguage), s => s.SelectedDefaultTranslationLanguage, (s, v) => s.SelectedDefaultTranslationLanguage = v);
-        var summarize = Bind.PopUp<WinoAccountManagementPageViewModel, AiTranslateLanguageOption>(vm, s => s.AvailableAiLanguages, o => o.Label,
-            nameof(vm.SelectedSummarizeLanguage), s => s.SelectedSummarizeLanguage, (s, v) => s.SelectedSummarizeLanguage = v);
-        return Expander(Translator.SettingsAppPreferences_AiActions_Title, Translator.SettingsAppPreferences_AiActions_Description, WinoIconGlyph.Translate, null,
-            StackedCard(Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Title, Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Description, WinoIconGlyph.None, Row(translate, WinoLayout.Spacer())),
-            StackedCard(Translator.SettingsAppPreferences_AiSummarizeLanguage_Title, Translator.SettingsAppPreferences_AiSummarizeLanguage_Description, WinoIconGlyph.None, Row(summarize, WinoLayout.Spacer())));
-    }
+    #endregion
 }

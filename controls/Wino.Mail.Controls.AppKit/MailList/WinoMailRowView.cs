@@ -13,7 +13,7 @@ namespace Wino.Mail.Controls.AppKit.MailList;
 /// The Wino mail row, laid out like the Windows MailListItemTemplates: a highlight box (inset by
 /// <see cref="WinoMailRowMetrics.RowGap"/> so neighbours do not touch) that holds the selection pill,
 /// the avatar, then three lines that each span to the trailing edge.
-/// Line 1: nickname, draft tag, sender (bold when unread), thread count, then the attachment and
+/// Line 1: nickname, draft tag, sender (bold when unread), then the attachment and
 /// flag glyphs right-aligned. Line 2: thread chevron, subject (semibold accent when unread), the
 /// date right-aligned and the unread dot. Line 3: the preview. Detailed rows add a tile row for
 /// categories and intelligence that wraps onto more lines; compact rows collapse the tiles into line 1.
@@ -33,7 +33,6 @@ public class WinoMailRowView : NSTableCellView
     private readonly WinoChipView _nicknameRight;
     private readonly NSTextField _draftTag;
     private readonly NSTextField _sender;
-    private readonly NSTextField _threadCount;
     private readonly NSStackView _indicators;
     private readonly NSStackView _compactTiles;
     private readonly WinoIconView _pinGlyph;
@@ -106,8 +105,6 @@ public class WinoMailRowView : NSTableCellView
         _sender = WinoStyle.Label(string.Empty, WinoStyle.Body);
         _sender.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         _sender.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
-        _threadCount = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
-        _threadCount.Hidden = true;
         _compactTiles = WinoLayout.HStack(4);
         _compactTiles.Hidden = true;
         _pinGlyph = new WinoIconView(WinoIconGlyph.Pin, 12, WinoStyle.SecondaryText) { Hidden = true, ToolTip = "Pinned" };
@@ -119,7 +116,7 @@ public class WinoMailRowView : NSTableCellView
         _indicators.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Horizontal);
         _indicators.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
         _indicators.EdgeInsets = new NSEdgeInsets(0, 4, 0, 0);
-        _line1 = WinoLayout.HStack(4, _nicknameLeft, _draftTag, _sender, _threadCount, _nicknameRight, _indicators);
+        _line1 = WinoLayout.HStack(4, _nicknameLeft, _draftTag, _sender, _nicknameRight, _indicators);
         _line1.Distribution = NSStackViewDistribution.Fill;
 
         // ---- Line 2 ----
@@ -487,8 +484,6 @@ public class WinoMailRowView : NSTableCellView
         _draftTag.StringValue = $"[{model.DraftLabel}]";
         _draftTag.Hidden = !model.IsDraft;
         _sender.StringValue = model.IsDraft && string.IsNullOrWhiteSpace(model.Sender) ? model.SenderAddress : model.Sender;
-        _threadCount.StringValue = model.ThreadCount.ToString();
-        _threadCount.Hidden = model.Kind != WinoMailRowKind.ThreadHead || model.ThreadCount < 2;
         ApplyNickname(_nicknameLeft, model, AccountNicknamePosition.Left);
         ApplyNickname(_nicknameRight, model, AccountNicknamePosition.Right);
         _pinGlyph.Hidden = !model.IsPinned;
@@ -606,16 +601,51 @@ public class WinoMailRowView : NSTableCellView
             dot.ToolTip = tile.Text;
             return dot;
         }
-        if (existing is not WinoChipView chip)
+        if (existing is not CompactIntelligenceTile badge) badge = new CompactIntelligenceTile();
+        badge.Apply(tile);
+        return badge;
+    }
+
+    /// <summary>
+    /// Windows CompactTileTemplate: an 18pt circle with the tile glyph (or a 6pt dot) centred in it. A text chip
+    /// squeezed to 18pt kept its 7pt insets and pushed the glyph out, leaving an empty circle on every row.
+    /// </summary>
+    private sealed class CompactIntelligenceTile : WinoSurfaceView
+    {
+        private const double Size = 18;
+        private readonly WinoIconView _glyph = new(WinoIconGlyph.None, 10, WinoStyle.SecondaryText);
+        private readonly WinoSurfaceView _dot = new() { CornerRadius = 3, Fill = WinoStyle.SecondaryText };
+
+        public CompactIntelligenceTile()
         {
-            chip = new WinoChipView(18) { Fill = WinoStyle.SubtleFill, TextColor = WinoStyle.SecondaryText };
-            WinoLayout.Size(chip, 18, 18);
+            CornerRadius = Size / 2;
+            Fill = WinoStyle.SubtleFill;
+            Stroke = WinoStyle.ZoneStroke;
+            WinoLayout.Size(this, Size, Size);
+            WinoLayout.Size(_dot, 6, 6);
+            foreach (var view in new NSView[] { _glyph, _dot })
+            {
+                view.TranslatesAutoresizingMaskIntoConstraints = false;
+                AddSubview(view);
+                NSLayoutConstraint.ActivateConstraints(
+                [
+                    view.CenterXAnchor.ConstraintEqualTo(CenterXAnchor),
+                    view.CenterYAnchor.ConstraintEqualTo(CenterYAnchor)
+                ]);
+            }
         }
-        chip.ToolTip = tile.Tooltip ?? tile.Text;
-        chip.SetGlyph(tile.Glyph, 10);
-        chip.DotColor = string.IsNullOrEmpty(tile.Glyph) ? WinoStyle.SecondaryText : null;
-        chip.AccessibilityLabel = tile.Tooltip ?? tile.Text;
-        return chip;
+
+        public void Apply(WinoMailRowTile tile)
+        {
+            bool hasGlyph = !string.IsNullOrEmpty(tile.Glyph);
+            _glyph.Glyph = tile.Glyph ?? string.Empty;
+            _glyph.Hidden = !hasGlyph;
+            _glyph.Tint = tile.IsWarning ? WinoStyle.Caution : WinoStyle.SecondaryText;
+            _dot.Hidden = hasGlyph;
+            ToolTip = tile.Tooltip ?? tile.Text;
+            AccessibilityElement = true;
+            AccessibilityLabel = tile.Tooltip ?? tile.Text;
+        }
     }
 
     /// <summary>Configures <paramref name="existing"/> or creates a new detailed tile (also the measuring prototype).</summary>

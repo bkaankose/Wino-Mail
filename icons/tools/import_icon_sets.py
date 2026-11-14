@@ -93,7 +93,10 @@ def import_set(set_name: str, spec: dict, library: Library, sets: dict, manifest
     accents = {i["name"] for i in manifest["icons"] if "accent" in i}
     out, missing = {}, []
     for name, mapping in sets["icons"].items():
-        glyph_name = mapping[spec["source"]]
+        glyph_name = mapping.get(spec["source"])
+        if glyph_name is None:
+            # No close match in this library: the set keeps the Classic outline.
+            continue
         outline_file, filled_file = library.files(glyph_name, spec.get("style"))
         outline = library.glyph(outline_file, f"{set_name}/{name}")
         filled = library.glyph(filled_file, f"{set_name}/{name}")

@@ -51,6 +51,8 @@ public sealed class TaskDetailFragment : WinoFragment
     private TextView? _stepsSummary;
     private LinearLayout? _steps;
     private MaterialButton? _addStep;
+    private EditText? _newStep;
+    private TaskItemViewModel? _newStepTarget;
     private (View Row, WinoIconView Icon, TextView Title, TextView Value) _myDay;
     private (View Row, WinoIconView Icon, TextView Title, TextView Value) _due;
     private TextInputLayout? _notes;
@@ -189,9 +191,21 @@ public sealed class TaskDetailFragment : WinoFragment
         content.AddView(stepsHeader);
         _steps = new LinearLayout(context) { Orientation = Orientation.Vertical };
         content.AddView(_steps);
-        _addStep = TextButton(context, Translator.ToDoPage_AddStep, WinoIconGlyph.Add, () => PeopleViews.Observe(viewModel.AddStepCommand.ExecuteAsync(null), ReportError));
+        _addStep = TextButton(context, Translator.ToDoPage_AddStep, WinoIconGlyph.Add, OpenNewStepEditor);
         _addStep.SetPaddingRelative(WinoTokens.Px(context, Resource.Dimension.wino_tasks_detail_step_indent) - WinoTokens.Px(context, Resource.Dimension.wino_space_l), _addStep.PaddingTop, _addStep.PaddingEnd, _addStep.PaddingBottom);
         content.AddView(_addStep, Gutter(context));
+        _newStep = new EditText(context) { Hint = Translator.ToDoPage_AddStep, ContentDescription = Translator.ToDoPage_AddStep, ImeOptions = ImeAction.Next, Visibility = ViewStates.Gone };
+        _newStep.SetSingleLine(true);
+        WinoTokens.Style(_newStep, WinoTextStyle.BodyLarge);
+        _newStep.SetPaddingRelative(WinoTokens.Px(context, Resource.Dimension.wino_tasks_detail_step_indent), _newStep.PaddingTop, _newStep.PaddingEnd, _newStep.PaddingBottom);
+        _newStep.EditorAction += (_, args) => { args.Handled = true; CommitNewStep(); };
+        _newStep.FocusChange += (_, args) =>
+        {
+            if (args.HasFocus || _newStep.Visibility != ViewStates.Visible) return;
+            CommitNewStep();
+            CloseNewStepEditor();
+        };
+        content.AddView(_newStep, Gutter(context));
 
         content.AddView(Divider(context));
 
@@ -300,6 +314,11 @@ public sealed class TaskDetailFragment : WinoFragment
         if (ReferenceEquals(task, _task)) return;
         CommitTitle();
         CommitNotes();
+        if (_newStep is { Visibility: ViewStates.Visible })
+        {
+            CommitNewStep();
+            CloseNewStepEditor();
+        }
         _taskScope?.Dispose();
         _taskScope = null;
         _task = task;
@@ -442,6 +461,7 @@ public sealed class TaskDetailFragment : WinoFragment
         if (_title is not null) _title.Enabled = editable;
         if (_star is not null) _star.Enabled = editable;
         if (_addStep is not null) _addStep.Enabled = editable;
+        if (!editable && _newStep is { Visibility: ViewStates.Visible }) CloseNewStepEditor();
         if (_notes is not null) _notes.Enabled = editable;
         if (_myDay.Row is not null) _myDay.Row.Enabled = editable;
         if (_due.Row is not null) _due.Row.Enabled = editable;
@@ -465,6 +485,38 @@ public sealed class TaskDetailFragment : WinoFragment
         if (notes == (task.Notes ?? string.Empty)) return;
         task.Notes = notes;
         PeopleViews.Observe(viewModel.SaveTaskCommand.ExecuteAsync(task), ReportError);
+    }
+
+    /// <summary>Windows AddStepButton_Click: the step is named before it is created, so the server gets one write.</summary>
+    private void OpenNewStepEditor()
+    {
+        if (_task is not { IsEditable: true } task || _newStep is null || _addStep is null) return;
+        _newStepTarget = task;
+        _newStep.Text = string.Empty;
+        _addStep.Visibility = ViewStates.Gone;
+        _newStep.Visibility = ViewStates.Visible;
+        _newStep.RequestFocus();
+        (_newStep.Context?.GetSystemService(Context.InputMethodService) as InputMethodManager)?.ShowSoftInput(_newStep, ShowFlags.Implicit);
+    }
+
+    // The text is cleared before the await so losing focus while the step is queued cannot commit it twice.
+    private void CommitNewStep()
+    {
+        if (_newStep is null || _viewModel is not { } viewModel) return;
+        var title = _newStep.Text;
+        var target = _newStepTarget;
+        _newStep.Text = string.Empty;
+        if (target is not null && !string.IsNullOrWhiteSpace(title)) PeopleViews.Observe(viewModel.AddNamedStepAsync(target, title), ReportError);
+    }
+
+    private void CloseNewStepEditor()
+    {
+        _newStepTarget = null;
+        if (_newStep is null) return;
+        _newStep.Text = string.Empty;
+        _newStep.Visibility = ViewStates.Gone;
+        if (_addStep is not null) _addStep.Visibility = ViewStates.Visible;
+        HideKeyboard(_newStep);
     }
 
     private static void HideKeyboard(View view)

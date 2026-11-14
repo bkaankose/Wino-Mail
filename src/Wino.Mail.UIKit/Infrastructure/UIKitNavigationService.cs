@@ -1,9 +1,13 @@
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.UIKit.Views.Settings;
 using Wino.Mail.ViewModels.Navigation;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.UIKit.Infrastructure;
 
@@ -15,7 +19,8 @@ namespace Wino.Mail.UIKit.Infrastructure;
 /// shell is up), ShellContent goes to the shell, RenderingFrame and Push to the reader frame or the current stack, and
 /// Sheet/FullScreenSheet pages share one presented stack, which is the coordinator's Settings surface.
 /// </summary>
-public sealed class UIKitNavigationService : INavigationService, INavigationHost, IDisposable
+public sealed class UIKitNavigationService : INavigationService, INavigationHost, IDisposable,
+    IRecipient<SettingsRootNavigationRequested>, IRecipient<WinoIntelligenceEntitlementChanged>
 {
     private readonly IServiceProvider _services;
     private readonly IDispatcher _dispatcher;
@@ -40,6 +45,8 @@ public sealed class UIKitNavigationService : INavigationService, INavigationHost
         _registry = registry;
         _host = host;
         _coordinator = new NavigationCoordinator(this, services, dispatcher);
+        WeakReferenceMessenger.Default.Register<SettingsRootNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
     }
 
     /// <summary>The shell while it is the window root.</summary>
@@ -120,7 +127,44 @@ public sealed class UIKitNavigationService : INavigationService, INavigationHost
         if (ReferenceEquals(_renderingHost, host)) _renderingHost = null;
     }
 
-    public void Dispose() => _coordinator.Dispose();
+    public void Dispose()
+    {
+        WeakReferenceMessenger.Default.Unregister<SettingsRootNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
+        _coordinator.Dispose();
+    }
+
+    /// <summary>
+    /// A page asked for a Settings list row (Windows SettingsPage, such as Wino Account's "See what's included"): the open
+    /// Settings sheet returns to its list and pushes that row's page.
+    /// </summary>
+    public void Receive(SettingsRootNavigationRequested message) => _ = _dispatcher.ExecuteOnUIThread(() =>
+    {
+        if (_sheet is not { PresentingViewController: not null } sheet || sheet.ViewControllers is not { Length: > 0 } stack) return;
+        if (SettingsPageRoutes.PageFor(stack[^1].GetType()) == message.PageType) return;
+        if (stack.Length > 1) sheet.PopToRootViewController(false);
+        _coordinator.Navigate(message.PageType);
+    });
+
+    /// <summary>Losing access leaves the Wino Intelligence sub-pages for the page below them (Windows SettingsPage).</summary>
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+    {
+        if (message.Entitlement.CanAccessSurfaces) return;
+        _ = _dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (_sheet is not { } sheet || sheet.ViewControllers is not { Length: > 1 } stack) return;
+            int index = Array.FindIndex(stack, controller => SettingsPageRoutes.PageFor(controller.GetType()) is { } page && IsIntelligenceSubPage(page));
+            if (index > 0) sheet.PopToViewController(stack[index - 1], true);
+        });
+    }
+
+    private static bool IsIntelligenceSubPage(WinoPage page)
+        => page is WinoPage.MailClassificationPage or WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage;
+
+    /// <summary>The Wino Intelligence page is always listed and explains the subscription; only its sub-pages need access.</summary>
+    private bool CanOpen(WinoPage page)
+        => !IsIntelligenceSubPage(page)
+           || _services.GetService<IWinoAccountIntelligenceSnapshotService>()?.CurrentEntitlement?.CanAccessSurfaces == true;
 
     #region INavigationHost
 
@@ -291,6 +335,11 @@ public sealed class UIKitNavigationService : INavigationService, INavigationHost
             if (_sheet is null or { PresentingViewController: null, IsBeingPresented: false }) await host.ShowSettingsAsync(target, null);
             await host.ShowSettingsAsync(deepLink, null);
             return;
+        }
+        if (!CanOpen(target))
+        {
+            target = WinoPage.WinoIntelligencePage;
+            parameter = null;
         }
         if (!_registry.TryGet(target, parameter, out _, out var hostKind)) return;
         var controller = await CreateControllerAsync(target);

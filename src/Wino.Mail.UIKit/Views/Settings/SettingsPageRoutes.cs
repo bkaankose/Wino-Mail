@@ -58,7 +58,7 @@ public static class SettingsPageRoutes
         Route<ManageAccountsPageViewController>(registry, WinoPage.ManageAccountsPage, host);
         Route<ManageAccountsPageViewController>(registry, WinoPage.AccountManagementPage, host);
         Route<AccountDetailsPageViewController>(registry, WinoPage.AccountDetailsPage, host);
-        Route<MergedAccountDetailsPageViewController>(registry, WinoPage.MergedAccountDetailsPage, host);
+        Route<AccountGroupDetailsPageViewController>(registry, WinoPage.MergedAccountDetailsPage, host);
         Route<AliasManagementPageViewController>(registry, WinoPage.AliasManagementPage, host);
         Route<MailCategoryManagementPageViewController>(registry, WinoPage.MailCategoryManagementPage, host);
         Route<SignatureManagementPageViewController>(registry, WinoPage.SignatureManagementPage, host);
@@ -68,6 +68,7 @@ public static class SettingsPageRoutes
         Route<CalendarAccountSettingsPageViewController>(registry, WinoPage.CalendarAccountSettingsPage, host);
         Route<WinoAccountManagementPageViewController>(registry, WinoPage.WinoAccountManagementPage, host);
         Route<WinoIntelligencePageViewController>(registry, WinoPage.WinoIntelligencePage, host);
+        Route<MailClassificationPageViewController>(registry, WinoPage.MailClassificationPage, host);
         Route<WinoIntelligenceManagementPageViewController>(registry, WinoPage.WinoIntelligenceManagementPage, host);
         Route<IntelligenceCoveragePageViewController>(registry, WinoPage.IntelligenceCoveragePage, host);
     }

@@ -10,8 +10,8 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS.Views.Shell;
 
 /// <summary>
-/// The unified window toolbar: sidebar toggle, synchronization (navigational, so it precedes the
-/// title), the window title and subtitle (native), the mail actions in three groups (reply, file,
+/// The unified window toolbar: sidebar toggle and synchronization over the pane, then, past the separator
+/// that tracks the pane divider, the title and subtitle, the mail actions in three groups (reply, file,
 /// mark) while a mail page is current, then the search field, Daily briefing, What's New and the
 /// Wino account at the trailing edge. The Message menu runs the same commands. Every glyph comes
 /// from the WinoIcons font.
@@ -20,6 +20,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
 {
     private const string ToggleSidebarId = "wino.toggleSidebar";
     private const string SyncId = "wino.sync";
+    private const string SidebarSeparatorId = "wino.sidebarSeparator";
+    private const string TitleId = "wino.title";
     private const string SearchId = "wino.search";
     private const string BriefingId = "wino.briefing";
     private const string WhatsNewId = "wino.whatsNew";
@@ -99,6 +101,36 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         _error = error;
     }
 
+    private readonly NSTextField _title = WinoStyle.Label("Wino Mail", NSFont.BoldSystemFontOfSize(13), WinoStyle.PrimaryText);
+    private readonly NSTextField _subtitle = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(11), WinoStyle.SecondaryText);
+
+    /// <summary>The window title and subtitle shown over the content (folder and account in Mail, the mode title elsewhere).</summary>
+    public void SetTitle(string title, string subtitle)
+    {
+        _title.StringValue = title;
+        _subtitle.StringValue = subtitle;
+        _subtitle.Hidden = string.IsNullOrWhiteSpace(subtitle);
+    }
+
+    private NSToolbarItem CreateTitleItem()
+    {
+        foreach (var label in new[] { _title, _subtitle })
+        {
+            label.LineBreakMode = NSLineBreakMode.TruncatingTail;
+            label.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        }
+        var stack = WinoLayout.VStack(0, _title, _subtitle);
+        stack.DetachesHiddenViews = true;
+        stack.EdgeInsets = new NSEdgeInsets(0, 6, 0, 6);
+        stack.WidthAnchor.ConstraintLessThanOrEqualTo(360).Active = true;
+        var item = new NSToolbarItem(TitleId) { View = stack, Label = string.Empty, PaletteLabel = "Title", Bordered = false };
+        // Unbordered: macOS 26 otherwise draws a glass capsule behind the text, unlike the native window title.
+        return item;
+    }
+
+    /// <summary>The shell split view whose first divider (pane | content) the title separator tracks. Set before <see cref="CreateToolbar"/>.</summary>
+    public NSSplitView? SidebarSplitView { get; set; }
+
     public NSToolbar CreateToolbar()
     {
         var toolbar = new NSToolbar("WinoShellToolbar")
@@ -118,6 +150,11 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         // Adjacent buttons share one glass capsule; the space gives sync a capsule of its own.
         NSToolbar.NSToolbarSpaceItemIdentifier,
         SyncId,
+        // Follows the pane divider, so the title and subtitle start over the content instead of being
+        // squeezed into the pane's width beside the sidebar toggle and sync. AppKit keeps its own window
+        // title before the separator, so the shell draws the title as an item and hides the native one.
+        SidebarSeparatorId,
+        TitleId,
         NSToolbar.NSToolbarFlexibleSpaceItemIdentifier
     ];
 
@@ -224,29 +261,32 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private static string CommandId(ShellCommand command) => CommandIdPrefix + command;
 
     /// <summary>
-    /// Applies the reader action layout (Settings › Reader & Composer › Reader actions): each group keeps
-    /// its members in the configured order and drops the hidden ones. Move has no layout entry and stays.
+    /// Applies the reader action layout (Settings › Reader & Composer › Reader actions): the visible actions in
+    /// the configured order, as on the Windows reader command bar. Neighbours from the same family (reply, file,
+    /// mark) share a group, so the default order keeps its three groups. Move has no layout entry and follows
+    /// Delete (or Archive) wherever they go.
     /// </summary>
     public void SetCommandLayout(IEnumerable<ReaderCommandLayoutEntry> entries)
     {
-        var order = new Dictionary<ShellCommand, int>();
-        var hidden = new HashSet<ShellCommand>();
-        int position = 0;
+        var ordered = new List<ShellCommand>();
         foreach (var entry in entries)
+            if (entry.IsVisible && ToShellCommand(entry.Action) is { } command && !ordered.Contains(command)) ordered.Add(command);
+        int moveAfter = ordered.IndexOf(ShellCommand.Delete) is >= 0 and var delete ? delete : ordered.IndexOf(ShellCommand.Archive);
+        ordered.Insert(moveAfter >= 0 ? moveAfter + 1 : ordered.Count, ShellCommand.Move);
+
+        var groups = new List<List<ShellCommand>>();
+        foreach (var command in ordered)
         {
-            if (ToShellCommand(entry.Action) is not { } command) continue;
-            order[command] = position++;
-            if (!entry.IsVisible) hidden.Add(command);
+            if (groups.Count == 0 || Family(groups[^1][^1]) != Family(command)) groups.Add([]);
+            groups[^1].Add(command);
         }
-        var groups = CommandGroups
-            .Select(group => group.Where(command => !hidden.Contains(command))
-                .OrderBy(command => order.TryGetValue(command, out var index) ? index : int.MaxValue)
-                .ToArray())
-            .ToArray();
-        if (groups.Select(group => string.Join(',', group)).SequenceEqual(_visibleGroups.Select(group => string.Join(',', group)))) return;
-        _visibleGroups = groups;
+        var visibleGroups = groups.Select(group => group.ToArray()).ToArray();
+        if (visibleGroups.Select(group => string.Join(',', group)).SequenceEqual(_visibleGroups.Select(group => string.Join(',', group)))) return;
+        _visibleGroups = visibleGroups;
         RebuildCommandItems();
     }
+
+    private static int Family(ShellCommand command) => Array.FindIndex(CommandGroups, group => group.Contains(command));
 
     private static ShellCommand? ToShellCommand(ReaderCommandAction action) => action switch
     {
@@ -312,6 +352,10 @@ internal sealed class ShellToolbar : NSToolbarDelegate
                 return toggle;
             case SyncId:
                 return _syncItem = CreateSyncItem();
+            case TitleId:
+                return CreateTitleItem();
+            case SidebarSeparatorId when SidebarSplitView is { } splitView:
+                return NSTrackingSeparatorToolbarItem.GetTrackingSeparatorToolbar(SidebarSeparatorId, splitView, 0);
             case SearchId:
                 return _searchItem = CreateSearchItem();
             case BriefingId:
@@ -362,12 +406,11 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         var title = entry.Title();
         var item = Button(id, entry.Glyph, title, null);
         var button = (NSButton)item.View!;
-        button.Title = title;
         button.Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
         button.Activated += (_, _) => Safe(() => _execute(entry.Command, button));
         _commandItems[entry.Command] = item;
-        ApplyCommandLabel(button);
         ApplyCommandState(entry.Command, item);
+        ApplyCommandLabel(button, item);
         return item;
     }
 
@@ -379,9 +422,10 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     /// </summary>
     private void ApplyStableWidth(NSButton button)
     {
+        if (_stableWidths.Remove(button, out var previous)) previous.Active = false;
+        if (!_showsCommandLabels) return;
         var command = _commandItems.FirstOrDefault(pair => ReferenceEquals(pair.Value.View, button)).Key;
         if (ToggledAppearance(command, false) is not var (offGlyph, offTitle) || ToggledAppearance(command, true) is not var (onGlyph, onTitle)) return;
-        if (_stableWidths.Remove(button, out var previous)) previous.Active = false;
         var (title, image) = (button.Title, button.Image);
         nfloat width = 0;
         foreach (var (glyph, text) in new[] { (offGlyph, offTitle), (onGlyph, onTitle) })
@@ -403,11 +447,16 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         if (_showsCommandLabels == visible) return;
         _showsCommandLabels = visible;
         foreach (var item in _commandItems.Values)
-            if (item.View is NSButton button) ApplyCommandLabel(button);
+            if (item.View is NSButton button) ApplyCommandLabel(button, item);
     }
 
-    private void ApplyCommandLabel(NSButton button)
+    /// <summary>
+    /// Without labels the button carries no title at all: an image-only button that kept its title (and the
+    /// wider stable width measured with it) drew "Flag" and "Mark as unread" across their glyphs.
+    /// </summary>
+    private void ApplyCommandLabel(NSButton button, NSToolbarItem item)
     {
+        button.Title = _showsCommandLabels ? item.Label : string.Empty;
         button.ImagePosition = _showsCommandLabels ? NSCellImagePosition.ImageLeading : NSCellImagePosition.ImageOnly;
         ApplyStableWidth(button);
     }
@@ -419,7 +468,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         button.Enabled = _canExecute(command);
         if (ToggledAppearance(command, _isActive(command)) is not var (glyph, title) || item.Label == title) return;
         button.Image = WinoIcons.Image(glyph, 17, null, title);
-        button.Title = title;
+        if (_showsCommandLabels) button.Title = title;
         button.ToolTip = title;
         WinoAccessibility.Label(button, title);
         item.Label = title;

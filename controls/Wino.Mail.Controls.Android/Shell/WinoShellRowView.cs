@@ -43,7 +43,11 @@ public class WinoShellRowView : FrameLayout
     private WinoShellRowKind _kind = WinoShellRowKind.Folder;
     private bool _isRowSelected;
     private bool _showsIndicator;
+    private bool _isActiveAccount;
+    private bool _isGroup;
+    private Color? _groupTint;
     private bool _isCompact;
+    private Typeface? _titleTypeface;
     private bool? _appliedCompact;
 
     public WinoShellRowView(Context context) : base(context) => Initialize(context);
@@ -137,6 +141,33 @@ public class WinoShellRowView : FrameLayout
     }
 
     /// <summary>
+    /// An account group or a combined group (Windows AccountGroupTemplate): the group glyph and a semibold name, both in
+    /// <paramref name="tint"/> when the group has a colour, and the chevron. Tapping the row expands or collapses it, so the
+    /// row itself announces the state.
+    /// </summary>
+    public void ConfigureGroup(WinoIconGlyph glyph, string title, int unreadCount, bool? isExpanded, Color? tint, string? accessibilityName = null)
+    {
+        Reset(WinoShellRowKind.Folder);
+        _isGroup = true;
+        _groupTint = tint;
+        var p = P;
+        p.Glyph.Visibility = ViewStates.Visible;
+        p.Glyph.Icon = glyph;
+        p.Glyph.Colorful = tint is null ? null : false;
+        p.Title.Text = title;
+        p.Pill.IsSubtle = true;
+        p.Pill.Count = unreadCount;
+        p.Disclosure.Visibility = isExpanded is null ? ViewStates.Gone : ViewStates.Visible;
+        p.Disclosure.Icon = isExpanded == true ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
+        p.Disclosure.ImportantForAccessibility = ImportantForAccessibility.No;
+        string name = string.IsNullOrWhiteSpace(accessibilityName) ? title : accessibilityName;
+        ContentDescription = unreadCount > 0 ? $"{name}, {unreadCount}" : name;
+        AndroidX.Core.View.ViewCompat.SetStateDescription(this, isExpanded is null ? null
+            : isExpanded == true ? Wino.Core.Domain.Translator.Accessibility_MailThreadExpanded : Wino.Core.Domain.Translator.Accessibility_MailThreadCollapsed);
+        Apply();
+    }
+
+    /// <summary>
     /// A longer label (account attention rows): the title wraps to <paramref name="titleLines"/> lines and
     /// <paramref name="supporting"/> shows under it, so an action such as "Select here to fix it" is never cut off.
     /// Call after a Configure method; the next Configure resets it.
@@ -184,6 +215,13 @@ public class WinoShellRowView : FrameLayout
         set { _isCompact = value; Apply(); }
     }
 
+    /// <summary>The account in use (its folder or the account itself is selected): the name is semibold in the accent colour.</summary>
+    public bool IsActiveAccount
+    {
+        get => _isActiveAccount;
+        set { _isActiveAccount = value; Apply(); }
+    }
+
     /// <summary>A short accent indicator without the fill (the active account).</summary>
     public bool ShowsIndicator
     {
@@ -194,7 +232,11 @@ public class WinoShellRowView : FrameLayout
     private void Reset(WinoShellRowKind kind)
     {
         _kind = kind;
+        _isGroup = false;
+        _groupTint = null;
         var p = P;
+        p.Disclosure.ImportantForAccessibility = ImportantForAccessibility.Auto;
+        AndroidX.Core.View.ViewCompat.SetStateDescription(this, (string?)null);
         p.Glyph.Visibility = ViewStates.Gone;
         p.Account.Visibility = ViewStates.Gone;
         p.Subtitle.Visibility = ViewStates.Gone;
@@ -240,14 +282,22 @@ public class WinoShellRowView : FrameLayout
         Clickable = !header;
         Focusable = !header;
         var content = newItem ? WinoColors.OnPrimaryContainer(context) : _isRowSelected ? WinoColors.PrimaryText(context) : WinoColors.SecondaryText(context);
-        p.Title.SetTextColor(content);
-        p.Glyph.SetTextColor(content);
+        bool activeAccount = _isActiveAccount && _kind == WinoShellRowKind.Account;
+        p.Title.SetTextColor(_isGroup ? _groupTint ?? WinoColors.PrimaryText(context) : activeAccount ? WinoColors.AccentText(context) : content);
+        _titleTypeface ??= p.Title.Typeface;
+        p.Title.Typeface = activeAccount || _isGroup ? SemiboldTypeface(_titleTypeface) : _titleTypeface;
+        p.Glyph.SetTextColor(_isGroup ? _groupTint ?? WinoColors.PrimaryText(context) : content);
         p.Disclosure.SetTextColor(WinoColors.SecondaryText(context));
         _fill.SetColor(newItem ? WinoColors.PrimaryContainer(context) : _isRowSelected ? WinoColors.SecondaryContainer(context) : Color.Transparent);
         _pipe.SetColor(WinoColors.Accent(context));
         p.Pipe.Visibility = !newItem && !_isRowSelected && _showsIndicator ? ViewStates.Visible : ViewStates.Gone;
         AndroidX.Core.View.ViewCompat.SetAccessibilityHeading(this, header);
     }
+
+    private static Typeface? SemiboldTypeface(Typeface? regular)
+        => OperatingSystem.IsAndroidVersionAtLeast(28)
+            ? Typeface.Create(regular ?? Typeface.Default, 600, false)
+            : Typeface.Create(regular ?? Typeface.Default, TypefaceStyle.Bold);
 
     protected override void OnAttachedToWindow()
     {

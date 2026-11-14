@@ -75,6 +75,7 @@ public sealed partial class AppDelegate
 
     private async Task NewMailFromDockAsync()
     {
+        if (!await EnsureAccountsOrShowWelcomeAsync()) return;
         var navigation = _services!.GetRequiredService<AppKitNavigationService>();
         if (!await navigation.EnsureShellAsync(WinoApplicationMode.Mail)) return;
         await _dispatcher.ExecuteOnUIThread(() => navigation.Shell?.NewItem());
@@ -82,6 +83,7 @@ public sealed partial class AppDelegate
 
     private async Task NewEventFromDockAsync()
     {
+        if (!await EnsureAccountsOrShowWelcomeAsync()) return;
         var navigation = _services!.GetRequiredService<AppKitNavigationService>();
         if (!await navigation.EnsureShellAsync(WinoApplicationMode.Calendar)) return;
         var calendar = _services!.GetRequiredService<CalendarAppShellViewModel>();
@@ -91,7 +93,10 @@ public sealed partial class AppDelegate
     }
 
     /// <summary>Opens a quick folder through the mail shell's folder launch request.</summary>
-    private Task OpenFolderFromDockAsync(AppleQuickFolderEntry entry)
-        => _services!.GetRequiredService<AppKitNavigationService>()
+    private async Task OpenFolderFromDockAsync(AppleQuickFolderEntry entry)
+    {
+        if (!await EnsureAccountsOrShowWelcomeAsync()) return;
+        await _services!.GetRequiredService<AppKitNavigationService>()
             .EnsureShellAsync(WinoApplicationMode.Mail, new MailFolderLaunchRequest(entry.AccountId, entry.FolderId));
+    }
 }

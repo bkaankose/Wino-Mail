@@ -35,7 +35,7 @@ internal sealed class WinoRichTextEditorView : UIView
         _error = error;
 
         // ---- Editor (the composer's WKWebView editor session) ----
-        _webView = new WKWebView(CGRect.Empty, new WKWebViewConfiguration())
+        _webView = new WKWebView(CGRect.Empty, WebKitMailConfiguration.Create())
         {
             Opaque = false,
             BackgroundColor = UIColor.Clear,
@@ -46,6 +46,7 @@ internal sealed class WinoRichTextEditorView : UIView
         _editor = new WebKitHtmlMailEditorSession(_webView);
         if (launcher is not null) _editor.Configure(launcher);
         _editor.OperationFailed += (_, exception) => _error?.Invoke(exception);
+        _editor.Restarted += EditorRestarted;
         _editor.StateChanged += (_, state) => OnMain(() => ApplyState(state));
         _editor.ShortcutRequested += (_, kind) => { if (kind == EditorShortcutKind.OpenLinkDialog) OnMain(ShowLinkDialog); };
 
@@ -155,6 +156,7 @@ internal sealed class WinoRichTextEditorView : UIView
                 await _editor.ExecuteCommandAsync(EditorCommand.SetSpellCheckLanguage(_preferences.ComposerSpellCheckLanguageCode));
             await _editor.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(_preferences.IsComposerAutoCorrectEnabled));
         }
+        _renderedHtml = html ?? string.Empty;
         await _editor.RenderHtmlAsync(html ?? string.Empty);
         OnMain(() =>
         {
@@ -167,7 +169,20 @@ internal sealed class WinoRichTextEditorView : UIView
     }
 
     /// <summary>The editor body. Deterministic: an unchanged document returns the same string every time.</summary>
-    public Task<string?> GetHtmlBodyAsync() => _editor.GetHtmlBodyAsync();
+    public async Task<string?> GetHtmlBodyAsync()
+    {
+        try { return await _editor.GetHtmlBodyAsync(); }
+        catch (InvalidOperationException) when (_editor.IsContentLost) { return _renderedHtml; }
+    }
+
+    private string _renderedHtml = string.Empty;
+
+    private async void EditorRestarted(object? sender, EventArgs e)
+    {
+        if (_disposed) return;
+        try { await _editor.RenderHtmlAsync(_renderedHtml); }
+        catch (Exception exception) { _error?.Invoke(exception); }
+    }
 
     /// <summary>Moves keyboard focus into the editor.</summary>
     public Task FocusAsync() => _disposed ? Task.CompletedTask : _editor.FocusEditorAsync(true);

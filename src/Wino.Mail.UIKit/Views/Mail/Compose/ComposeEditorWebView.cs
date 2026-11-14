@@ -2,6 +2,7 @@ using CoreGraphics;
 using ObjCRuntime;
 using UIKit;
 using WebKit;
+using Wino.Editor.WebKit;
 
 namespace Wino.Mail.UIKit.Views.Mail.Compose;
 
@@ -31,7 +32,11 @@ internal sealed class ComposeEditorWebView : WKWebView
     }
 
     private static WKWebViewConfiguration CreateConfiguration()
-        => new() { DataDetectorTypes = WKDataDetectorTypes.None };
+    {
+        var configuration = WebKitMailConfiguration.Create();
+        configuration.DataDetectorTypes = WKDataDetectorTypes.None;
+        return configuration;
+    }
 
     /// <summary>The view shown above the keyboard while the body is being edited; null shows none.</summary>
     public UIView? Accessory

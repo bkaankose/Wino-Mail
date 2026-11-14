@@ -24,6 +24,9 @@ public sealed class WinoVersionTab : WinoPressableView
         var row = WinoLayout.HStack(6, _star, _label);
         row.EdgeInsets = new NSEdgeInsets(0, 12, 0, 12);
         WinoLayout.Fill(row, this);
+        // The pill has no intrinsic size of its own; the row's hugging keeps it at its text width so a
+        // stretched selector bar never widens one pill when the selected pill's font changes.
+        row.SetHuggingPriority(750, NSLayoutConstraintOrientation.Horizontal);
         SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         AccessibilityLabel = version;
         // One of a growing list of releases, so a pill row rather than a fixed NSSegmentedControl;

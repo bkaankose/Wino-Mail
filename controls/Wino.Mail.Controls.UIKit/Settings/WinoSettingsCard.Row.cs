@@ -17,6 +17,7 @@ public partial class WinoSettingsCard
     private static readonly ConditionalWeakTable<UIView, WeakReference<WinoSettingsCard>> ValueOwners = new();
 
     private bool _listMode;
+    private UIColor? _headerTint;
     private UIStackView? _rowText;
     private UIStackView? _rowTrailing;
     private UILabel? _rowValue;
@@ -206,7 +207,7 @@ public partial class WinoSettingsCard
         UIView? trailing = null;
         var showValue = false;
         var showChevron = false;
-        _header.TextColor = WinoStyle.PrimaryText;
+        _header.TextColor = _headerTint ?? WinoStyle.PrimaryText;
         var title = _header.Text;
 
         if (_isExpanderHeader)
@@ -376,6 +377,18 @@ public partial class WinoSettingsCard
         if (_bottomContent is not null) SettingsBinder.SetControlsEnabled(_bottomContent, _isEnabled);
         ApplyListAppearance();
         EnabledChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>The title colour (an account group's colour); null for the primary text colour. Action rows keep their own.</summary>
+    public UIColor? HeaderTint
+    {
+        get => _headerTint;
+        set
+        {
+            _headerTint = value;
+            _header.TextColor = value ?? WinoStyle.PrimaryText;
+            if (_listMode) ApplyListAppearance();
+        }
     }
 
     private void ApplyListAppearance()

@@ -115,7 +115,7 @@ public static class MailRowPresentation
         => Leaves(row).Any(static leaf => leaf.HasCategories || leaf.HasRowIntelligenceTiles);
 
     /// <summary>The row's text and aggregated state; null when the row does not stand for a mail item.</summary>
-    public static MailRowContent? Describe(MailListRow row, TimeFormatPreference timeFormat = TimeFormatPreference.UseLanguageCulture)
+    public static MailRowContent? Describe(MailListRow row, TimeFormatPreference timeFormat = TimeFormatPreference.UseLanguageCulture, bool alwaysShowSenderAddress = false)
     {
         ArgumentNullException.ThrowIfNull(row);
         if (row.SourceItem is not MailItemViewModel item) return null;
@@ -140,7 +140,9 @@ public static class MailRowPresentation
 
         return new MailRowContent(
             Kind(row.Kind),
-            party.IsDraft && string.IsNullOrWhiteSpace(party.FromName) ? Translator.Draft : sender,
+            party.IsDraft && string.IsNullOrWhiteSpace(party.FromName)
+                ? Translator.Draft
+                : string.IsNullOrWhiteSpace(party.FromName) ? sender : SenderDisplayName(party.FromName, party.FromAddress, alwaysShowSenderAddress),
             party.FromAddress ?? string.Empty,
             SubjectForListing(item.Subject),
             item.PreviewText ?? string.Empty,
@@ -157,6 +159,20 @@ public static class MailRowPresentation
             item.AccountColorHex,
             item.AccountNickname,
             string.Join(", ", accessible.Where(static part => !string.IsNullOrWhiteSpace(part))));
+    }
+
+    /// <summary>Windows XamlHelpers.GetSenderDisplayName: "Name &lt;address&gt;" when the privacy setting asks for it.</summary>
+    public static string SenderDisplayName(string? fromName, string? fromAddress, bool alwaysShowSenderAddress)
+    {
+        if (!alwaysShowSenderAddress ||
+            string.IsNullOrWhiteSpace(fromName) ||
+            string.IsNullOrWhiteSpace(fromAddress) ||
+            string.Equals(fromName.Trim(), fromAddress.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return fromName ?? string.Empty;
+        }
+
+        return $"{fromName} <{fromAddress}>";
     }
 
     /// <summary>The list subject, "(No subject)" when empty (Windows GetMailItemSubjectForListing).</summary>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Every build except the DMG script's (which passes WinoVersionPlist), merged after Sparkle.plist. The DMGs on the
+     production feed carry a yyDDDHHMM build number, far above the plain version (2.2.11) that local Debug and Release
+     builds use as CFBundleVersion, so the production feed would offer to replace every local build with the published
+     DMG, even an older one. Local builds read a local test feed instead; see Wino.Core.Apple.Bindings/README.md. -->
+<plist version="1.0"><dict>
+  <key>SUFeedURL</key><string>http://127.0.0.1:8089/appcast.xml</string>
+</dict></plist>

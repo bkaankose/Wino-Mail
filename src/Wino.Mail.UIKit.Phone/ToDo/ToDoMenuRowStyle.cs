@@ -6,6 +6,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.UIKit.Shell;
 using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.ViewModels;
+using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Phone.ToDo;
 
@@ -50,7 +51,8 @@ internal sealed class ToDoMenuRowStyle : IModeMenuRowStyle
                 cell.ConfigureFolder(WinoIconGlyph.Person, account.AccountName ?? string.Empty, 0, indent);
                 break;
             case AccountGroupMenuItem accountGroup:
-                cell.ConfigureFolder(accountGroup.IconGlyph, accountGroup.Name, 0, indent, hasChildren ? accountGroup.IsExpanded : null);
+                cell.ConfigureGroup(accountGroup.IconGlyph, accountGroup.Name, accountGroup.IsUnreadCountVisible ? accountGroup.UnreadItemCount : 0,
+                    hasChildren ? accountGroup.IsExpanded : null, WinoStyle.AccountGroupColor(accountGroup.ColorKey), accountGroup.AutomationName);
                 break;
             case AccountTaskListGroupMenuItem group:
                 cell.ConfigureFolder(WinoIconGlyph.PanelLeft, group.Title ?? string.Empty, 0, indent, hasChildren ? group.IsExpanded : null);

@@ -62,6 +62,7 @@ public sealed class WinoShellRowCell : UITableViewCell
     private bool _showsIndicator;
     private bool _highlightable = true;
     private bool _isDropTarget;
+    private bool _isGroup;
 
     public WinoShellRowCell() : this(UITableViewCellStyle.Default, new NSString(ReuseIdentifier)) { }
 
@@ -186,6 +187,33 @@ public sealed class WinoShellRowCell : UITableViewCell
         AccessibilityValue = unreadCount > 0 ? _pill.AccessibilityLabel : null;
     }
 
+    /// <summary>
+    /// An account group row: the group's glyph and semibold name in its colour (<paramref name="tint"/>, null for the
+    /// default text colour), the unread pill and the expansion chevron. Tapping it expands or collapses the group.
+    /// </summary>
+    public void ConfigureGroup(WinoIconGlyph glyph, string title, int unreadCount, bool? isExpanded, UIColor? tint, string? accessibilityLabel = null)
+    {
+        Reset(WinoShellRowKind.Folder);
+        _isGroup = true;
+        _glyph.Icon = glyph;
+        _glyph.Colorful = tint is null ? null : false;
+        _glyph.Tint = tint;
+        _title.Text = title;
+        _title.Font = WinoStyle.BodyStrong;
+        _title.TextColor = tint ?? WinoStyle.PrimaryText;
+        _pill.Count = unreadCount;
+        _disclosure.Hidden = isExpanded is null;
+        if (isExpanded is { } expanded) _disclosure.Icon = expanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
+        AccessibilityLabel = string.IsNullOrEmpty(accessibilityLabel) ? title : accessibilityLabel;
+        var state = isExpanded switch
+        {
+            true => Wino.Core.Domain.Translator.Accessibility_MailThreadExpanded,
+            false => Wino.Core.Domain.Translator.Accessibility_MailThreadCollapsed,
+            null => null
+        };
+        AccessibilityValue = string.Join(", ", new[] { state, unreadCount > 0 ? _pill.AccessibilityLabel : null }.Where(static part => !string.IsNullOrEmpty(part)));
+    }
+
     /// <summary>A section caption.</summary>
     public void ConfigureHeader(string title)
     {
@@ -199,16 +227,17 @@ public sealed class WinoShellRowCell : UITableViewCell
         AccessibilityTraits = UIAccessibilityTrait.Header;
     }
 
-    /// <summary>The account sync bar; hidden unless the account synchronizes. <paramref name="value"/> is 0 to 100.</summary>
+    /// <summary>The account or group sync bar; hidden unless it synchronizes. <paramref name="value"/> is 0 to 100.</summary>
     public void SetSync(bool visible, bool indeterminate = true, double value = 0)
     {
-        _syncBar.Hidden = !visible || _kind != WinoShellRowKind.Account;
+        _syncBar.Hidden = !visible || !(_kind == WinoShellRowKind.Account || _isGroup);
         if (!_syncBar.Hidden) _syncBar.Update(indeterminate, value);
     }
 
     private void Reset(WinoShellRowKind kind)
     {
         _kind = kind;
+        _isGroup = false;
         _newItemSurface.Hidden = true;
         _glyph.Hidden = false;
         _glyph.Tint = null;

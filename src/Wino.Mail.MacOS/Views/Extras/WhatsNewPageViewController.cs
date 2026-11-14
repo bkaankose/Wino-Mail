@@ -41,7 +41,7 @@ public sealed class WhatsNewPageViewController(WhatsNewPageViewModel viewModel, 
         var titleRow = WinoLayout.HStack(10, icon, header);
         titleRow.HeightAnchor.ConstraintEqualTo(40).Active = true;
 
-        _versions = WinoLayout.HStack(4);
+        _versions = WinoLayout.HStack(4, WinoLayout.Spacer());
         WinoAccessibility.Label(_versions, Translator.WhatsNew_VersionSelectorAutomationName);
 
         // Feature list: 260pt, rows 4pt apart, scrolls when a release has many entries.
@@ -117,6 +117,7 @@ public sealed class WhatsNewPageViewController(WhatsNewPageViewModel viewModel, 
         page.EdgeInsets = new NSEdgeInsets(8, 24, 24, 24);
         _columns.LeadingAnchor.ConstraintEqualTo(page.LeadingAnchor, 24).Active = true;
         _columns.TrailingAnchor.ConstraintEqualTo(page.TrailingAnchor, -24).Active = true;
+        _versions.TrailingAnchor.ConstraintEqualTo(page.TrailingAnchor, -24).Active = true;
         WinoLayout.Fill(page, zone.ContentView);
 
         _empty = WinoStyle.Label(Translator.WhatsNew_EmptyMessage, WinoStyle.Body, WinoStyle.SecondaryText, 0);
@@ -142,6 +143,16 @@ public sealed class WhatsNewPageViewController(WhatsNewPageViewModel viewModel, 
         {
             foreach (var (item, tab) in _tabs) tab.IsSelected = ReferenceEquals(item, release);
         }, Dispatcher, ReportError));
+#if DEBUG
+        // "whatsnew-select VERSION" selects a release, as a click on its tab does.
+        MacDebugBridge.Register("whatsnew-select", args =>
+        {
+            var release = ViewModel.Releases.FirstOrDefault(item => item.Version == args[0]);
+            if (release is null) return Task.FromResult("no release " + args[0]);
+            ViewModel.SelectedRelease = release;
+            return Task.FromResult("ok");
+        });
+#endif
         Bindings.Own(new PropertyBinding<WhatsNewPageViewModel, IReadOnlyList<WhatsNewFeature>>(ViewModel, nameof(ViewModel.Features), vm => vm.Features, RebuildFeatures, Dispatcher, ReportError));
         Bindings.Own(new PropertyBinding<WhatsNewPageViewModel, WhatsNewFeature?>(ViewModel, nameof(ViewModel.SelectedFeature), vm => vm.SelectedFeature, ShowFeature, Dispatcher, ReportError));
     }
@@ -159,7 +170,7 @@ public sealed class WhatsNewPageViewController(WhatsNewPageViewModel viewModel, 
             };
             tab.Clicked += (_, _) => ViewModel.SelectedRelease = release;
             _tabs[release] = tab;
-            _versions.AddArrangedSubview(tab);
+            _versions.InsertArrangedSubview(tab, (nint)(_tabs.Count - 1));
         }
     }
 

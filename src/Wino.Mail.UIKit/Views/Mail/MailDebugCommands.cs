@@ -39,6 +39,68 @@ internal sealed class MailDebugCommands(IServiceProvider services) : IApplicatio
 
     public Task StoppingAsync(bool runtimeStarted) => Task.CompletedTask;
 
+    /// <summary>Another local demo account (Inbox and Sent, two task lists) for account group checks.</summary>
+    private async Task<string> SeedExtraAccountAsync(string name)
+    {
+        var accounts = services.GetRequiredService<IAccountService>();
+        var address = $"{name.ToLowerInvariant()}@example.com";
+        if ((await accounts.GetAccountsAsync()).Any(account => account.Address == address)) return "exists " + address;
+        var account = new Wino.Core.Domain.Entities.Shared.MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            SenderName = name,
+            Address = address,
+            ProviderType = Wino.Core.Domain.Enums.MailProviderType.IMAP4,
+            AttentionReason = Wino.Core.Domain.Enums.AccountAttentionReason.None,
+            IsMailAccessGranted = true
+        };
+        // Placeholder test credentials for a closed loopback port, as the seedmail account uses.
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            DisplayName = name,
+            Address = address,
+            IncomingServer = "127.0.0.1",
+            IncomingServerPort = "1",
+            IncomingServerUsername = address,
+            IncomingServerPassword = "demo",
+            OutgoingServer = "127.0.0.1",
+            OutgoingServerPort = "1",
+            OutgoingServerUsername = address,
+            OutgoingServerPassword = "demo",
+            IncomingServerType = Wino.Core.Domain.Enums.CustomIncomingServerType.IMAP4,
+            MaxConcurrentClients = 1
+        };
+        await accounts.CreateAccountAsync(account, server);
+        await accounts.CreateRootAliasAsync(account.Id, address);
+        var folders = services.GetRequiredService<IFolderService>();
+        await folders.InsertFolderAsync(new Wino.Core.Domain.Entities.Mail.MailItemFolder
+        {
+            Id = Guid.NewGuid(), MailAccountId = account.Id, RemoteFolderId = "INBOX", FolderName = "Inbox",
+            SpecialFolderType = Wino.Core.Domain.Enums.SpecialFolderType.Inbox, IsSynchronizationEnabled = true, IsSticky = true, Order = 1
+        });
+        await folders.InsertFolderAsync(new Wino.Core.Domain.Entities.Mail.MailItemFolder
+        {
+            Id = Guid.NewGuid(), MailAccountId = account.Id, RemoteFolderId = "Sent", FolderName = "Sent",
+            SpecialFolderType = Wino.Core.Domain.Enums.SpecialFolderType.Sent, IsSynchronizationEnabled = true, IsSticky = true, Order = 2
+        });
+        var tasks = await Wino.Mail.ViewModels.Diagnostics.ModeDebugSeed.SeedTasksAsync(services, address);
+        return $"seeded {address}; {tasks}";
+    }
+
+    /// <summary>The saved account layout: groups with their settings and accounts in order, then the account order.</summary>
+    private async Task<string> GroupsInfoAsync()
+    {
+        var accounts = services.GetRequiredService<IAccountService>();
+        var all = await accounts.GetAccountsAsync();
+        var groups = await accounts.GetAccountGroupsAsync();
+        var layout = Wino.Core.Domain.Models.Accounts.AccountLayoutBuilder.Build(all, groups);
+        return string.Join(" | ", layout.Select(entry => entry.Group is { } group
+            ? $"[{group.Name} color={group.ColorKey} icon={group.Icon} combine={group.CombineFolders} collapsed={group.IsCollapsed}: {string.Join(", ", entry.Children.Select(child => child.Name))}]"
+            : entry.Name));
+    }
+
     public Task ServicesReadyAsync()
     {
         UIKitDebugBridge.Register("open-compose", _ => OpenPageAsync<ComposePageViewController>(null, IsPhone ? UIKitPageHost.FullScreenSheet : UIKitPageHost.Sheet, doneButton: false));
@@ -71,6 +133,8 @@ internal sealed class MailDebugCommands(IServiceProvider services) : IApplicatio
             return await host.OpenMailFileAsync(path, await File.ReadAllBytesAsync(path)) ? "ok " + path : "not opened";
         });
         UIKitDebugBridge.Register("seedmail", _ => MailDebugSeed.SeedAsync(services));
+        UIKitDebugBridge.Register("seedaccount", args => SeedExtraAccountAsync(args.Length > 0 ? args[0] : "Work"));
+        UIKitDebugBridge.Register("groupsinfo", _ => GroupsInfoAsync());
         UIKitDebugBridge.Register("whatsnew", async _ =>
         {
             await services.GetRequiredService<IUIKitWhatsNewPresenter>().ShowAsync();

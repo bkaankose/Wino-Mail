@@ -31,11 +31,20 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 {
     private readonly SemaphoreSlim _presentations = new(1, 1);
 
+    /// <summary>
+    /// The window a new sheet hangs from: the key window, or the deepest sheet already attached to it.
+    /// A sheet begun on a window that already shows one is queued by AppKit until the first closes, so
+    /// a panel opened from a sheet (the event editor's Add attachment) never appeared and held the
+    /// presentation gate for good.
+    /// </summary>
     private NSWindow ResolveOwner()
     {
         var key = NSApplication.SharedApplication.KeyWindow;
-        if (key is { IsVisible: true, IsSheet: false } && key.AttachedSheet is null) return key;
-        return owner() ?? NSApplication.SharedApplication.MainWindow ?? throw new InvalidOperationException("No owning window is available.");
+        var window = key is { IsVisible: true } && key.StyleMask.HasFlag(NSWindowStyle.Titled)
+            ? key
+            : owner() ?? NSApplication.SharedApplication.MainWindow ?? throw new InvalidOperationException("No owning window is available.");
+        while (window.AttachedSheet is { } sheet) window = sheet;
+        return window;
     }
 
     private async Task<T> PresentAsync<T>(Func<NSWindow, Task<T>> present)
@@ -359,7 +368,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     });
 
     private sealed class PickerSource<T>(IReadOnlyList<T> roots, Func<T, IEnumerable<T>> children, Func<T, string> text,
-        Func<T, NSImage?> symbol, Func<T, NSColor?> tint, Func<T, bool> selectable) : NSOutlineViewDataSource, INSOutlineViewDelegate where T : class
+        Func<T, NSImage?> symbol, Func<T, NSColor?> tint, Func<T, bool> selectable, Func<T, bool>? header = null) : NSOutlineViewDataSource, INSOutlineViewDelegate where T : class
     {
         private readonly Dictionary<T, Box> _boxes = new(ReferenceEqualityComparer.Instance);
         public string Filter { get; set; } = string.Empty;
@@ -379,7 +388,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         {
             if (!string.IsNullOrWhiteSpace(Filter))
                 return parent is null
-                    ? Flatten(roots).Where(item => text(item).Contains(Filter, StringComparison.CurrentCultureIgnoreCase)).ToList()
+                    ? Flatten(roots).Where(item => header?.Invoke(item) != true && text(item).Contains(Filter, StringComparison.CurrentCultureIgnoreCase)).ToList()
                     : Array.Empty<T>();
             return parent is Box box ? children(box.Item).ToList() : roots.ToList();
         }
@@ -389,6 +398,20 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         public override nint GetChildrenCount(NSOutlineView outlineView, NSObject? item) => Items(item).Count;
         public override NSObject GetChild(NSOutlineView outlineView, nint childIndex, NSObject? item) => BoxFor(Items(item)[(int)childIndex]);
         public override bool ItemExpandable(NSOutlineView outlineView, NSObject item) => Items(item).Count > 0;
+
+        private bool IsHeader(NSObject? item) => header is not null && item is Box box && header(box.Item);
+
+        [Export("outlineView:isGroupItem:")]
+        public bool IsGroupItem(NSOutlineView outlineView, NSObject item) => IsHeader(item);
+
+        [Export("outlineView:shouldSelectItem:")]
+        public bool ShouldSelectItem(NSOutlineView outlineView, NSObject item) => !IsHeader(item);
+
+        [Export("outlineView:shouldCollapseItem:")]
+        public bool ShouldCollapseItem(NSOutlineView outlineView, NSObject item) => !IsHeader(item);
+
+        [Export("outlineView:shouldShowOutlineCellForItem:")]
+        public bool ShouldShowOutlineCell(NSOutlineView outlineView, NSObject item) => !IsHeader(item);
 
         [Export("outlineView:viewForTableColumn:item:")]
         public NSView GetView(NSOutlineView outlineView, NSTableColumn? tableColumn, NSObject item)
@@ -405,10 +428,13 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
                 WinoLayout.Size(image, 16, 16);
                 WinoLayout.Fill(WinoLayout.HStack(6, image, label), cell, 0, 2, 0, 4);
             }
+            var isHeader = header?.Invoke(value) == true;
             cell.TextField!.StringValue = text(value);
-            cell.TextField.TextColor = selectable(value) ? WinoStyle.PrimaryText : WinoStyle.TertiaryText;
+            cell.TextField.Font = isHeader ? WinoStyle.CaptionStrong : WinoStyle.Body;
+            cell.TextField.TextColor = isHeader ? WinoStyle.SecondaryText : selectable(value) ? WinoStyle.PrimaryText : WinoStyle.TertiaryText;
             cell.ImageView!.Image = symbol(value);
             cell.ImageView.ContentTintColor = tint(value) ?? WinoStyle.Accent;
+            cell.ImageView.Hidden = isHeader;
             return cell;
         }
 
@@ -441,6 +467,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         var recorder = new ShortcutRecorder();
         var errorLabel = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.Critical, 0);
         errorLabel.Hidden = true;
+        errorLabel.PreferredMaxLayoutWidth = 380;
         List<KeyboardShortcutActionViewModel> actions = [];
 
         void RefreshActions(KeyboardShortcutAction selected)
@@ -464,7 +491,17 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         var cancel = new NSButton { Title = Translator.Buttons_Cancel, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\u001b" };
         var save = new NSButton { Title = Translator.Buttons_Save, BezelStyle = NSBezelStyle.Rounded };
         void Finish(KeyboardShortcutDialogResult result) { if (completion.TrySetResult(result)) window.EndSheet(sheet); }
-        void ShowError(string text) { errorLabel.StringValue = text; errorLabel.Hidden = false; }
+        void ShowError(string text) { errorLabel.StringValue = text; errorLabel.Hidden = false; FitSheetHeight(); }
+        void FitSheetHeight()
+        {
+            sheet.ContentView!.LayoutSubtreeIfNeeded();
+            var height = sheet.ContentView.FittingSize.Height;
+            var frame = sheet.Frame;
+            var content = sheet.ContentRectFor(frame);
+            var delta = height - content.Height;
+            if (Math.Abs(delta) < 0.5) return;
+            sheet.SetFrame(new CGRect(frame.X, frame.Y - delta, frame.Width, frame.Height + delta), true);
+        }
 
         cancel.Activated += (_, _) => Finish(KeyboardShortcutDialogResult.Canceled());
         save.Activated += async (_, _) =>
@@ -504,6 +541,8 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         WinoLayout.Size(recorder, 220, 26);
         WinoLayout.Fill(stack, sheet.ContentView!);
         sheet.InitialFirstResponder = recorder;
+        // The sheet takes its content's height, so the grid rows are never stretched apart.
+        FitSheetHeight();
 
         window.BeginSheet(sheet, _ => { completion.TrySetResult(KeyboardShortcutDialogResult.Canceled()); sheet.Dispose(); });
         return completion.Task;
@@ -592,131 +631,6 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         }
 
         private static string? KeyName(NSEvent theEvent) => ShortcutKeys.KeyName(theEvent);
-    }
-
-    public Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts) => PresentAsync<bool>(window =>
-    {
-        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var sheet = new NSWindow(new CGRect(0, 0, 380, 380), NSWindowStyle.Titled | NSWindowStyle.Resizable, NSBackingStore.Buffered, false);
-        sheet.ReleaseWhenClosed(false);
-        var order = availableAccounts.ToList();
-        var table = new NSTableView { HeaderView = null, RowHeight = 30, Style = NSTableViewStyle.Inset };
-        table.AddColumn(new NSTableColumn("account") { ResizingMask = NSTableColumnResizing.Autoresizing });
-        var source = new ReorderSource(order);
-        table.DataSource = source;
-        table.Delegate = source;
-        table.RegisterForDraggedTypes([ReorderSource.DragType]);
-        table.DraggingDestinationFeedbackStyle = NSTableViewDraggingDestinationFeedbackStyle.FeedbackStyleGap;
-        var scroll = new NSScrollView { DocumentView = table, HasVerticalScroller = true, BorderType = NSBorderType.BezelBorder, TranslatesAutoresizingMaskIntoConstraints = false };
-
-        var up = new NSButton { Image = WinoIcons.Image(WinoIconGlyph.ChevronUp, 12, null, Translator.MailFilters_MoveUp), BezelStyle = NSBezelStyle.Rounded };
-        var down = new NSButton { Image = WinoIcons.Image(WinoIconGlyph.ChevronDown, 12, null, Translator.MailFilters_MoveDown), BezelStyle = NSBezelStyle.Rounded };
-        void Move(int delta)
-        {
-            var row = (int)table.SelectedRow;
-            var target = row + delta;
-            if (row < 0 || target < 0 || target >= order.Count) return;
-            (order[row], order[target]) = (order[target], order[row]);
-            table.ReloadData();
-            table.SelectRow(target, false);
-        }
-        up.Activated += (_, _) => Move(-1);
-        down.Activated += (_, _) => Move(1);
-        source.Reordered = table.ReloadData;
-
-        var cancel = new NSButton { Title = Translator.Buttons_Cancel, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\u001b" };
-        var save = new NSButton { Title = Translator.Buttons_Save, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\r" };
-        cancel.Activated += (_, _) => { completion.TrySetResult(false); window.EndSheet(sheet); };
-        save.Activated += async (_, _) =>
-        {
-            try
-            {
-                if (services?.GetService<IAccountService>() is { } accounts)
-                    await accounts.UpdateAccountOrdersAsync(order.ToDictionary(account => account.StartupEntityId, account => order.IndexOf(account)));
-                // Mirror the new order in the bound collection so the settings page updates in place.
-                for (int index = 0; index < order.Count; index++)
-                {
-                    var current = availableAccounts.IndexOf(order[index]);
-                    if (current >= 0 && current != index) availableAccounts.Move(current, index);
-                }
-                completion.TrySetResult(true);
-                window.EndSheet(sheet);
-            }
-            catch (Exception exception) { error(exception); }
-        };
-
-        var title = WinoStyle.Label(Translator.SettingsReorderAccounts_Title, WinoStyle.Heading);
-        var hint = WinoStyle.Label(Translator.MacOS_ReorderAccounts_Hint, WinoStyle.Description, WinoStyle.SecondaryText, 0);
-        var buttons = WinoLayout.HStack(WinoStyle.Space2, up, down, WinoLayout.Spacer(), cancel, save);
-        var stack = WinoLayout.VStack(WinoStyle.Space3, title, hint, scroll, buttons);
-        stack.EdgeInsets = new NSEdgeInsets(18, 20, 16, 20);
-        foreach (var view in new NSView[] { hint, scroll, buttons }) view.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor, 1, -40).Active = true;
-        scroll.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Vertical);
-        WinoLayout.Fill(stack, sheet.ContentView!);
-
-        window.BeginSheet(sheet, _ =>
-        {
-            completion.TrySetResult(false);
-            table.DataSource = null;
-            table.Delegate = null;
-            source.Dispose();
-            sheet.Dispose();
-        });
-        return completion.Task;
-    });
-
-    private sealed class ReorderSource(List<IAccountProviderDetailViewModel> order) : NSTableViewDataSource, INSTableViewDelegate
-    {
-        public const string DragType = "com.winomail.account-row";
-        public Action? Reordered { get; set; }
-
-        public override nint GetRowCount(NSTableView tableView) => order.Count;
-
-        [Export("tableView:viewForTableColumn:row:")]
-        public NSView GetViewForItem(NSTableView tableView, NSTableColumn? tableColumn, nint row)
-        {
-            var cell = tableView.MakeView("account", this) as NSTableCellView;
-            if (cell is null)
-            {
-                cell = new NSTableCellView { Identifier = "account" };
-                var image = new NSImageView { TranslatesAutoresizingMaskIntoConstraints = false };
-                var label = WinoStyle.Label(string.Empty);
-                cell.ImageView = image;
-                cell.TextField = label;
-                WinoLayout.Size(image, 12, 12);
-                WinoLayout.Fill(WinoLayout.HStack(8, image, label), cell, 0, 4, 0, 4);
-            }
-            var account = order[(int)row];
-            cell.TextField!.StringValue = account.StartupEntityTitle ?? account.Account?.Name ?? string.Empty;
-            cell.ImageView!.Image = WinoIcons.Image(WinoIconGlyph.ReOrderDotsVertical, 12);
-            cell.ImageView.ContentTintColor = WinoStyle.TertiaryText;
-            return cell;
-        }
-
-        public override INSPasteboardWriting GetPasteboardWriterForRow(NSTableView tableView, nint row)
-        {
-            var item = new NSPasteboardItem();
-            item.SetStringForType(row.ToString(), DragType);
-            return item;
-        }
-
-        public override NSDragOperation ValidateDrop(NSTableView tableView, INSDraggingInfo info, nint row, NSTableViewDropOperation dropOperation)
-        {
-            if (dropOperation == NSTableViewDropOperation.On) tableView.SetDropRowDropOperation(row, NSTableViewDropOperation.Above);
-            return NSDragOperation.Move;
-        }
-
-        public override bool AcceptDrop(NSTableView tableView, INSDraggingInfo info, nint row, NSTableViewDropOperation dropOperation)
-        {
-            var value = info.DraggingPasteboard.GetStringForType(DragType);
-            if (!int.TryParse(value, out var from) || from < 0 || from >= order.Count) return false;
-            var item = order[from];
-            order.RemoveAt(from);
-            var to = (int)row > from ? (int)row - 1 : (int)row;
-            order.Insert(Math.Clamp(to, 0, order.Count), item);
-            Reordered?.Invoke();
-            return true;
-        }
     }
 
     #endregion

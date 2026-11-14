@@ -39,6 +39,9 @@ public sealed class ToDoTaskDetailViewController : UIViewController
     private readonly UILabel _stepsSummary = WinoToDoStyle.Caption();
     private readonly UIStackView _steps = WinoLayout.VStack(4);
     private readonly UIButton _addStep;
+    private readonly UITextField _newStep;
+    private readonly UIView _newStepRow;
+    private TaskItemViewModel? _newStepTarget;
     private readonly UIButton _myDay;
     private readonly UIButton _due;
     private readonly UIButton _delete;
@@ -63,7 +66,24 @@ public sealed class ToDoTaskDetailViewController : UIViewController
         _error = error;
         _pickDate = pickDate;
         _showsClose = showsClose;
-        _addStep = Row(WinoIconGlyph.Add, Translator.ToDoPage_AddStep, WinoStyle.Accent, () => Observe(_viewModel.AddStepCommand.ExecuteAsync(null)));
+        _addStep = Row(WinoIconGlyph.Add, Translator.ToDoPage_AddStep, WinoStyle.Accent, OpenNewStepEditor);
+        _newStep = new UITextField
+        {
+            Placeholder = Translator.ToDoPage_AddStep,
+            Font = WinoStyle.Body,
+            ReturnKeyType = UIReturnKeyType.Next,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        WinoAccessibility.Label(_newStep, Translator.ToDoPage_AddStep);
+        _newStep.ShouldReturn = _ => { CommitNewStep(); return false; };
+        _newStepRow = WinoLayout.Insets(WinoLayout.VStack(0, _newStep), 8, 8, 8, 0);
+        _newStepRow.Hidden = true;
+        _newStep.EditingDidEnd += (_, _) =>
+        {
+            if (_newStepRow.Hidden) return;
+            CommitNewStep();
+            CloseNewStepEditor();
+        };
         _myDay = Row(WinoIconGlyph.WeatherSunny, Translator.ToDoPage_AddToMyDay, WinoStyle.Accent, () => { if (_task is { } task) Observe(_viewModel.ToggleMyDayCommand.ExecuteAsync(task)); });
         _due = Row(WinoIconGlyph.Calendar, Translator.ToDoPage_AddDueDate, WinoStyle.Accent, null);
         _due.ShowsMenuAsPrimaryAction = true;
@@ -142,7 +162,7 @@ public sealed class ToDoTaskDetailViewController : UIViewController
         var stepsHeader = WinoLayout.HStack(10, SectionLabel(Translator.ToDoPage_Steps), _stepsProgress, _stepsSummary);
         stepsHeader.Alignment = UIStackViewAlignment.Center;
         _steps.Alignment = UIStackViewAlignment.Fill;
-        var steps = Section(stepsHeader, _steps, _addStep);
+        var steps = Section(stepsHeader, _steps, _addStep, _newStepRow);
 
         var remind = Row(WinoIconGlyph.AlertOff, Translator.ToDoPage_RemindMe + " · " + Translator.ToDoPage_ComingSoon, WinoStyle.TertiaryText, null);
         remind.Enabled = false;
@@ -247,6 +267,7 @@ public sealed class ToDoTaskDetailViewController : UIViewController
                 _title.Editable = value;
                 _star.Enabled = value;
                 _addStep.Enabled = value;
+                if (!value && !_newStepRow.Hidden) CloseNewStepEditor();
                 _myDay.Enabled = value;
                 _due.Enabled = value;
                 _delete.Enabled = value;
@@ -277,6 +298,11 @@ public sealed class ToDoTaskDetailViewController : UIViewController
     /// <summary>Binds the drawer to one task; the returned scope is disposed when the selection changes.</summary>
     private IDisposable BindTask(TaskItemViewModel task)
     {
+        if (!_newStepRow.Hidden && _newStepTarget != task)
+        {
+            CommitNewStep();
+            CloseNewStepEditor();
+        }
         _taskScope?.Dispose();
         var scope = _taskScope = new BindingScope();
         _task = task;
@@ -352,6 +378,35 @@ public sealed class ToDoTaskDetailViewController : UIViewController
         _stepsSummary.Hidden = !has;
         _stepsSummary.Text = task.StepSummaryText;
         _stepsProgress.Progress = task.StepCount == 0 ? 0 : (float)task.CompletedStepCount / task.StepCount;
+    }
+
+    /// <summary>Windows AddStepButton_Click: the step is named before it is created, so the server gets one write.</summary>
+    private void OpenNewStepEditor()
+    {
+        if (_task is not { IsEditable: true } task) return;
+        _newStepTarget = task;
+        _newStep.Text = string.Empty;
+        _addStep.Hidden = true;
+        _newStepRow.Hidden = false;
+        _newStep.BecomeFirstResponder();
+    }
+
+    // The text is cleared before the await so ending the edit while the step is queued cannot commit it twice.
+    private void CommitNewStep()
+    {
+        var title = _newStep.Text;
+        var target = _newStepTarget;
+        _newStep.Text = string.Empty;
+        if (target is not null && !string.IsNullOrWhiteSpace(title)) Observe(_viewModel.AddNamedStepAsync(target, title));
+    }
+
+    private void CloseNewStepEditor()
+    {
+        _newStepTarget = null;
+        _newStep.Text = string.Empty;
+        _newStepRow.Hidden = true;
+        _addStep.Hidden = false;
+        if (_newStep.IsFirstResponder) _newStep.ResignFirstResponder();
     }
 
     private void RebuildSteps(TaskItemViewModel task)

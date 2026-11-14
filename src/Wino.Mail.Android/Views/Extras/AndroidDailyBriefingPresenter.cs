@@ -18,7 +18,8 @@ namespace Wino.Mail.Android.Views.Extras;
 /// <see cref="DailyBriefingPanelView"/> over the shared <see cref="DailyBriefingPanelViewModel"/> in a modal bottom sheet
 /// on compact widths and a modal side sheet on medium and expanded widths (canvas Material pass board Briefing).
 /// </summary>
-public sealed class AndroidDailyBriefingPresenter :
+public sealed class AndroidDailyBriefingPresenter : IDisposable,
+    IRecipient<DailyBriefingOpenRequested>,
     IRecipient<DailyBriefingStateChanged>,
     IRecipient<IntelligenceMetadataChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
@@ -43,6 +44,7 @@ public sealed class AndroidDailyBriefingPresenter :
         _entitlements = entitlements;
         // One registration per message (trim-safe).
         var messenger = WeakReferenceMessenger.Default;
+        messenger.Register<DailyBriefingOpenRequested>(this);
         messenger.Register<DailyBriefingStateChanged>(this);
         messenger.Register<IntelligenceMetadataChanged>(this);
         messenger.Register<WinoIntelligenceAccessChanged>(this);
@@ -128,6 +130,39 @@ public sealed class AndroidDailyBriefingPresenter :
         panel.Attach();
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// "Open briefing" from Settings (Windows ShellWindow, Mac WinoAppShellViewController): Settings closes, Mail becomes
+    /// the active mode, and the sheet opens over the mail list once the shell is back on screen.
+    /// </summary>
+    public void Receive(DailyBriefingOpenRequested message) => _ = OpenRequestedAsync();
+
+    private async Task OpenRequestedAsync()
+    {
+        try
+        {
+            if (_services.GetService<Infrastructure.AndroidNavigationService>() is not { } navigation) return;
+            await ((Wino.Mail.ViewModels.Navigation.INavigationHost)navigation).CloseSettingsAsync();
+            if (!await navigation.EnsureShellAsync(Wino.Core.Domain.Enums.WinoApplicationMode.Mail)) return;
+            // The shell's panes are placed after the mode switch settles, so the sheet opens on the next main-thread turn.
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                if (navigation.Activity is not { IsDestroyed: false } activity) return;
+                activity.Window?.DecorView?.Post(() =>
+                {
+                    if (activity.IsDestroyed || IsOpen) return;
+                    bool compact = _services.GetService<Infrastructure.IWindowSizeClassService>()?.WidthClass is null or Infrastructure.WindowWidthClass.Compact;
+                    Show(activity, compact);
+                });
+            });
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Warning(exception, "The Daily briefing could not be opened from Settings.");
+        }
+    }
+
+    public void Dispose() => WeakReferenceMessenger.Default.UnregisterAll(this);
 
     public void Receive(DailyBriefingStateChanged message) => _ = RefreshStateAsync();
     public void Receive(IntelligenceMetadataChanged message) => _ = RefreshStateAsync();

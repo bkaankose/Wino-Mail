@@ -28,13 +28,12 @@ namespace Wino.Mail.Android.Views.Settings;
 /// compact widths and beside it on wider ones, where the open page's row stays highlighted.
 /// </summary>
 public sealed class SettingsRootFragment : SettingsPageFragment<SettingOptionsPageViewModel>,
-    IRecipient<LanguageChanged>, IRecipient<WinoIntelligenceEntitlementChanged>
+    IRecipient<LanguageChanged>
 {
     private readonly Dictionary<WinoPage, View> _rows = new();
     private LinearLayout? _list;
     private Google.Android.Material.TextField.TextInputLayout? _search;
     private AndroidNavigationService? _navigation;
-    private bool? _lastCanAccessIntelligence;
 
     protected override bool ShowsPageDescription => false;
 
@@ -68,7 +67,6 @@ public sealed class SettingsRootFragment : SettingsPageFragment<SettingOptionsPa
             Bindings.Own(new ActionDisposable(() => _navigation.SettingsPagesChanged -= PagesChanged));
         }
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
         Bindings.Own(new ActionDisposable(() => WeakReferenceMessenger.Default.UnregisterAll(this)));
     }
 
@@ -96,7 +94,6 @@ public sealed class SettingsRootFragment : SettingsPageFragment<SettingOptionsPa
         if (_list is null) return;
         _list.RemoveAllViews();
         _rows.Clear();
-        _lastCanAccessIntelligence = SettingsCatalog.CanAccessIntelligence;
         var query = _search?.EditText?.Text?.Trim();
         if (!string.IsNullOrEmpty(query))
         {
@@ -219,13 +216,6 @@ public sealed class SettingsRootFragment : SettingsPageFragment<SettingOptionsPa
     {
         if (View is null) return;
         (ParentFragment as SettingsHostFragment)?.UpdateChrome();
-        Rebuild();
-    });
-
-    /// <summary>Only an access change affects the list (every snapshot refresh republishes the entitlement).</summary>
-    public void Receive(WinoIntelligenceEntitlementChanged message) => _ = Dispatcher.ExecuteOnUIThread(() =>
-    {
-        if (View is null || _lastCanAccessIntelligence == message.Entitlement.CanAccessSurfaces) return;
         Rebuild();
     });
 }

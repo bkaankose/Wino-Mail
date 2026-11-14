@@ -225,16 +225,23 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
     {
         var eligible = await GetEligibleAccountsAsync(cancellationToken).ConfigureAwait(false);
         DateTime? latestViewed = null;
-        var hasUnseen = false;
+        var lastViewedByAccount = new Dictionary<Guid, DateTime?>();
+        var hasNewCandidate = false;
 
         foreach (var entry in eligible)
         {
             var (_, lastViewedUtc) = await _store
                 .GetBriefingViewStateAsync(entry.Account.Id, cancellationToken)
                 .ConfigureAwait(false);
+            lastViewedByAccount[entry.Account.Id] = lastViewedUtc;
             if (lastViewedUtc is { } viewed && (latestViewed is null || viewed > latestViewed))
             {
                 latestViewed = viewed;
+            }
+
+            if (hasNewCandidate)
+            {
+                continue;
             }
 
             var candidates = await _store.GetBriefingCandidatesAsync(entry.Account.Id, cancellationToken).ConfigureAwait(false);
@@ -247,16 +254,25 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
                 // "New" is first-import time, not an artifact revision.
                 if (firstImported is { } imported && (lastViewedUtc is null || imported > lastViewedUtc))
                 {
-                    hasUnseen = true;
+                    hasNewCandidate = true;
                     break;
                 }
             }
-
-            if (hasUnseen)
-            {
-                break;
-            }
         }
+
+        if (!hasNewCandidate)
+        {
+            return new DailyBriefingUnseenState(false, latestViewed);
+        }
+
+        // The briefing opens on today, so only a new card on today's page counts. A first
+        // classification run imports older mail too; those cards belong to earlier days, and
+        // ignored cards, hidden accounts and mail that is gone never show at all.
+        var timeZone = TimeZoneInfo.Local;
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone).DateTime);
+        var todayFacts = await GetBriefingFactsAsync(today, timeZone, includeIgnored: false, cancellationToken).ConfigureAwait(false);
+        var hasUnseen = todayFacts.Facts.Any(fact =>
+            lastViewedByAccount.TryGetValue(fact.LocalAccountId, out var viewed) && fact.IsNewSince(viewed));
 
         return new DailyBriefingUnseenState(hasUnseen, latestViewed);
     }

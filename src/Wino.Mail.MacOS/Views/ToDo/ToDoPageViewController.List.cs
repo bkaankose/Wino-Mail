@@ -23,6 +23,7 @@ public sealed partial class ToDoPageViewController
 
     private readonly List<ListEntry> _entries = new();
     private readonly List<TaskGroup> _observedGroups = new();
+    private readonly List<(TaskSortKind Kind, NSMenuItem Item)> _sortItems = new();
     private NSTextField _title = null!;
     private NSButton _renameButton = null!;
     private NSTextField _subtitle = null!;
@@ -96,6 +97,7 @@ public sealed partial class ToDoPageViewController
         _table.AddColumn(new NSTableColumn("task") { ResizingMask = NSTableColumnResizing.Autoresizing, Width = 400 });
         _table.DataSource = new TaskTableDataSource(this);
         _table.Delegate = new TaskTableDelegate(this);
+        ConfigureTaskReorder();
         WinoAccessibility.Label(_table, Translator.ToDoPage_Tasks);
         _scroll = new NSScrollView
         {
@@ -198,12 +200,28 @@ public sealed partial class ToDoPageViewController
     private NSMenu BuildSortMenu()
     {
         var menu = new NSMenu { AutoEnablesItems = false };
-        menu.AddItem(MenuItem(Translator.ToDoPage_SortImportance, () => ViewModel.SetSortCommand.Execute("importance")));
-        menu.AddItem(MenuItem(Translator.ToDoPage_SortDueDate, () => ViewModel.SetSortCommand.Execute("due")));
-        menu.AddItem(MenuItem(Translator.ToDoPage_SortMyDay, () => ViewModel.SetSortCommand.Execute("myday")));
-        menu.AddItem(MenuItem(Translator.ToDoPage_SortAlphabetically, () => ViewModel.SetSortCommand.Execute("alphabetical")));
-        menu.AddItem(MenuItem(Translator.ToDoPage_SortCreationDate, () => ViewModel.SetSortCommand.Execute("created")));
+        void Add(TaskSortKind kind, string title, string parameter)
+        {
+            var item = MenuItem(title, () => ViewModel.SetSortCommand.Execute(parameter));
+            _sortItems.Add((kind, item));
+            menu.AddItem(item);
+        }
+        Add(TaskSortKind.Importance, Translator.ToDoPage_SortImportance, "importance");
+        Add(TaskSortKind.DueDate, Translator.ToDoPage_SortDueDate, "due");
+        Add(TaskSortKind.MyDay, Translator.ToDoPage_SortMyDay, "myday");
+        Add(TaskSortKind.Alphabetical, Translator.ToDoPage_SortAlphabetically, "alphabetical");
+        Add(TaskSortKind.CreationDate, Translator.ToDoPage_SortCreationDate, "created");
+        Add(TaskSortKind.Manual, Translator.ToDoPage_SortManual, "manual");
         return menu;
+    }
+
+    private void UpdateSortItems()
+    {
+        foreach (var (kind, item) in _sortItems)
+        {
+            item.State = kind == ViewModel.SelectedSort ? NSCellStateValue.On : NSCellStateValue.Off;
+            if (kind == TaskSortKind.Manual) item.Hidden = !ViewModel.IsNamedListSelected;
+        }
     }
 
     private void BindList()
@@ -216,7 +234,8 @@ public sealed partial class ToDoPageViewController
         Bind(nameof(ViewModel.HasSurfaceSubtitle), static vm => vm.HasSurfaceSubtitle, value => _subtitle.Hidden = !value);
         Bind(nameof(ViewModel.CanEditSelectedList), static vm => vm.CanEditSelectedList, value => _renameButton.Hidden = !value);
         Bind(nameof(ViewModel.IsMyDaySelected), static vm => vm.IsMyDaySelected, value => _suggestionsButton.Hidden = !value);
-        Bind(nameof(ViewModel.IsNamedListSelected), static vm => vm.IsNamedListSelected, value => _moreButton.Hidden = !value);
+        Bind(nameof(ViewModel.IsNamedListSelected), static vm => vm.IsNamedListSelected, value => { _moreButton.Hidden = !value; UpdateSortItems(); });
+        Bind(nameof(ViewModel.SelectedSort), static vm => vm.SelectedSort, _ => UpdateSortItems());
         Bind(nameof(ViewModel.FilterText), static vm => vm.FilterText, value => { if (_search.StringValue != (value ?? string.Empty)) _search.StringValue = value ?? string.Empty; });
         Bind(nameof(ViewModel.CompletionScopeDisplayText), static vm => vm.CompletionScopeDisplayText, value => _scopeChip.Title = value);
         Bind(nameof(ViewModel.SortDisplayText), static vm => vm.SortDisplayText, value => _sortChip.Title = value);
@@ -595,6 +614,20 @@ public sealed partial class ToDoPageViewController
     private sealed class TaskTableDataSource(ToDoPageViewController owner) : NSTableViewDataSource
     {
         public override nint GetRowCount(NSTableView tableView) => owner._entries.Count;
+
+        public override INSPasteboardWriting? GetPasteboardWriterForRow(NSTableView tableView, nint row) => owner.TaskPasteboardWriterForRow(row);
+
+        public override void DraggingSessionWillBegin(NSTableView tableView, NSDraggingSession draggingSession, CGPoint willBeginAtScreenPoint, NSIndexSet rowIndexes)
+            => owner.TaskDragWillBegin(rowIndexes);
+
+        public override void DraggingSessionEnded(NSTableView tableView, NSDraggingSession draggingSession, CGPoint endedAtScreenPoint, NSDragOperation operation)
+            => owner.TaskDragEnded();
+
+        public override NSDragOperation ValidateDrop(NSTableView tableView, INSDraggingInfo info, nint row, NSTableViewDropOperation dropOperation)
+            => owner.ValidateTaskDrop(tableView, info, row, dropOperation);
+
+        public override bool AcceptDrop(NSTableView tableView, INSDraggingInfo info, nint row, NSTableViewDropOperation dropOperation)
+            => owner.AcceptTaskDrop(info, row);
     }
 
     private sealed class TaskTableDelegate(ToDoPageViewController owner) : NSTableViewDelegate

@@ -11,13 +11,14 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.UIKit.Shell;
 using Wino.Mail.ViewModels.Data;
+using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Phone.Mail;
 
 /// <summary>
 /// The Mail shell menu as the iPhone Mailboxes rows (<see cref="WinoShellRowCell"/>): accounts with their unread pill and
-/// sync bar, linked (merged) accounts, section headers and folders by depth, with "More" and parent folders expanding in
-/// place. It follows every shown item's property changes (unread counts,
+/// sync bar, account groups (a combined group opens its unified folders, a plain group only expands), section headers
+/// and folders by depth, with groups, "More" and parent folders expanding in place. It follows every shown item's property changes (unread counts,
 /// expansion, synchronization, selection) and coalesces them into one reload per main-loop turn. The New mail entry is
 /// left out: Mailboxes has a compose button instead. Visibility and child rules come from <see cref="ShellMenuItemRules"/>.
 /// </summary>
@@ -75,8 +76,11 @@ internal sealed class MailboxesRows : UITableViewSource
 
     public IMenuItem? ItemAt(NSIndexPath indexPath) => indexPath.Row >= 0 && indexPath.Row < _rows.Count ? _rows[indexPath.Row].Item : null;
 
-    /// <summary>True for rows whose children expand in place (More, parent folders, linked-account folder groups).</summary>
-    public static bool HasChildren(IMenuItem item) => item is not IAccountMenuItem && ShellMenuItemRules.Children(item).Any();
+    /// <summary>True for rows whose children expand in place (groups, More, parent folders, linked-account folder groups).</summary>
+    public static bool HasChildren(IMenuItem item) => !AlwaysShowsChildren(item) && ShellMenuItemRules.Children(item).Any(ShellMenuItemRules.IsShown);
+
+    /// <summary>Accounts always show their folders; a combined group only while it is expanded.</summary>
+    private static bool AlwaysShowsChildren(IMenuItem item) => item is IAccountMenuItem and not MergedAccountMenuItem;
 
     /// <summary>Rows that open a folder list (a tap navigates) rather than only toggling their children.</summary>
     public static bool Navigates(IMenuItem item)
@@ -123,9 +127,8 @@ internal sealed class MailboxesRows : UITableViewSource
             }
             var children = ShellMenuItemRules.Children(item);
             Observe(children);
-            // Accounts always show their folders; other parents only while expanded. Account groups have no
-            // collapsible row here yet, so their accounts always show under the group caption.
-            if (item is IAccountMenuItem or AccountGroupMenuItem || item.IsExpanded) Add(children, item is AccountGroupMenuItem ? depth : depth + 1);
+            // Grouped accounts keep the depth of top-level accounts (no extra indent on mobile).
+            if (AlwaysShowsChildren(item) || item.IsExpanded) Add(children, item is AccountGroupMenuItem ? depth : depth + 1);
         }
     }
 
@@ -150,7 +153,8 @@ internal sealed class MailboxesRows : UITableViewSource
 
     private static WinoShellRowKind? Kind(IMenuItem item) => item switch
     {
-        ShellSectionHeaderMenuItem or AccountGroupMenuItem => WinoShellRowKind.Header,
+        ShellSectionHeaderMenuItem => WinoShellRowKind.Header,
+        AccountGroupMenuItem or MergedAccountMenuItem => WinoShellRowKind.Folder,
         IAccountMenuItem => WinoShellRowKind.Account,
         IBaseFolderMenuItem or MergedAccountMoreFolderMenuItem => WinoShellRowKind.Folder,
         _ => null
@@ -172,11 +176,12 @@ internal sealed class MailboxesRows : UITableViewSource
                 cell.ConfigureHeader(header.Title);
                 break;
             case AccountGroupMenuItem accountGroup:
-                cell.ConfigureHeader(accountGroup.Name);
+                cell.ConfigureGroup(accountGroup.IconGlyph, accountGroup.Name, accountGroup.IsUnreadCountVisible ? accountGroup.UnreadItemCount : 0,
+                    HasChildren(accountGroup) ? accountGroup.IsExpanded : null, WinoStyle.AccountGroupColor(accountGroup.ColorKey), accountGroup.AutomationName);
                 break;
             case MergedAccountMenuItem merged:
-                cell.ConfigureAccount(MailAccountIconInfoFactory.CreateProviderFallback(MailProviderType.IMAP4, SpecialImapProvider.None),
-                    merged.MergedAccountName ?? string.Empty, null, merged.UnreadItemCount);
+                cell.ConfigureGroup(merged.IconGlyph, merged.MergedAccountName ?? string.Empty, merged.UnreadItemCount,
+                    HasChildren(merged) ? merged.IsExpanded : null, WinoStyle.AccountGroupColor(merged.ColorKey));
                 cell.SetSync(merged.IsSynchronizationInProgress, merged.IsProgressIndeterminate, merged.SynchronizationProgressValue);
                 break;
             case AccountMenuItem account:
@@ -197,16 +202,16 @@ internal sealed class MailboxesRows : UITableViewSource
                 break;
         }
         // After Configure*, which resets the row: interaction follows the shared rules.
-        cell.Highlightable = ShellMenuItemRules.IsHighlightable(item) && item is not (ShellSectionHeaderMenuItem or AccountGroupMenuItem);
+        cell.Highlightable = ShellMenuItemRules.IsHighlightable(item) && item is not ShellSectionHeaderMenuItem;
         cell.ShowsIndicator = ShellMenuItemRules.ShowsIndicator(item);
-        if (HasChildren(item) && item is not AccountGroupMenuItem)
+        if (HasChildren(item) && item is not (AccountGroupMenuItem or MergedAccountMenuItem))
             cell.AccessibilityValue = string.Join(", ", new[] { cell.AccessibilityValue, item.IsExpanded ? Translator.Accessibility_MailThreadExpanded : Translator.Accessibility_MailThreadCollapsed }
                 .Where(static part => !string.IsNullOrEmpty(part)));
         return cell;
     }
 
     public override NSIndexPath? WillSelectRow(UITableView tableView, NSIndexPath indexPath)
-        => ItemAt(indexPath) is { } item and not AccountGroupMenuItem && ShellMenuItemRules.IsInteractive(item) && ShellMenuItemRules.IsEnabled(item) ? indexPath : null;
+        => ItemAt(indexPath) is { } item && ShellMenuItemRules.IsInteractive(item) && ShellMenuItemRules.IsEnabled(item) ? indexPath : null;
 
     public override void RowSelected(UITableView tableView, NSIndexPath indexPath)
     {

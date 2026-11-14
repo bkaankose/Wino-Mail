@@ -22,6 +22,7 @@ public class WinoTaskRowView : LinearLayout
     private readonly TextView _title;
     private readonly TextView _meta;
     private readonly WinoIconView _star;
+    private readonly WinoIconView _handle;
     private WinoTaskRowModel _model = new();
     private bool _isRowSelected;
 
@@ -68,6 +69,19 @@ public class WinoTaskRowView : LinearLayout
         _star.Click += (_, _) => { if (_model.IsEditable) ImportanceToggled?.Invoke(this, EventArgs.Empty); };
         int star = WinoTokens.Px(context, Resource.Dimension.wino_tasks_star_button);
         AddView(_star, new LayoutParams(star, star));
+
+        // The handle only starts a drag; TalkBack users reorder through the row's Move up and Move down actions.
+        _handle = new WinoIconView(context)
+        {
+            Icon = WinoIconGlyph.ReOrderDotsVertical,
+            Colorful = false,
+            GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_tasks_star_glyph),
+            Gravity = GravityFlags.Center,
+            Visibility = ViewStates.Gone,
+            ImportantForAccessibility = ImportantForAccessibility.No
+        };
+        _handle.SetTextColor(WinoColors.SecondaryText(context));
+        AddView(_handle, new LayoutParams(star, star));
 
         Clickable = true;
         Focusable = true;
@@ -125,6 +139,15 @@ public class WinoTaskRowView : LinearLayout
         _star.ContentDescription = model.ImportanceActionText;
         _star.Visibility = model.IsEditable || model.IsImportant ? ViewStates.Visible : ViewStates.Invisible;
         ContentDescription = meta.Length() == 0 ? model.Title : $"{model.Title}, {meta}";
+    }
+
+    /// <summary>The reorder handle at the row's end (manual sort); the owner starts the drag from it.</summary>
+    public View DragHandle => _handle;
+
+    public bool ShowsDragHandle
+    {
+        get => _handle.Visibility == ViewStates.Visible;
+        set => _handle.Visibility = value ? ViewStates.Visible : ViewStates.Gone;
     }
 
     /// <summary>The open task (list beside the detail): the Wino selection fill.</summary>

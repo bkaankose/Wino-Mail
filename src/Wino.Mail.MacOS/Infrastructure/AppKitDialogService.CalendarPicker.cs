@@ -42,7 +42,8 @@ public sealed partial class AppKitDialogService
                 WinoAccessibility.Label(link, Translator.CalendarEventCompose_DefaultCalendarSettingsLink);
                 link.Activated += (_, _) => { navigateToSettings = true; finish(); };
                 return link;
-            });
+            },
+            header: node => node.Calendar is null);
 
         return new AccountCalendarPickingResult(picked?.Calendar, navigateToSettings);
     }
@@ -80,14 +81,14 @@ public sealed partial class AppKitDialogService
     /// </summary>
     private Task<T?> PickSheetAsync<T>(string title, string? description, IReadOnlyList<T> roots, Func<T, IEnumerable<T>> children,
         Func<T, string> text, Func<T, NSImage?> symbol, Func<T, NSColor?> tint, Func<T, bool> selectable, string confirmTitle,
-        Func<T, string?>? invalid = null, T? initial = null, Func<Action, NSView>? footer = null) where T : class => PresentAsync(window =>
+        Func<T, string?>? invalid = null, T? initial = null, Func<Action, NSView>? footer = null, Func<T, bool>? header = null) where T : class => PresentAsync(window =>
     {
         var completion = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var sheet = new NSWindow(new CGRect(0, 0, 400, 460), NSWindowStyle.Titled | NSWindowStyle.Resizable, NSBackingStore.Buffered, false);
         sheet.ReleaseWhenClosed(false);
         sheet.Title = title;
 
-        var source = new PickerSource<T>(roots, children, text, symbol, tint, selectable);
+        var source = new PickerSource<T>(roots, children, text, symbol, tint, selectable, header);
         var outline = new NSOutlineView { HeaderView = null, RowHeight = 26, Style = NSTableViewStyle.SourceList, IndentationPerLevel = 14 };
         var column = new NSTableColumn("item") { ResizingMask = NSTableColumnResizing.Autoresizing };
         outline.AddColumn(column);

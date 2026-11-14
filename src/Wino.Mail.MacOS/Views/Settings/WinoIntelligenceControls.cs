@@ -82,36 +82,6 @@ public sealed class WinoBarView : NSView
     }
 }
 
-/// <summary>The "Available quota" flyout: one row per usage bucket (name, value, bar) and the reset line.</summary>
-public sealed class IntelligenceQuotaViewController(IReadOnlyList<IntelligenceUsageItem> items, string resetText) : NSViewController
-{
-    public override void LoadView()
-    {
-        var stack = WinoLayout.VStack(8);
-        stack.Alignment = NSLayoutAttribute.Leading;
-        stack.EdgeInsets = new NSEdgeInsets(14, 16, 12, 16);
-        foreach (var item in items)
-        {
-            var name = WinoStyle.Label(item.DisplayName, WinoStyle.Body, WinoStyle.PrimaryText);
-            name.LineBreakMode = NSLineBreakMode.TruncatingTail;
-            var value = WinoStyle.Label(item.Value, WinoStyle.Body, WinoStyle.SecondaryText);
-            var top = WinoLayout.HStack(8, name, WinoLayout.Spacer(), value);
-            var bar = new WinoBarView { Value = item.Percentage, ShowError = item.IsExhausted };
-            WinoAccessibility.Label(bar, item.DisplayName);
-            var row = WinoLayout.VStack(4, top, bar);
-            row.Alignment = NSLayoutAttribute.Leading;
-            top.WidthAnchor.ConstraintEqualTo(row.WidthAnchor).Active = true;
-            bar.WidthAnchor.ConstraintEqualTo(row.WidthAnchor).Active = true;
-            stack.AddArrangedSubview(row);
-            row.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor, 1, -32).Active = true;
-        }
-        if (!string.IsNullOrWhiteSpace(resetText))
-            stack.AddArrangedSubview(WinoStyle.Label(resetText, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0));
-        stack.WidthAnchor.ConstraintEqualTo(352).Active = true;
-        View = stack;
-    }
-}
-
 /// <summary>Small factory helpers shared by the Intelligence pages.</summary>
 internal static class IntelligenceViews
 {
@@ -186,28 +156,6 @@ internal static class IntelligenceViews
         };
         WinoLayout.Fill(content, surface, padding);
         return surface;
-    }
-
-    /// <summary>Wrapping flow of fixed-height chips (Windows WrapPanel): a vertical stack of rows rebuilt to the width.</summary>
-    public static NSView Flow(IReadOnlyList<NSView> items, double spacing, double width)
-    {
-        var rows = WinoLayout.VStack(spacing);
-        rows.Alignment = NSLayoutAttribute.Leading;
-        NSStackView? row = null;
-        double used = 0;
-        foreach (var item in items)
-        {
-            var w = item.FittingSize.Width;
-            if (row is null || used + w > width)
-            {
-                row = WinoLayout.HStack(spacing);
-                rows.AddArrangedSubview(row);
-                used = 0;
-            }
-            row.AddArrangedSubview(item);
-            used += w + spacing;
-        }
-        return rows;
     }
 }
 

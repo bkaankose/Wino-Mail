@@ -117,7 +117,7 @@ python icons/tools/import_icon_sets.py   # writes icons/sets/<Set>.json from the
 python icons/tools/build_fonts.py
 ```
 
-A new icon added with `add_svg_icon.py` or `add_fluent_icon.py` also needs an entry in `sets.json`, or it keeps its Classic outline in every set. In the colorful fonts, a set's accent layer is that library's filled glyph; icons without a distinct filled glyph stay monochrome.
+A new icon added with `add_svg_icon.py` or `add_fluent_icon.py` also needs an entry in `sets.json`, or it keeps its Classic outline in every set. An icon whose mapping leaves out a library (no close match there) keeps its Classic outline in that set; Framework7 has no megaphone, so `Announcement` does. In the colorful fonts, a set's accent layer is that library's filled glyph; icons without a distinct filled glyph stay monochrome.
 
 ## Rules
 

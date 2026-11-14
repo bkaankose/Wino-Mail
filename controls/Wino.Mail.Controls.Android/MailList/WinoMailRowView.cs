@@ -126,7 +126,6 @@ public class WinoMailRowView : FrameLayout
         public readonly WinoChipView NicknameRight = root.Require<WinoChipView>(Resource.Id.wino_row_nickname_right);
         public readonly TextView Draft = root.Require<TextView>(Resource.Id.wino_row_draft);
         public readonly TextView Sender = root.Require<TextView>(Resource.Id.wino_row_sender);
-        public readonly TextView ThreadCount = root.Require<TextView>(Resource.Id.wino_row_thread_count);
         public readonly WinoIconView Pin = root.Require<WinoIconView>(Resource.Id.wino_row_pin);
         public readonly WinoIconView Attachment = root.Require<WinoIconView>(Resource.Id.wino_row_attachment);
         public readonly WinoIconView Flag = root.Require<WinoIconView>(Resource.Id.wino_row_flag);
@@ -222,8 +221,6 @@ public class WinoMailRowView : FrameLayout
         Show(p.Draft, old?.IsDraft, model.IsDraft);
         Text(p.Sender, old is null ? null : SenderText(old), SenderText(model));
         bool threaded = IsThreaded(model);
-        if (old?.ThreadCount != model.ThreadCount) p.ThreadCount.Text = model.ThreadCount.ToString(System.Globalization.CultureInfo.CurrentCulture);
-        Show(p.ThreadCount, old is null ? null : IsThreaded(old), threaded);
         if (old is null || old.ShowNickname != model.ShowNickname || old.NicknamePosition != model.NicknamePosition
             || old.AccountNickname != model.AccountNickname || old.AccountColor != model.AccountColor)
         {
@@ -336,13 +333,34 @@ public class WinoMailRowView : FrameLayout
             dot.LayoutParameters = new LinearLayout.LayoutParams(size, size) { MarginStart = WinoUnits.Dp(context, 3) };
             return dot;
         }
-        var chip = new WinoChipView(context) { ContentDescription = tile.Tooltip ?? tile.Text };
-        chip.SetGlyph(tile.Glyph, 10);
-        chip.DotColor = string.IsNullOrEmpty(tile.Glyph) ? WinoColors.SecondaryText(context) : null;
-        chip.SetPadding(0, 0, 0, 0);
-        chip.SetGravity(GravityFlags.Center);
-        chip.LayoutParameters = new LinearLayout.LayoutParams(size, size) { MarginStart = WinoUnits.Dp(context, 3) };
-        return chip;
+        // Windows CompactTileTemplate: a circle with the tile glyph (or a 6 dp dot) centred in it. A text chip squeezed
+        // to 18 dp kept its glyph margin and pushed the glyph out of the circle.
+        var circle = new FrameLayout(context) { ContentDescription = tile.Tooltip ?? tile.Text };
+        var shape = new GradientDrawable();
+        shape.SetShape(ShapeType.Oval);
+        shape.SetColor(WinoColors.SubtleFill(context));
+        shape.SetStroke(Math.Max(1, WinoUnits.Dp(context, 1) / 2), WinoColors.ZoneStroke(context));
+        circle.Background = shape;
+        if (string.IsNullOrEmpty(tile.Glyph))
+        {
+            var dot = new View(context);
+            var dotFill = new GradientDrawable();
+            dotFill.SetShape(ShapeType.Oval);
+            dotFill.SetColor(WinoColors.SecondaryText(context));
+            dot.Background = dotFill;
+            int dotSize = WinoUnits.Dp(context, 6);
+            circle.AddView(dot, new FrameLayout.LayoutParams(dotSize, dotSize, GravityFlags.Center));
+        }
+        else
+        {
+            var glyph = new TextView(context) { Text = tile.Glyph, Typeface = WinoIcons.Mono(context), Gravity = GravityFlags.Center, ImportantForAccessibility = ImportantForAccessibility.No };
+            glyph.SetIncludeFontPadding(false);
+            glyph.SetTextSize(global::Android.Util.ComplexUnitType.Dip, 10);
+            glyph.SetTextColor(tile.IsWarning ? WinoColors.Caution(context) : WinoColors.SecondaryText(context));
+            circle.AddView(glyph, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        }
+        circle.LayoutParameters = new LinearLayout.LayoutParams(size, size) { MarginStart = WinoUnits.Dp(context, 3) };
+        return circle;
     }
 
     private static WinoChipView DetailedTile(Context context, WinoMailRowTile tile)

@@ -91,7 +91,7 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
         if (_menu is { } menu)
         {
             Observe(menu.Items);
-            _rows.AddRange(ShellMenuRowPresentation.Flatten(menu.Items));
+            _rows.AddRange(WithoutGroupIndent(ShellMenuRowPresentation.Flatten(menu.Items)));
             if (menu.FooterItems is { } footer)
             {
                 Observe(footer);
@@ -109,6 +109,23 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
         }
         NotifyDataSetChanged();
     }
+
+    /// <summary>Rows inside an account group keep the depth they have without the group (no extra indent on mobile).</summary>
+    private static List<(IMenuItem Item, int Depth)> WithoutGroupIndent(List<(IMenuItem Item, int Depth)> rows)
+    {
+        var groups = new Stack<int>();
+        for (int index = 0; index < rows.Count; index++)
+        {
+            var (item, depth) = rows[index];
+            while (groups.Count > 0 && depth <= groups.Peek()) groups.Pop();
+            rows[index] = (item, depth - groups.Count);
+            if (item is AccountGroupMenuItem) groups.Push(depth);
+        }
+        return rows;
+    }
+
+    /// <summary>Account groups and combined groups: a tap expands or collapses them, never selects.</summary>
+    public static bool IsGroup(IMenuItem item) => item is AccountGroupMenuItem or MergedAccountMenuItem;
 
     private void Observe(IEnumerable<IMenuItem> collection)
     {
@@ -158,7 +175,10 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
         };
         view.DisclosureToggled += (_, _) =>
         {
-            if (view.Item is IMenuItem item && ShellMenuRowPresentation.HasChildren(item) && item is not IAccountMenuItem) item.IsExpanded = !item.IsExpanded;
+            if (view.Item is not IMenuItem item) return;
+            // A group's chevron does what tapping the row does.
+            if (IsGroup(item)) Invoked?.Invoke(this, item);
+            else if (ShellMenuRowPresentation.HasChildren(item) && item is not IAccountMenuItem) item.IsExpanded = !item.IsExpanded;
         };
         return holder;
     }
@@ -188,6 +208,15 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
             case ShellMenuRowKind.Header:
                 view.ConfigureHeader(row.Title);
                 break;
+            case ShellMenuRowKind.Folder when item is AccountGroupMenuItem group:
+                view.ConfigureGroup(row.Glyph, row.Title, row.UnreadCount, row.IsExpanded,
+                    WinoColors.AccountGroupColor(view.RequireContext(), row.ColorKey), group.AutomationName);
+                break;
+            case ShellMenuRowKind.Account when item is MergedAccountMenuItem:
+                view.ConfigureGroup(row.Glyph, row.Title, row.IsExpanded == true ? 0 : row.UnreadCount, row.IsExpanded,
+                    WinoColors.AccountGroupColor(view.RequireContext(), row.ColorKey));
+                view.SetSync(row.ShowsSync, row.IsSyncIndeterminate, row.SyncValue);
+                break;
             case ShellMenuRowKind.Account when row.AccountIcon is { } icon:
                 view.ConfigureAccount(icon, row.Title, row.Subtitle, row.UnreadCount);
                 view.SetSync(row.ShowsSync, row.IsSyncIndeterminate, row.SyncValue);
@@ -207,6 +236,7 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
         // The active-account bar marks the account of the selected folder; a selection outside that account (All contacts)
         // keeps it off, so one item reads as selected.
         view.ShowsIndicator = row.ShowsIndicator && (_selected is not IMenuItem selectedItem || IsWithin(selectedItem, item));
+        view.IsActiveAccount = row.Kind == ShellMenuRowKind.Account && (view.IsRowSelected || row.ShowsIndicator || item is MergedAccountMenuItem { IsChildSelected: true });
         view.Enabled = row.IsEnabled && ShellMenuItemRules.IsInteractive(item);
         view.Alpha = row.IsEnabled ? 1f : 0.45f;
     }

@@ -1724,6 +1724,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             (exhaustedNames.Length > 0 || _entitlementState == WinoIntelligenceEntitlementState.QuotaExhausted);
 
         CanManageSubscription = isActive &&
+            _platformCapabilities.Purchases &&
             !_platformCapabilities.AppleAppStore &&
             !string.Equals(aiPack?.Source, AiPackBillingSources.AppStore, StringComparison.OrdinalIgnoreCase);
 

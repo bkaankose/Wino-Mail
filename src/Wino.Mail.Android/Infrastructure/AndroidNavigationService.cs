@@ -33,7 +33,8 @@ namespace Wino.Mail.Android.Infrastructure;
 /// Back goes through the activity's OnBackPressedDispatcher (<see cref="TryHandleBack"/>); its callback is enabled only
 /// while <see cref="CanHandleBack"/>, so the system's predictive back-to-home animation runs otherwise.
 /// </summary>
-public sealed class AndroidNavigationService : INavigationService, INavigationHost, IDisposable, IRecipient<SettingsRootNavigationRequested>
+public sealed class AndroidNavigationService : INavigationService, INavigationHost, IDisposable, IRecipient<SettingsRootNavigationRequested>,
+    IRecipient<Wino.Messaging.UI.WinoIntelligenceEntitlementChanged>
 {
     private readonly IServiceProvider _services;
     private readonly IDispatcher _dispatcher;
@@ -58,6 +59,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
         _registry = registry;
         _coordinator = new NavigationCoordinator(this, services, dispatcher);
         WeakReferenceMessenger.Default.Register<SettingsRootNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<Wino.Messaging.UI.WinoIntelligenceEntitlementChanged>(this);
     }
 
     /// <summary>Raised on the UI thread whenever the pages change, so the activity can update its back callback.</summary>
@@ -80,6 +82,9 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
 
     /// <summary>True when Settings shows the root list beside the page (medium and expanded widths).</summary>
     public bool ShowsSettingsDetailPane => Sizes.WidthClass != WindowWidthClass.Compact;
+
+    /// <summary>The activity that shows the pages, while one is attached.</summary>
+    public MainActivity? Activity => _activity;
 
     /// <summary>The shell's behaviour while the shell is up (modes, menu, synchronization).</summary>
     public AndroidShellController? Shell { get; private set; }
@@ -546,6 +551,12 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
             target = requested;
             parameter = null;
         }
+        // The Wino Intelligence page is always listed and explains the subscription; only its sub-pages need access.
+        if (IsIntelligenceSubPage(target) && !CanAccessIntelligence())
+        {
+            target = WinoPage.WinoIntelligencePage;
+            parameter = null;
+        }
         if (!_registry.TryGet(target, out _)) return;
         var added = new List<PageEntry>();
         lock (_sync)
@@ -599,6 +610,34 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
         await ShowTopAsync();
         await RaiseSettingsPagesChangedAsync();
     }
+
+    /// <summary>Losing access leaves the Wino Intelligence sub-pages for the page below them (Windows SettingsPage).</summary>
+    public void Receive(Wino.Messaging.UI.WinoIntelligenceEntitlementChanged message)
+    {
+        if (message.Entitlement.CanAccessSurfaces) return;
+        _ = ObserveSettingsAsync(LeaveIntelligenceSubPagesAsync());
+    }
+
+    private async Task LeaveIntelligenceSubPagesAsync()
+    {
+        List<PageEntry> released;
+        lock (_sync)
+        {
+            int index = _settings.FindIndex(static entry => IsIntelligenceSubPage(entry.Page));
+            if (index <= 0) return;
+            released = _settings.Skip(index).ToList();
+            _settings.RemoveRange(index, _settings.Count - index);
+        }
+        await ShowTopAsync();
+        await RaiseSettingsPagesChangedAsync();
+        await ReleaseAllAsync(released);
+    }
+
+    private static bool IsIntelligenceSubPage(WinoPage page)
+        => page is WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage or WinoPage.MailClassificationPage;
+
+    private bool CanAccessIntelligence()
+        => _services.GetService<IWinoAccountIntelligenceSnapshotService>()?.CurrentEntitlement.CanAccessSurfaces == true;
 
     /// <summary>A page asked for a root list row (Windows SettingsPage receives it): the row's page replaces the stack above the list.</summary>
     public void Receive(SettingsRootNavigationRequested message)

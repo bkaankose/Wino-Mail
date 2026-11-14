@@ -138,7 +138,7 @@
   </style>
 
   <!-- An attachment tile (attachment_tile.xml) in the reader, the composer and the calendar pages. -->
-  <style name="Widget.Wino.AttachmentTile">
+  <style name="Widget.Wino.AttachmentTile" parent="">
     <item name="android:layout_marginEnd">@dimen/wino_attachment_tile_margin</item>
     <item name="android:minHeight">@dimen/wino_attachment_tile_min_height</item>
     <item name="android:paddingStart">@dimen/wino_attachment_tile_padding_start</item>
@@ -147,7 +147,7 @@
     <item name="android:paddingBottom">@dimen/wino_attachment_tile_padding_vertical</item>
   </style>
 
-  <style name="Widget.Wino.AttachmentBadge">
+  <style name="Widget.Wino.AttachmentBadge" parent="">
     <item name="android:minWidth">@dimen/wino_attachment_badge_size</item>
     <item name="android:minHeight">@dimen/wino_attachment_badge_size</item>
     <item name="android:paddingStart">@dimen/wino_attachment_badge_padding</item>

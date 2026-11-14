@@ -686,7 +686,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     /// </summary>
     private sealed class ReaderWebView : WKWebView
     {
-        public ReaderWebView() : base(CGRect.Empty, new WKWebViewConfiguration())
+        public ReaderWebView() : base(CGRect.Empty, WebKitMailConfiguration.Create())
         {
             TranslatesAutoresizingMaskIntoConstraints = false;
             Opaque = false;

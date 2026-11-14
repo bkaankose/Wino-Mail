@@ -168,8 +168,9 @@ internal sealed partial class ShellSidebarViewController : NSViewController
                 _outline.DeselectAll(null);
                 return;
             }
+            // A group keeps the expansion its user chose (MenuItemBase.Expand skips groups too).
             for (var parent = _selectedItem.ParentMenuItem; parent is not null; parent = parent.ParentMenuItem)
-                if (_rows.TryGetNode(parent, out var parentNode)) _outline.ExpandItem(parentNode);
+                if (parent is not (MergedAccountMenuItem or AccountGroupMenuItem) && _rows.TryGetNode(parent, out var parentNode)) _outline.ExpandItem(parentNode);
             var row = _outline.RowForItem(node);
             if (row >= 0) _outline.SelectRow(row, false);
             else _outline.DeselectAll(null);
@@ -353,9 +354,9 @@ internal sealed partial class ShellSidebarViewController : NSViewController
                 if (_outline.ItemAtRow(row) is not Node node) continue;
                 var item = node.Item;
                 var rect = _outline.Window?.ConvertRectToScreen(_outline.ConvertRectToView(_outline.RectForRow(row), null)) ?? CGRect.Empty;
-                var title = item switch { MergedAccountMenuItem merged => merged.MergedAccountName, IAccountNavigationMenuItem account => account.AccountName, IBaseFolderMenuItem folder => folder.FolderName, _ => string.Empty };
+                var title = item switch { AccountGroupMenuItem group => group.Name, MergedAccountMenuItem merged => merged.MergedAccountName, IAccountNavigationMenuItem account => account.AccountName, IBaseFolderMenuItem folder => folder.FolderName, _ => string.Empty };
                 lines.Add($"{row}:{item.GetType().Name} '{title}' enabled={ShellMenuItemRules.IsEnabled(item)} selectable={IsSelectable(item)} " +
-                    $"selected={(item as IAccountMenuItem)?.IsSelected} expanded={_outline.IsItemExpanded(node)} at {rect.GetMidX():0},{(screen?.Frame.Height ?? 0) - rect.GetMidY():0}" +
+                    $"selected={(item as IAccountMenuItem)?.IsSelected} expanded={_outline.IsItemExpanded(node)} model={item.IsExpanded} at {rect.GetMidX():0},{(screen?.Frame.Height ?? 0) - rect.GetMidY():0}" +
                     (_outline.GetView(0, row, false) is NSTableCellView { TextField: { } field } ? $" font={field.Font?.FontName} accent={field.TextColor?.Equals(WinoStyle.Accent)}" : string.Empty));
             }
             return Task.FromResult(string.Join(" | ", lines));
@@ -510,8 +511,9 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             foreach (var item in items ?? Array.Empty<IMenuItem>())
             {
                 if (!ShellMenuItemRules.IsShown(item) || !_nodes.TryGetValue(item, out var node)) continue;
-                // Accounts start expanded like the Windows pane; folders follow their model state.
-                if (item.IsExpanded || item is IAccountMenuItem) owner._outline.ExpandItem(node);
+                // Accounts start expanded like the Windows pane; account groups (combined or not) and folders
+                // follow their model state. Expanding a collapsed group here would also save it as expanded.
+                if (item.IsExpanded || item is IAccountMenuItem and not IMergedAccountMenuItem) owner._outline.ExpandItem(node);
                 else owner._outline.CollapseItem(node);
                 ExpandFromModel(PaneChildren(item));
             }

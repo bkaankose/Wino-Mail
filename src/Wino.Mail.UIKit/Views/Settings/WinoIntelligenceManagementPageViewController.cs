@@ -28,6 +28,7 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
     private BindingScope? _folderScope;
     private BindingScope? _indicatorScope;
     private bool _applying;
+    private bool _applyingBriefing;
 
     public string? PageTitle => string.IsNullOrWhiteSpace(ViewModel.AccountAddress) ? Translator.SemanticIndex_Title : ViewModel.AccountAddress;
     public event EventHandler? PageTitleChanged;
@@ -75,9 +76,9 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
             configuration.BaseForegroundColor = WinoStyle.Critical;
             wipe.Configuration = configuration;
         }
-        var data = StackedCard(Translator.SemanticIndex_DataTitle, Translator.SemanticIndex_DataDescription, WinoIconGlyph.LockClosed, Row(wipe, WinoLayout.Spacer()));
+        var data = Group(Translator.SemanticIndex_CoverageIndexedDataGroupTitle,
+            StackedCard(Translator.SemanticIndex_DataTitle, Translator.SemanticIndex_DataDescription, WinoIconGlyph.LockClosed, Row(wipe, WinoLayout.Spacer())));
         Watch(s => s.IsIndexedDataGroupVisible, on => data.Hidden = !on);
-        Add(Spacer(8));
         Add(data);
 
         Bind.Collection(vm.IntelligenceFolderCoverageItems, RebuildFolders);
@@ -310,26 +311,28 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
         return group;
     }
 
-    /// <summary>Intelligence features: the Daily Briefing switch and the indicator visibility list.</summary>
+    /// <summary>Intelligence features: the indicator visibility list, then the Daily Briefing switch (Windows order).</summary>
     private UIView FeaturesGroup()
     {
         var group = new WinoSettingsGroup(Translator.SemanticIndex_CoverageFeaturesGroupTitle);
-        var briefing = new WinoTextSwitch(Translator.SemanticIndex_On, Translator.SemanticIndex_Off, Translator.SemanticIndex_DailyBriefingTitle);
-        Watch(s => s.IsDailyBriefingEnabled, on => briefing.IsOn = on);
-        Watch(s => s.CanChangeIntelligencePreferences, on => briefing.IsEnabled = on);
-        On(async (_, _) =>
-        {
-            if (!ViewModel.IsPageReady) return;
-            try { briefing.IsOn = await ViewModel.SetDailyBriefingEnabledAsync(briefing.IsOn); }
-            catch (Exception exception) { ReportError(exception); briefing.IsOn = ViewModel.IsDailyBriefingEnabled; }
-        }, h => briefing.Toggled += h, h => briefing.Toggled -= h);
-        group.Add(Card(Translator.SemanticIndex_DailyBriefingTitle, Translator.SemanticIndex_DailyBriefingDescription, WinoIconGlyph.DailyBriefing, briefing));
-
         var indicators = new WinoSettingsExpander(Translator.SemanticIndex_IntelligenceIndicatorsTitle, Translator.SemanticIndex_IntelligenceIndicatorsDescription, WinoIconGlyph.NoteEdit);
         _indicatorRows.Alignment = UIStackViewAlignment.Fill;
         indicators.Add(_indicatorRows, 0, 0, 0, 0);
         Watch(s => s.CanChangeIntelligencePreferences, on => SettingsBinder.SetEnabled(_indicatorRows, on));
         group.Add(indicators);
+
+        var briefing = new WinoTextSwitch(Translator.SemanticIndex_On, Translator.SemanticIndex_Off, Translator.SemanticIndex_DailyBriefingTitle);
+        Watch(s => s.IsDailyBriefingEnabled, on => { if (!_applyingBriefing) briefing.IsOn = on; });
+        Watch(s => s.CanChangeIntelligencePreferences, on => briefing.IsEnabled = on);
+        On(async (_, _) =>
+        {
+            if (_applyingBriefing || !ViewModel.IsPageReady || briefing.IsOn == ViewModel.IsDailyBriefingEnabled) return;
+            _applyingBriefing = true;
+            try { briefing.IsOn = await ViewModel.SetDailyBriefingEnabledAsync(briefing.IsOn); }
+            catch (Exception exception) { ReportError(exception); briefing.IsOn = ViewModel.IsDailyBriefingEnabled; }
+            finally { _applyingBriefing = false; }
+        }, h => briefing.Toggled += h, h => briefing.Toggled -= h);
+        group.Add(Card(Translator.SemanticIndex_DailyBriefingTitle, Translator.SemanticIndex_DailyBriefingDescription, WinoIconGlyph.DailyBriefing, briefing));
 
         Watch(s => s.IsFeaturesGroupVisible, on => group.Hidden = !on);
         return group;

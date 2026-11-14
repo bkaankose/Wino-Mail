@@ -143,6 +143,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 
         _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError,
             () => _commandTarget is { ShowsMailActions: true }, CanExecuteCommand, IsCommandActive, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
+        _toolbar.SidebarSplitView = _split.SplitView;
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
         _toolbar.SetCommandLayout(ReaderCommandLayout.Parse(ViewModel.PreferencesService.ReaderCommandLayout));
         _toolbar.SetCommandLabels(ViewModel.PreferencesService.IsShowActionLabelsEnabled);
@@ -223,6 +224,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         _ = View;
         window.Toolbar = _toolbar!.CreateToolbar();
         window.ToolbarStyle = NSWindowToolbarStyle.Unified;
+        // The toolbar draws the title over the content (ShellToolbar title item); the window keeps it for the Window menu.
+        window.TitleVisibility = NSWindowTitleVisibility.Hidden;
         UpdateTitle();
         _toolbar.Revalidate();
     }
@@ -646,6 +649,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         }
         window.Title = string.IsNullOrWhiteSpace(title) ? "Wino Mail" : title;
         window.Subtitle = subtitle;
+        _toolbar?.SetTitle(window.Title, subtitle);
     }
 
     /// <summary>Reports the start and end of a live window resize.</summary>

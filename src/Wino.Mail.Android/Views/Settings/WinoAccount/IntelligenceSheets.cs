@@ -5,7 +5,6 @@ using Android.Widget;
 using Google.Android.Material.BottomSheet;
 using Google.Android.Material.CheckBox;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
 
@@ -94,43 +93,5 @@ internal static class IntelligenceConsentPolicySheet
         sheet.Behavior.SkipCollapsed = true;
         sheet.Show();
         return result.Task;
-    }
-}
-
-/// <summary>
-/// The "Available quota" flyout (iOS IntelligenceQuotaViewController): one row per usage bucket (name, value, meter)
-/// and the reset line, in a bottom sheet with Done.
-/// </summary>
-internal static class IntelligenceQuotaSheet
-{
-    public static void Present(Context context, IReadOnlyList<IntelligenceUsageItem> items, string? resetText)
-    {
-        var sheet = new BottomSheetDialog(context);
-        int padding = WinoTokens.Px(context, Resource.Dimension.wino_space_l);
-        var title = IntelligenceViews.Label(context, Translator.WinoIntelligence_AvailableQuota, WinoTextStyle.Subtitle);
-        if (OperatingSystem.IsAndroidVersionAtLeast(28)) title.AccessibilityHeading = true;
-        var column = IntelligenceViews.VStack(context, Resource.Dimension.wino_space_m, title);
-        foreach (var item in items)
-        {
-            var name = IntelligenceViews.Label(context, item.DisplayName, WinoTextStyle.Body, maxLines: 1);
-            var value = IntelligenceViews.Label(context, item.Value, WinoTextStyle.BodySecondary);
-            var top = IntelligenceViews.HStack(context, Resource.Dimension.wino_space_s, name, name, value);
-            var bar = IntelligenceViews.Meter(context);
-            bar.ContentDescription = item.DisplayName;
-            IntelligenceViews.SetMeter(bar, item.Percentage, item.IsExhausted);
-            IntelligenceViews.Append(column, IntelligenceViews.VStack(context, Resource.Dimension.wino_space_xs, top, bar), Resource.Dimension.wino_space_m);
-        }
-        if (!string.IsNullOrWhiteSpace(resetText))
-            IntelligenceViews.Append(column, IntelligenceViews.Label(context, resetText, WinoTextStyle.Description), Resource.Dimension.wino_space_m);
-        var done = SettingsBinder.CreateButton(context, Translator.Buttons_Done, outlined: false);
-        done.Click += (_, _) => sheet.Dismiss();
-        var doneRow = new FrameLayout(context);
-        doneRow.AddView(done, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent, GravityFlags.End));
-        IntelligenceViews.Append(column, doneRow, Resource.Dimension.wino_space_l);
-        column.SetPadding(padding, padding, padding, padding);
-        var scroll = new global::AndroidX.Core.Widget.NestedScrollView(context);
-        scroll.AddView(column, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
-        sheet.SetContentView(scroll);
-        sheet.Show();
     }
 }

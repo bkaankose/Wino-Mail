@@ -81,12 +81,15 @@ internal sealed class ShellPaneCell : NSTableCellView
         foreach (var view in new NSView[] { _glyph, _accountIcon, _dot, _check })
         {
             _leadingBox.AddSubview(view);
-            NSLayoutConstraint.ActivateConstraints(
-            [
-                view.CenterXAnchor.ConstraintEqualTo(_leadingBox.CenterXAnchor),
-                view.CenterYAnchor.ConstraintEqualTo(_leadingBox.CenterYAnchor)
-            ]);
+            view.CenterYAnchor.ConstraintEqualTo(_leadingBox.CenterYAnchor).Active = true;
         }
+        _glyph.CenterXAnchor.ConstraintEqualTo(_leadingBox.CenterXAnchor).Active = true;
+        _accountIcon.CenterXAnchor.ConstraintEqualTo(_leadingBox.CenterXAnchor).Active = true;
+        _dotCenterX = _dot.CenterXAnchor.ConstraintEqualTo(_leadingBox.CenterXAnchor);
+        _checkCenterX = _check.CenterXAnchor.ConstraintEqualTo(_leadingBox.CenterXAnchor);
+        NSLayoutConstraint.ActivateConstraints([_dotCenterX, _checkCenterX]);
+        _dotTrailing = _dot.TrailingAnchor.ConstraintEqualTo(_leadingBox.TrailingAnchor);
+        _checkLeading = _check.LeadingAnchor.ConstraintEqualTo(_leadingBox.LeadingAnchor);
 
         _title = WinoStyle.Label(string.Empty, WinoStyle.Body);
         _title.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
@@ -195,13 +198,15 @@ internal sealed class ShellPaneCell : NSTableCellView
                 NewRow(WinoIconGlyph.Add, 18, Translator.ToDoPage_NewList);
                 _action.Hidden = false;
                 break;
+            case AccountGroupMenuItem group:
+                GroupGlyph(group.IconGlyph, group.ColorKey);
+                SetTitle(group.Name, WinoStyle.BodyStrong, WinoStyle.AccountGroupColor(group.ColorKey));
+                ToolTip = group.Name;
+                _pill.Count = group.IsUnreadCountVisible ? group.UnreadItemCount : 0;
+                break;
             case MergedAccountMenuItem merged:
-                Leading(AccountIconSize);
-                _glyph.Hidden = false;
-                _glyph.PointSize = 20;
-                _glyph.Icon = WinoIconGlyph.PeopleLink;
-                _glyph.Tint = null;
-                SetTitle(merged.MergedAccountName, merged.IsChildSelected || bold ? WinoStyle.BodyMedium : WinoStyle.Body);
+                GroupGlyph(merged.IconGlyph, merged.ColorKey);
+                SetTitle(merged.MergedAccountName, merged.IsChildSelected || bold ? WinoStyle.BodyMedium : WinoStyle.Body, WinoStyle.AccountGroupColor(merged.ColorKey));
                 SetSubtitle(merged.IsSynchronizationProgressVisible && !string.IsNullOrWhiteSpace(merged.SynchronizationStatus)
                     ? merged.SynchronizationStatus
                     : merged.MergedAccountCount + Translator.MenuMergedAccountItemAccountsSuffix);
@@ -249,8 +254,8 @@ internal sealed class ShellPaneCell : NSTableCellView
                 _check.Hidden = false;
                 _check.State = calendar.Parameter.IsChecked ? NSCellStateValue.On : NSCellStateValue.Off;
                 _dot.Hidden = false;
-                _dotSize.Constant = 16;
-                _dot.CornerRadius = 8;
+                _dotSize.Constant = (nfloat)CalendarDotSize;
+                _dot.CornerRadius = CalendarDotSize / 2;
                 _dot.Fill = WinoStyle.FromHexString(calendar.Parameter.BackgroundColorHex) ?? WinoStyle.Accent;
                 MoveDotBesideCheck();
                 SetTitle(calendar.Parameter.Name, WinoStyle.Body);
@@ -325,17 +330,33 @@ internal sealed class ShellPaneCell : NSTableCellView
         }
 
         // Source-list selection: the label keeps its own colour on the tinted fill (accent text measured 2.96:1);
-        // the selected row is semibold and the active account above a selected folder is medium.
-        if (selected)
+        // the selected row is semibold and the active account above a selected folder is medium. The active
+        // account's name is the exception: semibold in the accent colour, so the account in use stands out.
+        bool activeAccount = item switch
+        {
+            IAccountNavigationMenuItem account => ShellMenuItemRules.IsAccountRow(account) && (selected || account.IsSelected),
+            MergedAccountMenuItem merged => selected || merged.IsSelected || merged.IsChildSelected,
+            _ => false
+        };
+        if (activeAccount)
+        {
+            _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Semibold);
+            // A combined group keeps its own colour; the semibold weight still marks it as active.
+            if (item is not MergedAccountMenuItem merged || WinoStyle.AccountGroupColor(merged.ColorKey) is null)
+                _title.TextColor = WinoStyle.Accent;
+        }
+        else if (selected)
             _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Semibold);
         else if (ShellMenuItemRules.ShowsIndicator(item))
             _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Medium);
-        AccessibilityLabel = _pill.Hidden ? _title.StringValue : $"{_title.StringValue}, {_pill.AccessibilityLabel}";
+        var name = item is AccountGroupMenuItem accountGroup ? accountGroup.AutomationName : _title.StringValue;
+        AccessibilityLabel = _pill.Hidden ? name : $"{name}, {_pill.AccessibilityLabel}";
     }
 
     private void Reset()
     {
         _glyph.Hidden = _accountIcon.Hidden = _dot.Hidden = _check.Hidden = true;
+        _glyph.Colorful = null;
         _accountIcon.Size = AccountIconSize;
         _dotSize.Constant = 20;
         _dot.CornerRadius = 10;
@@ -348,17 +369,29 @@ internal sealed class ShellPaneCell : NSTableCellView
         _titleChip.Fill = null;
         foreach (var inset in _chipInsets) inset.Constant = 0;
         _row.EdgeInsets = new NSEdgeInsets(0, AvatarInset, 0, 10);
-        if (_dotTrailing is not null) { _dotTrailing.Active = false; _dotTrailing = null; }
+        if (_dotTrailing.Active)
+        {
+            NSLayoutConstraint.DeactivateConstraints([_dotTrailing, _checkLeading]);
+            NSLayoutConstraint.ActivateConstraints([_dotCenterX, _checkCenterX]);
+        }
     }
 
-    private NSLayoutConstraint? _dotTrailing;
+    private const double CalendarDotSize = 12;
+    private const double CalendarCheckWidth = 16;
+    private readonly NSLayoutConstraint _dotCenterX;
+    private readonly NSLayoutConstraint _checkCenterX;
+    private readonly NSLayoutConstraint _dotTrailing;
+    private readonly NSLayoutConstraint _checkLeading;
 
     private void MoveDotBesideCheck()
     {
-        // Calendar rows: checkbox, colour dot, name (Windows UngroupedCalendarTemplate).
-        _leadingWidth.Constant = 20 + 8 + 16;
-        _dotTrailing = _dot.TrailingAnchor.ConstraintEqualTo(_leadingBox.TrailingAnchor);
-        _dotTrailing.Active = true;
+        // Calendar rows: checkbox, colour dot, name (Windows UngroupedCalendarTemplate). Both views are
+        // centred in the icon column by default; leaving those constraints active stretched the dot
+        // across the whole column.
+        _leadingWidth.Constant = (nfloat)(CalendarCheckWidth + 8 + CalendarDotSize);
+        if (_dotTrailing.Active) return;
+        NSLayoutConstraint.DeactivateConstraints([_dotCenterX, _checkCenterX]);
+        NSLayoutConstraint.ActivateConstraints([_dotTrailing, _checkLeading]);
     }
 
     private void NewRow(WinoIconGlyph glyph, double size, string title)
@@ -373,6 +406,17 @@ internal sealed class ShellPaneCell : NSTableCellView
     {
         _leadingWidth.Constant = (nfloat)width;
         _row.EdgeInsets = new NSEdgeInsets(0, width >= AccountIconSize ? AvatarInset : GlyphInset, 0, 10);
+    }
+
+    /// <summary>A group's icon in the account icon column, mono like the Windows group icons so the group colour can tint it.</summary>
+    private void GroupGlyph(WinoIconGlyph glyph, string? colorKey)
+    {
+        Leading(AccountIconSize);
+        _glyph.Hidden = false;
+        _glyph.PointSize = 20;
+        _glyph.Icon = glyph;
+        _glyph.Colorful = false;
+        _glyph.Tint = WinoStyle.AccountGroupColor(colorKey);
     }
 
     private void GlyphRow(WinoIconGlyph glyph, double size, NSColor? tint)
