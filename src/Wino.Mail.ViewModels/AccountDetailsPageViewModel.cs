@@ -185,6 +185,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     /// </para>
     /// </summary>
     public bool IsSenderNameEditable => Account?.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3;
+    public bool IsPop3Account => Account?.ProviderType == MailProviderType.POP3;
+    public string ServerSettingsTitle => IsPop3Account ? Translator.SettingsEditAccountDetails_Pop3Settings_Title : Translator.SettingsEditAccountDetails_ImapCalDavSettings_Title;
+    public string ServerSettingsDescription => IsPop3Account ? Translator.SettingsEditAccountDetails_Pop3Settings_Description : Translator.SettingsEditAccountDetails_ImapCalDavSettings_Description;
 
     public string ContactIntegrationSourceText => GetIntegrationSourceText(Account?.ContactIntegrationSource);
     public string TaskIntegrationSourceText => GetIntegrationSourceText(Account?.TaskIntegrationSource);
@@ -599,7 +602,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         // Question and title is reverted on purpose. We messed up the language translations for this one.
         var confirmation = await _dialogService.ShowConfirmationDialogAsync(
-            Translator.DialogMessage_DeleteAccountConfirmationTitle,
+            account.ProviderType == MailProviderType.POP3
+                ? Translator.DialogMessage_DeletePop3AccountConfirmationTitle
+                : Translator.DialogMessage_DeleteAccountConfirmationTitle,
             string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
             Translator.Buttons_Delete);
 
@@ -1077,6 +1082,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         OnPropertyChanged(nameof(IsContactReauthorizationRequired));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
         OnPropertyChanged(nameof(IsSenderNameEditable));
+        OnPropertyChanged(nameof(IsPop3Account));
+        OnPropertyChanged(nameof(ServerSettingsTitle));
+        OnPropertyChanged(nameof(ServerSettingsDescription));
         OnPropertyChanged(nameof(ContactIntegrationSourceText));
         OnPropertyChanged(nameof(TaskIntegrationSourceText));
         OnPropertyChanged(nameof(HasProfilePicture));

@@ -190,7 +190,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                     _folderService ?? throw new InvalidOperationException("Folder service is not registered."),
                     _accountService,
                     _smtpTransport ?? throw new InvalidOperationException("SMTP transport is not registered."),
-                    _mimeFileService ?? throw new InvalidOperationException("MIME file service is not registered."));
+                    _mimeFileService ?? throw new InvalidOperationException("MIME file service is not registered."),
+                    _mailFilterExecutor);
             default:
                 break;
         }

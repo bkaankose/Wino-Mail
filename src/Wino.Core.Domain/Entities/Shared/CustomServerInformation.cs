@@ -61,6 +61,15 @@ public class CustomServerInformation
     /// </summary>
     public int MaxConcurrentClients { get; set; }
 
+    /// <summary>POP3 only: delete each message from the server once it is saved on this device.</summary>
+    public bool Pop3DeleteFromServerAfterDownload { get; set; }
+
+    /// <summary>POP3 only: delete messages from the server this many days after they were downloaded. 0 keeps them.</summary>
+    public int Pop3DeleteFromServerAfterDays { get; set; }
+
+    /// <summary>POP3 only: keep a message on the server when it is permanently deleted on this device.</summary>
+    public bool Pop3KeepOnServerWhenDeletedLocally { get; set; }
+
     [Ignore]
     public List<MailServerCertificateTrust> PendingCertificateTrusts { get; set; } = [];
 

@@ -500,7 +500,7 @@
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind domain:Translator.ProviderSelection_MailRangeDescription, Mode=OneTime}"
+                                                Text="{x:Bind ViewModel.MailRangeDescription, Mode=OneWay}"
                                                 TextWrapping="WrapWholeWords" />
                                         </StackPanel>
                                         <ComboBox

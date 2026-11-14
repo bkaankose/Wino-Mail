@@ -636,7 +636,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             return;
         }
 
-        _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Warning);
+        var message = account?.ProviderType == MailProviderType.POP3
+            ? Translator.Info_Pop3MissingMIMEMessage
+            : Translator.Info_ComposerMissingMIMEMessage;
+        _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, message, InfoBarMessageType.Warning);
     }
 
     /// <returns>True when a download failure was already shown to the user.</returns>

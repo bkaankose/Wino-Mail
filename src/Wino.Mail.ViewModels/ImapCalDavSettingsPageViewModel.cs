@@ -137,6 +137,23 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     public partial int MaxConcurrentClients { get; set; } = 5;
 
     [ObservableProperty]
+    public partial bool Pop3LeaveOnServer { get; set; } = true;
+
+    [ObservableProperty]
+    public partial int SelectedPop3DeleteAfterDaysIndex { get; set; }
+
+    [ObservableProperty]
+    public partial bool Pop3DeleteWithLocal { get; set; } = true;
+
+    private static readonly int[] Pop3DeleteAfterDaysOptions = [0, 7, 14, 30, 60, 90];
+
+    public List<string> Pop3DeleteAfterDaysLabels { get; } = Pop3DeleteAfterDaysOptions
+        .Select(days => days == 0
+            ? Translator.POP3Setup_DeleteAfterDays_Never
+            : string.Format(Translator.POP3Setup_DeleteAfterDays_Days, days))
+        .ToList();
+
+    [ObservableProperty]
     public partial bool IsImapValidationSucceeded { get; set; }
 
     [ObservableProperty]
@@ -169,6 +186,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     public bool IsMailPasswordInputVisible => IsMailSupportEnabled;
     public bool IsMailActionsVisible => IsMailSupportEnabled;
     public bool IsPop3 => _providerType == MailProviderType.POP3;
+    public string MailValidationFailedTitle => IsPop3 ? Translator.POP3Setup_ValidationFailedTitle : Translator.IMAPSetupDialog_ValidationFailed_Title;
     public string IncomingSettingsTitle => IsPop3 ? Translator.ImapSetup_IncomingPop3Title : Translator.ImapSetup_IncomingImapTitle;
     public bool IsCalendarModeSelectionVisible => IsCalendarSupportEnabled && !IsPop3;
     public bool IsCalDavSettingsVisible => IsCalDavCalendarEnabled || IsCalDavTaskEnabled;
@@ -336,6 +354,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(IsCardDavSettingsVisible));
         OnPropertyChanged(nameof(IsCardDavOnlySettingsVisible));
         OnPropertyChanged(nameof(IsPop3));
+        OnPropertyChanged(nameof(MailValidationFailedTitle));
         OnPropertyChanged(nameof(IncomingSettingsTitle));
     }
 
@@ -565,6 +584,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         EmailAddress = account.Address ?? string.Empty;
 
         ApplyServerInformation(account.ServerInformation);
+        ApplyPop3ServerCopyOptions(account.ServerInformation);
 
         // Preserve endpoint recovery for accounts restored from older snapshots.
         if (_isCardDavEnabled && string.IsNullOrWhiteSpace(CardDavServiceUrl))
@@ -695,6 +715,25 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             ? normalizedReplacementValue
             : currentValue ?? string.Empty;
     }
+
+    private void ApplyPop3ServerCopyOptions(CustomServerInformation serverInformation)
+    {
+        if (serverInformation == null)
+            return;
+
+        Pop3LeaveOnServer = !serverInformation.Pop3DeleteFromServerAfterDownload;
+        Pop3DeleteWithLocal = !serverInformation.Pop3KeepOnServerWhenDeletedLocally;
+
+        // A value not in the list (set elsewhere) maps to the closest longer option, so nothing is removed sooner.
+        var days = Math.Max(0, serverInformation.Pop3DeleteFromServerAfterDays);
+        var index = Array.FindIndex(Pop3DeleteAfterDaysOptions, option => option >= days && (option > 0 || days == 0));
+        SelectedPop3DeleteAfterDaysIndex = index < 0 ? Pop3DeleteAfterDaysOptions.Length - 1 : index;
+    }
+
+    private int SelectedPop3DeleteAfterDays
+        => SelectedPop3DeleteAfterDaysIndex >= 0 && SelectedPop3DeleteAfterDaysIndex < Pop3DeleteAfterDaysOptions.Length
+            ? Pop3DeleteAfterDaysOptions[SelectedPop3DeleteAfterDaysIndex]
+            : 0;
 
     private void ApplyServerInformation(CustomServerInformation serverInformation)
     {
@@ -878,7 +917,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private async Task ShowImapValidationFailureAsync(Exception exception)
     {
         await ShowPageErrorAsync(
-            Translator.IMAPSetupDialog_ValidationFailed_Title,
+            MailValidationFailedTitle,
             exception.Message);
 
         if (exception is ImapValidationException { ProtocolLog.Length: > 0 } validationException)
@@ -1244,6 +1283,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             ProxyServer = (ProxyServer ?? string.Empty).Trim(),
             ProxyServerPort = (ProxyServerPort ?? string.Empty).Trim(),
             MaxConcurrentClients = MaxConcurrentClients <= 0 ? 5 : MaxConcurrentClients,
+            Pop3DeleteFromServerAfterDownload = IsPop3 && !Pop3LeaveOnServer,
+            Pop3DeleteFromServerAfterDays = IsPop3 ? SelectedPop3DeleteAfterDays : 0,
+            Pop3KeepOnServerWhenDeletedLocally = IsPop3 && !Pop3DeleteWithLocal,
             ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected,
             CalendarSupportMode = mode,
             CalDavServiceUrl = isCalDavRequired ? (CalDavServiceUrl ?? string.Empty).Trim() : string.Empty,

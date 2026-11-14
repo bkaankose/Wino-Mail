@@ -74,6 +74,7 @@ public sealed class MailServerTestService : IMailServerTestService
         CancellationToken cancellationToken = default)
     {
         using var protocolLogStream = new MemoryStream();
+        var protocol = "POP3";
 
         try
         {
@@ -87,17 +88,29 @@ public sealed class MailServerTestService : IMailServerTestService
 
             await client.GetMessageUidsAsync(cancellationToken).ConfigureAwait(false);
             await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
+
+            protocol = "SMTP";
+            using var smtpProtocolLogger = new WinoProtocolLogger(protocolLogStream, MailProtocol.Smtp);
+            using var smtpClient = new SmtpClient(smtpProtocolLogger);
+            await MailKitSmtpConnectionPolicy.ConnectAndAuthenticateAsync(
+                smtpClient, serverInformation, _certificateTrustService, cancellationToken).ConfigureAwait(false);
+            await smtpClient.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
+
             return Pop3ConnectivityTestResult.Success();
         }
         catch (MailServerCertificateException ex)
         {
             return new Pop3ConnectivityTestResult(false, false, ex.Message, null, ex.Failure);
         }
+        catch (Exception ex) when (SynchronizationManager.TryGetCertificateException(ex, out var certificateException))
+        {
+            return new Pop3ConnectivityTestResult(false, false, certificateException.Message, null, certificateException.Failure);
+        }
         catch (Exception ex)
         {
             var reason = ex.GetBaseException().Message;
             var wrapped = new Pop3ValidationException(
-                string.IsNullOrWhiteSpace(reason) ? "POP3 server validation failed." : $"POP3 server validation failed: {reason}",
+                string.IsNullOrWhiteSpace(reason) ? $"{protocol} server validation failed." : $"{protocol} server validation failed: {reason}",
                 Encoding.UTF8.GetString(protocolLogStream.ToArray()),
                 ex);
             return Pop3ConnectivityTestResult.Failure(wrapped);

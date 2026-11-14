@@ -279,8 +279,8 @@
 
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountDetailsPageSettingsCard6"
-                    Description="{x:Bind domain:Translator.SettingsEditAccountDetails_ImapCalDavSettings_Description}"
-                    Header="{x:Bind domain:Translator.SettingsEditAccountDetails_ImapCalDavSettings_Title}"
+                    Description="{x:Bind ViewModel.ServerSettingsDescription, Mode=OneWay}"
+                    Header="{x:Bind ViewModel.ServerSettingsTitle, Mode=OneWay}"
                     Visibility="{x:Bind ViewModel.IsImapServer, Mode=OneWay}">
                     <controls:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon Icon="GlobeDesktop" />

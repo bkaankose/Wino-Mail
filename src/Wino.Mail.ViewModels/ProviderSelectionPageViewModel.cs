@@ -360,6 +360,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
     public bool IsImapFamily => SelectedProvider?.Type == MailProviderType.IMAP4;
     public bool IsPop3 => SelectedProvider?.Type == MailProviderType.POP3;
+    public string MailRangeDescription => IsPop3 ? Translator.ProviderSelection_MailRangeDescriptionPop3 : Translator.ProviderSelection_MailRangeDescription;
     public bool IsDavContactChoiceAvailable => IsImapFamily;
     public string DavContactAvailabilityMessage => Translator.ProviderSelection_CardDavSetupGuidance;
     public bool IsCapabilitySelectionMissing => !IsMailAccessEnabled && !IsCalendarAccessEnabled &&
@@ -510,6 +511,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(IsOAuthProvider));
         OnPropertyChanged(nameof(IsImapFamily));
         OnPropertyChanged(nameof(IsPop3));
+        OnPropertyChanged(nameof(MailRangeDescription));
         OnPropertyChanged(nameof(IsDavContactChoiceAvailable));
         OnPropertyChanged(nameof(DavContactAvailabilityMessage));
         OnPropertyChanged(nameof(CalendarSourceOptions));

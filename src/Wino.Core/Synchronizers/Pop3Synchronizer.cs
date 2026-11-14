@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -10,6 +9,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 using MimeKit;
+using MimeKit.Utils;
 using Serilog;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
@@ -24,6 +24,8 @@ using Wino.Core.Helpers;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Services;
+using Wino.Services.Extensions;
 using WinoMailService = Wino.Core.Domain.Interfaces.IMailService;
 
 namespace Wino.Core.Synchronizers.Mail;
@@ -38,6 +40,7 @@ public sealed class Pop3Synchronizer
     private readonly IAccountService _accountService;
     private readonly ISmtpTransport _smtpTransport;
     private readonly IMimeFileService _mimeFileService;
+    private readonly IMailFilterExecutor _mailFilterExecutor;
     private readonly ILogger _logger = Log.ForContext<Pop3Synchronizer>();
 
     public Pop3Synchronizer(
@@ -48,7 +51,8 @@ public sealed class Pop3Synchronizer
         IFolderService folderService,
         IAccountService accountService,
         ISmtpTransport smtpTransport,
-        IMimeFileService mimeFileService)
+        IMimeFileService mimeFileService,
+        IMailFilterExecutor mailFilterExecutor = null)
         : base(account, WeakReferenceMessenger.Default)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
@@ -58,7 +62,13 @@ public sealed class Pop3Synchronizer
         _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
         _smtpTransport = smtpTransport ?? throw new ArgumentNullException(nameof(smtpTransport));
         _mimeFileService = mimeFileService ?? throw new ArgumentNullException(nameof(mimeFileService));
+        _mailFilterExecutor = mailFilterExecutor;
     }
+
+    // Read, flag, move and archive change only local state, so the synchronization the base runs right
+    // after them must not log in to the server. Servers often limit how often a mailbox may log in.
+    private static readonly TimeSpan LocalRequestPollSkipWindow = TimeSpan.FromMinutes(1);
+    private DateTime? _localRequestsCompletedUtc;
 
     public override uint BatchModificationSize => 1000;
     public override uint InitialMessageDownloadCountPerFolder => 500;
@@ -94,6 +104,8 @@ public sealed class Pop3Synchronizer
                 RequestUiChangeCoordinator.CompleteRequests([bundle.Request]);
             }
         }
+
+        _localRequestsCompletedUtc = DateTime.UtcNow;
     }
 
     public override List<IRequestBundle<Pop3Request>> MarkRead(BatchMarkReadRequest requests)
@@ -138,7 +150,8 @@ public sealed class Pop3Synchronizer
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (!string.IsNullOrWhiteSpace(request.Item.Pop3Uidl))
+                var keepOnServer = Account.ServerInformation?.Pop3KeepOnServerWhenDeletedLocally ?? false;
+                if (!keepOnServer && !string.IsNullOrWhiteSpace(request.Item.Pop3Uidl))
                 {
                     await _persistenceService
                         .AddPendingDeletionAsync(Account.Id, request.Item.Pop3Uidl)
@@ -150,7 +163,18 @@ public sealed class Pop3Synchronizer
         }, requests.FirstOrDefault(), requests);
 
     public override List<IRequestBundle<Pop3Request>> CreateDraft(CreateDraftRequest request)
-        => CreateBundle(_ => Task.CompletedTask, request, request);
+        => CreateBundle(async _ =>
+        {
+            // POP3 has no server drafts, so the local copy becomes the draft of record. Until it is mapped
+            // the composer treats it as an unsynced local draft and never offers Send.
+            var localDraft = request.DraftPreperationRequest.CreatedLocalDraftCopy;
+            var isMapped = await _mailService
+                .MapLocalDraftAsync(Account.Id, localDraft.UniqueId, localDraft.Id, localDraft.UniqueId.ToString(), localDraft.ThreadId)
+                .ConfigureAwait(false);
+
+            if (!isMapped)
+                throw new InvalidOperationException("The local POP3 draft could not be prepared for sending.");
+        }, request, request);
 
     public override List<IRequestBundle<Pop3Request>> SendDraft(SendDraftRequest request)
         => CreateBundle(async cancellationToken =>
@@ -198,6 +222,21 @@ public sealed class Pop3Synchronizer
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("The local POP3 Inbox is missing.");
 
+        var tombstones = await _persistenceService.GetPendingDeletionsAsync(Account.Id).ConfigureAwait(false);
+
+        if (_localRequestsCompletedUtc is { } localRequestsCompletedUtc)
+        {
+            _localRequestsCompletedUtc = null;
+
+            // A permanent deletion still logs in, so the server copy goes away right after the user deleted it.
+            if (tombstones.Count == 0 && DateTime.UtcNow - localRequestsCompletedUtc < LocalRequestPollSkipWindow)
+                return MailSynchronizationResult.Empty;
+        }
+
+        var settings = Account.ServerInformation;
+        var deleteAfterDownload = settings?.Pop3DeleteFromServerAfterDownload ?? false;
+        var deleteAfterDays = Math.Max(0, settings?.Pop3DeleteFromServerAfterDays ?? 0);
+
         using var client = _clientFactory.Create(Account.Id, Account.IsProtocolLogEnabled);
         var committedDeletionIds = new List<Guid>();
         var attemptedDeletions = new List<Pop3PendingServerDeletion>();
@@ -219,8 +258,14 @@ public sealed class Pop3Synchronizer
                 .Select((uidl, index) => (uidl, index))
                 .GroupBy(item => item.uidl, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First().index, StringComparer.Ordinal);
-            var tombstones = await _persistenceService.GetPendingDeletionsAsync(Account.Id).ConfigureAwait(false);
             var pendingUidls = tombstones.Select(item => item.Uidl).ToHashSet(StringComparer.Ordinal);
+            var deletedIndexes = new HashSet<int>();
+
+            async Task DeleteFromServerAsync(int messageIndex)
+            {
+                if (deletedIndexes.Add(messageIndex))
+                    await client.DeleteMessageAsync(messageIndex, cancellationToken).ConfigureAwait(false);
+            }
 
             foreach (var tombstone in tombstones)
             {
@@ -228,18 +273,18 @@ public sealed class Pop3Synchronizer
                 attemptedDeletions.Add(tombstone);
 
                 if (indexByUidl.TryGetValue(tombstone.Uidl, out var messageIndex))
-                    await client.DeleteMessageAsync(messageIndex, cancellationToken).ConfigureAwait(false);
+                    await DeleteFromServerAsync(messageIndex).ConfigureAwait(false);
 
                 committedDeletionIds.Add(tombstone.Id);
             }
 
-            var knownUidls = await _persistenceService.GetKnownUidlsAsync(Account.Id).ConfigureAwait(false);
+            var states = await _persistenceService.GetRemoteStatesAsync(Account.Id).ConfigureAwait(false);
             var initialImport = string.IsNullOrWhiteSpace(Account.SynchronizationDeltaIdentifier);
             var cutoff = initialImport
                 ? Account.InitialSynchronizationRange.ToCutoffDateUtc(DateTime.UtcNow)
                 : null;
             var candidates = indexByUidl
-                .Where(item => !knownUidls.Contains(item.Key) && !pendingUidls.Contains(item.Key))
+                .Where(item => !states.ContainsKey(item.Key) && !pendingUidls.Contains(item.Key))
                 .OrderBy(item => item.Value)
                 .ToList();
 
@@ -256,7 +301,7 @@ public sealed class Pop3Synchronizer
                         var headers = await client.GetMessageHeadersAsync(candidate.Value, cancellationToken).ConfigureAwait(false);
                         if (TryGetMessageDate(headers, out var messageDate) && messageDate < cutoff.Value)
                         {
-                            await _persistenceService.MarkUidlKnownAsync(Account.Id, candidate.Key).ConfigureAwait(false);
+                            await _persistenceService.MarkUidlKnownAsync(Account.Id, candidate.Key, isImported: false).ConfigureAwait(false);
                             UpdateSyncProgress(candidates.Count, --RemainingItemsToSync, "Downloading POP3 messages...");
                             continue;
                         }
@@ -266,6 +311,11 @@ public sealed class Pop3Synchronizer
                     var package = CreateMailPackage(message, inbox, candidate.Key);
                     if (await _mailService.CreateMailAsync(Account.Id, package).ConfigureAwait(false))
                         downloaded.Add(package.Copy);
+
+                    await _persistenceService.MarkUidlKnownAsync(Account.Id, candidate.Key, isImported: true).ConfigureAwait(false);
+
+                    if (deleteAfterDownload)
+                        await DeleteFromServerAsync(candidate.Value).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -280,15 +330,38 @@ public sealed class Pop3Synchronizer
                 UpdateSyncProgress(candidates.Count, --RemainingItemsToSync, "Downloading POP3 messages...");
             }
 
+            if (deleteAfterDownload || deleteAfterDays > 0)
+            {
+                var retentionCutoffUtc = DateTime.UtcNow.AddDays(-deleteAfterDays);
+                foreach (var (uidl, messageIndex) in indexByUidl)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    // Only messages saved on this device are removed; skipped ones exist nowhere else.
+                    if (!states.TryGetValue(uidl, out var state) || !state.IsImported)
+                        continue;
+
+                    if (deleteAfterDownload || state.EvaluatedAtUtc <= retentionCutoffUtc)
+                        await DeleteFromServerAsync(messageIndex).ConfigureAwait(false);
+                }
+            }
+
             await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
             cleanDisconnect = true;
             await _persistenceService.RemovePendingDeletionsAsync(committedDeletionIds).ConfigureAwait(false);
+            await _persistenceService.PruneRemoteStatesAsync(Account.Id, indexByUidl.Keys).ConfigureAwait(false);
+
+            if (deletedIndexes.Count > 0)
+                _logger.Information("POP3 account {AccountId} deleted {Count} messages from the server.", Account.Id, deletedIndexes.Count);
 
             if (initialImport)
             {
                 Account.SynchronizationDeltaIdentifier = "pop3-uidl-v1";
                 await _accountService.UpdateAccountAsync(Account).ConfigureAwait(false);
             }
+
+            var suppressedIds = await ApplyMailFiltersAsync(downloaded, cancellationToken).ConfigureAwait(false);
+            downloaded.RemoveAll(item => suppressedIds.Contains(item.Id));
 
             var result = MailSynchronizationResult.Completed(downloaded);
             return result.MergeIssues(issues);
@@ -319,6 +392,29 @@ public sealed class Pop3Synchronizer
             }
 
             ResetSyncProgress();
+        }
+    }
+
+    private async Task<IReadOnlySet<string>> ApplyMailFiltersAsync(List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        if (_mailFilterExecutor == null || downloaded.Count == 0)
+            return new HashSet<string>(StringComparer.Ordinal);
+
+        try
+        {
+            return await _mailFilterExecutor
+                .ProcessNewMessagesAsync(Account.Id, downloaded.Select(item => item.Id), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // The messages are already saved; a filter failure must not fail the download.
+            _logger.Warning(ex, "Mail filters failed for new POP3 messages in account {AccountId}.", Account.Id);
+            return new HashSet<string>(StringComparer.Ordinal);
         }
     }
 
@@ -403,7 +499,7 @@ public sealed class Pop3Synchronizer
     {
         utcDate = default;
         var rawDate = headers?[HeaderId.Date];
-        if (!DateTimeOffset.TryParse(rawDate, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var parsed))
+        if (string.IsNullOrWhiteSpace(rawDate) || !DateUtils.TryParse(rawDate, out var parsed))
             return false;
 
         utcDate = parsed.UtcDateTime;
@@ -440,10 +536,12 @@ public sealed class Pop3Synchronizer
             IsRead = false,
             IsFlagged = false,
             IsFocused = false,
-            Importance = MailImportance.Normal,
+            Importance = message.GetImportance(),
             References = references,
             InReplyTo = inReplyTo ?? string.Empty,
             HasAttachments = message.Attachments?.Any() == true,
+            IsReadReceiptRequested = message.HasReadReceiptRequest(),
+            ItemType = MailInvitationReader.GetItemType(message),
             FileId = Guid.NewGuid(),
             IsDraft = folder.SpecialFolderType == SpecialFolderType.Draft
         };

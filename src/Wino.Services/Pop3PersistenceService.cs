@@ -13,24 +13,43 @@ public sealed class Pop3PersistenceService : BaseDatabaseService, IPop3Persisten
     {
     }
 
-    public async Task<HashSet<string>> GetKnownUidlsAsync(Guid accountId)
+    public async Task<IReadOnlyDictionary<string, Pop3RemoteMessageState>> GetRemoteStatesAsync(Guid accountId)
     {
-        var values = await Connection.QueryScalarsAsync<string>(
+        var states = (await Connection.Table<Pop3RemoteMessageState>()
+                .Where(item => item.AccountId == accountId)
+                .ToListAsync()
+                .ConfigureAwait(false))
+            .GroupBy(item => item.Uidl, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+        var importedUidls = await Connection.QueryScalarsAsync<string>(
             "SELECT Pop3Uidl FROM MailCopy WHERE FolderId IN " +
             "(SELECT Id FROM MailItemFolder WHERE MailAccountId = ?) " +
             "AND Pop3Uidl IS NOT NULL AND Pop3Uidl <> ''",
             accountId).ConfigureAwait(false);
 
-        var known = values.ToHashSet(StringComparer.Ordinal);
-        var evaluated = await Connection.Table<Pop3RemoteMessageState>()
-            .Where(item => item.AccountId == accountId)
-            .ToListAsync()
-            .ConfigureAwait(false);
-        known.UnionWith(evaluated.Select(item => item.Uidl));
-        return known;
+        var now = DateTime.UtcNow;
+        foreach (var uidl in importedUidls.Distinct(StringComparer.Ordinal))
+        {
+            if (states.ContainsKey(uidl))
+                continue;
+
+            var state = new Pop3RemoteMessageState
+            {
+                Id = Guid.NewGuid(),
+                AccountId = accountId,
+                Uidl = uidl,
+                EvaluatedAtUtc = now,
+                IsImported = true
+            };
+            await Connection.InsertAsync(state, typeof(Pop3RemoteMessageState)).ConfigureAwait(false);
+            states[uidl] = state;
+        }
+
+        return states;
     }
 
-    public async Task MarkUidlKnownAsync(Guid accountId, string uidl)
+    public async Task MarkUidlKnownAsync(Guid accountId, string uidl, bool isImported)
     {
         if (string.IsNullOrWhiteSpace(uidl))
             throw new ArgumentException("A POP3 UIDL is required.", nameof(uidl));
@@ -38,16 +57,51 @@ public sealed class Pop3PersistenceService : BaseDatabaseService, IPop3Persisten
         var existing = await Connection.Table<Pop3RemoteMessageState>()
             .FirstOrDefaultAsync(item => item.AccountId == accountId && item.Uidl == uidl)
             .ConfigureAwait(false);
+
         if (existing != null)
+        {
+            if (isImported && !existing.IsImported)
+            {
+                existing.IsImported = true;
+                existing.EvaluatedAtUtc = DateTime.UtcNow;
+                await Connection.UpdateAsync(existing, typeof(Pop3RemoteMessageState)).ConfigureAwait(false);
+            }
+
             return;
+        }
 
         await Connection.InsertAsync(new Pop3RemoteMessageState
         {
             Id = Guid.NewGuid(),
             AccountId = accountId,
             Uidl = uidl,
-            EvaluatedAtUtc = DateTime.UtcNow
+            EvaluatedAtUtc = DateTime.UtcNow,
+            IsImported = isImported
         }, typeof(Pop3RemoteMessageState)).ConfigureAwait(false);
+    }
+
+    public async Task PruneRemoteStatesAsync(Guid accountId, IEnumerable<string> serverUidls)
+    {
+        var onServer = serverUidls?.ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
+        var states = await Connection.Table<Pop3RemoteMessageState>()
+            .Where(item => item.AccountId == accountId)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var gone = states.Where(item => !onServer.Contains(item.Uidl)).ToList();
+        if (gone.Count == 0)
+            return;
+
+        // A local copy keeps its row; GetRemoteStatesAsync would only add it back.
+        var referenced = (await Connection.QueryScalarsAsync<string>(
+                "SELECT Pop3Uidl FROM MailCopy WHERE FolderId IN " +
+                "(SELECT Id FROM MailItemFolder WHERE MailAccountId = ?) " +
+                "AND Pop3Uidl IS NOT NULL AND Pop3Uidl <> ''",
+                accountId).ConfigureAwait(false))
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var state in gone.Where(item => !referenced.Contains(item.Uidl)))
+            await Connection.DeleteAsync<Pop3RemoteMessageState>(state.Id).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<Pop3PendingServerDeletion>> GetPendingDeletionsAsync(Guid accountId)

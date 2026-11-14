@@ -332,6 +332,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronize))]
     [NotifyPropertyChangedFor(nameof(IsFolderSynchronizationEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsSynchronizationDisabledNoticeVisible))]
     [NotifyPropertyChangedFor(nameof(IsCategoryView))]
     [NotifyPropertyChangedFor(nameof(IsSyncButtonVisible))]
     [NotifyPropertyChangedFor(nameof(IsJunkFolder))]
@@ -622,6 +623,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     public bool CanSynchronize => !IsCategoryView && !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
     public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
+
+    // POP3 downloads only the Inbox; its other folders exist only on this device and cannot be synchronized.
+    public bool IsSynchronizationDisabledNoticeVisible => !IsFolderSynchronizationEnabled
+        && ActiveFolder is not IFolderMenuItem { ParentAccount.ProviderType: MailProviderType.POP3 };
     public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
     public bool IsJunkFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Junk;
     public bool IsCategoryView => ActiveFolder is IMailCategoryMenuItem or IMergedMailCategoryMenuItem;
@@ -3459,6 +3464,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             OnPropertyChanged(nameof(CanSynchronize));
             OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
+            OnPropertyChanged(nameof(IsSynchronizationDisabledNoticeVisible));
         });
 
         if (isActiveFolder)

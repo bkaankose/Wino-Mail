@@ -4,9 +4,9 @@ using SQLite;
 namespace Wino.Core.Domain.Entities.Mail;
 
 /// <summary>
-/// Records a server UIDL that was intentionally evaluated but not imported, for example because
-/// it predates the configured initial range. This keeps later polling incremental without using
-/// unstable POP3 sequence numbers.
+/// Records a server UIDL Wino has evaluated: either imported, or skipped because it predates the
+/// initial range. This keeps later polling incremental without unstable POP3 sequence numbers, and
+/// a local deletion never brings an imported message back.
 /// </summary>
 public sealed class Pop3RemoteMessageState
 {
@@ -20,4 +20,10 @@ public sealed class Pop3RemoteMessageState
     public string Uidl { get; set; }
 
     public DateTime EvaluatedAtUtc { get; set; }
+
+    /// <summary>
+    /// Whether the message was downloaded. Only imported messages may be deleted from the server by
+    /// the retention options; skipped ones were never saved on this device.
+    /// </summary>
+    public bool IsImported { get; set; }
 }

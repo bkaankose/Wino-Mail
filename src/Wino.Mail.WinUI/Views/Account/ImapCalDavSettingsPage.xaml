@@ -297,7 +297,7 @@
                         ContentAlignment="Vertical">
                         <StackPanel Spacing="12">
                             <InfoBar
-                                Title="{x:Bind domain:Translator.IMAPSetupDialog_ValidationFailed_Title, Mode=OneTime}"
+                                Title="{x:Bind ViewModel.MailValidationFailedTitle, Mode=OneWay}"
                                 AutomationProperties.AutomationId="ImapSetupMailErrorInfoBar"
                                 IsClosable="False"
                                 IsOpen="{x:Bind ViewModel.HasMailConnectionError, Mode=OneWay}"
@@ -529,6 +529,52 @@
                                     Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}" />
                             </Grid>
                         </StackPanel>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+            <!--  POP3: when downloaded messages leave the server  -->
+            <controls:SettingsExpander
+                Margin="0,8,0,0"
+                AutomationProperties.AutomationId="Pop3ServerCopiesExpander"
+                Description="{x:Bind domain:Translator.POP3Setup_ServerCopiesDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.POP3Setup_ServerCopiesTitle, Mode=OneTime}"
+                IsExpanded="True"
+                Visibility="{x:Bind ViewModel.IsPop3, Mode=OneWay}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="Pop3LeaveOnServerCard"
+                        Description="{x:Bind domain:Translator.POP3Setup_LeaveOnServerDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.POP3Setup_LeaveOnServerTitle, Mode=OneTime}">
+                        <ToggleSwitch
+                            AutomationProperties.AutomationId="Pop3LeaveOnServerToggle"
+                            AutomationProperties.Name="{x:Bind domain:Translator.POP3Setup_LeaveOnServerTitle, Mode=OneTime}"
+                            IsOn="{x:Bind ViewModel.Pop3LeaveOnServer, Mode=TwoWay}" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="Pop3DeleteAfterDaysCard"
+                        Description="{x:Bind domain:Translator.POP3Setup_DeleteAfterDaysDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.POP3Setup_DeleteAfterDaysTitle, Mode=OneTime}"
+                        IsEnabled="{x:Bind ViewModel.Pop3LeaveOnServer, Mode=OneWay}">
+                        <ComboBox
+                            MinWidth="140"
+                            AutomationProperties.AutomationId="Pop3DeleteAfterDaysComboBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.POP3Setup_DeleteAfterDaysTitle, Mode=OneTime}"
+                            ItemsSource="{x:Bind ViewModel.Pop3DeleteAfterDaysLabels, Mode=OneTime}"
+                            SelectedIndex="{x:Bind ViewModel.SelectedPop3DeleteAfterDaysIndex, Mode=TwoWay}" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="Pop3DeleteWithLocalCard"
+                        Description="{x:Bind domain:Translator.POP3Setup_DeleteWithLocalDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.POP3Setup_DeleteWithLocalTitle, Mode=OneTime}"
+                        IsEnabled="{x:Bind ViewModel.Pop3LeaveOnServer, Mode=OneWay}">
+                        <ToggleSwitch
+                            AutomationProperties.AutomationId="Pop3DeleteWithLocalToggle"
+                            AutomationProperties.Name="{x:Bind domain:Translator.POP3Setup_DeleteWithLocalTitle, Mode=OneTime}"
+                            IsOn="{x:Bind ViewModel.Pop3DeleteWithLocal, Mode=TwoWay}" />
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>

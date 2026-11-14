@@ -776,7 +776,7 @@
                         Grid.ColumnSpan="3"
                         x:Load="{x:Bind ViewModel.IsSyncButtonVisible, Mode=OneWay}"
                         IsClosable="True"
-                        IsOpen="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsFolderSynchronizationEnabled), Mode=OneWay}"
+                        IsOpen="{x:Bind ViewModel.IsSynchronizationDisabledNoticeVisible, Mode=OneWay}"
                         Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"
                         Severity="Informational">
                         <InfoBar.ActionButton>
