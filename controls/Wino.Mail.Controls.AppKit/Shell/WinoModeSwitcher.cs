@@ -4,6 +4,7 @@ using CoreFoundation;
 using CoreGraphics;
 using Foundation;
 using Wino.Core.Domain.Enums;
+using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Controls;
 
@@ -506,8 +507,9 @@ public sealed class WinoModeSwitcher : NSView
 
 /// <summary>
 /// The pane surface behind the shell menu. With a Wino theme the wallpaper shows through,
-/// blurred within the window over <c>ThemeBackdropView</c> and softened by a light or dark veil;
-/// with the Default theme it is the native behind-window sidebar material.
+/// blurred within the window over <c>ThemeBackdropView</c> and softened by a light or dark veil.
+/// The translucent window option keeps the native behind-window sidebar material; the Default theme
+/// uses the opaque Settings window pane (within-window sidebar material under <see cref="WinoSettingsStyle.PaneVeil"/>).
 /// </summary>
 public sealed class WinoPaneBackdropView : NSView
 {
@@ -522,11 +524,14 @@ public sealed class WinoPaneBackdropView : NSView
         Fill = WinoStyle.Dynamic(WinoStyle.Hex(0xFFFFFF, 0.22), WinoStyle.Hex(0x14141A, 0.28))
     };
 
+    private readonly WinoSurfaceView _paneVeil = new() { Fill = WinoSettingsStyle.PaneVeil };
+
     public WinoPaneBackdropView()
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
         WinoLayout.Fill(_effect, this);
         WinoLayout.Fill(_veil, this);
+        WinoLayout.Fill(_paneVeil, this);
         Apply();
         WinoStyle.BackdropWatchers.Add(this, static view => view.BackdropChanged(null, EventArgs.Empty));
     }
@@ -535,12 +540,13 @@ public sealed class WinoPaneBackdropView : NSView
 
     private void Apply()
     {
-        // The translucent window material alone keeps the native sidebar material; a theme wallpaper blurs within the window.
         bool themed = WinoStyle.HasBackdrop && !WinoStyle.IsWindowMaterialOnly;
-        _effect.BlendingMode = themed ? NSVisualEffectBlendingMode.WithinWindow : NSVisualEffectBlendingMode.BehindWindow;
+        bool translucent = WinoStyle.IsWindowMaterialOnly;
+        _effect.BlendingMode = translucent ? NSVisualEffectBlendingMode.BehindWindow : NSVisualEffectBlendingMode.WithinWindow;
         _effect.Material = themed ? NSVisualEffectMaterial.HudWindow : NSVisualEffectMaterial.Sidebar;
         _effect.Hidden = false;
         _veil.Hidden = !themed;
+        _paneVeil.Hidden = themed || translucent;
     }
 
     protected override void Dispose(bool disposing)
