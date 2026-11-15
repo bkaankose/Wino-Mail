@@ -25,4 +25,7 @@ public partial class FolderCustomizationItemViewModel : ObservableObject
     }
 
     public void NotifyFolderNameChanged() => OnPropertyChanged(nameof(FolderName));
+
+    // List rows without an explicit automation name are announced by ToString(), which was the type name.
+    public override string ToString() => FolderName;
 }
