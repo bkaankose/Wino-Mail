@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Medium and expanded widths: the Add account column starts lower in its centred zone, as the Windows welcome window
+     centres it. -->
+<resources>
+  <dimen name="account_setup_page_top_padding">48dp</dimen>
+</resources>

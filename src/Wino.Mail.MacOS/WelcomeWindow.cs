@@ -34,7 +34,7 @@ public sealed class WelcomeWindow : NSWindow
     {
         public override bool WindowShouldClose(NSObject sender)
         {
-            if (sender is NSWindow { ContentViewController: AccountSetupProgressPageViewController { HasPendingWork: true } } window)
+            if (sender is NSWindow { ContentViewController: AccountSetupProgressPageViewController { HasPendingWork: true } or Views.Onboarding.AccountSetupPageViewController { HasPendingWork: true } } window)
             {
                 var alert = new NSAlert { MessageText = "Wino Mail", InformativeText = Translator.MacOS_Welcome_CloseBlocked };
                 alert.AddButton(Translator.Buttons_OK);

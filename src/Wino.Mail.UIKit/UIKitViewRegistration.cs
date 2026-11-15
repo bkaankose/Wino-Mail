@@ -23,6 +23,7 @@ public static partial class UIKitViewRegistration
         // Onboarding pages (the same on iPhone and iPad).
         services.AddTransient<WelcomePageV2ViewController>();
         services.AddTransient<ProviderSelectionPageViewController>();
+        services.AddTransient<AccountSetupPageViewController>();
         services.AddTransient<AccountSetupProgressPageViewController>();
         services.AddTransient<SpecialImapCredentialsPageViewController>();
         services.AddTransient<ExchangeSettingsPageViewController>();

@@ -84,6 +84,13 @@ public sealed class AndroidPageRegistry
             {
                 if (entry.ViewModel is ProviderSelectionPageViewModel viewModel) viewModel.IsSecureSignInSupportedByHost = true;
             });
+        // Add account from Welcome and from Settings (AddressFirstAccountSetup): the address-first setup page. Its browser
+        // sign-in uses a Custom Tab and Exchange modern auth the embedded browser, so the host offers secure sign-in.
+        Register<AccountSetupPageFragment, AccountSetupPageViewModel>(WinoPage.AccountSetupPage, AndroidPageHost.Root,
+            preparing: static entry =>
+            {
+                if (entry.ViewModel is AccountSetupPageViewModel viewModel) viewModel.IsSecureSignInSupportedByHost = true;
+            });
         Register<SpecialImapCredentialsFragment, SpecialImapCredentialsPageViewModel>(WinoPage.SpecialImapCredentialsPage, AndroidPageHost.Root);
         Register<ImapSetupFragment, ImapCalDavSettingsPageViewModel>(WinoPage.ImapCalDavSettingsPage, AndroidPageHost.Root,
             initialize: static (viewModel, mode, parameter) =>

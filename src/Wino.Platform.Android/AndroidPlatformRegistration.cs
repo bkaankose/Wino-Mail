@@ -161,7 +161,7 @@ public static class AndroidPlatformRegistration
             KeyboardShortcuts: false, FileBackup: false, Purchases: false,
             // One row density and no hover; the system decides background work, so sync intervals are fixed.
             PointerHover: false, MailListDensity: false, PresentationDetection: false, ConfigurableSyncIntervals: false,
-            BadgeLaunchNavigation: false));
+            BadgeLaunchNavigation: false, AddressFirstAccountSetup: true));
         return services;
     }
 

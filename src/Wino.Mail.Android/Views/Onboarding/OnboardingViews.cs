@@ -54,6 +54,20 @@ internal static class OnboardingViews
         binder.Scope.Own(new ActionDisposable(callback.Remove));
     }
 
+    /// <summary>
+    /// <see cref="InterceptBack{T}"/> for a condition over computed properties, re-read after any change of
+    /// <paramref name="source"/>.
+    /// </summary>
+    public static void InterceptBackWhen<T>(Fragment fragment, ViewBinder binder, T source, Func<T, bool> read, Action back)
+        where T : INotifyPropertyChanged
+    {
+        if (fragment.Activity is not { } activity) return;
+        var callback = new BackCallback(back, binder.Error);
+        activity.OnBackPressedDispatcher.AddCallback(fragment.ViewLifecycleOwner, callback);
+        binder.BindAny(source, read, enabled => callback.Enabled = enabled);
+        binder.Scope.Own(new ActionDisposable(callback.Remove));
+    }
+
     /// <summary>An outlined text field: the label, and two-way text with the ViewModel.</summary>
     public static TextInputLayout? Field<T>(View root, int layoutId, ViewBinder binder, T source, string label, string property,
         Func<T, string?> read, Action<T, string> write) where T : INotifyPropertyChanged

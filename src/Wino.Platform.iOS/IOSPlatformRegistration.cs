@@ -155,7 +155,7 @@ public static class IOSPlatformRegistration
             KeyboardShortcuts: isPad, FileBackup: false, Purchases: true,
             // One row density and no hover; the system schedules background refresh, so sync intervals are fixed.
             PointerHover: false, MailListDensity: false, PresentationDetection: false, ConfigurableSyncIntervals: false,
-            BadgeLaunchNavigation: false,
+            BadgeLaunchNavigation: false, AddressFirstAccountSetup: true,
             // Safari suspends the app while the user signs in, so a 127.0.0.1 listener never sees the redirect, and the
             // web authentication sheet completes only the custom scheme.
             OAuthLoopbackRedirect: false));

@@ -5,6 +5,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authorization;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -18,7 +19,9 @@ namespace Wino.Mail.Android.Views.Debug;
 /// page, <c>exchange</c> and <c>exchangestage</c> do the same for Exchange setup, <c>seedexchange</c> adds a demo Exchange
 /// account on a closed loopback port (<c>--es kind modern</c> for an organization sign-in), and <c>oauthloopback</c> runs a
 /// loopback OAuth sign-in against a public issuer so the redirect listener can be probed while the Custom Tab is in
-/// front.
+/// front. <c>accountsetup</c> opens the address-first Add account page as the wizard does (<c>--es kind settings</c> as
+/// Settings does), and <c>embeddedsignin</c> opens the Exchange embedded sign-in browser on a public page
+/// (<c>--es kind</c> overrides the start address) whose links include the fake redirect, logging how it ended.
 /// </summary>
 internal static class DebugOnboarding
 {
@@ -32,6 +35,10 @@ internal static class DebugOnboarding
     public static void Track(ImapCalDavSettingsPageViewModel viewModel) => _imap = new(viewModel);
 
     public static void Track(ExchangeSettingsPageViewModel viewModel) => _exchange = new(viewModel);
+
+    public static void Track(AccountSetupPageViewModel viewModel) => _accountSetup = new(viewModel);
+
+    private static WeakReference<AccountSetupPageViewModel>? _accountSetup;
 
     public static async Task<string?> RunAsync(IServiceProvider services, AndroidNavigationService navigation, string command, string kind)
     {
@@ -84,6 +91,30 @@ internal static class DebugOnboarding
                 return result;
             case "oauthloopback":
                 return await ProbeLoopbackAsync(services);
+            case "accountsetup":
+                await navigation.NavigateAsync(WinoPage.AccountSetupPage, kind == "settings"
+                    ? ProviderSelectionNavigationContext.CreateForSettingsAddAccount()
+                    : ProviderSelectionNavigationContext.CreateForWizard());
+                return "ok";
+            case "accountsetupstate":
+                if (_accountSetup?.TryGetTarget(out var setup) != true || setup is null) return "no setup page";
+                return $"step={setup.Step} phase={setup.Phase} route={setup.Route} primary={setup.IsPrimaryVisible}:{setup.PrimaryText}";
+            case "embeddedsignin":
+                var broker = services.GetService<IEmbeddedBrowserAuthBroker>();
+                if (broker is null) return "no embedded browser";
+                var start = new Uri(string.IsNullOrEmpty(kind) ? "https://example.com/" : kind);
+                // example.com links to this page; following the link completes the sign-in with it as the redirect.
+                var redirect = new Uri("https://www.iana.org/help/example-domains");
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var outcome = await broker.AuthenticateAsync(start, redirect, CancellationToken.None);
+                        Serilog.Log.Information("Debug command embeddedsignin ended: {Status} {Redirect}", outcome.Status, outcome.RedirectUri);
+                    }
+                    catch (Exception exception) { Serilog.Log.Error(exception, "Debug command embeddedsignin failed."); }
+                });
+                return "started";
             default:
                 return null;
         }

@@ -118,6 +118,8 @@ public abstract class UIKitPageRegistry : IUIKitPageRegistry
         Register<WelcomePageV2ViewController>(WinoPage.WelcomePageV2, UIKitPageHost.Root);
         Register<WelcomePageV2ViewController>(WinoPage.WelcomeHostPage, UIKitPageHost.Root);
         Register<ProviderSelectionPageViewController>(WinoPage.ProviderSelectionPage, UIKitPageHost.Root);
+        // Add account from Welcome and from Settings (AddressFirstAccountSetup); in Settings it opens in the add-account sheet.
+        Register<AccountSetupPageViewController>(WinoPage.AccountSetupPage, UIKitPageHost.Root);
         Register<AccountSetupProgressPageViewController>(WinoPage.AccountSetupProgressPage, UIKitPageHost.Root);
         Register<SpecialImapCredentialsPageViewController>(WinoPage.SpecialImapCredentialsPage, UIKitPageHost.Root);
         Register<ExchangeSettingsPageViewController>(WinoPage.ExchangeSettingsPage, UIKitPageHost.Root);
