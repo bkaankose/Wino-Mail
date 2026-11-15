@@ -324,8 +324,10 @@ public partial class MailFilterEditorPageViewModel(
             SelectedMatchMode = MatchModes.First(option => option.Value == (source?.MatchMode ?? MailFilterMatchMode.All));
             SelectedSourceFolder = isDuplicate
                 ? null
-                : Folders.FirstOrDefault(folder =>
-                    string.Equals(folder.RemoteFolderId, source?.SourceRemoteFolderId, StringComparison.OrdinalIgnoreCase));
+                : source is null
+                    ? Folders.FirstOrDefault(folder => folder.SpecialFolderType == SpecialFolderType.Inbox)
+                    : Folders.FirstOrDefault(folder =>
+                        string.Equals(folder.RemoteFolderId, source.SourceRemoteFolderId, StringComparison.OrdinalIgnoreCase));
 
             Conditions.Clear();
             foreach (var condition in source?.Conditions ?? [])
