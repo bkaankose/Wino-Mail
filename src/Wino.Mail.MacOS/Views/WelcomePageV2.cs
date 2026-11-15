@@ -27,6 +27,8 @@ public sealed class WelcomePageV2 : NSView
         var description = WinoStyle.Label(Translator.WelcomeWindow_GetStartedDescription, NSFont.SystemFontOfSize(14), WinoStyle.SecondaryText, 0);
         description.Alignment = NSTextAlignment.Center;
         description.PreferredMaxLayoutWidth = (nfloat)HeroTextWidth;
+        // Standard line breaking keeps the last word from sitting alone on its own line in longer translations.
+        description.LineBreakStrategy = NSLineBreakStrategy.Standard;
         // A fixed width keeps the wrapped lines centred under the title instead of hugging the longest line.
         description.WidthAnchor.ConstraintEqualTo((nfloat)HeroTextWidth).Active = true;
 

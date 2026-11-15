@@ -78,6 +78,8 @@ internal sealed class SetupStepIndicator : NSStackView
         Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
         Spacing = 8;
         Alignment = NSLayoutAttribute.CenterY;
+        // The indicator keeps its natural width; stretched to the page width, the extra space opened a gap after the first step.
+        SetHuggingPriority(751, NSLayoutConstraintOrientation.Horizontal);
         var features = new Step("1", Translator.ImapSetup_StepFeatures);
         _signIn = new Step("2", Translator.ImapSetup_StepSignIn);
         _servers = new Step("3", Translator.ImapSetup_StepServers);

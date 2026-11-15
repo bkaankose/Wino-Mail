@@ -149,12 +149,12 @@ internal abstract class WinoAccountSheet<TResult>
     }
 #endif
 
-    /// <summary>The 56pt app icon, the 18pt semibold title and the centred 12pt description (max 340).</summary>
+    /// <summary>The 56pt app icon, the sheet heading (15pt bold, as every Wino sheet) and the centred 12pt description (max 340).</summary>
     protected static NSStackView Header(string title, string description, out NSTextField titleLabel, out NSTextField descriptionLabel, bool mark = true)
     {
         var icon = new NSImageView { Image = NSImage.ImageNamed("AppIcon") ?? NSApplication.SharedApplication.ApplicationIconImage, ImageScaling = NSImageScale.ProportionallyUpOrDown, TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Size(icon, 56, 56);
-        titleLabel = WinoStyle.Label(title, NSFont.SystemFontOfSize(18, NSFontWeight.Semibold), WinoStyle.PrimaryText, 0);
+        titleLabel = WinoStyle.Label(title, WinoStyle.Heading, WinoStyle.PrimaryText, 0);
         titleLabel.Alignment = NSTextAlignment.Center;
         titleLabel.AccessibilityRole = NSAccessibilityRoles.StaticTextRole;
         descriptionLabel = WinoStyle.Label(description, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);

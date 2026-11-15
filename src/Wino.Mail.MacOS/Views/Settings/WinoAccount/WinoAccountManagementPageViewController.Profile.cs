@@ -5,6 +5,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
+using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Settings;
@@ -32,6 +33,9 @@ public sealed partial class WinoAccountManagementPageViewController
     /// opens Change photo / Remove photo), the name has its own rename button, and save results show
     /// under the email address.
     /// </summary>
+    /// <summary>Below this card width the name, the address and both actions do not fit on one row.</summary>
+    private const double CompactProfileCardWidth = 600;
+
     private NSView ProfileCard()
     {
         var vm = ViewModel;
@@ -81,6 +85,8 @@ public sealed partial class WinoAccountManagementPageViewController
 
         var email = Bind.Label(vm, nameof(vm.AccountEmail), s => s.AccountEmail, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
         email.Selectable = true;
+        email.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
+        email.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
 
         // Save status: a check for "Saved", a warning for failures, "Saving..." while busy.
         var saved = new WinoIconView(WinoIconGlyph.Checkmark, 12, WinoStyle.Success);
@@ -106,7 +112,12 @@ public sealed partial class WinoAccountManagementPageViewController
         Bind.Bind(vm, nameof(vm.ProfileMessage), s => s.ProfileMessage, _ => UpdateStatus());
         Bind.Bind(vm, nameof(vm.IsProfileBusy), s => s.IsProfileBusy, _ => UpdateStatus());
 
-        var identity = WinoLayout.VStack(2, nameRow, email, status);
+        // In a narrow card the actions move under the address, so the name is not cut to a few letters beside them.
+        var compactActions = WinoLayout.HStack(8, Bind.Button(Translator.WinoAccount_ChangePassword_Title, vm.ChangePasswordCommand),
+            Bind.Button(Translator.WinoAccount_Management_SignOutTitle, vm.SignOutCommand), BusySpinner(vm, nameof(vm.IsBusy), s => s.IsBusy));
+        compactActions.EdgeInsets = new NSEdgeInsets(8, 0, 0, 0);
+        compactActions.Hidden = true;
+        var identity = WinoLayout.VStack(2, nameRow, email, status, compactActions);
         identity.Alignment = NSLayoutAttribute.Leading;
         nameRow.WidthAnchor.ConstraintLessThanOrEqualTo(identity.WidthAnchor).Active = true;
         identity.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
@@ -124,6 +135,15 @@ public sealed partial class WinoAccountManagementPageViewController
         var row = WinoLayout.HStack(16, photo, identity, actions);
         row.Alignment = NSLayoutAttribute.CenterY;
         var card = Surface(row, 20, 8);
+        card.PostsFrameChangedNotifications = true;
+        var frameObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSView.FrameChangedNotification, _ =>
+        {
+            var compact = card.Frame.Width < CompactProfileCardWidth;
+            if (actions.Hidden == compact) return;
+            actions.Hidden = compact;
+            compactActions.Hidden = !compact;
+        }, card);
+        Bindings.Own(new ActionDisposable(() => NSNotificationCenter.DefaultCenter.RemoveObserver(frameObserver)));
         card.AccessibilityIdentifier = "WinoAccountProfileCard";
         return card;
     }

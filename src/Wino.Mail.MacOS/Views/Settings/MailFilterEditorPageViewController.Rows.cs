@@ -20,6 +20,7 @@ public sealed partial class MailFilterEditorPageViewController
     private const double OperatorWidth = 150;
     private const double ActionWidth = 200;
     private const double FolderWidth = 240;
+    private const double MinPopUpWidth = 96;
 
     private readonly NSStackView _conditionRows = RowStack();
     private readonly NSStackView _actionRows = RowStack();
@@ -105,17 +106,22 @@ public sealed partial class MailFilterEditorPageViewController
         var (tile, icon) = MailFilterPresentation.Tile(MailFilterDisplay.GetFieldGlyph(item.SelectedField?.Value), WinoStyle.Accent);
         rows.Bind(item, nameof(item.SelectedField), s => s.SelectedField, field => icon.Icon = MailFilterDisplay.GetFieldGlyph(field?.Value));
 
-        var field = GlyphPopUp(rows, item, s => s.FieldOptions, null, option => option.DisplayName, option => MailFilterDisplay.GetFieldGlyph(option.Value),
+        // The tile beside the pop-up already shows the field's glyph, so the pop-up shows text only.
+        var field = GlyphPopUp(rows, item, s => s.FieldOptions, null, option => option.DisplayName, _ => WinoIconGlyph.None,
             nameof(item.SelectedField), s => s.SelectedField, (s, v) => s.SelectedField = v, FieldWidth);
         WinoAccessibility.Label(field, Translator.MailFilterEditor_Conditions);
 
         var op = rows.PopUp(item, s => s.AvailableOperators, option => option.DisplayName, nameof(item.SelectedOperator),
-            s => s.SelectedOperator, (s, v) => s.SelectedOperator = v, itemsProperty: nameof(item.AvailableOperators), width: OperatorWidth);
-        op.WidthAnchor.ConstraintEqualTo((nfloat)OperatorWidth).Active = true;
+            s => s.SelectedOperator, (s, v) => s.SelectedOperator = v, itemsProperty: nameof(item.AvailableOperators), width: MinPopUpWidth);
+        PreferWidth(op, OperatorWidth);
 
         var value = rows.TextField(item, nameof(item.Value), s => s.Value, (s, v) => s.Value = v, null, 0);
         value.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         value.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        // In a narrow window the pop-ups give up width before the value field does.
+        var valueMin = value.WidthAnchor.ConstraintGreaterThanOrEqualTo(100);
+        valueMin.Priority = 750;
+        valueMin.Active = true;
         WinoAccessibility.Label(value, item.SelectedField?.DisplayName ?? Translator.MailFilterEditor_Conditions);
         rows.Visible(value, item, nameof(item.IsTextField), s => s.IsTextField);
 
@@ -159,7 +165,7 @@ public sealed partial class MailFilterEditorPageViewController
             icon.Icon = MailFilterDisplay.GetActionGlyph(action?.Value);
         });
 
-        var action = GlyphPopUp(rows, item, s => s.ActionOptions, null, option => option.DisplayName, option => MailFilterDisplay.GetActionGlyph(option.Value),
+        var action = GlyphPopUp(rows, item, s => s.ActionOptions, null, option => option.DisplayName, _ => WinoIconGlyph.None,
             nameof(item.SelectedAction), s => s.SelectedAction, (s, v) => s.SelectedAction = v, ActionWidth);
         WinoAccessibility.Label(action, Translator.MailFilterEditor_Actions);
 
@@ -193,6 +199,18 @@ public sealed partial class MailFilterEditorPageViewController
         return stack;
     }
 
+    /// <summary>
+    /// The pop-up's usual width. Both it and the title's width rank under the window's stay-put priority (500), so in a
+    /// narrow window the pop-up truncates (down to its minimum) instead of widening the Settings window.
+    /// </summary>
+    private static void PreferWidth(NSView popup, double width)
+    {
+        var preferred = popup.WidthAnchor.ConstraintEqualTo((nfloat)width);
+        preferred.Priority = 490;
+        preferred.Active = true;
+        popup.SetContentCompressionResistancePriority(480, NSLayoutConstraintOrientation.Horizontal);
+    }
+
     private static WinoIconGlyph FolderGlyph(SpecialFolderType type) => SpecialFolderGlyphs.GetGlyphOrFolder(type);
 
     private static NSPopUpButton FolderPopUp<T>(SettingsBinder binder, T source, Func<T, IReadOnlyList<MailFilterFolderOption>?> items, INotifyCollectionChanged? collection,
@@ -215,7 +233,8 @@ public sealed partial class MailFilterEditorPageViewController
             Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
             AutoEnablesItems = false
         };
-        popup.WidthAnchor.ConstraintEqualTo((nfloat)width).Active = true;
+        popup.WidthAnchor.ConstraintGreaterThanOrEqualTo((nfloat)Math.Min(width, MinPopUpWidth)).Active = true;
+        PreferWidth(popup, width);
         var current = new List<TItem>();
 
         void Select(TItem? value)

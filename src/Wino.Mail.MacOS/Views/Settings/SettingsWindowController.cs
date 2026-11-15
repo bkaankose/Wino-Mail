@@ -94,6 +94,9 @@ public sealed class SettingsWindowController : NSWindowController
         header.EdgeInsets = new NSEdgeInsets(22, 32, 6, 32);
         // The window title names the page, as in System Settings; the Windows title block stays out.
         header.Hidden = true;
+        // A hidden view keeps its constraints: at the stack's default (required) clipping resistance a long page
+        // description widened the window past its minimum (the Wino Account page opened 765pt wide).
+        header.SetClippingResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
         titleRow.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -64).Active = true;
         _description.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -64).Active = true;
 

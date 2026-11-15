@@ -18,7 +18,7 @@ internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsP
     public PurchaseChannelSheet(bool isWinoAccountAvailable, bool microsoftStore, bool appleAppStore) : base(480)
     {
         Sheet.Title = Translator.UnlimitedAccountsPurchaseDialog_Title;
-        var heading = WinoStyle.Label(Translator.UnlimitedAccountsPurchaseDialog_Title, NSFont.SystemFontOfSize(18, NSFontWeight.Semibold), WinoStyle.PrimaryText, 0);
+        var heading = WinoStyle.Label(Translator.UnlimitedAccountsPurchaseDialog_Title, WinoStyle.Heading, WinoStyle.PrimaryText, 0);
         var description = WinoStyle.Label(Translator.UnlimitedAccountsPurchaseDialog_Description, WinoStyle.Body, WinoStyle.SecondaryText, 0);
         description.PreferredMaxLayoutWidth = 432;
         var header = WinoLayout.VStack(8, heading, description);

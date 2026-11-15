@@ -54,6 +54,12 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
 
     protected abstract void BuildPage();
 
+    public override void ViewWillLayout()
+    {
+        base.ViewWillLayout();
+        if (_page is not null) WinoSettingsCard.AlignTrailingControls(_page);
+    }
+
     /// <summary>Adds a section to the page and stretches it to the content width.</summary>
     protected T Add<T>(T view) where T : NSView
     {

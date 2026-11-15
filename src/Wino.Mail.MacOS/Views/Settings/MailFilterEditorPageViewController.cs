@@ -121,6 +121,9 @@ public sealed partial class MailFilterEditorPageViewController(MailFilterEditorP
             provider.IsOptionEnabled = enabled;
         });
         Bind.Visible(provider, vm, nameof(vm.IsProviderAvailable), s => s.IsProviderAvailable);
+        // Side by side the two cards share one height; a hidden provider card must not size the shown one.
+        var sameHeight = wino.HeightAnchor.ConstraintEqualTo(provider.HeightAnchor);
+        Bind.Bind(vm, nameof(vm.IsProviderAvailable), s => s.IsProviderAvailable, available => sameHeight.Active = available);
 
         var row = WinoLayout.HStack(WinoStyle.Space2, wino, provider);
         row.Alignment = NSLayoutAttribute.Top;

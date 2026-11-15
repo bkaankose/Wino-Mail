@@ -56,6 +56,9 @@ internal static class Composition
             builder.AddSerilog(dispose: false);
         });
         services.RegisterSharedServices();
+#if DEBUG
+        Views.Settings.WinoAccountSessionSimulation.Register(services);
+#endif
         services.RegisterCoreServices();
         services.AddSingleton(dispatcher);
         services.AddSingleton(identity);

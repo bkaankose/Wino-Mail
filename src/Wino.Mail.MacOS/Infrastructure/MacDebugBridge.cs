@@ -180,6 +180,17 @@ public static class MacDebugBridge
             window.SetFrame(new CoreGraphics.CGRect(frame.X, frame.Y, (nfloat)double.Parse(args[0]), (nfloat)double.Parse(args[1])), true);
             return Task.FromResult("ok");
         });
+        // "wsize WIDTH HEIGHT TITLE" sizes the first visible window whose title contains TITLE, keeping its top-left corner.
+        Register("wsize", args =>
+        {
+            var title = string.Join(' ', args.Skip(2));
+            var window = AllWindows().FirstOrDefault(item => item.IsVisible && item.Title.Contains(title, StringComparison.OrdinalIgnoreCase));
+            if (window is null) return Task.FromResult("no window");
+            var frame = window.Frame;
+            var height = (nfloat)double.Parse(args[1]);
+            window.SetFrame(new CoreGraphics.CGRect(frame.X, frame.Bottom - height, (nfloat)double.Parse(args[0]), height), true);
+            return Task.FromResult($"{window.Frame}");
+        });
         Register("front", _ =>
         {
             // Lets a full-screen capture on the Mac show Wino without granting System Events access.

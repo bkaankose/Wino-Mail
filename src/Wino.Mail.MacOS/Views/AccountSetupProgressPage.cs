@@ -47,7 +47,13 @@ public sealed class AccountSetupProgressPage : NSView
 
         var column = WinoLayout.VStack(WinoStyle.Space6, title, Steps, _success, _failurePanel);
         column.Alignment = NSLayoutAttribute.CenterX;
-        foreach (var view in column.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
+        foreach (var view in column.ArrangedSubviews)
+        {
+            if (view == Steps) continue;
+            view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
+        }
+        // The step list is as wide as its longest step and sits centred under the title; its rows share one leading edge.
+        Steps.WidthAnchor.ConstraintLessThanOrEqualTo(column.WidthAnchor).Active = true;
 
         // The column sits in the middle of the page and scrolls when a long failure outgrows it.
         var document = new FlippedView();
@@ -119,13 +125,27 @@ public sealed class AccountSetupProgressPage : NSView
 /// </summary>
 public sealed class AccountSetupStepList : NSView
 {
+    /// <summary>The indicator column and the gap before the title.</summary>
+    private const double TitleInset = 28 + 12;
     private readonly NSStackView _rows = WinoLayout.VStack(0);
+    private readonly NSLayoutConstraint _preferredWidth;
 
     public AccountSetupStepList()
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
         WinoLayout.Fill(_rows, this);
+        _preferredWidth = WidthAnchor.ConstraintEqualTo((nfloat)AccountSetupProgressPage.ColumnWidth);
+        _preferredWidth.Priority = 700;
+        _preferredWidth.Active = true;
         AccessibilityElement = false;
+    }
+
+    /// <summary>Sizes the list to its longest step title on one line; a wrapped failure detail stays within that width.</summary>
+    private void UpdatePreferredWidth(IEnumerable<AccountSetupStepModel> steps)
+    {
+        var attributes = new NSStringAttributes { Font = WinoStyle.Body };
+        var widest = steps.Select(step => new Foundation.NSAttributedString(step.Title ?? string.Empty, attributes).Size.Width).DefaultIfEmpty(0).Max();
+        _preferredWidth.Constant = (nfloat)Math.Ceiling(widest + TitleInset + 4);
     }
 
     /// <summary>Mirrors the collection; changes may arrive on any thread and are applied on the UI thread.</summary>
@@ -140,7 +160,9 @@ public sealed class AccountSetupStepList : NSView
                 {
                     if (disposed) return;
                     Clear();
-                    foreach (var step in steps.ToArray()) Add(new StepRow(step, dispatcher, error));
+                    var current = steps.ToArray();
+                    foreach (var step in current) Add(new StepRow(step, dispatcher, error));
+                    UpdatePreferredWidth(current);
                 });
             }
             catch (Exception exception) { if (!disposed) error(exception); }

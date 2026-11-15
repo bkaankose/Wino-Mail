@@ -19,7 +19,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// Debug bridge commands for the Wino Account sheets and page. The sheets open without waiting, so
 /// the bridge stays free for <c>snap</c>; <c>dlg-result</c> reads how the last one ended.
 /// <list type="bullet">
-/// <item><c>dlg-purchase</c>: the purchase channel sheet.</item>
+/// <item><c>dlg-purchase [appstore]</c>: the purchase channel sheet; <c>appstore</c> shows the App Store build's channels.</item>
 /// <item><c>dlg-secret new|existing|legacy|rejected</c>: the sync secret sheet (the entered value is never reported).</item>
 /// <item><c>dlg-cert [dangerous] &lt;pem-or-der-path&gt;</c>: the certificate trust sheet with a sample prompt (normal, or dangerous with the acknowledgement).</item>
 /// <item><c>winoacct-state</c>: the open Wino Account page's ViewModel flags.</item>
@@ -42,7 +42,16 @@ internal static class WinoAccountDebug
     public static void Register()
     {
         MacDebugBridge.Register("dlg-result", _ => Task.FromResult(_lastResult));
-        MacDebugBridge.Register("dlg-purchase", _ => Run("purchase", async () => (await Dialogs.ShowUnlimitedAccountsPurchaseChannelDialogAsync())?.ToString() ?? "cancelled"));
+        MacDebugBridge.Register("dlg-purchase", args =>
+        {
+            if (args.Length == 0 || args[0] != "appstore")
+                return Run("purchase", async () => (await Dialogs.ShowUnlimitedAccountsPurchaseChannelDialogAsync())?.ToString() ?? "cancelled");
+            // The App Store build's sheet (Apple App Store first, Stripe for the United States storefront), which a Debug build never offers.
+            var window = AppKit.NSApplication.SharedApplication.KeyWindow ?? AppKit.NSApplication.SharedApplication.MainWindow;
+            if (window is null) return Task.FromResult("no window");
+            _ = new Account.PurchaseChannelSheet(isWinoAccountAvailable: true, microsoftStore: false, appleAppStore: true).PresentAsync(window);
+            return Task.FromResult("ok");
+        });
         MacDebugBridge.Register("dlg-secret", args =>
         {
             var mode = args.Length > 0 ? args[0].ToLowerInvariant() : "existing";
