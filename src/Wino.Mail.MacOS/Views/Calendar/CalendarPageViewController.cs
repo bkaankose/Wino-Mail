@@ -150,8 +150,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _detailsOverlay = overlay;
         // A flat zone's fill lets the window material through, so the floating pane needs an opaque one.
         _detailsZone.Fill = overlay ? NSColor.WindowBackground : WinoStyle.ZoneFill;
-        if (overlay) _detailsZone.Shadow = DetailsOverlayShadow;
-        else _detailsZone.FloatingRadius = _detailsZone.FloatingRadius;
+        _detailsZone.FlatShadow = overlay ? DetailsOverlayShadow : null;
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)

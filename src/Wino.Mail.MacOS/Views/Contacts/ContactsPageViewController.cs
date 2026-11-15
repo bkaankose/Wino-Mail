@@ -19,6 +19,7 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
 {
     private const double DetailWidth = 348;
     private const double WideBreakpoint = 1008;
+    private const double DefaultSidebarWidth = 280;
 
     private readonly AppKitNavigationService _navigation;
     private readonly IPictureStorageService _pictures;
@@ -141,10 +142,13 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
     /// </summary>
     private void UpdateDetailPane()
     {
-        var width = View.Window?.Frame.Width ?? View.Bounds.Width + 260;
-        bool wide = width >= WideBreakpoint;
+        // The page's own width, not the window's: the sidebar keeps the width the user dragged it to, so a wide sidebar
+        // in a small window left the list a few letters wide beside a full-width details pane. The zone's bounds are
+        // not laid out yet when this runs, so they lagged one resize behind.
+        var width = View.Bounds.Width;
+        bool wide = width >= WideBreakpoint - DefaultSidebarWidth;
         bool show = wide || ViewModel.SelectedContact is not null;
-        double paneWidth = wide ? DetailWidth : Math.Min(DetailWidth, Math.Max(280, Math.Floor(_zone.ContentView.Bounds.Width / 2)));
+        double paneWidth = wide ? DetailWidth : Math.Min(DetailWidth, Math.Max(280, Math.Floor(width / 2)));
         if (_detailPane.Hidden != !show) _detailPane.Hidden = !show;
         var constant = (nfloat)(show ? paneWidth : 0);
         if (_detailWidth.Constant != constant) _detailWidth.Constant = constant;

@@ -224,7 +224,9 @@ public static class MacDebugBridge
         // "tree CLASS [DEPTH]" writes the view tree of the first visible window of that class to tree.txt.
         Register("tree", args =>
         {
-            var window = AllWindows().FirstOrDefault(item => item.IsVisible && item.GetType().Name == args[0]);
+            // "tree TYPE|TITLE-PREFIX [DEPTH]": a sheet is a plain NSWindow like the status item, so its title picks it.
+            var window = AllWindows().FirstOrDefault(item => item.IsVisible && item.GetType().Name == args[0])
+                ?? AllWindows().FirstOrDefault(item => item.IsVisible && item.Title.StartsWith(args[0], StringComparison.OrdinalIgnoreCase));
             if (window?.ContentView is null) return Task.FromResult("no window");
             int maxDepth = args.Length > 1 ? int.Parse(args[1]) : 12;
             var builder = new System.Text.StringBuilder();

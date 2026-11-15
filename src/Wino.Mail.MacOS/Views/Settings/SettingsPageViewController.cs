@@ -45,7 +45,12 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
 
     public override void LoadView()
     {
-        _page = WinoLayout.VStack(WinoSettingsStyle.CardSpacing);
+        _page = new SettingsPageStack
+        {
+            Orientation = NSUserInterfaceLayoutOrientation.Vertical,
+            Spacing = (nfloat)WinoSettingsStyle.CardSpacing,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
         _page.Alignment = NSLayoutAttribute.Leading;
         _page.Distribution = NSStackViewDistribution.Fill;
         View = SettingsPageScrollView.Create(_page);
@@ -54,10 +59,18 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
 
     protected abstract void BuildPage();
 
-    public override void ViewWillLayout()
+    /// <summary>
+    /// Lines up the cards' trailing controls whenever the page stack lays out. The controller's own layout pass is
+    /// not enough: a group that hides later (an empty account list) relayouts the stack inside the scroll view
+    /// only, and the remaining cards kept the column reserved for the hidden cards' chevrons.
+    /// </summary>
+    private sealed class SettingsPageStack : NSStackView
     {
-        base.ViewWillLayout();
-        if (_page is not null) WinoSettingsCard.AlignTrailingControls(_page);
+        public override void Layout()
+        {
+            base.Layout();
+            WinoSettingsCard.AlignTrailingControls(this);
+        }
     }
 
     /// <summary>Adds a section to the page and stretches it to the content width.</summary>

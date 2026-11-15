@@ -196,6 +196,7 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
         Watch(s => (s.QuotaSummary, s.IsQuotaAvailable, s.QuotaUsagePercentage), state =>
         {
             quotaText.StringValue = state.QuotaSummary ?? string.Empty;
+            quotaText.ToolTip = state.QuotaSummary;
             quotaBar.Hidden = !state.IsQuotaAvailable;
             quotaBar.Value = state.QuotaUsagePercentage;
         });
@@ -207,6 +208,12 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
         // Stacks resist clipping at required priority by default, so these rows widened the Settings window at its
         // minimum width; the labels truncate instead.
         foreach (var row in new[] { top, bottom }) row.SetClippingResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        // Below the rows' clipping resistance, or the stack clipped the quota line mid-word at the card edge.
+        foreach (var label in new[] { indexed, quotaText })
+        {
+            label.LineBreakMode = NSLineBreakMode.TruncatingTail;
+            label.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
+        }
         var stack = WinoLayout.VStack(12, top, bottom);
         stack.Alignment = NSLayoutAttribute.Leading;
         top.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;

@@ -16,6 +16,7 @@ public class WinoZoneView : NSView
     private readonly WinoSurfaceView _surface = new();
     private readonly NSShadow _shadow = new() { ShadowBlurRadius = 10, ShadowOffset = new CGSize(0, -2), ShadowColor = NSColor.Black.ColorWithAlphaComponent(0.12f) };
     private double _floatingRadius = WinoStyle.ZoneRadius;
+    private NSShadow? _flatShadow;
 
     public WinoZoneView()
     {
@@ -41,6 +42,16 @@ public class WinoZoneView : NSView
     }
 
     /// <summary>
+    /// The shadow while the zone is flat, for a zone that floats over other content (none by default). Kept here
+    /// because a backdrop or appearance change re-applies the zone's look and would drop a shadow set directly.
+    /// </summary>
+    public NSShadow? FlatShadow
+    {
+        get => _flatShadow;
+        set { _flatShadow = value; Apply(); }
+    }
+
+    /// <summary>
     /// Adds the zone to <paramref name="parent"/> with the given gutters while floating and none while flat.
     /// <paramref name="top"/> anchors to <paramref name="topAnchor"/> when given (a safe-area top).
     /// </summary>
@@ -59,7 +70,7 @@ public class WinoZoneView : NSView
     private void Apply()
     {
         bool floating = WinoStyle.FloatingZones;
-        Shadow = floating ? _shadow : null;
+        Shadow = floating ? _shadow : _flatShadow;
         _surface.CornerRadius = floating ? _floatingRadius : 0;
         _surface.Stroke = floating ? WinoStyle.ZoneStroke : null;
         _surface.NeedsDisplay = true;

@@ -97,6 +97,9 @@ internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsP
         var row = WinoLayout.HStack(12, radio, mark, text);
         row.Alignment = NSLayoutAttribute.Top;
         row.EdgeInsets = new NSEdgeInsets(10, 12, 10, 12);
+        // A top-aligned stack holds its bottom inset only weakly; the sheet's fitting height dropped it and the
+        // description's last line sat on the card's bottom edge.
+        text.BottomAnchor.ConstraintLessThanOrEqualTo(row.BottomAnchor, -10).Active = true;
         var surface = new WinoSurfaceView
         {
             Fill = Wino.Mail.Controls.AppKit.Settings.WinoSettingsStyle.CardFill,
