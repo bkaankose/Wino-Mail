@@ -39,6 +39,12 @@ public class NotificationBuilder : INotificationBuilder
     private static readonly Uri DefaultJumpListIconUri = new("ms-appx:///Assets/AppEntries/MailAssets/Square44x44Logo.scale-200.png");
     private static int _calendarTaskbarBadgeCount;
     private static readonly SemaphoreSlim TaskbarBadgeUpdateLock = new(1, 1);
+
+    // Every AccountUpdatedMessage asks for a rebuild, so startup fires several at once. Concurrent
+    // JumpList.SaveAsync calls fail with a sharing violation; one rebuild runs at a time and requests
+    // that arrive meanwhile collapse into a single follow-up rebuild.
+    private static readonly SemaphoreSlim JumpListUpdateLock = new(1, 1);
+    private static int _jumpListUpdatePending;
     private static readonly MailOperation[] SupportedMailNotificationActions =
     [
         MailOperation.MarkAsRead,
@@ -239,6 +245,30 @@ public class NotificationBuilder : INotificationBuilder
     }
 
     public async Task UpdateJumpListOptionsAsync()
+    {
+        Interlocked.Exchange(ref _jumpListUpdatePending, 1);
+
+        if (!await JumpListUpdateLock.WaitAsync(0))
+            return;
+
+        try
+        {
+            while (Interlocked.Exchange(ref _jumpListUpdatePending, 0) == 1)
+            {
+                await RebuildJumpListAsync();
+            }
+        }
+        finally
+        {
+            JumpListUpdateLock.Release();
+        }
+
+        // A request that arrived between the last check and the release would otherwise be lost.
+        if (Volatile.Read(ref _jumpListUpdatePending) == 1)
+            await UpdateJumpListOptionsAsync();
+    }
+
+    private async Task RebuildJumpListAsync()
     {
         try
         {
