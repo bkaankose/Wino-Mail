@@ -18,10 +18,11 @@ public partial class ImapCalDavSettingsPageViewModel
         {
             DisplayName = prefill.SenderName.Trim();
         }
-        else if (prefill.StartOnServers && EmailAddress?.IndexOf('@') is int atIndex && atIndex > 0)
+        else if (EmailAddress?.IndexOf('@') is int atIndex && atIndex > 0)
         {
-            // The Servers step has no name field, and the default here is the account name, which is the domain when
-            // the user typed none. Mail would go out as "example.com" <user@example.com>.
+            // The default here is the account name, which is the domain when the user typed none. The Servers step has
+            // no name field, and the Sign in step would offer the domain, so mail would go out as
+            // "example.com" <user@example.com>.
             DisplayName = EmailAddress[..atIndex];
         }
 
