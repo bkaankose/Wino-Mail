@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +29,10 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
     private static readonly ILogger Logger = Log.ForContext<AutoDiscoveryService>();
     private static readonly StringComparer IgnoreCase = StringComparer.OrdinalIgnoreCase;
     private static readonly HttpMethod OptionsMethod = new("OPTIONS");
+    private static readonly HttpMethod PropFindMethod = new("PROPFIND");
+    private const int MaximumDavProbeRedirects = 5;
+    private const string PrincipalPropFindBody =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<D:propfind xmlns:D=\"DAV:\"><D:prop><D:current-user-principal /></D:prop></D:propfind>";
 
     private readonly HttpClient _httpClient;
     private readonly IDnsLookupService _dnsLookupService;
@@ -82,7 +88,8 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
 
     /// <summary>
     /// RFC 6764 discovery. Candidates are probed in this order, and the first one that answers like
-    /// a DAV endpoint wins:
+    /// a DAV endpoint wins. A candidate that only redirects, to a website for example, proves nothing:
+    /// the URL it ends on has to pass <see cref="IsDavAnswer"/>, otherwise the next candidate is tried.
     /// 1. <c>_caldavs._tcp</c> SRV targets of the domain and its parent (TLS), with the TXT <c>path</c>.
     /// 2. HTTPS on the targets of a plain <c>_caldav._tcp</c> record, when no TLS record exists.
     /// 3. <c>https://domain/.well-known/caldav</c> and <c>https://caldav.domain/</c>.
@@ -110,7 +117,7 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
         var probed = new HashSet<Uri>();
 
         var resolved = await TryResolveSrvCandidatesAsync(service, domainCandidates, insecureCandidates, probed, cancellationToken).ConfigureAwait(false)
-                       ?? await TryResolveFirstCandidateAsync(GetDavCandidates(service, domainCandidates), probed, cancellationToken).ConfigureAwait(false);
+                       ?? await TryResolveFirstCandidateAsync(service, GetDavCandidates(service, domainCandidates), probed, cancellationToken).ConfigureAwait(false);
 
         if (resolved == null)
         {
@@ -128,7 +135,7 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
         {
             var outlookDavUri = await TryGetOutlookAutodiscoverDavUriAsync(mailAddress, cancellationToken).ConfigureAwait(false);
             if (outlookDavUri != null)
-                resolved = await TryResolveFirstCandidateAsync([outlookDavUri], probed, cancellationToken).ConfigureAwait(false);
+                resolved = await TryResolveFirstCandidateAsync(service, [outlookDavUri], probed, cancellationToken).ConfigureAwait(false);
         }
 
         if (resolved == null)
@@ -136,13 +143,13 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
             var hostedCandidates = (await GetAutoconfigHostsAsync(domain, cancellationToken).ConfigureAwait(false))
                 .Select(host => new Uri($"https://{host}{service.WellKnownPath}"));
 
-            resolved = await TryResolveFirstCandidateAsync(hostedCandidates, probed, cancellationToken).ConfigureAwait(false);
+            resolved = await TryResolveFirstCandidateAsync(service, hostedCandidates, probed, cancellationToken).ConfigureAwait(false);
         }
 
         if (resolved == null && insecureCandidates.Count > 0)
         {
             Logger.Warning("{Service} discovery for {Domain} found only unencrypted SRV records; probing plain HTTP", service.Name, domain);
-            resolved = await TryResolveFirstCandidateAsync(insecureCandidates, probed, cancellationToken).ConfigureAwait(false);
+            resolved = await TryResolveFirstCandidateAsync(service, insecureCandidates, probed, cancellationToken).ConfigureAwait(false);
         }
 
         if (resolved == null)
@@ -179,7 +186,7 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
                 }
             }
 
-            var resolved = await TryResolveFirstCandidateAsync(secureCandidates, probed, cancellationToken).ConfigureAwait(false);
+            var resolved = await TryResolveFirstCandidateAsync(service, secureCandidates, probed, cancellationToken).ConfigureAwait(false);
             if (resolved != null)
                 return resolved;
         }
@@ -187,14 +194,14 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
         return null;
     }
 
-    private async Task<Uri> TryResolveFirstCandidateAsync(IEnumerable<Uri> candidates, HashSet<Uri> probed, CancellationToken cancellationToken)
+    private async Task<Uri> TryResolveFirstCandidateAsync(DavService service, IEnumerable<Uri> candidates, HashSet<Uri> probed, CancellationToken cancellationToken)
     {
         foreach (var candidate in candidates)
         {
             if (!probed.Add(candidate))
                 continue;
 
-            var resolved = await TryResolveCalDavEndpointAsync(candidate, cancellationToken).ConfigureAwait(false);
+            var resolved = await TryResolveDavEndpointAsync(service, candidate, cancellationToken).ConfigureAwait(false);
             if (resolved != null)
                 return resolved;
         }
@@ -668,31 +675,59 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
         return null;
     }
 
-    private async Task<Uri> TryResolveCalDavEndpointAsync(Uri candidate, CancellationToken cancellationToken)
-    {
-        var getResult = await ProbeCalDavEndpointAsync(candidate, HttpMethod.Get, cancellationToken).ConfigureAwait(false);
-        if (getResult != null)
-            return getResult;
+    private async Task<Uri> TryResolveDavEndpointAsync(DavService service, Uri candidate, CancellationToken cancellationToken)
+        => await ProbeDavEndpointAsync(service, candidate, PropFindMethod, cancellationToken).ConfigureAwait(false)
+           ?? await ProbeDavEndpointAsync(service, candidate, OptionsMethod, cancellationToken).ConfigureAwait(false);
 
-        return await ProbeCalDavEndpointAsync(candidate, OptionsMethod, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<Uri> ProbeCalDavEndpointAsync(Uri uri, HttpMethod method, CancellationToken cancellationToken)
+    /// <summary>
+    /// Sends the probe and follows its redirects, including the ones the handler leaves unfollowed. Only the URL
+    /// that finally answers is judged, and it is the one returned: the DAV clients later send credentials to that
+    /// host only. A redirect from https to http is never followed.
+    /// </summary>
+    private async Task<Uri> ProbeDavEndpointAsync(DavService service, Uri uri, HttpMethod method, CancellationToken cancellationToken)
     {
+        var target = uri;
+
         try
         {
-            using var request = new HttpRequestMessage(method, uri);
-            using var response = await _httpClient
-                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                .ConfigureAwait(false);
+            for (var redirectCount = 0; redirectCount <= MaximumDavProbeRedirects; redirectCount++)
+            {
+                using var request = new HttpRequestMessage(method, target);
 
-            if (TryResolveRedirectTarget(uri, response, out var redirectTarget))
-                return redirectTarget;
+                if (method == PropFindMethod)
+                {
+                    request.Headers.TryAddWithoutValidation("Depth", "0");
+                    request.Content = new StringContent(PrincipalPropFindBody, Encoding.UTF8, "application/xml");
+                }
 
-            if (!IsPossibleCalDavEndpoint(response))
+                using var response = await _httpClient
+                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                    .ConfigureAwait(false);
+
+                var answeredUri = response.RequestMessage?.RequestUri ?? target;
+
+                if (TryResolveRedirectTarget(answeredUri, response, out var redirectTarget))
+                {
+                    if (!MayFollowDavProbeRedirect(answeredUri, redirectTarget))
+                    {
+                        Logger.Debug("{Service} probe of {Uri} was redirected to {Target}, which is not followed", service.Name, uri, redirectTarget);
+                        return null;
+                    }
+
+                    target = redirectTarget;
+                    continue;
+                }
+
+                if (IsDavAnswer(service, method, response))
+                    return answeredUri;
+
+                Logger.Debug(
+                    "{Service} candidate {Uri} answered {Method} at {AnsweredUri} with {StatusCode}, not as a DAV server",
+                    service.Name, uri, method.Method, answeredUri, (int)response.StatusCode);
                 return null;
+            }
 
-            return response.RequestMessage?.RequestUri ?? uri;
+            return null;
         }
         catch (OperationCanceledException)
         {
@@ -700,30 +735,55 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
         }
         catch (Exception ex)
         {
-            Logger.Debug(ex, "CalDAV probe failed for {Uri} with method {Method}", uri, method);
+            Logger.Debug(ex, "{Service} probe failed for {Uri} with method {Method}", service.Name, uri, method.Method);
             return null;
         }
     }
 
-    private static bool IsPossibleCalDavEndpoint(HttpResponseMessage response)
+    private static bool MayFollowDavProbeRedirect(Uri from, Uri to)
     {
-        if (response == null)
+        if (to.Scheme != Uri.UriSchemeHttp && to.Scheme != Uri.UriSchemeHttps)
             return false;
 
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.MultiStatus)
-            return true;
-
-        var hasDavHeader = response.Headers.Contains("DAV");
-        var hasDavMethod = response.Headers.TryGetValues("Allow", out var allowValues)
-                           && allowValues.Any(value =>
-                               value.Contains("PROPFIND", StringComparison.OrdinalIgnoreCase) ||
-                               value.Contains("REPORT", StringComparison.OrdinalIgnoreCase));
-
-        if (response.StatusCode == HttpStatusCode.MethodNotAllowed)
-            return hasDavHeader || hasDavMethod;
-
-        return response.IsSuccessStatusCode && (hasDavHeader || hasDavMethod);
+        return from.Scheme != Uri.UriSchemeHttps || to.Scheme == Uri.UriSchemeHttps;
     }
+
+    /// <summary>
+    /// Whether an unauthenticated probe was answered by a DAV server. PROPFIND: 207 Multi-Status with an XML body, or
+    /// 401 with a challenge, which is how a DAV server answers before sign-in while a website answers 404, 405 or a
+    /// page. OPTIONS: the service's compliance class in the <c>DAV</c> header (RFC 4791 section 5.1, RFC 6352
+    /// section 6.1) or PROPFIND in <c>Allow</c>. A bare 401 or 403 is not evidence; websites and their firewalls
+    /// send those too.
+    /// </summary>
+    private static bool IsDavAnswer(DavService service, HttpMethod method, HttpResponseMessage response)
+    {
+        if (method == PropFindMethod)
+        {
+            if (response.StatusCode == HttpStatusCode.MultiStatus)
+            {
+                var mediaType = response.Content?.Headers.ContentType?.MediaType;
+                return mediaType == null || mediaType.Contains("xml", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return response.StatusCode == HttpStatusCode.Unauthorized && response.Headers.Contains("WWW-Authenticate");
+        }
+
+        if (!response.IsSuccessStatusCode &&
+            response.StatusCode is not (HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.MethodNotAllowed))
+        {
+            return false;
+        }
+
+        var hasComplianceClass = response.Headers.TryGetValues("DAV", out var davValues)
+                                 && davValues.Any(value => value.Contains(service.ComplianceClass, StringComparison.OrdinalIgnoreCase));
+
+        return hasComplianceClass || AllowsPropFind(response.Headers) || AllowsPropFind(response.Content?.Headers);
+    }
+
+    private static bool AllowsPropFind(HttpHeaders headers)
+        => headers != null
+           && headers.TryGetValues("Allow", out var allowValues)
+           && allowValues.Any(value => value.Contains("PROPFIND", StringComparison.OrdinalIgnoreCase));
 
     private static bool TryResolveRedirectTarget(Uri baseUri, HttpResponseMessage response, out Uri resolvedUri)
     {
@@ -737,7 +797,7 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
 
         resolvedUri = Wino.Services.Dav.DavUri.Resolve(baseUri, response.Headers.Location);
 
-        return true;
+        return resolvedUri != null;
     }
 
     private static bool IsRedirectStatusCode(HttpStatusCode statusCode)
@@ -821,9 +881,9 @@ public partial class AutoDiscoveryService : IAutoDiscoveryService
     }
 
     /// <summary>The names RFC 6764 gives each DAV service.</summary>
-    private sealed record DavService(string Name, string SecureSrvLabel, string PlainSrvLabel, string WellKnownPath, string HostPrefix, string CacheKeyPrefix)
+    private sealed record DavService(string Name, string SecureSrvLabel, string PlainSrvLabel, string WellKnownPath, string HostPrefix, string CacheKeyPrefix, string ComplianceClass)
     {
-        public static readonly DavService CalDav = new("CalDAV", "_caldavs._tcp", "_caldav._tcp", "/.well-known/caldav", "caldav.", string.Empty);
-        public static readonly DavService CardDav = new("CardDAV", "_carddavs._tcp", "_carddav._tcp", "/.well-known/carddav", "carddav.", "carddav:");
+        public static readonly DavService CalDav = new("CalDAV", "_caldavs._tcp", "_caldav._tcp", "/.well-known/caldav", "caldav.", string.Empty, "calendar-access");
+        public static readonly DavService CardDav = new("CardDAV", "_carddavs._tcp", "_carddav._tcp", "/.well-known/carddav", "carddav.", "carddav:", "addressbook");
     }
 }
