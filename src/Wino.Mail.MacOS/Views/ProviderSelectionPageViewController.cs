@@ -156,8 +156,9 @@ public sealed class ProviderSelectionPageViewController(ProviderSelectionPageVie
             Translator.AccountCreation_InitialSynchronization_Title);
         range.WidthAnchor.ConstraintGreaterThanOrEqualTo(160).Active = true;
         _form.Bind(nameof(vm.IsMailSynchronizationRangeVisible), s => s.IsMailSynchronizationRangeVisible, enabled => range.Enabled = enabled);
-        var rangeText = WinoLayout.VStack(2, WinoStyle.Label(Translator.ProviderSelection_MailRangeHeader, WinoStyle.Body),
-            WinoStyle.Label(Translator.ProviderSelection_MailRangeDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0));
+        var rangeDescription = WinoStyle.Label(vm.MailRangeDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        _form.Label(rangeDescription, nameof(vm.MailRangeDescription), s => s.MailRangeDescription);
+        var rangeText = WinoLayout.VStack(2, WinoStyle.Label(Translator.ProviderSelection_MailRangeHeader, WinoStyle.Body), rangeDescription);
         rangeText.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
         var rangeRow = WinoLayout.HStack(WinoStyle.Space4, rangeText, range);
         var everythingWarning = new WinoInfoBar(WinoInfoBarSeverity.Warning, Translator.GeneralTitle_Warning, Translator.AccountCreation_InitialSynchronization_EverythingWarning);

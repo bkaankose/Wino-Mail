@@ -125,7 +125,9 @@ public sealed class ProviderSelectionPageViewController(ProviderSelectionPageVie
             Translator.AccountCreation_InitialSynchronization_Title);
         Form.Bind(nameof(vm.IsMailSynchronizationRangeVisible), s => s.IsMailSynchronizationRangeVisible, enabled => range.Enabled = enabled);
         grid.Row(Translator.ProviderSelection_MailRangeHeader, range);
-        grid.Row((string?)null, FormGrid.Help(Translator.ProviderSelection_MailRangeDescription));
+        var rangeHelp = FormGrid.Help(vm.MailRangeDescription);
+        Form.Bind(nameof(vm.MailRangeDescription), s => s.MailRangeDescription, text => rangeHelp.Text = text);
+        grid.Row((string?)null, rangeHelp);
         var everythingWarning = new WinoInfoBar(WinoInfoBarSeverity.Warning, Translator.GeneralTitle_Warning, Translator.AccountCreation_InitialSynchronization_EverythingWarning);
         Form.Visible(everythingWarning, nameof(vm.IsInitialSynchronizationWarningVisible), s => s.IsInitialSynchronizationWarningVisible);
 

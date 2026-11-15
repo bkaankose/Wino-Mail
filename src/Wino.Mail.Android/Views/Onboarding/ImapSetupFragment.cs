@@ -62,6 +62,7 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         form.Group(() =>
         {
             BuildServers(form, viewModel);
+            form.Group(() => BuildPop3ServerCopies(form, viewModel), nameof(viewModel.IsPop3), vm => vm.IsPop3);
             advancedGroup = form.Group(() => BuildAdvanced(form, viewModel));
         }, nameof(viewModel.IsServersStepVisible), vm => vm.IsServersStepVisible);
         OnboardingViews.Show(advancedGroup, advanced.IsShown);
@@ -147,7 +148,8 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         {
             var title = form.Section(viewModel.IncomingSettingsTitle);
             binder.Bind(viewModel, nameof(viewModel.IncomingSettingsTitle), vm => vm.IncomingSettingsTitle, text => title.Text = text);
-            ConnectionError(form, viewModel, nameof(viewModel.HasMailConnectionError), vm => vm.HasMailConnectionError, nameof(viewModel.MailConnectionError), vm => vm.MailConnectionError);
+            var mailError = ConnectionError(form, viewModel, nameof(viewModel.HasMailConnectionError), vm => vm.HasMailConnectionError, nameof(viewModel.MailConnectionError), vm => vm.MailConnectionError);
+            binder.Bind(viewModel, nameof(viewModel.MailValidationFailedTitle), vm => vm.MailValidationFailedTitle, text => mailError.Title = text);
             HostAndPort(form, Translator.ImapSetup_ServerHeader, nameof(viewModel.IncomingServer), vm => vm.IncomingServer, (vm, v) => vm.IncomingServer = v,
                 Translator.IMAPSetupDialog_IncomingMailServerPort, nameof(viewModel.IncomingServerPort), vm => vm.IncomingServerPort, (vm, v) => vm.IncomingServerPort = v);
             form.Dropdown(Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, security, nameof(viewModel.SelectedIncomingServerConnectionSecurityIndex),
@@ -197,6 +199,32 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         form.Link(Translator.ImapSetup_TestConnections, viewModel.TestConnectionsCommand);
     }
 
+    /// <summary>POP3 only (Windows "Messages on the server"): whether and when downloaded messages leave the server.</summary>
+    private static void BuildPop3ServerCopies(OnboardingForm<ImapCalDavSettingsPageViewModel> form, ImapCalDavSettingsPageViewModel viewModel)
+    {
+        var binder = form.Binder;
+        form.Section(Translator.POP3Setup_ServerCopiesTitle);
+        form.Help(Translator.POP3Setup_ServerCopiesDescription, topDp: 4);
+        form.Switch(Translator.POP3Setup_LeaveOnServerTitle, nameof(viewModel.Pop3LeaveOnServer),
+            vm => vm.Pop3LeaveOnServer, (vm, v) => vm.Pop3LeaveOnServer = v);
+        form.Help(Translator.POP3Setup_LeaveOnServerDescription);
+        var deleteAfter = form.Dropdown(Translator.POP3Setup_DeleteAfterDaysTitle, viewModel.Pop3DeleteAfterDaysLabels, nameof(viewModel.SelectedPop3DeleteAfterDaysIndex),
+            vm => vm.SelectedPop3DeleteAfterDaysIndex, (vm, index) => vm.SelectedPop3DeleteAfterDaysIndex = index);
+        var deleteAfterHelp = form.Help(Translator.POP3Setup_DeleteAfterDaysDescription);
+        var deleteWithLocal = form.Switch(Translator.POP3Setup_DeleteWithLocalTitle, nameof(viewModel.Pop3DeleteWithLocal),
+            vm => vm.Pop3DeleteWithLocal, (vm, v) => vm.Pop3DeleteWithLocal = v);
+        var deleteWithLocalHelp = form.Help(Translator.POP3Setup_DeleteWithLocalDescription);
+        binder.Bind(viewModel, nameof(viewModel.Pop3LeaveOnServer), vm => vm.Pop3LeaveOnServer, leaveOnServer =>
+        {
+            deleteAfter.Enabled = leaveOnServer;
+            if (deleteWithLocal.FindViewById(Resource.Id.switch_toggle) is { } toggle) toggle.Enabled = leaveOnServer;
+            float alpha = leaveOnServer ? 1f : 0.38f;
+            deleteAfterHelp.Alpha = alpha;
+            deleteWithLocal.Alpha = alpha;
+            deleteWithLocalHelp.Alpha = alpha;
+        });
+    }
+
     private static void BuildAdvanced(OnboardingForm<ImapCalDavSettingsPageViewModel> form, ImapCalDavSettingsPageViewModel viewModel)
     {
         form.Section(Translator.ImapSetup_AdvancedTitle);
@@ -227,12 +255,13 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         });
     }
 
-    private static void ConnectionError(OnboardingForm<ImapCalDavSettingsPageViewModel> form, ImapCalDavSettingsPageViewModel viewModel,
+    private static WinoInfoBar ConnectionError(OnboardingForm<ImapCalDavSettingsPageViewModel> form, ImapCalDavSettingsPageViewModel viewModel,
         string visibleProperty, Func<ImapCalDavSettingsPageViewModel, bool> visible, string messageProperty, Func<ImapCalDavSettingsPageViewModel, string> message)
     {
         var error = form.InfoBar(WinoInfoBarSeverity.Error, Translator.IMAPSetupDialog_ValidationFailed_Title);
         form.Binder.Bind(viewModel, messageProperty, message, text => error.Message = text);
         form.Binder.Bind(viewModel, visibleProperty, visible, open => error.IsOpen = open);
+        return error;
     }
 
     private static void DavCredentials(OnboardingForm<ImapCalDavSettingsPageViewModel> form, ImapCalDavSettingsPageViewModel viewModel,

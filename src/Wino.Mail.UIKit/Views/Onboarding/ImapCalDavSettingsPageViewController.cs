@@ -196,6 +196,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         stack.AddArrangedSubview(BuildOutgoing());
         stack.AddArrangedSubview(BuildCalDav());
         stack.AddArrangedSubview(BuildCardDav());
+        stack.AddArrangedSubview(BuildPop3ServerCopies());
         stack.AddArrangedSubview(BuildAdvanced());
 
         Form.Visible(stack, nameof(vm.IsServersStepVisible), s => s.IsServersStepVisible);
@@ -213,7 +214,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         Form.Bind(nameof(vm.IncomingSummary), s => s.IncomingSummary, text => expander.HeaderCard.Description = text);
         Form.Visible(expander, nameof(vm.IsMailSupportEnabled), s => s.IsMailSupportEnabled);
 
-        var error = new WinoInfoBar(WinoInfoBarSeverity.Error, Translator.IMAPSetupDialog_ValidationFailed_Title);
+        var error = new WinoInfoBar(WinoInfoBarSeverity.Error, vm.MailValidationFailedTitle);
+        Form.Bind(nameof(vm.MailValidationFailedTitle), s => s.MailValidationFailedTitle, text => error.Title = text);
         Form.Bind(nameof(vm.MailConnectionError), s => s.MailConnectionError, text => error.Message = text);
         Form.Visible(error, nameof(vm.HasMailConnectionError), s => s.HasMailConnectionError);
 
@@ -327,6 +329,40 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             (s, v) => s.CalDavPassword = v, Translator.ImapCalDavSettingsPage_DavPassword));
         Form.Visible(user, credentialsProperty, credentialsVisible);
         Form.Visible(password, credentialsProperty, credentialsVisible);
+    }
+
+    /// <summary>POP3 only (Windows "Messages on the server"): when downloaded messages leave the server.</summary>
+    private UIView BuildPop3ServerCopies()
+    {
+        var vm = ViewModel;
+        var expander = new WinoSettingsExpander(Translator.POP3Setup_ServerCopiesTitle, Translator.POP3Setup_ServerCopiesDescription, WinoIconGlyph.ArrowDownload, null, isExpanded: true);
+        var grid = new FormGrid();
+        grid.Row((string?)null, Form.Check(Translator.POP3Setup_LeaveOnServerTitle, nameof(vm.Pop3LeaveOnServer),
+            s => s.Pop3LeaveOnServer, (s, v) => s.Pop3LeaveOnServer = v));
+        grid.Row((string?)null, FormGrid.Help(Translator.POP3Setup_LeaveOnServerDescription));
+
+        var days = Form.PopUp(vm.Pop3DeleteAfterDaysLabels, nameof(vm.SelectedPop3DeleteAfterDaysIndex), s => s.SelectedPop3DeleteAfterDaysIndex,
+            (s, v) => s.SelectedPop3DeleteAfterDaysIndex = v, Translator.POP3Setup_DeleteAfterDaysTitle);
+        var daysRow = grid.Row(Translator.POP3Setup_DeleteAfterDaysTitle, days);
+        var daysHelp = grid.Row((string?)null, FormGrid.Help(Translator.POP3Setup_DeleteAfterDaysDescription));
+
+        var withLocal = Form.Check(Translator.POP3Setup_DeleteWithLocalTitle, nameof(vm.Pop3DeleteWithLocal),
+            s => s.Pop3DeleteWithLocal, (s, v) => s.Pop3DeleteWithLocal = v);
+        var withLocalRow = grid.Row((string?)null, withLocal);
+        var withLocalHelp = grid.Row((string?)null, FormGrid.Help(Translator.POP3Setup_DeleteWithLocalDescription));
+        var withLocalSwitch = withLocal.Subviews.OfType<UISwitch>().FirstOrDefault();
+
+        // Removal options apply only while copies stay on the server.
+        Form.Bind(nameof(vm.Pop3LeaveOnServer), s => s.Pop3LeaveOnServer, leave =>
+        {
+            days.Enabled = leave;
+            if (withLocalSwitch is not null) withLocalSwitch.Enabled = leave;
+            foreach (var row in new[] { daysRow, daysHelp, withLocalRow, withLocalHelp }) row.Alpha = leave ? 1 : 0.5f;
+        });
+
+        expander.Add(grid);
+        Form.Visible(expander, nameof(vm.IsPop3), s => s.IsPop3);
+        return expander;
     }
 
     private UIView BuildAdvanced()

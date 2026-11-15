@@ -208,6 +208,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         Add(BuildOutgoing());
         Add(BuildCalDav());
         Add(BuildCardDav());
+        Add(BuildPop3ServerCopies());
         Add(BuildAdvanced());
 
         _form.Visible(stack, nameof(vm.IsServersStepVisible), s => s.IsServersStepVisible);
@@ -225,7 +226,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         _form.Bind(nameof(vm.IncomingSummary), s => s.IncomingSummary, text => expander.HeaderCard.Description = text);
         _form.Visible(expander, nameof(vm.IsMailSupportEnabled), s => s.IsMailSupportEnabled);
 
-        var error = new WinoInfoBar(WinoInfoBarSeverity.Error, Translator.IMAPSetupDialog_ValidationFailed_Title);
+        var error = new WinoInfoBar(WinoInfoBarSeverity.Error, vm.MailValidationFailedTitle);
+        _form.Bind(nameof(vm.MailValidationFailedTitle), s => s.MailValidationFailedTitle, text => error.Title = text);
         _form.Bind(nameof(vm.MailConnectionError), s => s.MailConnectionError, text => error.Message = text);
         _form.Visible(error, nameof(vm.HasMailConnectionError), s => s.HasMailConnectionError);
 
@@ -338,6 +340,49 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             (s, v) => s.CalDavPassword = v, Translator.ImapCalDavSettingsPage_DavPassword));
         _form.Visible(user, credentialsProperty, credentialsVisible);
         _form.Visible(password, credentialsProperty, credentialsVisible);
+    }
+
+    /// <summary>POP3 only: whether downloaded messages stay on the server, and when they leave it.</summary>
+    private NSView BuildPop3ServerCopies()
+    {
+        var vm = ViewModel;
+        var expander = new WinoSettingsExpander(Translator.POP3Setup_ServerCopiesTitle, Translator.POP3Setup_ServerCopiesDescription, WinoIconGlyph.ArrowDownload, null, isExpanded: true);
+        _form.Visible(expander, nameof(vm.IsPop3), s => s.IsPop3);
+
+        var leaveOnServer = new WinoSettingsCard(Translator.POP3Setup_LeaveOnServerTitle, Translator.POP3Setup_LeaveOnServerDescription, WinoIconGlyph.None,
+            Switch(nameof(vm.Pop3LeaveOnServer), s => s.Pop3LeaveOnServer, (s, v) => s.Pop3LeaveOnServer = v, Translator.POP3Setup_LeaveOnServerTitle));
+
+        var days = _form.PopUp(vm.Pop3DeleteAfterDaysLabels, nameof(vm.SelectedPop3DeleteAfterDaysIndex), s => s.SelectedPop3DeleteAfterDaysIndex,
+            (s, v) => s.SelectedPop3DeleteAfterDaysIndex = v, Translator.POP3Setup_DeleteAfterDaysTitle);
+        days.WidthAnchor.ConstraintGreaterThanOrEqualTo(140).Active = true;
+        var deleteAfterDays = new WinoSettingsCard(Translator.POP3Setup_DeleteAfterDaysTitle, Translator.POP3Setup_DeleteAfterDaysDescription, WinoIconGlyph.None, days);
+
+        var deleteWithLocal = new WinoSettingsCard(Translator.POP3Setup_DeleteWithLocalTitle, Translator.POP3Setup_DeleteWithLocalDescription, WinoIconGlyph.None,
+            Switch(nameof(vm.Pop3DeleteWithLocal), s => s.Pop3DeleteWithLocal, (s, v) => s.Pop3DeleteWithLocal = v, Translator.POP3Setup_DeleteWithLocalTitle));
+
+        _form.Bind(nameof(vm.Pop3LeaveOnServer), s => s.Pop3LeaveOnServer, leave =>
+        {
+            deleteAfterDays.IsEnabled = leave;
+            deleteWithLocal.IsEnabled = leave;
+        });
+
+        expander.Add(leaveOnServer);
+        expander.Add(deleteAfterDays);
+        expander.Add(deleteWithLocal);
+        return expander;
+    }
+
+    private WinoLabeledSwitch Switch(string property, Func<ImapCalDavSettingsPageViewModel, bool> read, Action<ImapCalDavSettingsPageViewModel, bool> write, string accessibilityLabel)
+    {
+        var toggle = new WinoLabeledSwitch();
+        WinoAccessibility.Label(toggle.Switch, accessibilityLabel);
+        var binding = Bindings.Own(new PropertyBinding<ImapCalDavSettingsPageViewModel, bool>(ViewModel, property, read,
+            value => { if (toggle.IsOn != value) toggle.IsOn = value; }, Dispatcher, ReportError, write));
+        EventHandler toggled = (_, _) => binding.UpdateSource(toggle.IsOn);
+        toggle.Toggled += toggled;
+        Bindings.Own(new ActionDisposable(() => toggle.Toggled -= toggled));
+        _form.KeyViews.Add(toggle.Switch);
+        return toggle;
     }
 
     private NSView BuildAdvanced()

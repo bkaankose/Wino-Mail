@@ -260,7 +260,7 @@ public sealed partial class MailListPageViewController
         Bind(nameof(ViewModel.IsBarOpen), vm => vm.IsBarOpen, _ => UpdateInfoBar());
         Bind(nameof(ViewModel.BarMessage), vm => vm.BarMessage, _ => UpdateInfoBar());
         Bind(nameof(ViewModel.BarTitle), vm => vm.BarTitle, _ => UpdateInfoBar());
-        Bind(nameof(ViewModel.IsFolderSynchronizationEnabled), vm => vm.IsFolderSynchronizationEnabled, _ => UpdateSyncBar());
+        Bind(nameof(ViewModel.IsSynchronizationDisabledNoticeVisible), vm => vm.IsSynchronizationDisabledNoticeVisible, _ => UpdateSyncBar());
         Bind(nameof(ViewModel.IsSyncButtonVisible), vm => vm.IsSyncButtonVisible, _ => UpdateSyncBar());
         Bind(nameof(ViewModel.IsOtherInboxUnreadNoticeVisible), vm => vm.IsOtherInboxUnreadNoticeVisible, _ => UpdateOtherInboxLink());
         Bind(nameof(ViewModel.OtherInboxUnreadNoticeText), vm => vm.OtherInboxUnreadNoticeText, _ => UpdateOtherInboxLink());
@@ -441,7 +441,7 @@ public sealed partial class MailListPageViewController
             _syncBarFolder = folder;
             _syncBarDismissed = false;
         }
-        bool show = folder is not null && ViewModel.IsSyncButtonVisible && !ViewModel.IsFolderSynchronizationEnabled && !_syncBarDismissed;
+        bool show = folder is not null && ViewModel.IsSyncButtonVisible && ViewModel.IsSynchronizationDisabledNoticeVisible && !_syncBarDismissed;
         _syncBar.Hidden = !show;
         _syncBarRow.Hidden = !show;
     }

@@ -288,7 +288,7 @@ public sealed partial class MailListFragment
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.IsBarOpen), vm => vm.IsBarOpen, _ => UpdateInfoBar());
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.BarMessage), vm => vm.BarMessage, _ => UpdateInfoBar());
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.BarTitle), vm => vm.BarTitle, _ => UpdateInfoBar());
-        Bind(viewModel, dispatcher, nameof(MailListPageViewModel.IsFolderSynchronizationEnabled), vm => vm.IsFolderSynchronizationEnabled, _ => UpdateSyncBar());
+        Bind(viewModel, dispatcher, nameof(MailListPageViewModel.IsSynchronizationDisabledNoticeVisible), vm => vm.IsSynchronizationDisabledNoticeVisible, _ => UpdateSyncBar());
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.IsSyncButtonVisible), vm => vm.IsSyncButtonVisible, _ => UpdateSyncBar());
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.IsOtherInboxUnreadNoticeVisible), vm => vm.IsOtherInboxUnreadNoticeVisible, _ => UpdateOtherInboxLink());
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.OtherInboxUnreadNoticeText), vm => vm.OtherInboxUnreadNoticeText, _ => UpdateOtherInboxLink());
@@ -307,7 +307,7 @@ public sealed partial class MailListFragment
             _syncBarFolder = folder;
             _syncBarDismissed = false;
         }
-        bool show = folder is not null && viewModel.IsSyncButtonVisible && !viewModel.IsFolderSynchronizationEnabled && !_syncBarDismissed;
+        bool show = folder is not null && viewModel.IsSyncButtonVisible && viewModel.IsSynchronizationDisabledNoticeVisible && !_syncBarDismissed;
         _syncBar.Visibility = show ? ViewStates.Visible : ViewStates.Gone;
     }
 

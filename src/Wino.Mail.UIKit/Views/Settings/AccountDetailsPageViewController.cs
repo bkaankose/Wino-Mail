@@ -158,8 +158,10 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         swatches.WidthAnchor.ConstraintEqualTo(colorContent.WidthAnchor).Active = true;
         var colorCard = StackedCard(Translator.AccountDetailsPage_ColorPicker_Title, Translator.AccountDetailsPage_ColorPicker_Description, WinoIconGlyph.Color, colorContent);
 
-        var imap = Card(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Title, Translator.SettingsEditAccountDetails_ImapCalDavSettings_Description, WinoIconGlyph.GlobeDesktop,
+        var imap = Card(vm.ServerSettingsTitle, vm.ServerSettingsDescription, WinoIconGlyph.GlobeDesktop,
             Bind.Button(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Action, vm.EditImapCalDavSettingsCommand));
+        Bind.Bind(vm, nameof(vm.ServerSettingsTitle), s => s.ServerSettingsTitle, text => imap.Header = text);
+        Bind.Bind(vm, nameof(vm.ServerSettingsDescription), s => s.ServerSettingsDescription, text => imap.Description = text);
         var protocolLog = StackedCard(Translator.ProtocolLog_EnableTitle, Translator.ProtocolLog_EnableDescription, WinoIconGlyph.Pulse,
             Bind.Checkbox(vm, Translator.ProtocolLog_EnableCheckbox, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, (s, v) => s.IsProtocolLogEnabled = v));
         Bind.Bind(vm, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, _ => SaveIfChanged());

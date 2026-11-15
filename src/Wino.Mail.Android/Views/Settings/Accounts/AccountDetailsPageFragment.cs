@@ -150,8 +150,10 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
         var colorCard = StackedCard(Translator.AccountDetailsPage_ColorPicker_Title, Translator.AccountDetailsPage_ColorPicker_Description, WinoIconGlyph.Color,
             Stack(Resource.Dimension.wino_space_s, swatches.View, Row(reset)));
 
-        var imap = StackedCard(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Title, Translator.SettingsEditAccountDetails_ImapCalDavSettings_Description, WinoIconGlyph.GlobeDesktop,
+        var imap = StackedCard(vm.ServerSettingsTitle, vm.ServerSettingsDescription, WinoIconGlyph.GlobeDesktop,
             Row(Bind.Button(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Action, vm.EditImapCalDavSettingsCommand)));
+        Bind.Bind(vm, nameof(vm.ServerSettingsTitle), s => s.ServerSettingsTitle, title => imap.Header = title);
+        Bind.Bind(vm, nameof(vm.ServerSettingsDescription), s => s.ServerSettingsDescription, description => imap.Description = description);
         var protocolLog = Card(Translator.ProtocolLog_EnableTitle, Translator.ProtocolLog_EnableDescription, WinoIconGlyph.Pulse,
             Bind.Switch(vm, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, (s, v) => s.IsProtocolLogEnabled = v, Translator.ProtocolLog_EnableCheckbox));
         var protocolExport = StackedCard(Translator.ProtocolLog_ExportTitle, Translator.ProtocolLog_ExportDescription, WinoIconGlyph.ArrowDownload,

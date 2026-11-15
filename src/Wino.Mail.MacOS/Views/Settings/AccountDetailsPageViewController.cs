@@ -134,6 +134,8 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
         var imap = Card(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Title, Translator.SettingsEditAccountDetails_ImapCalDavSettings_Description, WinoIconGlyph.GlobeDesktop,
             Bind.Button(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Action, vm.EditImapCalDavSettingsCommand));
+        Bind.Bind(vm, nameof(vm.ServerSettingsTitle), s => s.ServerSettingsTitle, text => imap.Header = text);
+        Bind.Bind(vm, nameof(vm.ServerSettingsDescription), s => s.ServerSettingsDescription, text => imap.Description = text);
         var protocolLog = Card(Translator.ProtocolLog_EnableTitle, Translator.ProtocolLog_EnableDescription, WinoIconGlyph.Pulse,
             Bind.Checkbox(vm, Translator.ProtocolLog_EnableCheckbox, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, (s, v) => s.IsProtocolLogEnabled = v));
         var protocolExport = Card(Translator.ProtocolLog_ExportTitle, Translator.ProtocolLog_ExportDescription, WinoIconGlyph.ArrowDownload,
