@@ -33,7 +33,8 @@ public sealed class ExchangeTransportOption(ExchangeTransport transport, string 
     [
         new(ExchangeTransport.Automatic, Translator.ExchangeSetup_TransportAutomatic),
         new(ExchangeTransport.MapiHttp, Translator.ExchangeSetup_TransportMapi),
-        new(ExchangeTransport.Ews, Translator.ExchangeSetup_TransportEws)
+        new(ExchangeTransport.Ews, Translator.ExchangeSetup_TransportEws),
+        new(ExchangeTransport.ActiveSync, Translator.ExchangeSetup_TransportActiveSync)
     ];
 }
 
@@ -45,8 +46,6 @@ public sealed class ExchangeTransportOption(ExchangeTransport transport, string 
 /// </summary>
 public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 {
-    private const string DefaultEwsPath = "/EWS/Exchange.asmx";
-
     private readonly WelcomeWizardContext _wizardContext;
     private readonly IExchangeAutoDiscoveryService _autoDiscoveryService;
     private readonly IExchangeAuthCapabilityProbe _authCapabilityProbe;
@@ -332,6 +331,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         try
         {
             var serverAddress = ServerAddress?.Trim() ?? string.Empty;
+            var activeSync = SelectedTransport?.Transport == ExchangeTransport.ActiveSync;
+            if (activeSync && serverAddress.Length == 0)
+            {
+                ShowFailure(Translator.ExchangeSetup_ActiveSyncServerRequired);
+                return;
+            }
             if (serverAddress.Length == 0)
             {
                 var discovered = await _autoDiscoveryService.TryDiscoverEwsUrlAsync(address, operation.Token);
@@ -348,7 +353,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
                 serverAddress = discovered;
             }
 
-            var ewsUrl = NormalizeServerAddress(serverAddress);
+            var ewsUrl = ExchangeServerEndpoint.Normalize(serverAddress, SelectedTransport?.Transport ?? ExchangeTransport.Automatic);
             if (ewsUrl == null)
             {
                 ShowFailure(Translator.ExchangeSetup_ServerAddressInvalid);
@@ -362,6 +367,16 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             }
 
             ServerAddress = ewsUrl.AbsoluteUri;
+
+            if (activeSync)
+            {
+                _authority = null;
+                IsModernAuth = false;
+                IsModernAuthUnavailableOnDevice = false;
+                IsSignInStage = true;
+                OnPropertyChanged(nameof(UserNamePlaceholder));
+                return;
+            }
 
             var probe = await _authCapabilityProbe.ProbeAsync(ewsUrl.AbsoluteUri, address, operation.Token);
             if (operation.IsCancellationRequested)
@@ -493,20 +508,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         => result.Status == ExchangeConnectionTestStatus.CredentialRejected
             ? string.Format(Translator.AccountSetup_Failure_PasswordRejected, ServerHost)
             : string.Format(Translator.AccountSetup_Failure_Connection, ServerHost, result.FailureReason ?? string.Empty);
-
-    /// <summary>
-    /// A bare host becomes its default EWS endpoint; only HTTPS is accepted because the credential is sent to it.
-    /// </summary>
-    private static Uri? NormalizeServerAddress(string value)
-    {
-        var candidate = value.Contains("://", StringComparison.Ordinal) ? value : "https://" + value;
-        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || string.IsNullOrEmpty(uri.Host))
-            return null;
-
-        return uri.AbsolutePath is "" or "/"
-            ? new Uri(uri.GetLeftPart(UriPartial.Authority) + DefaultEwsPath)
-            : uri;
-    }
 
     private void ShowFailure(string message)
     {
