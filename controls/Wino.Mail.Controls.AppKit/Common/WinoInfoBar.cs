@@ -29,8 +29,7 @@ public sealed class WinoInfoBarClosedEventArgs(WinoInfoBarCloseReason reason) : 
 
 /// <summary>
 /// Inline status banner (Windows InfoBar), drawn the way macOS shows inline banners: a tinted
-/// rounded box with a severity SF Symbol, a bold title followed by a secondary message that wraps
-/// as one paragraph, an optional action button and an optional borderless close button pinned to
+/// rounded box with a severity SF Symbol, a bold title with a secondary message on the line below it, an optional action button and an optional borderless close button pinned to
 /// the trailing edge. The icon sits on the first text line; the action and close buttons are
 /// vertically centred. Never use an alert for a status.
 /// <para>
@@ -56,6 +55,11 @@ public sealed class WinoInfoBar : WinoSurfaceView
     private readonly NSStackView _accessories;
     private readonly NSLayoutConstraint _textTrailingToAccessories;
     private readonly NSLayoutConstraint _textTrailingToEdge;
+    private readonly NSLayoutConstraint _textBottom;
+    private readonly NSLayoutConstraint _accessoriesCentre;
+    private readonly NSLayoutConstraint _accessoriesTop;
+    private NSView? _content;
+    private NSLayoutConstraint[] _contentConstraints = [];
     private WinoInfoBarSeverity _severity;
     private string _title = string.Empty;
     private string _message = string.Empty;
@@ -133,16 +137,19 @@ public sealed class WinoInfoBar : WinoSurfaceView
 
             _text.LeadingAnchor.ConstraintEqualTo(_glyph.TrailingAnchor, 8),
             _text.TopAnchor.ConstraintEqualTo(TopAnchor, (nfloat)VerticalPadding),
-            _text.BottomAnchor.ConstraintEqualTo(BottomAnchor, (nfloat)(-VerticalPadding)),
+            _textBottom = _text.BottomAnchor.ConstraintEqualTo(BottomAnchor, (nfloat)(-VerticalPadding)),
 
             _accessories.TrailingAnchor.ConstraintEqualTo(TrailingAnchor, (nfloat)(-TrailingPadding)),
-            _accessories.CenterYAnchor.ConstraintEqualTo(CenterYAnchor),
+            _accessoriesCentre = _accessories.CenterYAnchor.ConstraintEqualTo(CenterYAnchor),
             _accessories.TopAnchor.ConstraintGreaterThanOrEqualTo(TopAnchor, 4),
             _accessories.BottomAnchor.ConstraintLessThanOrEqualTo(BottomAnchor, -4),
 
             _close.WidthAnchor.ConstraintEqualTo(20),
             _close.HeightAnchor.ConstraintEqualTo(20)
         ]);
+
+        // With content under the text the accessories stay on the title line instead of the bar's middle.
+        _accessoriesTop = _accessories.CenterYAnchor.ConstraintEqualTo(_text.TopAnchor, (nfloat)firstLineCentre);
 
         AccessibilityElement = true;
         AccessibilityRole = NSAccessibilityRoles.GroupRole;
@@ -172,6 +179,41 @@ public sealed class WinoInfoBar : WinoSurfaceView
             Fill = WinoStyle.Dynamic(color.ColorWithAlphaComponent(0.10f), color.ColorWithAlphaComponent(0.18f));
             Stroke = WinoStyle.Dynamic(color.ColorWithAlphaComponent(0.28f), color.ColorWithAlphaComponent(0.35f));
             if (changed) RestartAutoDismissIfShowing();
+        }
+    }
+
+    /// <summary>A view under the message, aligned with the text (Windows InfoBar.Content), such as a row of buttons.</summary>
+    public NSView? Content
+    {
+        get => _content;
+        set
+        {
+            if (ReferenceEquals(_content, value)) return;
+            NSLayoutConstraint.DeactivateConstraints(_contentConstraints);
+            _content?.RemoveFromSuperview();
+            _content = value;
+            if (value is null)
+            {
+                _contentConstraints = [];
+                _accessoriesTop.Active = false;
+                _accessoriesCentre.Active = true;
+                _textBottom.Active = true;
+                return;
+            }
+
+            value.TranslatesAutoresizingMaskIntoConstraints = false;
+            AddSubview(value);
+            _textBottom.Active = false;
+            _accessoriesCentre.Active = false;
+            _accessoriesTop.Active = true;
+            _contentConstraints =
+            [
+                value.LeadingAnchor.ConstraintEqualTo(_text.LeadingAnchor),
+                value.TrailingAnchor.ConstraintLessThanOrEqualTo(_text.TrailingAnchor),
+                value.TopAnchor.ConstraintEqualTo(_text.BottomAnchor, 10),
+                value.BottomAnchor.ConstraintEqualTo(BottomAnchor, (nfloat)(-VerticalPadding - 2))
+            ];
+            NSLayoutConstraint.ActivateConstraints(_contentConstraints);
         }
     }
 
@@ -364,7 +406,7 @@ public sealed class WinoInfoBar : WinoSurfaceView
         }
         if (_message.Length > 0)
         {
-            text.Append(new NSAttributedString((_title.Length > 0 ? "  " : string.Empty) + _message, new NSStringAttributes
+            text.Append(new NSAttributedString((_title.Length > 0 ? "\n" : string.Empty) + _message, new NSStringAttributes
             {
                 Font = WinoStyle.Body,
                 ForegroundColor = _title.Length > 0 ? NSColor.SecondaryLabel : NSColor.Label,

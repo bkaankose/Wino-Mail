@@ -39,7 +39,7 @@ public sealed class WinoInfoBarClosedEventArgs(WinoInfoBarCloseReason reason) : 
 
 /// <summary>
 /// Inline status banner (Windows InfoBar; UIKit and AppKit <c>WinoInfoBar</c>, same members): a tinted rounded box with
-/// the severity glyph, the title in medium weight followed by the message as one wrapping paragraph, an optional action
+/// the severity glyph, the title in medium weight with the message on the line below it, an optional action
 /// and an optional close button. It can dismiss itself after <see cref="AutoDismissInterval"/> on screen; the countdown
 /// restarts when the content changes while shown. Closing by button or timer hides the bar and raises
 /// <see cref="Closed"/>; hiding it from code does not. Usable from XML as <c>com.winomail.controls.WinoInfoBar</c>.
@@ -54,6 +54,8 @@ public class WinoInfoBar : LinearLayout
     private MaterialButton? _action;
     private ImageButton? _close;
     private LinearLayout? _content;
+    private LinearLayout? _column;
+    private View? _extra;
     private WinoInfoBarSeverity _severity;
     private string _title = string.Empty;
     private string _message = string.Empty;
@@ -133,6 +135,40 @@ public class WinoInfoBar : LinearLayout
             action.MarginStart = stacked ? 0 : WinoTokens.Px(context, Resource.Dimension.wino_info_bar_action_spacing);
             action.TopMargin = stacked ? WinoTokens.Px(context, Resource.Dimension.wino_info_bar_action_stacked_spacing) : 0;
             action.Gravity = stacked ? GravityFlags.Start : GravityFlags.NoGravity;
+        }
+    }
+
+    /// <summary>
+    /// A view under the paragraph that takes its width (Windows InfoBar.Content), such as a row of buttons. With content
+    /// the glyph and close button stay on the first line instead of the bar's middle.
+    /// </summary>
+    public View? Content
+    {
+        get => _extra;
+        set
+        {
+            if (ReferenceEquals(_extra, value) || _content is null || Context is not { } context) return;
+            if (_extra is not null) _column?.RemoveView(_extra);
+            _extra = value;
+            if (value is null)
+            {
+                SetGravity(GravityFlags.CenterVertical);
+                return;
+            }
+
+            if (_column is null)
+            {
+                int index = IndexOfChild(_content);
+                RemoveView(_content);
+                _column = new LinearLayout(context) { Orientation = Orientation.Vertical };
+                _column.AddView(_content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+                AddView(_column, index, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1));
+            }
+            _column.AddView(value, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
+            {
+                TopMargin = WinoUnits.Dp(context, 8)
+            });
+            SetGravity(GravityFlags.Top);
         }
     }
 
@@ -259,7 +295,7 @@ public class WinoInfoBar : LinearLayout
         {
             builder.Append(_title);
             builder.SetSpan(new TypefaceSpan("sans-serif-medium"), 0, _title.Length, SpanTypes.ExclusiveExclusive);
-            if (!string.IsNullOrWhiteSpace(_message)) builder.Append("  ");
+            if (!string.IsNullOrWhiteSpace(_message)) builder.Append("\n");
         }
         if (!string.IsNullOrWhiteSpace(_message)) builder.Append(_message);
         _text.TextFormatted = builder;
