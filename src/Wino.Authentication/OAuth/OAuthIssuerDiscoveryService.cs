@@ -32,8 +32,8 @@ public sealed class OAuthIssuerDiscoveryService : IOAuthIssuerDiscoveryService
     private readonly bool _allowLoopbackRedirect;
 
     /// <param name="allowLoopbackRedirect">
-    /// False where a loopback redirect cannot be received (iOS): an issuer that needs one is reported as not offered,
-    /// so setup keeps the password path.
+    /// False where a loopback redirect cannot be received (iOS): a catalog registration that needs one is reported as
+    /// not offered, so setup keeps the password path, and a discovered issuer is registered with the custom scheme only.
     /// </param>
     public OAuthIssuerDiscoveryService(IKnownImapProviderCatalog catalog, IOAuthProtocolClient protocol, bool allowLoopbackRedirect = true)
     {
@@ -125,15 +125,15 @@ public sealed class OAuthIssuerDiscoveryService : IOAuthIssuerDiscoveryService
             };
         }
 
-        if (!_allowLoopbackRedirect && !SupportsS256(metadata))
-            return OAuthDiscoveryResult.NotOffered;
-
         var profile = new AccountOAuthProfile
         {
             Issuer = issuer,
             RevocationEndpoint = endpoints.RevocationEndpoint?.AbsoluteUri,
             Scopes = SelectScopes(metadata.ScopesSupported),
-            RedirectKind = SupportsS256(metadata) ? OAuthRedirectKind.CustomScheme : OAuthRedirectKind.Loopback,
+            // The custom scheme comes first even when the metadata does not advertise S256: Wino always sends a PKCE
+            // challenge, and servers such as Stalwart 0.13 register a loopback redirect but then refuse to issue a code
+            // to any http:// redirect. Registration falls back to loopback when a server refuses the scheme.
+            RedirectKind = OAuthRedirectKind.CustomScheme,
             TrustSource = OAuthTrustSource.Discovered,
             SaslMechanism = capabilities.PreferredOAuthMechanism
         };
@@ -271,10 +271,6 @@ public sealed class OAuthIssuerDiscoveryService : IOAuthIssuerDiscoveryService
             .Concat(_catalog.FindOAuthProvider(profile)?.OAuth.GetOAuthDavScopes() ?? [])
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-
-    /// <summary>A custom-scheme redirect is safe only with PKCE; a server that does not advertise S256 gets loopback.</summary>
-    private static bool SupportsS256(OAuthServerMetadata metadata)
-        => metadata.CodeChallengeMethodsSupported?.Contains("S256", StringComparer.Ordinal) == true;
 
     private static string? TryGetHost(string issuer)
         => Uri.TryCreate(issuer, UriKind.Absolute, out var uri) ? uri.Host : null;
