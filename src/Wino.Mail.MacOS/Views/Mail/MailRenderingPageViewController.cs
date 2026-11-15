@@ -35,7 +35,8 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// <see cref="MacMailPrintPresenter"/> while the reader is active.
 /// The controller is reused across selections; <see cref="RenavigateAsync"/> loads the next message.
 /// Pop out moves it into its own window (MailRenderingPageViewController.PopOut.cs).
-/// The Wino Intelligence header lives in MailRenderingPageViewController.Intelligence.cs.
+/// The Wino Intelligence header lives in MailRenderingPageViewController.Intelligence.cs, the calendar invitation
+/// card in MailRenderingPageViewController.Invitation.cs.
 /// </summary>
 public sealed partial class MailRenderingPageViewController(MailRenderingPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IServiceProvider services)
     : WinoViewController<MailRenderingPageViewModel>(viewModel, dispatcher, logger)
@@ -161,14 +162,16 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _chips.SetClippingResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
 
         var privacyBars = BuildPrivacyBars();
+        // Read from the MIME, so invitations synced before they were recognized still get the card.
+        var invitationCard = BuildInvitationCard();
 
         // Hosts the Wino Intelligence header; hidden until the intelligence partial fills it.
         _intelligenceHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
         BuildIntelligenceHeader(_intelligenceHost);
 
-        var header = _header = WinoLayout.VStack(12, senderRow, _chips, _intelligenceHost, privacyBars);
+        var header = _header = WinoLayout.VStack(12, senderRow, _chips, _intelligenceHost, privacyBars, invitationCard);
         header.EdgeInsets = new NSEdgeInsets(14, 24, 10, 24);
-        foreach (var view in new NSView[] { senderRow, _intelligenceHost, privacyBars })
+        foreach (var view in new NSView[] { senderRow, _intelligenceHost, privacyBars, invitationCard })
             _headerWidths.Add(view.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -48));
         // The tile row hugs its chips from the leading edge; it is only capped (and clips) at the header width.
         _headerWidths.Add(_chips.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor, 1, -48));
@@ -699,6 +702,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ViewModel.PrintPresenter = null!;
         ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         IntelligenceDispose();
+        InvitationDispose();
         await DisposeReaderAsync();
     }
 
@@ -726,6 +730,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             ViewModel.ComposeRequested -= ComposeRequested;
             ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
             IntelligenceDispose();
+            InvitationDispose();
             if (!_disposedReader && _reader is not null) _ = DisposeReaderAsync();
         }
         base.Dispose(disposing);

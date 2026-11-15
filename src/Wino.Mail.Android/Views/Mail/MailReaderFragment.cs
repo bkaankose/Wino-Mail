@@ -113,6 +113,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         BuildHeader(context, viewModel, dispatcher);
         BuildHeaderExtras(view, context, viewModel, dispatcher, services);
         BuildPrivacy(view, context, viewModel, dispatcher);
+        BuildInvitation(view, context, viewModel, dispatcher);
         BuildBody(view, viewModel);
 
         _bridge = Entry is { } current ? BridgeFor(current) : null;

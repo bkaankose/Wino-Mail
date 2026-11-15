@@ -34,7 +34,7 @@ namespace Wino.Mail.UIKit.Views.Mail;
 /// and the attachment strip with Save all; the loading skeleton covers the content while the message downloads. Print
 /// and PDF go through <see cref="UIKitMailPrintPresenter"/>. The controller is reused across selections
 /// (<see cref="RenavigateAsync"/>). Recipients and the contact card live in the .Recipients partial, the intelligence
-/// header in .Intelligence, the privacy button and bars in .Privacy, debug commands in .Debug.
+/// header in .Intelligence, the calendar invitation card in .Invitation, the privacy button and bars in .Privacy, debug commands in .Debug.
 /// </summary>
 public sealed partial class MailRenderingPageViewController(MailRenderingPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IServiceProvider services)
     : WinoViewController<MailRenderingPageViewModel>(viewModel, dispatcher, logger), IMailReaderCommands
@@ -144,12 +144,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var privacyBars = BuildPrivacyBars();
 
         BuildIntelligenceHeader(_intelligenceHost);
+        // Read from the MIME, so invitations synced before they were recognized still get the card.
+        var invitationCard = BuildInvitationCard();
 
         // To, Cc and Bcc under the sender, indented to the name column (avatar 40 + spacing 12).
         var recipients = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(BuildRecipientRows(), recipients, 0, 52, 0, 0);
 
-        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, privacyBars), 12, Gutter, 10, Gutter);
+        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, privacyBars, invitationCard), 12, Gutter, 10, Gutter);
         header.Alignment = UIStackViewAlignment.Fill;
         header.SetCustomSpacing(4, senderRow);
         // The chip row hugs its chips from the leading edge.
@@ -651,6 +653,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ViewModel.ClearRenderedHtmlAsyncFunc = static () => Task.CompletedTask;
         await base.DeactivateAsync();
         IntelligenceDispose();
+        InvitationDispose();
         await DisposeReaderAsync();
     }
 
@@ -673,6 +676,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             ViewModel.CloseRequested -= CloseRequested;
             CommandsChanged = null;
             IntelligenceDispose();
+            InvitationDispose();
             _contentSizeObserver?.Dispose();
             _contentSizeObserver = null;
             if (!_disposedReader && _reader is not null) _ = DisposeReaderAsync();

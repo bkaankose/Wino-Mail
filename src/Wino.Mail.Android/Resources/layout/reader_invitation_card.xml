@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The calendar invitation card above the message body (Windows MailInvitationCard). A compact header (glyph, title,
+     the summary or status, a chevron) toggles the details. The answer buttons sit in a row under the header, because a
+     phone header has no room for them beside the title; the error stays visible while the card is collapsed. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/reader_invitation_card"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="@dimen/wino_space_m"
+    android:background="@drawable/reader_invitation_background"
+    android:clipToOutline="true"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+  <LinearLayout
+      android:id="@+id/invitation_header"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:background="?attr/selectableItemBackground"
+      android:clickable="true"
+      android:focusable="true"
+      android:gravity="center_vertical"
+      android:minHeight="48dp"
+      android:orientation="horizontal"
+      android:paddingStart="@dimen/wino_space_m"
+      android:paddingTop="@dimen/wino_space_s"
+      android:paddingEnd="@dimen/wino_space_m"
+      android:paddingBottom="@dimen/wino_space_s">
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/invitation_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/wino_space_m"
+        android:layout_marginEnd="@dimen/wino_space_s"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+      <TextView
+          android:id="@+id/invitation_title"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:maxLines="2"
+          android:textAppearance="@style/TextAppearance.WinoKit.BodyStrong" />
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:gravity="center_vertical"
+          android:orientation="horizontal">
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/invitation_busy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/wino_space_xs"
+            android:importantForAccessibility="no"
+            android:indeterminate="true"
+            android:visibility="gone"
+            app:indicatorSize="12dp"
+            app:trackThickness="2dp" />
+
+        <TextView
+            android:id="@+id/invitation_detail"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:accessibilityLiveRegion="polite"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.WinoKit.Caption" />
+      </LinearLayout>
+    </LinearLayout>
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/invitation_chevron"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+  </LinearLayout>
+
+  <LinearLayout
+      android:id="@+id/invitation_responses"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:paddingStart="@dimen/wino_space_m"
+      android:paddingEnd="@dimen/wino_space_m"
+      android:paddingBottom="@dimen/wino_space_s"
+      android:visibility="gone">
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/invitation_accept"
+        style="@style/Widget.Wino.Button.Outlined"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:checkable="true"
+        android:maxLines="1"
+        android:paddingStart="@dimen/wino_space_s"
+        android:paddingEnd="@dimen/wino_space_s"
+        app:iconGravity="textStart"
+        app:iconPadding="@dimen/wino_space_xs"
+        app:iconTint="@null" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/invitation_tentative"
+        style="@style/Widget.Wino.Button.Outlined"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/wino_space_xs"
+        android:layout_weight="1"
+        android:checkable="true"
+        android:maxLines="1"
+        android:paddingStart="@dimen/wino_space_s"
+        android:paddingEnd="@dimen/wino_space_s"
+        app:iconGravity="textStart"
+        app:iconPadding="@dimen/wino_space_xs"
+        app:iconTint="@null" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/invitation_decline"
+        style="@style/Widget.Wino.Button.Outlined"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/wino_space_xs"
+        android:layout_weight="1"
+        android:checkable="true"
+        android:maxLines="1"
+        android:paddingStart="@dimen/wino_space_s"
+        android:paddingEnd="@dimen/wino_space_s"
+        app:iconGravity="textStart"
+        app:iconPadding="@dimen/wino_space_xs"
+        app:iconTint="@null" />
+  </LinearLayout>
+
+  <com.google.android.material.button.MaterialButton
+      android:id="@+id/invitation_open"
+      style="@style/Widget.Wino.Button.Text"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/wino_space_2xs"
+      android:visibility="gone" />
+
+  <com.winomail.controls.WinoInfoBar
+      android:id="@+id/invitation_error"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/wino_space_s"
+      android:layout_marginEnd="@dimen/wino_space_s"
+      android:layout_marginBottom="@dimen/wino_space_s"
+      android:visibility="gone" />
+
+  <LinearLayout
+      android:id="@+id/invitation_body"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:visibility="gone">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/wino_divider" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="@dimen/wino_space_m">
+
+      <TextView
+          android:id="@+id/invitation_status"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:accessibilityLiveRegion="polite"
+          android:textAppearance="@style/TextAppearance.WinoKit.BodyStrong"
+          android:visibility="gone" />
+
+      <TextView
+          android:id="@+id/invitation_reason"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="@dimen/wino_space_3xs"
+          android:textAppearance="@style/TextAppearance.WinoKit.BodySecondary"
+          android:visibility="gone" />
+
+      <LinearLayout
+          android:id="@+id/invitation_details"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="@dimen/wino_space_sm"
+          android:background="@drawable/reader_invitation_details_background"
+          android:orientation="vertical"
+          android:paddingStart="@dimen/wino_space_sm"
+          android:paddingTop="@dimen/wino_space_2xs"
+          android:paddingEnd="@dimen/wino_space_sm"
+          android:paddingBottom="@dimen/wino_space_2xs" />
+
+      <com.google.android.material.textfield.TextInputLayout
+          android:id="@+id/invitation_comment_layout"
+          style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="@dimen/wino_space_sm"
+          android:visibility="gone"
+          app:boxStrokeColor="@color/wino_accent"
+          app:hintTextColor="@color/wino_accent_text">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/invitation_comment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textMultiLine|textCapSentences"
+            android:maxLines="5" />
+      </com.google.android.material.textfield.TextInputLayout>
+
+      <com.google.android.material.button.MaterialButton
+          android:id="@+id/invitation_remove"
+          style="@style/Widget.Wino.Button.Outlined"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="@dimen/wino_space_sm"
+          android:visibility="gone"
+          app:iconTint="@null" />
+    </LinearLayout>
+  </LinearLayout>
+</LinearLayout>
