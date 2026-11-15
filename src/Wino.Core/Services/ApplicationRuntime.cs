@@ -1223,10 +1223,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (_synchronizationManager.GetSynchronizationProgress(account.Id, SynchronizationProgressCategory.Calendar).IsInProgress)
             return;
 
+        // An events pass refreshes the calendar list first. A metadata-only pass left server-side event changes
+        // waiting for a manual sync.
         await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
         {
             AccountId = account.Id,
-            Type = CalendarSynchronizationType.CalendarMetadata
+            Type = CalendarSynchronizationType.CalendarEvents
         }, cancellationToken).ConfigureAwait(false);
     }
 
