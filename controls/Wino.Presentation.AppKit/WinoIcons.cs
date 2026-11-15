@@ -84,7 +84,12 @@ public static class WinoIcons
         var paragraph = new NSMutableParagraphStyle { Alignment = NSTextAlignment.Center };
         var attributes = new NSStringAttributes { Font = font, ForegroundColor = color, ParagraphStyle = paragraph };
         double lineHeight = font.Ascender - font.Descender;
-        var target = new CGRect(rect.X, rect.Y + (rect.Height - lineHeight) / 2, rect.Width, lineHeight);
+        // DrawInRect clips to its rect, and at fractional sizes the pixel-snapped baseline cuts the bottom row of
+        // glyphs that reach the descender (the Apple mark at 17.6pt). Spare room below keeps the text at the top.
+        double spare = size / 4;
+        bool flipped = NSGraphicsContext.CurrentContext?.IsFlipped == true;
+        double top = rect.Y + (rect.Height - lineHeight) / 2;
+        var target = new CGRect(rect.X, flipped ? top : top - spare, rect.Width, lineHeight + spare);
         new NSAttributedString(glyph, attributes).DrawInRect(target);
     }
 
