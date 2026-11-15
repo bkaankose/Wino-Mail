@@ -52,6 +52,9 @@ internal static class AndroidComposition
         services.AddSingleton<IWindowSizeClassService>(provider => provider.GetRequiredService<AndroidWindowSizeClassService>());
 
         services.AddSingleton<AndroidPageRegistry>();
+        // Exchange modern-auth sign-in in a WebView dialog over the started activity.
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new AndroidEmbeddedBrowserAuthBroker(
+            provider.GetRequiredService<IDispatcher>(), activities));
         services.AddSingleton<Views.Mail.AndroidSenderPictureProvider>();
         // The Daily briefing entry and sheet (shown only through the shared entitlement rule).
         services.AddSingleton<Views.Extras.AndroidDailyBriefingPresenter>();

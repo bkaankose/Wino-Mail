@@ -15,8 +15,7 @@ namespace Wino.Mail.Android.Views.Onboarding;
 /// <summary>
 /// Advanced setup for on-premises Exchange (Windows ExchangeSettingsPage, iOS and Mac twins), opened from the server
 /// page's "Using Exchange Server?" link: the server first (address, server or Autodiscover, connection method), then
-/// the sign-in the server asks for. Android has no embedded browser for the organization sign-in, so a server that
-/// offers it shows the shared notice above the password instead.
+/// the sign-in the server asks for: the password, or the organization sign-in in the embedded browser.
 /// </summary>
 public sealed class ExchangeSetupFragment : WinoFragment<ExchangeSettingsPageViewModel>
 {
@@ -119,7 +118,7 @@ public sealed class ExchangeSetupFragment : WinoFragment<ExchangeSettingsPageVie
                 InputTypes.ClassText | InputTypes.TextVariationPassword);
         });
 
-        // Shown only where an embedded browser exists; the shared ViewModel keeps this stage closed on Android.
+        // The organization sign-in runs in the embedded browser (AndroidEmbeddedBrowserAuthBroker).
         form.ShowWhen(form.Button(Translator.ImapSetup_SignInWithOrganization, viewModel.SignInWithOrganizationCommand, primary: true),
             vm => vm.IsModernAuthStageVisible);
     }

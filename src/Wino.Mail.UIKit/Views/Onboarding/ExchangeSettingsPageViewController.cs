@@ -13,8 +13,8 @@ namespace Wino.Mail.UIKit.Views.Onboarding;
 
 /// <summary>
 /// Advanced setup for on-premises Exchange (Windows ExchangeSettingsPage, Mac twin): the server first (address, server
-/// or Autodiscover, connection method), then the sign-in the server asks for. iOS has no embedded browser for the
-/// organization sign-in, so a server that offers it shows a notice above the password instead.
+/// or Autodiscover, connection method), then the sign-in the server asks for: the organization sign-in in the embedded
+/// browser sheet (UIKitEmbeddedBrowserAuthBroker), or the password.
 /// </summary>
 public sealed class ExchangeSettingsPageViewController(ExchangeSettingsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : WinoViewController<ExchangeSettingsPageViewModel>(viewModel, dispatcher, logger)
@@ -121,7 +121,7 @@ public sealed class ExchangeSettingsPageViewController(ExchangeSettingsPageViewM
             Translator.ProviderSelection_PasswordHeader_Account));
         form.Visible(grid, nameof(vm.IsPasswordStageVisible), s => s.IsPasswordStageVisible);
 
-        // Shown only where an embedded browser exists; the shared ViewModel keeps this stage closed on iOS.
+        // Shown only where an embedded browser is registered; without one the ViewModel keeps this stage closed.
         var organization = form.Command(Translator.ImapSetup_SignInWithOrganization, vm.SignInWithOrganizationCommand, primary: true);
         organization.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
         form.Visible(organization, nameof(vm.IsModernAuthStageVisible), s => s.IsModernAuthStageVisible);

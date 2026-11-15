@@ -68,6 +68,10 @@ public static partial class UIKitViewRegistration
 
         services.AddSingleton<UIKitSenderPictureProvider>();
         services.AddSingleton<UIKitAuthenticationPresenter>();
+        // Exchange modern-auth sign-in: a WKWebView sheet that captures the redirect in-process, apart from every
+        // system-browser OAuth flow.
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new UIKitEmbeddedBrowserAuthBroker(dispatcher,
+            provider.GetRequiredService<UIKitAuthenticationPresenter>()));
         services.AddSingleton<IIOSFilePresenter, UIKitFilePresenter>();
         return services;
     }
