@@ -92,7 +92,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
         try
         {
-            isSignedIn = await _profileService.HasActiveAccountAsync().ConfigureAwait(false);
+            isSignedIn = await _profileService.HasSignedInAccountAsync().ConfigureAwait(false);
         }
         catch (Exception)
         {

@@ -166,7 +166,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     public async Task ManageStorePurchasesAsync()
     {
         var hasUnlimitedAccountProduct = await BillingService.HasUnlimitedAccountsAsync().ConfigureAwait(false);
-        var isWinoAccountSignedIn = await WinoAccountProfileService.HasActiveAccountAsync().ConfigureAwait(false);
+        var isWinoAccountSignedIn = await WinoAccountProfileService.HasSignedInAccountAsync().ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
         {

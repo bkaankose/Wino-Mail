@@ -467,7 +467,7 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
 
     public async Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync()
     {
-        var isWinoAccountAvailable = await _winoAccountProfileService.HasActiveAccountAsync();
+        var isWinoAccountAvailable = await _winoAccountProfileService.HasSignedInAccountAsync();
 
         var dialog = new UnlimitedAccountsPurchaseChannelDialog(isWinoAccountAvailable)
         {

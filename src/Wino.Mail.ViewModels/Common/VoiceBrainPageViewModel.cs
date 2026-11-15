@@ -138,7 +138,7 @@ public partial class VoiceBrainPageViewModel : CoreBaseViewModel
         try
         {
             await _runtime.EnsureInitializedAsync(CancellationToken.None).ConfigureAwait(false);
-            signedIn = await _profile.HasActiveAccountAsync().ConfigureAwait(false);
+            signedIn = await _profile.HasSignedInAccountAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

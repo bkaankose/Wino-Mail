@@ -32,7 +32,7 @@ public sealed partial class AppKitDialogService
         try
         {
             if (services?.GetService<IWinoAccountProfileService>() is { } profile)
-                isWinoAccountAvailable = await profile.HasActiveAccountAsync();
+                isWinoAccountAvailable = await profile.HasSignedInAccountAsync();
         }
         catch (Exception exception)
         {
