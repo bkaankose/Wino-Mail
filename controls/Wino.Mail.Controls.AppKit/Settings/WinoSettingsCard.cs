@@ -19,6 +19,10 @@ public class WinoSettingsCard : NSView
     private const double ChevronColumnWidth = 24;
     /// <summary>The narrowest text column a trailing control may leave beside it.</summary>
     private const double MinTextWidthBesideContent = 150;
+    /// <summary>A control at least this wide (a segmented control or a wide pop-up) also moves under the text when the
+    /// description beside it would wrap to more than <see cref="MaxDescriptionLinesBesideContent"/> lines.</summary>
+    private const double MinWideContentWidth = 120;
+    private const int MaxDescriptionLinesBesideContent = 3;
     private readonly WinoSurfaceView _surface = new();
     private readonly NSStackView _text;
     private readonly NSTextField _header;
@@ -446,10 +450,21 @@ public class WinoSettingsCard : NSView
             - (!_chevron.Hidden || _reservesChevronSpace ? ChevronColumnWidth : 0);
         var contentWidth = Math.Max(_content.Frame.Width, _content.FittingSize.Width);
         var textWidthBeside = trailing - contentWidth - WinoSettingsStyle.CardPadding - _text.Frame.X;
-        var below = textWidthBeside < (_contentBelow ? MinTextWidthBesideContent + 24 : MinTextWidthBesideContent);
+        var hysteresis = _contentBelow ? 24 : 0;
+        var below = textWidthBeside < MinTextWidthBesideContent + hysteresis
+            || (contentWidth >= MinWideContentWidth && DescriptionLineCount(textWidthBeside - hysteresis) > MaxDescriptionLinesBesideContent);
         if (below == _contentBelow) return;
         _contentBelow = below;
         RebuildTrailingConstraints();
+    }
+
+    private int DescriptionLineCount(double width)
+    {
+        if (_description.Hidden || width <= 0 || _description.Cell is not { } cell) return 0;
+        var lineHeight = cell.CellSizeForBounds(new CGRect(0, 0, 100000, 100000)).Height;
+        if (lineHeight <= 0) return 0;
+        var height = cell.CellSizeForBounds(new CGRect(0, 0, width, 100000)).Height;
+        return (int)Math.Round(height / lineHeight);
     }
 
     private void UpdateLeading()

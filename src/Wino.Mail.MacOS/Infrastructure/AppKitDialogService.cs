@@ -93,8 +93,15 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         _ => NSAlertStyle.Informational
     };
 
-    public async Task<bool> ShowConfirmationDialogAsync(string question, string title, string confirmationButtonTitle) =>
-        await AlertAsync(title, question, [confirmationButtonTitle, Translator.Buttons_Cancel]) == 0;
+    public async Task<bool> ShowConfirmationDialogAsync(string question, string title, string confirmationButtonTitle)
+    {
+        // The shared "Yes" stays on Windows; Mac alerts name the action (HIG), so a known destructive confirmation
+        // gets its verb and the destructive button style.
+        var isDiscardDraft = title == Translator.DialogMessage_DiscardDraftConfirmationTitle && confirmationButtonTitle == Translator.Buttons_Yes;
+        var confirm = isDiscardDraft ? Translator.Buttons_Discard : confirmationButtonTitle;
+        return await AlertAsync(title, question, [confirm, Translator.Buttons_Cancel],
+            configure: isDiscardDraft ? alert => alert.Buttons[0].HasDestructiveAction = true : null) == 0;
+    }
 
     public async Task ShowMessageAsync(string message, string title, WinoCustomMessageDialogIcon icon) =>
         await AlertAsync(title, message, [Translator.Buttons_OK], style: StyleFor(icon));

@@ -87,7 +87,7 @@ public sealed class AppPreferencesPageViewController(AppPreferencesPageViewModel
 
         AddGroup(null,
             Card(Translator.MacOS_SettingsUpdates_Title, Translator.MacOS_SettingsUpdates_Description, WinoIconGlyph.ArrowDownload, checkRow),
-            Card(Translator.MacOS_SettingsUpdatesAutoInstall_Title, Translator.MacOS_SettingsUpdatesAutoInstall_Description, WinoIconGlyph.None, install));
+            Card(Translator.MacOS_SettingsUpdatesAutoInstall_Title, Translator.MacOS_SettingsUpdatesAutoInstall_Description, WinoIconGlyph.ArrowSyncCircle, install));
     }
 #endif
 

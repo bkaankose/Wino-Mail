@@ -192,6 +192,9 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
 
         _title.Alignment = NSTextAlignment.Center;
         _subtitle.Alignment = NSTextAlignment.Center;
+        // Standard line breaking keeps the last word from sitting alone on its own line.
+        _title.LineBreakStrategy = NSLineBreakStrategy.Standard;
+        _subtitle.LineBreakStrategy = NSLineBreakStrategy.Standard;
         var header = AccountSetupUi.Column(6, _logo, _title, _subtitle);
         header.SetCustomSpacing(8, _logo);
         return header;

@@ -72,7 +72,11 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         catch (Exception exception) { ReportError(exception); }
     }
 
-    /// <summary>The Windows 410x196 overlap sample: an hour gutter, hour lines and the placed sample events.</summary>
+    /// <summary>
+    /// The Windows 410x196 overlap sample: an hour gutter, hour lines and the placed sample events. The view fills the
+    /// card's width; the sample keeps its Windows size and scales down only when the card is narrower than it, while the
+    /// background and the hour lines run to the card's edge.
+    /// </summary>
     private sealed class OverlapPreviewView : NSView
     {
         private const double Width = 410, Height = 196, Gutter = 44;
@@ -81,11 +85,17 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         public OverlapPreviewView()
         {
             TranslatesAutoresizingMaskIntoConstraints = false;
-            WidthAnchor.ConstraintLessThanOrEqualTo((nfloat)Width).Active = true;
-            var ratio = HeightAnchor.ConstraintEqualTo(WidthAnchor, (nfloat)(Height / Width));
-            ratio.Active = true;
             SetContentHuggingPriorityForOrientation(250, NSLayoutConstraintOrientation.Horizontal);
+            SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+            SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
         }
+
+        /// <summary>
+        /// The height follows the width up to the Windows height. An intrinsic height, not a ratio constraint, so the
+        /// card's fill decides the width.
+        /// </summary>
+        public override CGSize IntrinsicContentSize
+            => new(NSView.NoIntrinsicMetric, Bounds.Width <= 0 ? Height : Math.Min(Height, Math.Round(Bounds.Width * Height / Width)));
 
         public IReadOnlyList<CalendarOverlapPreviewItem> Items
         {
@@ -94,21 +104,30 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
 
         public override bool IsFlipped => true;
 
+        public override void SetFrameSize(CGSize newSize)
+        {
+            var widthChanged = newSize.Width != Frame.Width;
+            base.SetFrameSize(newSize);
+            NeedsDisplay = true;
+            if (widthChanged) InvalidateIntrinsicContentSize();
+        }
+
         public override void DrawRect(CGRect dirtyRect)
         {
-            var scale = Bounds.Width / Width;
+            var scale = Math.Min(1, Bounds.Width / Width);
+            var lineWidth = Math.Max(360, Bounds.Width / scale - Gutter);
             var context = NSGraphicsContext.CurrentContext?.CGContext;
             context?.SaveState();
             context?.ScaleCTM((nfloat)scale, (nfloat)scale);
 
             WinoSettingsStyle.SubtleFill.SetFill();
-            NSGraphics.RectFill(new CGRect(0, 0, Width, Height));
+            NSGraphics.RectFill(new CGRect(0, 0, Gutter + lineWidth, Height));
             var caption = new AppKit.NSStringAttributes { Font = WinoStyle.Caption, ForegroundColor = WinoStyle.SecondaryText };
             foreach (var (label, top) in new[] { ("09:00", 4.0), ("10:00", 64.0), ("11:00", 124.0) })
                 new NSAttributedString(label, caption).DrawAtPoint(new CGPoint(0, top - 2));
             WinoSettingsStyle.CardStroke.SetFill();
             foreach (var top in new[] { 4.0, 64.0, 124.0, 184.0 })
-                NSGraphics.RectFill(new CGRect(Gutter, top, 360, 1));
+                NSGraphics.RectFill(new CGRect(Gutter, top, lineWidth, 1));
 
             var title = new AppKit.NSStringAttributes { Font = WinoStyle.Caption, ForegroundColor = NSColor.White };
             foreach (var item in _items)

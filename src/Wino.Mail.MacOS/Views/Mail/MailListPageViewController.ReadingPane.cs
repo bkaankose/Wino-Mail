@@ -235,10 +235,12 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
         ViewModel.OpenItem(item);
     }
 
+    private bool IsMultiSelectionShown => ViewModel.SelectedItemsCount > 1 && !ViewModel.HasSingleFullySelectedThread;
+
     private void UpdateMultiSelectionOverlay()
     {
         if (_multiSelectionView?.Superview is not { } overlay) return;
-        bool show = ViewModel.SelectedItemsCount > 1 && !ViewModel.HasSingleFullySelectedThread;
+        bool show = IsMultiSelectionShown;
         overlay.Hidden = !show;
         _paneContent.Hidden = show;
         if (!show) return;
