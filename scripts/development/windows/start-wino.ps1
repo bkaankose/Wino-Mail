@@ -9,12 +9,14 @@ State is local to artifacts/f5. Failed runs never become a reusable build.
 Ignore saved state, for example after changing external build tools or environment settings.
 .PARAMETER Target
 Deploy locally (the default) or in Windows Sandbox using WinApp CLI 0.7.1 or later. A Sandbox launch always starts
-with the host's fixed-version WebView2 runtime and, once per Sandbox, the remote mail lab accounts.
+with the host's fixed-version WebView2 runtime and, once per Sandbox, lab accounts leased for the holder
+<computer>/sandbox (the shared baseline accounts when the lab's control API is unavailable).
 .PARAMETER Reseed
-Sandbox only: replace the guest's Wino database with freshly generated lab accounts even if it was seeded before.
+Sandbox only: release the Sandbox's lab lease, lease freshly reset accounts and replace the guest's Wino database
+with them even if it was seeded before.
 .PARAMETER NoAccounts
 Sandbox only: start Wino with no accounts, for example to work on the welcome window. The guest's Wino database and
-credentials are removed, so the next launch without this switch seeds the lab accounts again.
+credentials are removed and its lab lease is released, so the next launch without this switch seeds new lab accounts.
 #>
 [CmdletBinding()]
 param(
@@ -161,12 +163,39 @@ function Invoke-SandboxScript([scriptblock]$Script, [hashtable]$Arguments = @{})
     return $LASTEXITCODE
 }
 
+function Import-LabClient([string]$Root) {
+    Import-Module (Join-Path $Root 'scripts/lab/windows/LabClient.psm1') -Force
+    Get-LabDefaultHolder 'sandbox'
+}
+
+function Remove-SandboxLeases([string]$Holder) {
+    foreach ($lease in @(Get-LabLocalLease | Where-Object { $_.holder -eq $Holder })) {
+        try { Remove-LabLease $lease.id; Write-Host "Wino F5: released lab lease $($lease.id) of $Holder." }
+        catch { Write-Warning "Releasing lab lease $($lease.id) failed: $($_.Exception.Message)" }
+    }
+}
+
+function Get-SandboxAccountsFile([string]$Holder, [string]$Manifest) {
+    # Sandbox gets its own freshly reset pool accounts. While the lab's control API is unavailable it falls back to
+    # the shared baseline accounts so F5 keeps working.
+    Remove-SandboxLeases $Holder
+    try {
+        $lease = New-LabLease -Holder $Holder
+        Write-Host "Wino F5: leased $((@($lease.accounts) | ForEach-Object address) -join ', ') for Sandbox (lease $($lease.id))."
+        return $lease.path
+    } catch {
+        Write-Warning "Leasing lab accounts failed ($($_.Exception.Message)); Sandbox gets the shared baseline accounts."
+        return $Manifest
+    }
+}
+
 function Initialize-SandboxAccounts([string]$Root, [string]$PackageName, [switch]$Reseed) {
     # The guest starts empty, so the lab accounts are generated inside it once per Sandbox. Credentials are DPAPI
     # items bound to the guest user, which is why the generator runs there and not on the host.
-    $fixtures = Join-Path $HOME '.wino-lab/fixtures.json'
+    $holder = Import-LabClient $Root
+    $fixtures = Get-LabManifestPath
     if (-not (Test-Path -LiteralPath $fixtures -PathType Leaf)) {
-        Write-Warning 'The lab manifest ~/.wino-lab/fixtures.json does not exist, so Sandbox starts without accounts. The owner sets it up with scripts/lab/windows/lab.ps1 manifest.'
+        Write-Warning "The lab manifest $fixtures does not exist, so Sandbox starts without accounts. The owner sets it up with scripts/lab/windows/lab.ps1 manifest."
         return
     }
 
@@ -179,9 +208,13 @@ function Initialize-SandboxAccounts([string]$Root, [string]$PackageName, [switch
     }
     $seeded = (Invoke-SandboxScript $probe @{ Name = $PackageName }) -eq 3
     if ($seeded -and -not $Reseed) {
+        foreach ($lease in @(Get-LabLocalLease | Where-Object { $_.holder -eq $holder })) {
+            try { $null = Update-LabLease $lease } catch { Write-Warning "Renewing lab lease $($lease.id) failed: $($_.Exception.Message)" }
+        }
         Write-Host 'Wino F5: Sandbox already has the lab accounts; keeping its data (use -Reseed to replace it).'
         return
     }
+    $accountsFile = Get-SandboxAccountsFile -Holder $holder -Manifest $fixtures
 
     Write-Host 'Wino F5: generating the lab accounts inside Sandbox.'
     $generator = Join-Path $Root 'artifacts/sandbox/generator'
@@ -191,8 +224,8 @@ function Initialize-SandboxAccounts([string]$Root, [string]$PackageName, [switch
 
     & winapp target push sandbox $generator 'wino-lab/generator' -q
     if ($LASTEXITCODE) { throw "Copying the lab generator into Sandbox failed with exit code $LASTEXITCODE." }
-    & winapp target push sandbox $fixtures 'wino-lab/fixtures.json' -q
-    if ($LASTEXITCODE) { throw "Copying the lab manifest into Sandbox failed with exit code $LASTEXITCODE." }
+    & winapp target push sandbox $accountsFile 'wino-lab/fixtures.json' -q
+    if ($LASTEXITCODE) { throw "Copying the lab accounts into Sandbox failed with exit code $LASTEXITCODE." }
 
     $seed = {
         param([string]$Name)
@@ -219,15 +252,16 @@ function Initialize-SandboxAccounts([string]$Root, [string]$PackageName, [switch
             Copy-Item -LiteralPath (Join-Path $out 'secure') -Destination $localState -Recurse
             Set-Content -LiteralPath (Join-Path $localState 'wino-lab.seeded') -Value (Get-Date -Format o)
         } finally {
-            # The manifest and the generator's account list carry the lab password.
+            # The accounts file and the generator's account list carry the lab password.
             Remove-Item -LiteralPath $fixtures, $out -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
     if (Invoke-SandboxScript $seed @{ Name = $PackageName }) { throw 'Seeding the lab accounts in Sandbox failed. Wino was not launched.' }
 }
 
-function Clear-SandboxAccounts([string]$PackageName) {
+function Clear-SandboxAccounts([string]$Root, [string]$PackageName) {
     Write-Host 'Wino F5: starting Sandbox without accounts; removing the guest Wino database and credentials.'
+    Remove-SandboxLeases (Import-LabClient $Root)
     $clear = {
         param([string]$Name)
         $ErrorActionPreference = 'Stop'
@@ -310,7 +344,7 @@ function Start-Wino([string]$Root, [switch]$ForceBuild, [ValidateSet('local', 's
         & winapp @runArgs
         if ($LASTEXITCODE) { throw "WinApp failed with exit code $LASTEXITCODE. Build state was not saved." }
         if ($Target -eq 'sandbox') {
-            if ($NoAccounts) { Clear-SandboxAccounts -PackageName $packageName }
+            if ($NoAccounts) { Clear-SandboxAccounts -Root $Root -PackageName $packageName }
             else { Initialize-SandboxAccounts -Root $Root -PackageName $packageName -Reseed:$Reseed }
             Start-SandboxWino -PackageName $packageName
         }

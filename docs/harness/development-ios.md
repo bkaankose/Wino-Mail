@@ -130,6 +130,8 @@ cat "$dir/out.log"
 | Contacts and To Do | `contacts-*`, `todo-*` |
 | Quick actions | `quickactions` (republish and list the Home Screen quick actions), `quickaction new-mail\|new-event\|new-task\|next-meeting` (runs a published action as a tap would) |
 
+For synchronization against real servers, use the remote [mail lab](../../tools/lab/README.md): on the Mac, lease accounts with `pwsh scripts/lab/windows/lab.ps1 lease -Holder "$(hostname -s)/ios"`, add a leased account by hand in the app's IMAP setup with the host names, ports and DAV addresses from the lease summary and the password from the lease file (never paste it into a report), change and check the mailbox with `lab.ps1 act`, `inspect` and `trace`, and `release` the lease when done. Without the manifest `~/.wino-lab/fixtures.json` on the Mac, lab tests are refused.
+
 The seed commands create a local IMAP account with a closed loopback port and placeholder credentials, so synchronization fails by design. A walk on a fresh simulator runs `seedmail`, `seedpeople`, `seedtasks` and `seedcalendar`, then relaunches the app. The bridge runs a file's lines back to back (`sleep` does not delay the next line), so write one command file per step when a step waits for an animation, and note that `settingspage` opens Settings itself (after `settings` it stacks a second Settings root). The Debug bridge and the seed data compile only in Debug. Feature code adds commands with `UIKitDebugBridge.Register` inside `#if DEBUG`.
 
 ## UIKit pitfalls

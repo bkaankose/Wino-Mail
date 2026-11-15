@@ -200,15 +200,18 @@ tray processes, prepares WebView2 (below), registers the build with `winapp run 
 seeds the lab accounts, and only then starts Wino, so every Sandbox launch opens with accounts and WebView2.
 
 Seeding needs the lab manifest `~/.wino-lab/fixtures.json`; without it the helper warns and starts Wino without
-accounts. The first launch in a new Sandbox publishes `tools/lab/DatabaseGenerator` self-contained to
-`artifacts/sandbox/generator`, copies it and the manifest into the guest, generates `Wino210.db` and the DPAPI
-`secure\` items there (DPAPI binds them to the guest user), puts them in the package's LocalState, and deletes the
-manifest and the generator output from the guest. A `wino-lab.seeded` marker keeps later launches from replacing
-the guest's data; pass `-Reseed` to start again from fresh lab accounts.
+accounts. The first launch in a new Sandbox releases any earlier lease of the holder `<computer>/sandbox`, leases
+freshly reset pool accounts for it through the lab's control API (see the [lab guide](../../tools/lab/README.md#leases)),
+publishes `tools/lab/DatabaseGenerator` self-contained to `artifacts/sandbox/generator`, copies it and the lease file
+into the guest, generates `Wino210.db` and the DPAPI `secure\` items there (DPAPI binds them to the guest user), puts
+them in the package's LocalState, and deletes the lease file and the generator output from the guest. When the lease
+fails (control API unreachable, or a manifest older than schema 2) it warns and seeds the shared baseline accounts
+instead. A `wino-lab.seeded` marker keeps later launches from replacing the guest's data; they renew the lease. Pass
+`-Reseed` to release the lease and start again from newly leased accounts.
 
 To work on the welcome window or account setup, select **Run Wino Mail (Sandbox, no accounts)** or pass
-`-NoAccounts`. It skips seeding and removes the guest's Wino database, credentials and seeding marker before Wino
-starts, so the next launch without the switch seeds the lab accounts again.
+`-NoAccounts`. It skips seeding, releases the Sandbox lease, and removes the guest's Wino database, credentials and
+seeding marker before Wino starts, so the next launch without the switch leases and seeds lab accounts again.
 
 Windows Sandbox has no WebView2 Runtime, so mail rendering and the composer need a fixed-version runtime, and the
 guest never downloads one. Download the x64 fixed-version `.cab` once from Microsoft's
@@ -262,8 +265,14 @@ The editor extension is a convenience. The pinned command-line result is the for
 
 The repository has no automated test projects. Verify behavior with builds and manual checks in the running application.
 
-The remote [mail lab](../../tools/lab/README.md) is the application testing environment: five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail, calendars and contacts, on public names with TLS.
-Its client script is `scripts/lab/windows/lab.ps1`. `status` checks the endpoints; `install-app` fetches the account manifest, generates the account data, installs it into the registered Debug package and launches Wino. Close Wino first.
+The remote [mail lab](../../tools/lab/README.md) is the application testing environment: IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, UID-only and Cyrus variants), a POP3 server, a fault-injection host and certificate test hosts, with generated mail, calendars and contacts, on public names with TLS, and a control API that changes and inspects mailboxes.
+Its client script is `scripts/lab/windows/lab.ps1`; everything it needs is the manifest `~/.wino-lab/fixtures.json`.
+
+1. `lab.ps1 status` checks the endpoints, the manifest schema and the control API.
+2. `lab.ps1 install-app` leases pool accounts for this worktree (holder `<computer>/<worktree folder>`; a still-valid lease of the same holder is reused), generates the account data, installs it into the registered Debug package and launches Wino. Close Wino first. `-Servers dovecot,stalwart` limits the servers, `-Pop3` adds a POP3 account, `-Shared` installs the shared baseline accounts instead.
+3. Reproduce with `lab.ps1 act` (deliver, flag, move, delete, rename a folder, bump UIDVALIDITY, send an invitation), `import` and `corpus`, or break the connection with `fault` on `flaky.lab.winomail.app`.
+4. Verify against the server with `lab.ps1 inspect` and read the protocol log with `lab.ps1 trace`.
+5. `lab.ps1 release` when done.
 Report UI checks separately from compilation results.
 
 ## Agent UI checks

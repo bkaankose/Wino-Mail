@@ -6,7 +6,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 
 | Category | Script | Platform | Shell | Purpose |
 | --- | --- | --- | --- | --- |
-| Development | `development/windows/start-wino.ps1` | Windows | PowerShell 7.2+ | Check build inputs and output, then build if needed and launch the packaged Debug app locally or in Windows Sandbox with the host's fixed-version WebView2 runtime and the lab accounts seeded before Wino starts |
+| Development | `development/windows/start-wino.ps1` | Windows | PowerShell 7.2+ | Check build inputs and output, then build if needed and launch the packaged Debug app locally or in Windows Sandbox with the host's fixed-version WebView2 runtime and lab accounts leased for `<computer>/sandbox` seeded before Wino starts |
 | Development | `development/windows/generate-debug-artwork.py` | Windows | Python 3 with Pillow | Regenerate the plum (#6D214F) Debug package artwork in `development/windows/DebugAssets` from the stable branding files |
 | Release | `release/windows/build-releases.ps1` | Windows | PowerShell 7 | Optionally translate resources, then build and package Store, Beta, and sideload releases |
 | Release | `release/windows/publish-releases.ps1` | Windows | PowerShell 7 | Publish Beta and sideload releases to download.winomail.app |
@@ -16,7 +16,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 | Release | `release/macos/build-macos-appstore.sh` | macOS | Bash | Optionally translate resources, then build, validate, and optionally upload the Mac App Store package |
 | Release | `release/release.ps1` | Both | PowerShell 7 | Bump the version, draft release notes with Claude Code, mark issues, and publish the GitHub release |
 | Release | `release/whats-new/validate.ps1` | Both | PowerShell 7 | Validate What's New notes and illustration references |
-| Lab | `lab/windows/lab.ps1` | Windows | PowerShell 7 | Check the remote mail lab, fetch its account manifest, install the lab accounts into the Debug app, and open a tunnel to its loopback ports |
+| Lab | `lab/windows/lab.ps1` (helpers in `lab/windows/LabClient.psm1`) | Windows; macOS for the control API commands | PowerShell 7.2+ | Check the remote mail lab, lease and release its accounts, install them into the Debug app, change, inspect and trace mailboxes and inject faults through its control API, fetch the manifest, and open a tunnel to its loopback ports |
 | Lab | `lab/windows/exchange-lab.ps1` | Windows | PowerShell 7 | Build and manage the Hyper-V Exchange Server SE lab VM (AD forest, mailboxes, trusted certificate, mail-flow and Autodiscover checks) |
 | Maintenance | `maintenance/windows/format-xaml.ps1` | Windows | PowerShell 7 | Format WinUI XAML or check formatting with the pinned XAML Styler |
 | Maintenance | `maintenance/windows/audit-xaml-accessibility.ps1` | Windows | PowerShell | Report XAML controls without accessible labels |
@@ -51,4 +51,4 @@ bash scripts/maintenance/macos/setup-macos-debugger.sh
 ```
 
 See the [release guide](../docs/releases.md), [lab guide](../tools/lab/README.md), and [script environment](../docs/local-script-environment.md).
-The lab generator builds its helper project. Only the explicit `install-app` command builds, deploys, and launches the Wino app; nothing automates its UI.
+The lab generator builds its helper project. Only the explicit `install-app` command replaces the Debug app's data and launches it; nothing automates its UI.
