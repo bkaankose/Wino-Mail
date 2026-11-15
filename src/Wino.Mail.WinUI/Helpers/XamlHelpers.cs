@@ -331,6 +331,9 @@ public static class XamlHelpers
     public static object GetRowContactPicture(object? sourceItem)
         => GetContactPicture(sourceItem as IMailItemDisplayInformation);
 
+    public static MailItemViewModel? GetRowMailItem(object? sourceItem)
+        => sourceItem as MailItemViewModel;
+
     public static object GetThreadHeadContactPicture(IReadOnlyList<IMailListSourceItem>? leaves, object? sourceItem)
         => GetContactPicture(GetThreadHeadParty(leaves, sourceItem) ?? sourceItem as IMailItemDisplayInformation);
 

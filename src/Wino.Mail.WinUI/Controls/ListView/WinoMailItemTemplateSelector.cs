@@ -29,6 +29,9 @@ public partial class WinoMailItemTemplateSelector : DataTemplateSelector, IRelea
     public DataTemplate? MediumThreadMailItemTemplate { get; set; }
     public DataTemplate? SpaciousThreadMailItemTemplate { get; set; }
     public DataTemplate? CalendarMailItemTemplate { get; set; }
+    public DataTemplate? CompactCalendarMailItemTemplate { get; set; }
+    public DataTemplate? MediumCalendarMailItemTemplate { get; set; }
+    public DataTemplate? SpaciousCalendarMailItemTemplate { get; set; }
 
     private bool _isReleased;
 
@@ -44,6 +47,9 @@ public partial class WinoMailItemTemplateSelector : DataTemplateSelector, IRelea
         MediumThreadMailItemTemplate = null;
         SpaciousThreadMailItemTemplate = null;
         CalendarMailItemTemplate = null;
+        CompactCalendarMailItemTemplate = null;
+        MediumCalendarMailItemTemplate = null;
+        SpaciousCalendarMailItemTemplate = null;
     }
 
     protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
@@ -60,9 +66,9 @@ public partial class WinoMailItemTemplateSelector : DataTemplateSelector, IRelea
             }
 
             if (row.SourceItem is MailItemViewModel { MailCopy.ItemType: not MailItemType.Mail } &&
-                CalendarMailItemTemplate != null)
+                GetCalendarMailTemplate() is { } calendarRowTemplate)
             {
-                return CalendarMailItemTemplate;
+                return calendarRowTemplate;
             }
 
             return GetSingleMailTemplate() ?? throw new Exception("Missing template for mail rows.");
@@ -71,8 +77,8 @@ public partial class WinoMailItemTemplateSelector : DataTemplateSelector, IRelea
         if (item is MailItemViewModel mailItemViewModel)
         {
             // Check if it's a calendar-related item
-            if (mailItemViewModel.MailCopy.ItemType != MailItemType.Mail && CalendarMailItemTemplate != null)
-                return CalendarMailItemTemplate;
+            if (mailItemViewModel.MailCopy.ItemType != MailItemType.Mail && GetCalendarMailTemplate() is { } calendarTemplate)
+                return calendarTemplate;
 
             return GetSingleMailTemplate() ?? throw new Exception($"Missing template for single mail items.");
         }
@@ -89,6 +95,15 @@ public partial class WinoMailItemTemplateSelector : DataTemplateSelector, IRelea
             MailListDisplayMode.Medium => MediumSingleMailItemTemplate ?? SingleMailItemTemplate,
             MailListDisplayMode.Spacious => SpaciousSingleMailItemTemplate ?? SingleMailItemTemplate,
             _ => SingleMailItemTemplate
+        };
+
+    private DataTemplate? GetCalendarMailTemplate()
+        => GetDisplayMode() switch
+        {
+            MailListDisplayMode.Compact => CompactCalendarMailItemTemplate ?? CalendarMailItemTemplate,
+            MailListDisplayMode.Medium => MediumCalendarMailItemTemplate ?? CalendarMailItemTemplate,
+            MailListDisplayMode.Spacious => SpaciousCalendarMailItemTemplate ?? CalendarMailItemTemplate,
+            _ => CalendarMailItemTemplate
         };
 
     private DataTemplate? GetThreadMailTemplate()
