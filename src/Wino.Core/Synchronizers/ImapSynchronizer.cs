@@ -156,6 +156,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                             ITaskService taskService = null,
                             ISmtpTransport smtpTransport = null,
                             ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
+                            IOAuthTokenService oauthTokenService = null,
                             ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
     {
         _calDavTaskSynchronizationEngine = calDavTaskSynchronizationEngine;
@@ -168,7 +169,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                                        ?? new CalDavSynchronizationEngine(calDavClient, imapChangeProcessor, calendarService, autoDiscoveryService);
         _mailFilterExecutor = mailFilterExecutor;
         _serverCertificateTrustService = serverCertificateTrustService;
-        _smtpTransport = smtpTransport ?? new MailKitSmtpTransport(applicationConfiguration, serverCertificateTrustService);
+        _smtpTransport = smtpTransport ?? new MailKitSmtpTransport(applicationConfiguration, serverCertificateTrustService, oauthTokenService);
         _cardDavSynchronizationEngine = cardDavSynchronizationEngine;
         _localContactSynchronizer = new LocalContactSynchronizer(contactService);
         _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
@@ -182,7 +183,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                     MailProtocol.Imap)
                 : null,
             _serverCertificateTrustService,
-            Account);
+            Account,
+            oauthTokenService);
 
         _clientPool = new ImapClientPool(poolOptions);
         _localCalendarOperationHandler = new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local");
@@ -1841,6 +1843,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
     public async Task StartIdleClientAsync()
     {
+        // Local accounts with mail off have no server; an IDLE loop would fail to connect and flag the account.
+        if (!Account.IsMailAccessGranted) return;
+
         await _idleLifecycle.WaitAsync().ConfigureAwait(false);
         try
         {

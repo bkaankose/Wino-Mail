@@ -20,6 +20,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountDataSyncService _syncService;
+    private readonly IPlatformCapabilities _platformCapabilities;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GetStartedCommand))]
@@ -34,10 +35,12 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     public bool HasImportStatus => !string.IsNullOrWhiteSpace(ImportStatusMessage);
 
     public WelcomePageV2ViewModel(IMailDialogService dialogService,
-                                  IWinoAccountDataSyncService syncService)
+                                  IWinoAccountDataSyncService syncService,
+                                  IPlatformCapabilities platformCapabilities)
     {
         _dialogService = dialogService;
         _syncService = syncService;
+        _platformCapabilities = platformCapabilities;
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenWelcomeActions))]
@@ -45,7 +48,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     {
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step2Title,
-            WinoPage.ProviderSelectionPage,
+            AccountSetupNavigation.GetAddAccountPage(_platformCapabilities),
             ProviderSelectionNavigationContext.CreateForWizard()));
     }
 

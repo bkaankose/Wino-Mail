@@ -12,6 +12,14 @@ namespace Wino.Core.Domain.Interfaces;
 /// </summary>
 public partial interface ICalDavClient
 {
+    /// <summary>
+    /// Confirms the service accepts the sign-in by resolving the principal and its calendar home. No calendar, event or
+    /// task list is read. Throws what a refused or failed request throws.
+    /// </summary>
+    Task VerifyAccessAsync(
+        CalDavConnectionSettings connectionSettings,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CalDavCalendar>> DiscoverCalendarsAsync(
         CalDavConnectionSettings connectionSettings,
         CancellationToken cancellationToken = default);

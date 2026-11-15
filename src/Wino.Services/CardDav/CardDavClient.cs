@@ -47,6 +47,26 @@ public sealed class CardDavClient : ICardDavClient
         _responseHandler = responseHandler ?? new DavResponseHandler();
     }
 
+    public async Task VerifyAccessAsync(CardDavConnectionSettings settings, CancellationToken cancellationToken = default)
+    {
+        Validate(settings);
+        const string properties = "<D:current-user-principal /><C:addressbook-home-set /><D:resourcetype />";
+        var contextUri = settings.ServiceUri ?? BuildWellKnownUri(settings.AccountAddress);
+        var context = await PropFindAsync(settings, contextUri, "0", properties, cancellationToken).ConfigureAwait(false);
+        var contextResponse = FindRequestedResponse(context, contextUri);
+        var principalHref = Property(contextResponse, DavNamespace, "current-user-principal")?.Value;
+
+        if (string.IsNullOrWhiteSpace(principalHref) ||
+            !string.IsNullOrWhiteSpace(Property(contextResponse, CardDavNamespace, "addressbook-home-set")?.Value))
+        {
+            return;
+        }
+
+        var principalUri = Resolve(contextUri, principalHref);
+        if (principalUri != contextUri)
+            await PropFindAsync(settings, principalUri, "0", properties, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<CardDavDiscoveryResult> DiscoverAsync(CardDavConnectionSettings settings, CancellationToken cancellationToken = default)
     {
         Validate(settings);

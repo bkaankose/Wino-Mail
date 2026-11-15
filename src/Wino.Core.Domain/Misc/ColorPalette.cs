@@ -52,6 +52,36 @@ public static class ColorPalette
         return FlatUiColorPalette[0];
     }
 
+    public static bool ContainsColor(IEnumerable<string> colors, string color)
+    {
+        if (colors == null || string.IsNullOrWhiteSpace(color))
+            return false;
+
+        var key = ToComparisonKey(color);
+        foreach (var candidate in colors)
+        {
+            if (!string.IsNullOrWhiteSpace(candidate) && string.Equals(ToComparisonKey(candidate), key, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    public static string GetReadableTextColor(string backgroundColor)
+    {
+        if (!TryNormalizeHexColor(backgroundColor, out var normalized))
+            return "#FFFFFF";
+
+        var red = Convert.ToInt32(normalized.Substring(1, 2), 16);
+        var green = Convert.ToInt32(normalized.Substring(3, 2), 16);
+        var blue = Convert.ToInt32(normalized.Substring(5, 2), 16);
+        var luminance = ((0.299 * red) + (0.587 * green) + (0.114 * blue)) / 255d;
+        return luminance > 0.6 ? "#111111" : "#FFFFFF";
+    }
+
+    private static string ToComparisonKey(string color)
+        => TryNormalizeHexColor(color, out var normalized) ? normalized : color.Trim();
+
     private static bool TryNormalizeHexColor(string value, out string normalized)
     {
         normalized = null;

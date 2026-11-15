@@ -10,6 +10,16 @@ public enum ImapSetupStep
     Servers = 1
 }
 
+/// <summary>
+/// The sign-in step asks for the address first, so discovery can tell whether the server offers
+/// secure sign-in before a password is requested.
+/// </summary>
+public enum ImapSignInStage
+{
+    Identity = 0,
+    Method = 1
+}
+
 public enum ServerDiscoveryState
 {
     NotRun = 0,

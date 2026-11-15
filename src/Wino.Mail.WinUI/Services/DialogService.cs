@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml;
@@ -13,6 +15,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
@@ -584,5 +587,26 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         // The sign-in waits for the browser redirect, which the user completes away from Wino,
         // so the surface opens on the main window rather than whichever window was last active.
         return StartSessionDialog(dialog, WinoApplication.MainWindow?.Content?.XamlRoot) == null ? null : dialog;
+    }
+
+    public async Task<EmbeddedBrowserAuthResult> ShowEmbeddedBrowserSignInDialogAsync(Uri startUri, Uri redirectUri, CancellationToken cancellationToken)
+    {
+        var dialog = new EmbeddedBrowserSignInDialog(startUri, redirectUri)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        var dispatcherQueue = dialog.DispatcherQueue;
+        using var cancellation = cancellationToken.Register(() =>
+        {
+            if (dispatcherQueue.HasThreadAccess)
+                dialog.Cancel();
+            else
+                dispatcherQueue.TryEnqueue(dialog.Cancel);
+        });
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
     }
 }

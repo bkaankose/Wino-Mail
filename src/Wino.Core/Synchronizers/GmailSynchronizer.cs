@@ -2048,7 +2048,9 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
         var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
         var remotePrimaryCalendarId = GetPrimaryCalendarId(calendarListResponse.Items);
-        var usedCalendarColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedCalendarColors = new HashSet<string>(
+            await _gmailChangeProcessor.GetPrecedingAccountsCalendarColorsAsync(Account.Id).ConfigureAwait(false),
+            StringComparer.OrdinalIgnoreCase);
 
         List<AccountCalendar> insertedCalendars = new();
         List<AccountCalendar> updatedCalendars = new();
@@ -2091,7 +2093,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             {
                 // Update existing calendar. Right now we only update the name.
                 var resolvedColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteGmailCalendarBackgroundColor(calendar), existingLocalCalendar, usedCalendarColors);
-                if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId) ||
+                if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId, resolvedColor) ||
                     !string.Equals(existingLocalCalendar.BackgroundColorHex, resolvedColor, StringComparison.OrdinalIgnoreCase))
                 {
                     existingLocalCalendar.Name = calendar.Summary;
@@ -2275,11 +2277,10 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         }
     }
 
-    private bool ShouldUpdateCalendar(CalendarListEntry calendarListEntry, AccountCalendar accountCalendar, string remotePrimaryCalendarId)
+    private bool ShouldUpdateCalendar(CalendarListEntry calendarListEntry, AccountCalendar accountCalendar, string remotePrimaryCalendarId, string remoteBackgroundColor)
     {
         var remoteCalendarName = calendarListEntry.Summary;
         var remoteTimeZone = calendarListEntry.TimeZone;
-        var remoteBackgroundColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteGmailCalendarBackgroundColor(calendarListEntry), accountCalendar);
         var remoteTextColor = ColorHelpers.GetReadableTextColorHex(remoteBackgroundColor);
         var remoteIsPrimary = string.Equals(calendarListEntry.Id, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
         var remoteIsReadOnly = !string.Equals(calendarListEntry.AccessRole, "owner", StringComparison.OrdinalIgnoreCase)
@@ -2301,19 +2302,8 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
     private static string ResolveSynchronizedCalendarBackgroundColor(
         string remoteBackgroundColor,
         AccountCalendar accountCalendar,
-        ISet<string> usedCalendarColors = null)
-    {
-        if (accountCalendar.IsBackgroundColorUserOverridden)
-            return accountCalendar.BackgroundColorHex;
-
-        var preferredColor = string.IsNullOrWhiteSpace(remoteBackgroundColor)
-            ? accountCalendar.BackgroundColorHex
-            : remoteBackgroundColor;
-
-        return string.IsNullOrWhiteSpace(remoteBackgroundColor) && usedCalendarColors != null
-            ? ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, preferredColor)
-            : preferredColor;
-    }
+        ISet<string> usedCalendarColors)
+        => ColorHelpers.ResolveDistinctCalendarColor(remoteBackgroundColor, accountCalendar, usedCalendarColors);
 
     private string GetPrimaryCalendarId(IList<CalendarListEntry> remoteCalendars)
     {

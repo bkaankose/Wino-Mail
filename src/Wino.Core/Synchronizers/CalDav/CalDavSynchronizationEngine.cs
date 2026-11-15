@@ -53,14 +53,17 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
     private readonly ICalendarService _calendarService;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalDavStateStore _stateStore;
+    private readonly IDavOAuthAuthenticationProvider? _oauthAuthenticationProvider;
 
     public CalDavSynchronizationEngine(
         ICalDavClient client,
         IImapChangeProcessor changeProcessor,
         ICalendarService calendarService,
         IAutoDiscoveryService autoDiscoveryService,
-        ICalDavStateStore? stateStore = null)
+        ICalDavStateStore? stateStore = null,
+        IDavOAuthAuthenticationProvider? oauthAuthenticationProvider = null)
     {
+        _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _changeProcessor = changeProcessor ?? throw new ArgumentNullException(nameof(changeProcessor));
         _calendarService = calendarService ?? throw new ArgumentNullException(nameof(calendarService));
@@ -98,29 +101,35 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
         }
 
-        var password = CalDavConnection.ResolvePassword(account);
-        if (string.IsNullOrWhiteSpace(password))
+        var settings = await CalDavConnection.TryCreateBearerSettingsAsync(account, serviceUri, _oauthAuthenticationProvider, cancellationToken).ConfigureAwait(false);
+        var username = settings?.Username ?? string.Empty;
+
+        if (settings == null)
         {
-            Logger.Warning("Skipping calendar sync for {AccountName}: empty credentials.", account.Name);
-            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+            var password = CalDavConnection.ResolvePassword(account);
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                Logger.Warning("Skipping calendar sync for {AccountName}: empty credentials.", account.Name);
+                return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            username = CalDavConnection.ResolveUsername(account);
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                Logger.Warning("Skipping calendar sync for {AccountName}: account email address is empty for CalDAV credentials.", account.Name);
+                return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+            }
+
+            settings = new CalDavConnectionSettings
+            {
+                ServiceUri = serviceUri,
+                Username = username,
+                Password = password,
+                EndpointTrust = new DavEndpointTrust { AccountId = account.Id, Protocol = MailServerProtocol.CalDav }
+            };
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var username = CalDavConnection.ResolveUsername(account);
-        if (string.IsNullOrWhiteSpace(username))
-        {
-            Logger.Warning("Skipping calendar sync for {AccountName}: account email address is empty for CalDAV credentials.", account.Name);
-            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
-        }
-
-        var settings = new CalDavConnectionSettings
-        {
-            ServiceUri = serviceUri,
-            Username = username,
-            Password = password,
-            EndpointTrust = new DavEndpointTrust { AccountId = account.Id, Protocol = MailServerProtocol.CalDav }
-        };
 
         var state = await _stateStore.GetAsync(account.Id, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CalDavCalendar> remoteCalendars;
@@ -1029,7 +1038,9 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         var remoteCalendarsById = remoteCalendars
             .GroupBy(calendar => calendar.RemoteCalendarId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
-        var usedCalendarColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedCalendarColors = new HashSet<string>(
+            await _changeProcessor.GetPrecedingAccountsCalendarColorsAsync(account.Id).ConfigureAwait(false),
+            StringComparer.OrdinalIgnoreCase);
         var remotePrimaryCalendarId = GetPrimaryCalendarId(remoteCalendars);
 
         foreach (var localCalendar in localCalendars.ToList())
@@ -1125,21 +1136,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         string remoteBackgroundColor,
         AccountCalendar? accountCalendar,
         ISet<string> usedCalendarColors)
-    {
-        if (accountCalendar?.IsBackgroundColorUserOverridden == true)
-            return accountCalendar.BackgroundColorHex;
-
-        var preferredColor = string.IsNullOrWhiteSpace(remoteBackgroundColor)
-            ? accountCalendar?.BackgroundColorHex
-            : remoteBackgroundColor;
-
-        if (string.IsNullOrWhiteSpace(remoteBackgroundColor))
-            return ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, preferredColor ?? string.Empty);
-
-        return string.IsNullOrWhiteSpace(preferredColor)
-            ? ColorHelpers.GenerateFlatColorHex()
-            : preferredColor;
-    }
+        => ColorHelpers.ResolveDistinctCalendarColor(remoteBackgroundColor, accountCalendar, usedCalendarColors);
 
     #endregion
 
@@ -1417,7 +1414,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         if (assignedCalendar == null || string.IsNullOrWhiteSpace(assignedCalendar.RemoteCalendarId))
             throw new InvalidOperationException("Cannot execute CalDAV operation because the target calendar has no remote ID.");
 
-        var connection = await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, cancellationToken).ConfigureAwait(false);
+        var connection = await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
 
         return (connection, new CalDavCalendar
         {

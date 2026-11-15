@@ -55,11 +55,13 @@ public sealed class DavTransport : IDavTransport
         var target = request.RequestUri;
         var certificateContext = await CreateCertificateContextAsync(authentication.EndpointTrust, target).ConfigureAwait(false);
         string digestAuthorization = null;
+        var isBearerRefreshed = false;
 
         for (var redirectCount = 0; redirectCount <= MaximumRedirects; redirectCount++)
         {
             using var outgoing = template.Create(target);
-            ApplyAuthentication(outgoing, authentication, digestAuthorization);
+            var bearerToken = authentication.BearerToken;
+            ApplyAuthentication(outgoing, authentication, bearerToken, digestAuthorization);
             HttpResponseMessage response;
 
             if (certificateContext != null)
@@ -93,6 +95,19 @@ public sealed class DavTransport : IDavTransport
                 if (digestAuthorization is not null)
                     continue;
                 throw new UnauthorizedAccessException("The DAV server did not return a supported Digest challenge.");
+            }
+
+            // An access token can be revoked or expire early; one refresh and retry, then the 401 is handled as today.
+            if (authentication.Kind == DavAuthenticationKind.Bearer &&
+                response.StatusCode == HttpStatusCode.Unauthorized &&
+                authentication.RefreshBearerTokenAsync is not null &&
+                !isBearerRefreshed)
+            {
+                response.Dispose();
+                isBearerRefreshed = true;
+                authentication.BearerToken = await authentication.RefreshBearerTokenAsync(bearerToken, cancellationToken).ConfigureAwait(false);
+                redirectCount--;
+                continue;
             }
 
             if (!IsRedirect(response.StatusCode) || response.Headers.Location is null)
@@ -164,7 +179,7 @@ public sealed class DavTransport : IDavTransport
         return context.Failure == null;
     }
 
-    private static void ApplyAuthentication(HttpRequestMessage request, DavAuthenticationProfile authentication, string digestAuthorization)
+    private static void ApplyAuthentication(HttpRequestMessage request, DavAuthenticationProfile authentication, string bearerToken, string digestAuthorization)
     {
         switch (authentication.Kind)
         {
@@ -180,7 +195,8 @@ public sealed class DavTransport : IDavTransport
                 }
                 break;
             case DavAuthenticationKind.Bearer:
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authentication.BearerToken);
+                request.Headers.Authorization = new AuthenticationHeaderValue(
+                    string.IsNullOrWhiteSpace(authentication.BearerScheme) ? "Bearer" : authentication.BearerScheme, bearerToken);
                 break;
             case DavAuthenticationKind.Digest when !string.IsNullOrWhiteSpace(digestAuthorization):
                 request.Headers.TryAddWithoutValidation("Authorization", digestAuthorization);

@@ -31,6 +31,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     private readonly IDialogServiceBase _dialogService;
     private readonly IKnownImapProviderCatalog _providerCatalog;
     private readonly INewThemeService _themeService;
+    private readonly IOAuthTokenService _oauthTokenService;
     private ProviderSelectionHostMode _hostMode = ProviderSelectionHostMode.Wizard;
 
     public WelcomeWizardContext WizardContext { get; }
@@ -380,13 +381,27 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         !IsMailAccessEnabled &&
         (CalendarMode == AccountCapabilityMode.Provider || TaskMode == AccountCapabilityMode.Provider);
 
+    /// <summary>Set by heads whose IMAP setup page offers secure sign-in.</summary>
+    public bool IsSecureSignInSupportedByHost { get; set; }
+
+    private bool HasSecureSignInRoute =>
+        IsSecureSignInSupportedByHost &&
+        SelectedProvider?.Type == MailProviderType.IMAP4 &&
+        SelectedProvider.SpecialImapProvider != SpecialImapProvider.None &&
+        _providerCatalog.GetBySpecialProvider(SelectedProvider.SpecialImapProvider)?.OAuth is { } registration &&
+        !string.IsNullOrWhiteSpace(registration.ClientId) &&
+        // A registration this device cannot complete (loopback on iOS) keeps the provider's app password page.
+        _oauthTokenService?.IsRedirectSupported(registration.RedirectKind) != false;
+
     public ProviderSelectionPageViewModel(
         IAccountService accountService,
         IDialogServiceBase dialogService,
         IKnownImapProviderCatalog providerCatalog,
         INewThemeService themeService,
-        WelcomeWizardContext wizardContext)
+        WelcomeWizardContext wizardContext,
+        IOAuthTokenService oauthTokenService = null)
     {
+        _oauthTokenService = oauthTokenService;
         _accountService = accountService;
         _dialogService = dialogService;
         _providerCatalog = providerCatalog;
@@ -752,8 +767,10 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 Translator.WelcomeWizard_Step3Title,
                 WinoPage.AccountSetupProgressPage));
         }
-        else if (WizardContext.IsGenericCustomMail)
+        else if (WizardContext.IsGenericCustomMail || HasSecureSignInRoute)
         {
+            // A provider Wino holds a sign-in registration with uses the IMAP page, which offers secure sign-in
+            // and still accepts an app password.
             var context = _hostMode == ProviderSelectionHostMode.SettingsAddAccount
                 ? ImapCalDavSettingsNavigationContext.CreateForAddAccountMode(
                     WizardContext.BuildAccountCreationDialogResult())
@@ -781,26 +798,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         }
     }
 
-    /// <summary>
-    /// A local-only account still carries server information so the IMAP-family account model
-    /// stays whole, but no endpoint is set and nothing is validated.
-    /// </summary>
-    private ImapCalDavSetupResult CreateLocalOnlySetupResult() => new()
-    {
-        DisplayName = WizardContext.AccountName,
-        EmailAddress = string.Empty,
-        IsMailAccessGranted = false,
-        IsCalendarAccessGranted = WizardContext.CalendarSupportMode != ImapCalendarSupportMode.Disabled,
-        ShouldAppendMessagesToSentFolder = false,
-        ServerInformation = new CustomServerInformation
-        {
-            Id = Guid.NewGuid(),
-            IncomingServerType = CustomIncomingServerType.IMAP4,
-            CalendarSupportMode = WizardContext.CalendarSupportMode,
-            MaxConcurrentClients = 5,
-            ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected
-        }
-    };
+    private ImapCalDavSetupResult CreateLocalOnlySetupResult()
+        => ImapCalDavSetupResult.FromAccountSetupData(
+            ImapAccountSetupData.CreateLocalOnly(WizardContext.AccountName, WizardContext.CalendarSupportMode));
 
     private static AccountCapabilityMode ToCapabilityMode(bool isEnabled, AccountIntegrationSource source)
     {

@@ -7,6 +7,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Authentication;
 
@@ -21,7 +22,7 @@ public sealed class GoogleWebSessionSignInProvider(IWinoAccountBrowserAuthBroker
 {
     private static readonly HttpClient SharedHttpClient = new();
     private readonly HttpClient _httpClient = httpClient ?? SharedHttpClient;
-    private readonly string _clientId = clientId ?? WinoAccountExternalAuth.GoogleAppleClientId;
+    private readonly string _clientId = clientId ?? WinoAuthenticationClientIds.Google.Apple;
 
     public async Task<string?> RequestIdTokenAsync(CancellationToken cancellationToken)
     {

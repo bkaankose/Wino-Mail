@@ -21,19 +21,6 @@ public static class WinoAccountExternalAuth
     /// <summary>Sign in with Microsoft: personal, work and school accounts through the API browser flow on every platform.</summary>
     public const string MicrosoftProvider = "microsoft";
 
-    /// <summary>
-    /// The Wino Accounts Google iOS client (Google Cloud project 973025879644), shared by the iOS and Mac apps through
-    /// their common bundle id. The API lists it in <c>Secrets:Google:NativeClientIds</c>. Not the Windows app's Gmail
-    /// mailbox client, which is never used for Wino Accounts.
-    /// </summary>
-    public const string GoogleAppleClientId = "973025879644-qlc58h7f2gepqgu3ocvlr7mqvd3fff1c.apps.googleusercontent.com";
-
-    /// <summary>
-    /// The Wino Accounts Google web client: Android's Credential Manager <c>serverClientId</c>, so the ID token's audience is
-    /// the API's own client id. The Android OAuth clients themselves are matched by package and certificate, never named.
-    /// </summary>
-    public const string GoogleAndroidServerClientId = "973025879644-92h0mdbvgaiq0p6efdv16hpiop65er6a.apps.googleusercontent.com";
-
     public const string CallbackScheme = "wino";
     public const string CallbackHost = "auth-complete";
 

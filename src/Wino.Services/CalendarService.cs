@@ -52,6 +52,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         WeakReferenceMessenger.Default.Send(new CalendarListAdded(accountCalendar));
     }
 
+    // Ordering by account id lets accounts that synchronize at the same time settle on distinct colors instead of
+    // all moving away from each other.
+    public Task<List<string>> GetPrecedingAccountsCalendarColorsAsync(Guid accountId)
+        => Connection.QueryScalarsAsync<string>("SELECT BackgroundColorHex FROM AccountCalendar WHERE AccountId < ?", accountId);
+
     public async Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
     {
         if (accountCalendar.IsPrimary)
@@ -339,6 +344,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         return calendarItem;
     }
+
+    public Task<List<CalendarItem>> GetRecurringMastersAsync(Guid accountCalendarId)
+        => Connection.Table<CalendarItem>()
+            .Where(c => c.CalendarId == accountCalendarId && c.Recurrence != null && c.Recurrence != "" && c.RecurringCalendarItemId == null)
+            .ToListAsync();
 
     public Task<List<CalendarItem>> GetRecurringChildrenAsync(Guid parentCalendarItemId)
         => Connection.Table<CalendarItem>()

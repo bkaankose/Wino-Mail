@@ -14,6 +14,7 @@ using Wino.Platform.Windows.PushRelay;
 using Wino.PushRelay.Socket;
 using Wino.PushRelay.Socket.KeyStores;
 using Wino.Authentication;
+using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Models.Platform;
 
 namespace Wino.Mail.WinUI;
@@ -57,7 +58,7 @@ public static class CoreUWPContainerSetup
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
-            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, WidgetsAndLiveTiles: true,
+            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true, WidgetsAndLiveTiles: true,
             AttachmentSecurityCheck: true, VoiceControl: true));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
@@ -77,6 +78,7 @@ public static class CoreUWPContainerSetup
             new WindowsGoogleTokenStore(provider.GetRequiredService<IApplicationConfiguration>())));
         services.AddSingleton<IGoogleTokenStore>(provider => provider.GetRequiredService<WindowsMigratingGoogleTokenStore>());
         services.AddSingleton<ILegacyCredentialFileMigration>(provider => provider.GetRequiredService<WindowsMigratingGoogleTokenStore>());
+        services.AddSingleton<IOAuthTokenStore, SecureItemOAuthTokenStore>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
@@ -91,6 +93,14 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<WindowsExternalAuthCallbacks>();
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new WindowsBrowserAuthBroker(
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>()));
+        // IMAP and SMTP OAuth sign-in: wino://auth-complete/oauth callbacks complete only this broker's wait.
+        services.AddSingleton<IOAuthBrowserBroker>(provider => new WindowsOAuthBrowserBroker(
+            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>(),
+            () => provider.GetService<IExternalBrowserAuthenticationPresenter>()));
+        // Exchange modern-auth sign-in: a WebView2 dialog that captures the redirect in-process, apart from every
+        // system-browser flow above.
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new WindowsEmbeddedBrowserAuthBroker(
+            provider.GetRequiredService<IDispatcher>(), provider.GetRequiredService<Lazy<IWinoDialogService>>()));
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));

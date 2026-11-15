@@ -56,6 +56,13 @@ internal static class OnboardingDebug
             return Task.FromResult(Navigate(WinoPage.ImapCalDavSettingsPage,
                 ImapCalDavSettingsNavigationContext.CreateForWizardMode(context.BuildAccountCreationDialogResult())));
         });
+        MacDebugBridge.Register("onboarding-exchange", _ =>
+        {
+            var context = Services.GetRequiredService<WelcomeWizardContext>();
+            context.AccountName ??= "Exchange";
+            context.IsMailAccessEnabled = true;
+            return Task.FromResult(Navigate(WinoPage.ExchangeSettingsPage, null));
+        });
         MacDebugBridge.Register("onboarding-imap-edit", async _ =>
         {
             var accounts = await Services.GetRequiredService<IAccountService>().GetAccountsAsync();

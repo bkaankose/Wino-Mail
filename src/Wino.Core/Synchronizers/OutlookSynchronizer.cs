@@ -5048,7 +5048,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         var remotePrimaryCalendarId = await GetPrimaryCalendarIdAsync(calendars.Value, cancellationToken).ConfigureAwait(false);
 
         var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
-        var usedCalendarColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedCalendarColors = new HashSet<string>(
+            await _outlookChangeProcessor.GetPrecedingAccountsCalendarColorsAsync(Account.Id).ConfigureAwait(false),
+            StringComparer.OrdinalIgnoreCase);
 
         List<AccountCalendar> insertedCalendars = new();
         List<AccountCalendar> updatedCalendars = new();
@@ -5091,7 +5093,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             {
                 // Update existing calendar. Right now we only update the name.
                 var resolvedColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteOutlookCalendarBackgroundColor(calendar), existingLocalCalendar, usedCalendarColors);
-                if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId) ||
+                if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId, resolvedColor) ||
                     !string.Equals(existingLocalCalendar.BackgroundColorHex, resolvedColor, StringComparison.OrdinalIgnoreCase))
                 {
                     existingLocalCalendar.Name = calendar.Name;
@@ -5130,10 +5132,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         }
     }
 
-    private bool ShouldUpdateCalendar(Calendar calendar, AccountCalendar accountCalendar, string remotePrimaryCalendarId)
+    private bool ShouldUpdateCalendar(Calendar calendar, AccountCalendar accountCalendar, string remotePrimaryCalendarId, string remoteBackgroundColor)
     {
         var remoteCalendarName = calendar.Name;
-        var remoteBackgroundColor = ResolveSynchronizedCalendarBackgroundColor(GetRemoteOutlookCalendarBackgroundColor(calendar), accountCalendar);
         var remoteIsPrimary = string.Equals(calendar.Id, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
         var remoteIsReadOnly = !calendar.CanEdit.GetValueOrDefault(true);
 
@@ -5151,19 +5152,8 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     private static string ResolveSynchronizedCalendarBackgroundColor(
         string remoteBackgroundColor,
         AccountCalendar accountCalendar,
-        ISet<string> usedCalendarColors = null)
-    {
-        if (accountCalendar.IsBackgroundColorUserOverridden)
-            return accountCalendar.BackgroundColorHex;
-
-        var preferredColor = string.IsNullOrWhiteSpace(remoteBackgroundColor)
-            ? accountCalendar.BackgroundColorHex
-            : remoteBackgroundColor;
-
-        return string.IsNullOrWhiteSpace(remoteBackgroundColor) && usedCalendarColors != null
-            ? ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors, preferredColor)
-            : preferredColor;
-    }
+        ISet<string> usedCalendarColors)
+        => ColorHelpers.ResolveDistinctCalendarColor(remoteBackgroundColor, accountCalendar, usedCalendarColors);
 
     private async Task<string> GetPrimaryCalendarIdAsync(IList<Calendar> remoteCalendars, CancellationToken cancellationToken)
     {

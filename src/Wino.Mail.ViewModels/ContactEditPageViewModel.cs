@@ -88,6 +88,12 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
 
     public byte[] PreviewPhotoBytes => _photoBytes;
     public string PreviewPhotoPath => _previewPhotoPath;
+    /// <summary>
+    /// Exchange contact photos are read from the server but never written back, so the photo actions are not offered
+    /// for an Exchange address book and an imported photo is not sent to one.
+    /// </summary>
+    public bool CanEditPhoto => SelectedDestination?.SourceKind != ContactSourceKind.Exchange;
+
     public string RemovePhotoLabel => SelectedDestination?.SourceKind == ContactSourceKind.Outlook
         ? Translator.ContactEditDialog_HidePhotoInWino
         : Translator.ContactEditDialog_RemovePhoto;
@@ -289,7 +295,8 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                 _original)
             };
 
-            if (_photoBytes is not null)
+            // A destination without photo write-back keeps whatever photo the server holds.
+            if (CanEditPhoto && _photoBytes is not null)
             {
                 requests.Add(new ContactOperationPreparationRequest(
                     ContactSynchronizerOperation.SetPhoto,
@@ -297,7 +304,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                     _original ?? contact,
                     _photoBytes));
             }
-            else if (_deletePhoto)
+            else if (CanEditPhoto && _deletePhoto)
             {
                 contact.ContactPictureFileId = null;
                 requests.Add(new ContactOperationPreparationRequest(
@@ -509,6 +516,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
         IsDirty = true;
         OnPreviewChanged();
         OnPropertyChanged(nameof(RemovePhotoLabel));
+        OnPropertyChanged(nameof(CanEditPhoto));
         RefreshListMemberships();
         RefreshCategoryMemberships();
     }

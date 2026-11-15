@@ -17,14 +17,17 @@ public sealed class MailKitSmtpTransport : ISmtpTransport
 {
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IServerCertificateTrustService _certificateTrustService;
+    private readonly IOAuthTokenService _oauthTokenService;
     private readonly ILogger _logger = Log.ForContext<MailKitSmtpTransport>();
 
     public MailKitSmtpTransport(
         IApplicationConfiguration applicationConfiguration,
-        IServerCertificateTrustService certificateTrustService)
+        IServerCertificateTrustService certificateTrustService,
+        IOAuthTokenService oauthTokenService = null)
     {
         _applicationConfiguration = applicationConfiguration;
         _certificateTrustService = certificateTrustService;
+        _oauthTokenService = oauthTokenService;
     }
 
     public async Task<MimeMessage> SendAsync(
@@ -47,7 +50,9 @@ public sealed class MailKitSmtpTransport : ISmtpTransport
             smtpClient,
             account.ServerInformation,
             _certificateTrustService,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            _oauthTokenService,
+            account.Id).ConfigureAwait(false);
 
         var smtpMessage = CreateSmtpMessage(draftMessage);
         await smtpClient.SendAsync(smtpMessage, cancellationToken).ConfigureAwait(false);

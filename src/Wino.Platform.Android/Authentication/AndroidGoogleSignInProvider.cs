@@ -11,13 +11,14 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Common;
+using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Platform.Android.Authentication;
 
 /// <summary>
 /// Native Google sign-in for Wino Accounts through Credential Manager's Sign in with Google option: the account picker
 /// (which can add a Google account) returns an ID token issued to the API's web client
-/// (<see cref="WinoAccountExternalAuth.GoogleAndroidServerClientId"/> as <c>serverClientId</c>). No Android client id is
+/// (<see cref="WinoAuthenticationClientIds.Google.AndroidServer"/> as <c>serverClientId</c>). No Android client id is
 /// named; Google matches the package name and signing certificate. The picker needs the current activity; the user
 /// closing it is a cancellation, not an error.
 /// </summary>
@@ -38,7 +39,7 @@ public sealed class AndroidGoogleSignInProvider(IDispatcher dispatcher, Func<Act
                 return;
             }
 
-            var option = new GetSignInWithGoogleOption.Builder(WinoAccountExternalAuth.GoogleAndroidServerClientId).Build();
+            var option = new GetSignInWithGoogleOption.Builder(WinoAuthenticationClientIds.Google.AndroidServer).Build();
             var request = new GetCredentialRequest.Builder().AddCredentialOption(option).Build();
             CredentialManager.Create(activity).GetCredentialAsync(activity, request, cancellation, ContextCompat.GetMainExecutor(activity), new Callback(completion));
         }).ConfigureAwait(false);

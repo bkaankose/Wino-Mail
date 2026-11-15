@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Misc;
 
 namespace Wino.Core.Misc;
@@ -38,17 +39,28 @@ public static class ColorHelpers
         return candidate;
     }
 
-    public static string GetReadableTextColorHex(string backgroundColor)
-    {
-        if (!TryNormalizeHexColor(backgroundColor, out var normalizedColor))
-        {
-            return "#FFFFFF";
-        }
+    public static string GetReadableTextColorHex(string backgroundColor) => ColorPalette.GetReadableTextColor(backgroundColor);
 
-        var (red, green, blue) = ParseRgb(normalizedColor);
-        var luminance = ((0.299 * red) + (0.587 * green) + (0.114 * blue)) / 255d;
-        return luminance > 0.6 ? "#111111" : "#FFFFFF";
+#nullable enable
+    /// <summary>
+    /// A color the user picked stays, and the server's color always wins even when another calendar has it.
+    /// Without either, the calendar keeps its color unless <paramref name="usedColors"/> has it, then takes a free palette color.
+    /// </summary>
+    public static string ResolveDistinctCalendarColor(string? remoteColor, AccountCalendar? calendar, IEnumerable<string> usedColors)
+    {
+        if (calendar?.IsBackgroundColorUserOverridden == true)
+            return calendar.BackgroundColorHex;
+
+        if (!string.IsNullOrWhiteSpace(remoteColor))
+            return remoteColor;
+
+        var currentColor = calendar?.BackgroundColorHex;
+        if (!string.IsNullOrWhiteSpace(currentColor) && !ColorPalette.ContainsColor(usedColors, currentColor))
+            return currentColor;
+
+        return GetDistinctFlatColorHex(usedColors);
     }
+#nullable restore
 
     private static string AdjustColor(string hexColor, int cycle)
     {

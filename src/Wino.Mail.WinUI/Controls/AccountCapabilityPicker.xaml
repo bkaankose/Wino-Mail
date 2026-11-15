@@ -71,7 +71,7 @@
         <!--  Calendar  -->
         <controls:SettingsExpander
             AutomationProperties.AutomationId="AccountCapabilityCalendarExpander"
-            Description="{x:Bind domain:Translator.ProviderSelection_CalendarStepDescription, Mode=OneTime}"
+            Description="{x:Bind Selection.CalendarDescription, Mode=OneWay}"
             Header="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}"
             IsExpanded="{x:Bind Selection.IsCalendarEnabled, Mode=OneWay}">
             <controls:SettingsExpander.HeaderIcon>
@@ -122,7 +122,7 @@
         <!--  Contacts  -->
         <controls:SettingsExpander
             AutomationProperties.AutomationId="AccountCapabilityContactsExpander"
-            Description="{x:Bind domain:Translator.ProviderSelection_ContactsStepDescription, Mode=OneTime}"
+            Description="{x:Bind Selection.ContactDescription, Mode=OneWay}"
             Header="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}"
             IsExpanded="{x:Bind Selection.IsContactEnabled, Mode=OneWay}">
             <controls:SettingsExpander.HeaderIcon>
@@ -173,7 +173,7 @@
         <!--  To Do  -->
         <controls:SettingsExpander
             AutomationProperties.AutomationId="AccountCapabilityTasksExpander"
-            Description="{x:Bind domain:Translator.ProviderSelection_TasksStepDescription, Mode=OneTime}"
+            Description="{x:Bind Selection.TaskDescription, Mode=OneWay}"
             Header="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}"
             IsExpanded="{x:Bind Selection.IsTaskEnabled, Mode=OneWay}">
             <controls:SettingsExpander.HeaderIcon>

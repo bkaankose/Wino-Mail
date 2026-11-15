@@ -135,7 +135,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step2Title,
-            WinoPage.ProviderSelectionPage,
+            AccountSetupNavigation.GetAddAccountPage(PlatformCapabilities),
             ProviderSelectionNavigationContext.CreateForSettingsAddAccount()));
     }
 

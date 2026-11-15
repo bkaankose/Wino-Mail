@@ -185,7 +185,7 @@
                     AutomationProperties.AutomationId="AccountDetailsPageSettingsCard4"
                     Description="{x:Bind domain:Translator.AccountDetailsPage_CapabilityDescription, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.AccountDetailsPage_CapabilityTitle, Mode=OneTime}"
-                    Visibility="{x:Bind ViewModel.IsOAuthCapabilityEditable, Mode=OneWay}">
+                    Visibility="{x:Bind ViewModel.IsCapabilityEditable, Mode=OneWay}">
                     <controls:SettingsExpander.HeaderIcon>
                         <coreControls:WinoFontIcon Icon="Calendar" />
                     </controls:SettingsExpander.HeaderIcon>
@@ -193,7 +193,7 @@
                         <muxc:InfoBar
                             AutomationProperties.AutomationId="AccountCapabilitiesReauthenticationInfo"
                             IsClosable="False"
-                            IsOpen="{x:Bind ViewModel.IsCapabilitySelectionChanged, Mode=OneWay}"
+                            IsOpen="{x:Bind ViewModel.IsCapabilityReauthenticationNoticeVisible, Mode=OneWay}"
                             Message="{x:Bind domain:Translator.AccountDetailsPage_CapabilityReauthenticationMessage, Mode=OneTime}"
                             Severity="Informational" />
                     </controls:SettingsExpander.ItemsHeader>
@@ -276,6 +276,91 @@
                             Content="{x:Bind domain:Translator.Buttons_Reset}" />
                     </Grid>
                 </controls:SettingsCard>
+
+                <!--  Exchange: the connection method and the sign-in, password or organization.  -->
+                <controls:SettingsExpander
+                    AutomationProperties.AutomationId="AccountDetailsExchangeSettings"
+                    Description="{x:Bind ViewModel.ExchangeServerDescription, Mode=OneWay}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_ExchangeTitle, Mode=OneTime}"
+                    IsExpanded="{x:Bind ViewModel.IsExchangeSettingsExpanded, Mode=TwoWay}"
+                    Visibility="{x:Bind ViewModel.IsExchangeAccount, Mode=OneWay}">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="GlobeDesktop" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="AccountDetailsExchangeTransportCard"
+                            Description="{x:Bind domain:Translator.ExchangeSetup_TransportDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.ExchangeSetup_TransportHeader, Mode=OneTime}">
+                            <ComboBox
+                                MinWidth="220"
+                                AutomationProperties.AutomationId="AccountDetailsExchangeTransport"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ExchangeSetup_TransportHeader, Mode=OneTime}"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsExchangeBusy), Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.ExchangeTransportOptions}"
+                                SelectedItem="{x:Bind ViewModel.SelectedExchangeTransport, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="mailViewModels:ExchangeTransportOption">
+                                        <TextBlock Text="{x:Bind Title}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </controls:SettingsCard>
+                        <controls:SettingsCard
+                            HorizontalContentAlignment="Stretch"
+                            AutomationProperties.AutomationId="AccountDetailsExchangePasswordCard"
+                            ContentAlignment="Vertical"
+                            Description="{x:Bind domain:Translator.AccountDetailsPage_ExchangePasswordDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.ProviderSelection_PasswordHeader_Account, Mode=OneTime}"
+                            Visibility="{x:Bind ViewModel.IsExchangePasswordAuth, Mode=OneWay}">
+                            <StackPanel
+                                MaxWidth="360"
+                                HorizontalAlignment="Left"
+                                Spacing="8">
+                                <TextBox
+                                    AutomationProperties.AutomationId="AccountDetailsExchangeUserName"
+                                    Description="{x:Bind domain:Translator.ExchangeSetup_UserNameDescription, Mode=OneTime}"
+                                    Header="{x:Bind domain:Translator.ExchangeSetup_UserNameHeader, Mode=OneTime}"
+                                    IsSpellCheckEnabled="False"
+                                    PlaceholderText="{x:Bind ViewModel.Address, Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.ExchangeUserName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <PasswordBox
+                                    AutomationProperties.AutomationId="AccountDetailsExchangePassword"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_PasswordHeader_Account, Mode=OneTime}"
+                                    Password="{x:Bind ViewModel.ExchangePassword, Mode=TwoWay}" />
+                                <Button
+                                    AutomationProperties.AutomationId="AccountDetailsExchangeUpdatePassword"
+                                    Command="{x:Bind ViewModel.UpdateExchangePasswordCommand}"
+                                    Content="{x:Bind domain:Translator.AccountDetailsPage_ExchangePasswordUpdate, Mode=OneTime}"
+                                    Style="{ThemeResource AccentButtonStyle}" />
+                            </StackPanel>
+                        </controls:SettingsCard>
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="AccountDetailsExchangeSignInCard"
+                            Description="{x:Bind domain:Translator.AccountDetailsPage_ExchangeSignInDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.AccountDetailsPage_ExchangeSignInTitle, Mode=OneTime}"
+                            Visibility="{x:Bind ViewModel.IsExchangeModernAuth, Mode=OneWay}">
+                            <Button
+                                AutomationProperties.AutomationId="AccountDetailsExchangeSignInAgain"
+                                Command="{x:Bind ViewModel.SignInExchangeAgainCommand}"
+                                Content="{x:Bind domain:Translator.ImapSetup_OAuthSignInAgain, Mode=OneTime}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountDetailsExchangeBusyCard" Visibility="{x:Bind ViewModel.IsExchangeBusy, Mode=OneWay}">
+                            <controls:SettingsCard.Header>
+                                <StackPanel
+                                    AutomationProperties.LiveSetting="Polite"
+                                    Orientation="Horizontal"
+                                    Spacing="8">
+                                    <ProgressRing
+                                        Width="16"
+                                        Height="16"
+                                        IsActive="{x:Bind ViewModel.IsExchangeBusy, Mode=OneWay}" />
+                                    <TextBlock Text="{x:Bind domain:Translator.ExchangeSetup_Checking, Mode=OneTime}" />
+                                </StackPanel>
+                            </controls:SettingsCard.Header>
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
 
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountDetailsPageSettingsCard6"

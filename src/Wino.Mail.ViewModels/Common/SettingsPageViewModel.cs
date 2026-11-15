@@ -276,6 +276,8 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
             case WinoPage.MailClassificationPage:
                 return Translator.WinoIntelligence_MailClassification_PageDescription;
             case WinoPage.ProviderSelectionPage:
+            case WinoPage.AccountSetupPage:
+            case WinoPage.ExchangeSettingsPage:
             case WinoPage.SpecialImapCredentialsPage:
             case WinoPage.AccountSetupProgressPage:
                 return Translator.SettingsHome_ManageAccounts_Description;

@@ -190,7 +190,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         try
         {
             authorization = await _codeReceiver.ReceiveCodeAsync(
-                (redirectUri, state) => BuildAuthorizationUri(redirectUri, state, scopes),
+                (redirectUri, state) => BuildAuthorizationUri(redirectUri, state, scopes, GetLoginHint(account)),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -279,7 +279,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         return await ReadTokenResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
-    private Uri BuildAuthorizationUri(Uri redirectUri, string state, IReadOnlyList<string> scopes)
+    private Uri BuildAuthorizationUri(Uri redirectUri, string state, IReadOnlyList<string> scopes, string? loginHint)
     {
         var query = new Dictionary<string, string>
         {
@@ -292,6 +292,9 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             ["include_granted_scopes"] = "false",
             ["state"] = state
         };
+
+        if (!string.IsNullOrWhiteSpace(loginHint))
+            query["login_hint"] = loginHint.Trim();
 
         return new Uri($"https://accounts.google.com/o/oauth2/v2/auth?{BuildQueryString(query)}");
     }
@@ -368,7 +371,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     /// Tokens stored before the Mac and iOS apps moved to the iOS client carry no client and came from the desktop client.
     /// </summary>
     private static string GetIssuingClientId(StoredGoogleToken token)
-        => string.IsNullOrWhiteSpace(token.ClientId) ? MailAuthenticatorConfiguration.DesktopGmailClientId : token.ClientId;
+        => string.IsNullOrWhiteSpace(token.ClientId) ? WinoAuthenticationClientIds.Google.DesktopMailbox : token.ClientId;
 
     private static StoredGoogleToken CreateStoredToken(
         GoogleOAuthTokenResponse response,
@@ -414,6 +417,9 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             CryptographicOperations.ZeroMemory(bytes);
         }
     }
+    private static string? GetLoginHint(MailAccount account)
+        => string.IsNullOrWhiteSpace(account?.AuthenticationAddress) ? account?.Address : account.AuthenticationAddress;
+
     private static string GetCredentialKey(MailAccount account)
         => account?.Id.ToString("N") ?? "default";
 

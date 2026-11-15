@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -41,7 +42,7 @@ public interface IAppleNativeSignInProvider
 
 /// <summary>
 /// The platform half of native Google sign-in: obtains a Google ID token for one of the Wino Accounts Google clients
-/// (<see cref="WinoAccountExternalAuth.GoogleAppleClientId"/>, <see cref="WinoAccountExternalAuth.GoogleAndroidServerClientId"/>),
+/// (<see cref="WinoAuthenticationClientIds.Google.Apple"/>, <see cref="WinoAuthenticationClientIds.Google.AndroidServer"/>),
 /// or null when the user dismissed the sign-in. Device-side failures throw <see cref="WinoAccountExternalSignInException"/>.
 /// </summary>
 public interface IGoogleNativeSignInProvider

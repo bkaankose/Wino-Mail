@@ -7,6 +7,7 @@ using Microsoft.Identity.Client;
 using ObjCRuntime;
 using Security;
 using UserNotifications;
+using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Mail.iOS.NotificationService;
 
@@ -20,7 +21,6 @@ namespace Wino.Mail.iOS.NotificationService;
 public sealed class NotificationService : UNNotificationServiceExtension
 {
     private const string AppBundleId = "com.winomail.macos";
-    private const string OutlookClientId = "497b333d-c689-4b27-8f59-7dace624111a";
     private const string MsalKeychainGroup = "com.microsoft.adalcache";
     private const string DirectoryScope = "relay-extension";
     private const string NotifiedScope = "relay-notified";
@@ -157,7 +157,7 @@ public sealed class NotificationService : UNNotificationServiceExtension
 
     private static async Task<EnrichedMessage?> FetchGraphAsync(ExtensionAccount account, string? messageId, CancellationToken cancellationToken)
     {
-        var client = PublicClientApplicationBuilder.Create(OutlookClientId)
+        var client = PublicClientApplicationBuilder.Create(WinoAuthenticationClientIds.Outlook.Current)
             .WithRedirectUri($"msauth.{AppBundleId}://auth")
             .WithAuthority("https://login.microsoftonline.com/common")
             .WithIosKeychainSecurityGroup(MsalKeychainGroup)

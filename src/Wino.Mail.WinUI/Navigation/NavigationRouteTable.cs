@@ -75,6 +75,7 @@ public static class NavigationRouteTable
         Settings(WinoPage.MailFiltersPage, typeof(MailFiltersPage)),
         Settings(WinoPage.MailFilterEditorPage, typeof(MailFilterEditorPage)),
         Settings(WinoPage.ImapCalDavSettingsPage, typeof(ImapCalDavSettingsPage)),
+        Settings(WinoPage.ExchangeSettingsPage, typeof(ExchangeSettingsPage)),
         Settings(WinoPage.KeyboardShortcutsPage, typeof(KeyboardShortcutsPage)),
         Settings(WinoPage.EmailTemplatesPage, typeof(EmailTemplatesPage)),
         Settings(WinoPage.CreateEmailTemplatePage, typeof(CreateEmailTemplatePage)),
@@ -95,6 +96,7 @@ public static class NavigationRouteTable
         new(WinoPage.WelcomeHostPage, typeof(WelcomeHostPage), null, NavigationReferenceFrame.ShellFrame, RouteKind.Standalone),
         Wizard(WinoPage.WelcomePageV2, typeof(WelcomePageV2)),
         Wizard(WinoPage.ProviderSelectionPage, typeof(ProviderSelectionPage)),
+        Wizard(WinoPage.AccountSetupPage, typeof(AccountSetupPage)),
         Wizard(WinoPage.AccountSetupProgressPage, typeof(AccountSetupProgressPage)),
         Wizard(WinoPage.SpecialImapCredentialsPage, typeof(SpecialImapCredentialsPage))
     ];

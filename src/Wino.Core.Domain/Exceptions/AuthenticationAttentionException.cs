@@ -14,5 +14,11 @@ public class AuthenticationAttentionException : Exception
         Account = account;
     }
 
+    public AuthenticationAttentionException(MailAccount account, string message, Exception? innerException)
+        : base(message, innerException)
+    {
+        Account = account;
+    }
+
     public MailAccount Account { get; }
 }

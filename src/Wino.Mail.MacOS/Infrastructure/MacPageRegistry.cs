@@ -71,6 +71,7 @@ public sealed partial class MacPageRegistry
         Register<ProviderSelectionPageViewController>(WinoPage.ProviderSelectionPage, MacPageHost.Window);
         Register<AccountSetupProgressPageViewController>(WinoPage.AccountSetupProgressPage, MacPageHost.Window);
         Register<SpecialImapCredentialsPageViewController>(WinoPage.SpecialImapCredentialsPage, MacPageHost.Window);
+        Register<ExchangeSettingsPageViewController>(WinoPage.ExchangeSettingsPage, MacPageHost.Window);
         // Account details edits server settings inside Settings; adding an account stays in the onboarding window.
         Register<ImapCalDavSettingsPageViewController>(WinoPage.ImapCalDavSettingsPage, MacPageHost.SettingsWindow);
         RegisterHostResolver(WinoPage.ImapCalDavSettingsPage, parameter =>

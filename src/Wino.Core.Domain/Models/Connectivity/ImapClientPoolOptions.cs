@@ -18,30 +18,43 @@ public class ImapClientPoolOptions
     /// </summary>
     public MailAccount Account { get; }
 
+    /// <summary>Supplies bearer tokens when <see cref="ServerInformation"/> uses OAuth2. Null otherwise.</summary>
+    public IOAuthTokenService OAuthTokenService { get; }
+
+    /// <summary>The account id, or the setup session key for a test pool.</summary>
+    public Guid OAuthTokenKey { get; }
+
     protected ImapClientPoolOptions(
         CustomServerInformation serverInformation,
         bool isTestPool,
         Func<IProtocolLogger> protocolLoggerFactory,
         IServerCertificateTrustService certificateTrustService,
-        MailAccount account)
+        MailAccount account,
+        IOAuthTokenService oauthTokenService,
+        Guid oauthTokenKey)
     {
         ServerInformation = serverInformation;
         IsTestPool = isTestPool;
         ProtocolLoggerFactory = protocolLoggerFactory;
         CertificateTrustService = certificateTrustService;
         Account = account;
+        OAuthTokenService = oauthTokenService;
+        OAuthTokenKey = oauthTokenKey;
     }
 
     public static ImapClientPoolOptions CreateDefault(
         CustomServerInformation serverInformation,
         Func<IProtocolLogger> protocolLoggerFactory = null,
         IServerCertificateTrustService certificateTrustService = null,
-        MailAccount account = null)
-        => new(serverInformation, false, protocolLoggerFactory, certificateTrustService, account);
+        MailAccount account = null,
+        IOAuthTokenService oauthTokenService = null)
+        => new(serverInformation, false, protocolLoggerFactory, certificateTrustService, account, oauthTokenService, account?.Id ?? Guid.Empty);
 
     public static ImapClientPoolOptions CreateTestPool(
         CustomServerInformation serverInformation,
         Func<IProtocolLogger> protocolLoggerFactory = null,
-        IServerCertificateTrustService certificateTrustService = null)
-        => new(serverInformation, true, protocolLoggerFactory, certificateTrustService, null);
+        IServerCertificateTrustService certificateTrustService = null,
+        IOAuthTokenService oauthTokenService = null,
+        Guid oauthTokenKey = default)
+        => new(serverInformation, true, protocolLoggerFactory, certificateTrustService, null, oauthTokenService, oauthTokenKey);
 }

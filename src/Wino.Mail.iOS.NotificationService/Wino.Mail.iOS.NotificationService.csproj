@@ -42,4 +42,8 @@
     <!-- MSAL reads the app's token cache from the shared com.microsoft.adalcache Keychain group. -->
     <PackageReference Include="Microsoft.Identity.Client" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The client ids are linked rather than referenced, so the extension stays free of Wino projects. -->
+    <Compile Include="..\Wino.Core.Domain\Models\Authentication\WinoAuthenticationClientIds.cs" Link="Shared\WinoAuthenticationClientIds.cs" />
+  </ItemGroup>
 </Project>

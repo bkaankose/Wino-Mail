@@ -8,6 +8,12 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface ICardDavClient
 {
+    /// <summary>
+    /// Confirms the service accepts the sign-in by resolving the principal and its address-book home. No address book
+    /// or contact is read. Throws what a refused or failed request throws.
+    /// </summary>
+    Task VerifyAccessAsync(CardDavConnectionSettings settings, CancellationToken cancellationToken = default);
+
     /// <summary>Resolves the principal and address-book home, then lists the home.</summary>
     Task<CardDavDiscoveryResult> DiscoverAsync(CardDavConnectionSettings settings, CancellationToken cancellationToken = default);
 

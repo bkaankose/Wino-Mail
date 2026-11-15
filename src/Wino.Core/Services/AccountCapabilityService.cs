@@ -57,34 +57,36 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         ArgumentNullException.ThrowIfNull(account);
         if (!includeMail && !includeCalendar && !includeContacts && !includeTasks)
             throw new InvalidOperationException("At least one account capability must remain enabled.");
-        if (includeContacts && account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
-            throw new NotSupportedException("Provider contacts are available only for Gmail and Outlook accounts.");
+        if (includeContacts && account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange))
+            throw new NotSupportedException("Provider contacts are available only for Gmail, Outlook and Exchange accounts.");
 
         var previous = CapabilityFlags.Capture(account);
         var synchronizer = await _synchronizationManager.GetSynchronizerAsync(account.Id).ConfigureAwait(false);
         var synchronizerAccount = synchronizer?.Account;
         var isOAuthProvider = account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook;
 
+        // Exchange serves the modes from its server like Gmail and Outlook, but signs in with the account's stored
+        // credentials, so it never needs the interactive authorization the OAuth providers ask for.
+        var isProviderBacked = isOAuthProvider || account.ProviderType == MailProviderType.Exchange;
+
         // The page shows the mode as on for a local-only store too. Leaving that toggle on is
         // not a request for the provider; only off -> on is.
-        var keepLocalContacts = isOAuthProvider && includeContacts && previous.ContactsEnabled && !previous.Contacts;
-        var keepLocalTasks = isOAuthProvider && includeTasks && previous.TasksEnabled && !previous.Tasks;
-        var shouldRemoveContactDataAfterCommit = isOAuthProvider && !includeContacts && previous.ContactsEnabled;
-        var shouldRemoveTaskDataAfterCommit = isOAuthProvider && !includeTasks && previous.TasksEnabled;
+        var keepLocalContacts = isProviderBacked && includeContacts && previous.ContactsEnabled && !previous.Contacts;
+        var keepLocalTasks = isProviderBacked && includeTasks && previous.TasksEnabled && !previous.Tasks;
+        var shouldRemoveContactDataAfterCommit = isProviderBacked && !includeContacts && previous.ContactsEnabled;
+        var shouldRemoveTaskDataAfterCommit = isProviderBacked && !includeTasks && previous.TasksEnabled;
         var shouldRemoveCalendarDataAfterCommit = !includeCalendar && previous.Calendar;
         var shouldRemoveMailDataAfterCommit = !includeMail && previous.Mail;
-        HashSet<Guid> existingProviderTaskListIds = isOAuthProvider
+        HashSet<Guid> existingProviderTaskListIds = isProviderBacked
             ? (await _taskService.GetTaskListsAsync(account.Id).ConfigureAwait(false))
-                .Where(list => list.SourceKind == (account.ProviderType == MailProviderType.Gmail
-                    ? TaskSourceKind.Gmail
-                    : TaskSourceKind.Outlook))
+                .Where(list => list.SourceKind == ProviderTaskSource(account))
                 .Select(list => list.Id)
                 .ToHashSet()
             : [];
 
-        ApplyFlags(account, includeMail, includeCalendar, includeContacts, includeTasks, previous, isOAuthProvider, keepLocalContacts, keepLocalTasks);
+        ApplyFlags(account, includeMail, includeCalendar, includeContacts, includeTasks, previous, isProviderBacked, keepLocalContacts, keepLocalTasks);
         if (synchronizerAccount is not null)
-            ApplyFlags(synchronizerAccount, includeMail, includeCalendar, includeContacts, includeTasks, previous, isOAuthProvider, keepLocalContacts, keepLocalTasks);
+            ApplyFlags(synchronizerAccount, includeMail, includeCalendar, includeContacts, includeTasks, previous, isProviderBacked, keepLocalContacts, keepLocalTasks);
 
         try
         {
@@ -130,7 +132,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                 await _contactService.DeleteAddressBooksBySourceAsync(account.Id, ContactSourceKind.Local).ConfigureAwait(false);
             }
 
-            if (isOAuthProvider)
+            if (isProviderBacked)
             {
                 if (includeTasks && !previous.Tasks && !keepLocalTasks)
                 {
@@ -191,12 +193,11 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
 
             if (!previous.Contacts)
             {
-                var source = account.ProviderType == MailProviderType.Gmail ? ContactSourceKind.Gmail : ContactSourceKind.Outlook;
-                await _contactService.DeleteAddressBooksBySourceAsync(account.Id, source).ConfigureAwait(false);
+                await _contactService.DeleteAddressBooksBySourceAsync(account.Id, ProviderContactSource(account)).ConfigureAwait(false);
             }
-            if (isOAuthProvider && !previous.Tasks)
+            if (isProviderBacked && !previous.Tasks)
             {
-                var source = account.ProviderType == MailProviderType.Gmail ? TaskSourceKind.Gmail : TaskSourceKind.Outlook;
+                var source = ProviderTaskSource(account);
                 var currentProviderLists = await _taskService.GetTaskListsAsync(account.Id).ConfigureAwait(false);
                 foreach (var list in currentProviderLists.Where(list => list.SourceKind == source && !existingProviderTaskListIds.Contains(list.Id)))
                     await _taskService.RemoveTaskListAsync(list.Id).ConfigureAwait(false);
@@ -232,7 +233,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         bool includeContacts,
         bool includeTasks,
         CapabilityFlags previous,
-        bool isOAuthProvider,
+        bool isProviderBacked,
         bool keepLocalContacts,
         bool keepLocalTasks)
     {
@@ -241,7 +242,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         account.IsContactAccessGranted = includeContacts && !keepLocalContacts;
         account.IsTaskAccessGranted = includeTasks && !keepLocalTasks;
 
-        if (!isOAuthProvider)
+        if (!isProviderBacked)
             return;
 
         if (includeCalendar)
@@ -267,6 +268,21 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
             account.TaskIntegrationSource = includeTasks ? AccountIntegrationSource.Provider : AccountIntegrationSource.Local;
         }
     }
+
+    // Accounts that are not provider-backed keep the Outlook value they always resolved to here.
+    private static ContactSourceKind ProviderContactSource(MailAccount account) => account.ProviderType switch
+    {
+        MailProviderType.Gmail => ContactSourceKind.Gmail,
+        MailProviderType.Exchange => ContactSourceKind.Exchange,
+        _ => ContactSourceKind.Outlook
+    };
+
+    private static TaskSourceKind ProviderTaskSource(MailAccount account) => account.ProviderType switch
+    {
+        MailProviderType.Gmail => TaskSourceKind.Gmail,
+        MailProviderType.Exchange => TaskSourceKind.Exchange,
+        _ => TaskSourceKind.Outlook
+    };
 
     /// <summary>Snapshot of every capability flag, so a failed transition can put them all back.</summary>
     private readonly record struct CapabilityFlags(

@@ -157,7 +157,13 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// </summary>
     /// <param name="serverInformation">Server information to test</param>
     /// <returns>Test results indicating success or failure with details</returns>
-    public async Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation)
+    public Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation)
+        => TestImapConnectivityCoreAsync(serverInformation, () => _mailServerTestService.TestImapAsync(serverInformation));
+
+    public Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation, IOAuthTokenService oauthTokenService, Guid oauthTokenKey)
+        => TestImapConnectivityCoreAsync(serverInformation, () => _mailServerTestService.TestImapAsync(serverInformation, oauthTokenService, oauthTokenKey));
+
+    private async Task<ImapConnectivityTestResults> TestImapConnectivityCoreAsync(CustomServerInformation serverInformation, Func<Task> runTestAsync)
     {
         EnsureInitialized();
 
@@ -167,7 +173,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                               serverInformation.IncomingServer,
                               serverInformation.IncomingServerPort);
 
-            await _mailServerTestService.TestImapAsync(serverInformation);
+            await runTestAsync();
 
             _logger.Information("IMAP connectivity test successful");
             return ImapConnectivityTestResults.Success();

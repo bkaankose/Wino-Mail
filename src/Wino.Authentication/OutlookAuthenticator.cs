@@ -53,7 +53,19 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         _host = host;
     }
 
-    private string ResolveClientId(MailAccount account) => OutlookClientIds.Resolve(account, _host.LegacyClientId);
+    /// <summary>
+    /// The client an account signs in with. Accounts without a stored client id use the host's legacy client when it has
+    /// one, otherwise the current one.
+    /// </summary>
+    private string ResolveClientId(MailAccount account)
+    {
+        if (!string.IsNullOrWhiteSpace(account?.OutlookClientId))
+            return account.OutlookClientId;
+
+        return account is null || string.IsNullOrWhiteSpace(_host.LegacyClientId)
+            ? WinoAuthenticationClientIds.Outlook.Current
+            : _host.LegacyClientId;
+    }
 
     private string[] GetScope(MailAccount account, IReadOnlyCollection<ProviderFeature> features = null)
         => AuthenticatorConfig.GetOutlookScopes(ProviderAuthorizationRequest.ForAccount(account, features));

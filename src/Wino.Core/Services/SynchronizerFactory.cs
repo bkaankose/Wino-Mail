@@ -10,8 +10,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Synchronizers.Exchange;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
+using Wino.Core.Synchronizers.Mapi;
 
 namespace Wino.Core.Services;
 
@@ -27,6 +29,8 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IImapChangeProcessor _imapChangeProcessor;
+    private readonly IExchangeChangeProcessor _exchangeChangeProcessor;
+    private readonly IExchangeSynchronizerErrorHandlerFactory _exchangeSynchronizerErrorHandlerFactory;
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly UnifiedImapSynchronizer _unifiedImapSynchronizer;
     private readonly ICalDavClient _calDavClient;
@@ -46,6 +50,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly ISmtpTransport _smtpTransport;
     private readonly IMimeFileService _mimeFileService;
     private readonly ICalDavSynchronizationEngine _calDavSynchronizationEngine;
+    private readonly IOAuthTokenService _oauthTokenService;
     private readonly ICalDavTaskSynchronizationEngine _calDavTaskSynchronizationEngine;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
@@ -86,6 +91,9 @@ public class SynchronizerFactory : ISynchronizerFactory
                                ISmtpTransport smtpTransport = null,
                                IMimeFileService mimeFileService = null,
                                ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
+                               IOAuthTokenService oauthTokenService = null,
+                               IExchangeChangeProcessor exchangeChangeProcessor = null,
+                               IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory = null,
                                ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
@@ -115,6 +123,9 @@ public class SynchronizerFactory : ISynchronizerFactory
         _smtpTransport = smtpTransport;
         _mimeFileService = mimeFileService;
         _calDavSynchronizationEngine = calDavSynchronizationEngine;
+        _oauthTokenService = oauthTokenService;
+        _exchangeChangeProcessor = exchangeChangeProcessor;
+        _exchangeSynchronizerErrorHandlerFactory = exchangeSynchronizerErrorHandlerFactory;
         _calDavTaskSynchronizationEngine = calDavTaskSynchronizationEngine;
     }
 
@@ -133,7 +144,8 @@ public class SynchronizerFactory : ISynchronizerFactory
             }
             if (_synchronizers.TryGetValue(accountId, out var existing))
             {
-                if (!SynchronizationManager.RequiresSynchronizerRefresh(existing.Account, account))
+                if (!SynchronizationManager.RequiresSynchronizerRefresh(existing.Account, account) &&
+                    !ExchangeTransportChanged(existing, account))
                 {
                     await ApplyAttentionStateAsync(existing, account).ConfigureAwait(false);
                     return existing;
@@ -180,7 +192,19 @@ public class SynchronizerFactory : ISynchronizerFactory
                     _taskService,
                     _smtpTransport,
                     _calDavSynchronizationEngine,
+                    _oauthTokenService,
                     _calDavTaskSynchronizationEngine);
+            case Domain.Enums.MailProviderType.Exchange:
+                var exchangeAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Exchange) as IExchangeAuthenticator
+                    ?? throw new InvalidOperationException("The Exchange authenticator is not registered.");
+                return ExchangeSynchronizerSelector.Create(
+                    mailAccount,
+                    exchangeAuthenticator,
+                    _exchangeChangeProcessor ?? throw new InvalidOperationException("The Exchange change processor is not registered."),
+                    _exchangeSynchronizerErrorHandlerFactory ?? throw new InvalidOperationException("The Exchange error handler factory is not registered."),
+                    _contactService,
+                    _contactPictureFileService,
+                    _taskService);
             case Domain.Enums.MailProviderType.POP3:
                 return new Pop3Synchronizer(
                     mailAccount,
@@ -197,6 +221,20 @@ public class SynchronizerFactory : ISynchronizerFactory
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether the cached synchronizer of an Exchange account runs on another transport than the account now asks for:
+    /// the connection method was changed, or a MAPI over HTTP attempt recorded that the server does not offer it. The
+    /// MAPI synchronizer records that on its own account object, so comparing the settings alone never sees it.
+    /// </summary>
+    internal static bool ExchangeTransportChanged(IWinoSynchronizerBase existing, MailAccount account)
+    {
+        if (account.ProviderType != Domain.Enums.MailProviderType.Exchange || account.ServerInformation == null)
+            return false;
+
+        var wantsMapi = account.ServerInformation.EffectiveExchangeTransport != Domain.Enums.ExchangeTransport.Ews;
+        return wantsMapi != (existing is MapiExchangeSynchronizer);
     }
 
     public IWinoSynchronizerBase CreateNewSynchronizer(MailAccount account)
@@ -237,6 +275,10 @@ public class SynchronizerFactory : ISynchronizerFactory
             // only the IDLE socket and one worker instead of competing handshakes.
             _ = imapSynchronizer.StartIdleClientAsync();
         }
+        else if (synchronizer is IExchangeSynchronizer exchangeSynchronizer && !account.IsNetworkAccessBlocked())
+        {
+            _ = exchangeSynchronizer.StartChangeListenerAsync();
+        }
         return synchronizer;
     }
 
@@ -267,7 +309,19 @@ public class SynchronizerFactory : ISynchronizerFactory
         cached.AttentionReason = current.AttentionReason;
         var isBlocked = cached.IsNetworkAccessBlocked();
 
-        if (wasBlocked == isBlocked || synchronizer is not IImapSynchronizer imapSynchronizer) return;
+        if (wasBlocked == isBlocked) return;
+
+        if (synchronizer is IExchangeSynchronizer exchangeSynchronizer)
+        {
+            if (isBlocked)
+                await exchangeSynchronizer.StopChangeListenerAsync().ConfigureAwait(false);
+            else
+                await exchangeSynchronizer.StartChangeListenerAsync().ConfigureAwait(false);
+
+            return;
+        }
+
+        if (synchronizer is not IImapSynchronizer imapSynchronizer) return;
 
         if (isBlocked)
         {

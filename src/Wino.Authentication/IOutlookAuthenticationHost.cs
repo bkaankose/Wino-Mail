@@ -7,7 +7,7 @@ namespace Wino.Authentication;
 
 /// <summary>
 /// Provider host construction, cache storage and interactive presentation. Hosts sign in with one client
-/// (<see cref="Wino.Core.Domain.Models.Accounts.OutlookClientIds.Current"/>) unless they also keep a
+/// (<see cref="Wino.Core.Domain.Models.Authentication.WinoAuthenticationClientIds.Outlook.Current"/>) unless they also keep a
 /// <see cref="LegacyClientId"/> and override the client id overloads.
 /// </summary>
 public interface IOutlookAuthenticationHost

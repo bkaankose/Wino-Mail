@@ -72,6 +72,34 @@ public sealed record KnownImapProviderDefinition
     public bool CustomDomainLogin { get; init; }
 
     public IReadOnlyList<KnownImapFolderAlias> FolderAliases { get; init; } = [];
+
+    /// <summary>A registration Wino holds with this provider. Null until one exists.</summary>
+    public KnownImapOAuthRegistration OAuth { get; init; }
+}
+
+public sealed record KnownImapOAuthRegistration
+{
+    public string Issuer { get; init; } = string.Empty;
+    public string AuthorizationEndpoint { get; init; } = string.Empty;
+    public string TokenEndpoint { get; init; } = string.Empty;
+    public string RevocationEndpoint { get; init; } = string.Empty;
+    public string ClientId { get; init; } = string.Empty;
+    public string Scopes { get; init; } = string.Empty;
+    public OAuthRedirectKind RedirectKind { get; init; }
+
+    /// <summary>Providers that match redirect URIs exactly, port included, need a fixed loopback port.</summary>
+    public int? LoopbackPort { get; init; }
+
+    public OAuthSaslMechanism SaslMechanism { get; init; }
+
+    /// <summary>The provider's own CalDAV scope. Empty means the IETF calendars scope.</summary>
+    public string CalendarScope { get; init; } = string.Empty;
+
+    /// <summary>The provider's own CardDAV scope. Empty means the IETF contacts scope.</summary>
+    public string ContactsScope { get; init; } = string.Empty;
+
+    /// <summary>The Authorization scheme its DAV servers accept the token with. Empty means Bearer.</summary>
+    public string DavAuthorizationScheme { get; init; } = string.Empty;
 }
 
 /// <summary>

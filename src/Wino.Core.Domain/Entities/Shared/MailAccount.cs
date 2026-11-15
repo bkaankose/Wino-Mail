@@ -35,7 +35,7 @@ public class MailAccount
     public string AuthenticationAddress { get; set; }
 
     /// <summary>
-    /// Outlook only: the Microsoft Entra app the account signs in with. Null means the legacy app; see <see cref="Models.Accounts.OutlookClientIds"/>.
+    /// Outlook only: the Microsoft Entra app the account signs in with. Null means the legacy app; see <see cref="Models.Authentication.WinoAuthenticationClientIds.Outlook"/>.
     /// </summary>
     public string OutlookClientId { get; set; }
 
@@ -200,7 +200,7 @@ public class MailAccount
     /// <summary>
     /// Gets whether the account can perform ProfileInformation sync type.
     /// </summary>
-    public bool IsProfileInfoSyncSupported => ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Gmail;
+    public bool IsProfileInfoSyncSupported => ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.Exchange;
 
     /// <summary>
     /// Gets whether the account can perform AliasInformation sync type.

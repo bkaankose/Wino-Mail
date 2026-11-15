@@ -61,6 +61,12 @@ public class MailItemFolder : IMailItemFolder
     /// </summary>
     public string DeltaToken { get; set; }
 
+    /// <summary>
+    /// The MAPI folder id (16 hex digits) for on-premises Exchange accounts synchronized over MAPI over HTTP.
+    /// Rows keyed by an EWS RemoteFolderId are re-keyed in place through this column when the transport changes.
+    /// </summary>
+    public string MapiFolderId { get; set; }
+
     // For GMail Labels
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }

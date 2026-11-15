@@ -149,6 +149,8 @@ public static class XamlHelpers
 
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility BoolToVisibilityConverter(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+    public static double GetShelfItemOpacity(bool isDimmed) => isDimmed ? 0.4 : 1.0;
+    public static Thickness GetShelfItemBorderThickness(bool isMatched) => new(isMatched ? 2 : 0);
     public static Thickness GetCalendarPaneItemMargin(bool isPaneCompact) => isPaneCompact ? new Thickness(0) : new Thickness(8, 0, 8, 0);
     public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
     public static bool ReverseBoolConverter(bool value) => !value;
@@ -552,18 +554,6 @@ public static class XamlHelpers
         => new(Wino.Mail.WinUI.Helpers.ContrastThemeHelper.GetSystemColor(elementType));
 
     public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;
-
-    [DynamicWindowsRuntimeCast(typeof(Brush))]
-    public static Brush GetWizardStepBadgeBrush(bool isActive)
-        => isActive
-            ? (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
-            : new SolidColorBrush(Color.FromArgb(30, 128, 128, 128));
-
-    [DynamicWindowsRuntimeCast(typeof(Brush))]
-    public static Brush GetWizardStepNumberForeground(bool isActive)
-        => isActive
-            ? new SolidColorBrush(Colors.White)
-            : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
 
     [DynamicWindowsRuntimeCast(typeof(Brush))]
     public static Brush GetChoiceCardBorderBrush(bool isSelected)

@@ -60,6 +60,7 @@ public interface IDefaultChangeProcessor
     Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
+    Task<List<string>> GetPrecedingAccountsCalendarColorsAsync(Guid accountId);
 
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
 
@@ -386,6 +387,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
         => CalendarService.UpdateAccountCalendarAsync(accountCalendar);
+
+    public Task<List<string>> GetPrecedingAccountsCalendarColorsAsync(Guid accountId)
+        => CalendarService.GetPrecedingAccountsCalendarColorsAsync(accountId);
 
     public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
         => CalendarService.UpdateCalendarDeltaSynchronizationToken(calendarId, deltaToken);

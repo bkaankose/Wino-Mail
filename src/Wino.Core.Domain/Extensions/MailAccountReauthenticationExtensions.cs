@@ -9,10 +9,15 @@ public static class MailAccountReauthenticationExtensions
     /// <summary>
     /// Whether one interactive provider sign-in (Fix account) repairs the account: a Gmail or
     /// Outlook account whose credentials expired, or whose enabled contacts or To Do mode is
-    /// waiting for provider consent. Certificate and folder problems need other fixes.
+    /// waiting for provider consent, or a modern-auth Exchange account whose refresh token is
+    /// gone. Certificate and folder problems need other fixes.
     /// </summary>
     public static bool CanBeFixedBySigningIn(this MailAccount account)
     {
+        if (account?.ProviderType == MailProviderType.Exchange)
+            return account.AttentionReason == AccountAttentionReason.InvalidCredentials &&
+                   account.ServerInformation?.UseOAuthAuthentication == true;
+
         if (account?.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
             return false;
 

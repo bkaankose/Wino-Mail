@@ -13,8 +13,10 @@ using Wino.Core.Domain.Models.PushRelay;
 namespace Wino.Services.PushRelay;
 
 /// <summary>
-/// Builds relay registrations for IMAP accounts. Wino never uses OAuth over IMAP, so <c>authMethod</c> is always
-/// <c>password</c>. The fingerprint lets the registration service resend credentials only when they change.
+/// Builds relay registrations for IMAP accounts that sign in with a password, so <c>authMethod</c> is always
+/// <c>password</c>. Accounts whose IMAP method is OAuth2 are excluded: the relay stores no OAuth tokens, and those
+/// accounts sync with local IDLE and polling. The fingerprint lets the registration service resend credentials only
+/// when they change.
 /// </summary>
 public sealed class ImapPushRelayMailboxRegistrationBuilder(IAccountService accountService, IPushRelayDeviceInfo? deviceInfo = null) : IPushRelayMailboxRegistrationBuilder
 {
@@ -50,6 +52,7 @@ public sealed class ImapPushRelayMailboxRegistrationBuilder(IAccountService acco
     {
         if (server is null
             || server.IncomingServerType != CustomIncomingServerType.IMAP4
+            || server.IncomingAuthenticationMethod == ImapAuthenticationMethod.OAuth2
             || string.IsNullOrWhiteSpace(server.IncomingServer)
             || string.IsNullOrEmpty(server.IncomingServerPassword))
         {

@@ -121,6 +121,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanEditSelectedTask))]
+    [NotifyPropertyChangedFor(nameof(AreStepsAvailableForSelectedTask))]
     public partial TaskItemViewModel SelectedTask { get; set; }
 
     [ObservableProperty]
@@ -234,6 +235,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         OnPropertyChanged(nameof(IsMyDaySelected));
         OnPropertyChanged(nameof(CanEditSelectedList));
         OnPropertyChanged(nameof(CanDeleteSelectedList));
+        OnPropertyChanged(nameof(CanRenameSelectedList));
         OnPropertyChanged(nameof(IsSelectedListReadOnly));
         OnPropertyChanged(nameof(CanEditSelectedTask));
         OnPropertyChanged(nameof(SelectedSurfaceTitle));
@@ -308,7 +310,14 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public bool IsMyDaySelected => SelectedList is null && SelectedView == TaskViewKind.MyDay;
     public bool CanEditSelectedList => SelectedList is { IsReadOnly: false };
     public bool CanDeleteSelectedList => SelectedList is { CanDelete: true };
+
+    /// <summary>An Exchange mailbox's default Tasks folder keeps the name the server gives it.</summary>
+    public bool CanRenameSelectedList => SelectedList is { IsReadOnly: false, IsFixedProviderList: false };
+
     public bool CanEditSelectedTask => SelectedTask is { IsReadOnly: false };
+
+    /// <summary>Exchange tasks have no checklist, so the steps section is not shown for them.</summary>
+    public bool AreStepsAvailableForSelectedTask => SelectedTask?.Task?.SourceKind != TaskSourceKind.Exchange;
     public bool IsSelectedListReadOnly => SelectedList?.IsReadOnly ?? true;
 
     /// <summary>Raised after a reload rebuilds the selection so the list view can re-apply its own containers.</summary>
@@ -1913,7 +1922,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public async Task AddNamedStepAsync(TaskItemViewModel selectedTask, string title)
     {
         var trimmedTitle = title?.Trim();
-        if (selectedTask is null || selectedTask.IsReadOnly || string.IsNullOrEmpty(trimmedTitle))
+        if (selectedTask is null || selectedTask.IsReadOnly || string.IsNullOrEmpty(trimmedTitle) ||
+            selectedTask.Task?.SourceKind == TaskSourceKind.Exchange)
             return;
 
         var step = new AccountTaskStep
@@ -2158,7 +2168,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task RenameListFromMenuAsync(AccountTaskListMenuItem item)
     {
-        if (item.Parameter.IsReadOnly)
+        if (!item.CanRename)
             return;
         var title = await _dialogService.ShowTextInputDialogAsync(
             item.Title,
@@ -2424,10 +2434,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     /// Renames the selected list through the same dialog the shell menu uses, so there is one
     /// rename experience wherever a list is renamed from.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanEditSelectedList))]
+    [RelayCommand(CanExecute = nameof(CanRenameSelectedList))]
     private async Task RenameSelectedListAsync()
     {
-        if (SelectedList is null || SelectedList.IsReadOnly)
+        if (SelectedList is null || !CanRenameSelectedList)
             return;
 
         var title = await _dialogService.ShowTextInputDialogAsync(
@@ -2443,7 +2453,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand]
     private async Task RenameListAsync(string title)
     {
-        if (SelectedList is null || SelectedList.IsReadOnly)
+        if (SelectedList is null || !CanRenameSelectedList)
             return;
 
         var trimmed = title?.Trim();
@@ -2578,6 +2588,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             {
                 MailProviderType.Gmail => TaskSourceKind.Gmail,
                 MailProviderType.Outlook => TaskSourceKind.Outlook,
+                MailProviderType.Exchange => TaskSourceKind.Exchange,
                 _ => TaskSourceKind.Local
             },
             AccountIntegrationSource.Dav when account.IsTaskAccessGranted => TaskSourceKind.CalDav,

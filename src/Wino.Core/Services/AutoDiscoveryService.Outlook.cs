@@ -133,9 +133,8 @@ public partial class AutoDiscoveryService
         if (redirected != null)
             yield return redirected;
 
-        var srvRecords = (await QueryDnsAsync($"_autodiscover._tcp.{domain}", "SRV", cancellationToken).ConfigureAwait(false))
-            .Select(ParseSrvRecord)
-            .Where(record => record != null && record.Port is > 0 and <= 65535)
+        var srvRecords = (await _dnsLookupService.GetSrvRecordsAsync($"_autodiscover._tcp.{domain}", cancellationToken).ConfigureAwait(false))
+            .Where(record => record.Port is > 0 and <= 65535)
             .OrderBy(record => record.Priority)
             .ThenByDescending(record => record.Weight);
 

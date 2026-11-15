@@ -39,6 +39,7 @@ public static class WinoAccountIconGlyphs
         AccountIconProvider.Google => isTinted ? WinoIconGlyph.GoogleMono : WinoIconGlyph.Google,
         AccountIconProvider.ICloud => WinoIconGlyph.Apple,
         AccountIconProvider.Yahoo => WinoIconGlyph.Yahoo,
+        AccountIconProvider.Exchange => WinoIconGlyph.Exchange,
         _ => WinoIconGlyph.IMAP,
     };
 }

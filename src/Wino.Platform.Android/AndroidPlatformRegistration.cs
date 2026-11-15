@@ -5,6 +5,7 @@ using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Authentication;
+using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Platform.Android.Authentication;
@@ -95,6 +96,7 @@ public static class AndroidPlatformRegistration
         services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
         services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
         services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
+        services.AddSingleton<IOAuthTokenStore, SecureItemOAuthTokenStore>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
@@ -134,6 +136,8 @@ public static class AndroidPlatformRegistration
         services.AddSingleton<AndroidExternalAuthCallbacks>();
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new AndroidBrowserAuthBroker(
             context, provider.GetRequiredService<IDispatcher>(), currentActivity, provider.GetRequiredService<AndroidExternalAuthCallbacks>()));
+        services.AddSingleton<IOAuthBrowserBroker>(provider => new AndroidOAuthBrowserBroker(
+            provider.GetRequiredService<IDispatcher>(), currentActivity, provider.GetRequiredService<AndroidExternalAuthCallbacks>()));
         services.AddSingleton<IGoogleNativeSignInProvider>(provider => new AndroidGoogleSignInProvider(provider.GetRequiredService<IDispatcher>(), currentActivity));
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),

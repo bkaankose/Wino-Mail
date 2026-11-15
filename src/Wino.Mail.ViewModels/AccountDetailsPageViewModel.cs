@@ -51,6 +51,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IAccountCapabilityService _accountCapabilityService;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoAccountIntelligenceSnapshotService? _entitlementService;
+    private readonly IExchangeConnectionTester? _exchangeConnectionTester;
+    private readonly IAccountReauthenticationService? _reauthenticationService;
+    private readonly IExchangeInteractiveSignInService? _exchangeSignInService;
     private bool isLoaded = false;
     private readonly object _preferenceWriteGate = new();
     private Task _preferenceWrites = Task.CompletedTask;
@@ -93,6 +96,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsImapServer))]
+    [NotifyPropertyChangedFor(nameof(IsExchangeModernAuth))]
+    [NotifyPropertyChangedFor(nameof(IsExchangePasswordAuth))]
+    [NotifyPropertyChangedFor(nameof(ExchangeServerDescription))]
     public partial CustomServerInformation ServerInformation { get; set; }
 
     [ObservableProperty]
@@ -138,21 +144,25 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsMailCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsCalendarCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsContactsCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsTasksCapabilitySelected { get; set; }
 
     [ObservableProperty]
@@ -160,7 +170,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public partial bool IsApplyingCapabilities { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
-    public bool IsImapServer => ServerInformation != null;
+    public bool IsImapServer => ServerInformation != null && Account?.ProviderType != MailProviderType.Exchange;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool HasContactAccess => Account?.IsContactAccessGranted == true;
@@ -252,8 +262,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IWinoLogger winoLogger,
         IAccountCapabilityService accountCapabilityService,
         ISynchronizationManager synchronizationManager,
-        IWinoAccountIntelligenceSnapshotService? entitlementService = null)
+        IWinoAccountIntelligenceSnapshotService? entitlementService = null,
+        IExchangeConnectionTester? exchangeConnectionTester = null,
+        IAccountReauthenticationService? reauthenticationService = null,
+        IExchangeInteractiveSignInService? exchangeSignInService = null)
     {
+        _exchangeSignInService = exchangeSignInService;
         _dialogService = dialogService;
         _accountService = accountService;
         _folderService = folderService;
@@ -271,6 +285,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _accountCapabilityService = accountCapabilityService;
         _synchronizationManager = synchronizationManager;
         _entitlementService = entitlementService;
+        _exchangeConnectionTester = exchangeConnectionTester;
+        _reauthenticationService = reauthenticationService;
         CanAccessWinoIntelligence = entitlementService?.CurrentEntitlement.CanAccessSurfaces == true;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
@@ -895,6 +911,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             AccountName = Account.Name;
             SenderName = Account.SenderName;
             ServerInformation = Account.ServerInformation;
+            LoadExchangeSettings(shouldOpenServerSettings);
             SelectedCapabilityOption = ResolveCapabilityOption(Account.IsMailAccessGranted, Account.IsCalendarAccessGranted);
 
             IsFocusedInboxEnabled = Account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
@@ -924,6 +941,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                     AvailableAuthenticationMethods.Insert(3, new ImapAuthenticationMethodModel(
                         ImapAuthenticationMethod.EncryptedPassword,
                         Translator.ImapAuthenticationMethod_EncryptedPassword));
+                }
+
+                // Without the entry an OAuth account would read as Auto and be saved back as a password account.
+                if ((ServerInformation.IncomingAuthenticationMethod == ImapAuthenticationMethod.OAuth2 ||
+                     ServerInformation.OutgoingAuthenticationMethod == ImapAuthenticationMethod.OAuth2) &&
+                    AvailableAuthenticationMethods.All(item => item.ImapAuthenticationMethod != ImapAuthenticationMethod.OAuth2))
+                {
+                    AvailableAuthenticationMethods.Add(new ImapAuthenticationMethodModel(
+                        ImapAuthenticationMethod.OAuth2,
+                        Translator.ImapAuthenticationMethod_OAuth2));
                 }
 
                 SelectedIncomingServerAuthenticationMethodIndex = AvailableAuthenticationMethods
@@ -1081,6 +1108,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         OnPropertyChanged(nameof(IsTaskReauthorizationRequired));
         OnPropertyChanged(nameof(IsContactReauthorizationRequired));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
+        OnPropertyChanged(nameof(IsCapabilityEditable));
+        OnPropertyChanged(nameof(IsCapabilityReauthenticationNoticeVisible));
+        NotifyExchangeSettingsChanged();
         OnPropertyChanged(nameof(IsSenderNameEditable));
         OnPropertyChanged(nameof(IsPop3Account));
         OnPropertyChanged(nameof(ServerSettingsTitle));

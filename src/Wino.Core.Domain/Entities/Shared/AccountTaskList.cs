@@ -39,6 +39,13 @@ public class AccountTaskList
     public bool IsOutlookDefaultList => SourceKind == TaskSourceKind.Outlook && IsDefault;
 
     /// <summary>
+    /// The Exchange list backed by the mailbox's well-known Tasks folder. Exchange refuses to rename or delete it, as
+    /// Outlook does; the mailbox's other task folders are ordinary lists.
+    /// </summary>
+    [Ignore]
+    public bool IsFixedProviderList => SourceKind == TaskSourceKind.Exchange && IsDefault;
+
+    /// <summary>
     /// True when the list's CalDAV collection also accepts events (or reports no component set),
     /// so the same collection is a calendar. Deleting the collection would delete that calendar.
     /// </summary>
@@ -48,7 +55,7 @@ public class AccountTaskList
     public bool IsSharedCalendarCollection => SourceKind == TaskSourceKind.CalDav && HoldsCalendarEvents;
 
     [Ignore]
-    public bool CanDelete => !IsReadOnly && !IsOutlookDefaultList && !IsSharedCalendarCollection;
+    public bool CanDelete => !IsReadOnly && !IsOutlookDefaultList && !IsSharedCalendarCollection && !IsFixedProviderList;
 
     public string DeltaLink { get; set; }
 

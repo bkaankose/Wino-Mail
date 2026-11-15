@@ -9,16 +9,10 @@ namespace Wino.Services;
 
 public class MailAuthenticatorConfiguration : IAuthenticatorConfig
 {
-    /// <summary>
-    /// The Google UWP client: Gmail mailboxes on Windows and Android's loopback fallback, and every Google token stored
-    /// before tokens recorded their client.
-    /// </summary>
-    public const string DesktopGmailClientId = "973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn.apps.googleusercontent.com";
-
     private readonly IApplicationConfiguration _applicationConfiguration;
 
     public MailAuthenticatorConfiguration(IApplicationConfiguration applicationConfiguration = null)
-        : this(applicationConfiguration, DesktopGmailClientId)
+        : this(applicationConfiguration, WinoAuthenticationClientIds.Google.DesktopMailbox)
     {
     }
 
@@ -28,7 +22,7 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
         GmailAuthenticatorClientId = gmailAuthenticatorClientId;
     }
 
-    public string OutlookAuthenticatorClientId => OutlookClientIds.Current;
+    public string OutlookAuthenticatorClientId => WinoAuthenticationClientIds.Outlook.Current;
     public string GmailAuthenticatorClientId { get; }
     public string GmailTokenStoreIdentifier => AuthenticationTokenStorePaths.GmailTokenStoreFolderName;
     public string ApplicationDisplayName => _applicationConfiguration?.ApplicationDisplayName ?? "Wino Mail";

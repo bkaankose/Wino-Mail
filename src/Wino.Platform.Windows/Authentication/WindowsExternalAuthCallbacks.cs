@@ -2,7 +2,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Authorization;
 
 namespace Wino.Platform.Windows.Authentication;
 
@@ -11,11 +14,15 @@ namespace Wino.Platform.Windows.Authentication;
 /// registers a wait before it opens the system browser; the <c>wino://auth-complete</c> protocol activation
 /// (redirected to the running instance by single-instancing, the same path the Gmail and billing redirects use) hands
 /// the address to <see cref="Deliver"/>. One flow runs at a time; the wait lives here, not in a dialog.
+/// OAuth sign-in (<see cref="WindowsOAuthBrowserBroker"/>) waits separately: a callback on the
+/// <see cref="OAuthRedirect.CallbackPath"/> path completes only an OAuth wait, and every other callback only a Wino
+/// Account wait, so a provider's code never reaches the Wino Account flow.
 /// </summary>
 public sealed class WindowsExternalAuthCallbacks
 {
     private readonly object _gate = new();
     private TaskCompletionSource<Uri>? _pending;
+    private TaskCompletionSource<Uri>? _pendingOAuth;
 
     /// <summary>True while a browser sign-in is waiting for its redirect.</summary>
     public bool IsWaiting
@@ -54,8 +61,38 @@ public sealed class WindowsExternalAuthCallbacks
     {
         if (!WinoAccountExternalAuth.IsCallback(uri) || uri is null) return false;
 
+        var isOAuth = OAuthRedirect.IsOAuthCallback(uri);
         TaskCompletionSource<Uri>? pending;
-        lock (_gate) pending = _pending;
+        lock (_gate) pending = isOAuth ? _pendingOAuth : _pending;
         return pending?.TrySetResult(uri) == true;
+    }
+
+    /// <summary>
+    /// Waits for the next OAuth callback. Throws <see cref="OAuthSignInException"/> with
+    /// <see cref="OAuthSignInFailureKind.AnotherSignInInProgress"/> while any browser sign-in, OAuth or Wino Account, is waiting.
+    /// </summary>
+    public async Task<Uri> WaitForOAuthAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var completion = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            if (_pending is { Task.IsCompleted: false } || _pendingOAuth is { Task.IsCompleted: false })
+                throw new OAuthSignInException(OAuthSignInFailureKind.AnotherSignInInProgress, "Another sign-in is in progress.");
+            _pendingOAuth = completion;
+        }
+
+        try
+        {
+            using var registration = cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
+            return await completion.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(_pendingOAuth, completion)) _pendingOAuth = null;
+            }
+        }
     }
 }
