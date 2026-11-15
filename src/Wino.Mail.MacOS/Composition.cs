@@ -81,7 +81,7 @@ internal static class Composition
             provider.GetService<IApplicationConfiguration>(), WinoAccountExternalAuth.GoogleAppleClientId));
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new MacOSOutlookAuthenticationHost(
             provider.GetRequiredService<IApplicationConfiguration>(), provider.GetRequiredService<IAuthenticatorConfig>(),
-            identity, () => owner() != null));
+            identity, () => owner() != null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
         services.AddSingleton<IExternalLauncher, MacExternalLauncher>();
         services.AddSingleton<IClipboardService, MacClipboardService>();
         services.AddSingleton<IShortcutPlatformService, MacShortcutPlatformService>();

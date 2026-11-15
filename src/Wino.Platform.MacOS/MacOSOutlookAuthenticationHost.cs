@@ -8,13 +8,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
+using Microsoft.Identity.Client.Extensibility;
 using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
 using Wino.Platform.Apple;
 
 namespace Wino.Platform.MacOS;
 
-/// <summary>System-browser MSAL host with MSAL Extensions' native macOS Keychain cache.</summary>
+/// <summary>
+/// MSAL host with MSAL Extensions' native macOS Keychain cache. Interactive sign-in runs in an
+/// ASWebAuthenticationSession sheet with the <c>msauth.&lt;bundle id&gt;://auth</c> redirect the iOS app also uses,
+/// so the sandboxed App Store build needs no localhost listener (<c>com.apple.security.network.server</c>).
+/// </summary>
 [SupportedOSPlatform("macos")]
 public sealed class MacOSOutlookAuthenticationHost : IOutlookAuthenticationHost, IDisposable, IAsyncDisposable
 {
@@ -25,16 +30,19 @@ public sealed class MacOSOutlookAuthenticationHost : IOutlookAuthenticationHost,
     private readonly object _lifetimeGate = new();
     private bool _disposed;
     private Task? _disposeTask;
+    private readonly ICustomWebUi _webUi;
     private MsalCacheHelper? _cache;
 
     public MacOSOutlookAuthenticationHost(IApplicationConfiguration configuration,
-        IAuthenticatorConfig authenticatorConfig, AppleApplicationIdentity identity, Func<bool> canPresent)
+        IAuthenticatorConfig authenticatorConfig, AppleApplicationIdentity identity, Func<bool> canPresent,
+        IWinoAccountBrowserAuthBroker browser)
     {
         _configuration = configuration;
         _identity = identity ?? throw new ArgumentNullException(nameof(identity));
         _canPresent = canPresent ?? throw new ArgumentNullException(nameof(canPresent));
+        _webUi = new WebSessionUi(browser ?? throw new ArgumentNullException(nameof(browser)));
         Client = PublicClientApplicationBuilder.Create(authenticatorConfig.OutlookAuthenticatorClientId)
-            .WithDefaultRedirectUri()
+            .WithRedirectUri($"msauth.{identity.Value}://auth")
             .WithAuthority("https://login.microsoftonline.com/common")
             .WithWinoLogging()
             .Build();
@@ -88,7 +96,7 @@ public sealed class MacOSOutlookAuthenticationHost : IOutlookAuthenticationHost,
         cancellationToken.ThrowIfCancellationRequested();
         if (!CanAuthenticateInteractively) throw new InvalidOperationException("Interactive macOS authentication requires an active application window.");
         await EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
-        var request = Client.AcquireTokenInteractive(scopes).WithUseEmbeddedWebView(false);
+        var request = Client.AcquireTokenInteractive(scopes).WithCustomWebUi(_webUi);
         if (account is not null) request = request.WithAccount(account);
         else if (!string.IsNullOrWhiteSpace(loginHint)) request = request.WithLoginHint(loginHint);
         return await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
@@ -136,6 +144,12 @@ public sealed class MacOSOutlookAuthenticationHost : IOutlookAuthenticationHost,
         // Do not dispose this managed semaphore: an entrant that passed the initial lifetime
         // check can still be queued. It observes the terminal state after acquiring the gate
         // and can safely release it. No native wait handle is allocated by this host.
+    }
+
+    private sealed class WebSessionUi(IWinoAccountBrowserAuthBroker browser) : ICustomWebUi
+    {
+        public Task<Uri> AcquireAuthorizationCodeAsync(Uri authorizationUri, Uri redirectUri, CancellationToken cancellationToken)
+            => browser.AuthorizeAsync(authorizationUri, redirectUri.Scheme, cancellationToken);
     }
 
     private void ThrowIfDisposed()

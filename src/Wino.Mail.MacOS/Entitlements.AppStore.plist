@@ -5,7 +5,6 @@
   <key>com.apple.security.app-sandbox</key><true/>
   <key>com.apple.security.network.client</key><true/>
   <!-- Loopback listeners are required for the system-browser OAuth callbacks. -->
-  <key>com.apple.security.network.server</key><true/>
   <key>com.apple.security.files.user-selected.read-write</key><true/>
   <key>com.apple.security.cs.allow-jit</key><true/>
   <!-- Voice control records spoken commands. Without this entitlement the sandbox denies the microphone silently. -->
