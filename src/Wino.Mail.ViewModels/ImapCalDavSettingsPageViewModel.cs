@@ -508,6 +508,23 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         serverInformation.Id = Guid.NewGuid();
         serverInformation.AccountId = Guid.Empty;
 
+        // The account is created from the wizard context, which still holds the setup page's guess when that page
+        // found no servers (CalDAV calendar). What this page shows and saves is the user's choice.
+        _wizardContext.IsMailAccessEnabled = IsMailSupportEnabled;
+        _wizardContext.IsCalendarAccessEnabled = Capabilities.IsCalendarEnabled;
+        _wizardContext.CalendarIntegrationSource = Capabilities.CalendarMode == AccountCapabilityMode.Provider
+            ? AccountIntegrationSource.Dav
+            : AccountIntegrationSource.Local;
+        _wizardContext.CalendarSupportMode = serverInformation.CalendarSupportMode;
+        _wizardContext.IsContactAccessEnabled = Capabilities.IsContactEnabled;
+        _wizardContext.ContactIntegrationSource = Capabilities.ContactMode == AccountCapabilityMode.Provider
+            ? AccountIntegrationSource.Dav
+            : AccountIntegrationSource.Local;
+        _wizardContext.IsTaskAccessEnabled = Capabilities.IsTaskEnabled;
+        _wizardContext.TaskIntegrationSource = Capabilities.TaskMode == AccountCapabilityMode.Provider
+            ? AccountIntegrationSource.Dav
+            : AccountIntegrationSource.Local;
+
         _wizardContext.ImapCalDavSetupResult = new ImapCalDavSetupResult
         {
             DisplayName = DisplayName.Trim(),
