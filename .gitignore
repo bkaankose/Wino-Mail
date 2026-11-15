@@ -458,3 +458,6 @@ AuthKey_*
 
 # Rendered release texts (scripts/release/release.ps1 publish)
 release-notes/.out/
+
+# Exchange lab scratch state (logs, probe output, credentials)
+tools/exchange-lab/.state/
