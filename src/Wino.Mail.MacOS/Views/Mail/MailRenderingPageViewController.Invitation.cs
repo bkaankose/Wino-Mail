@@ -236,10 +236,24 @@ public sealed partial class MailRenderingPageViewController
             TranslatesAutoresizingMaskIntoConstraints = false
         };
         WinoAccessibility.Label(button, title);
+        button.ToolTip = title;
         button.SetContentCompressionResistancePriority(760, NSLayoutConstraintOrientation.Horizontal);
         button.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         button.Activated += (_, _) => RunInvitationCommand(Invitation.RespondCommand, response);
         return button;
+    }
+
+    /// <summary>
+    /// Below the wide reader the answers keep only their glyphs (the title stays in the tooltip and for VoiceOver):
+    /// with their titles the event title shrank to its first letter.
+    /// </summary>
+    private void SetInvitationAnswersCompact(bool compact)
+    {
+        foreach (var button in new[] { _invitationAccept, _invitationTentative, _invitationDecline })
+        {
+            if (button is null) continue;
+            button.ImagePosition = compact ? NSCellImagePosition.ImageOnly : NSCellImagePosition.ImageLeading;
+        }
     }
 
     private static WinoIconGlyph AnswerGlyph(AttendeeStatus response) => response switch

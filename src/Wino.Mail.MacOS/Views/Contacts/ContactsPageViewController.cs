@@ -180,7 +180,17 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
         _ = Task.Run(() =>
         {
             NSImage? image = null;
-            try { if (File.Exists(path)) image = new NSImage(path); }
+            try
+            {
+                if (File.Exists(path)) image = new NSImage(path);
+                // A file AppKit cannot decode, or a placeholder a few pixels wide (some CardDAV servers store a 1×1 PHOTO),
+                // drew an empty circle where the initials belong.
+                if (image is not null && (!image.IsValid || image.Representations().All(static rep => rep.PixelsWide is > 0 and < 8 || rep.PixelsHigh is > 0 and < 8)))
+                {
+                    image.Dispose();
+                    image = null;
+                }
+            }
             catch (Exception exception) { ReportError(exception); }
             NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
             {

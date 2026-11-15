@@ -86,7 +86,9 @@ internal sealed partial class ShellSidebarViewController
         var (row, folder) = FolderAt(info);
         SetDropRow(-1);
         if (folder is null || !MailDragPayload.CanDropOn(folder, IsSelectedFolder(row, folder), mails)) return false;
-        return PerformMailDrop(folder, mails);
+        bool moved = PerformMailDrop(folder, mails);
+        if (moved) MailDragPayload.End();
+        return moved;
     }
 
     private bool PerformMailDrop(IBaseFolderMenuItem folder, IReadOnlyList<MailCopy> mails)

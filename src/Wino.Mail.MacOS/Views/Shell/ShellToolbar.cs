@@ -6,6 +6,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Controls;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 
@@ -19,6 +20,7 @@ namespace Wino.Mail.MacOS.Views.Shell;
 internal sealed class ShellToolbar : NSToolbarDelegate
 {
     private const string ToggleSidebarId = "wino.toggleSidebar";
+    private const string ModesId = "wino.modes";
     private const string SyncId = "wino.sync";
     private const string SidebarSeparatorId = "wino.sidebarSeparator";
     private const string TitleId = "wino.title";
@@ -147,6 +149,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private static readonly string[] LeadingIdentifiers =
     [
         ToggleSidebarId,
+        // Shown only while the pane is collapsed: the pane's mode switcher is gone with it.
+        ModesId,
         // Adjacent buttons share one glass capsule; the space gives sync a capsule of its own.
         NSToolbar.NSToolbarSpaceItemIdentifier,
         SyncId,
@@ -190,6 +194,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private bool LegacyHidden(string id) => id switch
     {
         SyncId => _syncHidden,
+        ModesId => !_modesShown,
         BriefingId => !_briefingVisible,
         WhatsNewId => !_whatsNewVisible,
         AccountId => _accountHidden,
@@ -351,6 +356,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
                 toggle.ToolTip = $"{Translator.MacOSMenu_ToggleSidebar} (⌃⌘S)";
                 toggle.Navigational = true;
                 return toggle;
+            case ModesId:
+                return _modesItem = CreateModesItem();
             case SyncId:
                 return _syncItem = CreateSyncItem();
             case TitleId:
@@ -624,6 +631,11 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         if (_searchItem?.SearchField is { } field) field.StringValue = text ?? string.Empty;
     }
 
+    public void ShowSearchText(string text)
+    {
+        if (_searchItem?.SearchField is { CurrentEditor: null } field && field.StringValue != text) field.StringValue = text;
+    }
+
     /// <summary>Re-reads search support from the current content page.</summary>
     public void Revalidate()
     {
@@ -681,5 +693,74 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     {
         _accountHidden = hidden;
         SetItemHidden(_accountItem, hidden);
+    }
+
+    private NSMenuToolbarItem? _modesItem;
+    private bool _modesShown;
+    private WinoApplicationMode _currentMode = WinoApplicationMode.Mail;
+    private IReadOnlyCollection<WinoApplicationMode>? _visibleModes;
+
+    /// <summary>Runs when a mode is picked from the toolbar's mode menu.</summary>
+    public Action<WinoApplicationMode>? ModeSelected { get; set; }
+
+    private NSMenuToolbarItem CreateModesItem()
+    {
+        var item = new NSMenuToolbarItem(ModesId)
+        {
+            Label = Translator.KeyboardShortcuts_Mode,
+            PaletteLabel = Translator.KeyboardShortcuts_Mode,
+            ToolTip = Translator.KeyboardShortcuts_Mode,
+            ShowsIndicator = true,
+            Navigational = true,
+            Menu = new NSMenu { AutoEnablesItems = false }
+        };
+        if (SupportsHiddenItems) item.Hidden = !_modesShown;
+        _modesItem = item;
+        ApplyModes();
+        return item;
+    }
+
+    /// <summary>
+    /// The mode menu that replaces the pane's switcher while the pane is collapsed: the current mode's glyph
+    /// with a menu of the visible modes and Settings, in the switcher's order.
+    /// </summary>
+    public void SetModes(WinoApplicationMode current, IReadOnlyCollection<WinoApplicationMode>? visible, bool shown)
+    {
+        bool changed = current != _currentMode || !ReferenceEquals(visible, _visibleModes);
+        _currentMode = current;
+        _visibleModes = visible;
+        if (_modesShown != shown)
+        {
+            _modesShown = shown;
+            SetItemHidden(_modesItem, !shown);
+        }
+        if (changed) ApplyModes();
+    }
+
+    private void ApplyModes()
+    {
+        if (_modesItem?.Menu is not { } menu) return;
+        var previous = menu.Items;
+        menu.RemoveAllItems();
+        foreach (var old in previous) old.Dispose();
+        // The item pulls its menu down: the first entry is its title and never shows.
+        menu.AddItem(new NSMenuItem(Translator.KeyboardShortcuts_Mode));
+        foreach (var segment in WinoModeSegments.All)
+        {
+            bool isSettings = segment.Mode == WinoApplicationMode.Settings;
+            if (!isSettings && _visibleModes is { } visible && !visible.Contains(segment.Mode)) continue;
+            if (isSettings) menu.AddItem(NSMenuItem.SeparatorItem);
+            var mode = segment.Mode;
+            var entry = new NSMenuItem(segment.Title, (_, _) => Safe(() => ModeSelected?.Invoke(mode)))
+            {
+                Image = WinoIcons.Image(segment.Regular, 15, null, segment.Title),
+                State = mode == _currentMode ? NSCellStateValue.On : NSCellStateValue.Off
+            };
+            menu.AddItem(entry);
+            if (mode == _currentMode)
+            {
+                _modesItem.Image = WinoIcons.Image(segment.Regular, 17, null, $"{Translator.KeyboardShortcuts_Mode}, {segment.Title}");
+            }
+        }
     }
 }

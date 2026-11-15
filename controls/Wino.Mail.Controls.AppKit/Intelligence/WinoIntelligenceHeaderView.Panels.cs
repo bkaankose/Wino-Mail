@@ -196,7 +196,12 @@ public sealed partial class WinoIntelligenceHeaderView
     {
         var picker = new NSPopUpButton { ControlSize = NSControlSize.Small, ToolTip = label, TranslatesAutoresizingMaskIntoConstraints = false };
         WinoAccessibility.Label(picker, label);
-        picker.WidthAnchor.ConstraintGreaterThanOrEqualTo(140).Active = true;
+        // The longest language name set the reader's minimum width, even while the panel was closed; a narrow reader truncates it.
+        picker.WidthAnchor.ConstraintGreaterThanOrEqualTo(96).Active = true;
+        var preferred = picker.WidthAnchor.ConstraintGreaterThanOrEqualTo(140);
+        preferred.Priority = 240;
+        preferred.Active = true;
+        picker.SetContentCompressionResistancePriority(230, NSLayoutConstraintOrientation.Horizontal);
         return picker;
     }
 }

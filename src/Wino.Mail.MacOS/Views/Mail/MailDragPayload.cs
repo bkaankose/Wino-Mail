@@ -32,16 +32,24 @@ internal static class MailDragPayload
     public static Func<IReadOnlyList<MailCopy>>? DebugSelection { get; set; }
 #endif
 
-    public static void Begin(IReadOnlyList<MailCopy> mails, NSImage? rowSnapshot)
+    private static Action? _ended;
+
+    /// <param name="ended">Runs once when the drag ends. A drop that moves the mails removes their rows, and the table
+    /// then never reports the end of its session, so the drop target ends the drag too.</param>
+    public static void Begin(IReadOnlyList<MailCopy> mails, NSImage? rowSnapshot, Action? ended = null)
     {
         Current = mails;
         _rowSnapshot = rowSnapshot;
+        _ended = ended;
     }
 
     public static void End()
     {
         Current = [];
         _rowSnapshot = null;
+        var ended = _ended;
+        _ended = null;
+        ended?.Invoke();
     }
 
     /// <summary>The dragged mails when <paramref name="info"/> is a Wino mail drag; otherwise empty.</summary>

@@ -165,7 +165,12 @@ public sealed partial class ToDoPageViewController
         // The toolbar field searches every list; this one only filters the list on screen, so it carries the filter glyph.
         if (_search.Cell is NSSearchFieldCell { SearchButtonCell: { } searchButton })
             searchButton.Image = WinoIcons.Image(WinoIconGlyph.Filter, 13, WinoStyle.SecondaryText, Translator.ToDoPage_FilterTasks);
-        _search.WidthAnchor.ConstraintEqualTo(360).Active = true;
+        // The field gives way first on a narrow page; a fixed 360pt pushed the shell's sidebar narrower instead.
+        _search.WidthAnchor.ConstraintLessThanOrEqualTo(360).Active = true;
+        _search.WidthAnchor.ConstraintGreaterThanOrEqualTo(160).Active = true;
+        var preferredSearchWidth = _search.WidthAnchor.ConstraintEqualTo(360);
+        preferredSearchWidth.Priority = 240;
+        preferredSearchWidth.Active = true;
         _search.SetContentCompressionResistancePriority(240, NSLayoutConstraintOrientation.Horizontal);
 
         var scopeMenu = new NSMenu { AutoEnablesItems = false };

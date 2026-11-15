@@ -145,7 +145,18 @@ internal sealed partial class ShellSidebarViewController : NSViewController
     }
 
     /// <summary>Highlights the mode segment; the switch itself goes through the shell.</summary>
-    public void SetMode(WinoApplicationMode mode) => _switcher.Selected = mode;
+    public void SetMode(WinoApplicationMode mode)
+    {
+        if (_switcher.Selected == mode) return;
+        _switcher.Selected = mode;
+        AccentChanged(null, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Outside Mail an account row only scopes the pane (People lists that account's address books), so the
+    /// browsed account is marked by weight instead of a second accent selection beside the selected row.
+    /// </summary>
+    private bool AccountRowsScopeThePane => _switcher.Selected != WinoApplicationMode.Mail;
 
     /// <summary>Offers only the modes the accounts provide and the user kept (Windows AppModeFooterSwitcherControl).</summary>
     public void SetModeVisibility(AppModeVisibility? visibility) => _switcher.SetVisibleModes(visibility?.VisibleModes);
@@ -716,7 +727,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             switch (view)
             {
                 case ShellPaneCell cell:
-                    cell.Configure(item, owner._outline.SelectedRow == row && row >= 0, owner._rows.HasChildren(item));
+                    cell.Configure(item, owner._outline.SelectedRow == row && row >= 0, owner._rows.HasChildren(item), owner.AccountRowsScopeThePane);
                     break;
                 case ShellSectionHeaderCell header when item is ShellSectionHeaderMenuItem section:
                     header.Configure(section.Title);

@@ -36,6 +36,11 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     private const double SidebarReopenMargin = 8;
     private const float SidebarMinimumPriority = 999;
     private const float SidebarMinimumLiveResizePriority = 490;
+    private const double SidebarDefaultWidth = 280;
+    private const string SidebarWidthKey = "WinoShellSidebarWidth";
+    // Above the split items' holding priorities and the content pages' own width preferences, below a divider
+    // drag (490) and the live-resize minimum, so the pane keeps the user's width whichever page is shown.
+    private const float SidebarWidthPriority = 480;
 
     private readonly INavigationService _navigation;
     private readonly IStatePersistanceService _state;
@@ -48,6 +53,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     private NSSplitViewItem? _sidebarItem;
     private Foundation.NSObject? _splitResizeObserver;
     private NSLayoutConstraint? _sidebarMinimum;
+    private NSLayoutConstraint? _sidebarWidth;
     private nfloat _autoCollapsedWidth;
     private ShellToolbar? _toolbar;
     private NSViewController? _child;
@@ -104,10 +110,11 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         _sidebarMinimum = _sidebar.View.WidthAnchor.ConstraintGreaterThanOrEqualTo((nfloat)SidebarMinimumWidth);
         _sidebarMinimum.Priority = SidebarMinimumPriority;
         _sidebarMinimum.Active = true;
-        // The Windows pane opens at 280; a soft width keeps it there when the content page changes.
-        var preferredWidth = _sidebar.View.WidthAnchor.ConstraintEqualTo(280);
-        preferredWidth.Priority = 251;
-        preferredWidth.Active = true;
+        // The Windows pane opens at 280. The width the user drags to is held for every page; without it each
+        // page's own layout preferences moved the divider when the mode or page changed.
+        _sidebarWidth = _sidebar.View.WidthAnchor.ConstraintEqualTo((nfloat)SavedSidebarWidth());
+        _sidebarWidth.Priority = SidebarWidthPriority;
+        _sidebarWidth.Active = true;
 
         // Pages start below the toolbar; while no page is shown an empty zone keeps the layout.
         _contentHost.View = _content;
@@ -129,21 +136,18 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         var root = new LiveResizeView(live =>
         {
             if (_sidebarMinimum is not null) _sidebarMinimum.Priority = live ? SidebarMinimumLiveResizePriority : SidebarMinimumPriority;
+            if (!live && _sidebarWidth is not null && _sidebarItem is { Collapsed: false }) _sidebarWidth.Active = true;
         });
         WinoLayout.Fill(new ThemeBackdropView(), root);
         AddChildViewController(_split);
         Layout.Fill(_split.View, root);
         View = root;
-        bool hasSavedLayout = Foundation.NSUserDefaults.StandardUserDefaults["NSSplitView Subview Frames WinoShellSplit.v3"] is not null;
-        NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
-        {
-            SetSidebarCollapsed(!ViewModel.PreferencesService.IsNavigationPaneOpened);
-            if (!hasSavedLayout) _split.SplitView.SetPositionOfDivider(280, 0);
-        });
+        NSApplication.SharedApplication.BeginInvokeOnMainThread(() => SetSidebarCollapsed(!ViewModel.PreferencesService.IsNavigationPaneOpened));
 
         _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError,
             () => _commandTarget is { ShowsMailActions: true }, CanExecuteCommand, IsCommandActive, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
         _toolbar.SidebarSplitView = _split.SplitView;
+        _toolbar.ModeSelected = SwitchMode;
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
         _toolbar.SetCommandLayout(ReaderCommandLayout.Parse(ViewModel.PreferencesService.ReaderCommandLayout));
         _toolbar.SetCommandLabels(ViewModel.PreferencesService.IsShowActionLabelsEnabled);
@@ -158,9 +162,9 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, IShellMenuProvider?>(ViewModel, nameof(ViewModel.CurrentProvider),
             vm => vm.CurrentProvider, ObserveProvider, Dispatcher, ReportError));
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, WinoApplicationMode>(ViewModel, nameof(ViewModel.CurrentMode),
-            vm => vm.CurrentMode, mode => { _sidebar.SetMode(mode); UpdateTitle(); }, Dispatcher, ReportError));
+            vm => vm.CurrentMode, mode => { _sidebar.SetMode(mode); UpdateTitle(); UpdateToolbarModes(); }, Dispatcher, ReportError));
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, AppModeVisibility?>(ViewModel, nameof(ViewModel.ModeVisibility),
-            vm => vm.ModeVisibility, visibility => _sidebar.SetModeVisibility(visibility), Dispatcher, ReportError));
+            vm => vm.ModeVisibility, visibility => { _sidebar.SetModeVisibility(visibility); UpdateToolbarModes(); }, Dispatcher, ReportError));
 #if DEBUG
         // "folder NAME" invokes the first folder menu item with that name, as a sidebar click would.
         // "account TEXT" invokes the account menu item whose account name or address contains TEXT.
@@ -245,7 +249,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     public async Task ActivateModeAsync(WinoApplicationMode mode, ShellModeActivationContext? context)
     {
         if (await _modes.ActivateAsync(mode, context, ClearContentAsync, Dispatcher, () => _child is not null, ModeTitle))
-            await Dispatcher.ExecuteOnUIThread(UpdateTitle);
+            await Dispatcher.ExecuteOnUIThread(() => { UpdateTitle(); UpdateToolbarModes(); });
     }
 
     private static string ModeTitle(WinoApplicationMode mode) => mode switch
@@ -350,6 +354,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         if (_sidebarItem is null) return;
         _autoCollapsedWidth = 0;
         bool collapse = !_sidebarItem.Collapsed;
+        if (collapse) PrepareSidebarCollapse();
         ((NSSplitViewItem)_sidebarItem.Animator).Collapsed = collapse;
         ViewModel.PreferencesService.IsNavigationPaneOpened = !collapse;
     }
@@ -374,7 +379,20 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     /// </summary>
     private void SplitViewResized()
     {
-        if (_sidebarItem is null || _sidebar is null || _content.Window is not { InLiveResize: true } window) return;
+        if (_sidebarItem is null || _sidebar is null) return;
+        UpdateToolbarModes();
+        // The split view draws the divider in its own layer; after an animated collapse the old line stayed visible
+        // under the content's transparent header rows.
+        _split.SplitView.NeedsDisplay = true;
+        if (_sidebarWidth is not null)
+        {
+            if (_sidebarItem.Collapsed) _sidebarWidth.Active = false;
+            else if (!_sidebarWidth.Active && _content.Window is not { InLiveResize: true }) _sidebarWidth.Active = true;
+            // A page that cannot fit moves the divider too; only the user's own drag changes the width kept for every page.
+            else if (_split.SplitView is ClearDividerSplitView { IsTrackingDivider: true } && _sidebar.View.Frame.Width >= SidebarMinimumWidth)
+                RememberSidebarWidth(_sidebar.View.Frame.Width);
+        }
+        if (_content.Window is not { InLiveResize: true } window) return;
         if (!_sidebarItem.Collapsed)
         {
             var squeeze = (nfloat)SidebarMinimumWidth - _sidebar.View.Frame.Width;
@@ -391,13 +409,54 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 
     private void SetSidebarCollapsed(bool collapsed)
     {
-        if (_sidebarItem is { } item && item.Collapsed != collapsed) item.Collapsed = collapsed;
+        if (_sidebarItem is not { } item || item.Collapsed == collapsed) return;
+        if (collapsed) PrepareSidebarCollapse();
+        item.Collapsed = collapsed;
+    }
+
+    private void PrepareSidebarCollapse()
+    {
+        if (_sidebarWidth is not null) _sidebarWidth.Active = false;
+        // Without this the window hands the pane's focus to the next key view, the search field, which then shows its focus ring.
+        if (_sidebar?.View is { } pane && pane.Window?.FirstResponder is NSView focused && focused.IsDescendantOf(pane))
+            pane.Window.MakeFirstResponder(null);
+    }
+
+    /// <summary>A collapsed pane takes its mode switcher with it; the toolbar then offers the modes as a menu.</summary>
+    private void UpdateToolbarModes()
+    {
+        if (_toolbar is null || _sidebarItem is null) return;
+        _toolbar.SetModes(ViewModel.CurrentMode, ViewModel.ModeVisibility?.VisibleModes, _sidebarItem.Collapsed);
+    }
+
+    private static double SavedSidebarWidth()
+    {
+        var defaults = Foundation.NSUserDefaults.StandardUserDefaults;
+        var saved = defaults.DoubleForKey(SidebarWidthKey);
+        if (saved >= SidebarMinimumWidth) return saved;
+        // Before the width had its own key, the split view's autosaved frames held it ("x, y, width, height, collapsed, hidden").
+        if (defaults["NSSplitView Subview Frames WinoShellSplit.v3"] is Foundation.NSArray { Count: > 0 } frames
+            && frames.GetItem<Foundation.NSString>(0)?.ToString().Split(',') is { Length: > 2 } parts
+            && double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var width)
+            && width >= SidebarMinimumWidth)
+            return width;
+        return SidebarDefaultWidth;
+    }
+
+    private void RememberSidebarWidth(nfloat width)
+    {
+        if (_sidebarWidth is null || Math.Abs(_sidebarWidth.Constant - width) < 0.5) return;
+        _sidebarWidth.Constant = width;
+        Foundation.NSUserDefaults.StandardUserDefaults.SetDouble(width, SidebarWidthKey);
     }
 
     public void FocusSearch() => _toolbar?.FocusSearch();
 
     /// <summary>Sets the toolbar search text without notifying the search target.</summary>
     public void SetSearchText(string text) => _toolbar?.SetSearchText(text);
+
+    /// <summary>Shows a query the page ran on its own, unless the user is editing the field.</summary>
+    public void ShowSearchText(string text) => _toolbar?.ShowSearchText(text);
 
     /// <summary>Raised when the current page's command availability changes, for menu validation.</summary>
     public event EventHandler? CommandStateChanged;
@@ -677,6 +736,16 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         public ClearDividerSplitView() => WinoStyle.BackdropWatchers.Add(this, static split => split.NeedsDisplay = true);
 
         public override NSColor DividerColor => WinoStyle.FloatingZones ? NSColor.Clear : NSColor.Separator;
+
+        /// <summary>True while the user drags a divider; NSSplitView tracks the drag inside mouseDown.</summary>
+        public bool IsTrackingDivider { get; private set; }
+
+        public override void MouseDown(NSEvent theEvent)
+        {
+            IsTrackingDivider = true;
+            try { base.MouseDown(theEvent); }
+            finally { IsTrackingDivider = false; }
+        }
 
         public override void DrawDivider(CoreGraphics.CGRect rect)
         {

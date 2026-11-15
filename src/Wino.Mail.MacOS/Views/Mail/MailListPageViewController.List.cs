@@ -295,7 +295,19 @@ public sealed partial class MailListPageViewController
         RegisterDebugCommands();
         RegisterParityDebugCommands();
         BindDrag();
-        _boundsObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSView.BoundsChangedNotification, _ => CheckLoadMore(), _scroll.ContentView);
+        _boundsObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSView.BoundsChangedNotification, _ => ListScrolled(), _scroll.ContentView);
+    }
+
+    private bool _scrolledFromTop;
+
+    private void ListScrolled()
+    {
+        CheckLoadMore();
+        // The pinned date header hides the rows beneath it only once rows scroll under it (WinoMailGroupRowView).
+        bool scrolled = _scroll.ContentView.Bounds.Y > 0.5;
+        if (scrolled == _scrolledFromTop) return;
+        _scrolledFromTop = scrolled;
+        _table.EnumerateAvailableRowViews((rowView, _) => { if (rowView is WinoMailGroupRowView group) group.CoversRows = scrolled; });
     }
 
     private void ReleaseList()
@@ -910,7 +922,11 @@ public sealed partial class MailListPageViewController
     private NSTableRowView CreateRowView(NSTableView tableView, nint index)
     {
         if (RowAt(index) is null)
-            return tableView.MakeView(WinoMailGroupRowView.ReuseIdentifier, this) as WinoMailGroupRowView ?? new WinoMailGroupRowView();
+        {
+            var groupRow = tableView.MakeView(WinoMailGroupRowView.ReuseIdentifier, this) as WinoMailGroupRowView ?? new WinoMailGroupRowView();
+            groupRow.CoversRows = _scrolledFromTop;
+            return groupRow;
+        }
         var rowView = tableView.MakeView(WinoMailTableRowView.ReuseIdentifier, this) as WinoMailTableRowView ?? new WinoMailTableRowView();
         rowView.IsSelectionMode = _selectionMode;
         return rowView;

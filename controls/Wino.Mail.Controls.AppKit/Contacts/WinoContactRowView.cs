@@ -238,6 +238,9 @@ public sealed class WinoContactTableRowView : NSTableRowView
 
     public bool IsHeader { get; set; }
 
+    /// <summary>The selection is a light fill, not the accent: labels keep their colours instead of turning white.</summary>
+    public override NSBackgroundStyle InteriorBackgroundStyle => NSBackgroundStyle.Normal;
+
     public override void DrawBackground(CGRect dirtyRect)
     {
         if (IsHeader || Selected || !_hovered) return;

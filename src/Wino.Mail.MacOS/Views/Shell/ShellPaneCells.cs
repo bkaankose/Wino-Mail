@@ -169,7 +169,8 @@ internal sealed class ShellPaneCell : NSTableCellView
 
     /// <param name="selected">True while the row is the pane selection.</param>
     /// <param name="hasChildren">True when the outline can expand this row.</param>
-    public void Configure(IMenuItem item, bool selected, bool hasChildren)
+    /// <param name="subtleActiveAccount">True when the active account row only scopes the pane and must not read as a second selection.</param>
+    public void Configure(IMenuItem item, bool selected, bool hasChildren, bool subtleActiveAccount = false)
     {
         _item = item;
         ObserveParameter(null);
@@ -339,7 +340,9 @@ internal sealed class ShellPaneCell : NSTableCellView
             MergedAccountMenuItem merged => selected || merged.IsSelected || merged.IsChildSelected,
             _ => false
         };
-        if (activeAccount)
+        if (activeAccount && subtleActiveAccount && !selected)
+            _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Medium);
+        else if (activeAccount)
         {
             _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Semibold);
             // A combined group keeps its own colour; the semibold weight still marks it as active.

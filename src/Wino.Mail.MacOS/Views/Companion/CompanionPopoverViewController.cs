@@ -87,6 +87,15 @@ public sealed class CompanionPopoverViewController : NSViewController
         _height = _root.HeightAnchor.ConstraintEqualTo((nfloat)CompanionStyle.MinHeight);
         _height.Active = true;
         WinoAccessibility.Label(_root, Translator.CompanionSettings_About_Title);
+        // The popover's own glass let the desktop show through, so secondary text over a bright wallpaper fell to about 2:1;
+        // the frosted popover material keeps it legible.
+        WinoLayout.Fill(new NSVisualEffectView
+        {
+            Material = NSVisualEffectMaterial.Popover,
+            BlendingMode = NSVisualEffectBlendingMode.BehindWindow,
+            State = NSVisualEffectState.Active,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        }, _root);
 
         _initializing = new WinoStateView(WinoIconGlyph.None, Translator.Companion_InitializingTitle, Translator.Companion_InitializingDescription);
         var spinner = _initializing.UseSpinner(32);

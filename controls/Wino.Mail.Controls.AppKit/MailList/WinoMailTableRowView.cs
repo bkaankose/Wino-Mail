@@ -167,8 +167,11 @@ public static class WinoMailListTheme
             return NSColor.White.UsingColorSpace(NSColorSpace.SRGBColorSpace)!.BlendedColor((nfloat)0.3, accent) ?? accent;
         });
 
-    /// <summary>What a floating group row paints under its strip so the rows beneath do not show through.</summary>
-    public static NSColor FloatingGroupBackground => WinoStyle.Dynamic(NSColor.White, WinoStyle.Hex(0x343438, 0.96));
+    /// <summary>
+    /// What a floating group row paints under its strip so the rows beneath do not show through: the list zone's own
+    /// colour, so a custom theme's tinted list does not get a white band behind its first date header.
+    /// </summary>
+    public static NSColor FloatingGroupBackground => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, WinoStyle.Dynamic(NSColor.White, WinoStyle.Hex(0x343438, 0.96)));
 }
 
 /// <summary>
@@ -229,11 +232,23 @@ public class WinoMailGroupRowView : NSTableRowView
         set { base.Floating = value; NeedsDisplay = true; }
     }
 
+    private bool _coversRows;
+
+    /// <summary>
+    /// True once the list is scrolled, so rows can pass beneath a floating header. At the top nothing does, and the
+    /// fill showed as a band behind the first header on tinted theme lists.
+    /// </summary>
+    public bool CoversRows
+    {
+        get => _coversRows;
+        set { if (_coversRows == value) return; _coversRows = value; NeedsDisplay = true; }
+    }
+
     public override void DrawBackground(CGRect dirtyRect)
     {
-        if (!Floating) return;
+        if (!Floating || !_coversRows) return;
         WinoMailListTheme.FloatingGroupBackground.SetFill();
-        NSBezierPath.FillRect(new CGRect(0, 0, Bounds.Width, Bounds.Height - 6));
+        NSBezierPath.FillRect(Bounds);
     }
 
     public override void DrawSelection(CGRect dirtyRect)

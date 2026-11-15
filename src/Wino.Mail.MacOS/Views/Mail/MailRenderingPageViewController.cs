@@ -633,6 +633,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _stripTrailing.Constant = (nfloat)(-inset);
         _tilesToTrailing.Constant = (nfloat)(-inset);
         _avatar.Hidden = state == ReaderWidthState.Compact;
+        SetInvitationAnswersCompact(state != ReaderWidthState.Wide);
     }
 
     // ---- Wino Intelligence hooks (MailRenderingPageViewController.Intelligence.cs) ----

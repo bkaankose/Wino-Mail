@@ -30,10 +30,26 @@ public static class CalendarLayoutCalculator
     public static (int Lanes, bool HasOverflow) GetAllDayLaneCount(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items)
         => CalendarSurfaceLayoutCalculator.GetAllDayLaneCount(dates, items);
 
-    /// <summary>Timed and multi-day placements for the hour grid. X is relative to the first day column.</summary>
+    /// <summary>
+    /// Timed and multi-day placements for the hour grid. X is relative to the first day column.
+    /// In the stacked mode the shared layout keeps the Windows click gap to the right of a lone event only, so
+    /// side-by-side events reached the column edge and a lone one stopped short of it; on the Mac every event
+    /// ends at the same inset.
+    /// </summary>
     public static List<CalendarItemPlacement> CalculateTimed(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items,
         double dayWidth, double hourHeight, CalendarEventDisplayMode mode)
-        => CalendarSurfaceLayoutCalculator.CalculateTimed(dates, items, dayWidth, hourHeight, mode).ConvertAll(ToAppKit);
+    {
+        var placements = CalendarSurfaceLayoutCalculator.CalculateTimed(dates, items, dayWidth, hourHeight, mode).ConvertAll(ToAppKit);
+        if (mode != CalendarEventDisplayMode.Stacked || dayWidth <= 0) return placements;
+        for (int index = 0; index < placements.Count; index++)
+        {
+            var bounds = placements[index].Bounds;
+            double dayRight = (Math.Floor((bounds.X + 0.5) / dayWidth) + 1) * dayWidth;
+            if (Math.Abs(dayRight - 2 - CalendarSurfaceLayoutCalculator.ItemRightSpacing - bounds.GetMaxX()) < 0.5)
+                placements[index] = placements[index] with { Bounds = new CGRect(bounds.X, bounds.Y, bounds.Width + CalendarSurfaceLayoutCalculator.ItemRightSpacing, bounds.Height) };
+        }
+        return placements;
+    }
 
     /// <summary>All-day lanes above the hour grid, and the days whose extra items sit behind an "n more" link.</summary>
     public static (List<CalendarItemPlacement> Items, List<CalendarOverflowCell> Overflows) CalculateAllDay(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double dayWidth)
