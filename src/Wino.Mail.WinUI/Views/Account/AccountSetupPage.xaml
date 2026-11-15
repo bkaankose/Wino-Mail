@@ -1313,11 +1313,11 @@
                             Padding="0"
                             VerticalAlignment="Center"
                             AutomationProperties.AutomationId="AccountSetupLocalAccountInfo"
-                            AutomationProperties.HelpText="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo}"
+                            AutomationProperties.HelpText="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo_Device}"
                             AutomationProperties.Name="{x:Bind domain:Translator.AccountSetup_LocalAccountSetup}"
                             Background="Transparent"
                             BorderThickness="0"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo}">
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo_Device}">
                             <coreControls:WinoFontIcon
                                 FontFamily="{StaticResource WinoIconFontFamily}"
                                 FontSize="14"
@@ -1327,7 +1327,7 @@
                                 <Flyout Placement="Top">
                                     <TextBlock
                                         MaxWidth="280"
-                                        Text="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo}"
+                                        Text="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo_Device}"
                                         TextWrapping="WrapWholeWords" />
                                 </Flyout>
                             </Button.Flyout>

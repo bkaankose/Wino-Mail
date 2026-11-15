@@ -217,8 +217,8 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         var info = new UIButton { Configuration = infoConfiguration, TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Size(info, 32, 32);
         info.AccessibilityLabel = Translator.AccountSetup_LocalAccountSetup;
-        info.AccessibilityHint = Translator.AccountSetup_LocalAccountInfo;
-        EventHandler showInfo = (_, _) => ShowPopover(info, Translator.AccountSetup_LocalAccountInfo);
+        info.AccessibilityHint = Translator.AccountSetup_LocalAccountInfo_Device;
+        EventHandler showInfo = (_, _) => ShowPopover(info, Translator.AccountSetup_LocalAccountInfo_Device);
         info.PrimaryActionTriggered += showInfo;
         Bindings.Own(new ActionDisposable(() => info.PrimaryActionTriggered -= showInfo));
         var localGroup = WinoLayout.HStack(0, local, info);

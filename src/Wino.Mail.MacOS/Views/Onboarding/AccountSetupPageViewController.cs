@@ -217,12 +217,12 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
             Bordered = false,
             Image = WinoIcons.Image(WinoIconGlyph.Info, 14, WinoStyle.SecondaryText, Translator.AccountSetup_LocalAccountSetup),
             ImagePosition = NSCellImagePosition.ImageOnly,
-            ToolTip = Translator.AccountSetup_LocalAccountInfo,
+            ToolTip = Translator.AccountSetup_LocalAccountInfo_Device,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
         WinoLayout.Size(info, 22, 22);
         WinoAccessibility.Label(info, Translator.AccountSetup_LocalAccountSetup);
-        WinoAccessibility.Help(info, Translator.AccountSetup_LocalAccountInfo);
+        WinoAccessibility.Help(info, Translator.AccountSetup_LocalAccountInfo_Device);
         info.Activated += (_, _) => ShowLocalInfo(info);
         var localGroup = WinoLayout.HStack(2, local, info);
         var links = WinoLayout.HStack(WinoStyle.Space3, advanced, localGroup);
@@ -266,7 +266,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
     {
         if (_localInfo is null)
         {
-            var text = WinoStyle.Label(Translator.AccountSetup_LocalAccountInfo, WinoStyle.Body, WinoStyle.PrimaryText, 0);
+            var text = WinoStyle.Label(Translator.AccountSetup_LocalAccountInfo_Device, WinoStyle.Body, WinoStyle.PrimaryText, 0);
             text.PreferredMaxLayoutWidth = 280;
             var content = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
             WinoLayout.Fill(text, content, 12);

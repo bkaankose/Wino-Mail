@@ -284,10 +284,10 @@ public sealed partial class AccountSetupPageFragment : WinoFragment<AccountSetup
             info.Icon = WinoIconGlyph.Info;
             info.GlyphSize = 16;
             info.ContentDescription = Translator.AccountSetup_LocalAccountSetup;
-            TooltipCompat.SetTooltipText(info, Translator.AccountSetup_LocalAccountInfo);
+            TooltipCompat.SetTooltipText(info, Translator.AccountSetup_LocalAccountInfo_Device);
             binder.Click(info, () => new Google.Android.Material.Dialog.MaterialAlertDialogBuilder(context)
                 .SetTitle(Translator.AccountSetup_LocalAccountSetup)!
-                .SetMessage(Translator.AccountSetup_LocalAccountInfo)!
+                .SetMessage(Translator.AccountSetup_LocalAccountInfo_Device)!
                 .SetPositiveButton(Translator.Buttons_OK, (IDialogInterfaceOnClickListener?)null)!
                 .Show());
         }
