@@ -158,9 +158,10 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         NSToolbar.NSToolbarFlexibleSpaceItemIdentifier
     ];
 
+    // No flexible space here: a second one would split the free width and centre the mail actions instead of
+    // keeping them against the search field.
     private static readonly string[] TrailingIdentifiers =
     [
-        NSToolbar.NSToolbarFlexibleSpaceItemIdentifier,
         SearchId,
         BriefingId,
         WhatsNewId,
