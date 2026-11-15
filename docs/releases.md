@@ -16,7 +16,7 @@ The [release skill](../.claude/skills/release/SKILL.md) runs these steps; `scrip
 2. Draft the release notes: `pwsh scripts/release/release.ps1 notes`. Claude Code (`claude -p`, run locally) writes `release-notes/<major.minor.build>.md` from every commit since the previous `v*` tag, the issues labeled `pending release`, `Refs: #N` commit trailers, and `release-notes/unreleased.md`. The [format](../release-notes/README.md) separates Highlights from the full lists.
 3. Review that file. It is the only text you edit. Keep only major features in Highlights, and resolve the Review section.
 4. Add the What's New notes for the Highlights with the [whatsnew skill](../.claude/skills/whatsnew/SKILL.md).
-   The skill writes `src/Wino.Mail.WinUI/Assets/WhatsNew/<major.minor.build>.json` and its PNG illustrations. The Mac app bundles the same files. A release without Highlights has no What's New notes.
+   The skill writes `src/Wino.Mail.WinUI/Assets/WhatsNew/<major.minor.build>.json` and its PNG illustrations, plus an optional animated GIF per feature that only Windows plays. The Mac app bundles the same JSON and PNG files. A release without Highlights has no What's New notes.
 5. Run `pwsh -NoProfile -File ./scripts/release/whats-new/validate.ps1`.
 6. Render the Store text: `pwsh scripts/release/release.ps1 publish 2.2.6 -DryRun`. Paste `release-notes/.out/2.2.6/store.txt` into Partner Center's "What's new in this version" when you submit.
 

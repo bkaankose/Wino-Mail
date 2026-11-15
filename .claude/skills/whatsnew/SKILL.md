@@ -56,7 +56,7 @@ If you cannot find where the feature appears in the UI, **ask the user** where i
 
 ## 5. Build the illustration
 
-The PNG is the only output. The HTML scene is a scratch file: write it in the session scratchpad and never add it to the repository.
+The PNG is the required output; an animated GIF is optional (step 8). The HTML scene is a scratch file: write it in the session scratchpad and never add it to the repository.
 
 1. Copy [illustration-template.html](illustration-template.html) (next to this file) to `<scratchpad>/<image-name>.html`.
 2. Keep the template's `:root` space tokens and the `body` background unchanged. Every illustration shares this background.
@@ -73,6 +73,7 @@ The PNG is the only output. The HTML scene is a scratch file: write it in the se
    & "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe" --headless=new --disable-gpu --hide-scrollbars --user-data-dir="<scratchpad>\edge" --force-device-scale-factor=2 --window-size=560,300 --virtual-time-budget=2000 --screenshot="$PWD\src\Wino.Mail.WinUI\Assets\WhatsNew\<image-name>.png" "file:///<scratchpad>/<image-name>.html"
    ```
 7. Open the PNG with the Read tool and check it. Is the text readable? Does the feature stand out? Is the gradient visible and calm? Is nothing clipped by mistake? Fix the scene and render it again if needed.
+8. **Optional animation.** Only when the user asks for one, or a feature is hard to show in one picture (a flow, a typed request, several examples in turn). Build it as a Claude Motion artifact at 1120x600 on the same space background and mimic, with Wino's real logo and icons, silent, and looping without a seam (ambient motion on the loop's period, the last frame matching the first). The user exports it from the Motion page as a GIF and saves it as `Assets\WhatsNew\<image-name>.gif`, the PNG's name with `.gif`. Keep the PNG: macOS, iOS and Android show only the still, and the PNG should match a calm frame of the animation.
 
 ## 6. Write the notes file
 
@@ -94,11 +95,12 @@ The PNG is the only output. The HTML scene is a scratch file: write it in the se
 
 - Put the most important feature first. The window selects it by default.
 - `image` is the file name only. The app loads it as `ms-appx:///Assets/WhatsNew/<image>`.
+- `animation` is optional: the GIF's file name, for example `"animation": "wino-assistant.gif"`. Windows plays it in place of `image` and the GitHub release shows it; the other apps ignore it.
 
 ## 7. Packaging and validation
 
-- The PNGs are packaged by the Windows App SDK `**/*.png` Content glob. The JSON is packaged by `<Content Include="Assets\WhatsNew\*.json" />` in `Wino.Mail.WinUI.csproj`. Do not add per-file csproj entries.
-- Run `pwsh -NoProfile -File .\scripts\release\whats-new\validate.ps1`. It checks the JSON, the version, the image names, the 1120x600 size, and the csproj rules. Fix every failure.
-- `release.ps1 publish` also shows each PNG under its highlight in the GitHub release. It pairs a picture with the highlight that shares the most words with the picture's title and file name, so keep the title close to the highlight's wording.
+- The PNGs and GIFs are packaged by the Windows App SDK `**/*.png` and `**/*.gif` Content globs. The macOS, iOS and Android projects bundle only `*.png` from this folder, which is intended. The JSON is packaged by `<Content Include="Assets\WhatsNew\*.json" />` in `Wino.Mail.WinUI.csproj`. Do not add per-file csproj entries.
+- Run `pwsh -NoProfile -File .\scripts\release\whats-new\validate.ps1`. It checks the JSON, the version, the image and animation names, the 1120x600 size of both, and the csproj rules. Fix every failure.
+- `release.ps1 publish` also shows each picture under its highlight in the GitHub release, the GIF when a feature has one. It pairs a picture with the highlight that shares the most words with the picture's title and file name, so keep the title close to the highlight's wording.
 - Show the user the final titles, descriptions, and each PNG (send the PNGs to the user as files) for approval before they run the release script.
 - Do not build, deploy, or change `Package.appxmanifest`. The user runs the release scripts under `scripts/release/windows` or `scripts/release/macos`.

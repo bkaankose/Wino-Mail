@@ -5,7 +5,8 @@ Validates the What's New release notes bundled with the app.
 .DESCRIPTION
 Checks src/Wino.Mail.WinUI/Assets/WhatsNew/<version>.json for the given version (default: the
 Package.appxmanifest version) and every other notes file in the folder. Each feature needs a
-title, a description, and a 1120x600 PNG illustration with a descriptive kebab-case name.
+title, a description, and a 1120x600 PNG illustration with a descriptive kebab-case name. A feature
+may add an animated 1120x600 GIF of the same scene as 'animation'; only Windows plays it.
 A version may have no notes file when release-notes/<version>.md has no Highlights.
 Exits with code 1 when a check fails. Dot-source the script to use Get-WhatsNewValidationErrors.
 #>
@@ -21,6 +22,7 @@ $ErrorActionPreference = 'Stop'
 $script:WhatsNewImageWidth = 1120
 $script:WhatsNewImageHeight = 600
 $script:WhatsNewImageNamePattern = '^[a-z0-9]+(-[a-z0-9]+)+\.png$'
+$script:WhatsNewAnimationNamePattern = '^[a-z0-9]+(-[a-z0-9]+)+\.gif$'
 
 function Get-WhatsNewManifestVersion {
     param([string]$Root)
@@ -43,6 +45,19 @@ function Get-PngSize {
     $width = ([int]$bytes[16] -shl 24) -bor ([int]$bytes[17] -shl 16) -bor ([int]$bytes[18] -shl 8) -bor [int]$bytes[19]
     $height = ([int]$bytes[20] -shl 24) -bor ([int]$bytes[21] -shl 16) -bor ([int]$bytes[22] -shl 8) -bor [int]$bytes[23]
     return [pscustomobject]@{ Width = $width; Height = $height }
+}
+
+function Get-GifSize {
+    param([string]$Path)
+
+    # Width and height are the little-endian logical screen size right after the GIF87a/GIF89a signature.
+    $bytes = [byte[]]::new(10)
+    $stream = [IO.File]::OpenRead($Path)
+    try { $read = $stream.Read($bytes, 0, 10) } finally { $stream.Dispose() }
+    if ($read -lt 10) { return $null }
+    $signature = [Text.Encoding]::ASCII.GetString($bytes, 0, 6)
+    if ($signature -ne 'GIF87a' -and $signature -ne 'GIF89a') { return $null }
+    return [pscustomobject]@{ Width = [int]$bytes[6] -bor ([int]$bytes[7] -shl 8); Height = [int]$bytes[8] -bor ([int]$bytes[9] -shl 8) }
 }
 
 function Test-WhatsNewSkipped {
@@ -108,6 +123,22 @@ function Get-WhatsNewValidationErrors {
             if ($null -eq $size) { $errors.Add("${label}: $image is not a PNG file.") }
             elseif ($size.Width -ne $script:WhatsNewImageWidth -or $size.Height -ne $script:WhatsNewImageHeight) {
                 $errors.Add("${label}: $image is $($size.Width)x$($size.Height); it must be $($script:WhatsNewImageWidth)x$($script:WhatsNewImageHeight).")
+            }
+
+            # The animation is optional. Only Windows plays it, so the PNG above stays required as the other apps' still.
+            $animationProperty = $feature.PSObject.Properties['animation']
+            if ($null -eq $animationProperty -or [string]::IsNullOrEmpty([string]$animationProperty.Value)) { continue }
+            $animation = [string]$animationProperty.Value
+            if ($animation -notmatch $script:WhatsNewAnimationNamePattern) {
+                $errors.Add("${label}: animation '$animation' must be a descriptive kebab-case .gif name, such as colorful-icon-style.gif.")
+                continue
+            }
+            $animationPath = Join-Path $folder $animation
+            if (-not (Test-Path -LiteralPath $animationPath -PathType Leaf)) { $errors.Add("${label}: $animation is missing from Assets\WhatsNew."); continue }
+            $animationSize = Get-GifSize $animationPath
+            if ($null -eq $animationSize) { $errors.Add("${label}: $animation is not a GIF file.") }
+            elseif ($animationSize.Width -ne $script:WhatsNewImageWidth -or $animationSize.Height -ne $script:WhatsNewImageHeight) {
+                $errors.Add("${label}: $animation is $($animationSize.Width)x$($animationSize.Height); it must be $($script:WhatsNewImageWidth)x$($script:WhatsNewImageHeight).")
             }
         }
     }
