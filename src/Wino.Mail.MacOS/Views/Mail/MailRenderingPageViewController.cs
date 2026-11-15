@@ -64,7 +64,10 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private bool _dark;
     private bool _disposedReader;
     private NSStackView _header = null!;
-    private NSStackView _stripRow = null!;
+    private NSLayoutConstraint _stripLeading = null!;
+    private NSLayoutConstraint _stripTrailing = null!;
+    private NSLayoutConstraint _tilesToSaveAll = null!;
+    private NSLayoutConstraint _tilesToTrailing = null!;
     private readonly List<NSLayoutConstraint> _headerWidths = new();
     private NSLayoutConstraint _subjectLeading = null!;
     private NSLayoutConstraint _bodyLeading = null!;
@@ -200,7 +203,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
         // ---- Attachments ----
         _attachmentTiles = WinoLayout.HStack(10);
-        var tileScroll = new NSScrollView
+        var tileScroll = new AttachmentStripScrollView
         {
             DocumentView = _attachmentTiles,
             HasHorizontalScroller = true,
@@ -208,7 +211,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             DrawsBackground = false,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        tileScroll.HeightAnchor.ConstraintEqualTo(56).Active = true;
         tileScroll.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         _attachmentTiles.TopAnchor.ConstraintEqualTo(tileScroll.ContentView.TopAnchor).Active = true;
         _attachmentTiles.LeadingAnchor.ConstraintEqualTo(tileScroll.ContentView.LeadingAnchor).Active = true;
@@ -216,9 +218,25 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _saveAllButton.Image = WinoIcons.Image(WinoIconGlyph.ArrowDownload, 12, null, Translator.Reader_SaveAllAttachmentButtonText);
         _saveAllButton.ImagePosition = NSCellImagePosition.ImageLeading;
         _saveAllButton.Activated += (_, _) => Observe(ViewModel.SaveAllAttachmentsCommand.ExecuteAsync(null));
-        var stripRow = _stripRow = WinoLayout.HStack(10, tileScroll, _saveAllButton);
-        stripRow.EdgeInsets = new NSEdgeInsets(0, 24, 14, 24);
-        _attachmentStrip = stripRow;
+        _saveAllButton.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
+        // Explicit constraints rather than a stack: a horizontal NSStackView did not grow for its bottom inset,
+        // so the tiles sat on the window edge.
+        var strip = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        strip.AddSubview(tileScroll);
+        strip.AddSubview(_saveAllButton);
+        _stripLeading = tileScroll.LeadingAnchor.ConstraintEqualTo(strip.LeadingAnchor, 24);
+        _stripTrailing = _saveAllButton.TrailingAnchor.ConstraintEqualTo(strip.TrailingAnchor, -24);
+        _tilesToSaveAll = tileScroll.TrailingAnchor.ConstraintEqualTo(_saveAllButton.LeadingAnchor, -12);
+        _tilesToTrailing = tileScroll.TrailingAnchor.ConstraintEqualTo(strip.TrailingAnchor, -24);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            _stripLeading, _stripTrailing, _tilesToSaveAll,
+            tileScroll.TopAnchor.ConstraintEqualTo(strip.TopAnchor),
+            tileScroll.HeightAnchor.ConstraintEqualTo((nfloat)(AttachmentTileHeight + 4)),
+            tileScroll.BottomAnchor.ConstraintEqualTo(strip.BottomAnchor, -16),
+            _saveAllButton.CenterYAnchor.ConstraintEqualTo(_attachmentTiles.CenterYAnchor)
+        ]);
+        _attachmentStrip = strip;
         _attachmentStrip.Hidden = true;
 
         var stack = new NSStackView
@@ -496,7 +514,19 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var attachments = ViewModel.Attachments.ToArray();
         foreach (var attachment in attachments) _attachmentTiles.AddArrangedSubview(CreateTile(attachment));
         _attachmentStrip.Hidden = attachments.Length == 0;
-        _saveAllButton.Hidden = attachments.Length < 2;
+        bool saveAll = attachments.Length >= 2;
+        _saveAllButton.Hidden = !saveAll;
+        // Deactivate before activating: both sets pin the tiles' trailing edge.
+        if (saveAll)
+        {
+            _tilesToTrailing.Active = false;
+            _stripTrailing.Active = _tilesToSaveAll.Active = true;
+        }
+        else
+        {
+            _stripTrailing.Active = _tilesToSaveAll.Active = false;
+            _tilesToTrailing.Active = true;
+        }
     }
 
     private NSView CreateTile(MailAttachmentViewModel attachment)
@@ -509,9 +539,10 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var text = WinoLayout.VStack(1, name, details);
         text.Alignment = NSLayoutAttribute.Leading;
         var row = WinoLayout.HStack(10, icon, text);
-        row.EdgeInsets = new NSEdgeInsets(8, 8, 8, 12);
+        row.EdgeInsets = new NSEdgeInsets(0, 8, 0, 12);
         var tile = new AttachmentTile { Fill = WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), NSColor.White.ColorWithAlphaComponent((nfloat)0.06)), Stroke = WinoStyle.ZoneStroke, CornerRadius = WinoStyle.ControlRadius };
         WinoLayout.Fill(row, tile);
+        tile.HeightAnchor.ConstraintEqualTo((nfloat)AttachmentTileHeight).Active = true;
         tile.ToolTip = attachment.FileName;
         tile.AccessibilityLabel = $"{attachment.FileName}, {attachment.DetailsText}";
         tile.Opened += (_, _) => Observe(ViewModel.OpenAttachmentCommand.ExecuteAsync(attachment));
@@ -572,6 +603,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         base.ViewDidLayout();
         ApplyWidthState(View.Bounds.Width);
+        FitInvitationDetail();
         var dark = IsDarkAppearance();
         if (dark == _dark || _reader is null || _disposedReader) return;
         _dark = dark;
@@ -597,7 +629,9 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _bodyLeading.Constant = (nfloat)inset;
         _bodyTrailing.Constant = (nfloat)(-inset);
         _bodyBottom.Constant = (nfloat)(-inset);
-        _stripRow.EdgeInsets = new NSEdgeInsets(0, (nfloat)inset, 14, (nfloat)inset);
+        _stripLeading.Constant = (nfloat)inset;
+        _stripTrailing.Constant = (nfloat)(-inset);
+        _tilesToTrailing.Constant = (nfloat)(-inset);
         _avatar.Hidden = state == ReaderWidthState.Compact;
     }
 
@@ -734,6 +768,52 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             if (!_disposedReader && _reader is not null) _ = DisposeReaderAsync();
         }
         base.Dispose(disposing);
+    }
+
+    private const double AttachmentTileHeight = 48;
+
+    /// <summary>The tile strip; its trailing edge fades out while more tiles lie beyond it.</summary>
+    private sealed class AttachmentStripScrollView : NSScrollView
+    {
+        private const double FadeWidth = 36;
+        private readonly CoreAnimation.CAGradientLayer _fade = new()
+        {
+            StartPoint = new CGPoint(0, 0.5),
+            EndPoint = new CGPoint(1, 0.5),
+            Colors = [NSColor.Black.CGColor, NSColor.Black.CGColor, NSColor.Clear.CGColor]
+        };
+
+        public AttachmentStripScrollView() => WantsLayer = true;
+
+        public override void Layout()
+        {
+            base.Layout();
+            UpdateFade();
+        }
+
+        public override void ReflectScrolledClipView(NSClipView clipView)
+        {
+            base.ReflectScrolledClipView(clipView);
+            UpdateFade();
+        }
+
+        private void UpdateFade()
+        {
+            if (Layer is not { } layer) return;
+            var width = Bounds.Width;
+            bool more = width > FadeWidth && (DocumentView?.Frame.Width ?? 0) - ContentView.Bounds.GetMaxX() > 1;
+            if (!more)
+            {
+                if (layer.Mask is not null) layer.Mask = null;
+                return;
+            }
+            CoreAnimation.CATransaction.Begin();
+            CoreAnimation.CATransaction.DisableActions = true;
+            _fade.Frame = Bounds;
+            _fade.Locations = [Foundation.NSNumber.FromDouble(0), Foundation.NSNumber.FromDouble((width - FadeWidth) / width), Foundation.NSNumber.FromDouble(1)];
+            layer.Mask = _fade;
+            CoreAnimation.CATransaction.Commit();
+        }
     }
 
     /// <summary>Attachment tile: click opens, right-click shows Open and Save.</summary>

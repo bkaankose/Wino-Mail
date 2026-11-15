@@ -6,6 +6,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
+using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
 
@@ -71,7 +72,7 @@ public sealed class KeyboardShortcutsPageViewController(KeyboardShortcutsPageVie
             edit.ToolTip = Translator.Buttons_Edit;
             var delete = rows.Button(string.Empty, ViewModel.DeleteShortcutCommand, () => shortcut, icon: WinoIconGlyph.Delete);
             delete.ToolTip = Translator.Buttons_Delete;
-            var card = new WinoSettingsCard(shortcut.ActionDisplayName, shortcut.DisplayName, WinoIconGlyph.Keyboard, Row(mode, toggle, edit, delete));
+            var card = new WinoSettingsCard(shortcut.ActionDisplayName, ShortcutKeys.Display(shortcut.ModifierKeys, shortcut.Key), WinoIconGlyph.Keyboard, Row(mode, toggle, edit, delete));
             _shortcuts.Add(card);
         }
         _shortcuts.Hidden = _shortcuts.RowCount == 0;

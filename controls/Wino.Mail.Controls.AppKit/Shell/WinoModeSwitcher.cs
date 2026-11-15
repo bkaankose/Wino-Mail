@@ -453,10 +453,17 @@ public sealed class WinoModeSwitcher : NSView
         {
             bool changed = _selected != selected;
             _selected = selected;
-            _icon.Icon = selected ? Segment.Filled : Segment.Regular;
+            _icon.Icon = selected ? SelectedGlyph(Segment) : Segment.Regular;
             Refresh();
             if (selected && changed && animated) PlayGlyphPop();
         }
+
+        /// <summary>
+        /// The filled check circle cuts its check out of an 18pt disc, and the thin cut-out blurs to almost nothing on
+        /// the thumb, so To Do keeps its outlined glyph when selected.
+        /// </summary>
+        private static WinoIconGlyph SelectedGlyph(WinoModeSegment segment)
+            => segment.Filled == WinoIconGlyph.CheckmarkCircleFilled ? segment.Regular : segment.Filled;
 
         public void Refresh()
         {

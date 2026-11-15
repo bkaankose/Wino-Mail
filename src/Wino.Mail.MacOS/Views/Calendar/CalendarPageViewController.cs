@@ -123,6 +123,36 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
     }
 
     private NSLayoutConstraint _detailsLeading = null!;
+    private bool _detailsOverlay;
+
+    /// <summary>Below this page width the details zone floats over the grid instead of squeezing its columns.</summary>
+    private const double DetailsOverlayBelowWidth = DetailsWidth + 560;
+
+    private static readonly NSShadow DetailsOverlayShadow = new()
+    {
+        ShadowBlurRadius = 14,
+        ShadowOffset = new CGSize(-2, -2),
+        ShadowColor = NSColor.Black.ColorWithAlphaComponent(0.22f)
+    };
+
+    public override void ViewDidLayout()
+    {
+        base.ViewDidLayout();
+        UpdateDetailsPlacement();
+    }
+
+    private void UpdateDetailsPlacement()
+    {
+        bool show = !_detailsZone.Hidden;
+        bool overlay = show && View.Bounds.Width > 0 && View.Bounds.Width < DetailsOverlayBelowWidth;
+        if (_detailsLeading.Active != (show && !overlay)) _detailsLeading.Active = show && !overlay;
+        if (overlay == _detailsOverlay) return;
+        _detailsOverlay = overlay;
+        // A flat zone's fill lets the window material through, so the floating pane needs an opaque one.
+        _detailsZone.Fill = overlay ? NSColor.WindowBackground : WinoStyle.ZoneFill;
+        if (overlay) _detailsZone.Shadow = DetailsOverlayShadow;
+        else _detailsZone.FloatingRadius = _detailsZone.FloatingRadius;
+    }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
     {
@@ -405,7 +435,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             _detailsChild = next;
             bool show = next is not null && !_released;
             _detailsZone.Hidden = !show;
-            _detailsLeading.Active = show;
+            UpdateDetailsPlacement();
             if (next is null) return;
             AddChildViewController(next);
             WinoLayout.Fill(next.View, _detailsContent);
@@ -432,7 +462,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             previous?.Dispose();
             if (next is null || View.Window is not { } window) { next?.Dispose(); return; }
             _composer = next;
-            _composerSheet = next.CreateSheetWindow();
+            _composerSheet = next.CreateSheetWindow(window.ContentLayoutRect.Size);
             next.CloseRequested += ComposerCloseRequested;
             window.BeginSheet(_composerSheet, _ => { });
         });

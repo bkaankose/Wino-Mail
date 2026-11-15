@@ -49,9 +49,9 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
         var line = WinoLayout.HStack(8, _reach, _scope, _status, _done);
         _chips = new WinoFlowView();
         var stack = WinoLayout.VStack(8, line, _chips);
-        line.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-        _chips.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
         stack.EdgeInsets = new NSEdgeInsets(10, 12, 10, 12);
+        line.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor, 1, -24).Active = true;
+        _chips.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor, 1, -24).Active = true;
         WinoLayout.Fill(stack, this);
 
         var separator = new WinoSeparator();

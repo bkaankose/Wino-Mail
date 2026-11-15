@@ -35,8 +35,21 @@ public sealed class WinoAccountPresenter : IWinoAccountPresenter
 #endif
     }
 
-    /// <summary>The signed-in account, for the shell's button avatar; null when signed out.</summary>
-    public Task<WinoAccount?> GetActiveAccountAsync() => _profiles.GetActiveAccountAsync();
+    /// <summary>The signed-in account, for the shell's button avatar; null when signed out or when the session needs a new sign-in.</summary>
+    public async Task<WinoAccount?> GetActiveAccountAsync()
+        => await _profiles.GetActiveAccountAsync().ConfigureAwait(false) is { SessionInvalidatedUtc: null } account ? account : null;
+
+    /// <summary>
+    /// The same rule as the shared WinoAccountManagementPageViewModel, which shows Settings > Wino Account and
+    /// Wino Intelligence signed out when the profile refresh needs a new sign-in. The stored account row stays until
+    /// that sign-in replaces it, so reading the row alone showed the popover signed in while Settings offered Sign In.
+    /// </summary>
+    private static bool NeedsSignIn(string? errorCode)
+        => errorCode is Wino.Mail.Api.Contracts.Common.ApiErrorCodes.RefreshTokenInvalid
+            or WinoAccountClientErrorCodes.SignInRequired
+            or WinoAccountClientErrorCodes.AccountSessionChanged
+            or WinoAccountClientErrorCodes.RefreshTokenReused
+            or WinoAccountClientErrorCodes.SessionInvalid;
 
     public void Show(NSView anchor)
     {
@@ -61,9 +74,10 @@ public sealed class WinoAccountPresenter : IWinoAccountPresenter
 
     private async Task RefreshAsync(WinoAccountPopoverViewController content, int version)
     {
-        try { await _profiles.RefreshProfileAsync().ConfigureAwait(false); }
+        var needsSignIn = false;
+        try { needsSignIn = await _profiles.RefreshProfileAsync().ConfigureAwait(false) is { IsSuccess: false } failure && NeedsSignIn(failure.ErrorCode); }
         catch (Exception exception) { _logger.CaptureException(exception, nameof(WinoAccountPresenter)); }
-        var account = await _profiles.GetActiveAccountAsync().ConfigureAwait(false);
+        var account = needsSignIn ? null : await GetActiveAccountAsync().ConfigureAwait(false);
         NSImage? avatar = null;
         if (account is not null)
         {

@@ -408,6 +408,10 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         var item = Button(id, entry.Glyph, title, null);
         var button = (NSButton)item.View!;
         button.Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
+        button.ImageHugsTitle = true;
+        // The stable width of Flag and ToggleRead leaves spare room; leading-aligned, it collects after the title
+        // instead of between the glyph and the title.
+        button.Alignment = NSTextAlignment.Left;
         button.Activated += (_, _) => Safe(() => _execute(entry.Command, button));
         _commandItems[entry.Command] = item;
         ApplyCommandState(entry.Command, item);

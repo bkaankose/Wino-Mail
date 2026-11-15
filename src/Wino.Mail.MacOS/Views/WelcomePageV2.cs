@@ -86,7 +86,7 @@ public sealed class WelcomePageV2 : NSView
         ]);
     }
 
-    private const double HeroTextWidth = 460;
+    private const double HeroTextWidth = 520;
 
     private static void StyleAsLink(NSButton button)
     {

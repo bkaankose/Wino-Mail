@@ -162,6 +162,7 @@ public sealed class CompanionPopoverViewController : NSViewController
         _greeting.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         _date.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         var titles = WinoLayout.VStack(0, _greeting, _date);
+        titles.SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
         _snoozeButton = CompanionStyle.IconButton(WinoIconGlyph.Alert, Translator.Companion_SnoozeNotifications, ToggleSnooze, 32, 16);
         _snoozeButton.SetButtonType(NSButtonType.PushOnPushOff);
         var snoozeMenu = CompanionStyle.IconButton(WinoIconGlyph.ChevronDown, Translator.Companion_SnoozeNotifications, () => { }, 18, 10);

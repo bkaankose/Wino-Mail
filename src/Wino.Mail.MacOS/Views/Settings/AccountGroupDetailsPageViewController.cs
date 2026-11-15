@@ -229,6 +229,7 @@ public sealed class AccountGroupDetailsPageViewController(AccountGroupDetailsPag
             title = titleRow;
         }
         var text = WinoLayout.VStack(2, title, address);
+        text.SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
         text.Alignment = NSLayoutAttribute.Leading;
         text.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
         text.SetClippingResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);

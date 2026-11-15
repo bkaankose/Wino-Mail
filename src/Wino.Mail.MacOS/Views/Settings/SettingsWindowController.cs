@@ -143,8 +143,13 @@ public sealed class SettingsWindowController : NSWindowController
         _sidebar.PageSelected += (_, page) => SidebarPageSelected?.Invoke(this, page);
         window.WillClose += (_, _) => Closing?.Invoke(this, EventArgs.Empty);
         window.WindowShouldClose = _ => ShouldClose?.Invoke() ?? true;
+        window.InitialFirstResponder = _sidebar.InitialFocus;
         window.DidBecomeKey += (_, _) => ActiveChanged?.Invoke(this, true);
-        window.DidResignKey += (_, _) => ActiveChanged?.Invoke(this, window.IsMainWindow);
+        window.DidResignKey += (_, _) =>
+        {
+            _sidebar.DismissToolTips();
+            ActiveChanged?.Invoke(this, window.IsMainWindow);
+        };
     }
 
     public event EventHandler? BackRequested;

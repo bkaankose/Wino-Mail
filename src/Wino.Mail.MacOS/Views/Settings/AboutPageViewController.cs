@@ -40,7 +40,10 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
             Link(Translator.SettingsDiscord_Title, Translator.SettingsDiscord_Description, WinoIconGlyph.Discord, () => vm.DiscordChannelUrl));
         if (vm.IsMicrosoftStoreAvailable)
             links.Add(Link(Translator.SettingsStore_Title, Translator.SettingsStore_Description, WinoIconGlyph.MicrosoftStore, () => "Store"));
+#if !WINO_APPSTORE
+        // App Review 3.1.1: an App Store app may not link to outside payment for digital content, donations included.
         links.Add(Link(Translator.SettingsPaypal_Title, Translator.SettingsPaypal_Description, WinoIconGlyph.PayPal, () => vm.PaypalUrl));
+#endif
         links.Add(Link(Translator.SettingsPrivacyPolicy_Title, Translator.SettingsPrivacyPolicy_Description, WinoIconGlyph.Eye, () => vm.PrivacyPolicyUrl));
         Add(links);
 

@@ -151,6 +151,10 @@ public static class SettingsPageScrollView
         var clip = scroll.ContentView;
         var preferredWidth = content.WidthAnchor.ConstraintEqualTo(document.WidthAnchor, 1, (nfloat)(-2 * SettingsPageViewController<CoreBaseViewModel>.SidePadding));
         preferredWidth.Priority = 750;
+        // Above the 750 compression resistance of single-line labels, so a page truncates or wraps its text instead of
+        // widening the window (window stay-put is 500) every time a page with a long label appears.
+        var fitsWidth = content.LeadingAnchor.ConstraintGreaterThanOrEqualTo(document.LeadingAnchor, (nfloat)SettingsPageViewController<CoreBaseViewModel>.SidePadding);
+        fitsWidth.Priority = 999;
         NSLayoutConstraint.ActivateConstraints(
         [
             document.LeadingAnchor.ConstraintEqualTo(clip.LeadingAnchor),
@@ -160,7 +164,7 @@ public static class SettingsPageScrollView
             content.BottomAnchor.ConstraintEqualTo(document.BottomAnchor, -28),
             content.CenterXAnchor.ConstraintEqualTo(document.CenterXAnchor),
             content.WidthAnchor.ConstraintLessThanOrEqualTo((nfloat)SettingsPageViewController<CoreBaseViewModel>.ContentMaxWidth),
-            content.LeadingAnchor.ConstraintGreaterThanOrEqualTo(document.LeadingAnchor, (nfloat)SettingsPageViewController<CoreBaseViewModel>.SidePadding),
+            fitsWidth,
             preferredWidth
         ]);
         return scroll;

@@ -132,13 +132,22 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
     public override void ViewDidLayout()
     {
         base.ViewDidLayout();
+        UpdateDetailPane();
+    }
+
+    /// <summary>
+    /// Below the Windows breakpoint the details pane stays collapsed until a contact is selected; then it
+    /// shares the zone with the list, narrower if needed, so a selection always shows the contact.
+    /// </summary>
+    private void UpdateDetailPane()
+    {
         var width = View.Window?.Frame.Width ?? View.Bounds.Width + 260;
         bool wide = width >= WideBreakpoint;
-        if (_detailPane.Hidden == wide)
-        {
-            _detailPane.Hidden = !wide;
-            _detailWidth.Constant = wide ? (nfloat)DetailWidth : 0;
-        }
+        bool show = wide || ViewModel.SelectedContact is not null;
+        double paneWidth = wide ? DetailWidth : Math.Min(DetailWidth, Math.Max(280, Math.Floor(_zone.ContentView.Bounds.Width / 2)));
+        if (_detailPane.Hidden != !show) _detailPane.Hidden = !show;
+        var constant = (nfloat)(show ? paneWidth : 0);
+        if (_detailWidth.Constant != constant) _detailWidth.Constant = constant;
     }
 
     private void ReadinessChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)

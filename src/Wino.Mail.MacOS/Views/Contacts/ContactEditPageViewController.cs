@@ -49,7 +49,7 @@ public sealed class ContactEditPageViewController : WinoViewController<ContactEd
     {
         _root = new NSView();
         var zone = new WinoZoneView();
-        WinoLayout.Fill(zone, _root, 2, 4, 7, 7);
+        zone.AttachTo(_root, 2, 4, 7, 7);
         var content = zone.ContentView;
 
         var hero = BuildHero();
@@ -147,6 +147,7 @@ public sealed class ContactEditPageViewController : WinoViewController<ContactEd
         _previewName = WinoStyle.Label(string.Empty, WinoStyle.PageTitle);
         _previewSubtitle = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.SecondaryText);
         var text = WinoLayout.VStack(2, _previewName, _previewSubtitle);
+        text.SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
         text.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
 
         _favorite = CommandButton(string.Empty, ViewModel.ToggleFavoriteCommand);
@@ -163,6 +164,7 @@ public sealed class ContactEditPageViewController : WinoViewController<ContactEd
         var row = WinoLayout.HStack(16, photoHost, text, WinoLayout.Spacer(), buttons);
         row.EdgeInsets = new NSEdgeInsets(14, 24, 14, 24);
         WinoLayout.Fill(row, hero);
+        hero.HeightAnchor.ConstraintGreaterThanOrEqualTo(photoHost.HeightAnchor, 1, 28).Active = true;
         return hero;
     }
 

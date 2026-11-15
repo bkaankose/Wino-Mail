@@ -265,14 +265,15 @@ internal sealed class AccountSetupAppRowView : NSView
         WinoAccessibility.Label(_switch, string.Format(Translator.AccountSetup_Review_UseApp, row.Title));
         _switch.Activated += (_, _) => { if (!_applying) Row.IsOn = _switch.State != 0; };
         _switch.Hidden = !row.IsSwitchVisible;
-        // Mail has no switch; the empty slot keeps its drop-down in line with the others.
+        // Mail has no switch; the empty slot keeps its drop-down in line with the others. The slot takes the switch's
+        // own width (it grew in macOS 26), so the drop-down never runs under it.
         var switchSlot = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         switchSlot.AddSubview(_switch);
         NSLayoutConstraint.ActivateConstraints(
         [
-            switchSlot.WidthAnchor.ConstraintEqualTo(40),
+            switchSlot.WidthAnchor.ConstraintEqualTo(_switch.WidthAnchor),
             switchSlot.HeightAnchor.ConstraintEqualTo(_switch.HeightAnchor),
-            _switch.TrailingAnchor.ConstraintEqualTo(switchSlot.TrailingAnchor),
+            _switch.LeadingAnchor.ConstraintEqualTo(switchSlot.LeadingAnchor),
             _switch.CenterYAnchor.ConstraintEqualTo(switchSlot.CenterYAnchor)
         ]);
         var trailing = WinoLayout.HStack(WinoStyle.Space3, _source, switchSlot);

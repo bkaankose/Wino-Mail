@@ -18,6 +18,7 @@ public abstract class IntelligenceSubPageViewController(WinoAccountManagementPag
     : SettingsPageViewController<WinoAccountManagementPageViewModel>(viewModel, dispatcher, logger)
 {
     private readonly NSStackView _mailboxRows = WinoLayout.VStack(4);
+    private WinoSettingsGroup? _mailboxGroup;
     private BindingScope? _rowScope;
     private bool _rebuildQueued;
 
@@ -33,6 +34,13 @@ public abstract class IntelligenceSubPageViewController(WinoAccountManagementPag
         WinoIntelligenceDebug.Current = ViewModel;
 #endif
         return _mailboxRows;
+    }
+
+    /// <summary>The mailbox list under its group header; the header hides while there is no mailbox to list.</summary>
+    protected void AddMailboxGroup(string title)
+    {
+        _mailboxGroup = AddGroup(title, MailboxList());
+        _mailboxGroup.Hidden = ViewModel.IntelligenceMailboxes.Count == 0;
     }
 
     protected virtual NSView CreateMailboxRow(WinoIntelligenceMailboxItemViewModel item, SettingsBinder rows) => new();
@@ -61,6 +69,7 @@ public abstract class IntelligenceSubPageViewController(WinoAccountManagementPag
             _mailboxRows.AddArrangedSubview(row);
             row.WidthAnchor.ConstraintEqualTo(_mailboxRows.WidthAnchor).Active = true;
         }
+        if (_mailboxGroup is not null) _mailboxGroup.Hidden = _mailboxRows.ArrangedSubviews.Length == 0;
     }
 
     protected WinoInfoBar Bar(WinoInfoBarSeverity severity, string property, Func<WinoAccountManagementPageViewModel, string?> message)
@@ -92,7 +101,7 @@ public sealed class MailClassificationPageViewController(WinoAccountManagementPa
         Add(Bind.Visible(consent, vm, nameof(vm.IsConsentGranted), s => !s.IsConsentGranted));
         AddGroup(null, Card(Translator.WinoIntelligence_Briefing_OpenTitle, Translator.WinoIntelligence_Briefing_OpenDescription, WinoIconGlyph.DailyBriefing,
             Bind.Button(Translator.Buttons_Open, vm.OpenDailyBriefingCommand)));
-        AddGroup(Translator.WinoIntelligence_MailAccountsHeader, MailboxList());
+        AddMailboxGroup(Translator.WinoIntelligence_MailAccountsHeader);
     }
 
     protected override NSView CreateMailboxRow(WinoIntelligenceMailboxItemViewModel item, SettingsBinder rows)

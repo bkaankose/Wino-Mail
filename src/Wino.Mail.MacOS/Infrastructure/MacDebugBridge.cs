@@ -172,7 +172,9 @@ public static class MacDebugBridge
         });
         Register("size", args =>
         {
-            var window = NSApplication.SharedApplication.MainWindow ?? AllWindows().FirstOrDefault(item => item.IsVisible);
+            // In the background there is no main window; the largest titled window is the shell, not the status item.
+            var window = NSApplication.SharedApplication.MainWindow
+                ?? AllWindows().Where(item => item.IsVisible && item.StyleMask.HasFlag(NSWindowStyle.Titled)).MaxBy(item => item.Frame.Width * item.Frame.Height);
             if (window is null) return Task.FromResult("no window");
             var frame = window.Frame;
             window.SetFrame(new CoreGraphics.CGRect(frame.X, frame.Y, (nfloat)double.Parse(args[0]), (nfloat)double.Parse(args[1])), true);

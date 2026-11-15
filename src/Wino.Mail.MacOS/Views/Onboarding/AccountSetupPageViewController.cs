@@ -24,8 +24,8 @@ namespace Wino.Mail.MacOS.Views.Onboarding;
 /// Address-first account setup (Windows AccountSetupPage): one column with the step's title, the account pill, the
 /// step, and a pinned footer with the setup links, Back and the primary button. Every step and rule comes from the
 /// shared <see cref="AccountSetupPageViewModel"/>; the page re-reads it once per run-loop turn after any change, because
-/// most of its state is computed and raised in groups. The welcome wizard centres the column; Settings > Add account
-/// starts it at the top with leading-aligned text, as Windows does.
+/// most of its state is computed and raised in groups. The welcome wizard and Settings > Add account both run in the
+/// onboarding window, so both centre the column and show the address step's title.
 /// </summary>
 public sealed partial class AccountSetupPageViewController(AccountSetupPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : WinoViewController<AccountSetupPageViewModel>(viewModel, dispatcher, logger)
@@ -43,8 +43,6 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
 
     private NSScrollView _scroll = null!;
     private NSLayoutConstraint _columnWidthConstraint = null!;
-    private NSLayoutConstraint _wizardCenter = null!;
-    private NSLayoutConstraint _settingsTop = null!;
     private NSView _logo = null!;
     private NSTextField _title = null!;
     private NSTextField _subtitle = null!;
@@ -84,7 +82,6 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
     {
         ViewModel.IsSecureSignInSupportedByHost = true;
         ViewModel.OnNavigatedTo(mode, parameter!);
-        ApplyHostLayout(ViewModel.IsSettingsHost);
         // The palette is loaded by OnNavigatedTo and never raises a change of its own.
         var palette = ViewModel.AvailableColors.Select(color => color.Hex).ToList();
         foreach (var button in _colorButtons) button.Colors = palette;
@@ -112,11 +109,8 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         // The column takes its step's width; the window's minimum width always leaves room for it.
         _columnWidthConstraint = column.WidthAnchor.ConstraintEqualTo((nfloat)StepWidth);
         _columnWidthConstraint.Priority = 999;
-        _wizardCenter = column.CenterYAnchor.ConstraintEqualTo(document.CenterYAnchor);
-        _wizardCenter.Priority = 740;
-        _settingsTop = column.TopAnchor.ConstraintEqualTo(document.TopAnchor, 24);
-        _settingsTop.Priority = 760;
-        _settingsTop.Active = false;
+        var center = column.CenterYAnchor.ConstraintEqualTo(document.CenterYAnchor);
+        center.Priority = 740;
         var compact = document.HeightAnchor.ConstraintEqualTo(0);
         compact.Priority = 1;
         NSLayoutConstraint.ActivateConstraints(
@@ -125,13 +119,15 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
             column.BottomAnchor.ConstraintLessThanOrEqualTo(document.BottomAnchor, -24),
             column.CenterXAnchor.ConstraintEqualTo(document.CenterXAnchor),
             column.WidthAnchor.ConstraintLessThanOrEqualTo(document.WidthAnchor, 1, -48),
-            _columnWidthConstraint, _wizardCenter, compact
+            _columnWidthConstraint, center, compact
         ]);
 
         _scroll = new NSScrollView
         {
             HasVerticalScroller = true,
             AutohidesScrollers = true,
+            // The scroll view starts below the transparent title bar (safe area), so it needs no title-bar inset of its own.
+            AutomaticallyAdjustsContentInsets = false,
             DrawsBackground = false,
             TranslatesAutoresizingMaskIntoConstraints = false,
             DocumentView = document
@@ -153,7 +149,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         page.AddSubview(footer);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _scroll.TopAnchor.ConstraintEqualTo(page.TopAnchor),
+            _scroll.TopAnchor.ConstraintEqualTo(page.SafeAreaLayoutGuide.TopAnchor),
             _scroll.LeadingAnchor.ConstraintEqualTo(page.LeadingAnchor),
             _scroll.TrailingAnchor.ConstraintEqualTo(page.TrailingAnchor),
             _scroll.BottomAnchor.ConstraintEqualTo(separator.TopAnchor),
@@ -166,6 +162,9 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         ]);
         return page;
     }
+
+    private static string AddressAwareTitle(AccountSetupPageViewModel vm)
+        => vm.Step == AccountSetupStep.Address && vm.IsSettingsHost && !vm.IsLocalOnlyMode ? Translator.AccountSetup_Title_Address : vm.StepTitle;
 
     /// <summary>The address step shows the Wino Mail mark; every step has its title and, on some, a subtitle.</summary>
     private NSView BuildHeader()
@@ -183,27 +182,19 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         _subtitle = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.SecondaryText, 0);
         Wrap(_title);
         Wrap(_subtitle);
-        Text(_title, vm => vm.StepTitle);
-        When(_title, vm => vm.HasStepTitle);
+        // The shared ViewModel leaves the address title to the Windows Settings page header; on the Mac both entry points
+        // open the onboarding window, which has no header of its own.
+        Text(_title, AddressAwareTitle);
+        When(_title, vm => !string.IsNullOrEmpty(AddressAwareTitle(vm)));
         Text(_subtitle, vm => vm.StepSubtitle);
         When(_subtitle, vm => vm.HasStepSubtitle);
         _title.AccessibilityRole = NSAccessibilityRoles.StaticTextRole;
 
+        _title.Alignment = NSTextAlignment.Center;
+        _subtitle.Alignment = NSTextAlignment.Center;
         var header = AccountSetupUi.Column(6, _logo, _title, _subtitle);
         header.SetCustomSpacing(8, _logo);
         return header;
-    }
-
-    /// <summary>Wizard: centred column and text. Settings: top-aligned column with leading text.</summary>
-    private void ApplyHostLayout(bool isSettings)
-    {
-        _wizardCenter.Active = !isSettings;
-        _settingsTop.Active = isSettings;
-        var alignment = isSettings ? NSTextAlignment.Left : NSTextAlignment.Center;
-        _title.Alignment = alignment;
-        _subtitle.Alignment = alignment;
-        _knownCenter.Active = !isSettings;
-        _knownLeading.Active = isSettings;
     }
 
     private NSView BuildFooter()

@@ -179,6 +179,9 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
             error.Hidden = string.IsNullOrWhiteSpace(text);
         });
         var terms = Bind.Label(vm, nameof(vm.IntelligenceHeroTermsText), s => s.IntelligenceHeroTermsText, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        // The shared terms describe Stripe checkout ("Price is shown at checkout"); App Store builds show the StoreKit
+        // price beside the button and the subscription terms below instead.
+        terms.Hidden = vm.UsesAppStorePurchases;
 
         var column = Column(4);
         foreach (var view in new NSView[] { title, description, signedOut, signedIn, error, terms }) column.AddArrangedSubview(view);

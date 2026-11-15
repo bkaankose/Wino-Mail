@@ -109,6 +109,8 @@ public sealed class PrivacySecurityPageViewController(PrivacySecurityPageViewMod
 
         var row = WinoLayout.HStack(20, icon, text);
         row.Alignment = NSLayoutAttribute.Top;
+        // Wrapping labels stay at their narrowest width unless the text column is tied to the row's edge.
+        text.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor).Active = true;
         var hero = new WinoSurfaceView { Fill = WinoSettingsStyle.CardFill, Stroke = WinoSettingsStyle.CardStroke, StrokeWidth = 1, CornerRadius = 8, TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(row, hero, 20, 20, 20, 20);
         return hero;
@@ -156,7 +158,6 @@ public sealed class PrivacySecurityPageViewController(PrivacySecurityPageViewMod
         var title = WinoStyle.Label(option.Title, WinoSettingsStyle.CardTitle, WinoStyle.PrimaryText, 0);
         var heading = WinoLayout.HStack(6, radio, title);
         heading.Alignment = NSLayoutAttribute.FirstBaseline;
-        if (option.IsRecommended) heading.AddArrangedSubview(RecommendedTag(option.RecommendedText));
 
         var content = WinoLayout.VStack(6);
         content.Alignment = NSLayoutAttribute.Leading;
@@ -170,6 +171,14 @@ public sealed class PrivacySecurityPageViewController(PrivacySecurityPageViewMod
 
         heading.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
         Append(heading);
+        // The tag gets its own line: beside the title it squeezed "Block trackers" onto two lines, and at the Settings
+        // window's minimum width it pushed the title out of the card.
+        if (option.IsRecommended)
+        {
+            var tagRow = WinoLayout.HStack(0, RecommendedTag(option.RecommendedText), WinoLayout.Spacer());
+            tagRow.EdgeInsets = new NSEdgeInsets(0, 24, 0, 0);
+            Append(tagRow);
+        }
         Append(WinoStyle.Label(option.Tagline, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0));
         Append(WinoStyle.Label(option.LoadsHeader, WinoStyle.CaptionStrong, WinoStyle.PrimaryText), 4);
         foreach (var line in option.Loads) Append(ListLine(WinoIconGlyph.Checkmark, WinoStyle.Success, line));

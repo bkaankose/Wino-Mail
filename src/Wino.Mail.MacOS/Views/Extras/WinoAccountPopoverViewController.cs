@@ -19,6 +19,8 @@ public sealed class WinoAccountPopoverViewController : NSViewController
 
     private NSStackView _signedOut = null!;
     private NSStackView _signedIn = null!;
+    private NSLayoutConstraint _signedOutBottom = null!;
+    private NSLayoutConstraint _signedInBottom = null!;
     private WinoContactPicture _picture = null!;
     private NSTextField _name = null!;
     private NSTextField _email = null!;
@@ -66,11 +68,16 @@ public sealed class WinoAccountPopoverViewController : NSViewController
             [
                 section.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
                 section.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
-                section.TopAnchor.ConstraintEqualTo(root.TopAnchor),
-                section.BottomAnchor.ConstraintLessThanOrEqualTo(root.BottomAnchor)
+                section.TopAnchor.ConstraintEqualTo(root.TopAnchor)
             ]);
         }
+        // Only the shown section is tied to the bottom; a hidden section keeps its constraints and held the
+        // signed-out height under the shorter signed-in layout.
+        _signedOutBottom = _signedOut.BottomAnchor.ConstraintEqualTo(root.BottomAnchor);
+        _signedInBottom = _signedIn.BottomAnchor.ConstraintEqualTo(root.BottomAnchor);
+        _signedOutBottom.Active = true;
         View = root;
+        PreferredContentSize = new CGSize(Width, _signedOut.FittingSize.Height);
         WinoAccessibility.Label(root, Translator.WinoAccount_Titlebar_SignedOutTitle);
     }
 
@@ -80,13 +87,20 @@ public sealed class WinoAccountPopoverViewController : NSViewController
         var signedIn = account is not null;
         _signedOut.Hidden = signedIn;
         _signedIn.Hidden = !signedIn;
-        if (account is null) return;
-        var displayName = string.IsNullOrWhiteSpace(account.DisplayName) ? account.Email : account.DisplayName;
-        _name.StringValue = displayName;
-        _email.StringValue = account.Email;
-        _picture.SetIdentity(displayName, account.Email);
-        _picture.Image = avatar;
-        if (avatar is null) _picture.Image = null;
+        (signedIn ? _signedOutBottom : _signedInBottom).Active = false;
+        (signedIn ? _signedInBottom : _signedOutBottom).Active = true;
+        if (account is not null)
+        {
+            var displayName = string.IsNullOrWhiteSpace(account.DisplayName) ? account.Email : account.DisplayName;
+            _name.StringValue = displayName;
+            _email.StringValue = account.Email;
+            _picture.SetIdentity(displayName, account.Email);
+            _picture.Image = avatar;
+        }
+        // The popover window holds the root at its current size, so the shown section's own height drives the resize.
+        var section = signedIn ? _signedIn : _signedOut;
+        section.LayoutSubtreeIfNeeded();
+        PreferredContentSize = new CGSize(Width, section.FittingSize.Height);
     }
 
     /// <summary>The Windows hero: a soft mint-sky-indigo gradient behind 20pt padding.</summary>

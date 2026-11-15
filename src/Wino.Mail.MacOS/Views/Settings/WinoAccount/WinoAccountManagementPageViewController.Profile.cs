@@ -110,6 +110,7 @@ public sealed partial class WinoAccountManagementPageViewController
         identity.Alignment = NSLayoutAttribute.Leading;
         nameRow.WidthAnchor.ConstraintLessThanOrEqualTo(identity.WidthAnchor).Active = true;
         identity.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
+        identity.SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
 
         var busyIndicator = BusySpinner(vm, nameof(vm.IsBusy), s => s.IsBusy);
         var changePassword = Bind.Button(Translator.WinoAccount_ChangePassword_Title, vm.ChangePasswordCommand);

@@ -50,6 +50,10 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
         var reset = Bind.Button(Translator.FolderCustomization_Reset, vm.ResetCommand, icon: WinoIconGlyph.ArrowReset);
         var header = WinoLayout.HStack(WinoStyle.Space3, text, reset);
         header.Alignment = NSLayoutAttribute.CenterY;
+        // Fill gives the text column the free width, so Reset sits at the trailing edge and the description wraps there.
+        header.Distribution = NSStackViewDistribution.Fill;
+        reset.SetContentHuggingPriorityForOrientation(751, NSLayoutConstraintOrientation.Horizontal);
+        description.WidthAnchor.ConstraintEqualTo(text.WidthAnchor).Active = true;
         header.EdgeInsets = new NSEdgeInsets(0, 1, 8, 0);
         Add(header);
 

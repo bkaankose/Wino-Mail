@@ -29,7 +29,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
             nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption, (s, v) => s.SelectedEventDisplayModeOption = v);
         Bind.Bind(vm, nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption?.Description, text => modeDescription.StringValue = text ?? string.Empty);
         var overlapCard = new WinoSettingsCard(Translator.CalendarSettings_OverlappingEvents_Header, null, WinoIconGlyph.None, modePopup) { BottomContent = modeDescription };
-        var overlap = new WinoSettingsExpander(Translator.CalendarSettings_Overlap_Header, Translator.CalendarSettings_Overlap_Description, isExpanded: true);
+        var overlap = new WinoSettingsExpander(Translator.CalendarSettings_Overlap_Header, Translator.CalendarSettings_Overlap_Description, WinoIconGlyph.CalendarWeek, isExpanded: true);
         overlap.Add(overlapCard);
 
         var preview = new OverlapPreviewView();

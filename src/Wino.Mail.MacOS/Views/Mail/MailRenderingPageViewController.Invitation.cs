@@ -418,4 +418,16 @@ public sealed partial class MailRenderingPageViewController
 
         public override void MouseExited(NSEvent theEvent) => Fill = null;
     }
+
+    /// <summary>
+    /// A narrow reader leaves the header's date summary a few letters wide ("10…"); it fades out instead, and the
+    /// expanded details still show it in full. Alpha keeps its layout slot, so the measurement does not flip back.
+    /// </summary>
+    private void FitInvitationDetail()
+    {
+        if (_invitationDetail is null || _invitationDetail.Hidden) return;
+        double needed = Math.Min(_invitationDetail.IntrinsicContentSize.Width, 96);
+        nfloat alpha = _invitationDetail.Frame.Width + 0.5 >= needed ? 1 : 0;
+        if (_invitationDetail.AlphaValue != alpha) _invitationDetail.AlphaValue = alpha;
+    }
 }

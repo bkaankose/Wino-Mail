@@ -31,7 +31,6 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
     private static readonly NSColor PaneFill = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.03), WinoStyle.Hex(0xFFFFFF, 0.04));
 
     private NSPopUpButton _calendarPicker = null!;
-    private WinoSurfaceView _calendarDot = null!;
     private NSPopUpButton _showAs = null!;
     private NSPopUpButton _reminder = null!;
     private NSButton _private = null!;
@@ -70,28 +69,29 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
     public event EventHandler? CloseRequested;
 
     /// <summary>The sheet window that shows this controller; the calendar page begins and ends it.</summary>
-    public NSWindow CreateSheetWindow()
+    public NSWindow CreateSheetWindow(CGSize parentContentSize)
     {
-        var window = new NSWindow(new CGRect(0, 0, 980, 680), NSWindowStyle.Titled | NSWindowStyle.Resizable, NSBackingStore.Buffered, false)
+        double width = Math.Min(980, Math.Max(600, parentContentSize.Width - 40));
+        double height = Math.Min(680, Math.Max(420, parentContentSize.Height - 40));
+        PreferredContentSize = new CGSize(width, height);
+        var window = new NSWindow(new CGRect(0, 0, width, height), NSWindowStyle.Titled | NSWindowStyle.Resizable, NSBackingStore.Buffered, false)
         {
             Title = Translator.CalendarEventCompose_NewEventButton,
             ContentViewController = this,
-            MinSize = new CGSize(760, 520)
+            ContentMinSize = new CGSize(Math.Min(760, width), Math.Min(520, height))
         };
+        window.SetContentSize(new CGSize(width, height));
         return window;
     }
 
     public override void LoadView()
     {
-        PreferredContentSize = new CGSize(980, 680);
+        if (PreferredContentSize.Width <= 0) PreferredContentSize = new CGSize(980, 680);
         var root = new NSView();
 
         // Command bar.
-        _calendarDot = new WinoSurfaceView { CornerRadius = 7, Fill = WinoStyle.Accent };
-        WinoLayout.Size(_calendarDot, 14, 14);
         _calendarPicker = new NSPopUpButton { TranslatesAutoresizingMaskIntoConstraints = false };
         _calendarPicker.Activated += (_, _) => { if (_calendarPicker.SelectedItem?.RepresentedObject is CalendarChoice choice) ViewModel.SelectedCalendar = choice.Calendar; };
-        var calendarGroup = WinoLayout.HStack(6, _calendarDot, _calendarPicker);
         _showAs = Popup(Translator.CalendarEventDetails_ShowAs);
         _showAs.Activated += (_, _) => Select(ViewModel.ShowAsOptions, _showAs, option => ViewModel.SelectedShowAsOption = option);
         _reminder = Popup(Translator.CalendarEventDetails_Reminder);
@@ -119,11 +119,14 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         MacDebugBridge.Register("calsave", _ => { createBinding.Execute(); return Task.FromResult("ok"); });
 #endif
         var bar = WinoLayout.HStack(10,
-            Glyph(WinoIconGlyph.Calendar), calendarGroup,
+            Glyph(WinoIconGlyph.Calendar), _calendarPicker,
             Glyph(WinoIconGlyph.CalendarShowAs), _showAs,
             Glyph(WinoIconGlyph.Reminder), _reminder,
             _private, _onlineMeeting, WinoLayout.Spacer(), cancel, _save);
         bar.EdgeInsets = new NSEdgeInsets(8, 12, 8, 12);
+        // The pop-ups and the online meeting title truncate before the bar forces the sheet past a minimum-size shell.
+        foreach (var view in new NSView[] { _calendarPicker, _showAs, _reminder, _onlineMeeting })
+            view.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         var barCard = new WinoSurfaceView { Fill = WinoStyle.ZoneFill, Stroke = WinoStyle.ZoneStroke, CornerRadius = 7 };
         WinoLayout.Fill(bar, barCard);
 
@@ -464,7 +467,6 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         {
             foreach (var item in menu.Items)
                 if (item.RepresentedObject is CalendarChoice choice && ReferenceEquals(choice.Calendar, selected)) { _calendarPicker.SelectItem(item); break; }
-            _calendarDot.Fill = WinoStyle.FromHexString(selected.BackgroundColorHex) ?? WinoStyle.Accent;
         }
         else
         {

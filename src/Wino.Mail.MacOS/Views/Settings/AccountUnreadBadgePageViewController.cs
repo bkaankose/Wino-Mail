@@ -120,7 +120,7 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
         return host;
     }
 
-    /// <summary>84×34 white tile that frames each illustration.</summary>
+    /// <summary>112×34 tile that frames each illustration; wide enough for a short account name beside its badge.</summary>
     private static WinoSurfaceView IllustrationTile()
     {
         var tile = new WinoSurfaceView
@@ -130,7 +130,7 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
             CornerRadius = 6,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        WinoLayout.Size(tile, 84, 34);
+        WinoLayout.Size(tile, 112, 34);
         tile.AccessibilityElement = false;
         return tile;
     }
@@ -184,7 +184,7 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
             ImageScaling = NSImageScale.ProportionallyUpOrDown,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        WinoLayout.Size(icon, 26, 26);
+        WinoLayout.Size(icon, 24, 24);
         tile.AddSubview(icon);
         var count = WinoStyle.Label(string.Empty, TinyStrong, NSColor.White);
         var badge = CountPill(count, NSColor.SystemRed, NSColor.White);
@@ -192,7 +192,7 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
         NSLayoutConstraint.ActivateConstraints(
         [
             icon.CenterXAnchor.ConstraintEqualTo(tile.CenterXAnchor, -4),
-            icon.CenterYAnchor.ConstraintEqualTo(tile.CenterYAnchor, 1),
+            icon.CenterYAnchor.ConstraintEqualTo(tile.CenterYAnchor, 3),
             badge.LeadingAnchor.ConstraintEqualTo(icon.TrailingAnchor, -10),
             badge.TopAnchor.ConstraintEqualTo(icon.TopAnchor, -4)
         ]);

@@ -161,15 +161,12 @@ public sealed partial class ToDoPageViewController
         dueMenu.AddItem(NSMenuItem.SeparatorItem);
         dueMenu.AddItem(_removeDueItem = MenuItem(Translator.ToDoPage_RemoveDueDate, () => Observe(ViewModel.SetDuePresetCommand.ExecuteAsync("none"))));
         _dueRow = new WinoDrawerActionRow(WinoIconGlyph.Calendar, Translator.ToDoPage_AddDueDate, WinoStyle.Accent) { Menu = dueMenu, FollowsAccent = true };
-        var remindRow = new WinoDrawerActionRow(WinoIconGlyph.AlertOff, Translator.ToDoPage_RemindMe, trailing: Translator.ToDoPage_ComingSoon) { Enabled = false };
-        var repeatRow = new WinoDrawerActionRow(WinoIconGlyph.ArrowRepeatAll, Translator.ToDoPage_Repeat, trailing: Translator.ToDoPage_ComingSoon) { Enabled = false };
         var rule = new WinoSurfaceView { Fill = WinoToDoStyle.CardStroke };
         rule.HeightAnchor.ConstraintEqualTo(1).Active = true;
         _deleteRow = new WinoDrawerActionRow(WinoIconGlyph.Delete, Translator.ToDoPage_DeleteTask, WinoToDoStyle.Critical, WinoToDoStyle.Critical);
         _deleteRow.Clicked += (_, _) => { if (ViewModel.SelectedTask is { } task) Observe(ViewModel.DeleteTaskCommand.ExecuteAsync(task)); };
         var ruleRow = Indent(rule, 12);
-        var schedule = Section(scheduleLabel, Indent(_myDayRow), Indent(_dueRow), Indent(remindRow), Indent(repeatRow), ruleRow, Indent(_deleteRow));
-        schedule.SetCustomSpacing(6, Indent(repeatRow));
+        var schedule = Section(scheduleLabel, Indent(_myDayRow), Indent(_dueRow), ruleRow, Indent(_deleteRow));
         schedule.SetCustomSpacing(6, ruleRow);
 
         var notesLabel = Indent(WinoDrawerSection.Label(Translator.ToDoPage_Notes), 12);

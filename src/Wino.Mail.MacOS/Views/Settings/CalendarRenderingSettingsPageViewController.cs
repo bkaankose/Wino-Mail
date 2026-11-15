@@ -40,20 +40,32 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
         var slider = new NSSlider { MinValue = 40, MaxValue = 120, AltIncrementValue = 5, Continuous = true, TranslatesAutoresizingMaskIntoConstraints = false };
         slider.WidthAnchor.ConstraintEqualTo(260).Active = true;
         WinoAccessibility.Label(slider, Translator.CalendarSettings_HourHeight_Header);
-        var sample = new WinoSurfaceView { Stroke = WinoStyle.SecondaryText, CornerRadius = 2 };
+        // One hour of the timeline: the hour labels sit on the hour lines, a fainter line marks the half hour.
+        var sample = new WinoSurfaceView { Fill = WinoSettingsStyle.SubtleFill, Stroke = NSColor.Separator, CornerRadius = 4 };
         var sampleHeight = sample.HeightAnchor.ConstraintEqualTo(60);
         sampleHeight.Active = true;
-        sample.WidthAnchor.ConstraintEqualTo(100).Active = true;
-        var half = new WinoSeparator { Fill = WinoStyle.SecondaryText };
+        sample.WidthAnchor.ConstraintEqualTo(160).Active = true;
+        var half = new WinoSeparator { Fill = NSColor.Separator };
         sample.AddSubview(half);
+        var startLabel = Caption("00:00");
+        var endLabel = Caption("01:00");
+        var sampleRow = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        foreach (var view in new NSView[] { startLabel, endLabel, sample }) sampleRow.AddSubview(view);
         NSLayoutConstraint.ActivateConstraints(
         [
             half.LeadingAnchor.ConstraintEqualTo(sample.LeadingAnchor),
             half.TrailingAnchor.ConstraintEqualTo(sample.TrailingAnchor),
-            half.CenterYAnchor.ConstraintEqualTo(sample.CenterYAnchor)
+            half.CenterYAnchor.ConstraintEqualTo(sample.CenterYAnchor),
+            startLabel.LeadingAnchor.ConstraintEqualTo(sampleRow.LeadingAnchor),
+            endLabel.LeadingAnchor.ConstraintEqualTo(sampleRow.LeadingAnchor),
+            sample.LeadingAnchor.ConstraintEqualTo(startLabel.TrailingAnchor, 8),
+            sample.LeadingAnchor.ConstraintGreaterThanOrEqualTo(endLabel.TrailingAnchor, 8),
+            sample.TrailingAnchor.ConstraintLessThanOrEqualTo(sampleRow.TrailingAnchor),
+            startLabel.CenterYAnchor.ConstraintEqualTo(sample.TopAnchor),
+            endLabel.CenterYAnchor.ConstraintEqualTo(sample.BottomAnchor),
+            startLabel.TopAnchor.ConstraintEqualTo(sampleRow.TopAnchor),
+            endLabel.BottomAnchor.ConstraintEqualTo(sampleRow.BottomAnchor)
         ]);
-        var sampleRow = Row(Caption("00:00"), sample);
-        sampleRow.Alignment = NSLayoutAttribute.Bottom;
         Bind.Bind(vm, nameof(vm.CellHourHeight), s => s.CellHourHeight, value =>
         {
             slider.DoubleValue = value;

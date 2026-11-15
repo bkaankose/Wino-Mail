@@ -37,23 +37,32 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     /// a panel opened from a sheet (the event editor's Add attachment) never appeared and held the
     /// presentation gate for good.
     /// </summary>
-    private NSWindow ResolveOwner()
+    private NSWindow ResolveOwner() => ResolveOwner(false);
+
+    /// <param name="preferSetupWindow">
+    /// Account setup prompts (progress, server certificates) belong to the open Add account window even when another
+    /// window happens to be key, for example after the user clicked the shell while the account was being added.
+    /// </param>
+    private NSWindow ResolveOwner(bool preferSetupWindow)
     {
         var key = NSApplication.SharedApplication.KeyWindow;
-        var window = key is { IsVisible: true } && key.StyleMask.HasFlag(NSWindowStyle.Titled)
-            ? key
-            : owner() ?? NSApplication.SharedApplication.MainWindow ?? throw new InvalidOperationException("No owning window is available.");
+        var window = (preferSetupWindow ? VisibleSetupWindow() : null)
+            ?? (key is { IsVisible: true } && key.StyleMask.HasFlag(NSWindowStyle.Titled) ? key : null)
+            ?? owner() ?? NSApplication.SharedApplication.MainWindow ?? throw new InvalidOperationException("No owning window is available.");
         while (window.AttachedSheet is { } sheet) window = sheet;
         return window;
     }
 
-    private async Task<T> PresentAsync<T>(Func<NSWindow, Task<T>> present)
+    private static NSWindow? VisibleSetupWindow()
+        => NSApplication.SharedApplication.DangerousWindows.OfType<WelcomeWindow>().FirstOrDefault(window => window.IsVisible);
+
+    private async Task<T> PresentAsync<T>(Func<NSWindow, Task<T>> present, bool preferSetupWindow = false)
     {
         await _presentations.WaitAsync();
         try
         {
             Task<T>? operation = null;
-            await dispatcher.ExecuteOnUIThread(() => operation = present(ResolveOwner()));
+            await dispatcher.ExecuteOnUIThread(() => operation = present(ResolveOwner(preferSetupWindow)));
             return await operation!;
         }
         finally { _presentations.Release(); }
@@ -308,7 +317,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         sheet.ReleaseWhenClosed(false);
 
         var source = new PickerSource<T>(roots, children, text, symbol, tint, selectable);
-        var outline = new NSOutlineView { HeaderView = null, RowHeight = 26, Style = NSTableViewStyle.SourceList, IndentationPerLevel = 14 };
+        var outline = PickerOutline();
         var column = new NSTableColumn("item") { ResizingMask = NSTableColumnResizing.Autoresizing };
         outline.AddColumn(column);
         outline.OutlineTableColumn = column;
@@ -367,6 +376,21 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         return completion.Task;
     });
 
+    /// <summary>
+    /// The list in the picker sheets. A source list draws its sidebar material, a light gray well in a dark sheet, and
+    /// shows an unfocused selection as accent text on gray; the inset style uses the control background and the system
+    /// selection, whose label colours invert on the emphasized highlight.
+    /// </summary>
+    private static NSOutlineView PickerOutline() => new()
+    {
+        HeaderView = null,
+        RowHeight = 26,
+        Style = NSTableViewStyle.Inset,
+        SelectionHighlightStyle = NSTableViewSelectionHighlightStyle.Regular,
+        BackgroundColor = NSColor.ControlBackground,
+        IndentationPerLevel = 14
+    };
+
     private sealed class PickerSource<T>(IReadOnlyList<T> roots, Func<T, IEnumerable<T>> children, Func<T, string> text,
         Func<T, NSImage?> symbol, Func<T, NSColor?> tint, Func<T, bool> selectable, Func<T, bool>? header = null) : NSOutlineViewDataSource, INSOutlineViewDelegate where T : class
     {
@@ -401,11 +425,11 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 
         private bool IsHeader(NSObject? item) => header is not null && item is Box box && header(box.Item);
 
-        [Export("outlineView:isGroupItem:")]
-        public bool IsGroupItem(NSOutlineView outlineView, NSObject item) => IsHeader(item);
-
         [Export("outlineView:shouldSelectItem:")]
         public bool ShouldSelectItem(NSOutlineView outlineView, NSObject item) => !IsHeader(item);
+
+        [Export("outlineView:heightOfRowByItem:")]
+        public nfloat GetRowHeight(NSOutlineView outlineView, NSObject item) => IsHeader(item) ? 32 : 26;
 
         [Export("outlineView:shouldCollapseItem:")]
         public bool ShouldCollapseItem(NSOutlineView outlineView, NSObject item) => !IsHeader(item);
@@ -431,7 +455,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
             var isHeader = header?.Invoke(value) == true;
             cell.TextField!.StringValue = text(value);
             cell.TextField.Font = isHeader ? WinoStyle.CaptionStrong : WinoStyle.Body;
-            cell.TextField.TextColor = isHeader ? WinoStyle.SecondaryText : selectable(value) ? WinoStyle.PrimaryText : WinoStyle.TertiaryText;
+            cell.TextField.TextColor = isHeader ? NSColor.SecondaryLabel : selectable(value) ? NSColor.Label : NSColor.TertiaryLabel;
             cell.ImageView!.Image = symbol(value);
             cell.ImageView.ContentTintColor = tint(value) ?? WinoStyle.Accent;
             cell.ImageView.Hidden = isHeader;
@@ -623,9 +647,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
                 _label.TextColor = WinoStyle.TertiaryText;
                 return;
             }
-            var symbols = (modifiers.HasFlag(ModifierKeys.Control) ? "⌃" : "") + (modifiers.HasFlag(ModifierKeys.Alt) ? "⌥" : "")
-                + (modifiers.HasFlag(ModifierKeys.Shift) ? "⇧" : "") + (modifiers.HasFlag(ModifierKeys.Command) ? "⌘" : "");
-            _label.StringValue = symbols + " " + Key;
+            _label.StringValue = ShortcutKeys.Display(modifiers, Key);
             _label.TextColor = WinoStyle.PrimaryText;
             AccessibilityValue = new NSString(_label.StringValue);
         }
@@ -635,7 +657,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 
     #endregion
 
-    public IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult result) => new AccountProgress(dispatcher, ResolveOwner, error);
+    public IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult result) => new AccountProgress(dispatcher, () => ResolveOwner(true), error);
 
     /// <summary>
     /// Required by <see cref="IDialogServiceBase"/>, but no shared code calls it: Mac account creation

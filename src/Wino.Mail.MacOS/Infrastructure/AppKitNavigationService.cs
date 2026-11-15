@@ -27,7 +27,7 @@ public sealed class AppKitNavigationService : INavigationService, INavigationHos
     private IRenderingFrameHost? _renderingHost;
     // Onboarding pages opened while the shell is up (Settings > Add account) use their own window
     // so the main window and its mail state stay in place.
-    private NSWindow? _secondaryWindow;
+    private WelcomeWindow? _secondaryWindow;
     private NSViewController? _secondaryController;
     private NSObject? _secondaryClosing;
 
@@ -185,7 +185,7 @@ public sealed class AppKitNavigationService : INavigationService, INavigationHos
             }
             else
             {
-                _secondaryWindow.ContentViewController = controller;
+                _secondaryWindow.ShowPage(controller);
                 _secondaryWindow.MakeKeyAndOrderFront(null);
             }
         });

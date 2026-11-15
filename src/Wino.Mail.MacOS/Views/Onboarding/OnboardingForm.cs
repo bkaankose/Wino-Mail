@@ -244,7 +244,9 @@ internal sealed class OnboardingPageView : NSView
         var document = new FlippedView();
         document.AddSubview(column);
         var preferredWidth = column.WidthAnchor.ConstraintEqualTo(document.WidthAnchor, 1, -96);
-        preferredWidth.Priority = 750;
+        // Below the window's stay-put priority (500): the column follows the window. At 750 it resized the onboarding
+        // window to the column (612pt, under its 640pt minimum) whenever this page arrived.
+        preferredWidth.Priority = 490;
         NSLayoutConstraint.ActivateConstraints(
         [
             column.TopAnchor.ConstraintEqualTo(document.TopAnchor, 40),
@@ -254,10 +256,13 @@ internal sealed class OnboardingPageView : NSView
             preferredWidth
         ]);
 
+        // The scroll view starts below the transparent title bar's safe area (it replaces the automatic title-bar
+        // inset), so scrolled content never runs under the traffic lights.
         var scroll = new NSScrollView
         {
             HasVerticalScroller = true,
             AutohidesScrollers = true,
+            AutomaticallyAdjustsContentInsets = false,
             DrawsBackground = false,
             TranslatesAutoresizingMaskIntoConstraints = false,
             DocumentView = document
@@ -274,7 +279,7 @@ internal sealed class OnboardingPageView : NSView
         AddSubview(footer);
         NSLayoutConstraint.ActivateConstraints(
         [
-            scroll.TopAnchor.ConstraintEqualTo(TopAnchor),
+            scroll.TopAnchor.ConstraintEqualTo(SafeAreaLayoutGuide.TopAnchor),
             scroll.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
             scroll.TrailingAnchor.ConstraintEqualTo(TrailingAnchor),
             scroll.BottomAnchor.ConstraintEqualTo(separator.TopAnchor),

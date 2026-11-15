@@ -86,7 +86,9 @@ internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsP
         mark.AccessibilityElement = false;
         var name = WinoStyle.Label(title, WinoStyle.BodyStrong, enabled ? WinoStyle.PrimaryText : WinoStyle.TertiaryText, 0);
         var detail = WinoStyle.Label(description, NSFont.SystemFontOfSize(12), enabled ? WinoStyle.SecondaryText : WinoStyle.TertiaryText, 0);
-        detail.PreferredMaxLayoutWidth = 340;
+        // The column is about 338pt (480 sheet, insets, radio and mark); measuring at a wider width under-counted the
+        // lines, and the second line ran into the card's bottom edge.
+        detail.PreferredMaxLayoutWidth = 324;
         var text = WinoLayout.VStack(2, name, detail);
         text.Alignment = NSLayoutAttribute.Leading;
         detail.WidthAnchor.ConstraintEqualTo(text.WidthAnchor).Active = true;

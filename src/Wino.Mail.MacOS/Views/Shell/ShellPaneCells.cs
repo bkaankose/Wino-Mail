@@ -128,11 +128,12 @@ internal sealed class ShellPaneCell : NSTableCellView
         _action.OnActivated(this, static cell => { if (cell._item is { } item) cell.ActionClicked?.Invoke(item); });
         _chevron.WidthAnchor.ConstraintEqualTo(12).Active = true;
 
-        _row = WinoLayout.HStack(12, _leadingBox, text, _attention, _pill, _action, _chevron);
+        // The chevron sits before the unread pill so a group's count lines up with the other rows' counts.
+        _row = WinoLayout.HStack(12, _leadingBox, text, _attention, _action, _chevron, _pill);
         _row.EdgeInsets = new NSEdgeInsets(0, AvatarInset, 0, 10);
         _row.Distribution = NSStackViewDistribution.Fill;
         _row.SetCustomSpacing((nfloat)IconTextSpacing, _leadingBox);
-        _row.SetCustomSpacing(8, _pill);
+        _row.SetCustomSpacing(8, _chevron);
         WinoLayout.Fill(_row, this);
         // The text block's centre is pinned to the icon column's centre (avatar, glyph or checkbox).
         text.CenterYAnchor.ConstraintEqualTo(_leadingBox.CenterYAnchor).Active = true;
@@ -473,7 +474,7 @@ internal sealed class ShellPaneCell : NSTableCellView
     {
         if (_chevron.Hidden) return false;
         var chevron = ConvertRectFromView(_chevron.Bounds, _chevron);
-        return point.X >= chevron.X - 12;
+        return point.X >= chevron.X - 12 && (_pill.Hidden || point.X <= chevron.GetMaxX() + 4);
     }
 
     protected override void Dispose(bool disposing)

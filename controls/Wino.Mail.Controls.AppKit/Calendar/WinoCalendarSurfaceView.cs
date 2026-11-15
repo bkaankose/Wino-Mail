@@ -828,7 +828,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 NowColor.SetFill();
                 FillRect(new CGRect(HourColumnWidth + span.First * dayWidth, y - 1, span.Count * dayWidth, 2));
                 if (span.TodayIndex >= 0)
-                    NSBezierPath.FromOvalInRect(new CGRect(HourColumnWidth + span.TodayIndex * dayWidth - 5, y - 5, 10, 10)).Fill();
+                    NSBezierPath.FromOvalInRect(new CGRect(HourColumnWidth + span.TodayIndex * dayWidth, y - 5, 10, 10)).Fill();
             }
             Owner.DrawTimedSelection();
         }

@@ -32,6 +32,14 @@ public sealed class RemoteContentRulesPageViewController(RemoteContentRulesPageV
         var pattern = Bind.TextField(vm, nameof(vm.NewPattern), s => s.NewPattern, (s, v) => s.NewPattern = v, Translator.RemoteContentRules_PatternPlaceholder, 0);
         pattern.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         WinoAccessibility.Label(pattern, Translator.RemoteContentRules_PatternPlaceholder);
+        // The long placeholder ends in an ellipsis instead of a cut-off word when the field is narrow; the tooltip has it all.
+        pattern.PlaceholderAttributedString = new NSAttributedString(Translator.RemoteContentRules_PatternPlaceholder, new NSStringAttributes
+        {
+            Font = pattern.Font,
+            ForegroundColor = NSColor.PlaceholderText,
+            ParagraphStyle = new NSMutableParagraphStyle { LineBreakMode = NSLineBreakMode.TruncatingTail }
+        });
+        pattern.ToolTip = Translator.RemoteContentRules_PatternPlaceholder;
         Bind.OnActivated(pattern, () =>
         {
             if (vm.AddRuleCommand.CanExecute(null)) vm.AddRuleCommand.Execute(null);

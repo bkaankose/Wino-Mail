@@ -46,6 +46,8 @@ public sealed partial class MailListPageViewController
     private bool _syncingSelectAll;
     private NSView _onlineSearchPanel = null!;
     private NSTextField _emptyLabel = null!;
+    private WinoIconView _emptyIcon = null!;
+    private NSStackView _emptyState = null!;
     private NSProgressIndicator _listProgress = null!;
     private static readonly TimeSpan ProjectionThrottle = TimeSpan.FromMilliseconds(120);
     private int _projectionApplyScheduled;
@@ -158,13 +160,16 @@ public sealed partial class MailListPageViewController
         _scroll.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Vertical);
         _scroll.ContentView.PostsBoundsChangedNotifications = true;
 
-        _emptyLabel = WinoStyle.Label(Translator.NoMessageEmptyFolder, NSFont.SystemFontOfSize(20, NSFontWeight.UltraLight), WinoStyle.Informational.ColorWithAlphaComponent((nfloat)0.4), 0);
+        _emptyIcon = new WinoIconView(WinoIconGlyph.Inbox, 48, WinoStyle.TertiaryText);
+        _emptyLabel = WinoStyle.Label(Translator.NoMessageEmptyFolder, WinoStyle.BodyStrong, maximumLines: 0);
         _emptyLabel.Alignment = NSTextAlignment.Center;
-        _emptyLabel.Hidden = true;
+        _emptyState = WinoLayout.VStack(10, _emptyIcon, _emptyLabel);
+        _emptyState.Alignment = NSLayoutAttribute.CenterX;
+        _emptyState.Hidden = true;
         _listProgress = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
         var listHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(_scroll, listHost);
-        listHost.AddSubview(_emptyLabel);
+        listHost.AddSubview(_emptyState);
         listHost.AddSubview(_listProgress);
         // The undo bar stacks above the update bar; both float over the bottom of the list.
         var bottomBars = WinoLayout.VStack(4, BuildUndoBar(), _infoBarHost);
@@ -177,9 +182,9 @@ public sealed partial class MailListPageViewController
             bottomBars.LeadingAnchor.ConstraintEqualTo(listHost.LeadingAnchor, 8),
             bottomBars.TrailingAnchor.ConstraintEqualTo(listHost.TrailingAnchor, -8),
             bottomBars.BottomAnchor.ConstraintEqualTo(listHost.BottomAnchor, -8),
-            _emptyLabel.CenterXAnchor.ConstraintEqualTo(listHost.CenterXAnchor),
-            _emptyLabel.CenterYAnchor.ConstraintEqualTo(listHost.CenterYAnchor),
-            _emptyLabel.WidthAnchor.ConstraintLessThanOrEqualTo(listHost.WidthAnchor, 1, -40),
+            _emptyState.CenterXAnchor.ConstraintEqualTo(listHost.CenterXAnchor),
+            _emptyState.CenterYAnchor.ConstraintEqualTo(listHost.CenterYAnchor),
+            _emptyState.WidthAnchor.ConstraintLessThanOrEqualTo(listHost.WidthAnchor, 1, -40),
             _listProgress.CenterXAnchor.ConstraintEqualTo(listHost.CenterXAnchor),
             _listProgress.CenterYAnchor.ConstraintEqualTo(listHost.CenterYAnchor)
         ]);
@@ -431,8 +436,10 @@ public sealed partial class MailListPageViewController
         _listProgress.Hidden = !loading;
         if (loading) _listProgress.StartAnimation(null);
         else _listProgress.StopAnimation(null);
-        _emptyLabel.StringValue = ViewModel.IsInSearchMode ? Translator.NoMessageCrieteria : Translator.NoMessageEmptyFolder;
-        _emptyLabel.Hidden = !(empty && !ViewModel.IsInitializingFolder);
+        bool searching = ViewModel.IsInSearchMode;
+        _emptyLabel.StringValue = searching ? Translator.NoMessageCrieteria : Translator.NoMessageEmptyFolder;
+        _emptyIcon.Icon = searching ? WinoIconGlyph.Find : WinoIconGlyph.Inbox;
+        _emptyState.Hidden = !(empty && !ViewModel.IsInitializingFolder);
     }
 
     private void ApplySelectionMode(bool enabled)

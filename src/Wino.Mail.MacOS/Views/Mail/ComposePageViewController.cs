@@ -52,6 +52,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
     private NSProgressIndicator _draftSpinner = null!;
     private NSButton _popOutButton = null!;
     private NSPopUpButton _fromPopup = null!;
+    private NSTextField _fromLabel = null!;
     private NSTokenField _toField = null!;
     private NSTokenField _ccField = null!;
     private NSTokenField _bccField = null!;
@@ -136,6 +137,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         var discard = ToolbarButton(WinoIconGlyph.Delete, Translator.Buttons_Discard, () => Observe(ViewModel.DiscardCommand.ExecuteAsync(null)));
         var commandRow = WinoLayout.HStack(8, _sendButton, _sendToServerButton, attach, signature, template, rewrite, WinoLayout.Spacer(), _draftSpinner, _draftStatus, _popOutButton, discard);
         commandRow.SetCustomSpacing(4, _draftSpinner);
+
         commandRow.AccessibilityElement = true;
         commandRow.AccessibilityRole = NSAccessibilityRoles.ToolbarRole;
         WinoAccessibility.Label(commandRow, Translator.Composer_CommandBarLabel);
@@ -170,7 +172,14 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         _subjectField.DoCommandBySelector = SubjectCommand;
         WinoAccessibility.Label(_subjectField, Translator.ComposerSubject.Trim().TrimEnd(':'));
 
-        var fromRow = FieldRow(Translator.ComposerFrom.Trim().TrimEnd(':'), _fromPopup);
+        // A single sender shows as text: a disabled pop-up reads as an unavailable field.
+        _fromLabel = WinoStyle.Label(string.Empty, WinoStyle.Body);
+        _fromLabel.LineBreakMode = NSLineBreakMode.TruncatingTail;
+        _fromLabel.Selectable = true;
+        _fromLabel.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+        _fromLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        WinoAccessibility.Label(_fromLabel, Translator.ComposerFrom.Trim().TrimEnd(':'));
+        var fromRow = FieldRow(Translator.ComposerFrom.Trim().TrimEnd(':'), _fromPopup, _fromLabel);
         var toRow = FieldRow(Translator.ComposerTo.Trim().TrimEnd(':'), _toField, _ccBccButtons);
         _ccRow = FieldRow("Cc", _ccField);
         _bccRow = FieldRow("Bcc", _bccField);
@@ -216,6 +225,15 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
     // ---- View helpers ----
 
     private NSWindow? Window() => View.Window;
+
+    public override void ViewDidLayout()
+    {
+        base.ViewDidLayout();
+        // Squeezed, the draft status shrank to a lone "…" beside the icon buttons; it fades out until it fits.
+        if (_draftStatus is null) return;
+        nfloat alpha = _draftStatus.Frame.Width + 0.5 >= _draftStatus.IntrinsicContentSize.Width ? 1 : 0;
+        if (_draftStatus.AlphaValue != alpha) _draftStatus.AlphaValue = alpha;
+    }
 
     private NSView FieldRow(string label, params NSView[] content)
     {
@@ -449,7 +467,11 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         {
             _fromPopup.AddItem(string.IsNullOrWhiteSpace(account.SenderName) ? account.Address : $"{account.SenderName} <{account.Address}>");
         }
-        _fromPopup.Enabled = aliases is { Count: > 1 };
+        bool choice = aliases is { Count: > 1 };
+        _fromPopup.Enabled = choice;
+        _fromPopup.Hidden = !choice;
+        _fromLabel.StringValue = _fromPopup.TitleOfSelectedItem ?? string.Empty;
+        _fromLabel.Hidden = choice;
     }
 
     private void UpdateSendButtons()
