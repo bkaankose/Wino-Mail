@@ -41,27 +41,7 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
         var detected = ExchangeTransport.Automatic;
 
         if (serverInformation.EffectiveExchangeTransport == ExchangeTransport.ActiveSync)
-        {
-            try
-            {
-                if (serverInformation.UseOAuthAuthentication)
-                    throw new NotSupportedException(Translator.ExchangeSetup_ActiveSyncPasswordRequired);
-                using var client = new EasClient(ewsUri.AbsoluteUri, serverInformation.IncomingServerUsername,
-                    serverInformation.IncomingServerPassword ?? string.Empty, account.Id);
-                await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
-                await client.FolderSyncAsync("0", cancellationToken).ConfigureAwait(false);
-                return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Succeeded, ExchangeTransport.ActiveSync);
-            }
-            catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.CredentialRejected);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                Logger.Warning(ex, "The ActiveSync connection check against {Host} failed.", ewsUri.Host);
-                return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, ExchangeTransport.ActiveSync, ex.Message);
-            }
-        }
+            return await TestActiveSyncAsync(account, cancellationToken).ConfigureAwait(false);
 
         if (serverInformation.ExchangeTransport != ExchangeTransport.Ews)
         {
@@ -113,11 +93,46 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            if (IsUnauthorized(ex))
-                return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.CredentialRejected);
+            var ewsResult = IsUnauthorized(ex)
+                ? new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.CredentialRejected)
+                : new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, detected, ex.Message);
 
             Logger.Warning(ex, "The Exchange connection check against {Host} failed.", ewsUri.Host);
-            return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, detected, ex.Message);
+
+            // Servers such as Zoho Mail expose only ActiveSync, so Automatic tries it on the same host before giving up.
+            if (serverInformation.ExchangeTransport != ExchangeTransport.Automatic || serverInformation.UseOAuthAuthentication)
+                return ewsResult;
+
+            var activeSyncResult = await TestActiveSyncAsync(account, cancellationToken).ConfigureAwait(false);
+            return activeSyncResult.Status == ExchangeConnectionTestStatus.Succeeded ? activeSyncResult : ewsResult;
+        }
+    }
+
+    private static async System.Threading.Tasks.Task<ExchangeConnectionTestResult> TestActiveSyncAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        var serverInformation = account.ServerInformation!;
+        var endpoint = ExchangeServerEndpoint.Normalize(serverInformation.IncomingServer, ExchangeTransport.ActiveSync);
+        if (endpoint == null)
+            return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, FailureReason: Translator.ExchangeSetup_ServerAddressInvalid);
+
+        try
+        {
+            if (serverInformation.UseOAuthAuthentication)
+                throw new NotSupportedException(Translator.ExchangeSetup_ActiveSyncPasswordRequired);
+            using var client = new EasClient(endpoint.AbsoluteUri, serverInformation.IncomingServerUsername,
+                serverInformation.IncomingServerPassword ?? string.Empty, account.Id);
+            await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
+            await client.FolderSyncAsync("0", cancellationToken).ConfigureAwait(false);
+            return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Succeeded, ExchangeTransport.ActiveSync);
+        }
+        catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.CredentialRejected);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "The ActiveSync connection check against {Host} failed.", endpoint.Host);
+            return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, ExchangeTransport.ActiveSync, ex.Message);
         }
     }
 

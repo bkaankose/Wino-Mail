@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Misc;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Services;
@@ -43,7 +44,10 @@ internal sealed class EasSynchronizationEngine : IDisposable
         var server = account.ServerInformation ?? throw new InvalidOperationException("EAS server settings are missing.");
         if (server.UseOAuthAuthentication)
             throw new NotSupportedException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncPasswordRequired);
-        _client = client ?? new EasClient(server.IncomingServer, server.IncomingServerUsername,
+        // Automatic detection keeps the EWS URL it started from; Normalize maps it to the ActiveSync path on the same host.
+        var endpoint = ExchangeServerEndpoint.Normalize(server.IncomingServer, ExchangeTransport.ActiveSync)
+            ?? throw new InvalidOperationException("The EAS server address is invalid.");
+        _client = client ?? new EasClient(endpoint.AbsoluteUri, server.IncomingServerUsername,
             server.IncomingServerPassword ?? throw new InvalidOperationException("The EAS password is missing."), account.Id);
     }
 
