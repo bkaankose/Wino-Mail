@@ -512,22 +512,17 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         _relayFallbackDot.ToolTip = Translator.Relay_FallbackFlyoutMessage;
         WinoAccessibility.Label(_relayFallbackDot, Translator.Relay_FallbackIndicatorAutomationName);
         WinoLayout.Size(_relayFallbackDot, 6, 6);
-        var container = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
-        container.AddSubview(_syncButton);
-        container.AddSubview(_syncProgress);
-        container.AddSubview(_relayFallbackDot);
+        // Spinner and dot sit inside the button, as on the briefing button: a container view kept the
+        // toolbar from styling the button, so its hover bezel covered only part of the capsule.
+        _syncButton.AddSubview(_syncProgress);
+        _syncButton.AddSubview(_relayFallbackDot);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _syncButton.LeadingAnchor.ConstraintEqualTo(container.LeadingAnchor),
-            _syncButton.TrailingAnchor.ConstraintEqualTo(container.TrailingAnchor),
-            _syncButton.TopAnchor.ConstraintEqualTo(container.TopAnchor),
-            _syncButton.BottomAnchor.ConstraintEqualTo(container.BottomAnchor),
             _syncProgress.CenterXAnchor.ConstraintEqualTo(_syncButton.CenterXAnchor),
             _syncProgress.CenterYAnchor.ConstraintEqualTo(_syncButton.CenterYAnchor),
             _relayFallbackDot.TrailingAnchor.ConstraintEqualTo(_syncButton.TrailingAnchor, -5),
             _relayFallbackDot.TopAnchor.ConstraintEqualTo(_syncButton.TopAnchor, 4)
         ]);
-        item.View = container;
         // Navigational items sit before the window title, so the title follows the sync button.
         item.Navigational = true;
         return item;
