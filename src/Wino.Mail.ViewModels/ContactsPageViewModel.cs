@@ -747,7 +747,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     private static string GetAddressBookName(ContactAddressBook book, MailAccount account)
     {
-        var name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? book.SourceKind.ToString() : book.DisplayName;
+        var name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? AccountContactViewModel.SourceDisplayName(book.SourceKind) : book.DisplayName;
         if (book.IsPendingRemoteOperation) return $"{name} ({Translator.ContactsPage_Pending})";
         if (book.IsReadOnly) return $"{name} ({Translator.ContactsPage_ReadOnly})";
         return name;

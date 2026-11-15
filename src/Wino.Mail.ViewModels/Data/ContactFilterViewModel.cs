@@ -143,7 +143,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public static ContactFilterViewModel CreateAddressBook(ContactAddressBook book, MailAccount account)
         => new(ContactFilterKind.AddressBook)
         {
-            Name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? book.SourceKind.ToString() : book.DisplayName,
+            Name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? AccountContactViewModel.SourceDisplayName(book.SourceKind) : book.DisplayName,
             Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Library),
             AddressBookId = book.Id,
             AccountId = book.MailAccountId,

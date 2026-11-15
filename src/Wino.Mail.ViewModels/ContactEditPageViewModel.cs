@@ -204,7 +204,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                 IsEditMode = true;
                 IsFavorite = original.IsFavorite;
                 SelectedDestination = Destinations.FirstOrDefault(destination => destination.AddressBookId == original.AddressBookId);
-                SourceDescription = SelectedDestination is null ? original.SourceKind.ToString() : $"{SelectedDestination.AccountName} · {SelectedDestination.AddressBookName}";
+                SourceDescription = SelectedDestination is null ? AccountContactViewModel.SourceDisplayName(original.SourceKind) : $"{SelectedDestination.AccountName} · {SelectedDestination.AddressBookName}";
                 Load(original);
             }
             else
