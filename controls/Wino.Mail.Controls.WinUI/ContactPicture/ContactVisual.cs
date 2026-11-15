@@ -1,3 +1,4 @@
+using System.Text;
 using Windows.UI;
 
 namespace Wino.Mail.Controls.ContactPicture;
@@ -37,25 +38,36 @@ internal static class ContactVisual
     {
         if (!string.IsNullOrWhiteSpace(name))
         {
-            var words = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (words.Length >= 2)
-            {
-                return $"{char.ToUpperInvariant(words[0][0])}{char.ToUpperInvariant(words[1][0])}";
-            }
+            // Words without a letter or digit (an emoji, a dash) are skipped; taking their first char drew half of
+            // a surrogate pair as a box.
+            var letters = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(GetFirstLetterOrDigit)
+                .Where(letter => letter != null)
+                .Take(2)
+                .ToArray();
 
-            if (words.Length == 1)
+            if (letters.Length > 0)
             {
-                return char.ToUpperInvariant(words[0][0]).ToString();
+                return string.Concat(letters).ToUpperInvariant();
             }
         }
 
-        var trimmedAddress = address?.Trim();
-        if (!string.IsNullOrEmpty(trimmedAddress))
+        var addressLetter = GetFirstLetterOrDigit(address?.Trim());
+        return addressLetter?.ToUpperInvariant() ?? "?";
+    }
+
+    private static string? GetFirstLetterOrDigit(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return null;
+
+        foreach (var rune in text.EnumerateRunes())
         {
-            return char.ToUpperInvariant(trimmedAddress[0]).ToString();
+            if (Rune.IsLetterOrDigit(rune))
+                return rune.ToString();
         }
 
-        return "?";
+        return null;
     }
 
     /// <summary>
