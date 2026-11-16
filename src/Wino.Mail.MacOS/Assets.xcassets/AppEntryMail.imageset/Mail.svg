@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182" fill="none">
+  <title>Wino Mail</title>
+  <defs>
+    <!-- App tile background: 45deg gradient, top-left -> bottom-right -->
+    <linearGradient id="mailTile" gradientUnits="userSpaceOnUse" x1="37" y1="37" x2="219" y2="219">
+      <stop offset="0" stop-color="#0081E6"/>
+      <stop offset="1" stop-color="#004AB0"/>
+    </linearGradient>
+    <!-- Envelope body facets (all 45deg) -->
+    <linearGradient id="mailFaceLeft" gradientUnits="userSpaceOnUse" x1="70" y1="70" x2="122.5" y2="122.5">
+      <stop offset="0" stop-color="#20DFFF"/>
+      <stop offset="1" stop-color="#03A8FF"/>
+    </linearGradient>
+    <linearGradient id="mailFaceFront" gradientUnits="userSpaceOnUse" x1="114.5" y1="114.5" x2="185" y2="185">
+      <stop offset="0" stop-color="#04C3FF"/>
+      <stop offset="0.12" stop-color="#01B7FF"/>
+      <stop offset="1" stop-color="#005FE4"/>
+    </linearGradient>
+    <linearGradient id="mailFaceRight" gradientUnits="userSpaceOnUse" x1="121.75" y1="121.75" x2="177" y2="177">
+      <stop offset="0" stop-color="#00C4FF"/>
+      <stop offset="0.475" stop-color="#00AAFF"/>
+      <stop offset="1" stop-color="#008DF0"/>
+    </linearGradient>
+    <!-- Flap -->
+    <linearGradient id="mailFlap" gradientUnits="userSpaceOnUse" x1="70" y1="70" x2="150" y2="150">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F5F5F6"/>
+    </linearGradient>
+
+    <clipPath id="mailBodyClip">
+      <rect x="65" y="75.2" width="126" height="105.05" rx="15" ry="15"/>
+    </clipPath>
+
+    <!--
+      Shadows are attached to the shapes that cast them (not drawn as separate
+      shapes) so they degrade cleanly: Direct2D - which rasterises SVG for WinUI -
+      ignores filters, leaving the artwork intact but flat.
+    -->
+    <filter id="mailShadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#001B44" flood-opacity="0.34"/>
+    </filter>
+    <filter id="mailFlapShadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" flood-color="#003A70" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Squircle tile (continuous-curvature corners) -->
+  <path fill="url(#mailTile)"
+        d="M80.91 37 H175.09
+           C185.31 37 197.53 39.11 207.21 48.79
+           C216.89 58.47 219 70.69 219 80.91
+           V175.09
+           C219 185.31 216.89 197.53 207.21 207.21
+           C197.53 216.89 185.31 219 175.09 219
+           H80.91
+           C70.69 219 58.47 216.89 48.79 207.21
+           C39.11 197.53 37 185.31 37 175.09
+           V80.91
+           C37 70.69 39.11 58.47 48.79 48.79
+           C58.47 39.11 70.69 37 80.91 37 Z"/>
+
+  <!-- Envelope -->
+  <g filter="url(#mailShadow)">
+    <g clip-path="url(#mailBodyClip)">
+      <rect x="65" y="75.2" width="126" height="105.05" fill="url(#mailFaceFront)"/>
+      <!-- left fold face: left of the crease from (128,114.85) to (65,163.95) -->
+      <path d="M198.4 60 L57.2 170 L57.2 60 Z" fill="url(#mailFaceLeft)"/>
+      <!-- right fold face: right of the crease from (128,114.85) to (191,163.95) -->
+      <path d="M57.6 60 L198.8 170 L198.8 60 Z" fill="url(#mailFaceRight)"/>
+
+      <!-- Flap -->
+      <g filter="url(#mailFlapShadow)">
+        <path fill="url(#mailFlap)"
+              d="M65 93.3 V90.2
+                 A15 15 0 0 1 80 75.2
+                 H176
+                 A15 15 0 0 1 191 90.2
+                 V93.3
+                 L135.3 136.8
+                 Q128 142.5 120.7 136.8 Z"/>
+      </g>
+    </g>
+  </g>
+</svg>

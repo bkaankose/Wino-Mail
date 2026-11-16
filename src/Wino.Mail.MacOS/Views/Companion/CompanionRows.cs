@@ -255,23 +255,33 @@ internal sealed class CompanionContactButton : WinoPressableView
     protected override void OnPressedChanged() => Fill = IsPressed ? CompanionStyle.SubtleFill : null;
 }
 
-/// <summary>A footer button that opens one app mode with its colorful app-mode glyph.</summary>
+/// <summary>
+/// A footer button that opens one app mode with that mode's app icon (Windows Assets/AppEntries, copied
+/// into the asset catalog as AppEntryMail, AppEntryCalendar, AppEntryPeople and AppEntryToDo).
+/// </summary>
 internal sealed class CompanionModeButton : WinoPressableView
 {
+    private const double IconSize = 28;
     private NSTrackingArea? _tracking;
 
-    public CompanionModeButton(WinoIconGlyph glyph, string title, Action clicked)
+    public CompanionModeButton(string imageName, string title, Action clicked)
     {
         CornerRadius = WinoStyle.ControlRadius;
         WinoLayout.Size(this, height: 40);
-        var icon = new WinoIconView(glyph, 26) { Colorful = true };
+        var icon = new NSImageView
+        {
+            Image = NSImage.ImageNamed(imageName),
+            ImageScaling = NSImageScale.ProportionallyUpOrDown,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        icon.AccessibilityElement = false;
         AddSubview(icon);
         NSLayoutConstraint.ActivateConstraints(
         [
             icon.CenterXAnchor.ConstraintEqualTo(CenterXAnchor),
             icon.CenterYAnchor.ConstraintEqualTo(CenterYAnchor),
-            icon.WidthAnchor.ConstraintEqualTo(26),
-            icon.HeightAnchor.ConstraintEqualTo(26)
+            icon.WidthAnchor.ConstraintEqualTo((nfloat)IconSize),
+            icon.HeightAnchor.ConstraintEqualTo((nfloat)IconSize)
         ]);
         ToolTip = title;
         AccessibilityLabel = title;

@@ -274,10 +274,10 @@ public sealed class CompanionPopoverViewController : NSViewController
             Spacing = 4,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        buttons.AddArrangedSubview(new CompanionModeButton(WinoIconGlyph.AppModeMail, Translator.Companion_Mail, () => Run(_viewModel.OpenInboxCommand.ExecuteAsync(null))));
-        buttons.AddArrangedSubview(new CompanionModeButton(WinoIconGlyph.AppModeCalendar, Translator.Companion_Calendar, () => Run(_viewModel.OpenCalendarCommand.ExecuteAsync(null))));
-        buttons.AddArrangedSubview(new CompanionModeButton(WinoIconGlyph.AppModeContacts, Translator.Companion_Contacts, () => Run(_viewModel.FindAnyContactCommand.ExecuteAsync(null))));
-        buttons.AddArrangedSubview(new CompanionModeButton(WinoIconGlyph.AppModeToDo, Translator.Companion_Tasks, () => Run(_viewModel.OpenTasksCommand.ExecuteAsync(null))));
+        buttons.AddArrangedSubview(new CompanionModeButton("AppEntryMail", Translator.Companion_Mail, () => Run(_viewModel.OpenInboxCommand.ExecuteAsync(null))));
+        buttons.AddArrangedSubview(new CompanionModeButton("AppEntryCalendar", Translator.Companion_Calendar, () => Run(_viewModel.OpenCalendarCommand.ExecuteAsync(null))));
+        buttons.AddArrangedSubview(new CompanionModeButton("AppEntryPeople", Translator.Companion_Contacts, () => Run(_viewModel.FindAnyContactCommand.ExecuteAsync(null))));
+        buttons.AddArrangedSubview(new CompanionModeButton("AppEntryToDo", Translator.Companion_Tasks, () => Run(_viewModel.OpenTasksCommand.ExecuteAsync(null))));
         WinoLayout.Fill(buttons, footer, 10, 12, 12, 12);
         var border = new WinoSeparator();
         footer.AddSubview(border);
