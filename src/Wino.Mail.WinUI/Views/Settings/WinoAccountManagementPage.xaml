@@ -303,7 +303,7 @@
                                             <Rectangle
                                                 Canvas.Left="6"
                                                 Canvas.Top="34"
-                                                Width="88"
+                                                Width="80"
                                                 Height="98"
                                                 Fill="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                 RadiusX="9"
@@ -313,7 +313,7 @@
                                             <Rectangle
                                                 Canvas.Left="16"
                                                 Canvas.Top="46"
-                                                Width="52"
+                                                Width="46"
                                                 Height="7"
                                                 Fill="{ThemeResource TextFillColorTertiaryBrush}"
                                                 Opacity="0.5"
@@ -322,7 +322,7 @@
                                             <Rectangle
                                                 Canvas.Left="16"
                                                 Canvas.Top="61"
-                                                Width="68"
+                                                Width="60"
                                                 Height="6"
                                                 Fill="{ThemeResource TextFillColorTertiaryBrush}"
                                                 Opacity="0.28"
@@ -331,7 +331,7 @@
                                             <Rectangle
                                                 Canvas.Left="16"
                                                 Canvas.Top="75"
-                                                Width="68"
+                                                Width="60"
                                                 Height="6"
                                                 Fill="{ThemeResource TextFillColorTertiaryBrush}"
                                                 Opacity="0.28"
@@ -340,7 +340,7 @@
                                             <Rectangle
                                                 Canvas.Left="16"
                                                 Canvas.Top="89"
-                                                Width="46"
+                                                Width="40"
                                                 Height="6"
                                                 Fill="{ThemeResource TextFillColorTertiaryBrush}"
                                                 Opacity="0.28"
@@ -357,9 +357,9 @@
                                                 RadiusY="7" />
 
                                             <Rectangle
-                                                Canvas.Left="146"
+                                                Canvas.Left="154"
                                                 Canvas.Top="34"
-                                                Width="88"
+                                                Width="80"
                                                 Height="98"
                                                 Fill="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                 RadiusX="9"
@@ -367,43 +367,43 @@
                                                 Stroke="{ThemeResource AccentFillColorDefaultBrush}"
                                                 StrokeThickness="1.5" />
                                             <Rectangle
-                                                Canvas.Left="156"
+                                                Canvas.Left="164"
                                                 Canvas.Top="46"
-                                                Width="52"
+                                                Width="46"
                                                 Height="7"
                                                 Fill="{ThemeResource AccentFillColorDefaultBrush}"
                                                 Opacity="0.55"
                                                 RadiusX="3.5"
                                                 RadiusY="3.5" />
                                             <Rectangle
-                                                Canvas.Left="156"
+                                                Canvas.Left="164"
                                                 Canvas.Top="61"
-                                                Width="68"
+                                                Width="60"
                                                 Height="6"
                                                 Fill="{ThemeResource TextFillColorTertiaryBrush}"
                                                 Opacity="0.28"
                                                 RadiusX="3"
                                                 RadiusY="3" />
                                             <Rectangle
-                                                Canvas.Left="156"
+                                                Canvas.Left="164"
                                                 Canvas.Top="75"
-                                                Width="68"
+                                                Width="60"
                                                 Height="6"
                                                 Fill="{ThemeResource TextFillColorTertiaryBrush}"
                                                 Opacity="0.28"
                                                 RadiusX="3"
                                                 RadiusY="3" />
                                             <Rectangle
-                                                Canvas.Left="156"
+                                                Canvas.Left="164"
                                                 Canvas.Top="89"
-                                                Width="46"
+                                                Width="40"
                                                 Height="6"
                                                 Fill="{ThemeResource TextFillColorTertiaryBrush}"
                                                 Opacity="0.28"
                                                 RadiusX="3"
                                                 RadiusY="3" />
                                             <Rectangle
-                                                Canvas.Left="156"
+                                                Canvas.Left="164"
                                                 Canvas.Top="107"
                                                 Width="34"
                                                 Height="14"
@@ -411,16 +411,10 @@
                                                 Opacity="0.8"
                                                 RadiusX="7"
                                                 RadiusY="7" />
-
                                             <Path
-                                                Data="M96,62 C112,40 128,40 144,62"
+                                                Data="M88,100 H152"
                                                 Stroke="{ThemeResource AccentFillColorDefaultBrush}"
                                                 StrokeDashArray="1,3"
-                                                StrokeThickness="2" />
-                                            <Path
-                                                Data="M138,56 L145,62 L138,68"
-                                                Stroke="{ThemeResource AccentFillColorDefaultBrush}"
-                                                StrokeLineJoin="Round"
                                                 StrokeThickness="2" />
                                             <Ellipse
                                                 Canvas.Left="101"
