@@ -244,7 +244,8 @@ public sealed class AccountReauthenticationService(
             messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = account.Id,
-                Type = TaskSynchronizationType.Delta
+                Type = TaskSynchronizationType.Delta,
+                IsUserInitiated = true
             }));
         }
     }

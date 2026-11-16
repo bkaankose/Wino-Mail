@@ -212,7 +212,7 @@ public sealed partial class CalDavSynchronizationEngine
         if (localCalendar == null || string.IsNullOrWhiteSpace(localCalendar.RemoteCalendarId))
             return null;
 
-        var settings = await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, cancellationToken).ConfigureAwait(false);
+        var settings = await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
         var state = await _stateStore.GetAsync(account.Id, cancellationToken).ConfigureAwait(false);
         var remoteCalendar = new CalDavCalendar { RemoteCalendarId = localCalendar.RemoteCalendarId, Name = localCalendar.Name };
         var calendarState = state.FindCalendar(localCalendar.RemoteCalendarId)

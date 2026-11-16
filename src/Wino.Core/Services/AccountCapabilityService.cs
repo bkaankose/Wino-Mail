@@ -139,7 +139,8 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                     var result = await _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
                     {
                         AccountId = account.Id,
-                        Type = TaskSynchronizationType.Full
+                        Type = TaskSynchronizationType.Full,
+                        IsUserInitiated = true
                     }, cancellationToken).ConfigureAwait(false);
                     if (result.CompletedState != SynchronizationCompletedState.Success)
                         throw result.Exception ?? new InvalidOperationException("Task synchronization failed.");

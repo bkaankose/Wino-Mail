@@ -18,7 +18,9 @@ namespace Wino.Mail.ViewModels;
 /// </summary>
 public partial class ToDoPageViewModel
 {
-    public bool IsSynchronizationSupported => true;
+    /// <summary>Lists stored on this device have nothing to synchronize, so a page of only those hides the button.</summary>
+    public bool IsSynchronizationSupported
+        => Accounts.Any(account => account.IsTaskAccessEnabled && account.TaskIntegrationSource != AccountIntegrationSource.Local);
 
     public bool CanSynchronize => TaskAccountIds.Count > 0 && !SynchronizationState.IsSynchronizing;
 
@@ -57,6 +59,7 @@ public partial class ToDoPageViewModel
 
     internal void RefreshShellSynchronizationState()
     {
+        OnPropertyChanged(nameof(IsSynchronizationSupported));
         OnPropertyChanged(nameof(CanSynchronize));
         OnPropertyChanged(nameof(SynchronizationState));
         OnPropertyChanged(nameof(SynchronizationDescription));

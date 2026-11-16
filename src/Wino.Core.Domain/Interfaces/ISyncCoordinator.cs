@@ -47,8 +47,9 @@ public interface ISyncCoordinator : IRelayHealth, IAsyncDisposable
 
     /// <summary>
     /// True when the account's mode reads from a provider with a quota shared by every installation: Google Tasks and
-    /// Google contacts. Quota-bound sources synchronize once per <see cref="QuotaWindow"/> and never at launch; every
-    /// other remote source follows <see cref="CalendarSyncInterval"/>.
+    /// Google contacts. Quota-bound sources synchronize automatically once per <see cref="QuotaWindow"/> and never at
+    /// launch; every other remote source follows <see cref="CalendarSyncInterval"/>. A synchronization the user asks
+    /// for is never gated.
     /// </summary>
     bool IsQuotaBound(MailAccount account, WinoApplicationMode mode);
 
@@ -59,7 +60,7 @@ public interface ISyncCoordinator : IRelayHealth, IAsyncDisposable
     Task<DateTimeOffset?> GetNextQuotaTaskPullUtcAsync(MailAccount account);
 
     /// <summary>
-    /// The hard gate for every Google Tasks pull. Returns false while the window is open; otherwise stamps the attempt
+    /// The hard gate for every automatic Google Tasks pull. Returns false while the window is open; otherwise stamps the attempt
     /// (so a failing pull is not retried before the window closes) and returns true. Sources that are not quota-bound
     /// always pass.
     /// </summary>

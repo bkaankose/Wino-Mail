@@ -51,14 +51,17 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
 
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalDavStateStore _stateStore;
+    private readonly IDavOAuthAuthenticationProvider? _oauthAuthenticationProvider;
 
     public CalDavTaskSynchronizationEngine(
         ICalDavClient client,
         ITaskService taskService,
         ICalendarIcsFileService icsFileService,
         IAutoDiscoveryService autoDiscoveryService,
-        ICalDavStateStore stateStore)
+        ICalDavStateStore stateStore,
+        IDavOAuthAuthenticationProvider? oauthAuthenticationProvider = null)
     {
+        _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _taskService = taskService ?? throw new ArgumentNullException(nameof(taskService));
         _icsFileService = icsFileService ?? throw new ArgumentNullException(nameof(icsFileService));
@@ -160,6 +163,10 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
             Logger.Information("Skipping task sync for {AccountName}: CalDAV endpoint is not configured.", account.Name);
             return null;
         }
+
+        var bearerSettings = await CalDavConnection.TryCreateBearerSettingsAsync(account, serviceUri, _oauthAuthenticationProvider, cancellationToken).ConfigureAwait(false);
+        if (bearerSettings != null)
+            return bearerSettings;
 
         var password = CalDavConnection.ResolvePassword(account);
         if (string.IsNullOrWhiteSpace(password))

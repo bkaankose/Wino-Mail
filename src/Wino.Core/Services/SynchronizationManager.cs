@@ -1042,9 +1042,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (synchronizer is null)
             return TaskSynchronizationResult.Failed(new InvalidOperationException("Can't create/get synchronizer."));
 
-        // Every Google Tasks pull passes the coordinator's quota gate. A gated pull still sends the account's queued
-        // task requests, and the ExecuteRequests run publishes the usual progress and completion for the caller.
-        if (options.Type != TaskSynchronizationType.ExecuteRequests)
+        // Every automatic Google Tasks pull passes the coordinator's quota gate; a user-initiated pull always runs. A gated
+        // pull still sends the account's queued task requests, and the ExecuteRequests run publishes the usual progress
+        // and completion for the caller.
+        if (options.Type != TaskSynchronizationType.ExecuteRequests && !options.IsUserInitiated)
         {
             var coordinator = _syncCoordinatorResolver?.Invoke()
                 ?? throw new InvalidOperationException("SynchronizationManager has no sync coordinator for the task quota gate.");
