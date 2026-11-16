@@ -355,6 +355,23 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             }
             return Task.FromResult("nothing ran");
         });
+        // "sidebar-syncdemo [row]" plays a fake synchronization on an account row: 2 s indeterminate, then 0→100 in steps.
+        Infrastructure.MacDebugBridge.Register("sidebar-syncdemo", async args =>
+        {
+            nint row = args.Length > 0 && int.TryParse(args[0], out var index) ? index : 1;
+            if (_outline.ItemAtRow(row) is not Node { Item: AccountMenuItem account }) return "not an account row";
+            account.TotalItemsToSync = 0;
+            account.IsSynchronizationInProgress = true;
+            await Task.Delay(2000);
+            account.TotalItemsToSync = 100;
+            for (int remaining = 100; remaining >= 0; remaining -= 20)
+            {
+                account.RemainingItemsToSync = remaining;
+                await Task.Delay(600);
+            }
+            account.IsSynchronizationInProgress = false;
+            return "done " + account.AccountName;
+        });
         // "sidebar-rows" lists each visible row: index, type, title, enabled/selectable/selected and its screen centre (top-left origin).
         Infrastructure.MacDebugBridge.Register("sidebar-rows", _ =>
         {
