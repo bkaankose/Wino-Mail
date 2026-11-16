@@ -74,6 +74,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
     public bool HasProfilePicture => Account?.ProfilePictureFileId.HasValue == true;
     public bool CanRefreshProfilePicture => Account?.IsProfileInfoSyncSupported == true;
+    public string ProfilePictureDescription => CanRefreshProfilePicture
+        ? Translator.AccountDetailsPage_ProfilePictureDescription
+        : Translator.AccountDetailsPage_ProfilePictureChooseDescription;
+    public string DeleteAccountDescription => Account?.IsLocalOnly == true
+        ? Translator.SettingsDeleteAccount_LocalDescription
+        : Translator.SettingsDeleteAccount_Description;
+    public bool IsCalendarSynchronizationConfigurable => Account?.HasRemoteCalendarSource() == true;
     public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
     public ObservableCollection<AccountCalendar> AccountCalendars { get; set; } = [];
     public ObservableCollection<AccountCalendarSettingsItemViewModel> AccountCalendarSettingsItems { get; } = [];
@@ -170,7 +177,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public partial bool IsApplyingCapabilities { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
-    public bool IsImapServer => ServerInformation != null && Account?.ProviderType != MailProviderType.Exchange;
+    public bool IsImapServer => ServerInformation != null && Account is { ProviderType: not MailProviderType.Exchange, IsLocalOnly: false };
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool HasContactAccess => Account?.IsContactAccessGranted == true;
@@ -489,7 +496,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         await SynchronizationManager.Instance.SynchronizeTasksAsync(new TaskSynchronizationOptions
         {
             AccountId = Account.Id,
-            Type = TaskSynchronizationType.Full
+            Type = TaskSynchronizationType.Full,
+            IsUserInitiated = true
         });
     }
 
@@ -618,9 +626,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         // Question and title is reverted on purpose. We messed up the language translations for this one.
         var confirmation = await _dialogService.ShowConfirmationDialogAsync(
-            account.ProviderType == MailProviderType.POP3
-                ? Translator.DialogMessage_DeletePop3AccountConfirmationTitle
-                : Translator.DialogMessage_DeleteAccountConfirmationTitle,
+            account.IsLocalOnly
+                ? Translator.DialogMessage_DeleteLocalAccountConfirmationTitle
+                : account.ProviderType == MailProviderType.POP3
+                    ? Translator.DialogMessage_DeletePop3AccountConfirmationTitle
+                    : Translator.DialogMessage_DeleteAccountConfirmationTitle,
             string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
             Translator.Buttons_Delete);
 
@@ -1028,7 +1038,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             foreach (var calendar in calendars)
             {
                 AccountCalendars.Add(calendar);
-                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(calendar, ShowAsOptions, AvailableColors));
+                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(calendar, ShowAsOptions, AvailableColors, IsCalendarSynchronizationConfigurable));
             }
         });
 
@@ -1101,6 +1111,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         OnPropertyChanged(nameof(Address));
         OnPropertyChanged(nameof(IsInitialSynchronizationSummaryVisible));
         OnPropertyChanged(nameof(InitialSynchronizationSummary));
+        OnPropertyChanged(nameof(IsImapServer));
         OnPropertyChanged(nameof(HasMailAccess));
         OnPropertyChanged(nameof(HasCalendarAccess));
         OnPropertyChanged(nameof(HasContactAccess));
@@ -1119,6 +1130,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         OnPropertyChanged(nameof(TaskIntegrationSourceText));
         OnPropertyChanged(nameof(HasProfilePicture));
         OnPropertyChanged(nameof(CanRefreshProfilePicture));
+        OnPropertyChanged(nameof(ProfilePictureDescription));
+        OnPropertyChanged(nameof(DeleteAccountDescription));
+        OnPropertyChanged(nameof(IsCalendarSynchronizationConfigurable));
         ChangeProfilePictureCommand.NotifyCanExecuteChanged();
         RemoveProfilePictureCommand.NotifyCanExecuteChanged();
         RefreshProfilePictureCommand.NotifyCanExecuteChanged();
@@ -1344,6 +1358,7 @@ public partial class AccountCalendarSettingsItemViewModel : ObservableObject
     public string Name => Calendar.Name;
     public string TimeZone => Calendar.TimeZone;
     public string BackgroundColorHex => Calendar.BackgroundColorHex;
+    public bool IsSynchronizationConfigurable { get; }
 
     [ObservableProperty]
     public partial bool IsSynchronizationEnabled { get; set; }
@@ -1354,11 +1369,12 @@ public partial class AccountCalendarSettingsItemViewModel : ObservableObject
     [ObservableProperty]
     public partial AppColorViewModel SelectedColor { get; set; }
 
-    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar, ObservableCollection<AccountCalendarShowAsOption> showAsOptions, List<AppColorViewModel> availableColors)
+    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar, ObservableCollection<AccountCalendarShowAsOption> showAsOptions, List<AppColorViewModel> availableColors, bool isSynchronizationConfigurable)
     {
         Calendar = calendar;
         ShowAsOptions = showAsOptions;
         AvailableColors = availableColors;
+        IsSynchronizationConfigurable = isSynchronizationConfigurable;
         IsSynchronizationEnabled = calendar.IsSynchronizationEnabled;
         SelectedShowAsOption = showAsOptions.FirstOrDefault(option => option.ShowAs == calendar.DefaultShowAs) ?? showAsOptions.FirstOrDefault();
         SelectedColor = availableColors.FirstOrDefault(color => string.Equals(color.Hex, calendar.BackgroundColorHex, StringComparison.OrdinalIgnoreCase))

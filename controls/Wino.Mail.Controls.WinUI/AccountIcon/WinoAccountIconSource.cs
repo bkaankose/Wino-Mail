@@ -107,7 +107,9 @@ public sealed partial class WinoAccountIconSource : DependencyObject, INotifyPro
         var isTinted = TryGetAccountColor(account.AccountColorHex, out var color);
         var source = new WinoFontIconSource
         {
-            Glyph = AccountIconGlyphs.GetGlyph(account.Provider, isTinted),
+            Glyph = string.IsNullOrEmpty(account.ProviderGlyph)
+                ? AccountIconGlyphs.GetGlyph(account.Provider, isTinted)
+                : account.ProviderGlyph,
             FontSize = GetEffectiveIconSize() * GlyphInkScale,
         };
 

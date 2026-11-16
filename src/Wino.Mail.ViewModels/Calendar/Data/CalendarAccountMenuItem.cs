@@ -25,7 +25,7 @@ public sealed partial class CalendarAccountMenuItem : MenuItemBase<GroupedAccoun
 
     public MailAccount Account => Parameter.Account;
     public string AccountName => Account?.Name ?? string.Empty;
-    public string AccountAddress => Account?.Address ?? string.Empty;
+    public string AccountAddress => Account?.DisplayAddress ?? string.Empty;
     public int UnreadItemCount => 0;
     public bool IsSynchronizationProgressVisible => Parameter.IsSynchronizationProgressVisible;
     public bool IsProgressIndeterminate => Parameter.IsProgressIndeterminate;
@@ -33,7 +33,7 @@ public sealed partial class CalendarAccountMenuItem : MenuItemBase<GroupedAccoun
     public bool IsAttentionRequired => Account.RequiresAttention(WinoApplicationMode.Calendar);
     public bool SupportsMailAccountActions => false;
     public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.Calendar;
-    public bool SupportsAccountSynchronization => !IsAttentionRequired;
+    public bool SupportsAccountSynchronization => !IsAttentionRequired && Account?.HasRemoteCalendarSource() == true;
     public bool SelectsOnInvoked => true;
 
     /// <summary>A sign-in that is still pending can only fail, so the row offers Fix instead.</summary>

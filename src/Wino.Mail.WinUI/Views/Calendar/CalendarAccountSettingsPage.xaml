@@ -53,7 +53,8 @@
             <controls:SettingsCard
                 AutomationProperties.AutomationId="CalendarAccountSettingsPageSettingsCard2"
                 Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
+                Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsSyncConfigurable, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
                     <coreControls:WinoFontIcon Icon="Sync" />
                 </controls:SettingsCard.HeaderIcon>

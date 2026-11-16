@@ -632,7 +632,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
                 })));
             }
 
-            if (account.IsCalendarAccessGranted)
+            if (account.IsCalendarAccessGranted && account.HasRemoteCalendarSource())
             {
                 synchronizations.Add(HandleCalendarSynchronizationRequestedAsync(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
                 {
@@ -1196,7 +1196,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             var accounts = await GetAutoSynchronizedAccountsAsync();
             // Accounts that need attention are left alone until the user fixes them; the timer never retries them.
             var synchronizationTasks = accounts
-                .Where(account => account.IsCalendarAccessGranted && !account.IsNetworkAccessBlocked())
+                .Where(account => account.IsCalendarAccessGranted && account.HasRemoteCalendarSource() && !account.IsNetworkAccessBlocked())
                 .Select(account => ExecuteCalendarAutoSynchronizationForAccountAsync(account, cancellationToken))
                 .ToList();
 

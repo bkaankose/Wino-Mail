@@ -46,7 +46,7 @@
                             <TextBlock FontWeight="SemiBold">
                                 <Run Text="{x:Bind Account.Name}" />
                                 <Run Text=" (" />
-                                <Run Text="{x:Bind Account.Address}" />
+                                <Run Text="{x:Bind Account.DisplayAddress}" />
                                 <Run Text=")" />
                             </TextBlock>
 

@@ -138,9 +138,9 @@
         </controls:SettingsCard>
         <controls:SettingsCard
             AutomationProperties.AutomationId="CalendarPreferenceSyncIntervalCard"
-            Visibility="{x:Bind ViewModel.IsSyncIntervalAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Title, Mode=OneTime}">
+            Header="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Title, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.IsSyncIntervalAvailable, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="Sync" />
             </controls:SettingsCard.HeaderIcon>
@@ -185,7 +185,7 @@
                                         <TextBlock
                                             FontSize="12"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="{x:Bind Address, Mode=OneTime}" />
+                                            Text="{x:Bind DisplayAddress, Mode=OneTime}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
@@ -228,7 +228,7 @@
                                     <TextBlock
                                         FontSize="12"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind Account.Address, Mode=OneWay}" />
+                                        Text="{x:Bind Account.DisplayAddress, Mode=OneWay}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>

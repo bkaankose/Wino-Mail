@@ -125,7 +125,7 @@
             <StackPanel>
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountDetailsProfilePictureCard"
-                    Description="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureDescription, Mode=OneTime}"
+                    Description="{x:Bind ViewModel.ProfilePictureDescription, Mode=OneWay}"
                     Header="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureTitle, Mode=OneTime}">
                     <controls:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon Icon="Person" />
@@ -432,7 +432,7 @@
 
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountDetailsPageSettingsCard8"
-                    Description="{x:Bind domain:Translator.SettingsDeleteAccount_Description}"
+                    Description="{x:Bind ViewModel.DeleteAccountDescription, Mode=OneWay}"
                     Header="{x:Bind domain:Translator.SettingsDeleteAccount_Title}">
                     <controls:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon Icon="Delete" />
@@ -843,7 +843,8 @@
                                     <controls:SettingsCard
                                         AutomationProperties.AutomationId="AccountDetailsPageSettingsCard23"
                                         Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}"
-                                        Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
+                                        Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}"
+                                        Visibility="{x:Bind IsSynchronizationConfigurable}">
                                         <controls:SettingsCard.HeaderIcon>
                                             <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Sync" />
                                         </controls:SettingsCard.HeaderIcon>

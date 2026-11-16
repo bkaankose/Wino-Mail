@@ -40,6 +40,7 @@ public static class WinoAccountIconGlyphs
         AccountIconProvider.ICloud => WinoIconGlyph.Apple,
         AccountIconProvider.Yahoo => WinoIconGlyph.Yahoo,
         AccountIconProvider.Exchange => WinoIconGlyph.Exchange,
+        AccountIconProvider.Local => WinoIconGlyph.Laptop,
         _ => WinoIconGlyph.IMAP,
     };
 }

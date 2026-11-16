@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
@@ -74,7 +75,10 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     public string CapabilitySummaryText => CalendarCapabilityPresenter.BuildSummary(AccountCapabilities);
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSyncConfigurable))]
     public partial MailAccount Account { get; set; }
+
+    public bool IsSyncConfigurable => Account?.HasRemoteCalendarSource() == true;
 
     [ObservableProperty]
     public partial AccountCalendar AccountCalendar { get; set; }

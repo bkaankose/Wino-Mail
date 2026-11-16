@@ -47,7 +47,7 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     public bool SupportsAccountSynchronization => false;
     public bool SelectsOnInvoked => false;
     public MailAccount Account => Parameter;
-    public string AccountAddress => Parameter.Address;
+    public string AccountAddress => Parameter.DisplayAddress;
 
     public double SynchronizationProgress
     {

@@ -133,7 +133,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
         Account = _account;
         AccountName = _account.Name;
-        AccountAddress = _account.Address;
+        AccountAddress = _account.DisplayAddress;
 
         IsAccountBadgeEnabled = _account.Preferences.IsAccountBadgeEnabled;
         IsTaskbarBadgeEnabled = _account.Preferences.IsTaskbarBadgeEnabled;

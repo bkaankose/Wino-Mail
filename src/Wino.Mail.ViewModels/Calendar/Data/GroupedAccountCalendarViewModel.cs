@@ -104,7 +104,7 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
     public bool CanSynchronize => !IsSynchronizationInProgress;
     public bool IsSynchronizationProgressVisible => IsSynchronizationInProgress;
     public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
-    public string AccountAddressDisplay => string.IsNullOrWhiteSpace(Account?.Address) ? string.Empty : $" ({Account.Address})";
+    public string AccountAddressDisplay => string.IsNullOrWhiteSpace(Account?.DisplayAddress) ? string.Empty : $" ({Account.DisplayAddress})";
 
     public double SynchronizationProgress
     {

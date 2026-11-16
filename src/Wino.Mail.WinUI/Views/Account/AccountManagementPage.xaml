@@ -25,10 +25,10 @@
         <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
             <accessibilityControls:WinoSettingsCard
                 Margin="0,2,0,0"
-                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.Address), Mode=OneWay}"
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.DisplayAddress), Mode=OneWay}"
                 AutomationInvoked="RootAccountTemplate_Click"
                 AutomationProperties.AutomationId="AccountManagementPageSettingsCard"
-                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.Address), Mode=OneWay}"
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.DisplayAddress), Mode=OneWay}"
                 Click="RootAccountTemplate_Click"
                 CommandParameter="{x:Bind}"
                 IsClickEnabled="True">

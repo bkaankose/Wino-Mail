@@ -48,7 +48,7 @@ public sealed class AccountTaskListAccountMenuItem : MenuItemBase<MailAccount, I
     }
 
     public string AccountName => Parameter?.Name ?? string.Empty;
-    public string AccountAddress => Parameter?.Address ?? string.Empty;
+    public string AccountAddress => Parameter?.DisplayAddress ?? string.Empty;
     public MailAccount Account => Parameter;
     public int UnreadItemCount => 0;
     public bool IsSynchronizationProgressVisible => false;

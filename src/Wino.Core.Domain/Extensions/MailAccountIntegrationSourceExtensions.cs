@@ -27,4 +27,10 @@ public static class MailAccountIntegrationSourceExtensions
             ? AccountIntegrationSource.Dav
             : account.CalendarIntegrationSource;
     }
+
+    /// <summary>
+    /// Whether the account's calendars come from a server. Calendars stored on this device have nothing to synchronize.
+    /// </summary>
+    public static bool HasRemoteCalendarSource(this MailAccount account)
+        => account.GetEffectiveCalendarIntegrationSource() != AccountIntegrationSource.Local;
 }

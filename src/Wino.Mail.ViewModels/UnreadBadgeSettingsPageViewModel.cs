@@ -142,9 +142,9 @@ public partial class TaskbarBadgeAccountViewModel : ObservableObject
     public MailAccount Account { get; }
     public Guid AccountId => Account.Id;
     public string AccountName => Account.Name;
-    public string DescriptionText => string.IsNullOrWhiteSpace(Account.Address)
+    public string DescriptionText => string.IsNullOrWhiteSpace(Account.DisplayAddress)
         ? CapabilitySummary
-        : $"{CapabilitySummary} | {Account.Address}";
+        : $"{CapabilitySummary} | {Account.DisplayAddress}";
     public int UnreadCount { get; }
     public string CountSourceDescription { get; }
     private string CapabilitySummary => AccountCapabilitySummary.Build(Account);

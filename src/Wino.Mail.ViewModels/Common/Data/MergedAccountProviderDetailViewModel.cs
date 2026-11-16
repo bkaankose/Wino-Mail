@@ -19,7 +19,7 @@ public partial class MergedAccountProviderDetailViewModel : ObservableObject, IA
     public List<AccountProviderDetailViewModel> HoldingAccounts { get; }
     public MergedInbox MergedInbox { get; }
 
-    public string AccountAddresses => string.Join(", ", HoldingAccounts.Select(a => a.Account.Address));
+    public string AccountAddresses => string.Join(", ", HoldingAccounts.Select(a => a.Account.DisplayAddress));
 
     public Guid StartupEntityId => MergedInbox.Id;
 

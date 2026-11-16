@@ -15,6 +15,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
@@ -460,7 +461,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private async Task Sync()
     {
         var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
-        foreach (var account in accounts)
+        foreach (var account in accounts.Where(account => account.HasRemoteCalendarSource()))
         {
             Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {

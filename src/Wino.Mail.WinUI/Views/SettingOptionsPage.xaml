@@ -28,12 +28,12 @@
         <DataTemplate x:Key="RootAccountTemplate" x:DataType="mailViewModelData:AccountProviderDetailViewModel">
             <accessibilityControls:WinoSettingsCard
                 Margin="0,2,0,0"
-                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.Address), Mode=OneWay}"
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.DisplayAddress), Mode=OneWay}"
                 AutomationInvoked="AccountSettingClicked"
                 AutomationProperties.AutomationId="SettingOptionsPageSettingsCard"
                 Click="AccountSettingClicked"
                 CommandParameter="{x:Bind}"
-                Description="{x:Bind Account.Address}"
+                Description="{x:Bind Account.DisplayAddress}"
                 Header="{x:Bind Account.Name}"
                 IsClickEnabled="True">
                 <controls:SettingsCard.Resources>

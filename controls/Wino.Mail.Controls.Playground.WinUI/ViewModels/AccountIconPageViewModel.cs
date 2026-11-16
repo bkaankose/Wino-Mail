@@ -22,6 +22,7 @@ public sealed class AccountIconPageViewModel : INotifyPropertyChanged
             new AccountIconProviderOption(AccountIconProvider.Yahoo, "Yahoo"),
             new AccountIconProviderOption(AccountIconProvider.Imap, "IMAP"),
             new AccountIconProviderOption(AccountIconProvider.Exchange, "Exchange"),
+            new AccountIconProviderOption(AccountIconProvider.Local, "Local account"),
         ];
         _selectedProvider = ProviderOptions[0];
         _account = CreateAccount();

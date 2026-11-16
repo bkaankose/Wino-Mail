@@ -11,6 +11,9 @@ public enum AccountIconProvider
     Yahoo,
     Imap,
     Exchange,
+
+    /// <summary>A local account: Calendar, People and To Do on this device, with no mail server.</summary>
+    Local,
 }
 
 /// <summary>
@@ -23,6 +26,9 @@ public interface IAccountIconInfo
     string? ProfilePicturePath { get; }
 
     string? AccountColorHex { get; }
+
+    /// <summary>A WinoIcons font character that replaces the <see cref="Provider"/> glyph, such as a catalog IMAP provider's brand mark.</summary>
+    string? ProviderGlyph { get; }
 }
 
 /// <summary>
@@ -31,4 +37,5 @@ public interface IAccountIconInfo
 public sealed record AccountIconInfo(
     AccountIconProvider Provider,
     string? ProfilePicturePath = null,
-    string? AccountColorHex = null) : IAccountIconInfo;
+    string? AccountColorHex = null,
+    string? ProviderGlyph = null) : IAccountIconInfo;
