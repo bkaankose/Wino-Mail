@@ -17,7 +17,7 @@ internal static class ShellPaneRows
 
     public static double Height(IMenuItem item, bool compactAccounts) => item switch
     {
-        NewAddressListMenuItem => 44,
+        NewAddressListMenuItem or NewAddressBookMenuItem => 44,
         NewMailMenuItem or NewContactMenuItem or NewTaskListMenuItem => 40,
         MergedAccountMenuItem => 44,
         AccountGroupMenuItem => 36,

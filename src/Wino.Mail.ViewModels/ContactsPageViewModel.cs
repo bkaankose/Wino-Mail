@@ -56,7 +56,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     private const int ContactPageSize = 50;
     public static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(150);
     public const int SearchLimit = 200;
-    private readonly IContactQueryService _contactService;
+    private readonly IContactService _contactService;
     private readonly IAccountService _accountService;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoRequestDelegator _requestDelegator;
@@ -75,7 +75,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     private readonly ContactFilterGroup _categoryFilterGroup;
     private CancellationTokenSource _reloadDebounceCancellationTokenSource;
     private Dictionary<Guid, MailAccount> _accounts = [];
-    private HashSet<Guid> _cardDavCreationAccountIds = [];
+    private HashSet<Guid> _addressBookCreationAccountIds = [];
     private IReadOnlyList<ContactCreateDestination> _listDestinations = [];
     private int _currentOffset;
     private int _currentQueryVersion;
@@ -138,7 +138,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     }
     public bool CanDeleteSelectedContacts => SelectedContactsCount > 0;
     public bool IsDetailVisible => SelectedContact is not null;
-    public bool CanCreateCardDavAddressBook => _cardDavCreationAccountIds.Count > 0;
+    /// <summary>The address book is created in the account selected in the pane, so only that account counts.</summary>
+    public bool CanCreateAddressBook => GetActiveAccountId() is Guid accountId && _addressBookCreationAccountIds.Contains(accountId);
     public double? ListScrollOffset { get; set; }
     public ObservableCollection<AccountContactViewModel> Contacts { get; } = [];
     public ObservableCollection<AccountContactViewModel> SelectedContacts { get; } = [];
@@ -152,7 +153,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     /// <summary>The lists of every account. "Add to list" narrows them to the contact's address book.</summary>
     public ObservableCollection<ContactList> ContactLists { get; } = [];
 
-    public ContactsPageViewModel(IContactQueryService contactService, IAccountService accountService,
+    public ContactsPageViewModel(IContactService contactService, IAccountService accountService,
         AccountGroupExpansionStore accountGroupExpansion,
         ISynchronizationManager synchronizationManager, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService,
@@ -210,7 +211,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         {
             await LoadAccountsAsync();
             await RefreshCreateDestinationAvailabilityAsync();
-            await RefreshCardDavCreationAvailabilityAsync();
+            await RefreshAddressBookCreationAvailabilityAsync();
             await BuildFiltersAsync();
             await ReconcileContactsAsync();
             return;
@@ -223,7 +224,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         RefreshShellSynchronizationState();
 
         await RefreshCreateDestinationAvailabilityAsync();
-        await RefreshCardDavCreationAvailabilityAsync();
+        await RefreshAddressBookCreationAvailabilityAsync();
         await BuildFiltersAsync();
         await ReloadContactsAsync();
         _isInitialized = true;
@@ -282,7 +283,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             RefreshShellSynchronizationState();
 
             await RefreshCreateDestinationAvailabilityAsync();
-            await RefreshCardDavCreationAvailabilityAsync();
+            await RefreshAddressBookCreationAvailabilityAsync();
             await BuildFiltersAsync();
             await ReloadContactsAsync();
         }
@@ -293,19 +294,25 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     }
 
     [RelayCommand]
-    private async Task CreateCardDavAddressBookAsync()
+    private async Task CreateAddressBookAsync()
     {
-        var accounts = _accounts.Values.Where(account => _cardDavCreationAccountIds.Contains(account.Id)).ToList();
-        if (accounts.Count == 0) return;
-        var account = accounts.Count == 1 ? accounts[0] : await _dialogService.ShowAccountPickerDialogAsync(accounts);
-        if (account is null) return;
+        if (!CanCreateAddressBook || GetActiveAccountId() is not Guid accountId || !_accounts.TryGetValue(accountId, out var account))
+            return;
+        var isLocal = IsLocalContactAccount(account);
         var name = await _dialogService.ShowTextInputDialogAsync(string.Empty,
             Translator.ContactsPage_NewAddressBook,
-            Translator.ContactsPage_NewAddressBookDescription,
+            isLocal ? Translator.ContactsPage_NewLocalAddressBookDescription : Translator.ContactsPage_NewAddressBookDescription,
             Translator.Buttons_Create);
         if (string.IsNullOrWhiteSpace(name)) return;
         try
         {
+            if (isLocal)
+            {
+                var localBook = await _contactService.CreateLocalAddressBookAsync(account.Id, name.Trim()).ConfigureAwait(false);
+                Messenger.Send(new ContactAddressBookStateChanged(localBook, OptimisticEntityChange.Upsert, EntityUpdateSource.Server));
+                return;
+            }
+
             var addressBook = new ContactAddressBook
             {
                 Id = Guid.NewGuid(),
@@ -352,9 +359,16 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     partial void OnHasCreateDestinationsChanged(bool value) => ApplyMenuInteractionState();
     partial void OnHasListDestinationsChanged(bool value) => ApplyMenuInteractionState();
 
-    private async Task RefreshCardDavCreationAvailabilityAsync()
+    private static bool IsLocalContactAccount(MailAccount account)
+        => account.ContactIntegrationSource == AccountIntegrationSource.Local;
+
+    /// <summary>
+    /// Accounts that keep contacts on this device can always add an address book; CardDAV
+    /// accounts only when their server allows creating one. Gmail and Outlook cannot.
+    /// </summary>
+    private async Task RefreshAddressBookCreationAvailabilityAsync()
     {
-        var capableAccountIds = new HashSet<Guid>();
+        var capableAccountIds = new HashSet<Guid>(_accounts.Values.Where(IsLocalContactAccount).Select(account => account.Id));
         if (_cardDavSynchronizationStore is not null)
         {
             foreach (var account in _accounts.Values.Where(account => account.ContactIntegrationSource == AccountIntegrationSource.Dav))
@@ -367,8 +381,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
         await ExecuteUIThread(() =>
         {
-            _cardDavCreationAccountIds = capableAccountIds;
-            OnPropertyChanged(nameof(CanCreateCardDavAddressBook));
+            _addressBookCreationAccountIds = capableAccountIds;
+            OnPropertyChanged(nameof(CanCreateAddressBook));
+            ApplyMenuInteractionState();
         });
     }
 
@@ -1079,7 +1094,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                     InfoBarMessageType.Warning));
             }
 
-            await RefreshCardDavCreationAvailabilityAsync().ConfigureAwait(false);
+            await RefreshAddressBookCreationAvailabilityAsync().ConfigureAwait(false);
             await ReconcileContactsAsync().ConfigureAwait(false);
         }
         finally
@@ -1444,6 +1459,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             return;
         }
 
+        if (filter?.CanManageLocalAddressBook == true)
+        {
+            await RenameLocalAddressBookAsync(filter.AddressBook).ConfigureAwait(false);
+            return;
+        }
+
         if (filter?.List is null) return;
 
         var name = await _dialogService.ShowTextInputDialogAsync(
@@ -1488,6 +1509,14 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             return;
         }
 
+        if (filter?.CanManageLocalAddressBook == true)
+        {
+            if (filter.CanDelete)
+                await DeleteLocalAddressBookAsync(filter.AddressBook).ConfigureAwait(false);
+
+            return;
+        }
+
         if (filter?.List is null) return;
 
         var confirmed = await _dialogService.ShowConfirmationDialogAsync(
@@ -1509,6 +1538,47 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         catch (Exception ex)
         {
             _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task RenameLocalAddressBookAsync(ContactAddressBook addressBook)
+    {
+        var name = await _dialogService.ShowTextInputDialogAsync(
+            addressBook.DisplayName, Translator.ContactsPage_RenameAddressBook,
+            Translator.ContactList_NameHeader, Translator.Buttons_Save);
+        if (string.IsNullOrWhiteSpace(name) || string.Equals(name.Trim(), addressBook.DisplayName, StringComparison.Ordinal)) return;
+
+        try
+        {
+            var renamed = await _contactService.RenameLocalAddressBookAsync(addressBook.Id, name.Trim()).ConfigureAwait(false);
+            Messenger.Send(new ContactAddressBookStateChanged(renamed, OptimisticEntityChange.Upsert, EntityUpdateSource.Server));
+        }
+        catch (Exception ex)
+        {
+            await ExecuteUIThread(() => _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error));
+        }
+    }
+
+    private async Task DeleteLocalAddressBookAsync(ContactAddressBook addressBook)
+    {
+        var confirmed = await _dialogService.ShowConfirmationDialogAsync(
+            string.Format(Translator.ContactsPage_DeleteLocalAddressBookMessage, addressBook.DisplayName),
+            Translator.ContactsPage_DeleteAddressBookTitle,
+            Translator.ContactConfirmDialog_DeleteButton);
+        if (!confirmed) return;
+
+        try
+        {
+            await _contactService.DeleteLocalAddressBookAsync(addressBook.Id).ConfigureAwait(false);
+            Messenger.Send(new ContactAddressBookStateChanged(CloneAddressBook(addressBook), OptimisticEntityChange.Delete, EntityUpdateSource.Server));
+
+            // Its lists and contacts went with it.
+            await BuildFiltersAsync().ConfigureAwait(false);
+            await ReconcileContactsAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await ExecuteUIThread(() => _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error));
         }
     }
 

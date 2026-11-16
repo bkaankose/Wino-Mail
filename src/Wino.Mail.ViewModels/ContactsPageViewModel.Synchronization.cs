@@ -16,7 +16,8 @@ namespace Wino.Mail.ViewModels;
 /// </summary>
 public partial class ContactsPageViewModel
 {
-    public bool IsSynchronizationSupported => true;
+    public bool IsSynchronizationSupported
+        => _accounts.Values.Any(account => account.IsContactAccessEnabled && account.ContactIntegrationSource != AccountIntegrationSource.Local);
 
     public bool CanSynchronize => ContactAccountIds.Count > 0 && !SynchronizationState.IsSynchronizing;
 
@@ -44,6 +45,7 @@ public partial class ContactsPageViewModel
 
     internal void RefreshShellSynchronizationState()
     {
+        OnPropertyChanged(nameof(IsSynchronizationSupported));
         OnPropertyChanged(nameof(CanSynchronize));
         OnPropertyChanged(nameof(SynchronizationState));
         OnPropertyChanged(nameof(SynchronizationDescription));

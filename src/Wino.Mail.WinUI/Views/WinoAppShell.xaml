@@ -54,6 +54,7 @@
                 MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
                 MergedMailCategoryMenuTemplate="{StaticResource MergedMailCategoryMenuTemplate}"
                 MyDayTaskTemplate="{StaticResource MyDayTaskTemplate}"
+                NewAddressBookTemplate="{StaticResource NewAddressBookTemplate}"
                 NewAddressListTemplate="{StaticResource NewAddressListTemplate}"
                 NewContactTemplate="{StaticResource NewContactTemplate}"
                 NewTaskListTemplate="{StaticResource NewTaskListTemplate}"

@@ -70,7 +70,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     // the account waits for a sign-in. The mail-only context actions stay hidden.
 
     public string AccountName => Name;
-    public string AccountAddress => Account?.Address ?? string.Empty;
+    public string AccountAddress => Account?.DisplayAddress ?? string.Empty;
     public int UnreadItemCount => Count;
     public bool IsSynchronizationProgressVisible => false;
     public bool IsProgressIndeterminate => false;
@@ -125,7 +125,11 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public Guid? CategoryId => Category?.Id;
     public string CategoryColorHex => Category?.BackgroundColorHex;
     public bool CanManageRemoteAddressBook => AddressBook?.SourceKind == ContactSourceKind.CardDav && !AddressBook.IsReadOnly;
-    public bool CanRenameOrDelete => IsList || IsCategory || CanManageRemoteAddressBook;
+    public bool CanManageLocalAddressBook => AddressBook?.SourceKind == ContactSourceKind.Local;
+    public bool CanRenameOrDelete => IsList || IsCategory || CanManageRemoteAddressBook || CanManageLocalAddressBook;
+
+    /// <summary>The default local address book receives contacts saved without a chosen one, so it can only be renamed.</summary>
+    public bool CanDelete => CanRenameOrDelete && !(CanManageLocalAddressBook && AddressBook.IsDefault);
     public bool HasAccountIcon => Kind == ContactFilterKind.Account && Account is not null;
     public Guid? ListId => List?.Id;
 
@@ -215,7 +219,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     [RelayCommand(CanExecute = nameof(CanModifyList))]
     private void RenameList() => RenameRequested?.Invoke(this);
 
-    [RelayCommand(CanExecute = nameof(CanModifyList))]
+    [RelayCommand(CanExecute = nameof(CanDelete))]
     private void DeleteList() => DeleteRequested?.Invoke(this);
 
     [RelayCommand]

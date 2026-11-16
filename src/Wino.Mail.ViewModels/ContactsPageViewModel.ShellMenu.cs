@@ -23,6 +23,8 @@ public partial class ContactsPageViewModel
 {
     private readonly NewContactMenuItem _newContactMenuItem = new();
     private readonly NewAddressListMenuItem _newAddressListMenuItem = new();
+    private readonly NewAddressBookMenuItem _newAddressBookMenuItem = new();
+    private readonly SeperatorItem _commandSeparator = new();
     private readonly SeperatorItem _accountSeparator = new();
     private readonly ShellSectionHeaderMenuItem _addressBooksHeader = new(Translator.ContactsPage_AddressBooks);
     private readonly ShellSectionHeaderMenuItem _listsHeader = new(Translator.ContactDetail_Lists);
@@ -180,6 +182,8 @@ public partial class ContactsPageViewModel
                 return AddContactCommand.CanExecute(null) ? AddContactAsync() : Task.CompletedTask;
             case NewAddressListMenuItem:
                 return CreateListCommand.CanExecute(null) ? CreateListCommand.ExecuteAsync(null) : Task.CompletedTask;
+            case NewAddressBookMenuItem:
+                return CanCreateAddressBook ? CreateAddressBookCommand.ExecuteAsync(null) : Task.CompletedTask;
             case ContactCategoriesExpanderMenuItem expander:
                 // The state is kept on the entry, so it holds while the account changes.
                 expander.IsExpanded = !expander.IsExpanded;
@@ -221,10 +225,12 @@ public partial class ContactsPageViewModel
         if (_shellMenu is null)
             return;
 
-        var desired = new List<IMenuItem>(FilterGroups.Sum(group => group.Count) + 5)
+        var desired = new List<IMenuItem>(FilterGroups.Sum(group => group.Count) + 6)
         {
             _newContactMenuItem,
-            _newAddressListMenuItem
+            _newAddressListMenuItem,
+            _newAddressBookMenuItem,
+            _commandSeparator
         };
 
         desired.AddRange(_primaryFilterGroup);
@@ -388,6 +394,8 @@ public partial class ContactsPageViewModel
         // page is on screen and there is at least one address book to create into.
         _newContactMenuItem.IsEnabled = _isMenuInteractionEnabled && HasCreateDestinations;
         _newAddressListMenuItem.IsEnabled = _isMenuInteractionEnabled && HasListDestinations;
+        _newAddressBookMenuItem.IsEnabled = _isMenuInteractionEnabled && CanCreateAddressBook;
+        OnPropertyChanged(nameof(CanCreateAddressBook));
         _categoriesExpander.IsEnabled = _isMenuInteractionEnabled;
 
         // A refresh already in flight must not be re-entered from the pane.

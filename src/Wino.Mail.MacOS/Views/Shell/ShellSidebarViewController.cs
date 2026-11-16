@@ -593,7 +593,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
                             else owner._outline.CollapseItem(node);
                             Refresh(item, node, remeasure: false);
                             return;
-                        case nameof(MenuItemBase.IsEnabled) when item is NewContactMenuItem or NewAddressListMenuItem:
+                        case nameof(MenuItemBase.IsEnabled) when item is NewContactMenuItem or NewAddressListMenuItem or NewAddressBookMenuItem:
                             Bind(_items);
                             return;
                         case nameof(CalendarDatePickerMenuItem.IsCalendarExpanded):

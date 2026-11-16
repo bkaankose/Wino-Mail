@@ -41,7 +41,7 @@ public sealed partial class ContactsPageViewController
 
         // People search is the toolbar field (IShellSearchTarget); a second field in the list duplicated it.
         // Windows ContactsPage "New address book" (CardDAV accounts only): icon-only, above the list.
-        _newAddressBook = CommandButton(string.Empty, ViewModel.CreateCardDavAddressBookCommand);
+        _newAddressBook = CommandButton(string.Empty, ViewModel.CreateAddressBookCommand);
         _newAddressBook.BezelStyle = NSBezelStyle.Rounded;
         _newAddressBook.Image = WinoIcons.Image(WinoIconGlyph.Library, 15, null, Translator.ContactsPage_NewAddressBook);
         _newAddressBook.ImagePosition = NSCellImagePosition.ImageOnly;
@@ -141,7 +141,7 @@ public sealed partial class ContactsPageViewController
             if (more) _loadingMore.StartAnimation(null); else _loadingMore.StopAnimation(null);
         });
         Bind(nameof(ViewModel.SelectedContact), vm => vm.SelectedContact, contact => SelectRow(contact));
-        Bind(nameof(ViewModel.CanCreateCardDavAddressBook), vm => vm.CanCreateCardDavAddressBook, canCreate =>
+        Bind(nameof(ViewModel.CanCreateAddressBook), vm => vm.CanCreateAddressBook, canCreate =>
         {
             _newAddressBook.Hidden = !canCreate;
             // Deactivate before activating so the two top constraints never coexist.

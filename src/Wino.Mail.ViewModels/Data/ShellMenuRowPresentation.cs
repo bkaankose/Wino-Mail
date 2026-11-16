@@ -101,7 +101,9 @@ public static class ShellMenuRowPresentation
             case NewContactMenuItem:
                 return row with { Glyph = WinoIconGlyph.NewMail, Title = Translator.ContactsPane_NewContact };
             case NewAddressListMenuItem:
-                return row with { Glyph = WinoIconGlyph.PersonAdd, Title = Translator.ContactList_NewTitle };
+                return row with { Glyph = WinoIconGlyph.PersonAdd, Title = Translator.ContactsPane_NewAddressList };
+            case NewAddressBookMenuItem:
+                return row with { Glyph = WinoIconGlyph.Library, Title = Translator.ContactsPane_NewAddressBook, IsExpanded = null };
             case NewTaskListMenuItem:
                 return row with { Glyph = WinoIconGlyph.Add, Title = Translator.ToDoPage_NewList };
             case ShellSectionHeaderMenuItem header:

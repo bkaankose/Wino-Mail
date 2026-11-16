@@ -442,6 +442,57 @@ public class ContactService : BaseDatabaseService, IContactService
     public Task<ContactAddressBook> EnsureLocalAddressBookAsync(Guid accountId, string displayName)
         => GetOrCreateLocalAddressBookAsync(accountId, displayName);
 
+    public async Task<ContactAddressBook> CreateLocalAddressBookAsync(Guid accountId, string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            throw new ArgumentException("An address book needs a name.", nameof(displayName));
+
+        var book = new ContactAddressBook
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = accountId,
+            SourceKind = ContactSourceKind.Local,
+            DisplayName = displayName.Trim(),
+            IsDefault = false
+        };
+        await Connection.InsertAsync(book, typeof(ContactAddressBook)).ConfigureAwait(false);
+        return book;
+    }
+
+    public async Task<ContactAddressBook> RenameLocalAddressBookAsync(Guid addressBookId, string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            throw new ArgumentException("An address book needs a name.", nameof(displayName));
+
+        var book = await GetLocalAddressBookAsync(addressBookId).ConfigureAwait(false);
+        book.DisplayName = displayName.Trim();
+        await Connection.UpdateAsync(book, typeof(ContactAddressBook)).ConfigureAwait(false);
+        return book;
+    }
+
+    public async Task DeleteLocalAddressBookAsync(Guid addressBookId)
+    {
+        var book = await GetLocalAddressBookAsync(addressBookId).ConfigureAwait(false);
+
+        // Contacts saved without a chosen address book land in the default one, so it stays.
+        if (book.IsDefault)
+            throw new InvalidOperationException("The default local address book cannot be deleted.");
+
+        await DeleteAddressBookAsync(book.Id).ConfigureAwait(false);
+    }
+
+    private async Task<ContactAddressBook> GetLocalAddressBookAsync(Guid addressBookId)
+    {
+        var book = await Connection.Table<ContactAddressBook>()
+            .FirstOrDefaultAsync(item => item.Id == addressBookId)
+            .ConfigureAwait(false);
+
+        if (book is null || book.SourceKind != ContactSourceKind.Local)
+            throw new InvalidOperationException($"Address book {addressBookId} is not a local address book.");
+
+        return book;
+    }
+
     public async Task<AccountContact> GetContactByAddressAsync(Guid? accountId, string address)
     {
         var normalized = ContactEmailAddress.Normalize(address);
@@ -914,9 +965,11 @@ public class ContactService : BaseDatabaseService, IContactService
 
     private async Task<ContactAddressBook> GetOrCreateLocalAddressBookAsync(Guid accountId, string displayName)
     {
-        var book = await Connection.Table<ContactAddressBook>()
-            .FirstOrDefaultAsync(item => item.MailAccountId == accountId && item.SourceKind == ContactSourceKind.Local)
+        var localBooks = await Connection.Table<ContactAddressBook>()
+            .Where(item => item.MailAccountId == accountId && item.SourceKind == ContactSourceKind.Local)
+            .ToListAsync()
             .ConfigureAwait(false);
+        var book = localBooks.FirstOrDefault(item => item.IsDefault) ?? localBooks.FirstOrDefault();
         if (book is not null)
             return book;
 

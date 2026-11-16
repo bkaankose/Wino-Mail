@@ -38,6 +38,13 @@ public interface IContactService : IContactQueryService
     Task DeleteAddressBooksBySourceAsync(Guid accountId, ContactSourceKind sourceKind);
     Task<ContactAddressBook> EnsureLocalAddressBookAsync(Guid accountId, string displayName);
 
+    /// <summary>Adds another address book kept on this device to the account. It is never the default one.</summary>
+    Task<ContactAddressBook> CreateLocalAddressBookAsync(Guid accountId, string displayName);
+    Task<ContactAddressBook> RenameLocalAddressBookAsync(Guid addressBookId, string displayName);
+
+    /// <summary>Deletes a local address book with its contacts and lists. The default local address book cannot be deleted.</summary>
+    Task DeleteLocalAddressBookAsync(Guid addressBookId);
+
     Task<AccountContact> GetContactByAddressAsync(Guid? accountId, string address);
 
     /// <summary>

@@ -194,7 +194,10 @@ internal sealed class ShellPaneCell : NSTableCellView
                 NewRow(WinoIconGlyph.NewMail, 18, Translator.ContactsPane_NewContact);
                 break;
             case NewAddressListMenuItem:
-                NewRow(WinoIconGlyph.PersonAdd, 17, Translator.ContactList_NewTitle);
+                NewRow(WinoIconGlyph.PersonAdd, 17, Translator.ContactsPane_NewAddressList);
+                break;
+            case NewAddressBookMenuItem:
+                NewRow(WinoIconGlyph.Library, 17, Translator.ContactsPane_NewAddressBook);
                 break;
             case NewTaskListMenuItem:
                 NewRow(WinoIconGlyph.Add, 18, Translator.ToDoPage_NewList);
