@@ -33,8 +33,11 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels;
 
 public partial class AccountManagementViewModel : AccountManagementPageViewModelBase,
-    IRecipient<AccountLayoutChanged>
+    IRecipient<AccountLayoutChanged>,
+    IRecipient<AccountCreatedMessage>,
+    IRecipient<AccountRemovedMessage>
 {
+    private readonly SemaphoreSlim _accountsReloadGate = new(1, 1);
 
     private readonly IWinoAccountDataSyncService _syncService;
     private readonly IWinoLogger _winoLogger;
@@ -98,11 +101,18 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     public async void Receive(AccountLayoutChanged message) => await InitializeAccountsAsync();
 
+    // Platforms that add accounts in their own window leave this page open, so it does not reload on navigation.
+    public async void Receive(AccountCreatedMessage message) => await InitializeAccountsAsync();
+
+    public async void Receive(AccountRemovedMessage message) => await InitializeAccountsAsync();
+
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
 
         Messenger.Register<AccountLayoutChanged>(this);
+        Messenger.Register<AccountCreatedMessage>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -110,6 +120,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         base.UnregisterRecipients();
 
         Messenger.Unregister<AccountLayoutChanged>(this);
+        Messenger.Unregister<AccountCreatedMessage>(this);
+        Messenger.Unregister<AccountRemovedMessage>(this);
     }
 
     [RelayCommand]
@@ -406,6 +418,20 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     }
 
     public override async Task InitializeAccountsAsync()
+    {
+        // Reloads can overlap (navigation and account messages); each clears and refills the list.
+        await _accountsReloadGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await ReloadAccountsAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _accountsReloadGate.Release();
+        }
+    }
+
+    private async Task ReloadAccountsAsync()
     {
         await ExecuteUIThread(() =>
         {
