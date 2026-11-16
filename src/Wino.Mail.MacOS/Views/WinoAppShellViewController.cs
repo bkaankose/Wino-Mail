@@ -537,7 +537,13 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         catch (Exception exception) { ReportError(exception); }
     }
 
-    private void ApplyBriefing() => _toolbar?.SetBriefing(_briefing is not null, _briefing?.HasUnseenItems == true, _briefingOpen);
+    private void ApplyBriefing()
+    {
+        var available = _briefing?.IsAvailable == true;
+        // Signing out of the Wino account, or losing Intelligence, takes the open panel away with the button.
+        if (!available && _briefingOpen) SetBriefingOpen(false);
+        _toolbar?.SetBriefing(available, available && _briefing?.HasUnseenItems == true, _briefingOpen);
+    }
 
     /// <summary>Shows or hides the briefing panel as a right overlay, 400pt wide, under the title bar.</summary>
     private void ToggleBriefing(NSView anchor)

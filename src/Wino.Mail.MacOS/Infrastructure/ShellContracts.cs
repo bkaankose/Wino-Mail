@@ -104,6 +104,9 @@ public interface IDailyBriefingPresenter
     /// <summary>True when there are unseen briefing items (drives the toolbar badge).</summary>
     bool HasUnseenItems { get; }
 
+    /// <summary>True while the signed-in Wino account can use Intelligence surfaces (drives the toolbar button).</summary>
+    bool IsAvailable { get; }
+
     event EventHandler? UnseenItemsChanged;
 }
 
