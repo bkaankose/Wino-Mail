@@ -373,10 +373,11 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         }
         if (!ViewModel.Readiness.IsReady) return;
         bool isAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
+        _quickEvent?.Dismiss();
+        _quickEvent = null;
         ViewModel.BeginQuickEvent(args.Start, args.End, isAllDay);
-        CloseQuickEvent();
         _quickEvent = new QuickEventPopover(ViewModel, Dispatcher, ReportError);
-        _quickEvent.Closed += (_, _) => { _quickEvent = null; };
+        _quickEvent.Closed += (sender, _) => { if (ReferenceEquals(_quickEvent, sender)) _quickEvent = null; };
         var edge = isAllDay ? NSRectEdge.MaxYEdge : NSRectEdge.MaxXEdge;
         if (!isAllDay && args.Anchor.GetMaxX() + 340 > _surface.Bounds.Width) edge = NSRectEdge.MinXEdge;
         _quickEvent.Present(args.Anchor, _surface, edge);
@@ -384,8 +385,10 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
 
     private void CloseQuickEvent()
     {
-        _quickEvent?.Close();
+        if (_quickEvent is null) return;
+        _quickEvent.Dismiss();
         _quickEvent = null;
+        ViewModel.SelectedQuickEventDate = null;
     }
 
     // ------------------------------------------------------------ rendering frame host

@@ -137,6 +137,16 @@ internal sealed class QuickEventPopover : NSPopover
         _readOnlyNote.Hidden = calendar?.IsReadOnly != true;
     }
 
+    /// <summary>
+    /// Closes the popover without clearing the quick event. A click on another slot starts the next quick event
+    /// first, and this popover's DidClose arrives after that, so it must not reset the shared state.
+    /// </summary>
+    public void Dismiss()
+    {
+        _closedByUs = true;
+        if (Shown) Close();
+    }
+
     public void Present(CGRect anchor, NSView positioningView, NSRectEdge edge)
     {
         Show(anchor, positioningView, edge);
