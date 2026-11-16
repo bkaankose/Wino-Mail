@@ -131,7 +131,7 @@ public partial class AccountSetupPageViewModel
     private bool CanExecutePrimary() => Step switch
     {
         AccountSetupStep.Address => CanContinue(),
-        AccountSetupStep.Review => Phase == AccountSetupPhase.Features && !IsReviewBusy && Capabilities.HasAnyCapability,
+        AccountSetupStep.Review => Phase == AccountSetupPhase.Features && !IsReviewBusy && Capabilities.HasAnyCapability && HasAccountName,
         AccountSetupStep.SignIn when IsImapRoute => CanCheckPassword(),
         AccountSetupStep.SignIn when IsSignInValidated => CanAddAccount(),
         AccountSetupStep.SignIn when IsExchangePasswordVisible => CanCheckExchangePassword(),
@@ -154,6 +154,10 @@ public partial class AccountSetupPageViewModel
                 break;
             case AccountSetupStep.SignInMethod:
                 IsImapOptionChosen = true;
+                // Choosing the browser is the decision to sign in, so it opens at once; an issuer the user must
+                // confirm first keeps the sign-in step's check box and button.
+                if (CanSignInWithBrowser())
+                    await SignInWithBrowserAsync();
                 break;
             case AccountSetupStep.SignIn when IsImapRoute:
                 await CheckPasswordAsync();

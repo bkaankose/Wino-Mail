@@ -507,6 +507,16 @@
                             Visibility="{x:Bind ViewModel.HasAccountNameError, Mode=OneWay}" />
                     </StackPanel>
 
+                    <!--  A browser-signed-in IMAP account: the sign-in returns no display name, so the sender name is asked here.  -->
+                    <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsReviewSendAsVisible, Mode=OneWay}">
+                        <TextBox
+                            AutomationProperties.AutomationId="AccountSetupReviewSendAs"
+                            Header="{x:Bind domain:Translator.AccountSetup_SendAsHeader}"
+                            KeyDown="StepTextBoxKeyDown"
+                            Text="{x:Bind ViewModel.SenderName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Style="{StaticResource AccountSetupCaptionStyle}" Text="{x:Bind domain:Translator.AccountSetup_SendAsDescription}" />
+                    </StackPanel>
+
                     <ItemsControl
                         AutomationProperties.AutomationId="AccountSetupAppRows"
                         IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsReviewStatusVisible), Mode=OneWay}"
@@ -624,7 +634,7 @@
 
                     <!--  Checking an entered server, or waiting for the provider's sign-in page.  -->
                     <Grid
-                        HorizontalAlignment="Left"
+                        HorizontalAlignment="Center"
                         AutomationProperties.AutomationId="AccountSetupReviewStatus"
                         AutomationProperties.LiveSetting="Polite"
                         ColumnSpacing="8"
@@ -680,6 +690,12 @@
             <!--  ============ Sign-in method (IMAP with more than one option) ============  -->
             <DataTemplate x:Key="SignInMethodStepTemplate" x:DataType="local:AccountSetupStepContent">
                 <StackPanel Spacing="8">
+                    <!--  The selected option's description sits between the question and the choices.  -->
+                    <TextBlock
+                        AutomationProperties.LiveSetting="Polite"
+                        Style="{StaticResource AccountSetupCaptionStyle}"
+                        Text="{x:Bind ViewModel.StepCaption, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.HasStepCaption, Mode=OneWay}" />
                     <ItemsView
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
@@ -695,11 +711,6 @@
                             <StackLayout Spacing="4" />
                         </ItemsView.Layout>
                     </ItemsView>
-                    <TextBlock
-                        AutomationProperties.LiveSetting="Polite"
-                        Style="{StaticResource AccountSetupCaptionStyle}"
-                        Text="{x:Bind ViewModel.StepCaption, Mode=OneWay}"
-                        Visibility="{x:Bind ViewModel.HasStepCaption, Mode=OneWay}" />
                 </StackPanel>
             </DataTemplate>
 
@@ -719,7 +730,7 @@
                         </StackPanel>
                     </CheckBox>
                     <Button
-                        HorizontalAlignment="Left"
+                        HorizontalAlignment="Center"
                         AutomationProperties.AutomationId="AccountSetupBrowserSignIn"
                         AutomationProperties.Name="{x:Bind ViewModel.BrowserSignInButtonText, Mode=OneWay}"
                         Command="{x:Bind ViewModel.SignInWithBrowserCommand}"
@@ -825,7 +836,7 @@
                             Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
                     </StackPanel>
 
-                    <!--  IMAP mail: the sender name, under the password or the browser button.  -->
+                    <!--  Password sign-in: the sender name under the password. A browser sign-in asks for it on the review step.  -->
                     <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsSendAsVisible, Mode=OneWay}">
                         <TextBox
                             AutomationProperties.AutomationId="AccountSetupSendAs"
@@ -837,7 +848,7 @@
 
                     <!--  One status line: waiting or checking, then signed in or all connections work.  -->
                     <Grid
-                        HorizontalAlignment="Left"
+                        HorizontalAlignment="Center"
                         AutomationProperties.AutomationId="AccountSetupConnectionStatus"
                         AutomationProperties.LiveSetting="Polite"
                         ColumnSpacing="8"
@@ -917,7 +928,7 @@
             <DataTemplate x:Key="ProgressStepTemplate" x:DataType="local:AccountSetupStepContent">
                 <StackPanel Spacing="12">
                     <ItemsControl
-                        HorizontalAlignment="Left"
+                        HorizontalAlignment="Center"
                         AutomationProperties.AutomationId="AccountSetupSteps"
                         AutomationProperties.LiveSetting="Polite"
                         ItemsSource="{x:Bind ViewModel.Steps}">
@@ -982,7 +993,7 @@
                         Severity="Success" />
 
                     <ItemsControl
-                        HorizontalAlignment="Left"
+                        HorizontalAlignment="Center"
                         AutomationProperties.AutomationId="AccountSetupResultRows"
                         IsTabStop="False"
                         ItemTemplate="{StaticResource AccountSetupResultRowTemplate}"
@@ -1032,8 +1043,9 @@
     </Page.Resources>
 
     <!--
-        One column directly on the window: the step's title, the account, the step, then Back and the primary button.
-        The welcome window centres the column; Settings starts it at the top left. The Settings frame does not scroll,
+        One column directly on the window: the account, the step's question and description, the step, then Back and the
+        primary button. Both hosts centre the column horizontally; the welcome window also centres it vertically and
+        Settings starts it at the top. The Settings frame does not scroll,
         so the page carries its own scroller; in the wizard the host scrolls and this one is as tall as its content.
     -->
     <ScrollViewer
@@ -1054,35 +1066,10 @@
                 AutomationProperties.AutomationId="AccountSetupPanel"
                 Spacing="20">
 
-                <!--  ============ Title ============  -->
-                <StackPanel x:Name="StepHeader" Spacing="6">
-                    <Image
-                        x:Name="StepLogo"
-                        Width="64"
-                        Height="64"
-                        Margin="0,0,0,8"
-                        HorizontalAlignment="Center"
-                        AutomationProperties.AccessibilityView="Raw"
-                        Stretch="Uniform" />
-                    <TextBlock
-                        x:Name="StepTitleText"
-                        AutomationProperties.HeadingLevel="Level1"
-                        Style="{StaticResource TitleTextBlockStyle}"
-                        Text="{x:Bind ViewModel.StepTitle, Mode=OneWay}"
-                        TextWrapping="WrapWholeWords"
-                        Visibility="{x:Bind ViewModel.HasStepTitle, Mode=OneWay}" />
-                    <TextBlock
-                        x:Name="StepSubtitleText"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Text="{x:Bind ViewModel.StepSubtitle, Mode=OneWay}"
-                        TextWrapping="WrapWholeWords"
-                        Visibility="{x:Bind ViewModel.HasStepSubtitle, Mode=OneWay}" />
-                </StackPanel>
-
                 <!--  ============ The account so far: one pill, with Change beside it ============  -->
                 <Grid
                     x:Name="KnownRow"
+                    HorizontalAlignment="Center"
                     ColumnSpacing="4"
                     Visibility="{x:Bind ViewModel.IsKnownCardVisible, Mode=OneWay}">
                     <Grid.ColumnDefinitions>
@@ -1231,6 +1218,36 @@
                     </Button>
                 </Grid>
 
+                <!--  ============ The question and its description, directly above the step ============  -->
+                <StackPanel x:Name="StepHeader" Spacing="6">
+                    <Image
+                        x:Name="StepLogo"
+                        Width="64"
+                        Height="64"
+                        Margin="0,0,0,8"
+                        HorizontalAlignment="Center"
+                        AutomationProperties.AccessibilityView="Raw"
+                        Stretch="Uniform" />
+                    <TextBlock
+                        x:Name="StepTitleText"
+                        HorizontalAlignment="Center"
+                        AutomationProperties.HeadingLevel="Level1"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="{x:Bind ViewModel.StepTitle, Mode=OneWay}"
+                        TextAlignment="Center"
+                        TextWrapping="WrapWholeWords"
+                        Visibility="{x:Bind ViewModel.HasStepTitle, Mode=OneWay}" />
+                    <TextBlock
+                        x:Name="StepSubtitleText"
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Text="{x:Bind ViewModel.StepSubtitle, Mode=OneWay}"
+                        TextAlignment="Center"
+                        TextWrapping="WrapWholeWords"
+                        Visibility="{x:Bind ViewModel.HasStepSubtitle, Mode=OneWay}" />
+                </StackPanel>
+
                 <!--  ============ The step ============  -->
                 <ContentControl
                     x:Name="StepHost"
@@ -1295,6 +1312,7 @@
                 <!--  ============ Advanced setup and Local account setup ============  -->
                 <StackPanel
                     x:Name="SetupLinks"
+                    HorizontalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="12"
                     Visibility="{x:Bind ViewModel.IsFooterVisible, Mode=OneWay}">

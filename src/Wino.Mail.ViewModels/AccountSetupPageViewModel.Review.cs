@@ -471,6 +471,7 @@ public partial class AccountSetupPageViewModel
     {
         OnPropertyChanged(nameof(IsReviewNameVisible));
         OnPropertyChanged(nameof(IsReviewSignedInVisible));
+        OnPropertyChanged(nameof(IsReviewSendAsVisible));
         OnPropertyChanged(nameof(IsPop3NoticeVisible));
         OnPropertyChanged(nameof(IsReviewDavSignInVisible));
         OnPropertyChanged(nameof(IsUseMailSignInForDavVisible));
