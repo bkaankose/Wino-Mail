@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Address-first Add account (Windows AccountSetupPage): the top app bar over the wallpaper, then one Wino zone with a
-     scrolling column (the step's title, the account pill with Change, the step, the advanced and local setup links) and
+     scrolling column (the account pill with Change, the step's question and description, the step, the advanced and local setup links) and
      Back with the step's primary action at the zone's foot. The page fills the step container from the shared ViewModel. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/onboarding_insets"
@@ -47,37 +47,13 @@
                 android:paddingEnd="@dimen/onboarding_page_padding"
                 android:paddingBottom="@dimen/onboarding_page_padding">
 
-              <!-- The address step shows the Wino Mail logo; no other step has one. -->
-              <ImageView
-                  android:id="@+id/setup_page_logo"
-                  android:layout_width="@dimen/onboarding_logo_size"
-                  android:layout_height="@dimen/onboarding_logo_size"
-                  android:layout_gravity="center_horizontal"
-                  android:layout_marginBottom="8dp"
-                  android:importantForAccessibility="no"
-                  android:scaleType="fitCenter"
-                  android:src="@drawable/wino_logo" />
-
-              <TextView
-                  android:id="@+id/setup_page_title"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:accessibilityHeading="true"
-                  android:textAppearance="@style/TextAppearance.Wino.Headline" />
-
-              <TextView
-                  android:id="@+id/setup_page_subtitle"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:layout_marginTop="6dp"
-                  android:textAppearance="@style/TextAppearance.Wino.ListSupporting" />
-
               <!-- The account so far: one pill, with Change beside it. -->
               <LinearLayout
                   android:id="@+id/setup_page_known_row"
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
-                  android:layout_marginTop="@dimen/account_setup_section_gap"
+                  android:layout_gravity="center_horizontal"
+                  android:layout_marginBottom="@dimen/account_setup_section_gap"
                   android:gravity="center_vertical"
                   android:orientation="horizontal">
 
@@ -138,6 +114,33 @@
                     android:layout_width="wrap_content"
                     android:layout_marginStart="4dp" />
               </LinearLayout>
+
+              <!-- The address step shows the Wino Mail logo; no other step has one. -->
+              <ImageView
+                  android:id="@+id/setup_page_logo"
+                  android:layout_width="@dimen/onboarding_logo_size"
+                  android:layout_height="@dimen/onboarding_logo_size"
+                  android:layout_gravity="center_horizontal"
+                  android:layout_marginBottom="8dp"
+                  android:importantForAccessibility="no"
+                  android:scaleType="fitCenter"
+                  android:src="@drawable/wino_logo" />
+
+              <TextView
+                  android:id="@+id/setup_page_title"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:accessibilityHeading="true"
+                  android:gravity="center_horizontal"
+                  android:textAppearance="@style/TextAppearance.Wino.Headline" />
+
+              <TextView
+                  android:id="@+id/setup_page_subtitle"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="6dp"
+                  android:gravity="center_horizontal"
+                  android:textAppearance="@style/TextAppearance.Wino.ListSupporting" />
 
               <!-- The current step, built from the shared ViewModel. -->
               <LinearLayout

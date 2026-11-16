@@ -22,11 +22,10 @@ using PopupMenu = AndroidX.AppCompat.Widget.PopupMenu;
 namespace Wino.Mail.Android.Views.Onboarding;
 
 /// <summary>
-/// Address-first Add account (Windows AccountSetupPage, the shared <see cref="AccountSetupPageViewModel"/>): one column
-/// with the step's title, the account pill with Change, the current step, then Back and the step's action. The steps
-/// (address, discovery, sign-in method, sign-in, review, progress) are built once and follow <see cref="AccountSetupPageViewModel.Step"/>;
-/// every rule stays in the ViewModel. The wizard centres the title and pill as the Windows welcome window does;
-/// Settings starts them at the edge. Flyouts on Windows (colour, provider picker, Change menu, local account info) are
+/// Address-first Add account (Windows AccountSetupPage, the shared <see cref="AccountSetupPageViewModel"/>): one centred
+/// column with the account pill with Change, the step's question and description, the current step, then Back and the
+/// step's action. The steps (address, discovery, sign-in method, sign-in, review, progress) are built once and follow
+/// <see cref="AccountSetupPageViewModel.Step"/>; every rule stays in the ViewModel. Flyouts on Windows (colour, provider picker, Change menu, local account info) are
 /// Material dialogs and a popup menu here.
 /// </summary>
 public sealed partial class AccountSetupPageFragment : WinoFragment<AccountSetupPageViewModel>
@@ -104,21 +103,6 @@ public sealed partial class AccountSetupPageFragment : WinoFragment<AccountSetup
         var title = view.FindViewById<TextView>(Resource.Id.setup_page_title);
         var subtitle = view.FindViewById<TextView>(Resource.Id.setup_page_subtitle);
 
-        // The wizard centres the title like the Windows welcome window; Settings starts it at the edge.
-        var knownRow = view.FindViewById(Resource.Id.setup_page_known_row);
-        var links = view.FindViewById(Resource.Id.setup_page_links);
-        binder.BindAny(viewModel, vm => vm.IsSettingsHost, isSettings =>
-        {
-            var gravity = isSettings ? GravityFlags.Start : GravityFlags.CenterHorizontal;
-            if (title is not null) title.Gravity = gravity;
-            if (subtitle is not null) subtitle.Gravity = gravity;
-            foreach (var aligned in new[] { knownRow, links })
-            {
-                if (aligned?.LayoutParameters is not LinearLayout.LayoutParams parameters || parameters.Gravity == gravity) continue;
-                parameters.Gravity = gravity;
-                aligned.LayoutParameters = parameters;
-            }
-        });
         binder.BindAny(viewModel, vm => vm.Step == AccountSetupStep.Address, visible => OnboardingViews.Show(logo, visible));
         binder.BindAny(viewModel, vm => vm.HasStepTitle ? vm.StepTitle : null, text => OnboardingViews.Caption(title, text));
         binder.BindAny(viewModel, vm => vm.HasStepSubtitle ? vm.StepSubtitle : null, text => OnboardingViews.Caption(subtitle, text));

@@ -184,6 +184,7 @@ public sealed partial class AccountSetupPageFragment
     private void BuildSignInMethodStep(Form form, AccountSetupPageViewModel viewModel)
     {
         var context = form.Context;
+        CaptionWhen(form, vm => vm.HasStepCaption ? vm.StepCaption : null, topDp: 0).AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
         var group = new RadioGroup(context) { Orientation = Orientation.Vertical, ContentDescription = Translator.AccountSetup_SignInOptionsHeader };
         form.Add(group);
         var buttons = new List<(MaterialRadioButton Button, AccountSetupChoice Choice)>();
@@ -216,7 +217,6 @@ public sealed partial class AccountSetupPageFragment
                 if (ReferenceEquals(choice, selected) && !button.Checked) button.Checked = true;
         }
         form.Binder.Bind(viewModel, nameof(viewModel.SelectedChoice), vm => vm.SelectedChoice, Select);
-        CaptionWhen(form, vm => vm.HasStepCaption ? vm.StepCaption : null);
     }
 
     #endregion
@@ -239,6 +239,7 @@ public sealed partial class AccountSetupPageFragment
 
         var browser = ProviderButton(context);
         form.Add(browser, wrap: true);
+        CenterHorizontally(browser);
         form.Binder.Command(browser, viewModel.SignInWithBrowserCommand);
         form.Binder.BindAny(viewModel, vm => (vm.IsBrowserSignInButtonVisible, vm.BrowserSignInButtonText, vm.RouteSpecialImapProvider), state =>
         {
@@ -367,7 +368,7 @@ public sealed partial class AccountSetupPageFragment
                 OnboardingViews.Show(check, state.IsConnectionStatusConnected);
                 text.Text = state.ConnectionStatusText;
             });
-        }, topDp: 12);
+        }, topDp: 12).SetGravity(GravityFlags.Center);
     }
 
     private static LinearLayout StatusLine(Context context, out View spinner, out View check, out TextView text)
@@ -445,6 +446,14 @@ public sealed partial class AccountSetupPageFragment
 
         AccountNameRow(form, viewModel);
 
+        // A browser sign-in returns no display name for IMAP, so the sender name is asked here.
+        form.GroupWhen(vm => vm.IsReviewSendAsVisible, () =>
+        {
+            var sendAs = form.Field(Translator.AccountSetup_SendAsHeader, nameof(viewModel.SenderName), vm => vm.SenderName,
+                (vm, value) => vm.SenderName = value, InputTypes.ClassText | InputTypes.TextFlagCapWords, Translator.AccountSetup_SendAsDescription);
+            SubmitOnEnter(sendAs.EditText, form.Binder, viewModel);
+        });
+
         // One card per app; the source drop-down, a server address, a note and an error sit with it.
         var rows = form.Group(() => { });
         BindingScope rowScope = new();
@@ -500,7 +509,7 @@ public sealed partial class AccountSetupPageFragment
                 OnboardingViews.Show(spinner, state.IsReviewStatusVisible);
                 text.Text = state.ReviewStatusText;
             });
-        }, topDp: 12);
+        }, topDp: 12).SetGravity(GravityFlags.Center);
 
         FailureBlock(form, viewModel, includeAnotherOption: false);
     }
@@ -671,9 +680,11 @@ public sealed partial class AccountSetupPageFragment
         var steps = new LinearLayout(context) { Orientation = Orientation.Vertical, AccessibilityLiveRegion = AccessibilityLiveRegion.Polite };
         form.Add(steps);
         // The step rows carry the page padding of the progress page; this column already has it.
-        if (steps.LayoutParameters is ViewGroup.MarginLayoutParams margins)
+        if (steps.LayoutParameters is LinearLayout.LayoutParams margins)
         {
             var padding = context.Resources?.GetDimensionPixelSize(Resource.Dimension.onboarding_page_padding) ?? 0;
+            margins.Width = ViewGroup.LayoutParams.WrapContent;
+            margins.Gravity = GravityFlags.CenterHorizontal;
             margins.MarginStart = -padding;
             margins.MarginEnd = -padding;
         }
@@ -692,7 +703,11 @@ public sealed partial class AccountSetupPageFragment
         {
             OnboardingViews.Show(results, state.IsAddedVisible);
             results.RemoveAllViews();
-            foreach (var row in state.ResultRows) results.AddView(ResultRow(context, row));
+            foreach (var row in state.ResultRows)
+                results.AddView(ResultRow(context, row), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent)
+                {
+                    Gravity = GravityFlags.CenterHorizontal
+                });
         });
 
         form.GroupWhen(vm => vm.IsSetupFailedVisible, () =>
@@ -725,13 +740,20 @@ public sealed partial class AccountSetupPageFragment
         line.AddView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginEnd = Dp(10) });
         var detail = new TextView(context) { Text = row.Detail, ImportantForAccessibility = ImportantForAccessibility.No };
         detail.SetTextAppearance(Resource.Style.TextAppearance_Wino_Body);
-        line.AddView(detail, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1));
+        line.AddView(detail, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent));
         return line;
     }
 
     #endregion
 
     #region Pieces
+
+    private static void CenterHorizontally(View view)
+    {
+        if (view.LayoutParameters is not LinearLayout.LayoutParams parameters) return;
+        parameters.Gravity = GravityFlags.CenterHorizontal;
+        view.LayoutParameters = parameters;
+    }
 
     private enum ButtonKind { Filled, Outlined, Text }
 

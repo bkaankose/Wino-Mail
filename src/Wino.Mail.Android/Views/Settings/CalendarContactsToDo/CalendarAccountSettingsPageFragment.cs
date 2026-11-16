@@ -99,6 +99,7 @@ public sealed class CalendarAccountSettingsPageFragment : SettingsPageFragment<C
 
         var sync = Card(Translator.CalendarAccountSettings_SyncEnabled, Translator.CalendarAccountSettings_SyncEnabledDescription, WinoIconGlyph.Sync,
             Bind.Switch(vm, nameof(vm.IsSyncEnabled), s => s.IsSyncEnabled, (s, v) => s.IsSyncEnabled = v, Translator.CalendarAccountSettings_SyncEnabled));
+        Bind.Visible(sync, vm, nameof(vm.IsSyncConfigurable), s => s.IsSyncConfigurable);
 
         var showAs = Card(Translator.CalendarAccountSettings_DefaultShowAs, Translator.CalendarAccountSettings_DefaultShowAsDescription, WinoIconGlyph.Calendar,
             Bind.PopUp<CalendarAccountSettingsPageViewModel, ShowAsOption>(vm, s => s.ShowAsOptions.ToList(), option => option.DisplayText,
@@ -150,7 +151,7 @@ public sealed class CalendarAccountSettingsPageFragment : SettingsPageFragment<C
         if (_intro is null) return;
         var account = VM.Account;
         var calendar = VM.AccountCalendar;
-        var accountText = account is null ? null : string.IsNullOrWhiteSpace(account.Address) ? account.Name : $"{account.Name} · {account.Address}";
+        var accountText = account is null ? null : string.IsNullOrWhiteSpace(account.DisplayAddress) ? account.Name : $"{account.Name} · {account.DisplayAddress}";
         _intro.Text = accountText is null
             ? string.Empty
             : string.Format(Translator.CalendarAccountSettings_Description, calendar?.Name is { Length: > 0 } name ? $"{name} ({accountText})" : accountText);

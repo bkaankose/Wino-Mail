@@ -89,6 +89,10 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
             _summary.Text = value ?? string.Empty;
             _summary.Visibility = string.IsNullOrEmpty(value) ? ViewStates.Gone : ViewStates.Visible;
         });
+        Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.IsSynchronizationSupported), static vm => vm.IsSynchronizationSupported, supported =>
+        {
+            if (_refresh is not null) _refresh.Enabled = supported;
+        });
         Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.IsEmpty), static vm => vm.IsEmpty, _ => UpdateEmpty());
         Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.EmptyStateTitle), static vm => vm.EmptyStateTitle, _ => UpdateEmpty());
         Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.CanReorderTasks), static vm => vm.CanReorderTasks, canReorder =>

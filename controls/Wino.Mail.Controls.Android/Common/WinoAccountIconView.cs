@@ -20,6 +20,7 @@ namespace Wino.Mail.Controls.Android.Common;
 public class WinoAccountIconView : FrameLayout
 {
     private static readonly Dictionary<string, Bitmap?> Pictures = new(StringComparer.Ordinal);
+    private static Dictionary<string, global::Wino.Core.Domain.Enums.WinoIconGlyph>? _glyphsByCharacter;
     private WinoContactPicture? _picture;
     private WinoIconView? _badge;
     private IAccountIconInfo? _account;
@@ -85,6 +86,28 @@ public class WinoAccountIconView : FrameLayout
     public static global::Wino.Core.Domain.Enums.WinoIconGlyph ProviderGlyph(AccountIconProvider provider, bool isTinted)
         => WinoAccountIconGlyphs.ProviderGlyph(provider, isTinted);
 
+    /// <summary>
+    /// The account's <see cref="IAccountIconInfo.ProviderGlyph"/> (a catalog IMAP provider's brand mark) when it names a
+    /// WinoIcons glyph, otherwise the <see cref="IAccountIconInfo.Provider"/> glyph.
+    /// </summary>
+    public static global::Wino.Core.Domain.Enums.WinoIconGlyph ProviderGlyph(IAccountIconInfo account, bool isTinted)
+    {
+        if (!string.IsNullOrEmpty(account.ProviderGlyph))
+        {
+            _glyphsByCharacter ??= BuildGlyphMap();
+            if (_glyphsByCharacter.TryGetValue(account.ProviderGlyph, out var glyph)) return glyph;
+        }
+        return ProviderGlyph(account.Provider, isTinted);
+    }
+
+    private static Dictionary<string, global::Wino.Core.Domain.Enums.WinoIconGlyph> BuildGlyphMap()
+    {
+        var map = new Dictionary<string, global::Wino.Core.Domain.Enums.WinoIconGlyph>(StringComparer.Ordinal);
+        foreach (var glyph in Enum.GetValues<global::Wino.Core.Domain.Enums.WinoIconGlyph>())
+            if (glyph != global::Wino.Core.Domain.Enums.WinoIconGlyph.None) map.TryAdd(WinoIcons.Glyph(glyph), glyph);
+        return map;
+    }
+
     private void Refresh()
     {
         if (_picture is null || _badge is null || Context is not { } context) return;
@@ -95,7 +118,7 @@ public class WinoAccountIconView : FrameLayout
 
         double badge = Math.Round(_sizeDp * 0.45);
         _badge.Visibility = _showsProvider && _account is not null ? ViewStates.Visible : ViewStates.Gone;
-        if (_account is { } account) _badge.Icon = ProviderGlyph(account.Provider, false);
+        if (_account is { } account) _badge.Icon = ProviderGlyph(account, false);
         _badge.GlyphSize = badge * 0.66;
         int badgePx = WinoUnits.Dp(context, badge);
         int overhang = WinoUnits.Dp(context, 3);
