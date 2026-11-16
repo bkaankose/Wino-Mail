@@ -195,9 +195,12 @@ public sealed class WinoAccountBenefitDetailPanel : WinoSurfaceView
         }
         copy.SetCustomSpacing(18, _points);
         copy.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
+        copy.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
 
         var row = WinoLayout.HStack(0, _art, divider, copy);
         row.Alignment = NSLayoutAttribute.Height;
+        // Gravity areas would leave the copy at its narrowest wrap width; Fill gives it the rest of the panel.
+        row.Distribution = NSStackViewDistribution.Fill;
         WinoLayout.Fill(row, this);
         UpdateArtVisibility();
     }
