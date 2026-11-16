@@ -220,7 +220,7 @@ public sealed partial class AccountSetupPageViewController
         var caption = Wrap(AccountSetupUi.Caption());
         Text(caption, s => s.StepCaption);
         When(caption, s => s.HasStepCaption);
-        return AccountSetupUi.Column(8, _choices, caption);
+        return AccountSetupUi.Column(8, caption, _choices);
     }
 
     private void RenderChoices()
@@ -289,7 +289,7 @@ public sealed partial class AccountSetupPageViewController
             browserGlyph = glyph;
             browser.Image = glyph == WinoIconGlyph.Globe ? WinoIcons.Image(glyph, 16) : WinoIcons.ColorfulImage(glyph, 16);
         });
-        var browserRow = AccountSetupUi.Buttons(browser);
+        var browserRow = Centered(browser);
         When(browserRow, s => s.IsBrowserSignInButtonVisible);
 
         var exchange = BuildExchangePassword();
@@ -416,7 +416,7 @@ public sealed partial class AccountSetupPageViewController
         });
         var row = WinoLayout.HStack(8, slot, text);
         row.Alignment = NSLayoutAttribute.CenterY;
-        var host = AccountSetupUi.Buttons(row);
+        var host = Centered(row);
         When(host, s => s.IsConnectionStatusVisible);
         return host;
     }
@@ -488,6 +488,10 @@ public sealed partial class AccountSetupPageViewController
         When(nameError, s => s.HasAccountNameError);
         var nameGroup = AccountSetupUi.Column(4, AccountSetupUi.Header(Translator.AccountSetup_AccountNameHeader), nameRow, nameError);
 
+        var reviewSendAs = Field(nameof(vm.SenderName), s => s.SenderName, (s, v) => s.SenderName = v, Translator.AccountSetup_SendAsHeader, out _,
+            description: Translator.AccountSetup_SendAsDescription);
+        When(reviewSendAs, s => s.IsReviewSendAsVisible);
+
         _appliers.Add(RenderAppRows);
 
         var useMailSignIn = _form.Check(Translator.AccountSetup_UseMailSignIn, nameof(vm.UseMailSignInForDav), s => s.UseMailSignInForDav, (s, v) => s.UseMailSignInForDav = v);
@@ -512,10 +516,10 @@ public sealed partial class AccountSetupPageViewController
         Text(statusText, s => s.ReviewStatusText);
         var status = WinoLayout.HStack(8, spinner, statusText);
         _appliers.Add(() => AccountSetupUi.SetSpinning(spinner, ViewModel.IsReviewStatusVisible));
-        var statusRow = AccountSetupUi.Buttons(status);
+        var statusRow = Centered(status);
         When(statusRow, s => s.IsReviewStatusVisible);
 
-        return AccountSetupUi.Column(12, signedIn, pop3, nameGroup, _appRows, useMailSignIn, davGroup, BuildServerDetails(),
+        return AccountSetupUi.Column(12, signedIn, pop3, nameGroup, reviewSendAs, _appRows, useMailSignIn, davGroup, BuildServerDetails(),
             featuresError, caption, statusRow, BuildFailureBar(offersAnotherOption: false));
     }
 
@@ -600,7 +604,8 @@ public sealed partial class AccountSetupPageViewController
         When(added, s => s.IsAddedVisible);
 
         _appliers.Add(RenderResultRows);
-        When(_resultRows, s => s.IsAddedVisible);
+        var resultHost = Centered(_resultRows);
+        When(resultHost, s => s.IsAddedVisible);
 
         var failedBar = new WinoInfoBar(WinoInfoBarSeverity.Error, null, Translator.AccountSetup_FailureMessage);
         var tryAgain = Command(Translator.AccountSetup_TryAgainButton, vm.TryAgainCommand);
@@ -611,7 +616,7 @@ public sealed partial class AccountSetupPageViewController
         var failed = new AccountSetupActionBar(failedBar, tryAgain, goBack, details);
         ShowActionBar(failed, s => s.IsSetupFailedVisible);
 
-        return AccountSetupUi.Column(12, steps, added, _resultRows, failed);
+        return AccountSetupUi.Column(12, Centered(steps), added, resultHost, failed);
     }
 
     private void RenderResultRows()
@@ -628,7 +633,6 @@ public sealed partial class AccountSetupPageViewController
         {
             var view = new AccountSetupResultRowView(row);
             _resultRows.AddArrangedSubview(view);
-            view.WidthAnchor.ConstraintEqualTo(_resultRows.WidthAnchor).Active = true;
         }
     }
 

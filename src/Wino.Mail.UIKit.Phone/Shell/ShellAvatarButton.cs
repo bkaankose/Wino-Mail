@@ -72,7 +72,7 @@ internal sealed class ShellAvatarButton : UIButton
         // A generic IMAP account has no logo of its own, and its "@" glyph did not read as an account button;
         // it shows the account's initial on a filled circle like an iOS contact avatar.
         var first = _front.Account;
-        bool monogram = !stacked && first is { Provider: AccountIconProvider.Imap }
+        bool monogram = !stacked && first is { Provider: AccountIconProvider.Imap } && string.IsNullOrEmpty(first.ProviderGlyph)
             && (string.IsNullOrWhiteSpace(first.ProfilePicturePath) || !File.Exists(first.ProfilePicturePath))
             && !string.IsNullOrWhiteSpace(name);
         _monogram.Hidden = !monogram;

@@ -453,7 +453,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
             // The ViewModel already offers only writable calendars; never list a read-only one as a save target.
             var calendars = group.AccountCalendars.Where(calendar => !calendar.IsReadOnly || ReferenceEquals(calendar, selectedCalendar)).ToList();
             if (calendars.Count == 0) continue;
-            var header = new NSMenuItem($"{group.Account.Name} ({group.Account.Address})") { Enabled = false };
+            var header = new NSMenuItem($"{group.Account.Name} ({group.Account.DisplayAddress})") { Enabled = false };
             menu.AddItem(header);
             foreach (var calendar in calendars)
             {

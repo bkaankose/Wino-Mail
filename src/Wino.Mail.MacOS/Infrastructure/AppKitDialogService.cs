@@ -303,8 +303,8 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     {
         var picked = await PickAsync(Translator.AccountPickerDialog_Title, null, availableAccounts,
             _ => Array.Empty<MailAccount>(),
-            account => string.IsNullOrWhiteSpace(account.Address) ? account.Name : $"{account.Name} — {account.Address}",
-            account => WinoIcons.Image(Wino.Mail.Controls.AppKit.Common.WinoAccountIconView.ProviderGlyph(Wino.Mail.ViewModels.Data.MailAccountIconInfoFactory.CreateProviderFallback(account.ProviderType, account.SpecialImapProvider).Provider, false), 16),
+            account => string.IsNullOrWhiteSpace(account.DisplayAddress) ? account.Name : $"{account.Name} — {account.DisplayAddress}",
+            account => WinoIcons.Image(account.IsLocalOnly ? WinoIconGlyph.Laptop : Wino.Mail.Controls.AppKit.Common.WinoAccountIconView.ProviderGlyph(Wino.Mail.ViewModels.Data.MailAccountIconInfoFactory.CreateProviderFallback(account.ProviderType, account.SpecialImapProvider).Provider, false), 16),
             account => WinoStyle.FromHexString(account.AccountColorHex) ?? WinoStyle.AvatarColor(account.Address),
             _ => true,
             Translator.Buttons_Continue);

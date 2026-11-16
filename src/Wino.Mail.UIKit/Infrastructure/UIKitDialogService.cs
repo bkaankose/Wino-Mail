@@ -309,8 +309,8 @@ public sealed partial class UIKitDialogService(IDispatcher dispatcher, IUIKitShe
     {
         var picked = await PickAsync(Translator.AccountPickerDialog_Title, null, availableAccounts ?? [],
             _ => [],
-            account => string.IsNullOrWhiteSpace(account.Address) ? account.Name : $"{account.Name} — {account.Address}",
-            account => WinoAccountIconView.ProviderGlyph(Wino.Mail.ViewModels.Data.MailAccountIconInfoFactory.CreateProviderFallback(account.ProviderType, account.SpecialImapProvider).Provider, false),
+            account => string.IsNullOrWhiteSpace(account.DisplayAddress) ? account.Name : $"{account.Name} — {account.DisplayAddress}",
+            account => account.IsLocalOnly ? WinoIconGlyph.Laptop : WinoAccountIconView.ProviderGlyph(Wino.Mail.ViewModels.Data.MailAccountIconInfoFactory.CreateProviderFallback(account.ProviderType, account.SpecialImapProvider).Provider, false),
             _ => true);
         return picked;
     }
@@ -319,9 +319,9 @@ public sealed partial class UIKitDialogService(IDispatcher dispatcher, IUIKitShe
     public async Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)
     {
         var groups = (availableCalendarGroups ?? []).Select(group => new PickerSection<AccountCalendar>(
-            string.IsNullOrWhiteSpace(group.Account?.Address) || group.Account?.Address == group.Account?.Name
+            string.IsNullOrWhiteSpace(group.Account?.DisplayAddress) || group.Account?.DisplayAddress == group.Account?.Name
                 ? group.Account?.Name ?? string.Empty
-                : $"{group.Account?.Name} ({group.Account?.Address})",
+                : $"{group.Account?.Name} ({group.Account?.DisplayAddress})",
             group.Calendars ?? [])).ToList();
         var picked = await PickSectionsAsync(Translator.CalendarEventCompose_PickCalendarTitle, Translator.CalendarEventCompose_DefaultCalendarHint, groups,
             _ => [],

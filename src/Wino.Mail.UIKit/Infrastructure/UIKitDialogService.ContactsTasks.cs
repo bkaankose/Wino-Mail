@@ -33,7 +33,7 @@ public sealed partial class UIKitDialogService
     private static string AccountLine(MailAccount account)
     {
         var name = account.Name?.Trim() ?? string.Empty;
-        var address = account.Address?.Trim() ?? string.Empty;
+        var address = account.DisplayAddress?.Trim() ?? string.Empty;
         if (name.Length == 0) return address;
         if (address.Length == 0 || string.Equals(name, address, StringComparison.OrdinalIgnoreCase)) return name;
         return $"{name} · {address}";

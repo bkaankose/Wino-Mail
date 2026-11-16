@@ -511,6 +511,9 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     /// <summary>The Mail provider while Mail is the active mode (synchronization status for Mailboxes).</summary>
     internal IShellMenuProvider? MailProvider => ActiveMode == WinoApplicationMode.Mail ? ViewModel.CurrentProvider : null;
 
+    /// <summary>The active mode's provider (whether To Do or People has anything to synchronize).</summary>
+    internal IShellMenuProvider? CurrentProvider => ViewModel.CurrentProvider;
+
     /// <summary>The shell's selected menu item.</summary>
     internal object? SelectedMenuItem => ViewModel.SelectedMenuItem;
 

@@ -111,7 +111,8 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         var picture = new WinoAccountIconView(40);
         Bind.Bind(vm, nameof(vm.Account), s => s.Account, account =>
             picture.Account = account is null ? null : MailAccountIconInfoFactory.Create(account, pictures));
-        var pictureCard = Card(Translator.AccountDetailsPage_ProfilePictureTitle, Translator.AccountDetailsPage_ProfilePictureDescription);
+        var pictureCard = Card(Translator.AccountDetailsPage_ProfilePictureTitle, vm.ProfilePictureDescription);
+        Bind.Bind(vm, nameof(vm.ProfilePictureDescription), s => s.ProfilePictureDescription, text => pictureCard.Description = text);
         pictureCard.LeadingView = picture;
         pictureCard.BottomContent = ButtonRow(
             Bind.Button(Translator.AccountDetailsPage_ProfilePictureChange, vm.ChangeProfilePictureCommand),
@@ -169,7 +170,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         var protocolExport = StackedCard(Translator.ProtocolLog_ExportTitle, Translator.ProtocolLog_ExportDescription, WinoIconGlyph.ArrowDownload,
             ButtonRow(Bind.Button(Translator.ProtocolLog_ExportAction, vm.ExportProtocolLogsCommand), Bind.Button(Translator.ProtocolLog_UploadAction, vm.UploadProtocolLogsCommand)));
         foreach (var card in new UIView[] { imap, protocolLog, protocolExport })
-            Bind.Visible(card, vm, nameof(vm.ServerInformation), s => s.IsImapServer);
+            Bind.Visible(card, vm, nameof(vm.IsImapServer), s => s.IsImapServer);
 
         AddTo(0, Group(null,
             pictureCard,
@@ -182,7 +183,9 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             protocolExport));
 
         var delete = Destructive(Bind.Button(Translator.Buttons_Delete, vm.DeleteAccountCommand));
-        AddTo(0, Group(null, Card(Translator.SettingsDeleteAccount_Title, Translator.SettingsDeleteAccount_Description, WinoIconGlyph.Delete, delete)));
+        var deleteCard = Card(Translator.SettingsDeleteAccount_Title, vm.DeleteAccountDescription, WinoIconGlyph.Delete, delete);
+        Bind.Bind(vm, nameof(vm.DeleteAccountDescription), s => s.DeleteAccountDescription, text => deleteCard.Description = text);
+        AddTo(0, Group(null, deleteCard));
     }
 
     /// <summary>
@@ -424,8 +427,9 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             WinoLayout.Size(dot, 10, 10);
             var expander = new WinoSettingsExpander(item.Name, item.TimeZone, WinoIconGlyph.None);
             expander.HeaderCard.LeadingView = dot;
-            expander.Add(new WinoSettingsCard(Translator.CalendarAccountSettings_SyncEnabled, Translator.CalendarAccountSettings_SyncEnabledDescription, WinoIconGlyph.Sync,
-                rows.Switch(item, nameof(item.IsSynchronizationEnabled), s => s.IsSynchronizationEnabled, (s, v) => s.IsSynchronizationEnabled = v, Translator.CalendarAccountSettings_SyncEnabled)));
+            if (item.IsSynchronizationConfigurable)
+                expander.Add(new WinoSettingsCard(Translator.CalendarAccountSettings_SyncEnabled, Translator.CalendarAccountSettings_SyncEnabledDescription, WinoIconGlyph.Sync,
+                    rows.Switch(item, nameof(item.IsSynchronizationEnabled), s => s.IsSynchronizationEnabled, (s, v) => s.IsSynchronizationEnabled = v, Translator.CalendarAccountSettings_SyncEnabled)));
             expander.Add(new WinoSettingsCard(Translator.CalendarAccountSettings_DefaultShowAs, Translator.CalendarAccountSettings_DefaultShowAsDescription, WinoIconGlyph.Calendar,
                 rows.PopUp<AccountCalendarSettingsItemViewModel, AccountCalendarShowAsOption>(item, s => s.ShowAsOptions.ToList(), option => option.DisplayText,
                     nameof(item.SelectedShowAsOption), s => s.SelectedShowAsOption, (s, v) => s.SelectedShowAsOption = v, width: 120)));

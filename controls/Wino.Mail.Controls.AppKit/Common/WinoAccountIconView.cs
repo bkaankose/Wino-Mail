@@ -72,7 +72,9 @@ public sealed class WinoAccountIconView : NSView
     {
         var account = _account;
         var tint = WinoStyle.FromHexString(account?.AccountColorHex);
-        _glyph.Glyph = account is null ? string.Empty : WinoIcons.Glyph(ProviderGlyph(account.Provider, tint is not null));
+        _glyph.Glyph = account is null ? string.Empty
+            : string.IsNullOrEmpty(account.ProviderGlyph) ? WinoIcons.Glyph(ProviderGlyph(account.Provider, tint is not null))
+            : account.ProviderGlyph;
         _glyph.Tint = tint;
 
         var path = IsProfilePictureEnabled ? account?.ProfilePicturePath : null;

@@ -51,7 +51,7 @@ public sealed partial class AppKitDialogService
     private static string AccountHeading(CalendarPickerAccountGroup group)
     {
         var name = group.Account?.Name ?? string.Empty;
-        var address = group.Account?.Address ?? string.Empty;
+        var address = group.Account?.DisplayAddress ?? string.Empty;
         return string.IsNullOrWhiteSpace(address) || address == name ? name : $"{name} ({address})";
     }
 

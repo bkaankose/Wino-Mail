@@ -21,8 +21,8 @@ using Wino.Presentation.Bindings;
 namespace Wino.Mail.MacOS.Views.Onboarding;
 
 /// <summary>
-/// Address-first account setup (Windows AccountSetupPage): one column with the step's title, the account pill, the
-/// step, and a pinned footer with the setup links, Back and the primary button. Every step and rule comes from the
+/// Address-first account setup (Windows AccountSetupPage): one column with the account pill, the step's question and
+/// description, the step, and a pinned footer with the setup links, Back and the primary button. Every step and rule comes from the
 /// shared <see cref="AccountSetupPageViewModel"/>; the page re-reads it once per run-loop turn after any change, because
 /// most of its state is computed and raised in groups. The welcome wizard and Settings > Add account both run in the
 /// onboarding window, so both centre the column and show the address step's title.
@@ -65,7 +65,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         AddSection(steps, AccountSetupStep.Review, BuildReviewStep());
         AddSection(steps, AccountSetupStep.Progress, BuildProgressStep());
 
-        var column = AccountSetupUi.Column(20, header, known, steps);
+        var column = AccountSetupUi.Column(20, known, header, steps);
         View = BuildPage(column, BuildFooter());
         SubscribeToViewModel();
     }

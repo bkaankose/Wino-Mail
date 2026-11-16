@@ -17,8 +17,6 @@ namespace Wino.Mail.UIKit.Views.Onboarding;
 /// </summary>
 public sealed partial class AccountSetupPageViewController
 {
-    private NSLayoutConstraint _knownCenter = null!;
-    private NSLayoutConstraint _knownLeading = null!;
     private UIButton _changeButton = null!;
     private string? _knownKey;
 
@@ -63,16 +61,13 @@ public sealed partial class AccountSetupPageViewController
         line.Alignment = UIStackViewAlignment.Center;
         var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         host.AddSubview(line);
-        _knownCenter = line.CenterXAnchor.ConstraintEqualTo(host.CenterXAnchor);
-        _knownLeading = line.LeadingAnchor.ConstraintEqualTo(host.LeadingAnchor);
-        _knownLeading.Active = false;
         NSLayoutConstraint.ActivateConstraints(
         [
             line.TopAnchor.ConstraintEqualTo(host.TopAnchor),
             line.BottomAnchor.ConstraintEqualTo(host.BottomAnchor),
             line.LeadingAnchor.ConstraintGreaterThanOrEqualTo(host.LeadingAnchor),
             line.TrailingAnchor.ConstraintLessThanOrEqualTo(host.TrailingAnchor),
-            _knownCenter
+            line.CenterXAnchor.ConstraintEqualTo(host.CenterXAnchor)
         ]);
         When(host, s => s.IsKnownCardVisible);
 

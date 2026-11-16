@@ -208,7 +208,7 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         };
         card.Activated += handler;
         rows.Scope.Own(new SettingsDisposable(() => card.Activated -= handler));
-        WinoAccessibility.Help(card, account.Account?.Address);
+        WinoAccessibility.Help(card, account.Account?.DisplayAddress);
         return card;
     }
 

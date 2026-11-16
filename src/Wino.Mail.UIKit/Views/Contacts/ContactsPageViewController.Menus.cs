@@ -167,7 +167,11 @@ public abstract partial class ContactsPageViewController
                 case NewContactMenuItem:
                     break;
                 case NewAddressListMenuItem when ViewModel.CreateListCommand.CanExecute(null):
-                    section.Add(ModeBarItems.Action(Translator.ContactList_NewTitle, WinoIconGlyph.PersonAdd, () => Observe(ViewModel.OnMenuItemInvokedAsync(item))));
+                    section.Add(ModeBarItems.Action(Translator.ContactsPane_NewAddressList, WinoIconGlyph.PersonAdd, () => Observe(ViewModel.OnMenuItemInvokedAsync(item))));
+                    break;
+                case NewAddressBookMenuItem:
+                    section.Add(ModeBarItems.Action(Translator.ContactsPane_NewAddressBook, WinoIconGlyph.Library, () => Observe(ViewModel.OnMenuItemInvokedAsync(item)),
+                        ShellMenuItemRules.IsEnabled(item)));
                     break;
                 case SeperatorItem:
                     Flush();

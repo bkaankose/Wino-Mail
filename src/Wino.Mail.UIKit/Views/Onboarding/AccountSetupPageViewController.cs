@@ -19,11 +19,11 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Views.Onboarding;
 
 /// <summary>
-/// Address-first account setup (Windows AccountSetupPage, Mac AccountSetupPageViewController): one column with the step's
-/// title, the account pill, the step and the setup links, over a footer pinned above the keyboard with Back and the step's
+/// Address-first account setup (Windows AccountSetupPage, Mac AccountSetupPageViewController): one column with the account
+/// pill, the step's question and description, the step and the setup links, over a footer pinned above the keyboard with Back and the step's
 /// action. Every step and rule comes from the shared <see cref="AccountSetupPageViewModel"/>; the page re-reads it once
-/// per run-loop turn after any change, because most of its state is computed and raised in groups. The welcome wizard
-/// centres the column; Settings › Add account starts it at the top with leading-aligned text, as Windows does.
+/// per run-loop turn after any change, because most of its state is computed and raised in groups. Both hosts centre the
+/// column horizontally; the welcome wizard also centres it vertically and Settings › Add account starts it at the top.
 /// </summary>
 public sealed partial class AccountSetupPageViewController(AccountSetupPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : WinoViewController<AccountSetupPageViewModel>(viewModel, dispatcher, logger)
@@ -64,7 +64,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         AddSection(steps, AccountSetupStep.Review, BuildReviewStep());
         AddSection(steps, AccountSetupStep.Progress, BuildProgressStep());
 
-        var column = AccountSetupUi.Column(20, header, known, steps, BuildSetupLinks());
+        var column = AccountSetupUi.Column(20, known, header, steps, BuildSetupLinks());
         View = BuildPage(column, BuildFooter());
         SubscribeToViewModel();
     }
@@ -181,28 +181,21 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         When(_title, vm => vm.HasStepTitle);
         Text(_subtitle, vm => vm.StepSubtitle);
         When(_subtitle, vm => vm.HasStepSubtitle);
+        _title.TextAlignment = UITextAlignment.Center;
+        _subtitle.TextAlignment = UITextAlignment.Center;
 
         var header = AccountSetupUi.Column(6, _logo, _title, _subtitle);
         header.SetCustomSpacing(8, _logo);
         return header;
     }
 
-    /// <summary>Wizard: centred column and text. Settings: top-aligned column with leading text.</summary>
+    /// <summary>The wizard centres the column vertically; Settings starts it at the top, so a changing step does not move it.</summary>
     private void ApplyHostLayout(bool isSettings)
     {
         _wizardCenter.Active = !isSettings;
         _settingsTop.Active = isSettings;
-        var alignment = isSettings ? UITextAlignment.Natural : UITextAlignment.Center;
-        _title.TextAlignment = alignment;
-        _subtitle.TextAlignment = alignment;
-        _knownCenter.Active = !isSettings;
-        _knownLeading.Active = isSettings;
-        _linksCenter.Active = !isSettings;
-        _linksLeading.Active = isSettings;
     }
 
-    private NSLayoutConstraint _linksCenter = null!;
-    private NSLayoutConstraint _linksLeading = null!;
     private UIViewController? _popover;
 
     /// <summary>Advanced setup and Local account setup with its info button, under the address step.</summary>
@@ -229,9 +222,6 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         links.AddItem(localGroup);
         var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         host.AddSubview(links);
-        _linksCenter = links.CenterXAnchor.ConstraintEqualTo(host.CenterXAnchor);
-        _linksLeading = links.LeadingAnchor.ConstraintEqualTo(host.LeadingAnchor);
-        _linksLeading.Active = false;
         var fitted = links.WidthAnchor.ConstraintEqualTo(LinksWidth(advanced, localGroup));
         fitted.Priority = 500;
         NSLayoutConstraint.ActivateConstraints(
@@ -239,7 +229,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
             links.TopAnchor.ConstraintEqualTo(host.TopAnchor),
             links.BottomAnchor.ConstraintEqualTo(host.BottomAnchor),
             links.WidthAnchor.ConstraintLessThanOrEqualTo(host.WidthAnchor),
-            fitted, _linksCenter
+            fitted, links.CenterXAnchor.ConstraintEqualTo(host.CenterXAnchor)
         ]);
         When(host, s => s.IsFooterVisible);
         return host;

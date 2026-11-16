@@ -745,7 +745,7 @@ internal sealed class ShellCalendarGroupCell : NSTableCellView
             _check.State = group.IsCheckedState switch { true => NSCellStateValue.On, false => NSCellStateValue.Off, null => NSCellStateValue.Mixed };
             _dot.Fill = WinoStyle.FromHexString(group.AccountColorHex) ?? WinoStyle.AvatarColor(group.Account?.Name);
             _name.StringValue = group.Account?.Name ?? string.Empty;
-            _address.StringValue = group.Account?.Address ?? string.Empty;
+            _address.StringValue = group.Account?.DisplayAddress ?? string.Empty;
             _status.StringValue = group.SynchronizationStatus ?? string.Empty;
             _status.Hidden = !group.IsSynchronizationProgressVisible || string.IsNullOrWhiteSpace(_status.StringValue);
             // The status takes the address line while syncing so the header keeps two centred lines.

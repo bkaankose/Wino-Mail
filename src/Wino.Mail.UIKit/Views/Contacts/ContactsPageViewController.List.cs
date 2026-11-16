@@ -71,6 +71,13 @@ public abstract partial class ContactsPageViewController
         ]);
     }
 
+    private void SetRefreshAvailable(bool available)
+    {
+        if (available == (_table.RefreshControl is not null)) return;
+        if (!available && _refresh.Refreshing) _refresh.EndRefreshing();
+        _table.RefreshControl = available ? _refresh : null;
+    }
+
     private void BindList()
     {
         if (_listBound) return;

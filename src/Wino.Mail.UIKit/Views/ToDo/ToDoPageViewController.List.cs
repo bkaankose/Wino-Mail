@@ -72,6 +72,13 @@ public abstract partial class ToDoPageViewController
         _observedGroups.Clear();
     }
 
+    private void SetRefreshAvailable(bool available)
+    {
+        if (available == (_table.RefreshControl is not null)) return;
+        if (!available && _refresh.Refreshing) _refresh.EndRefreshing();
+        _table.RefreshControl = available ? _refresh : null;
+    }
+
     private void Synchronize()
     {
         if (ViewModel.SynchronizeCommand.CanExecute(null)) ViewModel.SynchronizeCommand.Execute(null);

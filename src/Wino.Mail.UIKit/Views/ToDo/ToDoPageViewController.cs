@@ -244,6 +244,7 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
         Bind(nameof(ViewModel.ComposerText), static vm => vm.ComposerText, value => _quickAdd.Text = value ?? string.Empty);
         Bind(nameof(ViewModel.CanCreateTask), static vm => vm.CanCreateTask, value => _quickAdd.Enabled = value);
         Bind(nameof(ViewModel.IsComposerExpanded), static vm => vm.IsComposerExpanded, value => _quickAdd.ShowButton = value);
+        Bind(nameof(ViewModel.IsSynchronizationSupported), static vm => vm.IsSynchronizationSupported, SetRefreshAvailable);
         Bindings.Own(new CommandBinding(ViewModel.AddTaskCommand, () => null, _ => { }, Dispatcher, ReportError));
         Bindings.Own(new PropertyBinding<ModeReadinessViewModel, bool>(ViewModel.Readiness, nameof(ModeReadinessViewModel.IsBlocked),
             static readiness => readiness.IsBlocked, _ => ApplyReadiness(), Dispatcher, ReportError));

@@ -241,7 +241,7 @@ public sealed partial class AccountSetupPageViewController
         var caption = AccountSetupUi.Caption();
         Text(caption, s => s.StepCaption);
         When(caption, s => s.HasStepCaption);
-        return AccountSetupUi.Column(10, _choices, caption);
+        return AccountSetupUi.Column(10, caption, _choices);
     }
 
     private void RenderChoices()
@@ -309,7 +309,7 @@ public sealed partial class AccountSetupPageViewController
             browserGlyph = glyph;
             AccountSetupUi.SetContent(browser, text, glyph == WinoIconGlyph.Globe ? WinoIcons.Image(glyph, 18) : WinoIcons.ColorfulImage(glyph, 18));
         });
-        var browserRow = AccountSetupUi.Leading(browser);
+        var browserRow = Centered(browser);
         When(browserRow, s => s.IsBrowserSignInButtonVisible);
 
         var exchange = BuildExchangePassword();
@@ -449,8 +449,9 @@ public sealed partial class AccountSetupPageViewController
         row.Alignment = UIStackViewAlignment.Center;
         row.IsAccessibilityElement = true;
         _appliers.Add(() => row.AccessibilityLabel = ViewModel.ConnectionStatusText);
-        When(row, s => s.IsConnectionStatusVisible);
-        return row;
+        var host = Centered(row);
+        When(host, s => s.IsConnectionStatusVisible);
+        return host;
     }
 
     /// <summary>The failure InfoBar of the sign-in and review steps, with what can be done about it.</summary>
@@ -521,6 +522,13 @@ public sealed partial class AccountSetupPageViewController
         When(nameError, s => s.HasAccountNameError);
         var nameGroup = AccountSetupUi.Column(6, AccountSetupUi.Header(Translator.AccountSetup_AccountNameHeader), nameRow, nameError);
 
+        var reviewSendAs = Field(nameof(vm.SenderName), s => s.SenderName, (s, v) => s.SenderName = v, Translator.AccountSetup_SendAsHeader, out var reviewSendAsField,
+            description: Translator.AccountSetup_SendAsDescription);
+        reviewSendAsField.AutocapitalizationType = UITextAutocapitalizationType.Words;
+        reviewSendAsField.TextContentType = UITextContentType.Name;
+        SubmitOnReturn(reviewSendAsField);
+        When(reviewSendAs, s => s.IsReviewSendAsVisible);
+
         _appliers.Add(RenderAppRows);
 
         var useMailSignInSwitch = _form.Check(Translator.AccountSetup_UseMailSignIn, nameof(vm.UseMailSignInForDav), s => s.UseMailSignInForDav, (s, v) => s.UseMailSignInForDav = v);
@@ -548,10 +556,11 @@ public sealed partial class AccountSetupPageViewController
         var status = WinoLayout.HStack(8, spinner, statusText);
         status.Alignment = UIStackViewAlignment.Center;
         _appliers.Add(() => AccountSetupUi.SetSpinning(spinner, ViewModel.IsReviewStatusVisible));
-        When(status, s => s.IsReviewStatusVisible);
+        var statusRow = Centered(status);
+        When(statusRow, s => s.IsReviewStatusVisible);
 
-        return AccountSetupUi.Column(14, signedIn, pop3, nameGroup, _appRows, useMailSignInSwitch, davGroup, BuildServerDetails(),
-            featuresError, caption, status, BuildFailureBar(offersAnotherOption: false));
+        return AccountSetupUi.Column(14, signedIn, pop3, nameGroup, reviewSendAs, _appRows, useMailSignInSwitch, davGroup, BuildServerDetails(),
+            featuresError, caption, statusRow, BuildFailureBar(offersAnotherOption: false));
     }
 
     private void RenderAppRows()
@@ -657,7 +666,8 @@ public sealed partial class AccountSetupPageViewController
         When(added, s => s.IsAddedVisible);
 
         _appliers.Add(RenderResultRows);
-        When(_resultRows, s => s.IsAddedVisible);
+        var resultHost = Centered(_resultRows);
+        When(resultHost, s => s.IsAddedVisible);
 
         var failedBar = new WinoInfoBar(WinoInfoBarSeverity.Error, null, Translator.AccountSetup_FailureMessage);
         var tryAgain = CommandButton(Translator.AccountSetup_TryAgainButton, vm.TryAgainCommand, primary: true);
@@ -668,7 +678,7 @@ public sealed partial class AccountSetupPageViewController
         _flows.Add(failed.Actions);
         ShowActionBar(failed, s => s.IsSetupFailedVisible);
 
-        return AccountSetupUi.Column(14, steps, added, _resultRows, failed);
+        return AccountSetupUi.Column(14, Centered(steps), added, resultHost, failed);
     }
 
     private void RenderResultRows()
