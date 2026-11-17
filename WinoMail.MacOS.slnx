@@ -18,7 +18,6 @@
     <Project Path="src/Wino.Services/Wino.Services.csproj" />
     <Project Path="src/Wino.PushRelay.Socket/Wino.PushRelay.Socket.csproj" />
     <Project Path="src/Wino.Authentication/Wino.Authentication.csproj" />
-    <Project Path="src/Wino.Messages/Wino.Messaging.csproj" />
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
     <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />
   </Folder>
