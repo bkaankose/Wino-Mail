@@ -48,6 +48,7 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
     private readonly IPreferencesService preferencesService;
     private readonly IAccountService accountService;
     private readonly IServiceProvider services;
+    private readonly IMailProviderRegistry providers;
 
     private readonly ISynchronizationManager synchronizationManager;
     private readonly IMessenger messenger;
@@ -65,8 +66,10 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
         IAccountService accountService,
         ISynchronizationManager synchronizationManager,
         IMessenger messenger,
-        IServiceProvider services)
+        IServiceProvider services,
+        IMailProviderRegistry providers)
     {
+        this.providers = providers;
         this.synchronizationManager = synchronizationManager;
         this.messenger = messenger;
         this.mailService = mailService;

@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
-using MailKit.Net.Imap;
 using MoreLinq;
 using Serilog;
 using Wino.Core.Domain;
@@ -34,6 +33,12 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 {
     protected virtual bool SerializeMailOperations => false;
     protected virtual bool DequeueMailRequestsBeforeExecution => true;
+
+    /// <summary>
+    /// Waits for the longest <see cref="IRequestBase.ResynchronizationDelay"/> of the executed requests before the
+    /// follow-up synchronization, for servers that apply a change shortly after they confirm it.
+    /// </summary>
+    protected virtual bool DelaysResynchronizationAfterRequests => false;
 
     protected bool IsDisposing { get; private set; }
 
@@ -592,12 +597,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 if (options.Type == MailSynchronizationType.ExecuteRequests)
                     options = GetSynchronizationOptionsAfterRequestExecution(requestCopies, options.Id);
 
-                // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
-                // Bug: if Outlook can't create the message in Sent Items folder before this delay,
-                // message will not appear in user's inbox since it's not in the Sent Items folder.
-
                 shouldDelayExecution =
-                    (Account.ProviderType == MailProviderType.Outlook)
+                    DelaysResynchronizationAfterRequests
                     && requestCopies.Any(a => a.ResynchronizationDelay > 0);
 
                 if (shouldDelayExecution)
@@ -792,18 +793,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                                     .SelectMany(AcceptEvent));
                                 break;
                             case CalendarSynchronizerOperation.DeclineEvent:
-                                if (Account.ProviderType == MailProviderType.Outlook)
-                                {
-                                    nativeRequests.AddRange(group
-                                        .OfType<OutlookDeclineEventRequest>()
-                                        .SelectMany(OutlookDeclineEvent));
-                                }
-                                else
-                                {
-                                    nativeRequests.AddRange(group
-                                        .OfType<DeclineEventRequest>()
-                                        .SelectMany(DeclineEvent));
-                                }
+                                nativeRequests.AddRange(CreateDeclineEventBundles(group));
                                 break;
                             case CalendarSynchronizerOperation.TentativeEvent:
                                 nativeRequests.AddRange(group
@@ -1063,7 +1053,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public virtual List<IRequestBundle<TBaseRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> AcceptEvent(AcceptEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> DeclineEvent(DeclineEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-    public virtual List<IRequestBundle<TBaseRequest>> OutlookDeclineEvent(OutlookDeclineEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    /// <summary>Bundles for the queued decline requests. A provider that sends its own decline request type overrides it.</summary>
+    protected virtual IEnumerable<IRequestBundle<TBaseRequest>> CreateDeclineEventBundles(IEnumerable<IRequestBase> requests)
+        => requests.OfType<DeclineEventRequest>().SelectMany(DeclineEvent);
+
     public virtual List<IRequestBundle<TBaseRequest>> TentativeEvent(TentativeEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
     #endregion
@@ -1102,35 +1096,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="NotSupportedException"></exception>
     public virtual Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-
-    public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(
-        Func<IImapClient, IRequestBase, CancellationToken, Task> action, IRequestBase request, IUIChangeRequest uiChangeRequest)
-        => new() { new ImapRequestBundle(new ImapRequest(action, request)
-        {
-            QueuedRequests = uiChangeRequest is IEnumerable<IRequestBase> batch ? batch.ToList() : new[] { request }
-        }, request, uiChangeRequest) };
-
-    public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<IImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
-    {
-        return [new ImapRequestBundle(new ImapRequest(action, request)
-        {
-            QueuedRequests = uIChangeRequest is IEnumerable<IRequestBase> batch ? batch.ToList() : new[] { request }
-        }, request, uIChangeRequest)];
-    }
-
-    public List<IRequestBundle<ImapRequest>> CreateTaskBundle<TSingeRequestType>(Func<IImapClient, TSingeRequestType, Task> value,
-        List<TSingeRequestType> requests)
-        where TSingeRequestType : IRequestBase, IUIChangeRequest
-    {
-        List<IRequestBundle<ImapRequest>> ret = [];
-
-        foreach (var request in requests)
-        {
-            ret.Add(new ImapRequestBundle(new ImapRequest<TSingeRequestType>(value, request), request, request));
-        }
-
-        return ret;
-    }
 
     public virtual Task KillSynchronizerAsync()
     {

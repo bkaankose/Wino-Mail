@@ -22,7 +22,12 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
 {
     private static readonly SemaphoreSlim TaskListColorGate = new(1, 1);
 
-    public TaskService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger) { }
+    private readonly IMailProviderRegistry _providers;
+
+    public TaskService(IDatabaseService databaseService, IMessenger messenger, IMailProviderRegistry providers) : base(databaseService, messenger)
+    {
+        _providers = providers;
+    }
 
     public async Task<List<AccountTaskListGroup>> GetTaskListGroupsAsync(Guid? accountId = null)
     {
@@ -1581,12 +1586,8 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
     private static DateTime? NormalizeDate(DateTime? value)
         => value?.Date;
 
-    private static TaskSourceKind ResolveSource(MailAccount account)
-        => account.ProviderType switch
-        {
-            MailProviderType.Gmail when account.IsTaskAccessGranted => TaskSourceKind.Gmail,
-            MailProviderType.Outlook when account.IsTaskAccessGranted => TaskSourceKind.Outlook,
-            MailProviderType.Exchange when account.IsTaskAccessGranted => TaskSourceKind.Exchange,
-            _ => TaskSourceKind.Local
-        };
+    private TaskSourceKind ResolveSource(MailAccount account)
+        => account.IsTaskAccessGranted && _providers.GetTraits(account.ProviderType).ProviderTaskSource is { } source
+            ? source
+            : TaskSourceKind.Local;
 }

@@ -34,7 +34,6 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
-using Wino.Core.Synchronizers.CalDav;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Misc;
 using Wino.Core.Services;
@@ -47,7 +46,7 @@ using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 
 namespace Wino.Core.Synchronizers.Mail;
 
-public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ISemanticMailBodySynchronizer
+public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ILiveChangeListener, ISemanticMailBodySynchronizer
 {
     private readonly LocalContactSynchronizer _localContactSynchronizer;
     private readonly LocalTaskSynchronizer _localTaskSynchronizer;
@@ -148,8 +147,7 @@ IImapChangeProcessor imapChangeProcessor,
                             IApplicationConfiguration applicationConfiguration,
                             UnifiedImapSynchronizer unifiedSynchronizer,
                             IImapSynchronizerErrorHandlerFactory errorHandlerFactory,
-                            ICalDavClient calDavClient,
-                            IAutoDiscoveryService autoDiscoveryService,
+                            ICalDavSynchronizationEngine calDavSynchronizationEngine,
                             ICalendarService calendarService,
                             IMailFilterExecutor mailFilterExecutor = null,
                             IServerCertificateTrustService serverCertificateTrustService = null,
@@ -157,7 +155,6 @@ IImapChangeProcessor imapChangeProcessor,
                             IContactService contactService = null,
                             ITaskService taskService = null,
                             ISmtpTransport smtpTransport = null,
-                            ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
                             IOAuthTokenService oauthTokenService = null,
                             ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null) : base(account, messenger, uiChanges)
     {
@@ -167,8 +164,7 @@ IImapChangeProcessor imapChangeProcessor,
         _unifiedSynchronizer = unifiedSynchronizer;
         _errorHandlerFactory = errorHandlerFactory;
         _calendarService = calendarService;
-        _calDavSynchronizationEngine = calDavSynchronizationEngine
-                                       ?? new CalDavSynchronizationEngine(calDavClient, imapChangeProcessor, calendarService, autoDiscoveryService, new DavEndpointCache());
+        _calDavSynchronizationEngine = calDavSynchronizationEngine ?? throw new ArgumentNullException(nameof(calDavSynchronizationEngine));
         _mailFilterExecutor = mailFilterExecutor;
         _serverCertificateTrustService = serverCertificateTrustService;
         _smtpTransport = smtpTransport ?? new MailKitSmtpTransport(applicationConfiguration, serverCertificateTrustService, oauthTokenService);
@@ -189,7 +185,7 @@ IImapChangeProcessor imapChangeProcessor,
             oauthTokenService);
 
         _clientPool = new ImapClientPool(poolOptions);
-        _localCalendarOperationHandler = new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local");
+        _localCalendarOperationHandler = new LocalCalendarOperationAdapter(new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local"));
         _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(Account, _calDavSynchronizationEngine);
     }
 
@@ -862,6 +858,35 @@ IImapChangeProcessor imapChangeProcessor,
             request,
             async value => await handler.TentativeEventAsync(value).ConfigureAwait(false),
             handler.RequiresConnectedClient);
+    }
+
+    private static List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(
+        Func<IImapClient, IRequestBase, CancellationToken, Task> action, IRequestBase request, IUIChangeRequest uiChangeRequest)
+        => new() { new ImapRequestBundle(new ImapRequest(action, request)
+        {
+            QueuedRequests = uiChangeRequest is IEnumerable<IRequestBase> batch ? batch.ToList() : new[] { request }
+        }, request, uiChangeRequest) };
+
+    private static List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<IImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
+    {
+        return [new ImapRequestBundle(new ImapRequest(action, request)
+        {
+            QueuedRequests = uIChangeRequest is IEnumerable<IRequestBase> batch ? batch.ToList() : new[] { request }
+        }, request, uIChangeRequest)];
+    }
+
+    private static List<IRequestBundle<ImapRequest>> CreateTaskBundle<TSingeRequestType>(Func<IImapClient, TSingeRequestType, Task> value,
+        List<TSingeRequestType> requests)
+        where TSingeRequestType : IRequestBase, IUIChangeRequest
+    {
+        List<IRequestBundle<ImapRequest>> ret = [];
+
+        foreach (var request in requests)
+        {
+            ret.Add(new ImapRequestBundle(new ImapRequest<TSingeRequestType>(value, request), request, request));
+        }
+
+        return ret;
     }
 
     private IImapCalendarOperationHandler ResolveCalendarOperationHandler()
@@ -1646,168 +1671,16 @@ IImapChangeProcessor imapChangeProcessor,
         Task TentativeEventAsync(TentativeEventRequest request);
     }
 
-    internal sealed class LocalCalendarOperationHandler : IImapCalendarOperationHandler
+    /// <summary>Runs calendar requests of a local calendar through the shared <see cref="LocalCalendarOperationHandler"/>.</summary>
+    private sealed class LocalCalendarOperationAdapter(LocalCalendarOperationHandler handler) : IImapCalendarOperationHandler
     {
-        private readonly MailAccount _account;
-        private readonly IImapChangeProcessor _changeProcessor;
-        private readonly ICalendarService _calendarService;
-        private readonly string _applicationDataFolderPath;
-        private readonly string _resourceScheme;
-
         public bool RequiresConnectedClient => false;
-
-        public LocalCalendarOperationHandler(MailAccount account, IImapChangeProcessor changeProcessor, ICalendarService calendarService, string applicationDataFolderPath, string resourceScheme)
-        {
-            _account = account;
-            _changeProcessor = changeProcessor;
-            _calendarService = calendarService;
-            _applicationDataFolderPath = applicationDataFolderPath;
-            _resourceScheme = resourceScheme;
-        }
-
-        public async Task CreateCalendarEventAsync(CreateCalendarEventRequest request)
-        {
-            var item = request.PreparedItem;
-            var attendees = request.PreparedEvent.Attendees;
-            var reminders = request.PreparedEvent.Reminders;
-            CalendarIcsBuilder.EnsureCalendarItemDefaults(item, _account, "local");
-            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
-
-            var existing = await _calendarService.GetCalendarItemAsync(item.Id).ConfigureAwait(false);
-
-            if (existing == null)
-                await _calendarService.CreateNewCalendarItemAsync(item, attendees).ConfigureAwait(false);
-            else
-                await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
-
-            await _calendarService.SaveRemindersAsync(item.Id, reminders).ConfigureAwait(false);
-            await SaveAttachmentsAsync(request.ComposeResult, item.Id).ConfigureAwait(false);
-            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
-        }
-
-        public async Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
-        {
-            var item = request.Item;
-            CalendarIcsBuilder.EnsureCalendarItemDefaults(item, _account, "local");
-            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
-
-            var attendees = request.Attendees ?? await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
-
-            await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
-            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
-        }
-
-        public async Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
-        {
-            if (request.Item.IsRecurringParent)
-            {
-                var occurrences = await _calendarService.GetRecurringChildrenAsync(request.Item.Id).ConfigureAwait(false);
-                foreach (var occurrence in occurrences ?? [])
-                    await _changeProcessor.DeleteCalendarItemAsync(occurrence.Id).ConfigureAwait(false);
-            }
-
-            await _changeProcessor.DeleteCalendarItemAsync(request.Item.Id).ConfigureAwait(false);
-        }
-
-        public async Task AcceptEventAsync(AcceptEventRequest request)
-        {
-            request.Item.Status = CalendarItemStatus.Accepted;
-            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
-        }
-
-        public async Task DeclineEventAsync(DeclineEventRequest request)
-        {
-            request.Item.Status = CalendarItemStatus.Cancelled;
-            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
-        }
-
-        public async Task TentativeEventAsync(TentativeEventRequest request)
-        {
-            request.Item.Status = CalendarItemStatus.Tentative;
-            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
-        }
-
-        private async Task UpdateStatusAsync(CalendarItem item)
-        {
-            CalendarIcsBuilder.EnsureCalendarItemDefaults(item, _account, "local");
-            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
-
-            var attendees = await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
-            await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
-            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
-        }
-
-        private Task PersistIcsAsync(CalendarItem item, List<CalendarEventAttendee> attendees)
-        {
-            var resourceHref = $"{_resourceScheme}://calendar/{item.CalendarId:N}/{item.Id:N}";
-            var icsContent = CalendarIcsBuilder.BuildIcsContent(item, attendees);
-
-            return _changeProcessor.SaveCalendarItemIcsAsync(
-                _account.Id,
-                item.CalendarId,
-                item.Id,
-                item.RemoteEventId,
-                resourceHref,
-                DateTimeOffset.UtcNow.ToString("O"),
-                icsContent);
-        }
-
-        /// <summary>A local attachment is the copy made when the event was saved; opening it copies that file.</summary>
-        internal static async Task CopyStoredAttachmentAsync(CalendarAttachment attachment, string localFilePath, ICalendarService calendarService)
-        {
-            if (string.IsNullOrWhiteSpace(attachment.LocalFilePath) || !File.Exists(attachment.LocalFilePath))
-                throw new FileNotFoundException("The local calendar attachment file is missing.", attachment.FileName);
-
-            if (!string.Equals(Path.GetFullPath(attachment.LocalFilePath), Path.GetFullPath(localFilePath), StringComparison.Ordinal))
-            {
-                var directory = Path.GetDirectoryName(Path.GetFullPath(localFilePath));
-                if (!string.IsNullOrWhiteSpace(directory))
-                    Directory.CreateDirectory(directory);
-
-                File.Copy(attachment.LocalFilePath, localFilePath, overwrite: true);
-            }
-
-            await calendarService.MarkAttachmentDownloadedAsync(attachment.Id, localFilePath).ConfigureAwait(false);
-        }
-
-        private async Task SaveAttachmentsAsync(CalendarEventComposeResult composeResult, Guid calendarItemId)
-        {
-            await _calendarService.DeleteAttachmentsAsync(calendarItemId).ConfigureAwait(false);
-
-            var attachments = composeResult?.Attachments;
-            if (attachments == null || attachments.Count == 0)
-                return;
-
-            var attachmentsRoot = Path.Combine(_applicationDataFolderPath, "CalendarAttachments", calendarItemId.ToString("N"));
-            Directory.CreateDirectory(attachmentsRoot);
-
-            var storedAttachments = new List<CalendarAttachment>();
-
-            foreach (var attachment in attachments.Where(a => !string.IsNullOrWhiteSpace(a.FilePath) && File.Exists(a.FilePath)))
-            {
-                var fileName = string.IsNullOrWhiteSpace(attachment.FileName) ? Path.GetFileName(attachment.FilePath) : attachment.FileName;
-                var destinationPath = Path.Combine(attachmentsRoot, fileName);
-                File.Copy(attachment.FilePath, destinationPath, overwrite: true);
-
-                storedAttachments.Add(new CalendarAttachment
-                {
-                    Id = Guid.NewGuid(),
-                    CalendarItemId = calendarItemId,
-                    RemoteAttachmentId = attachment.Id.ToString("N"),
-                    FileName = fileName,
-                    Size = attachment.Size,
-                    ContentType = MimeTypes.GetMimeType(fileName),
-                    IsDownloaded = true,
-                    LocalFilePath = destinationPath,
-                    LastModified = DateTimeOffset.UtcNow
-                });
-            }
-
-            if (storedAttachments.Count > 0)
-            {
-                await _calendarService.InsertOrReplaceAttachmentsAsync(storedAttachments).ConfigureAwait(false);
-            }
-        }
+        public Task CreateCalendarEventAsync(CreateCalendarEventRequest request) => handler.CreateCalendarEventAsync(request);
+        public Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request) => handler.UpdateCalendarEventAsync(request);
+        public Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request) => handler.DeleteCalendarEventAsync(request);
+        public Task AcceptEventAsync(AcceptEventRequest request) => handler.AcceptEventAsync(request);
+        public Task DeclineEventAsync(DeclineEventRequest request) => handler.DeclineEventAsync(request);
+        public Task TentativeEventAsync(TentativeEventRequest request) => handler.TentativeEventAsync(request);
     }
 
     /// <summary>Routes calendar requests of a CalDAV account to <see cref="ICalDavSynchronizationEngine"/>.</summary>
@@ -1841,6 +1714,14 @@ IImapChangeProcessor imapChangeProcessor,
 
         public Task TentativeEventAsync(TentativeEventRequest request)
             => _engine.RespondToEventAsync(_account, request.Item, CalendarItemStatus.Tentative);
+    }
+
+    Task ILiveChangeListener.StartListeningAsync() => StartIdleClientAsync();
+
+    async Task ILiveChangeListener.SuspendListeningAsync()
+    {
+        _logger.Information("Account {AccountId} needs attention ({AttentionReason}). Suspending its IMAP connections.", Account.Id, Account.AttentionReason);
+        await SuspendNetworkAccessAsync().ConfigureAwait(false);
     }
 
     public async Task StartIdleClientAsync()

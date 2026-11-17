@@ -21,8 +21,11 @@ namespace Wino.Core.Synchronizers.Exchange;
 /// debounce, routing) and the EWS streaming subscription; the MAPI synchronizer overrides
 /// <see cref="ListenForServerChangesAsync"/> with MAPI notifications.
 /// </summary>
-public partial class ExchangeSynchronizer : IExchangeSynchronizer
+public partial class ExchangeSynchronizer : IExchangeSynchronizer, ILiveChangeListener
 {
+    Task ILiveChangeListener.StartListeningAsync() => StartChangeListenerAsync();
+    Task ILiveChangeListener.SuspendListeningAsync() => StopChangeListenerAsync();
+
     // A new mail raises several events (created, new mail, folder modified); one sync pass covers the burst.
     private static readonly TimeSpan ServerChangeDebounce = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan[] ListenerReconnectDelays =

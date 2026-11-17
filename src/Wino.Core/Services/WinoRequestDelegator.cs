@@ -22,7 +22,6 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Synchronizers.Mail;
 using Wino.Messaging.Server;
 
 namespace Wino.Core.Services;
@@ -33,7 +32,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
     private readonly ISynchronizationManager _synchronizationManager;
-    private readonly IImapChangeProcessor _imapChangeProcessor;
+    private readonly ICalDavChangeProcessor _calendarChangeProcessor;
+    private readonly IMailProviderRegistry _providers;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IApplicationLocalRequestExecutor _applicationLocalRequestExecutor;
 
@@ -43,17 +43,19 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                 IAccountService accountService,
                                 ICalendarService calendarService,
                                 ISynchronizationManager synchronizationManager,
-                                IImapChangeProcessor imapChangeProcessor,
+                                ICalDavChangeProcessor calendarChangeProcessor,
                                 IApplicationConfiguration applicationConfiguration,
                                 IApplicationLocalRequestExecutor applicationLocalRequestExecutor,
-                                IMessenger messenger)
+                                IMessenger messenger,
+                                IMailProviderRegistry providers)
     {
+        _providers = providers;
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _winoRequestProcessor = winoRequestProcessor;
         _accountService = accountService;
         _calendarService = calendarService;
         _synchronizationManager = synchronizationManager;
-        _imapChangeProcessor = imapChangeProcessor;
+        _calendarChangeProcessor = calendarChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
         _applicationLocalRequestExecutor = applicationLocalRequestExecutor;
     }
@@ -209,9 +211,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     private async Task ExecuteLocalCalendarRequestAsync(MailAccount account, IRequestBase request)
     {
-        var handler = new ImapSynchronizer.LocalCalendarOperationHandler(
+        var handler = new LocalCalendarOperationHandler(
             account,
-            _imapChangeProcessor,
+            _calendarChangeProcessor,
             _calendarService,
             _applicationConfiguration.ApplicationDataFolderPath,
             "local");
@@ -354,7 +356,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     {
         // For Outlook accounts, declined events are deleted by the server after synchronization.
         // Use OutlookDeclineEventRequest to handle UI removal.
-        if (calendarItem.AssignedCalendar?.MailAccount?.ProviderType == MailProviderType.Outlook)
+        if (calendarItem.AssignedCalendar?.MailAccount is { } account &&
+            _providers.GetTraits(account.ProviderType).RemovesDeclinedEvents)
         {
             return new OutlookDeclineEventRequest(calendarItem, responseMessage);
         }

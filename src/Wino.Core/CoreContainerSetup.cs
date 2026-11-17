@@ -3,21 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog.Core;
 using Wino.Authentication;
-using Wino.Authentication.Exchange;
 using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Integration.Processors;
-using Wino.Core.Integration;
+using Wino.Core.Providers;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors;
-using Wino.Core.Synchronizers.Errors.Exchange;
-using Wino.Core.Synchronizers.Errors.Gmail;
-using Wino.Core.Synchronizers.Errors.Imap;
-using Wino.Core.Synchronizers.Errors.Outlook;
-using Wino.Core.Synchronizers.ImapSync;
-using Wino.Core.Synchronizers.CalDav;
-using Wino.Core.Synchronizers.CardDav;
-using Wino.Core.Synchronizers.Mapi;
 using Wino.Services;
 
 namespace Wino.Core;
@@ -29,20 +19,13 @@ public static class CoreContainerSetup
         var loggerLevelSwitcher = new LoggingLevelSwitch();
 
         services.AddSingleton(loggerLevelSwitcher);
+        services.AddSingleton<IMailProviderRegistry>(provider => new MailProviderRegistry(() => provider.GetServices<IMailProviderModule>()));
         services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
 
         // Relay registrations the app manages itself (Gmail watch, Graph subscription). IMAP's builder lives in Wino.Services.
         services.AddSingleton<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>();
         services.AddSingleton<IPushRelayAppManagedRegistrationStore>(provider => provider.GetRequiredService<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>());
         services.AddSingleton<Wino.Core.PushRelay.RelayWellKnownCache>(provider => new Wino.Core.PushRelay.RelayWellKnownCache(provider.GetRequiredService<IPushRelayClient>()));
-        services.AddSingleton<IPushRelayMailboxRegistrationBuilder>(provider => new Wino.Core.PushRelay.GmailPushRelayMailboxRegistrationBuilder(
-            provider.GetRequiredService<IAuthenticationProvider>(),
-            provider.GetRequiredService<Wino.Core.PushRelay.RelayWellKnownCache>(),
-            provider.GetRequiredService<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>()));
-        services.AddSingleton<IPushRelayMailboxRegistrationBuilder>(provider => new Wino.Core.PushRelay.GraphPushRelayMailboxRegistrationBuilder(
-            provider.GetRequiredService<IAuthenticationProvider>(),
-            provider.GetRequiredService<Wino.Core.PushRelay.RelayWellKnownCache>(),
-            provider.GetRequiredService<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>()));
         services.AddSingleton<ModeSynchronizerFactory>();
         services.AddSingleton<IMailSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
         services.AddSingleton<ICalendarSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
@@ -85,10 +68,6 @@ public static class CoreContainerSetup
             provider.GetRequiredService<ApplicationRuntimeInitialization>().RunBackgroundStartupAsync,
             provider.GetRequiredService<ISyncCoordinator>()));
 
-        services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
-        services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
-        services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
-        services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
         // One executor per app: the platform sets its window host on it (AgentPlanExecutor.Host) when the shell is up.
@@ -104,94 +83,24 @@ public static class CoreContainerSetup
         services.AddTransient<IDraftSaveService, DraftSaveService>();
         services.AddSingleton<IDraftUpdateCoordinator, DraftUpdateCoordinator>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
-        services.AddTransient<IMailServerTestService, MailServerTestService>();
-        services.AddTransient<IImapAuthCapabilityProbe, ImapAuthCapabilityProbe>();
-        services.AddTransient<IPop3ClientFactory, MailKitPop3ClientFactory>();
-        services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
-        services.AddTransient<IAuthenticationProvider>(provider => new AuthenticationProvider(
-            () => provider.GetRequiredService<IOutlookAuthenticator>(),
-            () => provider.GetRequiredService<IGmailAuthenticator>(),
-            () => provider.GetRequiredService<IExchangeAuthenticator>()));
+        services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddSingleton<IDnsLookupService, DnsLookupService>();
-        services.AddSingleton<IMicrosoftUserRealmService, MicrosoftUserRealmService>();
-        services.AddSingleton<IGoogleMailboxProfileService, GoogleMailboxProfileService>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
-        services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();
-        services.AddTransient<IExchangeAuthCapabilityProbe, ExchangeAuthCapabilityProbe>();
-        services.AddTransient<IMapiConnectionProbe, MapiConnectionProbe>();
-        services.AddTransient<IExchangeConnectionTester, ExchangeConnectionTester>();
-        services.AddTransient<IImapSetupResolver, ImapSetupResolver>();
         services.AddTransient<IAccountRouteResolver, AccountRouteResolver>();
         services.AddTransient<IAccountSetupRunner, AccountSetupRunner>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
-        services.AddSingleton<OutlookAccessTokenCache>();
-        services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
-        // Desktop default; a head that cannot listen on loopback registers its own receiver.
-        services.TryAddTransient<IGoogleAuthorizationCodeReceiver>(CreateLoopbackGoogleAuthorizationCodeReceiver);
-        services.AddTransient<IGmailAuthenticator>(provider => new GmailAuthenticator(
-            provider.GetRequiredService<IAuthenticatorConfig>(),
-            provider.GetRequiredService<IGoogleAuthorizationCodeReceiver>(),
-            provider.GetRequiredService<IGoogleTokenStore>()));
+        services.AddTransient<IMailInvitationService, MailInvitationService>();
         services.AddWinoOAuth();
 
-        // Exchange: one access token cache per process; refresh tokens live in IExchangeTokenStore, never in IOAuthTokenStore.
-        services.AddSingleton<ExchangeTokenCache>();
-        services.AddTransient<ExchangeNtlmAuthenticator>();
-        services.AddTransient<ExchangeOAuthAuthenticator>();
-        services.AddTransient<IExchangeAuthenticator, ExchangeAuthenticator>();
-        // Interactive Exchange sign-in needs the head's embedded browser; without one it reports itself unsupported
-        // and never falls back to the system-browser OAuth flow.
-        services.AddTransient<IExchangeInteractiveSignInService>(provider => new ExchangeInteractiveSignInService(
-            provider.GetRequiredService<IOAuthProtocolClient>(),
-            provider.GetRequiredService<IExchangeTokenStore>(),
-            provider.GetRequiredService<ExchangeTokenCache>(),
-            () => provider.GetService<IEmbeddedBrowserAuthBroker>()));
-
-        services.AddTransient<UnifiedImapSynchronizer>();
-        services.AddSingleton<Wino.Core.Synchronizers.DavEndpointCache>();
-        services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
-        services.AddTransient<ICalDavSynchronizationEngine, CalDavSynchronizationEngine>();
-        services.AddTransient<CalDavSynchronizationEngine>();
-        services.AddTransient<IMailInvitationService, MailInvitationService>();
-        services.AddTransient<ICalDavTaskSynchronizationEngine, CalDavTaskSynchronizationEngine>();
-        services.AddTransient<ICardDavAddressBookService, CardDavAddressBookService>();
-        services.AddTransient<ICardDavContactListService, CardDavContactListService>();
-
-        // Register Outlook error handlers
-        services.AddTransient<ObjectCannotBeDeletedHandler>();
-        services.AddTransient<DeltaTokenExpiredHandler>();
-        services.AddTransient<OutlookRateLimitHandler>();
-
-        // Register Gmail error handlers
-        services.AddTransient<GmailAuthenticationFailedHandler>();
-        services.AddTransient<GmailQuotaExceededHandler>();
-        services.AddTransient<GmailRateLimitHandler>();
-        services.AddTransient<GmailHistoryExpiredHandler>();
-        // Register shared error handlers
         services.AddTransient<EntityNotFoundHandler>();
-
-        // Register IMAP error handlers
-        services.AddTransient<ImapConnectionLostHandler>();
-        services.AddTransient<ImapAuthenticationFailedHandler>();
-        services.AddTransient<ImapFolderNotFoundHandler>();
-        services.AddTransient<ImapProtocolErrorHandler>();
-
-        // Register Exchange error handlers
-        services.AddTransient<ExchangeAuthenticationFailedHandler>();
-        services.AddTransient<ExchangeServerBusyHandler>();
-        services.AddTransient<ExchangeInvalidServerResponseHandler>();
-
-        // Register Outlook auth handlers
-        services.AddTransient<OutlookAuthenticationFailedHandler>();
-
-        // Register error handler factories
-        services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
-        services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();
-        services.AddTransient<IImapSynchronizerErrorHandlerFactory, ImapSynchronizerErrorHandlingFactory>();
-        services.AddTransient<IExchangeSynchronizerErrorHandlerFactory, ExchangeSynchronizerErrorHandlingFactory>();
-
-        // Register retry executor
         services.AddTransient<IRetryExecutor, RetryExecutor>();
+
+        // Gmail before Outlook keeps the relay registration builders in their earlier order.
+        services.AddGmailProvider();
+        services.AddOutlookProvider();
+        services.AddImapProvider();
+        services.AddExchangeProvider();
+        services.AddDavProvider();
     }
 
     /// <summary>
@@ -199,11 +108,5 @@ public static class CoreContainerSetup
     /// receiver registration, so a head can state its choice after <see cref="RegisterCoreServices"/>.
     /// </summary>
     public static IServiceCollection AddLoopbackGoogleAuthorizationCodeReceiver(this IServiceCollection services)
-        => services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver>(CreateLoopbackGoogleAuthorizationCodeReceiver));
-
-    private static IGoogleAuthorizationCodeReceiver CreateLoopbackGoogleAuthorizationCodeReceiver(System.IServiceProvider provider)
-        => new WinoGmailCodeReceiver(
-            provider.GetRequiredService<IExternalLauncher>(),
-            provider.GetService<IExternalBrowserAuthenticationPresenter>(),
-            provider.GetRequiredService<IAuthenticatorConfig>().ApplicationDisplayName);
+        => services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver>(GmailProviderRegistration.CreateLoopbackGoogleAuthorizationCodeReceiver));
 }

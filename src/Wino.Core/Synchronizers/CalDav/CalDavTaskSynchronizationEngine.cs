@@ -54,6 +54,7 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
     private readonly IDavOAuthAuthenticationProvider? _oauthAuthenticationProvider;
 
     private readonly DavEndpointCache _davEndpoints;
+    private readonly IMailProviderRegistry _providers;
 
     public CalDavTaskSynchronizationEngine(
         ICalDavClient client,
@@ -62,9 +63,11 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
         IAutoDiscoveryService autoDiscoveryService,
         ICalDavStateStore stateStore,
         DavEndpointCache davEndpoints,
+        IMailProviderRegistry providers,
         IDavOAuthAuthenticationProvider? oauthAuthenticationProvider = null)
     {
         _davEndpoints = davEndpoints ?? throw new ArgumentNullException(nameof(davEndpoints));
+        _providers = providers ?? throw new ArgumentNullException(nameof(providers));
         _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _taskService = taskService ?? throw new ArgumentNullException(nameof(taskService));
@@ -152,9 +155,9 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
         return TaskSynchronizationResult.Completed(downloaded, changed, deleted).MergeIssues(issues);
     }
 
-    private static bool IsTaskSourceAvailable(MailAccount account)
+    private bool IsTaskSourceAvailable(MailAccount account)
         => account.TaskIntegrationSource == AccountIntegrationSource.Dav &&
-           account.ProviderType == MailProviderType.IMAP4 &&
+           _providers.GetTraits(account.ProviderType).SupportsDavIntegration &&
            account.IsTaskAccessGranted &&
            account.ServerInformation != null;
 

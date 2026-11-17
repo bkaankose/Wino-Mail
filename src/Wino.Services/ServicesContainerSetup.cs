@@ -159,6 +159,7 @@ public static class ServicesContainerSetup
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IMessenger>(),
             provider.GetRequiredService<ITaskService>(),
+            provider.GetRequiredService<IMailProviderRegistry>(),
             provider.GetService<IRelayIntroductionService>(),
             provider.GetService<IRelaySocketCoordinator>()));
         services.AddSingleton<IRelayHealth>(provider => provider.GetRequiredService<ISyncCoordinator>());

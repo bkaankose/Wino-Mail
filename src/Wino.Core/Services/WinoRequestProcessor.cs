@@ -28,6 +28,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     private readonly IPreferencesService _preferencesService;
     private readonly IMailService _mailService;
     private readonly IContactService _contactService;
+    private readonly IMailProviderRegistry _providers;
 
     /// <summary>
     /// Set of rules that defines which action should be executed if user wants to toggle an action.
@@ -43,8 +44,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     public WinoRequestProcessor(IFolderService folderService,
                                 IPreferencesService preferencesService,
                                 IMailService mailService,
-                                IContactService contactService)
+                                IContactService contactService,
+                                IMailProviderRegistry providers)
     {
+        _providers = providers;
         _folderService = folderService;
         _preferencesService = preferencesService;
         _mailService = mailService;
@@ -185,6 +188,8 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         if (mailItem.AssignedAccount == null) throw new ArgumentException(Translator.Exception_NullAssignedAccount);
         if (mailItem.AssignedFolder == null) throw new ArgumentException(Translator.Exception_NullAssignedFolder);
 
+        var traits = _providers.GetTraits(mailItem.AssignedAccount.ProviderType);
+
         // Rule: Soft deletes from Trash folder must perform Hard Delete.
         if (action == MailOperation.SoftDelete && mailItem.AssignedFolder.SpecialFolderType == SpecialFolderType.Deleted)
             action = MailOperation.HardDelete;
@@ -239,15 +244,9 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         }
         else if (action == MailOperation.Archive)
         {
-            // For IMAP and Outlook: Validate archive folder exists.
-            // Gmail doesn't need archive folder existence.
-
             MailItemFolder archiveFolder = null;
 
-            bool shouldRequireArchiveFolder = mailItem.AssignedAccount.ProviderType == MailProviderType.Outlook
-                                              || mailItem.AssignedAccount.ProviderType is (MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.Exchange);
-
-            if (shouldRequireArchiveFolder)
+            if (traits.ArchiveRequiresArchiveFolder)
             {
                 archiveFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Archive)
                 ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Archive, mailItem.AssignedAccount.Id);
@@ -260,7 +259,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             var inboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Inbox)
                 ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Inbox, mailItem.AssignedAccount.Id);
 
-            if (mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4)
+            if (traits.MovesJunkAsFolderMove)
                 return new MoveRequest(mailItem, mailItem.AssignedFolder, inboxFolder);
 
             return new ChangeJunkStateRequest(false, mailItem, mailItem.AssignedFolder, inboxFolder);
@@ -284,7 +283,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             var junkFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Junk)
                 ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Junk, mailItem.AssignedAccount.Id);
 
-            if (mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4)
+            if (traits.MovesJunkAsFolderMove)
                 return new MoveRequest(mailItem, mailItem.AssignedFolder, junkFolder);
 
             return new ChangeJunkStateRequest(true, mailItem, mailItem.AssignedFolder, junkFolder);
@@ -292,7 +291,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         else if (action is MailOperation.MoveToFocused or MailOperation.MoveToOther
                  or MailOperation.AlwaysMoveToFocused or MailOperation.AlwaysMoveToOther)
         {
-            if (mailItem.AssignedAccount.ProviderType != MailProviderType.Outlook)
+            if (!traits.SupportsFocusedInbox)
                 throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedAction, action));
 
             var moveToFocused = action is MailOperation.MoveToFocused or MailOperation.AlwaysMoveToFocused;

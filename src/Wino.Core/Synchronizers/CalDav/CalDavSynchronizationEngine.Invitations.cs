@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Services;
 
@@ -17,8 +18,29 @@ namespace Wino.Core.Synchronizers.CalDav;
 /// update are separate steps so the caller can send the reply in between and store nothing locally
 /// when sending fails.
 /// </summary>
-public sealed partial class CalDavSynchronizationEngine
+public sealed partial class CalDavSynchronizationEngine : ICalDavInvitationEngine
 {
+    Task<CalDavUserIdentity> ICalDavInvitationEngine.GetUserIdentityAsync(MailAccount account, CancellationToken cancellationToken)
+        => GetUserIdentityAsync(account, cancellationToken);
+
+    Task<(CalDavResourceSnapshot? Previous, CalDavResourceSnapshot Written)> ICalDavInvitationEngine.WriteInvitationCopyAsync(
+        MailAccount account, Guid calendarId, CalendarItem? existingItem, string uid, Func<string?, string> createContent, CancellationToken cancellationToken)
+        => WriteInvitationCopyAsync(account, calendarId, existingItem, uid, createContent, cancellationToken);
+
+    Task ICalDavInvitationEngine.RevertInvitationCopyAsync(
+        MailAccount account, Guid calendarId, CalendarItem? existingItem, CalDavResourceSnapshot? previous, CalDavResourceSnapshot written, string uid, CancellationToken cancellationToken)
+        => RevertInvitationCopyAsync(account, calendarId, existingItem, previous, written, uid, cancellationToken);
+
+    Task ICalDavInvitationEngine.ApplyInvitationCopyAsync(
+        MailAccount account, Guid calendarId, CalendarItem? existingItem, CalDavResourceSnapshot written, CancellationToken cancellationToken)
+        => ApplyInvitationCopyAsync(account, calendarId, existingItem, written, cancellationToken);
+
+    Task ICalDavInvitationEngine.PersistInvitationResponseAsync(MailAccount account, CalendarItem item, CalDavUserIdentity identity, AttendeeStatus response)
+        => PersistInvitationResponseAsync(account, item, identity, response);
+
+    void ICalDavInvitationEngine.ApplyImportedResponseStatus(CalDavCalendarEvent remoteEvent, CalDavUserIdentity identity)
+        => ApplyImportedResponseStatus(remoteEvent, identity);
+
     /// <summary>
     /// Writes the attendee's copy of an invitation. An event already in the calendar is replaced with
     /// If-Match on its stored copy; a new one is created with If-None-Match. Nothing is stored locally.

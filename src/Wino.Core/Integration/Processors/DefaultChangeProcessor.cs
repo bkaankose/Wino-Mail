@@ -146,21 +146,13 @@ public interface IOutlookChangeProcessor : IDefaultChangeProcessor
     Task ManageCalendarEventAsync(Microsoft.Graph.Models.Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
 }
 
-public interface IImapChangeProcessor : IDefaultChangeProcessor
+public interface IImapChangeProcessor : ICalDavChangeProcessor
 {
     /// <summary>
     /// Returns all known uids for the given folder.
     /// </summary>
     /// <param name="folderId">Folder id to retrieve uIds for.</param>
     Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
-
-    Task ManageCalendarEventAsync(CalDavCalendarEvent calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
-    Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent);
-    Task<CalDavResourceSnapshot> GetCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
-    Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
-    Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId);
-    Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId);
-    Task<IReadOnlyList<CalendarIcsShadow>> GetCalendarIcsShadowsAsync(Guid accountId, Guid calendarId);
 }
 
 public class DefaultChangeProcessor(IDatabaseService databaseService, IMessenger messenger,

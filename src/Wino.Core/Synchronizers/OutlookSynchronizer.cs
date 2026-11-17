@@ -5323,7 +5323,15 @@ IAuthenticator authenticator,
         return [new HttpRequestBundle<RequestInformation>(acceptRequestInfo, request)];
     }
 
-    public override List<IRequestBundle<RequestInformation>> OutlookDeclineEvent(OutlookDeclineEventRequest request)
+    // Bug the delay works around: if Outlook has not created a sent message in Sent Items before the follow-up
+    // synchronization, the message does not appear.
+    protected override bool DelaysResynchronizationAfterRequests => true;
+
+    // Outlook removes a declined event from the calendar, so its decline request also removes it from the UI.
+    protected override IEnumerable<IRequestBundle<RequestInformation>> CreateDeclineEventBundles(IEnumerable<IRequestBase> requests)
+        => requests.OfType<OutlookDeclineEventRequest>().SelectMany(OutlookDeclineEvent);
+
+    public List<IRequestBundle<RequestInformation>> OutlookDeclineEvent(OutlookDeclineEventRequest request)
     {
         var responseMessage = request.ResponseMessage;
 

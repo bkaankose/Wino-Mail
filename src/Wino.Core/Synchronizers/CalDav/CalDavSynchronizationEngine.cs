@@ -49,24 +49,27 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
     private static readonly ILogger Logger = Log.ForContext<CalDavSynchronizationEngine>();
 
     private readonly ICalDavClient _client;
-    private readonly IImapChangeProcessor _changeProcessor;
+    private readonly ICalDavChangeProcessor _changeProcessor;
     private readonly ICalendarService _calendarService;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalDavStateStore _stateStore;
     private readonly IDavOAuthAuthenticationProvider? _oauthAuthenticationProvider;
 
     private readonly DavEndpointCache _davEndpoints;
+    private readonly IMailProviderRegistry _providers;
 
     public CalDavSynchronizationEngine(
         ICalDavClient client,
-        IImapChangeProcessor changeProcessor,
+        ICalDavChangeProcessor changeProcessor,
         ICalendarService calendarService,
         IAutoDiscoveryService autoDiscoveryService,
         DavEndpointCache davEndpoints,
+        IMailProviderRegistry providers,
         ICalDavStateStore? stateStore = null,
         IDavOAuthAuthenticationProvider? oauthAuthenticationProvider = null)
     {
         _davEndpoints = davEndpoints ?? throw new ArgumentNullException(nameof(davEndpoints));
+        _providers = providers ?? throw new ArgumentNullException(nameof(providers));
         _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _changeProcessor = changeProcessor ?? throw new ArgumentNullException(nameof(changeProcessor));
@@ -90,7 +93,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             return CalendarSynchronizationResult.Empty;
 
         if (calendarSource != AccountIntegrationSource.Dav ||
-            account.ProviderType != MailProviderType.IMAP4 ||
+            !_providers.GetTraits(account.ProviderType).SupportsDavIntegration ||
             !account.IsCalendarAccessGranted ||
             account.ServerInformation == null ||
             account.ServerInformation.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
