@@ -51,13 +51,15 @@ public partial class CoreBaseViewModel : ObservableRecipient, INavigationAware
     {
         if (action == null) return Task.CompletedTask;
 
-        if (Dispatcher == null)
+        // A page clears its ViewModel's dispatcher when it closes, possibly while this runs on a background thread.
+        var dispatcher = Dispatcher;
+        if (dispatcher == null)
         {
             action();
             return Task.CompletedTask;
         }
 
-        return Dispatcher.ExecuteOnUIThread(action);
+        return dispatcher.ExecuteOnUIThread(action);
     }
 
     public async Task ExecuteUIThreadAsync(Func<Task> action)
@@ -65,7 +67,8 @@ public partial class CoreBaseViewModel : ObservableRecipient, INavigationAware
         if (action == null)
             return;
 
-        if (Dispatcher == null)
+        var dispatcher = Dispatcher;
+        if (dispatcher == null)
         {
             await action().ConfigureAwait(false);
             return;
@@ -74,7 +77,7 @@ public partial class CoreBaseViewModel : ObservableRecipient, INavigationAware
         var completionSource = new TaskCompletionSource<object>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await Dispatcher.ExecuteOnUIThread(() => _ = ExecuteAndCaptureAsync())
+        await dispatcher.ExecuteOnUIThread(() => _ = ExecuteAndCaptureAsync())
             .ConfigureAwait(false);
         await completionSource.Task.ConfigureAwait(false);
 
@@ -98,13 +101,14 @@ public partial class CoreBaseViewModel : ObservableRecipient, INavigationAware
         if (action == null)
             return default;
 
-        if (Dispatcher == null)
+        var dispatcher = Dispatcher;
+        if (dispatcher == null)
             return await action().ConfigureAwait(false);
 
         var completionSource = new TaskCompletionSource<T>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await Dispatcher.ExecuteOnUIThread(() => _ = ExecuteAndCaptureAsync())
+        await dispatcher.ExecuteOnUIThread(() => _ = ExecuteAndCaptureAsync())
             .ConfigureAwait(false);
         return await completionSource.Task.ConfigureAwait(false);
 
