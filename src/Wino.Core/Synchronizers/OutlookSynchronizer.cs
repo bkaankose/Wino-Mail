@@ -61,8 +61,12 @@ using GraphTaskStatus = Microsoft.Graph.Models.TaskStatus;
 
 namespace Wino.Core.Synchronizers.Mail;
 
-[JsonSerializable(typeof(Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody))]
-public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
+// The move body keeps the exact shape the generated MovePostRequestBody serialized to. The official model also
+// exposes its BackingStore, which System.Text.Json would write into the request.
+internal sealed record OutlookMovePostBody(Dictionary<string, string> AdditionalData, string DestinationId);
+
+[JsonSerializable(typeof(OutlookMovePostBody))]
+internal partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// Outlook synchronizer implementation with delta token synchronization.
@@ -1733,7 +1737,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             new BaseBearerTokenAuthenticationProvider(tokenProvider),
             httpClient: httpClient);
 
-        return new GraphServiceClient(requestAdapter);
+        return new GraphServiceClient(new GraphRequestAdapterWithoutBackingStore(requestAdapter));
     }
 
     #region MS Graph Handlers
@@ -3422,7 +3426,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     }
 
     private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody content)
-        => PreparePostRequestInformation(requestInformation, JsonSerializer.Serialize(content, OutlookSynchronizerJsonContext.Default.MovePostRequestBody));
+        => PreparePostRequestInformation(requestInformation, JsonSerializer.Serialize(new OutlookMovePostBody([], content.DestinationId), OutlookSynchronizerJsonContext.Default.OutlookMovePostBody));
 
     private RequestInformation PrepareReportMessageRequestInformation(ChangeJunkStateRequest request)
     {

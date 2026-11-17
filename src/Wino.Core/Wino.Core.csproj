@@ -18,6 +18,7 @@
 		<PackageReference Include="HtmlKit" />
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<PackageReference Include="Microsoft.Graph" />
 		<PackageReference Include="Microsoft.Graph.Core" />
 		<PackageReference Include="Microsoft.Identity.Client" />
 		<!-- WAM broker: Windows only. Wino.Platform.Windows owns the only usage (WindowsOutlookAuthenticationHost). -->

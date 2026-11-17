@@ -43,7 +43,7 @@ public sealed class GraphSubscriptionException(HttpStatusCode statusCode, string
 
 /// <summary>
 /// The three Graph subscription calls the relay registration needs, over a plain <see cref="HttpClient"/> with the
-/// account's token. The generated Kiota client covers <c>/me</c> only, so this stays hand-written and small.
+/// account's token.
 /// </summary>
 public sealed class GraphSubscriptionClient(HttpClient? httpClient = null)
 {

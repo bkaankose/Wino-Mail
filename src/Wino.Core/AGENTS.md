@@ -20,7 +20,7 @@ Every user action that changes server data takes this path. Know it before you c
 - **A fix must not break data that existing users have already synced.**
 - **`SyncCoordinator` owns the schedule.** No other code keeps an interval constant. Google Tasks and Google contacts use a six-hour window for automatic syncs only; a manual sync always runs. Never show a quota or a rate limit to the user.
 - **OAuth clients, token storage and sign-in:** read "Accounts, OAuth clients and signing" in the [root guidance](../../AGENTS.md) first.
-- **`Outlook/Generated` is Kiota output.** Never edit it by hand; its inputs are in `Outlook/Generated/kiota-lock.json`.
+- **One way to build a Graph client.** Outlook uses the official `Microsoft.Graph` package; there is no generated client. Create every `GraphServiceClient` through `OutlookSynchronizer.CreateGraphClient`, which wraps the adapter in `GraphRequestAdapterWithoutBackingStore`. A client built on a plain adapter turns on change tracking for every client in the process: properties set to null are then sent as explicit nulls, and a model serialized twice sends only its changes.
 - **No UI service in new code.** Do not inject a dialog or navigation contract here. Code that needs a decision returns it to the ViewModel.
 
 ## Always
@@ -50,7 +50,7 @@ Console.WriteLine("caldav:  " + await discovery.DiscoverCalDavServiceUriAsync(ad
 Console.WriteLine("carddav: " + await discovery.DiscoverCardDavServiceUriAsync(address));
 ```
 
-How to run a script, and the rules for it, are under "Running backend code without an app" in the [root guidance](../../AGENTS.md). The first build of this project compiles 3,699 generated Graph files and takes about a minute.
+How to run a script, and the rules for it, are under "Running backend code without an app" in the [root guidance](../../AGENTS.md).
 
 A synchronizer or a request runs from a script through the host: [Wino.Hosting](../Wino.Hosting/AGENTS.md) adds a leased lab account with the app's own setup path and synchronizes it against the real server. Use that for every change to a synchronizer, a request or the runtime, then check user-visible behavior in the Windows Debug app as the root guidance describes.
 
