@@ -23,7 +23,8 @@ How each framework binds to this is in the head's file: [WinUI](../Wino.Mail.Win
 
 ## Always
 
-- Declare state as a public partial property with `[ObservableProperty]`. Do not annotate a private field.
+- Declare state as a public partial property with `[ObservableProperty]`. Do not annotate a private field. A class derived from `MenuItemBase` cannot use the attribute, because its base is Domain's `ObservableModel`; it calls `SetProperty` by hand.
+- Keep the namespace of a file that has a `Wino.Core.Domain.*` namespace here (`MenuItems/`, `Models/Accounts`, `Models/Printing`). Those types moved out of Domain and kept their full names so every head compiles unchanged.
 - Register messenger handlers in `RegisterRecipients()` and remove them in `UnregisterRecipients()`.
 - Recipients run on background threads. Change UI state, collections and navigation inside `ExecuteUIThread(...)` or `ExecuteUIThreadAsync(...)`. Code after `ConfigureAwait(false)` is background-thread code too.
 - Give a collection that reaches an items source a concrete static type (`List<T>`, `ObservableCollection<T>`, an array). `WINOAOT001` fails the build otherwise.

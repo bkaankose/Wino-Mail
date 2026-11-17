@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -11,8 +10,13 @@ namespace Wino.Core.Domain.MenuItems;
 
 public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuItem>, IFolderMenuItem
 {
-    [ObservableProperty]
-    public partial int UnreadItemCount { get; set; }
+    private int _unreadItemCount;
+
+    public int UnreadItemCount
+    {
+        get => _unreadItemCount;
+        set => SetProperty(ref _unreadItemCount, value);
+    }
 
     public bool HasTextColor => !string.IsNullOrEmpty(Parameter.TextColorHex);
     public bool IsMoveTarget => HandlingFolders.All(a => a.IsMoveTarget);

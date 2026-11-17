@@ -6,8 +6,8 @@ The contracts every other project builds on: service interfaces, entities, enums
 
 - **Client ids** for Outlook, Gmail and Wino Account live in `Models/Authentication/WinoAuthenticationClientIds.cs`. The iOS notification extension links that file directly, so it stays dependency-free. The rules for the ids themselves are under "Accounts, OAuth clients and signing" in the [root guidance](../../AGENTS.md).
 - **An entity change is a schema change.** Entities are plain classes with sqlite-net attributes. Their tables are created in `CreateTablesAsync` and upgraded in `EnsureSchemaUpgradesAsync`, both in `src/Wino.Services/DatabaseService.cs`. Existing installs must keep their data: a new column gets an `ALTER TABLE … ADD COLUMN` step there. Ask the owner before a change that renames, drops or rewrites a column or a table.
-- **Add no package reference here.** New code uses no MimeKit, MailKit or CommunityToolkit.Mvvm type. The existing uses are being moved out of this project.
-- **No UI state in new code.** Menu items, theme, navigation and printing models belong to `Wino.Mail.ViewModels`.
+- **Add no package reference here.** There is no CommunityToolkit in this project. A model that must raise change notifications derives from `ComponentModel/ObservableModel` and writes its properties by hand, in the generated order: compare, raise changing, assign, run the hook, raise changed, then dependent properties. New code uses no MimeKit or MailKit type; the existing uses are being moved out.
+- **No UI state in new code.** Menu items, theme, navigation and printing models belong to `Wino.Mail.ViewModels`. The menu items still here remain only because `FolderService` in `Wino.Services` builds them and the shell contracts name them.
 
 ## Always
 
