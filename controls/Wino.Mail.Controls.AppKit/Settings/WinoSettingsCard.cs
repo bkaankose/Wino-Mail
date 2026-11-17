@@ -1,6 +1,7 @@
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
+using Foundation;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
 
@@ -289,7 +290,7 @@ public class WinoSettingsCard : NSView
         {
             if (_reservesChevronSpace == value) return;
             _reservesChevronSpace = value;
-            RebuildTrailingConstraints();
+            RebuildFromLayout();
         }
     }
 
@@ -454,8 +455,50 @@ public class WinoSettingsCard : NSView
         var below = textWidthBeside < MinTextWidthBesideContent + hysteresis
             || (contentWidth >= MinWideContentWidth && DescriptionLineCount(textWidthBeside - hysteresis) > MaxDescriptionLinesBesideContent);
         if (below == _contentBelow) return;
+
+        var width = _surface.Bounds.Width;
+        if (Math.Abs(width - _placementFlipWidth) < 1)
+        {
+            // Flipping at the same width again means the move itself changes the inputs (a scroll bar, a
+            // re-wrapping description); the card keeps the content below rather than toggling forever.
+            if (++_placementFlipsAtWidth > MaxPlacementFlipsAtWidth && !below) return;
+        }
+        else
+        {
+            _placementFlipWidth = width;
+            _placementFlipsAtWidth = 1;
+        }
         _contentBelow = below;
-        RebuildTrailingConstraints();
+        RebuildFromLayout();
+    }
+
+    private const int MaxPlacementFlipsAtWidth = 2;
+    private double _placementFlipWidth = -1;
+    private int _placementFlipsAtWidth;
+    private bool _rebuiltThisTurn;
+    private bool _rebuildDeferred;
+
+    /// <summary>
+    /// Rebuilds the trailing constraints for a change found during layout. AppKit aborts the app ("needs another
+    /// Update Constraints pass") when constraints keep changing inside one display cycle, so only the first rebuild
+    /// of a run loop turn happens in place; a further one waits for the next turn.
+    /// </summary>
+    private void RebuildFromLayout()
+    {
+        if (!_rebuiltThisTurn)
+        {
+            _rebuiltThisTurn = true;
+            NSRunLoop.Main.BeginInvokeOnMainThread(() => _rebuiltThisTurn = false);
+            RebuildTrailingConstraints();
+            return;
+        }
+        if (_rebuildDeferred) return;
+        _rebuildDeferred = true;
+        NSRunLoop.Main.BeginInvokeOnMainThread(() =>
+        {
+            _rebuildDeferred = false;
+            RebuildTrailingConstraints();
+        });
     }
 
     private int DescriptionLineCount(double width)
