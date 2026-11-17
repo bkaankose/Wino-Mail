@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Authentication;
 using Wino.Core;
+using Wino.Core.Providers;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Mail.ViewModels;
@@ -111,6 +112,7 @@ public sealed partial class WinoHost : IAsyncDisposable
         // Each host gets its own messenger, so recipients and messages never cross hosts in one process.
         services.Replace(ServiceDescriptor.Singleton<IMessenger>(new WeakReferenceMessenger()));
         services.RegisterCoreServices();
+        services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
         AddHostPlatformServices(services, layout, dispatcher, log, protector, secureItems);
         services.RegisterWinoViewModels();
         AddHostHead(services);

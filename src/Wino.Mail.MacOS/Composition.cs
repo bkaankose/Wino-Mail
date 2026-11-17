@@ -7,6 +7,7 @@ using Serilog;
 using Wino.Authentication;
 using Wino.Authentication.OAuth;
 using Wino.Core;
+using Wino.Core.Providers;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Platform;
@@ -60,6 +61,7 @@ internal static class Composition
         Views.Settings.WinoAccountSessionSimulation.Register(services);
 #endif
         services.RegisterCoreServices();
+        services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
         services.AddSingleton(dispatcher);
         services.AddSingleton(identity);
         services.AddSingleton(paths);

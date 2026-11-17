@@ -36,6 +36,11 @@
   <ItemGroup>
     <ProjectReference Include="../Wino.Platform.Android/Wino.Platform.Android.csproj" />
     <ProjectReference Include="../Wino.Core/Wino.Core.csproj" />
+    <ProjectReference Include="../Wino.Providers.Outlook/Wino.Providers.Outlook.csproj" />
+    <ProjectReference Include="../Wino.Providers.Gmail/Wino.Providers.Gmail.csproj" />
+    <ProjectReference Include="../Wino.Providers.Imap/Wino.Providers.Imap.csproj" />
+    <ProjectReference Include="../Wino.Providers.Exchange/Wino.Providers.Exchange.csproj" />
+    <ProjectReference Include="../Wino.Providers.Dav/Wino.Providers.Dav.csproj" />
     <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.Android/Wino.Presentation.Android.csproj" />

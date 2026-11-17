@@ -300,6 +300,11 @@
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Editor.WinUI\Wino.Editor.WinUI.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Providers.Outlook\Wino.Providers.Outlook.csproj" />
+	<ProjectReference Include="..\Wino.Providers.Gmail\Wino.Providers.Gmail.csproj" />
+	<ProjectReference Include="..\Wino.Providers.Imap\Wino.Providers.Imap.csproj" />
+	<ProjectReference Include="..\Wino.Providers.Exchange\Wino.Providers.Exchange.csproj" />
+	<ProjectReference Include="..\Wino.Providers.Dav\Wino.Providers.Dav.csproj" />
 	<ProjectReference Include="..\Wino.NotificationHost.Contracts\Wino.NotificationHost.Contracts.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.WinUI\Wino.Mail.Controls.WinUI.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />

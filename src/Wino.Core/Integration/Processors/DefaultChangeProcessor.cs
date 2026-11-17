@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Google.Apis.Calendar.v3.Data;
 using MimeKit;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
@@ -21,7 +20,7 @@ namespace Wino.Core.Integration.Processors;
 /// Database change processor that handles common operations for all synchronizers.
 /// When a synchronizer detects a change, it should call the appropriate method in this class to reflect the change in the database.
 /// Different synchronizers might need additional implementations.
-/// <see cref="IGmailChangeProcessor"/>,  <see cref="IOutlookChangeProcessor"/> and  <see cref="IImapChangeProcessor"/>
+/// <c>IGmailChangeProcessor</c>, <c>IOutlookChangeProcessor</c> and <c>IImapChangeProcessor</c>, in the provider projects.
 /// None of the synchronizers can directly change anything in the database.
 /// </summary>
 public interface IDefaultChangeProcessor
@@ -111,48 +110,6 @@ public interface IDefaultChangeProcessor
         bool deleted,
         AccountTaskStep requestedStep = null,
         TaskSynchronizerOperation? completedOperation = null);
-}
-
-public interface IGmailChangeProcessor : IDefaultChangeProcessor
-{
-    Task<bool> HasAccountAnyDraftAsync(Guid accountId);
-    Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
-    Task<bool> RefreshMappedDraftMetadataAsync(Guid accountId, Guid uniqueId, MailCopy remoteCopy);
-    Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
-    Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
-    Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
-}
-
-public interface IOutlookChangeProcessor : IDefaultChangeProcessor
-{
-    /// <summary>
-    /// Updates Folder's delta synchronization identifier.
-    /// Only used in Outlook since it does per-folder sync.
-    /// </summary>
-    /// <param name="folderId">Folder id</param>
-    /// <param name="synchronizationIdentifier">New synchronization identifier.</param>
-    /// <returns>New identifier if success.</returns>
-    Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string deltaSynchronizationIdentifier);
-
-    /// <summary>
-    /// Outlook may expire folder's delta token after a while.
-    /// Recommended action for this scenario is to reset token and do full sync.
-    /// This method resets the token for the given folder.
-    /// </summary>
-    /// <param name="folderId">Local folder id to reset token for.</param>
-    /// <returns>Empty string to assign folder delta sync for.</returns>
-    Task<string> ResetFolderDeltaTokenAsync(Guid folderId);
-
-    Task ManageCalendarEventAsync(Microsoft.Graph.Models.Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
-}
-
-public interface IImapChangeProcessor : ICalDavChangeProcessor
-{
-    /// <summary>
-    /// Returns all known uids for the given folder.
-    /// </summary>
-    /// <param name="folderId">Folder id to retrieve uIds for.</param>
-    Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
 }
 
 public class DefaultChangeProcessor(IDatabaseService databaseService, IMessenger messenger,

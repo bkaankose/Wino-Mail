@@ -16,7 +16,7 @@ namespace Wino.Core.Integration;
 /// <summary>
 /// Bearer-token SASL authentication shared by IMAP and SMTP for accounts that use OAuth2.
 /// </summary>
-internal static class MailKitOAuthAuthenticator
+public static class MailKitOAuthAuthenticator
 {
     private const string OAuthBearerMechanism = "OAUTHBEARER";
     private const string XOAuth2Mechanism = "XOAUTH2";

@@ -206,7 +206,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
     }
 
-    internal static bool TryGetCertificateException(Exception exception, out MailServerCertificateException certificateException)
+    public static bool TryGetCertificateException(Exception exception, out MailServerCertificateException certificateException)
     {
         certificateException = exception?
             .GetInnerExceptions()

@@ -403,7 +403,7 @@ public sealed class OAuthProtocolClient : IOAuthProtocolClient
     /// RFC 8414 requires an identical issuer; a trailing slash is ignored on both sides because servers disagree
     /// on it and it changes neither the origin nor the path.
     /// </summary>
-    internal static bool IssuerEquals(string? documentIssuer, string requestedIssuer)
+    public static bool IssuerEquals(string? documentIssuer, string requestedIssuer)
         => !string.IsNullOrWhiteSpace(documentIssuer)
            && string.Equals(documentIssuer.Trim().TrimEnd('/'), requestedIssuer.Trim().TrimEnd('/'), StringComparison.Ordinal);
 

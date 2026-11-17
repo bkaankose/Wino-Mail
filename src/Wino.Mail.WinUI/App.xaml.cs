@@ -34,6 +34,7 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Providers;
 using Wino.Core.ViewModels;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Activation;
@@ -768,6 +769,7 @@ public partial class App : WinoApplication,
         });
 
         services.RegisterCoreServices();
+        services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
         services.RegisterSharedServices();
         services.RegisterCoreUWPServices();
 

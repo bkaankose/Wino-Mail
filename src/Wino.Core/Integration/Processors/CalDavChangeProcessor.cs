@@ -1,0 +1,222 @@
+using CommunityToolkit.Mvvm.Messaging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
+using Wino.Services;
+
+namespace Wino.Core.Integration.Processors;
+
+/// <summary>
+/// The ICS calendar store behind <see cref="ICalDavChangeProcessor"/>. CalDAV, local calendars and mail invitations write
+/// through it for every provider; the IMAP change processor derives from it.
+/// </summary>
+public partial class CalDavChangeProcessor : DefaultChangeProcessor, ICalDavChangeProcessor
+{
+    private readonly ICalendarIcsFileService _calendarIcsFileService;
+
+    public CalDavChangeProcessor(IDatabaseService databaseService, IMessenger messenger,
+                                 IFolderService folderService,
+                                 IMailService mailService,
+                                 IAccountService accountService,
+                                 ICalendarService calendarService,
+                                 IMimeFileService mimeFileService,
+                                 ICalendarIcsFileService calendarIcsFileService,
+                                 IContactService contactService = null,
+                                 ITaskService taskService = null,
+                                 IApplicationConfiguration applicationConfiguration = null) : base(databaseService, messenger, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
+    {
+        _calendarIcsFileService = calendarIcsFileService;
+        _applicationConfiguration = applicationConfiguration;
+    }
+
+    public async Task ManageCalendarEventAsync(CalDavCalendarEvent calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
+    {
+        if (calendarEvent == null || assignedCalendar == null)
+            return;
+
+        var existingItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.RemoteEventId).ConfigureAwait(false);
+        var isNewItem = existingItem == null;
+        var savingItemId = existingItem?.Id ?? Guid.NewGuid();
+        var savingItem = existingItem ?? new CalendarItem { Id = savingItemId };
+
+        var startTimeZone = NormalizeTimeZoneId(calendarEvent.StartTimeZone, calendarEvent.Start, calendarEvent.StartIsFloating);
+        var endTimeZone = NormalizeTimeZoneId(calendarEvent.EndTimeZone, calendarEvent.End, calendarEvent.EndIsFloating);
+        if (string.IsNullOrWhiteSpace(endTimeZone))
+            endTimeZone = startTimeZone;
+
+        var start = ConvertToEventWallClock(calendarEvent.Start, startTimeZone);
+        var end = ConvertToEventWallClock(calendarEvent.End, endTimeZone);
+
+        var durationInSeconds = (calendarEvent.End - calendarEvent.Start).TotalSeconds;
+        if (durationInSeconds < 0)
+        {
+            end = start;
+            durationInSeconds = 0;
+        }
+
+        savingItem.RemoteEventId = calendarEvent.RemoteEventId;
+        savingItem.CalendarId = assignedCalendar.Id;
+        savingItem.StartDate = start;
+        savingItem.DurationInSeconds = durationInSeconds;
+        savingItem.StartTimeZone = startTimeZone;
+        savingItem.EndTimeZone = endTimeZone;
+        savingItem.Title = calendarEvent.Title;
+        savingItem.Description = calendarEvent.Description;
+        savingItem.Location = calendarEvent.Location;
+        savingItem.Recurrence = calendarEvent.Recurrence;
+        savingItem.Status = calendarEvent.Status;
+        savingItem.Visibility = calendarEvent.Visibility;
+        savingItem.ShowAs = calendarEvent.ShowAs;
+        savingItem.IsHidden = calendarEvent.IsHidden;
+        savingItem.HtmlLink = string.Empty;
+        savingItem.DirectJoinLink = CalendarJoinLinkResolver.ResolveDirectJoinLink(null, savingItem.Description);
+        savingItem.IsLocked = false;
+        savingItem.OrganizerDisplayName = !string.IsNullOrWhiteSpace(calendarEvent.OrganizerDisplayName)
+            ? calendarEvent.OrganizerDisplayName
+            : organizerAccount?.SenderName ?? string.Empty;
+        savingItem.OrganizerEmail = !string.IsNullOrWhiteSpace(calendarEvent.OrganizerEmail)
+            ? calendarEvent.OrganizerEmail
+            : organizerAccount?.Address ?? string.Empty;
+        savingItem.AssignedCalendar = assignedCalendar;
+
+        if (savingItem.CreatedAt == default)
+            savingItem.CreatedAt = DateTimeOffset.UtcNow;
+
+        savingItem.UpdatedAt = DateTimeOffset.UtcNow;
+
+        if (!string.IsNullOrWhiteSpace(calendarEvent.SeriesMasterRemoteEventId))
+        {
+            var parentEvent = await CalendarService
+                .GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.SeriesMasterRemoteEventId)
+                .ConfigureAwait(false);
+
+            if (parentEvent != null)
+            {
+                savingItem.RecurringCalendarItemId = parentEvent.Id;
+            }
+        }
+        else
+        {
+            savingItem.RecurringCalendarItemId = null;
+        }
+
+        var attendees = calendarEvent.Attendees?
+            .Where(a => !string.IsNullOrWhiteSpace(a.Email))
+            .Select(a => new CalendarEventAttendee
+            {
+                Id = Guid.NewGuid(),
+                CalendarItemId = savingItemId,
+                Name = a.Name,
+                Email = a.Email,
+                AttendenceStatus = a.AttendenceStatus,
+                IsOrganizer = a.IsOrganizer,
+                IsOptionalAttendee = a.IsOptionalAttendee
+            })
+            .ToList();
+
+        var reminders = calendarEvent.Reminders?
+            .Where(r => r.DurationInSeconds > 0)
+            .Select(r => new Reminder
+            {
+                Id = Guid.NewGuid(),
+                CalendarItemId = savingItemId,
+                DurationInSeconds = r.DurationInSeconds,
+                ReminderType = r.ReminderType
+            })
+            .ToList();
+
+        if (isNewItem)
+        {
+            await CalendarService.CreateNewCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
+        }
+        else
+        {
+            await CalendarService.UpdateCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
+        }
+
+        // Provider reminders initialize newly imported events only. Existing reminder
+        // selections are local state and must survive later CalDAV synchronization.
+        if (isNewItem)
+        {
+            await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+        }
+
+        await SaveCalDavAttachmentsAsync(savingItemId, calendarEvent).ConfigureAwait(false);
+    }
+
+    public Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent)
+        => _calendarIcsFileService.SaveCalendarItemIcsAsync(accountId, calendarId, calendarItemId, remoteEventId, remoteResourceHref, eTag, icsContent);
+
+    public Task<CalDavResourceSnapshot> GetCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
+        => _calendarIcsFileService.GetCalendarItemIcsAsync(accountId, calendarId, calendarItemId);
+
+    public Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
+        => _calendarIcsFileService.GetCalendarItemIcsETagAsync(accountId, calendarId, calendarItemId);
+
+    public Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId)
+        => _calendarIcsFileService.DeleteCalendarItemIcsAsync(accountId, calendarItemId);
+
+    public Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId)
+        => _calendarIcsFileService.DeleteCalendarIcsForCalendarAsync(accountId, calendarId);
+
+    public Task<IReadOnlyList<CalendarIcsShadow>> GetCalendarIcsShadowsAsync(Guid accountId, Guid calendarId)
+        => _calendarIcsFileService.GetCalendarIcsShadowsAsync(accountId, calendarId);
+
+    public override async Task DeleteCalendarItemAsync(Guid calendarItemId)
+    {
+        var item = await CalendarService.GetCalendarItemAsync(calendarItemId).ConfigureAwait(false);
+        if (item == null)
+            return;
+
+        await _calendarIcsFileService.DeleteCalendarItemIcsAsync(item.AssignedCalendar?.AccountId ?? Guid.Empty, calendarItemId).ConfigureAwait(false);
+        await base.DeleteCalendarItemAsync(calendarItemId).ConfigureAwait(false);
+    }
+
+    public override async Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
+    {
+        var item = await CalendarService.GetCalendarItemAsync(calendarId, calendarRemoteEventId).ConfigureAwait(false);
+        if (item == null)
+            return;
+
+        await DeleteCalendarItemAsync(item.Id).ConfigureAwait(false);
+    }
+
+    private static string NormalizeTimeZoneId(string timeZoneId, DateTimeOffset value, bool isFloating)
+    {
+        if (isFloating)
+            return string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(timeZoneId))
+            return timeZoneId;
+
+        if (value != default && value.Offset == TimeSpan.Zero)
+            return TimeZoneInfo.Utc.Id;
+
+        return string.Empty;
+    }
+
+    private static DateTime ConvertToEventWallClock(DateTimeOffset value, string eventTimeZoneId)
+    {
+        if (value == default)
+            return default;
+
+        if (string.IsNullOrWhiteSpace(eventTimeZoneId))
+            return DateTime.SpecifyKind(value.DateTime, DateTimeKind.Unspecified);
+
+        try
+        {
+            var eventTimeZone = TimeZoneInfo.FindSystemTimeZoneById(eventTimeZoneId);
+            var inEventTimeZone = TimeZoneInfo.ConvertTime(value, eventTimeZone);
+            return DateTime.SpecifyKind(inEventTimeZone.DateTime, DateTimeKind.Unspecified);
+        }
+        catch
+        {
+            return DateTime.SpecifyKind(value.DateTime, DateTimeKind.Unspecified);
+        }
+    }
+}

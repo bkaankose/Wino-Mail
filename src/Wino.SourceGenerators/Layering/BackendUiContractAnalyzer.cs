@@ -30,7 +30,12 @@ public sealed class BackendUiContractAnalyzer : DiagnosticAnalyzer
         "Wino.Core.Domain",
         "Wino.Services",
         "Wino.Core",
-        "Wino.Authentication");
+        "Wino.Authentication",
+        "Wino.Providers.Outlook",
+        "Wino.Providers.Gmail",
+        "Wino.Providers.Imap",
+        "Wino.Providers.Exchange",
+        "Wino.Providers.Dav");
 
     private const string ContractNamespace = "Wino.Core.Domain.Interfaces";
 

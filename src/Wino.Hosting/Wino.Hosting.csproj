@@ -13,6 +13,11 @@
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 		<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 		<ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+		<ProjectReference Include="..\Wino.Providers.Outlook\Wino.Providers.Outlook.csproj" />
+		<ProjectReference Include="..\Wino.Providers.Gmail\Wino.Providers.Gmail.csproj" />
+		<ProjectReference Include="..\Wino.Providers.Imap\Wino.Providers.Imap.csproj" />
+		<ProjectReference Include="..\Wino.Providers.Exchange\Wino.Providers.Exchange.csproj" />
+		<ProjectReference Include="..\Wino.Providers.Dav\Wino.Providers.Dav.csproj" />
 		<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	</ItemGroup>
 </Project>

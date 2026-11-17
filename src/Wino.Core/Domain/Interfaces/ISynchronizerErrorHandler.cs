@@ -22,8 +22,3 @@ public interface ISynchronizerErrorHandler
     /// <returns>A task that completes when the error is handled</returns>
     Task<bool> HandleAsync(SynchronizerErrorContext error);
 }
-
-public interface IOutlookSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;
-public interface IGmailSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;
-public interface IImapSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;
-public interface IExchangeSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;

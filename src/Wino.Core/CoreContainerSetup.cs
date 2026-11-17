@@ -1,10 +1,9 @@
 ﻿using Wino.Core.Helpers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog.Core;
-using Wino.Authentication;
 using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Integration.Processors;
 using Wino.Core.Providers;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors;
@@ -95,18 +94,10 @@ public static class CoreContainerSetup
         services.AddTransient<EntityNotFoundHandler>();
         services.AddTransient<IRetryExecutor, RetryExecutor>();
 
-        // Gmail before Outlook keeps the relay registration builders in their earlier order.
-        services.AddGmailProvider();
-        services.AddOutlookProvider();
-        services.AddImapProvider();
-        services.AddExchangeProvider();
-        services.AddDavProvider();
-    }
+        // The ICS calendar store that CalDAV, local calendars and mail invitations write through for every provider.
+        services.AddTransient<ICalDavChangeProcessor, CalDavChangeProcessor>();
 
-    /// <summary>
-    /// Selects the loopback (desktop browser) Google authorization receiver. It replaces any earlier
-    /// receiver registration, so a head can state its choice after <see cref="RegisterCoreServices"/>.
-    /// </summary>
-    public static IServiceCollection AddLoopbackGoogleAuthorizationCodeReceiver(this IServiceCollection services)
-        => services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver>(GmailProviderRegistration.CreateLoopbackGoogleAuthorizationCodeReceiver));
+        // Wino.Core references no provider project. Every host registers the providers directly after this call,
+        // Gmail before Outlook, so the relay registration builders keep their order.
+    }
 }

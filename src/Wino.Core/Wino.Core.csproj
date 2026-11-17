@@ -13,25 +13,16 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
-		<PackageReference Include="Exchange.WebServices.NETCore" />
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="HtmlKit" />
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-		<PackageReference Include="Microsoft.Graph" />
-		<PackageReference Include="Microsoft.Graph.Core" />
-		<PackageReference Include="Microsoft.Identity.Client" />
-		<!-- WAM broker: Windows only. Wino.Platform.Windows owns the only usage (WindowsOutlookAuthenticationHost). -->
-		<PackageReference Include="Microsoft.Identity.Client.Broker" Condition="'$(WinoTargetPlatform)' == 'Windows'" />
-		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
 		<PackageReference Include="MimeKit" />
 		<PackageReference Include="morelinq" />
 		<PackageReference Include="Nito.AsyncEx.Tasks" />
 		<PackageReference Include="NodaTime" />
 		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
-		<!-- Exchange Autodiscover reads the directory service connection point; used on Windows only. -->
-		<PackageReference Include="System.DirectoryServices.Protocols" />
 		<PackageReference Include="Wino.Mail.AI.Abstractions" />
 		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />
 	</ItemGroup>
@@ -40,7 +31,6 @@
 		<ProjectReference Include="..\Wino.Agent.Runtime\Wino.Agent.Runtime.csproj" />
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-		<ProjectReference Include="..\Wino.Core.MAPI\Wino.Core.MAPI.csproj" />
 		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
 		<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	</ItemGroup>

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using UIKit;
 using Wino.Core;
+using Wino.Core.Providers;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.UIKit;
 using Wino.Mail.UIKit.Infrastructure;
@@ -40,6 +41,7 @@ internal static class Composition
         });
         services.RegisterSharedServices();
         services.RegisterCoreServices();
+        services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
         services.AddIOSPlatformServices(bootstrap, Presenter);
 
         services.RegisterWinoViewModels();

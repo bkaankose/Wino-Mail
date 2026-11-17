@@ -31,6 +31,11 @@ public sealed class GlobalMessengerAnalyzer : DiagnosticAnalyzer
         "Wino.Services",
         "Wino.Core",
         "Wino.Authentication",
+        "Wino.Providers.Outlook",
+        "Wino.Providers.Gmail",
+        "Wino.Providers.Imap",
+        "Wino.Providers.Exchange",
+        "Wino.Providers.Dav",
         "Wino.Mail.ViewModels",
         "Wino.Hosting");
 

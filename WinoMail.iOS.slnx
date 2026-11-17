@@ -16,7 +16,11 @@
   <Folder Name="/Shared/">
     <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
     <Project Path="src/Wino.Core/Wino.Core.csproj" />
-    <Project Path="src/Wino.Core.MAPI/Wino.Core.MAPI.csproj" />
+    <Project Path="src/Wino.Providers.Outlook/Wino.Providers.Outlook.csproj" />
+    <Project Path="src/Wino.Providers.Gmail/Wino.Providers.Gmail.csproj" />
+    <Project Path="src/Wino.Providers.Imap/Wino.Providers.Imap.csproj" />
+    <Project Path="src/Wino.Providers.Exchange/Wino.Providers.Exchange.csproj" />
+    <Project Path="src/Wino.Providers.Dav/Wino.Providers.Dav.csproj" />
     <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj" />
     <Project Path="src/Wino.Services/Wino.Services.csproj" />
     <Project Path="src/Wino.Authentication/Wino.Authentication.csproj" />
