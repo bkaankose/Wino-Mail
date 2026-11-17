@@ -4,7 +4,7 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Helpers;
 
-internal static class NotificationSoundPlayer
+public static class NotificationSoundPlayer
 {
     private const uint SoundAsync = 0x0001;
     private const uint SoundNoDefault = 0x0002;

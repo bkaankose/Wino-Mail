@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using CommunityToolkit.WinUI;
 using Windows.ApplicationModel;
 using Windows.Services.Store;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Platform.Windows;
 using WinRT.Interop;
 using WinoAddOnProductType = Wino.Core.Domain.Enums.WinoAddOnProductType;
 using WinoStorePurchaseResult = Wino.Core.Domain.Enums.StorePurchaseResult;
@@ -39,6 +39,7 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
     private readonly IConfigurationService _configurationService;
     private readonly IWinoLogger _logger;
     private readonly INativeAppService _nativeAppService;
+    private readonly IWindowsMainWindowHost _mainWindowHost;
 
     // Resolved lazily: the dialog service reaches this service again through the Wino account
     // profile, intelligence and billing chain, so a direct constructor dependency would be a cycle.
@@ -53,11 +54,13 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
     public MicrosoftStoreService(IConfigurationService configurationService,
                                  IWinoLogger logger,
                                  INativeAppService nativeAppService,
+                                 IWindowsMainWindowHost mainWindowHost,
                                  Lazy<IMailDialogService> dialogService)
     {
         _configurationService = configurationService;
         _logger = logger;
         _nativeAppService = nativeAppService;
+        _mainWindowHost = mainWindowHost;
         _dialogService = dialogService;
     }
 
@@ -95,7 +98,7 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
         if (await HasProductAsync(productType))
             return WinoStorePurchaseResult.AlreadyPurchased;
 
-        if (WinoApplication.MainWindow == null)
+        if (!_mainWindowHost.IsMainWindowAvailable)
             return WinoStorePurchaseResult.NotPurchased;
 
         var result = await RunOnMainWindowAsync(async context => await context.RequestPurchaseAsync(storeId));
@@ -358,26 +361,11 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
     /// Runs a Store operation on the main window's thread with the context bound to its HWND,
     /// which the Store UI (purchase, review, update) requires.
     /// </summary>
-    private async Task<T> RunOnMainWindowAsync<T>(Func<StoreContext, Task<T>> operation)
-    {
-        var mainWindow = WinoApplication.MainWindow
-            ?? throw new InvalidOperationException("Main window is not available for the Store operation.");
-
-        var dispatcherQueue = mainWindow.DispatcherQueue
-            ?? throw new InvalidOperationException("Main window dispatcher is not available for the Store operation.");
-
-        if (dispatcherQueue.HasThreadAccess)
-        {
-            return await RunAsync();
-        }
-
-        return await dispatcherQueue.EnqueueAsync(RunAsync);
-
-        async Task<T> RunAsync()
+    private Task<T> RunOnMainWindowAsync<T>(Func<StoreContext, Task<T>> operation)
+        => _mainWindowHost.RunWithMainWindowHandleAsync(async windowHandle =>
         {
             var context = GetContext();
-            InitializeWithWindow.Initialize(context, WindowNative.GetWindowHandle(mainWindow));
+            InitializeWithWindow.Initialize(context, windowHandle);
             return await operation(context);
-        }
-    }
+        });
 }

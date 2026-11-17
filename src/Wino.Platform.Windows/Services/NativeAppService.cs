@@ -4,7 +4,6 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 using Wino.Core.Domain.Models.Platform;
 using Microsoft.UI.Input;
 using Microsoft.Web.WebView2.Core;
@@ -19,6 +18,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Telemetry;
 using Wino.Helpers;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Platform.Windows;
 
 
 
@@ -35,7 +35,21 @@ namespace Wino.Services;
 /// </summary>
 public partial class NativeAppService : INativeAppService, IAppMetadataService, IUserPresenceStateProvider, IExternalLauncher, IClipboardService, IShortcutPlatformService, ITaskCompletionSound
 {
-    private readonly DispatcherQueue? _platformDispatcher = DispatcherQueue.GetForCurrentThread();
+    private readonly IWindowsThreadQueue? _platformDispatcher;
+    private readonly Func<Task> _syncSessionStartRegistrationAsync;
+    private readonly Func<Task> _prepareWebView2EnvironmentAsync;
+
+    /// <param name="platformDispatcher">The queue of the thread that constructs the service, or null when that thread has none.</param>
+    /// <param name="syncSessionStartRegistrationAsync">Makes the session-start trigger follow the startup task's state.</param>
+    /// <param name="prepareWebView2EnvironmentAsync">Creates the shared WebView2 environment the reader uses.</param>
+    public NativeAppService(IWindowsThreadQueue? platformDispatcher,
+                            Func<Task> syncSessionStartRegistrationAsync,
+                            Func<Task> prepareWebView2EnvironmentAsync)
+    {
+        _platformDispatcher = platformDispatcher;
+        _syncSessionStartRegistrationAsync = syncSessionStartRegistrationAsync;
+        _prepareWebView2EnvironmentAsync = prepareWebView2EnvironmentAsync;
+    }
 
     public ModifierKeys PrimaryCommandModifier => ModifierKeys.Control;
 
@@ -227,7 +241,7 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
             }
 
             // The session-start trigger follows the startup task's state.
-            await Wino.Mail.WinUI.Activation.SessionStartActivation.SyncRegistrationAsync();
+            await _syncSessionStartRegistrationAsync();
         }
         catch (Exception)
         {
@@ -263,7 +277,7 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
                 return false;
             }
 
-            await WebViewExtensions.GetSharedEnvironmentAsync();
+            await _prepareWebView2EnvironmentAsync();
 
             return true;
         }
@@ -337,9 +351,6 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
 
         return (WindowsTaskbarPosition)data.uEdge;
     }
-
-    public bool IsAppRunningInBackground()
-        => !Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().HasThreadAccess;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct APPBARDATA
