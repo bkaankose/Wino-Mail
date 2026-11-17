@@ -79,7 +79,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     protected IPreferencesService PreferencesService { get; }
     protected IPlatformCapabilities PlatformCapabilities { get; }
 
-    public AccountManagementPageViewModelBase(IDialogServiceBase dialogService,
+    public AccountManagementPageViewModelBase(IMessenger messenger, IDialogServiceBase dialogService,
                                               INavigationService navigationService,
                                               IAccountService accountService,
                                               IKnownImapProviderCatalog providerCatalog,
@@ -87,7 +87,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
                                               IWinoAccountProfileService winoAccountProfileService,
                                               IAuthenticationProvider authenticationProvider,
                                               IPreferencesService preferencesService,
-                                              IPlatformCapabilities platformCapabilities)
+                                              IPlatformCapabilities platformCapabilities) : base(messenger)
     {
         DialogService = dialogService;
         NavigationService = navigationService;

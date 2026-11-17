@@ -9,7 +9,7 @@ The host that runs the shared backend, up to the ViewModels, without an app. A s
 - **The dispatcher is real.** `HostDispatcher` is one dedicated thread with an ordered queue and a synchronization context. Keep it that way: never make `ExecuteOnUIThread` a no-op and never run queued work on the caller's thread.
 - **The key file is for this host only.** `FileProtectionKeyProvider` keeps the protection key inside the data root because a host holds throwaway lab data. No app may use it; apps never fall back to an unprotected store.
 - **Telemetry stays off.** `HostApplicationConfiguration` leaves the Sentry address empty so runs send nothing. Do not swap in `ApplicationConfiguration`.
-- **One host per process** until the process-wide statics are removed.
+- **One host per process for now.** Each host has its own messenger, but the Serilog logger, `SettingsCatalog` and the sqlite-net pool are still process-wide, and two hosts in one process has not been run.
 
 ## Always
 
@@ -39,16 +39,22 @@ foreach (var interaction in wino.Interactions)   // what the backend asked of a 
 
 Point `#:project` at the checkout you are working in. The data root must be empty or one a host created before.
 
-**Synchronizing a lab account.** Lease the account first; the lab rules are in the [root guidance](../../AGENTS.md). Then, in order:
+**A lab account, a sync and a ViewModel.** Lease the account first; the lab rules are in the [root guidance](../../AGENTS.md).
 
-1. Build the `AccountSetupPlan` that `AccountSetupPageViewModel.BuildFinalPlan` builds for that account type.
-2. Run `wino.Get<IAccountSetupRunner>().RunAsync(plan, ...)` inside `wino.Dispatcher.InvokeAsync(...)`.
-3. Call `IApplicationRuntime.SynchronizeCreatedAccountAsync(account)`, then `SynchronizeAccountInboxAsync(account.Id)`.
-4. Read the result back through `IFolderService` and `IMailService`, and print it with `wino.Interactions`.
+```csharp
+var lease = LabLease.Load(args[1]);                              // the lease file from lab.ps1 lease
+var account = await wino.AddImapAccountAsync(lease.Account("dovecot"));   // the app's own setup path
+await wino.SynchronizeAsync(account);                            // full sync of every granted mode
 
-This added a lab IMAP account and synchronized 12 folders and 117 inbox mails in under 3 seconds.
+var list = await wino.OpenAsync<MailListPageViewModel>(parameter);   // what a page does, on the dispatcher thread
+// read state and invoke commands inside wino.Dispatcher.InvokeAsync(...)
+await wino.IdleAsync();                                          // nothing queued, nothing running, dispatcher empty
+```
 
-**Driving a ViewModel.** Do what a page does, inside `wino.Dispatcher.InvokeAsync(...)`: resolve the ViewModel, assign `viewModel.Dispatcher = wino.Dispatcher`, call `OnNavigatedTo(mode, parameter)`, then `OnPageLoaded()`. Read its properties and invoke its commands on that thread too. `MailListPageViewModel` loaded the lab inbox this way.
+- `AddImapAccountAsync` builds the plan the setup page builds and runs `IAccountSetupRunner` on the dispatcher.
+- `OpenAsync` resolves the ViewModel, assigns its `Dispatcher`, and calls `OnNavigatedTo` and `OnPageLoaded`.
+- `IdleAsync` counts work started by a sync request, not the runtime's periodic loops.
+- For another account type, do by hand what `AddImapAccountAsync` does: build the `AccountSetupPlan` and run it through `IAccountSetupRunner` inside `wino.Dispatcher.InvokeAsync(...)`.
 
 Never print or store the lab password or the control token.
 

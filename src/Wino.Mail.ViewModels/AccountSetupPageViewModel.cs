@@ -97,6 +97,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
     public bool IsColorSelected => SelectedColor != null;
 
     public AccountSetupPageViewModel(
+        IMessenger messenger,
         IAccountService accountService,
         IAccountRouteResolver routeResolver,
         IAccountSetupRunner setupRunner,
@@ -113,7 +114,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         IExternalLauncher? externalLauncher = null,
         IExchangeInteractiveSignInService? exchangeSignInService = null,
         IExchangeConnectionTester? exchangeConnectionTester = null,
-        IMailServerTestService? mailServerTestService = null)
+        IMailServerTestService? mailServerTestService = null) : base(messenger)
     {
         _accountService = accountService;
         _routeResolver = routeResolver;

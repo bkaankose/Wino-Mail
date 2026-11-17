@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ public partial class ImapChangeProcessor : DefaultChangeProcessor, IImapChangePr
 {
     private readonly ICalendarIcsFileService _calendarIcsFileService;
 
-    public ImapChangeProcessor(IDatabaseService databaseService,
+    public ImapChangeProcessor(IDatabaseService databaseService, IMessenger messenger,
                                IFolderService folderService,
                                IMailService mailService,
                                IAccountService accountService,
@@ -23,7 +24,7 @@ public partial class ImapChangeProcessor : DefaultChangeProcessor, IImapChangePr
                                ICalendarIcsFileService calendarIcsFileService,
                                IContactService contactService = null,
                                ITaskService taskService = null,
-                               IApplicationConfiguration applicationConfiguration = null) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
+                               IApplicationConfiguration applicationConfiguration = null) : base(databaseService, messenger, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     {
         _calendarIcsFileService = calendarIcsFileService;
         _applicationConfiguration = applicationConfiguration;

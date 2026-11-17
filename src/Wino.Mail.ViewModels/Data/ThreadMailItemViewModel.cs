@@ -25,7 +25,7 @@ namespace Wino.Mail.ViewModels.Data;
     new string[] { nameof(IsSelected), nameof(IsThreadExpanded), nameof(IsSelectedOrExpanded), nameof(IsBusy) },
     new Type[] { })]
 #endif
-public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
+public partial class ThreadMailItemViewModel : ObservableObject, IMailListItem, IMailItemDisplayInformation
 {
     private readonly string _threadId;
     private readonly bool _isNewestEmailFirst;
@@ -34,12 +34,10 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     private int _suspendChildPropertyNotificationsCount;
 
     [ObservableProperty]
-    [NotifyPropertyChangedRecipients]
     [NotifyPropertyChangedFor(nameof(IsSelectedOrExpanded))]
     public partial bool IsThreadExpanded { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedRecipients]
     [NotifyPropertyChangedFor(nameof(IsSelectedOrExpanded))]
     public partial bool IsSelected { get; set; }
 

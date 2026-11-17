@@ -100,7 +100,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     }
     private bool _isPreparedForShellShutdown;
 
+    private readonly ISynchronizationManager _synchronizationManager;
+
     public CalendarAppShellViewModel(
+        IMessenger messenger,
+        ISynchronizationManager synchronizationManager,
         IPreferencesService preferencesService,
         IStatePersistanceService statePersistanceService,
         IAccountService accountService,
@@ -109,8 +113,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         INavigationService navigationService,
         Lazy<CalendarPageViewModel> calendarPageViewModel,
         IMailDialogService dialogService,
-        IDateContextProvider dateContextProvider)
+        IDateContextProvider dateContextProvider) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;

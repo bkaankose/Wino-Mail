@@ -17,7 +17,7 @@ public sealed record CompanionUnreadBehaviorOption(CompanionUnreadMessageBehavio
 /// toggles read and write the preferences directly. The global shortcut stays in the Windows page
 /// because it registers a system hotkey there.
 /// </summary>
-public partial class CompanionSettingsPageViewModel(IPreferencesService preferencesService) : CoreBaseViewModel,
+public partial class CompanionSettingsPageViewModel(IMessenger messenger, IPreferencesService preferencesService) : CoreBaseViewModel(messenger),
     IRecipient<PreferenceChangedMessage>
 {
 

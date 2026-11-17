@@ -253,7 +253,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     ];
 
 
-    public AccountDetailsPageViewModel(IMailDialogService dialogService,
+    public AccountDetailsPageViewModel(IMessenger messenger, IMailDialogService dialogService,
         IAccountService accountService,
         IFolderService folderService,
         ICalendarService calendarService,
@@ -272,7 +272,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IWinoAccountIntelligenceSnapshotService? entitlementService = null,
         IExchangeConnectionTester? exchangeConnectionTester = null,
         IAccountReauthenticationService? reauthenticationService = null,
-        IExchangeInteractiveSignInService? exchangeSignInService = null)
+        IExchangeInteractiveSignInService? exchangeSignInService = null) : base(messenger)
     {
         _exchangeSignInService = exchangeSignInService;
         _dialogService = dialogService;
@@ -402,9 +402,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 IsTasksCapabilitySelected);
 
             if (IsMailCapabilitySelected && !previousMail)
-                await SynchronizationManager.Instance.SynchronizeFoldersAsync(Account.Id);
+                await _synchronizationManager.SynchronizeFoldersAsync(Account.Id);
             if (IsCalendarCapabilitySelected && !previousCalendar)
-                await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions { AccountId = Account.Id, Type = CalendarSynchronizationType.CalendarMetadata });
+                await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions { AccountId = Account.Id, Type = CalendarSynchronizationType.CalendarMetadata });
 
             _dialogService.InfoBarMessage(Translator.EditAccountDetailsPage_SaveSuccess_Title, Translator.EditAccountDetailsPage_SaveSuccess_Message, InfoBarMessageType.Success);
         }
@@ -493,7 +493,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         if (Account.IsTaskReauthorizationRequired)
             return;
 
-        await SynchronizationManager.Instance.SynchronizeTasksAsync(new TaskSynchronizationOptions
+        await _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
         {
             AccountId = Account.Id,
             Type = TaskSynchronizationType.Full,
@@ -792,7 +792,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         try
         {
-            var result = await SynchronizationManager.Instance.SynchronizeProfileAsync(Account.Id);
+            var result = await _synchronizationManager.SynchronizeProfileAsync(Account.Id);
             if (result.ProfileInformation == null)
                 throw result.Exception ?? new InvalidOperationException(Translator.AccountDetailsPage_ProfilePictureRefreshFailedMessage);
 
@@ -865,7 +865,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     {
         while (true)
         {
-            var result = await SynchronizationManager.Instance.TestImapConnectivityAsync(candidate);
+            var result = await _synchronizationManager.TestImapConnectivityAsync(candidate);
             if (!result.IsCertificateUIRequired)
             {
                 if (!result.IsSuccess)
@@ -1221,7 +1221,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 Account.IsMailAccessGranted = selectedOption.IsMailAccessGranted;
                 Account.IsCalendarAccessGranted = selectedOption.IsCalendarAccessGranted;
 
-                await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                await _synchronizationManager.HandleAuthorizationAsync(
                     Account.ProviderType,
                     Account,
                     forceInteractive: true);
@@ -1241,10 +1241,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         if (selectedOption.IsMailAccessGranted && !previousMailAccess)
         {
-            var profileResult = await SynchronizationManager.Instance.SynchronizeProfileAsync(Account.Id);
+            var profileResult = await _synchronizationManager.SynchronizeProfileAsync(Account.Id);
             if (profileResult.ProfileInformation != null)
                 await _accountService.UpdateProfileInformationAsync(Account.Id, profileResult.ProfileInformation);
-            await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+            await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = MailSynchronizationType.FullFolders
@@ -1252,7 +1252,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
             if (Account.ProviderType == MailProviderType.Outlook)
             {
-                await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+                await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
                 {
                     AccountId = Account.Id,
                     Type = MailSynchronizationType.Categories
@@ -1270,7 +1270,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 }
             }
 
-            await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
+            await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = MailSynchronizationType.Alias
@@ -1279,7 +1279,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         if (selectedOption.IsCalendarAccessGranted && !previousCalendarAccess)
         {
-            await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+            await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
             {
                 AccountId = Account.Id,
                 Type = CalendarSynchronizationType.CalendarMetadata

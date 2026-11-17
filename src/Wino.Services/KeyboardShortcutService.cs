@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -29,7 +30,7 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
     private bool _isInitialized;
     private readonly ModifierKeys _primaryCommandModifier;
 
-    public KeyboardShortcutService(IDatabaseService databaseService, IShortcutPlatformService shortcutPlatformService) : base(databaseService)
+    public KeyboardShortcutService(IDatabaseService databaseService, IMessenger messenger, IShortcutPlatformService shortcutPlatformService) : base(databaseService, messenger)
     {
         ArgumentNullException.ThrowIfNull(shortcutPlatformService);
         _primaryCommandModifier = shortcutPlatformService.PrimaryCommandModifier;

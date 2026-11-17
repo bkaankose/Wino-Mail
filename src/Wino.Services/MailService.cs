@@ -49,7 +49,7 @@ public class MailService : BaseDatabaseService, IMailService
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
-    public MailService(IDatabaseService databaseService,
+    public MailService(IDatabaseService databaseService, IMessenger messenger,
                        IFolderService folderService,
                        IContactService contactService,
                        IAccountService accountService,
@@ -61,7 +61,7 @@ public class MailService : BaseDatabaseService, IMailService
                        IWinoAccountProfileService winoAccountProfileService = null,
                        IMailIntelligenceStore localIntelligenceStore = null,
                        DraftUpdateRegistry draftUpdates = null,
-                       IRecipientHistoryService recipientHistoryService = null) : base(databaseService)
+                       IRecipientHistoryService recipientHistoryService = null) : base(databaseService, messenger)
     {
         _draftUpdates = draftUpdates;
         _recipientHistoryService = recipientHistoryService;
@@ -1582,7 +1582,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         if (readMailUniqueIds.Count > 0)
         {
-            WeakReferenceMessenger.Default.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
+            Messenger.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
         }
 
         var hydratedUpdatesByUniqueId = (await HydrateMailCopiesAsync(

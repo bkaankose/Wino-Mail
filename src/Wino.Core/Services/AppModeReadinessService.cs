@@ -39,6 +39,7 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
         ITaskQueryService taskQueryService,
         IContactQueryService contactQueryService,
         IPreferencesService preferencesService,
+        IMessenger messenger,
         IWinoLogger logger = null,
         IDatabaseService databaseService = null)
     {
@@ -52,7 +53,7 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
         _databaseService = databaseService;
 
         _preferencesService.PreferenceChanged += PreferenceChanged;
-        RegisterInvalidationMessages(WeakReferenceMessenger.Default);
+        RegisterInvalidationMessages(messenger);
     }
 
     public async Task<AppModeVisibility> GetVisibilityAsync(CancellationToken cancellationToken = default)

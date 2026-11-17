@@ -75,6 +75,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     private bool _isUpdatingSelection;
 
     public NotificationSettingsPageViewModel(
+        IMessenger messenger,
         IPreferencesService preferencesService,
         IAccountService accountService,
         ICalendarService calendarService,
@@ -84,7 +85,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         IPlatformCapabilities capabilities,
         IRelayIntroductionService? introduction = null,
         ISyncCoordinator? syncCoordinator = null,
-        INotificationSoundProvider? soundProvider = null)
+        INotificationSoundProvider? soundProvider = null) : base(messenger)
     {
         PreferencesService = preferencesService;
         _soundProvider = soundProvider;

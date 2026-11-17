@@ -22,7 +22,7 @@ public partial class ContactsPageViewModel
     public bool CanSynchronize => ContactAccountIds.Count > 0 && !SynchronizationState.IsSynchronizing;
 
     public ShellSynchronizationState SynchronizationState
-        => ShellSynchronizationStateReader.Read(ContactAccountIds, SynchronizationProgressCategory.Contacts);
+        => ShellSynchronizationStateReader.Read(_synchronizationManager, ContactAccountIds, SynchronizationProgressCategory.Contacts);
 
     public string SynchronizationDescription => Translator.TitleBar_Sync_ContactsDescription;
 

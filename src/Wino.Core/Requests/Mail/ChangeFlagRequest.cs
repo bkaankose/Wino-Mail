@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -30,20 +29,20 @@ public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase
 
     public override object GroupingKey() => (Operation, Item.FolderId, IsFlagged);
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
         if (IsNoOp) return;
 
-        WeakReferenceMessenger.Default.Send(new MailStateUpdatedMessage(
+        sender.Send(new MailStateUpdatedMessage(
             new MailStateChange(Item.UniqueId, IsFlagged: IsFlagged),
             EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         if (IsNoOp) return;
 
-        WeakReferenceMessenger.Default.Send(new MailStateUpdatedMessage(
+        sender.Send(new MailStateUpdatedMessage(
             new MailStateChange(Item.UniqueId, IsFlagged: _originalIsFlagged),
             EntityUpdateSource.ClientReverted));
     }
@@ -55,7 +54,7 @@ public class BatchChangeFlagRequest : BatchCollection<ChangeFlagRequest>
     {
     }
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
         var updatedMails = this
             .Where(x => !x.IsNoOp)
@@ -65,12 +64,12 @@ public class BatchChangeFlagRequest : BatchCollection<ChangeFlagRequest>
         if (updatedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+        sender.Send(new BulkMailStateUpdatedMessage(
             updatedMails,
             EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         var updatedMails = this
             .Where(x => !x.IsNoOp)
@@ -80,7 +79,7 @@ public class BatchChangeFlagRequest : BatchCollection<ChangeFlagRequest>
         if (updatedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailStateUpdatedMessage(
+        sender.Send(new BulkMailStateUpdatedMessage(
             updatedMails,
             EntityUpdateSource.ClientReverted));
     }

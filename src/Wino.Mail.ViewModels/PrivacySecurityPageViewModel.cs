@@ -126,7 +126,7 @@ public partial class PrivacySecurityPageViewModel : CoreBaseViewModel,
 
     public bool IsIntelligenceLinkAvailable => SettingsCatalog.IsVisible(WinoPage.WinoIntelligencePage);
 
-    public PrivacySecurityPageViewModel(IPreferencesService preferencesService,
+    public PrivacySecurityPageViewModel(IMessenger messenger, IPreferencesService preferencesService,
                                         IRemoteContentRuleStore ruleStore,
                                         IMailDialogService dialogService,
                                         IExternalLauncher externalLauncher,
@@ -135,7 +135,7 @@ public partial class PrivacySecurityPageViewModel : CoreBaseViewModel,
                                         IWinoLogger logger,
                                         IPlatformCapabilities platformCapabilities,
                                         ILinkBrowserService linkBrowserService,
-                                        IAccountService accountService)
+                                        IAccountService accountService) : base(messenger)
     {
         PreferencesService = preferencesService;
         _ruleStore = ruleStore;

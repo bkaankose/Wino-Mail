@@ -1,5 +1,4 @@
 using System;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -38,24 +37,24 @@ public sealed class AddressBookActionRequest : IContactActionRequest
 
     public object GroupingKey() => (MailAccountId, AddressBookId, Operation);
 
-    public void ApplyUIChanges()
-        => Send(AddressBook, Operation == ContactSynchronizerOperation.DeleteAddressBook
+    public void ApplyUIChanges(IUIMessageSender sender)
+        => Send(sender, AddressBook, Operation == ContactSynchronizerOperation.DeleteAddressBook
             ? OptimisticEntityChange.Delete
             : OptimisticEntityChange.Upsert, EntityUpdateSource.ClientUpdated);
 
-    public void RevertUIChanges()
+    public void RevertUIChanges(IUIMessageSender sender)
     {
         if (Operation == ContactSynchronizerOperation.CreateAddressBook)
         {
-            Send(AddressBook, OptimisticEntityChange.Delete, EntityUpdateSource.ClientReverted);
+            Send(sender, AddressBook, OptimisticEntityChange.Delete, EntityUpdateSource.ClientReverted);
             return;
         }
 
-        Send(OriginalAddressBook ?? AddressBook, OptimisticEntityChange.Upsert, EntityUpdateSource.ClientReverted);
+        Send(sender, OriginalAddressBook ?? AddressBook, OptimisticEntityChange.Upsert, EntityUpdateSource.ClientReverted);
     }
 
-    private static void Send(ContactAddressBook addressBook, OptimisticEntityChange change, EntityUpdateSource source)
-        => WeakReferenceMessenger.Default.Send(new ContactAddressBookStateChanged(Clone(addressBook), change, source));
+    private static void Send(IUIMessageSender sender, ContactAddressBook addressBook, OptimisticEntityChange change, EntityUpdateSource source)
+        => sender.Send(new ContactAddressBookStateChanged(Clone(addressBook), change, source));
 
     private static ContactAddressBook Clone(ContactAddressBook source)
         => source is null ? null : new ContactAddressBook

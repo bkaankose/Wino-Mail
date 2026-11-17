@@ -41,7 +41,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType, TContactType>>();
 
-    protected WinoSynchronizer(MailAccount account, IMessenger messenger) : base(account, messenger) { }
+    protected WinoSynchronizer(MailAccount account, IMessenger messenger, RequestUiChangeCoordinator uiChanges) : base(account, messenger, uiChanges) { }
 
     /// <summary>
     /// How many items per single HTTP call can be modified.
@@ -188,14 +188,14 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     try
                     {
                         await ExecuteContactRequestsInternalAsync([request], cancellationToken).ConfigureAwait(false);
-                        RequestUiChangeCoordinator.CompleteRequests([request]);
+                        UiChanges.CompleteRequests([request]);
                     }
                     catch (Exception ex)
                     {
                         firstFailure ??= ex;
                         CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, $"Contact:{request.Operation}"));
-                        RequestUiChangeCoordinator.RevertRequests([request]);
-                        RequestUiChangeCoordinator.CompleteRequests([request]);
+                        UiChanges.RevertRequests([request]);
+                        UiChanges.CompleteRequests([request]);
                     }
                     finally
                     {
@@ -307,7 +307,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                         LogTracedRequests("provider-request-started", (IRequestBase[])[request]);
                         await ExecuteTaskRequestsInternalAsync([request], cancellationToken).ConfigureAwait(false);
                         LogTracedRequests("provider-request-completed", (IRequestBase[])[request]);
-                        RequestUiChangeCoordinator.CompleteRequests([request]);
+                        UiChanges.CompleteRequests([request]);
                     }
                     catch (Exception ex)
                     {
@@ -315,8 +315,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                         firstFailure ??= ex;
                         Logger.Error(ex, "Task request {Operation} failed for account {AccountId}", request.Operation, Account.Id);
                         CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, $"Task:{request.Operation}"));
-                        RequestUiChangeCoordinator.RevertRequests([request]);
-                        RequestUiChangeCoordinator.CompleteRequests([request]);
+                        UiChanges.RevertRequests([request]);
+                        UiChanges.CompleteRequests([request]);
                     }
                     finally
                     {
@@ -912,7 +912,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// Sends a message that shell can pick up and update the UI.
     /// </summary>
     private void PublishUnreadItemChanges()
-        => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
+        => Messenger.Send(new RefreshUnreadCountsMessage(Account.Id));
 
     private void LogTracedRequests(string stage, IEnumerable<IRequestBase> requests, Exception exception = null)
     {

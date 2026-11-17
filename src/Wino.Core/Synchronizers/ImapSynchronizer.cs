@@ -142,7 +142,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     private bool _isFolderStructureChanged;
 
     public ImapSynchronizer(MailAccount account,
-                            IImapChangeProcessor imapChangeProcessor,
+                                                        IMessenger messenger,
+                            RequestUiChangeCoordinator uiChanges,
+IImapChangeProcessor imapChangeProcessor,
                             IApplicationConfiguration applicationConfiguration,
                             UnifiedImapSynchronizer unifiedSynchronizer,
                             IImapSynchronizerErrorHandlerFactory errorHandlerFactory,
@@ -157,7 +159,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                             ISmtpTransport smtpTransport = null,
                             ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
                             IOAuthTokenService oauthTokenService = null,
-                            ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
+                            ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null) : base(account, messenger, uiChanges)
     {
         _calDavTaskSynchronizationEngine = calDavTaskSynchronizationEngine;
         _imapChangeProcessor = imapChangeProcessor;
@@ -166,7 +168,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         _errorHandlerFactory = errorHandlerFactory;
         _calendarService = calendarService;
         _calDavSynchronizationEngine = calDavSynchronizationEngine
-                                       ?? new CalDavSynchronizationEngine(calDavClient, imapChangeProcessor, calendarService, autoDiscoveryService);
+                                       ?? new CalDavSynchronizationEngine(calDavClient, imapChangeProcessor, calendarService, autoDiscoveryService, new DavEndpointCache());
         _mailFilterExecutor = mailFilterExecutor;
         _serverCertificateTrustService = serverCertificateTrustService;
         _smtpTransport = smtpTransport ?? new MailKitSmtpTransport(applicationConfiguration, serverCertificateTrustService, oauthTokenService);
@@ -1054,7 +1056,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
                 if (_isFolderStructureChanged)
                 {
-                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                    Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
                 }
             }
 
@@ -1282,7 +1284,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 CaptureSynchronizationIssue(errorContext);
 
                 if (ShouldApplyOptimisticUIChanges(item.Request))
-                    RequestUiChangeCoordinator.RevertBundle(item);
+                    UiChanges.RevertBundle(item);
 
                 // Handled describes error classification, not successful completion. The issue remains
                 // visible and the normal source/destination synchronization resolves an uncertain mutation.
@@ -1888,7 +1890,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
         try
         {
-            WeakReferenceMessenger.Default.Send(new ImapIdleStateChanged(Account.Id, status));
+            Messenger.Send(new ImapIdleStateChanged(Account.Id, status));
         }
         catch (Exception ex)
         {
@@ -2173,7 +2175,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                     _idleChangePending = false;
                     _lastIdleSyncRequestUtc = DateTime.UtcNow;
                 }
-                WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+                Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
                 {
                     AccountId = Account.Id,
                     Type = MailSynchronizationType.IMAPIdle

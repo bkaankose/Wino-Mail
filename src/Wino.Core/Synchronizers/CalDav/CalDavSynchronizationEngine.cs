@@ -55,14 +55,18 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
     private readonly ICalDavStateStore _stateStore;
     private readonly IDavOAuthAuthenticationProvider? _oauthAuthenticationProvider;
 
+    private readonly DavEndpointCache _davEndpoints;
+
     public CalDavSynchronizationEngine(
         ICalDavClient client,
         IImapChangeProcessor changeProcessor,
         ICalendarService calendarService,
         IAutoDiscoveryService autoDiscoveryService,
+        DavEndpointCache davEndpoints,
         ICalDavStateStore? stateStore = null,
         IDavOAuthAuthenticationProvider? oauthAuthenticationProvider = null)
     {
+        _davEndpoints = davEndpoints ?? throw new ArgumentNullException(nameof(davEndpoints));
         _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _changeProcessor = changeProcessor ?? throw new ArgumentNullException(nameof(changeProcessor));
@@ -94,7 +98,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
         }
 
-        var serviceUri = await CalDavConnection.ResolveServiceUriAsync(account, _autoDiscoveryService, cancellationToken).ConfigureAwait(false);
+        var serviceUri = await CalDavConnection.ResolveServiceUriAsync(account, _autoDiscoveryService, _davEndpoints, cancellationToken).ConfigureAwait(false);
         if (serviceUri == null)
         {
             Logger.Information("Skipping calendar sync for {AccountName}: CalDAV endpoint is not configured.", account.Name);
@@ -1414,7 +1418,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         if (assignedCalendar == null || string.IsNullOrWhiteSpace(assignedCalendar.RemoteCalendarId))
             throw new InvalidOperationException("Cannot execute CalDAV operation because the target calendar has no remote ID.");
 
-        var connection = await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
+        var connection = await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, _davEndpoints, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
 
         return (connection, new CalDavCalendar
         {

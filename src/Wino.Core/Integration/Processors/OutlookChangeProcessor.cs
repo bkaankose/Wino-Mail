@@ -18,14 +18,14 @@ using Reminder = Wino.Core.Domain.Entities.Calendar.Reminder;
 
 namespace Wino.Core.Integration.Processors;
 
-public class OutlookChangeProcessor(IDatabaseService databaseService,
+public class OutlookChangeProcessor(IDatabaseService databaseService, IMessenger messenger,
                                     IFolderService folderService,
                                     ICalendarService calendarService,
                                     IMailService mailService,
                                     IAccountService accountService,
                                     IMimeFileService mimeFileService,
                                     IContactService contactService = null,
-                                    ITaskService taskService = null) : DefaultChangeProcessor(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
+                                    ITaskService taskService = null) : DefaultChangeProcessor(databaseService, messenger, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     , IOutlookChangeProcessor
 {
 
@@ -304,6 +304,6 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             connection.Delete<CalendarItem>(duplicate.Id);
         }).ConfigureAwait(false);
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(duplicate, EntityUpdateSource.Server));
+        Messenger.Send(new CalendarItemDeleted(duplicate, EntityUpdateSource.Server));
     }
 }

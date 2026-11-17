@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -20,14 +21,14 @@ namespace Wino.Core.Integration.Processors;
 
 public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcessor
 {
-    public GmailChangeProcessor(IDatabaseService databaseService,
+    public GmailChangeProcessor(IDatabaseService databaseService, IMessenger messenger,
                                 IFolderService folderService,
                                 IMailService mailService,
                                 ICalendarService calendarService,
                                 IAccountService accountService,
                                 IMimeFileService mimeFileService,
                                 IContactService contactService = null,
-                                ITaskService taskService = null) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
+                                ITaskService taskService = null) : base(databaseService, messenger, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     {
 
     }

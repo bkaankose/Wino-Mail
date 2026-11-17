@@ -12,8 +12,8 @@ Storage and everything around it: the SQLite database and its schema, the MIME f
 
 ## Always
 
-- Derive a database service from `BaseDatabaseService` and send UI messages with `ReportUIChange<TMessage>()`.
-- Take dependencies through the constructor. New code takes `IMessenger` by injection and holds no `static` mutable state.
+- Derive a database service from `BaseDatabaseService`, pass it `IDatabaseService` and `IMessenger`, and send UI messages with `ReportUIChange<TMessage>()`.
+- Take dependencies through the constructor, including `IMessenger`, and hold no `static` mutable state. `WINOMSG001` fails the build on `WeakReferenceMessenger.Default`; the one allowed use is the registration line in `ServicesContainerSetup.cs`, which the apps need because their views use the global instance.
 - Register the service in `RegisterSharedServices` (`ServicesContainerSetup.cs`). A class that implements several interfaces is registered once, and each interface forwards to that instance.
 - Log errors with `IWinoLogger`, and wrap async external operations in try/catch.
 - Keep JSON source-generated. Reflection-based serialization fails the Windows Release gate.

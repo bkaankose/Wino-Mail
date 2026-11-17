@@ -51,13 +51,13 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
     private readonly HashSet<WinoPage> _reportedMissingRoutes = new();
 
     /// <param name="services">Resolves the logger, account service, runtime and wizard context lazily, when a route needs them.</param>
-    /// <param name="messenger">Defaults to <see cref="WeakReferenceMessenger.Default"/>; tests pass their own.</param>
+    /// <param name="messenger">Defaults to the container's messenger.</param>
     public NavigationCoordinator(INavigationHost host, IServiceProvider services, IDispatcher dispatcher, IMessenger? messenger = null)
     {
         _host = host;
         _services = services;
         _dispatcher = dispatcher;
-        _messenger = messenger ?? WeakReferenceMessenger.Default;
+        _messenger = messenger ?? services.GetRequiredService<IMessenger>();
         _messenger.Register<BreadcrumbNavigationRequested>(this);
         _messenger.Register<BackBreadcrumNavigationRequested>(this);
         _messenger.Register<AccountCreatedMessage>(this);

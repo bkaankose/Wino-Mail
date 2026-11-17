@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -28,11 +29,12 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
     public bool PersonalCertificatesEmpty => PersonalCertificates.Count == 0;
 
     public SignatureAndEncryptionPageViewModel(
+        IMessenger messenger,
         IDialogServiceBase dialogService,
         ISmimeCertificateService smimeCertificateService,
         IFileService fileService,
         IPlatformCapabilities platformCapabilities
-    )
+    ) : base(messenger)
     {
         IsSmimeAvailable = platformCapabilities.Smime;
         _dialogService = dialogService;

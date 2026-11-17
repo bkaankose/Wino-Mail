@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
@@ -7,6 +8,8 @@ namespace Wino.Mail.ViewModels;
 
 public partial class TestPageViewModel : MailBaseViewModel
 {
+    public TestPageViewModel(IMessenger messenger) : base(messenger) { }
+
     [ObservableProperty]
     public partial string Subject { get; set; }
 

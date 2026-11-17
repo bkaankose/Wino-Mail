@@ -209,7 +209,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IAttachmentFileService _attachmentFileService;
     private readonly ISynchronizationManager _synchronizationManager;
 
-    public ComposePageViewModel(IMailDialogService dialogService,
+    public ComposePageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                                 IMailService mailService,
                                 IMimeFileService mimeFileService,
                                 IFileService fileService,
@@ -229,8 +229,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IRecipientHistoryService recipientHistoryService,
                                 IAttachmentFileService attachmentFileService = null,
                                 IWinoIntelligenceCoordinator intelligenceCoordinator = null,
-                                ISynchronizationManager synchronizationManager = null,
-                                ISignatureService signatureService = null)
+                                ISignatureService signatureService = null) : base(messenger)
     {
         _signatureService = signatureService;
         ContactService = contactService;
@@ -254,7 +253,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _draftRegistry = draftRegistry;
         _draftSaveService = draftSaveService;
         _attachmentFileService = attachmentFileService;
-        _synchronizationManager = synchronizationManager ?? SynchronizationManager.Instance;
+        _synchronizationManager = synchronizationManager;
 
         RewriteSession = new ComposerRewriteSession(
             intelligenceCoordinator,
@@ -1088,7 +1087,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 downloadIfNeeded = false;
 
                 // Download missing MIME message using SynchronizationManager
-                await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+                await _synchronizationManager.DownloadMimeMessageAsync(
                     CurrentMailDraftItem.MailCopy,
                     CurrentMailDraftItem.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
 

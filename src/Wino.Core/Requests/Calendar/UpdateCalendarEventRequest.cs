@@ -1,5 +1,5 @@
+using Wino.Core.Domain.Interfaces;
 using System.Collections.Generic;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -46,24 +46,24 @@ public record UpdateCalendarEventRequest(
     /// </summary>
     public override int ResynchronizationDelay => 2000;
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
         // Notify UI that the event was updated locally
-        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
+        sender.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         // If update fails, restore the original state
         if (OriginalItem != null && OriginalAttendees != null)
         {
             // Send the original item back to restore UI state
-            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(OriginalItem, EntityUpdateSource.ClientReverted));
+            sender.Send(new CalendarItemUpdated(OriginalItem, EntityUpdateSource.ClientReverted));
         }
         else
         {
             // Fallback: just notify with current item to trigger refresh
-            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
+            sender.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
         }
     }
 }

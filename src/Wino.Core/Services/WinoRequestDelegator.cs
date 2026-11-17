@@ -39,6 +39,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IApplicationLocalRequestExecutor _applicationLocalRequestExecutor;
 
+    private readonly IMessenger _messenger;
+
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
                                 IMailDialogService dialogService,
@@ -47,8 +49,10 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                 ISynchronizationManager synchronizationManager,
                                 IImapChangeProcessor imapChangeProcessor,
                                 IApplicationConfiguration applicationConfiguration,
-                                IApplicationLocalRequestExecutor applicationLocalRequestExecutor)
+                                IApplicationLocalRequestExecutor applicationLocalRequestExecutor,
+                                IMessenger messenger)
     {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;
         _dialogService = dialogService;
@@ -307,7 +311,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             await QueueRequestsAsync(group.Cast<IRequestBase>(), group.Key).ConfigureAwait(false);
 
-            WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+            _messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
             {
                 AccountId = group.Key,
                 AddressBookId = group.First().AddressBookId,
@@ -429,7 +433,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             Type = MailSynchronizationType.ExecuteRequests
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        _messenger.Send(new NewMailSynchronizationRequested(options));
         return Task.CompletedTask;
     }
 
@@ -441,7 +445,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             Type = MailSynchronizationType.FoldersOnly
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        _messenger.Send(new NewMailSynchronizationRequested(options));
         return Task.CompletedTask;
     }
 
@@ -453,11 +457,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             Type = CalendarSynchronizationType.ExecuteRequests
         };
 
-        WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(options));
+        _messenger.Send(new NewCalendarSynchronizationRequested(options));
         return Task.CompletedTask;
     }
 
-    private static void PublishSynchronizationRequests(Guid accountId, IReadOnlyCollection<IRequestBase> requests)
+    private void PublishSynchronizationRequests(Guid accountId, IReadOnlyCollection<IRequestBase> requests)
     {
         var hasCalendarRequests = requests.Any(request => request is ICalendarActionRequest);
         var hasContactRequests = requests.Any(request => request is IContactActionRequest);
@@ -466,7 +470,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (hasCalendarRequests)
         {
-            WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            _messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = CalendarSynchronizationType.ExecuteRequests
@@ -477,7 +481,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             foreach (var addressBookId in requests.OfType<IContactActionRequest>().Select(request => request.AddressBookId).Distinct())
             {
-                WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+                _messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
                 {
                     AccountId = accountId,
                     AddressBookId = addressBookId,
@@ -488,7 +492,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (hasTaskRequests)
         {
-            WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            _messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = TaskSynchronizationType.ExecuteRequests
@@ -497,7 +501,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (hasMailRequests || (!hasCalendarRequests && !hasContactRequests && !hasTaskRequests))
         {
-            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            _messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = MailSynchronizationType.ExecuteRequests
@@ -506,7 +510,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (requests.Any(request => request is DeleteFolderRequest or CreateSubFolderRequest or CreateRootFolderRequest))
         {
-            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            _messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = MailSynchronizationType.FoldersOnly

@@ -37,7 +37,7 @@ public partial class AboutPageViewModel : CoreBaseViewModel,
 
     public IPreferencesService PreferencesService { get; }
 
-    public AboutPageViewModel(IMicrosoftStoreService storeService,
+    public AboutPageViewModel(IMessenger messenger, IMicrosoftStoreService storeService,
                               IMailDialogService dialogService,
                               IExternalLauncher externalLauncher,
                               IClipboardService clipboardService,
@@ -46,7 +46,7 @@ public partial class AboutPageViewModel : CoreBaseViewModel,
                               IApplicationConfiguration appInitializerService,
                               IFileService fileService,
                               IWinoLogger logInitializer,
-                              IPlatformCapabilities platformCapabilities)
+                              IPlatformCapabilities platformCapabilities) : base(messenger)
     {
         _storeService = storeService;
         _dialogService = dialogService;
@@ -84,7 +84,7 @@ public partial class AboutPageViewModel : CoreBaseViewModel,
     }
 
     [RelayCommand]
-    private void OpenWhatsNew() => WeakReferenceMessenger.Default.Send(new WhatsNewOpenRequested());
+    private void OpenWhatsNew() => Messenger.Send(new WhatsNewOpenRequested());
 
     [RelayCommand]
     private async Task CopyDiagnosticId()

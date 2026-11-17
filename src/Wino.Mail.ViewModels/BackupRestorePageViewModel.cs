@@ -30,9 +30,9 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     private readonly IWinoAccountDataSyncService _syncService;
     private readonly IWinoAccountProfileService _profileService;
 
-    public BackupRestorePageViewModel(IMailDialogService dialogService,
+    public BackupRestorePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                       IWinoAccountDataSyncService syncService,
-                                      IWinoAccountProfileService profileService)
+                                      IWinoAccountProfileService profileService) : base(messenger)
     {
         _dialogService = dialogService;
         _syncService = syncService;

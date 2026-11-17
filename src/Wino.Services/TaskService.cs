@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,7 +22,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
 {
     private static readonly SemaphoreSlim TaskListColorGate = new(1, 1);
 
-    public TaskService(IDatabaseService databaseService) : base(databaseService) { }
+    public TaskService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger) { }
 
     public async Task<List<AccountTaskListGroup>> GetTaskListGroupsAsync(Guid? accountId = null)
     {

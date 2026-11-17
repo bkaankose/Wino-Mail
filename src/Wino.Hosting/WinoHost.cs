@@ -23,7 +23,7 @@ namespace Wino.Hosting;
 /// notifications, navigation) are answered as dismissed and recorded in <see cref="Interactions"/>.
 /// One host per process: the backend still uses process-wide statics.
 /// </summary>
-public sealed class WinoHost : IAsyncDisposable
+public sealed partial class WinoHost : IAsyncDisposable
 {
     /// <summary>Binds every protected envelope of a host; never change it, or existing data roots stop reading.</summary>
     private const string ApplicationIdentity = "com.winomail.host";
@@ -109,6 +109,8 @@ public sealed class WinoHost : IAsyncDisposable
 
         var services = new ServiceCollection();
         services.RegisterSharedServices();
+        // Each host gets its own messenger, so recipients and messages never cross hosts in one process.
+        services.Replace(ServiceDescriptor.Singleton<IMessenger>(new WeakReferenceMessenger()));
         services.RegisterCoreServices();
         AddHostPlatformServices(services, layout, dispatcher, log, protector, secureItems);
         services.RegisterWinoViewModels();

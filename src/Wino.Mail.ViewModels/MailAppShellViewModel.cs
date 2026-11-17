@@ -115,7 +115,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
     private readonly AccountGroupPaneItems _accountGroupItems;
 
-    public MailAppShellViewModel(IMailDialogService dialogService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public MailAppShellViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                              INavigationService navigationService,
                              IMimeFileService mimeFileService,
                              IReaderRuntimeService readerRuntimeService,
@@ -135,8 +137,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IUnreadBadgeService unreadBadgeService,
                              IStatePersistanceService statePersistanceService,
                              IConfigurationService configurationService,
-                             IAccountReauthenticationService accountReauthenticationService)
+                             IAccountReauthenticationService accountReauthenticationService) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         StatePersistenceService = statePersistanceService;
 
         PreferencesService = preferencesService;
@@ -193,13 +196,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }).ConfigureAwait(false);
     }
 
-    private static void ApplySynchronizationProgress(IAccountMenuItem accountMenuItem, SynchronizationProgressCategory category)
+    private void ApplySynchronizationProgress(IAccountMenuItem accountMenuItem, SynchronizationProgressCategory category)
     {
         AccountSynchronizationProgress progress;
 
         try
         {
-            progress = SynchronizationManager.Instance.GetSynchronizationProgress(
+            progress = _synchronizationManager.GetSynchronizationProgress(
                 accountMenuItem.HoldingAccounts.First().Id,
                 category);
         }
@@ -241,7 +244,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }).ConfigureAwait(false);
     }
 
-    private static IMenuItem CreateAccountAreaMenuItem(AccountLayoutEntry entry)
+    private IMenuItem CreateAccountAreaMenuItem(AccountLayoutEntry entry)
     {
         if (entry.Kind == AccountLayoutEntryKind.Group)
         {
@@ -501,7 +504,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                     {
                         await ChangeLoadedAccountAsync(accountMenuItem);
 
-                        WeakReferenceMessenger.Default.Send(accountExtendedMessage);
+                        Messenger.Send(accountExtendedMessage);
 
                         _activationStateService.LaunchParameter = null;
                     }
@@ -519,7 +522,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 {
                     // mailto activation. Create new mail with specific delivered address as receiver.
 
-                    WeakReferenceMessenger.Default.Send(new MailtoProtocolMessageRequested());
+                    Messenger.Send(new MailtoProtocolMessageRequested());
                 }
                 else
                 {

@@ -45,7 +45,9 @@ public sealed class Pop3Synchronizer
 
     public Pop3Synchronizer(
         MailAccount account,
-        IPop3ClientFactory clientFactory,
+                IMessenger messenger,
+        RequestUiChangeCoordinator uiChanges,
+IPop3ClientFactory clientFactory,
         IPop3PersistenceService persistenceService,
         WinoMailService mailService,
         IFolderService folderService,
@@ -53,7 +55,7 @@ public sealed class Pop3Synchronizer
         ISmtpTransport smtpTransport,
         IMimeFileService mimeFileService,
         IMailFilterExecutor mailFilterExecutor = null)
-        : base(account, WeakReferenceMessenger.Default)
+        : base(account, messenger, uiChanges)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _persistenceService = persistenceService ?? throw new ArgumentNullException(nameof(persistenceService));
@@ -96,12 +98,12 @@ public sealed class Pop3Synchronizer
             }
             catch
             {
-                RequestUiChangeCoordinator.RevertBundle(bundle);
+                UiChanges.RevertBundle(bundle);
                 throw;
             }
             finally
             {
-                RequestUiChangeCoordinator.CompleteRequests([bundle.Request]);
+                UiChanges.CompleteRequests([bundle.Request]);
             }
         }
 

@@ -7,7 +7,7 @@ The synchronization engine: one synchronizer per provider (Outlook, Gmail, IMAP,
 Every user action that changes server data takes this path. Know it before you change a request, a synchronizer or a ViewModel command.
 
 1. **ViewModel** calls `IWinoRequestDelegator.ExecuteAsync(...)`.
-2. **`WinoRequestProcessor`** turns the action into request objects, for example `MarkReadRequest`. Each request implements `ApplyUIChanges` and `RevertUIChanges`.
+2. **`WinoRequestProcessor`** turns the action into request objects, for example `MarkReadRequest`. Each request implements `ApplyUIChanges(IUIMessageSender)` and `RevertUIChanges(IUIMessageSender)`; the pipeline hands it the sender, because a request is created with `new` and cannot be injected.
 3. **`SynchronizationManager.QueueRequestPackAsync`** applies the UI change in memory through `RequestUiChangeCoordinator.ApplyRequests`. The UI receives a message with `EntityUpdateSource.ClientUpdated`. The request then enters the account synchronizer's queue with `QueueRequest`.
 4. **`ApplicationRuntime`** receives `NewMailSynchronizationRequested` and starts the synchronizer. The synchronizer groups queued requests into bundles and runs `ExecuteNativeRequestsAsync`, which makes the network call.
 5. **On success** the provider's change processor writes the database, and the storage service sends a message with `EntityUpdateSource.Server`.
@@ -26,7 +26,8 @@ Every user action that changes server data takes this path. Know it before you c
 ## Always
 
 - Put provider-specific behavior in that provider's synchronizer, change processor or error handler. Shared code asks the provider; it does not add a new `switch` on the provider type.
-- Take `ISynchronizationManager` and `IMessenger` through the constructor in new services. The static `SynchronizationManager.Instance` and `WeakReferenceMessenger.Default` are being removed.
+- Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager, and `WINOMSG001` fails the build on `WeakReferenceMessenger.Default` in a shared project.
+- Give every synchronizer, error handler and request executor the one `RequestUiChangeCoordinator` singleton from the container. A second instance does not know which changes were applied, so a revert would be skipped.
 - Register services in `RegisterCoreServices` (`CoreContainerSetup.cs`).
 - Treat code after `ConfigureAwait(false)` and every messenger recipient as background-thread code.
 

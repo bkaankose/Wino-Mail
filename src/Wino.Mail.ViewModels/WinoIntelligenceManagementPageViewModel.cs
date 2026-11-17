@@ -67,6 +67,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private IReadOnlyCollection<MailItemFolder> _folders = [];
 
     public WinoIntelligenceManagementPageViewModel(
+        IMessenger messenger,
         IMailDialogService dialogService,
         IAccountService accountService,
         IFolderService folderService,
@@ -80,7 +81,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         IWinoAccountIntelligenceSnapshotService? snapshotService = null,
         IWinoPurchaseReconciliationService? purchaseReconciliation = null,
         IWinoAccountSessionService? sessions = null,
-        IWinoLogger? logger = null)
+        IWinoLogger? logger = null) : base(messenger)
     {
         _coverageHandoff = coverageHandoff;
         _dialogService = dialogService;
@@ -673,7 +674,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             Account.Preferences.IsDailyBriefingEnabled = isEnabled;
             await _accountService.UpdateAccountPreferencesAsync(Account.Preferences).ConfigureAwait(false);
             await ExecuteUIThread(() => IsDailyBriefingEnabled = isEnabled);
-            WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
+            Messenger.Send(new DailyBriefingStateChanged());
             return isEnabled;
         }
         catch (Exception exception)

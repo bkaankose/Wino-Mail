@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Google.Apis.Calendar.v3.Data;
@@ -162,14 +163,14 @@ public interface IImapChangeProcessor : IDefaultChangeProcessor
     Task<IReadOnlyList<CalendarIcsShadow>> GetCalendarIcsShadowsAsync(Guid accountId, Guid calendarId);
 }
 
-public class DefaultChangeProcessor(IDatabaseService databaseService,
+public class DefaultChangeProcessor(IDatabaseService databaseService, IMessenger messenger,
                               IFolderService folderService,
                               IMailService mailService,
                               ICalendarService calendarService,
                               IAccountService accountService,
                               IMimeFileService mimeFileService,
                               IContactService contactService = null,
-                              ITaskService taskService = null) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
+                              ITaskService taskService = null) : BaseDatabaseService(databaseService, messenger), IDefaultChangeProcessor
 {
     protected IMailService MailService = mailService;
     protected ICalendarService CalendarService = calendarService;

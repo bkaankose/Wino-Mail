@@ -94,9 +94,9 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     [ObservableProperty]
     public partial ShowAsOption SelectedDefaultShowAsOption { get; set; }
 
-    public CalendarAccountSettingsPageViewModel(ICalendarService calendarService,
+    public CalendarAccountSettingsPageViewModel(IMessenger messenger, ICalendarService calendarService,
                                                 IAccountService accountService,
-                                                ICalendarCapabilityService calendarCapabilityService = null)
+                                                ICalendarCapabilityService calendarCapabilityService = null) : base(messenger)
     {
         _calendarService = calendarService;
         _accountService = accountService;

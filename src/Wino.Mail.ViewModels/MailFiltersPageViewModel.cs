@@ -15,13 +15,13 @@ using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class MailFiltersPageViewModel(
+public partial class MailFiltersPageViewModel(IMessenger messenger, 
     IMailFilterService mailFilterService,
     IMailFilterProviderService providerService,
     IAccountService accountService,
     IFolderService folderService,
     IMailDialogService dialogService,
-    IProviderFeatureAuthorizationService featureAuthorizationService) : MailBaseViewModel
+    IProviderFeatureAuthorizationService featureAuthorizationService) : MailBaseViewModel(messenger)
 {
     private readonly IMailFilterService _mailFilterService = mailFilterService;
     private readonly IMailFilterProviderService _providerService = providerService;

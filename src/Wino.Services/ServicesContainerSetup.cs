@@ -22,7 +22,9 @@ public static class ServicesContainerSetup
     public static void RegisterSharedServices(this IServiceCollection services)
     {
         services.AddSingleton<Wino.Core.Domain.Models.MailItem.DraftUpdateRegistry>();
+        // The apps share the process-wide messenger with their heads; Wino.Hosting replaces it with one per host.
         services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
+        services.AddSingleton<IUIMessageSender, MessengerUIMessageSender>();
         services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<IMailContentProjector, MailContentProjector>();
         services.AddSingleton<IDatabaseSchemaService, DatabaseSchemaService>();

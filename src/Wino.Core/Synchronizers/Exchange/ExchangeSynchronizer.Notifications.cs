@@ -285,7 +285,7 @@ public partial class ExchangeSynchronizer : IExchangeSynchronizer
 
         try
         {
-            WeakReferenceMessenger.Default.Send(new ExchangeNotificationStateChanged(Account.Id, status));
+            Messenger.Send(new ExchangeNotificationStateChanged(Account.Id, status));
         }
         catch (Exception ex)
         {

@@ -88,6 +88,11 @@ public interface ISynchronizationManager
     Task UndoLatestQueuedAction(IWinoSynchronizerBase synchronizer);
 
     /// <summary>
+    /// Whether requests of the account are still held in an undo grace period, before they reach its synchronizer queue.
+    /// </summary>
+    bool HasPendingUndoAction(Guid accountId);
+
+    /// <summary>
     /// Checks whether a delete request for a mail is waiting in the undo queue.
     /// </summary>
     bool IsDeleteRequestQueued(Guid accountId, Guid uniqueMailId);
@@ -132,6 +137,14 @@ public interface ISynchronizationManager
     /// Downloads a MIME message for the given mail item.
     /// </summary>
     Task<string> DownloadMimeMessageAsync(MailCopy mailItem, Guid accountId,
+                                         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Downloads a calendar event attachment to <paramref name="localFilePath"/>.
+    /// </summary>
+    Task DownloadCalendarAttachmentAsync(Entities.Calendar.CalendarItem calendarItem,
+                                         Entities.Calendar.CalendarAttachment attachment,
+                                         string localFilePath,
                                          CancellationToken cancellationToken = default);
 
     /// <summary>

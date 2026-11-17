@@ -65,7 +65,7 @@ public sealed partial class CalDavTaskSynchronizationEngine
             if (!IsTaskSourceAvailable(account))
                 throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable);
 
-            settings ??= await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
+            settings ??= await CalDavConnection.CreateRequiredSettingsAsync(account, _autoDiscoveryService, _davEndpoints, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
             var context = new RequestContext(account, settings, taskRequest);
 
             switch (taskRequest.Operation)

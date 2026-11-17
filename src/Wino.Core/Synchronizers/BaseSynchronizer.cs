@@ -112,10 +112,13 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
         }
     }
 
-    protected BaseSynchronizer(MailAccount account, IMessenger messenger)
+    protected readonly RequestUiChangeCoordinator UiChanges;
+
+    protected BaseSynchronizer(MailAccount account, IMessenger messenger, RequestUiChangeCoordinator uiChanges)
     {
         Account = account;
-        Messenger = messenger ?? WeakReferenceMessenger.Default;
+        Messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
+        UiChanges = uiChanges ?? throw new ArgumentNullException(nameof(uiChanges));
     }
 
     /// <summary>
@@ -363,5 +366,5 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     }
 
     protected void ApplyOptimisticUiChanges(IEnumerable<IRequestBundle<TBaseRequest>> bundles, Func<IRequestBase, bool> shouldApply = null)
-        => RequestUiChangeCoordinator.ApplyBundles(bundles, shouldApply);
+        => UiChanges.ApplyBundles(bundles, shouldApply);
 }

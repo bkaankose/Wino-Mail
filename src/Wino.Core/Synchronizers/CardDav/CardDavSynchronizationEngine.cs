@@ -35,8 +35,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
     // Collections whose server advertised a REPORT and then refused it. Discovery would
     // advertise it again, so the refusal is remembered for the process instead.
-    private static readonly ConcurrentDictionary<string, byte> SyncCollectionRejected = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<string, byte> MultigetRejected = new(StringComparer.Ordinal);
+    private readonly DavEndpointCache _davEndpoints;
     private readonly ICardDavClient _client;
     private readonly ICardDavSynchronizationStore _store;
     private readonly IVCardCodec _codec;
@@ -54,6 +53,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         IVCardCodec codec,
         IContactService contactService,
         IAccountService accountService,
+        DavEndpointCache davEndpoints,
         ICardDavAddressBookService addressBookService = null,
         ICardDavContactListService listService = null,
         IKnownImapProviderCatalog providerCatalog = null,
@@ -61,6 +61,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         IPictureStorageService pictureStorageService = null,
         IDavOAuthAuthenticationProvider oauthAuthenticationProvider = null)
     {
+        _davEndpoints = davEndpoints ?? throw new ArgumentNullException(nameof(davEndpoints));
         _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _listService = listService;
         _client = client;
@@ -254,8 +255,8 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         => (!string.IsNullOrEmpty(remote.SyncToken) && string.Equals(remote.SyncToken, state.SyncToken, StringComparison.Ordinal)) ||
            (!string.IsNullOrEmpty(remote.CollectionTag) && string.Equals(remote.CollectionTag, state.CollectionTag, StringComparison.Ordinal));
 
-    private static bool CanUseSyncCollection(CardDavAddressBookState state)
-        => state.SupportsSyncCollection && !SyncCollectionRejected.ContainsKey(state.ExactHref);
+    private bool CanUseSyncCollection(CardDavAddressBookState state)
+        => state.SupportsSyncCollection && !_davEndpoints.CardDavSyncCollectionRejected.ContainsKey(state.ExactHref);
 
     /// <summary>Delta: asks for what changed since the stored token and applies it page by page.</summary>
     private async Task PullChangesAsync(
@@ -315,7 +316,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
             }
             catch (DavRequestException ex) when (ex.IsUnsupportedRequest)
             {
-                SyncCollectionRejected.TryAdd(state.ExactHref, 0);
+                _davEndpoints.CardDavSyncCollectionRejected.TryAdd(state.ExactHref, 0);
                 Logger.Information("CardDAV server refused sync-collection for {AddressBook} ({StatusCode}); using PROPFIND", context.Binding.AddressBook.DisplayName, ex.StatusCode);
                 listing = null;
                 token = null;
@@ -479,7 +480,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
         var state = context.Binding.State;
 
-        if (state.SupportsMultiget && !MultigetRejected.ContainsKey(state.ExactHref))
+        if (state.SupportsMultiget && !_davEndpoints.CardDavMultigetRejected.ContainsKey(state.ExactHref))
         {
             try
             {
@@ -492,7 +493,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
             }
             catch (DavRequestException ex) when (ex.IsUnsupportedRequest)
             {
-                MultigetRejected.TryAdd(state.ExactHref, 0);
+                _davEndpoints.CardDavMultigetRejected.TryAdd(state.ExactHref, 0);
                 Logger.Information("CardDAV server refused addressbook-multiget for {AddressBook} ({StatusCode}); using GET", context.Binding.AddressBook.DisplayName, ex.StatusCode);
             }
         }

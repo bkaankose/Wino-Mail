@@ -1,4 +1,5 @@
 ﻿#nullable enable
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -48,6 +49,9 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
     private readonly IAccountService accountService;
     private readonly IServiceProvider services;
 
+    private readonly ISynchronizationManager synchronizationManager;
+    private readonly IMessenger messenger;
+
     public AgentPlanExecutor(
         IMailService mailService,
         IFolderService folderService,
@@ -59,8 +63,12 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
         IMimeFileService mimeFileService,
         IPreferencesService preferencesService,
         IAccountService accountService,
+        ISynchronizationManager synchronizationManager,
+        IMessenger messenger,
         IServiceProvider services)
     {
+        this.synchronizationManager = synchronizationManager;
+        this.messenger = messenger;
         this.mailService = mailService;
         this.folderService = folderService;
         this.requestDelegator = requestDelegator;
@@ -334,7 +342,7 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
         // then read it again. A mail that cannot be downloaded (offline, deleted on the server) stays null.
         try
         {
-            await SynchronizationManager.Instance.DownloadMimeMessageAsync(mail, account.Id, ct).ConfigureAwait(false);
+            await synchronizationManager.DownloadMimeMessageAsync(mail, account.Id, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

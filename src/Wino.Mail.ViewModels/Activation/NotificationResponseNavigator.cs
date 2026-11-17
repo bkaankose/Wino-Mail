@@ -23,7 +23,8 @@ public sealed class NotificationResponseNavigator(
     IApplicationShellHost host,
     INavigationService navigation,
     IActivationStateService activationState,
-    IDispatcher dispatcher) : INotificationResponseNavigator
+    IDispatcher dispatcher,
+    IMessenger messenger) : INotificationResponseNavigator
 {
     private readonly ILogger _logger = Log.ForContext<NotificationResponseNavigator>();
 
@@ -58,7 +59,7 @@ public sealed class NotificationResponseNavigator(
                 }
             }
 
-            if (navigated) WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(mailItem.UniqueId, ScrollToItem: true));
+            if (navigated) messenger.Send(new MailItemNavigationRequested(mailItem.UniqueId, ScrollToItem: true));
             else _logger.Information("Notification folder for mail {Id} was not found.", mailItem.UniqueId);
         });
     }

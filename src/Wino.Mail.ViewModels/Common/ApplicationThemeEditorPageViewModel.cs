@@ -145,7 +145,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
         ? Translator.ApplicationThemeEditor_FocalPointDescription
         : Translator.ApplicationThemeEditor_FocalPointFitDescription;
 
-    public ApplicationThemeEditorPageViewModel(INewThemeService themeService, IDialogServiceBase dialogService, IApplicationResourceResolver resourceResolver, IWinoLogger? logger = null)
+    public ApplicationThemeEditorPageViewModel(IMessenger messenger, INewThemeService themeService, IDialogServiceBase dialogService, IApplicationResourceResolver resourceResolver, IWinoLogger? logger = null) : base(messenger)
     {
         _themeService = themeService;
         _dialogService = dialogService;
@@ -335,7 +335,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
         if (!await CanNavigateBackAsync())
             return;
 
-        WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
+        Messenger.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
     }
 
     private bool CanDelete() => IsEditMode && !_isInitializing && !IsSaving && !IsDeleting;
@@ -374,7 +374,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
             _isNavigationCommitted = true;
             IsDirty = false;
             _pendingNavigationResult = NavigationResult.Deleted(themeId);
-            WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
+            Messenger.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
         }
         catch (Exception ex)
         {
@@ -424,7 +424,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
             _isNavigationCommitted = true;
             IsDirty = false;
             _pendingNavigationResult = NavigationResult.Saved(savedTheme.Id);
-            WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
+            Messenger.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
         }
         catch (Exception ex)
         {

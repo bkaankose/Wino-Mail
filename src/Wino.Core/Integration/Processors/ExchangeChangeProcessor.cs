@@ -41,7 +41,7 @@ public interface IExchangeChangeProcessor : IDefaultChangeProcessor
 
 public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangeProcessor
 {
-    public ExchangeChangeProcessor(IDatabaseService databaseService,
+    public ExchangeChangeProcessor(IDatabaseService databaseService, IMessenger messenger,
                                    IFolderService folderService,
                                    IMailService mailService,
                                    ICalendarService calendarService,
@@ -49,7 +49,7 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
                                    IMimeFileService mimeFileService,
                                    IContactService? contactService = null,
                                    ITaskService? taskService = null)
-        : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
+        : base(databaseService, messenger, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     {
     }
 
@@ -159,7 +159,7 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
             connection.Delete<CalendarItem>(duplicate.Id);
         }).ConfigureAwait(false);
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(duplicate, EntityUpdateSource.Server));
+        Messenger.Send(new CalendarItemDeleted(duplicate, EntityUpdateSource.Server));
     }
 
     /// <summary>

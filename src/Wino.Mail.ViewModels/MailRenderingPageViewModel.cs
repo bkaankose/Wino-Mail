@@ -236,7 +236,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         args.Handled = true;
     }
 
-    public MailRenderingPageViewModel(IMailDialogService dialogService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public MailRenderingPageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
         IExternalLauncher externalLauncher,
         IClipboardService clipboardService,
         IUnderlyingThemeService underlyingThemeService,
@@ -259,8 +261,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         ICalendarService calendarService,
         IAttachmentFileService attachmentFileService = null,
         ILinkBrowserService linkBrowserService = null,
-        IMailInvitationService mailInvitationService = null)
+        IMailInvitationService mailInvitationService = null) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         _dialogService = dialogService;
         ExternalLauncher = externalLauncher;
         _linkBrowserService = linkBrowserService;
@@ -658,7 +661,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             await ExecuteUIThread(() => IsIndetermineProgress = true);
 
             // Download missing MIME message using SynchronizationManager
-            await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+            await _synchronizationManager.DownloadMimeMessageAsync(
                 mailItemViewModel.MailCopy,
                 mailItemViewModel.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
 

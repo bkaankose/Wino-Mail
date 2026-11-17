@@ -57,13 +57,15 @@ public partial class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, A
     protected ITaskService? TaskService { get; }
 
     public ExchangeSynchronizer(MailAccount account,
-                                IExchangeAuthenticator exchangeAuthenticator,
+                                                                IMessenger messenger,
+                                RequestUiChangeCoordinator uiChanges,
+IExchangeAuthenticator exchangeAuthenticator,
                                 IExchangeChangeProcessor exchangeChangeProcessor,
                                 IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
                                 IContactService? contactService = null,
                                 IPictureStorageService? contactPictureService = null,
                                 ITaskService? taskService = null)
-        : base(account, WeakReferenceMessenger.Default)
+        : base(account, messenger, uiChanges)
     {
         ExchangeAuthenticator = exchangeAuthenticator;
         ExchangeChangeProcessor = exchangeChangeProcessor;
@@ -965,7 +967,7 @@ public partial class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, A
             {
                 // Optimistic changes of this bundle and every later one were applied up front but never confirmed.
                 for (var j = i; j < batchedRequests.Count; j++)
-                    RequestUiChangeCoordinator.RevertBundle(batchedRequests[j]);
+                    UiChanges.RevertBundle(batchedRequests[j]);
 
                 throw;
             }
@@ -1005,7 +1007,7 @@ public partial class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, A
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
         {
             CaptureSynchronizationIssue(errorContext);
-            RequestUiChangeCoordinator.RevertBundle(bundle);
+            UiChanges.RevertBundle(bundle);
             _logger.Error(exception, "Exchange request execution failed for {Account}.", Account.Name);
             errors.Add(exception.Message);
         }

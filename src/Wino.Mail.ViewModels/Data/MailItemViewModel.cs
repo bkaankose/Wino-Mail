@@ -27,7 +27,7 @@ namespace Wino.Mail.ViewModels.Data;
     new string[] { nameof(IsBusy) },
     new Type[] { })]
 #endif
-public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation, IMailListSourceItem
+public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailItemDisplayInformation, IMailListSourceItem
 {
     private bool isSyncingCategories;
 

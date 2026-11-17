@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -53,9 +52,9 @@ public sealed record ContactListRequest : IContactActionRequest
 
     public object GroupingKey() => (AddressBookId, List.Id, Operation);
 
-    public void ApplyUIChanges() => Publish(revert: false);
+    public void ApplyUIChanges(IUIMessageSender sender) => Publish(sender, revert: false);
 
-    public void RevertUIChanges() => Publish(revert: true);
+    public void RevertUIChanges(IUIMessageSender sender) => Publish(sender, revert: true);
 
     /// <summary>Stores an accepted change in the local database.</summary>
     public async Task CommitAsync(IContactService contactService)
@@ -78,30 +77,30 @@ public sealed record ContactListRequest : IContactActionRequest
         }
     }
 
-    private void Publish(bool revert)
+    private void Publish(IUIMessageSender sender, bool revert)
     {
         var source = revert ? EntityUpdateSource.ClientReverted : EntityUpdateSource.ClientUpdated;
 
         switch (Operation)
         {
             case ContactSynchronizerOperation.CreateList:
-                Send(List, revert ? OptimisticEntityChange.Delete : OptimisticEntityChange.Upsert, source);
+                Send(sender, List, revert ? OptimisticEntityChange.Delete : OptimisticEntityChange.Upsert, source);
                 break;
             case ContactSynchronizerOperation.RenameList:
-                Send(revert ? OriginalList ?? List : List, OptimisticEntityChange.Upsert, source);
+                Send(sender, revert ? OriginalList ?? List : List, OptimisticEntityChange.Upsert, source);
                 break;
             case ContactSynchronizerOperation.DeleteList:
-                Send(revert ? OriginalList ?? List : List, revert ? OptimisticEntityChange.Upsert : OptimisticEntityChange.Delete, source);
+                Send(sender, revert ? OriginalList ?? List : List, revert ? OptimisticEntityChange.Upsert : OptimisticEntityChange.Delete, source);
                 break;
             case ContactSynchronizerOperation.UpdateListMembers:
                 if (AddedContactIds.Count > 0)
-                    WeakReferenceMessenger.Default.Send(new ContactListMembershipStateChanged(List.Id, AddedContactIds, !revert, source));
+                    sender.Send(new ContactListMembershipStateChanged(List.Id, AddedContactIds, !revert, source));
                 if (RemovedContactIds.Count > 0)
-                    WeakReferenceMessenger.Default.Send(new ContactListMembershipStateChanged(List.Id, RemovedContactIds, revert, source));
+                    sender.Send(new ContactListMembershipStateChanged(List.Id, RemovedContactIds, revert, source));
                 break;
         }
     }
 
-    private static void Send(ContactList list, OptimisticEntityChange change, EntityUpdateSource source)
-        => WeakReferenceMessenger.Default.Send(new ContactListStateChanged(RequestEntityCloner.ContactList(list), change, source));
+    private static void Send(IUIMessageSender sender, ContactList list, OptimisticEntityChange change, EntityUpdateSource source)
+        => sender.Send(new ContactListStateChanged(RequestEntityCloner.ContactList(list), change, source));
 }

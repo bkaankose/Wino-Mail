@@ -44,7 +44,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
-    public AccountService(IDatabaseService databaseService,
+    public AccountService(IDatabaseService databaseService, IMessenger messenger,
                           ISignatureService signatureService,
                           IAuthenticationProvider authenticationProvider,
                           IMimeFileService mimeFileService,
@@ -57,7 +57,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                           ICardDavSynchronizationStore cardDavSynchronizationStore = null,
                           IDavCredentialStore davCredentialStore = null,
                           Func<IPushRelayRegistrationService> pushRelay = null,
-                          Func<IOAuthTokenService> oauthTokenService = null) : base(databaseService)
+                          Func<IOAuthTokenService> oauthTokenService = null) : base(databaseService, messenger)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
@@ -65,7 +65,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         _preferencesService = preferencesService;
         _pictureStorageService = pictureStorageService;
         _credentialPersistence = credentialPersistence;
-        _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService);
+        _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService, messenger);
         _semanticIndexJobRegistry = semanticIndexJobRegistry;
         _localIntelligenceStore = localIntelligenceStore;
         _cardDavSynchronizationStore = cardDavSynchronizationStore;
@@ -331,7 +331,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             "DELETE FROM MailCopy WHERE Id IN (SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?))",
             accountId);
 
-        WeakReferenceMessenger.Default.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
+        Messenger.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
     }
 
     public async Task DeleteAccountMailDataAsync(Guid accountId)
@@ -513,12 +513,12 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         foreach (var calendarItem in deletedCalendarItems)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
+            Messenger.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
         }
 
         foreach (var accountCalendar in accountCalendars)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
+            Messenger.Send(new CalendarListDeleted(accountCalendar));
         }
 
         ReportUIChange(new AccountRemovedMessage(account));
@@ -837,7 +837,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         ReportUIChange(new AccountUpdatedMessage(account));
 
         if (account.Preferences is not null)
-            WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(
+            Messenger.Send(new IntelligenceVisibilityChanged(
                 account.Id,
                 [.. account.Preferences.ExcludedIntelligenceIndicatorIds]));
     }
@@ -848,7 +848,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         preferences.PrepareForStorage();
         await Connection.UpdateAsync(preferences, typeof(MailAccountPreferences)).ConfigureAwait(false);
-        WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(
+        Messenger.Send(new IntelligenceVisibilityChanged(
             preferences.AccountId,
             [.. preferences.ExcludedIntelligenceIndicatorIds]));
     }

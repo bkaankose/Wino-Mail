@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -8,8 +9,8 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 
-public class AccountProviderFeatureService(IDatabaseService databaseService)
-    : BaseDatabaseService(databaseService), IAccountProviderFeatureService
+public class AccountProviderFeatureService(IDatabaseService databaseService, IMessenger messenger)
+    : BaseDatabaseService(databaseService, messenger), IAccountProviderFeatureService
 {
     public async Task<IReadOnlyList<AccountProviderFeature>> GetFeaturesAsync(
         Guid accountId,

@@ -13,6 +13,7 @@ public sealed class HostDispatcher : IDispatcher, IDisposable
     private readonly BlockingCollection<Action> _queue = new(new ConcurrentQueue<Action>());
     private readonly Thread _thread;
     private int _disposed;
+    private int _pending;
 
     public HostDispatcher()
     {
@@ -25,6 +26,9 @@ public sealed class HostDispatcher : IDispatcher, IDisposable
     }
 
     public bool HasThreadAccess => Thread.CurrentThread == _thread;
+
+    /// <summary>True when no queued work is waiting or running on the UI thread.</summary>
+    public bool IsIdle => Volatile.Read(ref _pending) == 0;
 
     public Task ExecuteOnUIThread(Action action)
     {
@@ -96,6 +100,7 @@ public sealed class HostDispatcher : IDispatcher, IDisposable
         if (_queue.IsAddingCompleted)
             return false;
 
+        Interlocked.Increment(ref _pending);
         try
         {
             _queue.Add(action);
@@ -103,6 +108,7 @@ public sealed class HostDispatcher : IDispatcher, IDisposable
         }
         catch (InvalidOperationException)
         {
+            Interlocked.Decrement(ref _pending);
             return false;
         }
     }
@@ -121,6 +127,10 @@ public sealed class HostDispatcher : IDispatcher, IDisposable
             {
                 // Work posted through the synchronization context has no task to report to; it reaches the log.
                 Serilog.Log.Error(ex, "Unobserved exception on the host UI thread.");
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _pending);
             }
         }
     }

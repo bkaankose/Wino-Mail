@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -38,10 +39,11 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
     private string _selectedDefaultSearchMode;
 
     public MailPreferencesPageViewModel(
+        IMessenger messenger,
         IPreferencesService preferencesService,
         IAccountService accountService,
         IKnownImapProviderCatalog providerCatalog,
-        IPlatformCapabilities platformCapabilities)
+        IPlatformCapabilities platformCapabilities) : base(messenger)
     {
         PreferencesService = preferencesService;
         _platformCapabilities = platformCapabilities;

@@ -86,11 +86,12 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
     public bool IsSyncIntervalAvailable { get; }
 
     public CalendarPreferenceSettingsPageViewModel(
+        IMessenger messenger,
         IPreferencesService preferencesService,
         ICalendarService calendarService,
         IAccountService accountService,
         IPlatformCapabilities platformCapabilities)
-        : base(preferencesService, calendarService, accountService)
+        : base(messenger, preferencesService, calendarService, accountService)
     {
         IsSyncIntervalAvailable = SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, platformCapabilities);
         SelectedEventDisplayModeOption = EventDisplayModeOptions.FirstOrDefault(option => option.Mode == preferencesService.CalendarEventDisplayMode)

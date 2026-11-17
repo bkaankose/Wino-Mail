@@ -23,7 +23,7 @@ public partial class MailAppShellViewModel
     public bool CanSynchronize => SelectedAccountIds.Count > 0 && !SynchronizationState.IsSynchronizing;
 
     public ShellSynchronizationState SynchronizationState
-        => ShellSynchronizationStateReader.Read(SelectedAccountIds, SynchronizationProgressCategory.Mail);
+        => ShellSynchronizationStateReader.Read(_synchronizationManager, SelectedAccountIds, SynchronizationProgressCategory.Mail);
 
     public string SynchronizationDescription
     {

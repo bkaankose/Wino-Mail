@@ -10,6 +10,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 		<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 		<ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />

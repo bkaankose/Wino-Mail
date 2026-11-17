@@ -15,7 +15,7 @@ namespace Wino.Services;
 
 public class MailCategoryService : BaseDatabaseService, IMailCategoryService
 {
-    public MailCategoryService(IDatabaseService databaseService) : base(databaseService)
+    public MailCategoryService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
     {
     }
 
@@ -235,7 +235,7 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             }, typeof(MailCategoryAssignment)).ConfigureAwait(false);
         }
 
-        WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(accountId));
+        Messenger.Send(new RefreshUnreadCountsMessage(accountId));
     }
 
     public async Task AssignCategoryAsync(Guid categoryId, IEnumerable<Guid> mailCopyUniqueIds)
@@ -271,7 +271,7 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             }, typeof(MailCategoryAssignment)).ConfigureAwait(false);
         }
 
-        WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(category.MailAccountId));
+        Messenger.Send(new RefreshUnreadCountsMessage(category.MailAccountId));
     }
 
     public async Task UnassignCategoryAsync(Guid categoryId, IEnumerable<Guid> mailCopyUniqueIds)
@@ -292,7 +292,7 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
                 [categoryId, .. idChunk.Cast<object>()]).ConfigureAwait(false);
         }
 
-        WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(category.MailAccountId));
+        Messenger.Send(new RefreshUnreadCountsMessage(category.MailAccountId));
     }
 
     public async Task<List<MailCategory>> GetCategoriesForMailAsync(Guid accountId, IEnumerable<Guid> mailCopyUniqueIds)
@@ -433,8 +433,8 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
 
     private void NotifyCategoryStructureChanged(Guid accountId)
     {
-        WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested(false));
-        WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(accountId));
+        Messenger.Send(new AccountsMenuRefreshRequested(false));
+        Messenger.Send(new RefreshUnreadCountsMessage(accountId));
     }
 
     private static string NormalizeCategoryName(string name)

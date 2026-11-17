@@ -42,6 +42,8 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
     private readonly IDavOAuthAuthenticationProvider? _davOAuthAuthenticationProvider;
     private readonly IGoogleMailboxProfileService? _googleMailboxProfileService;
 
+    private readonly IMessenger _messenger;
+
     public AccountSetupRunner(
         IAccountService accountService,
         ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
@@ -49,12 +51,14 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         IAuthenticationProvider authenticationProvider,
         ICalDavClient calDavClient,
         IWinoLogger winoLogger,
+        IMessenger messenger,
         IOAuthTokenService? oauthTokenService = null,
         IAccountOAuthProfileService? accountOAuthProfileService = null,
         IDavOAuthAuthenticationProvider? davOAuthAuthenticationProvider = null,
         IGoogleMailboxProfileService? googleMailboxProfileService = null)
     {
         _googleMailboxProfileService = googleMailboxProfileService;
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _accountService = accountService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _synchronizationManager = synchronizationManager;
@@ -310,7 +314,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, null, enableMailFilters: account.IsMailAccessGranted);
-        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        _messenger.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
         run.Succeed();
 
@@ -411,7 +415,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, serverInformation, true);
-        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        _messenger.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
         run.Succeed();
 
@@ -453,7 +457,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, serverInformation, setupData.ShouldAppendMessagesToSentFolder);
-        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        _messenger.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
 
         if (oauthSession != null)
@@ -510,7 +514,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         // Exchange files sent mail on the server itself, so no copy is appended to Sent.
         await _accountService.CreateAccountAsync(account, serverInformation, shouldAppendMessagesToSentFolder: false);
-        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        _messenger.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
         run.Succeed();
 

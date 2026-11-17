@@ -333,7 +333,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     public bool IsSignedOut => !IsSignedIn;
 
-    public WinoAccountManagementPageViewModel(IWinoAccountProfileService profileService,
+    public WinoAccountManagementPageViewModel(IMessenger messenger, IWinoAccountProfileService profileService,
                                                IMailDialogService dialogService,
                                                IWinoBillingService billingService,
                                                IWinoAccountApiClient apiClient,
@@ -348,7 +348,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                IWinoLogger? logger = null,
                                                IMicrosoftStoreService? storeService = null,
                                                IWinoStorePurchaseRedeemService? storeRedeemService = null,
-                                               IWinoAppStorePurchaseService? appStorePurchases = null)
+                                               IWinoAppStorePurchaseService? appStorePurchases = null) : base(messenger)
     {
         _profileService = profileService;
         _dialogService = dialogService;
@@ -892,7 +892,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     }
 
     [RelayCommand]
-    private void OpenDailyBriefing() => WeakReferenceMessenger.Default.Send(new DailyBriefingOpenRequested());
+    private void OpenDailyBriefing() => Messenger.Send(new DailyBriefingOpenRequested());
 
     [RelayCommand]
     private Task SeeAssistantInActionAsync() => _dialogService.ShowWinoAssistantDemoAsync();
@@ -1011,7 +1011,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
             await ExecuteUIThread(() => ApplyIntelligenceConsent(consent));
             await LoadIntelligenceDataAsync().ConfigureAwait(false);
-            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            Messenger.Send(new WinoIntelligenceAccessChanged());
             return IsCurrentIntelligenceConsent(consent);
         }
         catch (Exception exception)
@@ -1095,7 +1095,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             }
 
             await LoadIntelligenceDataAsync().ConfigureAwait(false);
-            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            Messenger.Send(new WinoIntelligenceAccessChanged());
         }
         catch (Exception exception)
         {
@@ -1142,7 +1142,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             account.Preferences.IsSemanticIndexingEnabled = requested;
             await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
             await ExecuteUIThread(() => mailbox.IsEnabled = requested);
-            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            Messenger.Send(new WinoIntelligenceAccessChanged());
         }
         catch (Exception exception)
         {
@@ -1895,7 +1895,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                         usage: null,
                         DateTimeOffset.UtcNow,
                         isFreshBilling: true)));
-                WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+                Messenger.Send(new WinoIntelligenceAccessChanged());
             }
 
             if (account != null)

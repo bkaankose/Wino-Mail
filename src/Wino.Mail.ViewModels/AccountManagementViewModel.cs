@@ -48,7 +48,9 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     public IMailDialogService MailDialogService { get; }
 
-    public AccountManagementViewModel(IMailDialogService dialogService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public AccountManagementViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                                       INavigationService navigationService,
                                       IAccountService accountService,
                                       IKnownImapProviderCatalog providerCatalog,
@@ -62,8 +64,9 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService,
                                       IPlatformCapabilities platformCapabilities,
-                                      IWinoAppStorePurchaseService? appStorePurchases = null) : base(dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
+                                      IWinoAppStorePurchaseService? appStorePurchases = null) : base(messenger, dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
     {
+        _synchronizationManager = synchronizationManager;
         MailDialogService = dialogService;
         _syncService = syncService;
         _winoLogger = winoLogger;
@@ -209,7 +212,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     {
         while (true)
         {
-            var connectivityResult = await SynchronizationManager.Instance
+            var connectivityResult = await _synchronizationManager
                 .TestImapConnectivityAsync(serverInformation)
                 .ConfigureAwait(false);
 

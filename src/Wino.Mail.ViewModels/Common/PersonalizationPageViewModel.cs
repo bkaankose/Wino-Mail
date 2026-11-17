@@ -127,12 +127,12 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.Info_MailListSizeResetSuccessMessage, InfoBarMessageType.Success);
     }
 
-    public PersonalizationPageViewModel(IDialogServiceBase dialogService,
+    public PersonalizationPageViewModel(IMessenger messenger, IDialogServiceBase dialogService,
                                         IStatePersistanceService statePersistanceService,
                                         INewThemeService newThemeService,
                                         IPreferencesService preferencesService,
                                         IThumbnailService thumbnailService,
-                                        IAppModeReadinessService appModeReadinessService)
+                                        IAppModeReadinessService appModeReadinessService) : base(messenger)
     {
         _dialogService = dialogService;
         _newThemeService = newThemeService;
@@ -158,7 +158,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     [RelayCommand]
     private void NavigateApplicationThemes()
     {
-        WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(
+        Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.ApplicationThemeGallery_Title,
             WinoPage.ApplicationThemeGalleryPage));
     }

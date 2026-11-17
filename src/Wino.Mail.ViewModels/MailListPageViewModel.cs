@@ -357,7 +357,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     /// </summary>
     public IShellMenuProvider ShellMenuProvider { get; }
 
-    public MailListPageViewModel(IMailDialogService dialogService,
+    public MailListPageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                  INavigationService navigationService,
                                  IAccountService accountService,
                                  IMailDialogService mailDialogService,
@@ -375,7 +375,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
                                  IMailShellClient shellMenuProvider = null,
-                                 IWinoAccountIntelligenceSnapshotService entitlementService = null)
+                                 IWinoAccountIntelligenceSnapshotService entitlementService = null) : base(messenger)
     {
         ShellMenuProvider = shellMenuProvider;
 
@@ -2697,7 +2697,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+            var synchronizer = await _synchronizationManager.GetSynchronizerAsync(accountId).ConfigureAwait(false);
 
             if (synchronizer == null)
                 continue;
@@ -2931,7 +2931,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             try
             {
-                var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
+                var synchronizer = await _synchronizationManager.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
                 if (synchronizer == null) return (Results: new List<MailCopy>(), FailedAccount: string.Empty);
 
                 var remoteCriteria = new RemoteMailSearchCriteria(
@@ -3493,7 +3493,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         foreach (var accountId in accountIds)
         {
-            if (SynchronizationManager.Instance.IsAccountSynchronizing(accountId))
+            if (_synchronizationManager.IsAccountSynchronizing(accountId))
             {
                 isAnyAccountSynchronizing = true;
                 break;

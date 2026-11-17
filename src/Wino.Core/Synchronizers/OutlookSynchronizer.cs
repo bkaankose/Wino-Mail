@@ -184,7 +184,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         => value.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'sszzz", GlobalizationCultureInfo.InvariantCulture);
 
     public OutlookSynchronizer(MailAccount account,
-                               IAuthenticator authenticator,
+                                                              IMessenger messenger,
+                               RequestUiChangeCoordinator uiChanges,
+IAuthenticator authenticator,
                                IOutlookChangeProcessor outlookChangeProcessor,
                                IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory,
                                IMailCategoryService mailCategoryService,
@@ -192,7 +194,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                                IContactService contactService = null,
                                IPictureStorageService contactPictureFileService = null,
                                ITaskService taskService = null,
-                               ICardDavSynchronizationEngine cardDavSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
+                               ICardDavSynchronizationEngine cardDavSynchronizationEngine = null) : base(account, messenger, uiChanges)
     {
         _graphClient = CreateGraphClient(Account, authenticator);
         _providerFeatureGraphClient = CreateGraphClient(Account, authenticator, [ProviderFeature.MailFilters]);
@@ -1905,7 +1907,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 .UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, string.Empty).ConfigureAwait(false);
         }
 
-        WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+        Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
     }
 
     public Task DownloadSearchResultMessageAsync(string messageId, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
@@ -3037,7 +3039,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
         if (_isFolderStructureChanged)
         {
-            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 
@@ -4008,7 +4010,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             }
             catch
             {
-                RequestUiChangeCoordinator.RevertRequest(sendDraftRequest);
+                UiChanges.RevertRequest(sendDraftRequest);
                 throw;
             }
         }
@@ -4028,7 +4030,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             }
             catch
             {
-                RequestUiChangeCoordinator.RevertBundle(directRequest);
+                UiChanges.RevertBundle(directRequest);
                 throw;
             }
         }
@@ -4187,7 +4189,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
         {
             CaptureSynchronizationIssue(errorContext);
-            RequestUiChangeCoordinator.RevertBundle(bundle);
+            UiChanges.RevertBundle(bundle);
             Debug.WriteLine(errorString);
             errors.Add(errorString);
         }
@@ -5132,7 +5134,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
         {
             // TODO: Notify calendar updates.
-            // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            // Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 

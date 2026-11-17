@@ -153,7 +153,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     /// <summary>The lists of every account. "Add to list" narrows them to the contact's address book.</summary>
     public ObservableCollection<ContactList> ContactLists { get; } = [];
 
-    public ContactsPageViewModel(IContactService contactService, IAccountService accountService,
+    public ContactsPageViewModel(IMessenger messenger, IContactService contactService, IAccountService accountService,
         AccountGroupExpansionStore accountGroupExpansion,
         ISynchronizationManager synchronizationManager, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService,
@@ -162,7 +162,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         IPreferencesService preferencesService = null,
         IAppModeReadinessService appModeReadinessService = null,
         IMailShellClient mailShell = null,
-        IMailCategoryService mailCategoryService = null)
+        IMailCategoryService mailCategoryService = null) : base(messenger)
     {
         Readiness = new ModeReadinessViewModel(
             WinoApplicationMode.Contacts,

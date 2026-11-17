@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -35,19 +34,19 @@ public record SendDraftRequest(SendDraftPreparationRequest Request)
 
     public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Send;
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
         if (Interlocked.Exchange(ref isUiChangeApplied, 1) == 1)
             return;
 
-        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
+        sender.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         if (Interlocked.Exchange(ref isUiChangeApplied, 0) == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
+        sender.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
     }
 }

@@ -289,7 +289,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     public string ComposerFont => _preferencesService.ComposerFont;
     public int ComposerFontSize => _preferencesService.ComposerFontSize;
 
-    public CalendarEventComposePageViewModel(IAccountService accountService,
+    public CalendarEventComposePageViewModel(IMessenger messenger, IAccountService accountService,
                                              ICalendarService calendarService,
                                              INavigationService navigationService,
                                              IMailDialogService dialogService,
@@ -299,7 +299,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
                                              IWinoRequestDelegator winoRequestDelegator,
                                              IAttachmentFileService attachmentFileService = null,
                                              IRecipientSuggestionService recipientSuggestionService = null,
-                                             ICalendarCapabilityService calendarCapabilityService = null)
+                                             ICalendarCapabilityService calendarCapabilityService = null) : base(messenger)
     {
         _accountService = accountService;
         _calendarService = calendarService;

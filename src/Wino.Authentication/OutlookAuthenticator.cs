@@ -34,23 +34,21 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     // Personal Microsoft accounts never grant the *.Shared scopes, so without the broker each
     // AcquireTokenSilent call redeems the refresh token. Concurrent synchronizer requests then
     // trigger Entra loop detection (AADSTS50196) and the account ends in "needs attention".
-    // Keep the issued token per account and scope set, and let one caller refresh at a time.
-    // The authenticator is transient, so this state is shared by every instance.
-    private static readonly ConcurrentDictionary<string, CachedAccessToken> AccessTokens = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> AccessTokenGates = new(StringComparer.Ordinal);
-
-    private sealed record CachedAccessToken(TokenInformationEx TokenInformation, DateTimeOffset ExpiresOn, DateTimeOffset AcquiredOn);
+    // Keep the issued token per account and scope set, and let one caller refresh at a time (OutlookAccessTokenCache).
     private sealed record TokenAcquisition(TokenInformationEx TokenInformation, DateTimeOffset ExpiresOn);
 
     public override MailProviderType ProviderType => MailProviderType.Outlook;
 
     private readonly IOutlookAuthenticationHost _host;
+    private readonly OutlookAccessTokenCache _accessTokens;
 
-    public OutlookAuthenticator(IOutlookAuthenticationHost host, IAuthenticatorConfig authenticatorConfig)
+    public OutlookAuthenticator(IOutlookAuthenticationHost host, IAuthenticatorConfig authenticatorConfig, OutlookAccessTokenCache accessTokens)
         : base(authenticatorConfig)
     {
         ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(accessTokens);
         _host = host;
+        _accessTokens = accessTokens;
     }
 
     /// <summary>
@@ -287,7 +285,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         if (!forceRefresh && TryGetReusableAccessToken(cacheKey, DateTimeOffset.MinValue, out var reusableToken))
             return reusableToken;
 
-        var gate = AccessTokenGates.GetOrAdd(cacheKey, static _ => new SemaphoreSlim(1, 1));
+        var gate = _accessTokens.Gates.GetOrAdd(cacheKey, static _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -301,16 +299,16 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
             if (acquisition == null)
             {
-                AccessTokens.TryRemove(cacheKey, out _);
+                _accessTokens.Tokens.TryRemove(cacheKey, out _);
                 return null;
             }
 
-            AccessTokens[cacheKey] = new CachedAccessToken(acquisition.TokenInformation, acquisition.ExpiresOn, DateTimeOffset.UtcNow);
+            _accessTokens.Tokens[cacheKey] = new CachedOutlookAccessToken(acquisition.TokenInformation, acquisition.ExpiresOn, DateTimeOffset.UtcNow);
             return acquisition.TokenInformation;
         }
         catch (MsalUiRequiredException ex)
         {
-            AccessTokens.TryRemove(cacheKey, out _);
+            _accessTokens.Tokens.TryRemove(cacheKey, out _);
             LogSilentTokenFailure(ex, forceRefresh);
             return null;
         }
@@ -318,7 +316,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            AccessTokens.TryRemove(cacheKey, out _);
+            _accessTokens.Tokens.TryRemove(cacheKey, out _);
             LogSilentTokenFailure(ex, forceRefresh);
             return null;
         }
@@ -328,11 +326,11 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         }
     }
 
-    private static bool TryGetReusableAccessToken(string cacheKey, DateTimeOffset issuedAfter, out TokenInformationEx tokenInformation)
+    private bool TryGetReusableAccessToken(string cacheKey, DateTimeOffset issuedAfter, out TokenInformationEx tokenInformation)
     {
         tokenInformation = null;
 
-        if (!AccessTokens.TryGetValue(cacheKey, out var cachedToken) ||
+        if (!_accessTokens.Tokens.TryGetValue(cacheKey, out var cachedToken) ||
             cachedToken.AcquiredOn < issuedAfter ||
             cachedToken.ExpiresOn - AccessTokenReuseMargin <= DateTimeOffset.UtcNow)
         {
@@ -357,13 +355,13 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     private static string GetAccessTokenCacheAccountPrefix(MailAccount account)
         => $"{account?.Id}|{GetAuthenticationAddress(account)?.Trim().ToLowerInvariant()}|";
 
-    private static void ClearCachedAccessTokens(MailAccount account)
+    private void ClearCachedAccessTokens(MailAccount account)
     {
         var prefix = GetAccessTokenCacheAccountPrefix(account);
 
-        foreach (var key in AccessTokens.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)))
+        foreach (var key in _accessTokens.Tokens.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)))
         {
-            AccessTokens.TryRemove(key, out _);
+            _accessTokens.Tokens.TryRemove(key, out _);
         }
     }
 

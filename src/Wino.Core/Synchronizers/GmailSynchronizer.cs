@@ -130,7 +130,9 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
     private bool _isFolderStructureChanged;
 
     public GmailSynchronizer(MailAccount account,
-                             IGmailAuthenticator authenticator,
+                                                          IMessenger messenger,
+                             RequestUiChangeCoordinator uiChanges,
+IGmailAuthenticator authenticator,
                              IGmailChangeProcessor gmailChangeProcessor,
                              IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
                              IMailFilterExecutor mailFilterExecutor = null,
@@ -140,6 +142,8 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                              ICardDavSynchronizationEngine cardDavSynchronizationEngine = null)
         : this(
             account,
+            messenger,
+            uiChanges,
             gmailChangeProcessor,
             gmailSynchronizerErrorHandlerFactory,
             new GmailClientMessageHandler(authenticator, account),
@@ -154,7 +158,9 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
     internal GmailSynchronizer(
         MailAccount account,
-        IGmailChangeProcessor gmailChangeProcessor,
+                IMessenger messenger,
+        RequestUiChangeCoordinator uiChanges,
+IGmailChangeProcessor gmailChangeProcessor,
         IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
         HttpMessageHandler googleMessageHandler,
         IMailFilterExecutor mailFilterExecutor = null,
@@ -162,7 +168,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         IContactService contactService = null,
         IPictureStorageService contactPictureFileService = null,
         ITaskService taskService = null,
-        ICardDavSynchronizationEngine cardDavSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
+        ICardDavSynchronizationEngine cardDavSynchronizationEngine = null) : base(account, messenger, uiChanges)
     {
         _googleHttpClient = new HttpClient(googleMessageHandler, disposeHandler: true);
         _gmailService = new GmailService(_googleHttpClient);
@@ -1329,7 +1335,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
             if (_isFolderStructureChanged)
             {
-                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
             }
 
             _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
@@ -2130,7 +2136,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
         {
             // TODO: Notify calendar updates.
-            // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            // Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
         }
     }
 
@@ -3510,7 +3516,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         {
             if (ShouldRevertOptimisticMailStateChange(bundle?.UIChangeRequest))
             {
-                RequestUiChangeCoordinator.RevertBundle(bundle);
+                UiChanges.RevertBundle(bundle);
             }
 
             return;
@@ -3524,20 +3530,20 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             // OutOfMemoryException is a known bug in Gmail SDK.
             if (error.Code == 0)
             {
-                RequestUiChangeCoordinator.RevertBundle(bundle);
+                UiChanges.RevertBundle(bundle);
                 throw new OutOfMemoryException(error.Message);
             }
 
             // Entity not found.
             if (isEntityNotFound)
             {
-                RequestUiChangeCoordinator.RevertBundle(bundle);
+                UiChanges.RevertBundle(bundle);
                 throw new SynchronizerEntityNotFoundException(error.Message);
             }
 
             if (!string.IsNullOrEmpty(error.Message))
             {
-                RequestUiChangeCoordinator.RevertBundle(bundle);
+                UiChanges.RevertBundle(bundle);
                 error.Errors?.ForEach(error => _logger.Error("Unknown Gmail SDK error for {Name}\n{Error}", Account.Name, error));
 
                 throw new SynchronizerException(error.Message);

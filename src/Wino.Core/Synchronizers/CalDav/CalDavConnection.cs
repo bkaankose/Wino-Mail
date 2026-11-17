@@ -25,8 +25,6 @@ internal static class CalDavConnection
 
     private static readonly ILogger Logger = Log.ForContext(typeof(CalDavConnection));
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> CalendarLocks = new();
-    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> DiscoveryLocks = new();
-    private static readonly ConcurrentDictionary<Guid, DiscoveredEndpoint> DiscoveredEndpoints = new();
 
     /// <summary>
     /// The configured CalDAV URL, or the one discovered from the account address. A discovery that
@@ -35,23 +33,25 @@ internal static class CalDavConnection
     public static async Task<Uri?> ResolveServiceUriAsync(
         MailAccount account,
         IAutoDiscoveryService autoDiscoveryService,
+        DavEndpointCache endpoints,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(account);
+        ArgumentNullException.ThrowIfNull(endpoints);
 
         var explicitUri = TryGetExplicitServiceUri(account);
         if (explicitUri != null)
             return explicitUri;
 
-        if (TryGetCachedEndpoint(account.Id, out var cachedUri, out var isFresh) && isFresh)
+        if (TryGetCachedEndpoint(endpoints, account.Id, out var cachedUri, out var isFresh) && isFresh)
             return cachedUri;
 
-        var gate = DiscoveryLocks.GetOrAdd(account.Id, _ => new SemaphoreSlim(1, 1));
+        var gate = endpoints.CalDavDiscoveryLocks.GetOrAdd(account.Id, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            if (TryGetCachedEndpoint(account.Id, out cachedUri, out isFresh) && isFresh)
+            if (TryGetCachedEndpoint(endpoints, account.Id, out cachedUri, out isFresh) && isFresh)
                 return cachedUri;
 
             var emailCandidates = new[] { account.ServerInformation?.Address, account.Address }
@@ -71,7 +71,7 @@ internal static class CalDavConnection
                     break;
             }
 
-            DiscoveredEndpoints[account.Id] = new DiscoveredEndpoint(discoveredUri, DateTime.UtcNow);
+            endpoints.CalDavEndpoints[account.Id] = new DiscoveredDavEndpoint(discoveredUri, DateTime.UtcNow);
             return discoveredUri;
         }
         finally
@@ -137,10 +137,11 @@ internal static class CalDavConnection
     public static async Task<CalDavConnectionSettings> CreateRequiredSettingsAsync(
         MailAccount account,
         IAutoDiscoveryService autoDiscoveryService,
+        DavEndpointCache endpoints,
         CancellationToken cancellationToken,
         IDavOAuthAuthenticationProvider? oauthAuthenticationProvider = null)
     {
-        var serviceUri = await ResolveServiceUriAsync(account, autoDiscoveryService, cancellationToken).ConfigureAwait(false)
+        var serviceUri = await ResolveServiceUriAsync(account, autoDiscoveryService, endpoints, cancellationToken).ConfigureAwait(false)
                          ?? throw new InvalidOperationException("Cannot execute CalDAV operation because no CalDAV service URI is configured.");
 
         var bearerSettings = await TryCreateBearerSettingsAsync(account, serviceUri, oauthAuthenticationProvider, cancellationToken).ConfigureAwait(false);
@@ -199,20 +200,18 @@ internal static class CalDavConnection
         return new Releaser(gate);
     }
 
-    private static bool TryGetCachedEndpoint(Guid accountId, out Uri? uri, out bool isFresh)
+    private static bool TryGetCachedEndpoint(DavEndpointCache endpoints, Guid accountId, out Uri? uri, out bool isFresh)
     {
         uri = null;
         isFresh = false;
 
-        if (!DiscoveredEndpoints.TryGetValue(accountId, out var endpoint))
+        if (!endpoints.CalDavEndpoints.TryGetValue(accountId, out var endpoint))
             return false;
 
         uri = endpoint.ServiceUri;
         isFresh = endpoint.ServiceUri != null || DateTime.UtcNow - endpoint.AttemptedAtUtc < FailedDiscoveryRetryInterval;
         return true;
     }
-
-    private sealed record DiscoveredEndpoint(Uri? ServiceUri, DateTime AttemptedAtUtc);
 
     private sealed class Releaser(SemaphoreSlim gate) : IDisposable
     {

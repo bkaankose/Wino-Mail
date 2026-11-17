@@ -34,6 +34,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     private readonly IWinoAccountProfileService _profileService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IMessenger _messenger;
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly ISignatureService _signatureService;
@@ -55,6 +56,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         IAccountService accountService,
         IFolderService folderService,
         ISignatureService signatureService,
+        IMessenger messenger,
         ISyncSnapshotKeyService? keyService = null,
         IEmailTemplateService? templateService = null,
         IMailFilterService? filterService = null,
@@ -71,6 +73,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         _accountService = accountService;
         _folderService = folderService;
         _signatureService = signatureService;
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _keyService = keyService;
         _templateService = templateService;
         _filterService = filterService;
@@ -665,7 +668,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
             if (importedMailboxCount > 0)
             {
-                WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested(false));
+                _messenger.Send(new AccountsMenuRefreshRequested(false));
             }
 
             foreach (var mailbox in orderedMailboxes)
@@ -1244,7 +1247,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         {
             // The bulk path has to announce the change itself. The single-folder mutators on
             // IFolderService do not all broadcast, so the shell would keep the stale layout.
-            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(accountId));
+            _messenger.Send(new AccountFolderConfigurationUpdated(accountId));
         }
 
         return appliedFolderCount;

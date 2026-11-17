@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -35,8 +36,8 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
     public bool IsEmpty => !IsLoading && !HasError && Shortcuts.Count == 0;
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
-    public KeyboardShortcutsPageViewModel(IKeyboardShortcutService keyboardShortcutService,
-                                        IMailDialogService dialogService)
+    public KeyboardShortcutsPageViewModel(IMessenger messenger, IKeyboardShortcutService keyboardShortcutService,
+                                        IMailDialogService dialogService) : base(messenger)
     {
         _keyboardShortcutService = keyboardShortcutService;
         _dialogService = dialogService;

@@ -1,3 +1,5 @@
+using Wino.Core.Helpers;
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -15,7 +17,9 @@ namespace Wino.Core.Synchronizers.Exchange;
 public static class ExchangeSynchronizerSelector
 {
     public static ExchangeSynchronizer Create(MailAccount account,
-                                              IExchangeAuthenticator exchangeAuthenticator,
+                                                                                            IMessenger messenger,
+                                              RequestUiChangeCoordinator uiChanges,
+IExchangeAuthenticator exchangeAuthenticator,
                                               IExchangeChangeProcessor exchangeChangeProcessor,
                                               IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
                                               IContactService? contactService = null,
@@ -28,7 +32,7 @@ public static class ExchangeSynchronizerSelector
             ?? throw new InvalidOperationException("The Exchange account has no server information.");
 
         return serverInformation.EffectiveExchangeTransport == ExchangeTransport.Ews
-            ? new ExchangeSynchronizer(account, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService)
-            : new MapiExchangeSynchronizer(account, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService);
+            ? new ExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService)
+            : new MapiExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService);
     }
 }

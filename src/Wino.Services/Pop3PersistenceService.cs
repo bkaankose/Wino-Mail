@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +10,7 @@ namespace Wino.Services;
 
 public sealed class Pop3PersistenceService : BaseDatabaseService, IPop3PersistenceService
 {
-    public Pop3PersistenceService(IDatabaseService databaseService) : base(databaseService)
+    public Pop3PersistenceService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
     {
     }
 

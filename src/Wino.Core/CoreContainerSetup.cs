@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Wino.Core.Helpers;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog.Core;
 using Wino.Authentication;
@@ -47,7 +48,13 @@ public static class CoreContainerSetup
         services.AddSingleton<ICalendarSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
         services.AddSingleton<IContactSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
         services.AddSingleton<ITaskSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
-        services.AddSingleton<ISynchronizationManager>(provider => SynchronizationManager.Instance);
+        services.AddSingleton<RequestUiChangeCoordinator>();
+        // The sync coordinator depends on this manager, so the manager resolves it on first use.
+        services.AddSingleton(provider => new SynchronizationManager(
+            provider.GetRequiredService<CommunityToolkit.Mvvm.Messaging.IMessenger>(),
+            provider.GetRequiredService<RequestUiChangeCoordinator>(),
+            () => provider.GetRequiredService<ISyncCoordinator>()));
+        services.AddSingleton<ISynchronizationManager>(provider => provider.GetRequiredService<SynchronizationManager>());
         services.AddTransient<IApplicationLocalRequestExecutor, ApplicationLocalRequestExecutor>();
         services.AddTransient<SynchronizationManagerInitializer>();
         services.AddSingleton(provider => new ApplicationRuntimeInitialization(
@@ -117,6 +124,7 @@ public static class CoreContainerSetup
         services.AddTransient<IAccountRouteResolver, AccountRouteResolver>();
         services.AddTransient<IAccountSetupRunner, AccountSetupRunner>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
+        services.AddSingleton<OutlookAccessTokenCache>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         // Desktop default; a head that cannot listen on loopback registers its own receiver.
         services.TryAddTransient<IGoogleAuthorizationCodeReceiver>(CreateLoopbackGoogleAuthorizationCodeReceiver);
@@ -140,6 +148,7 @@ public static class CoreContainerSetup
             () => provider.GetService<IEmbeddedBrowserAuthBroker>()));
 
         services.AddTransient<UnifiedImapSynchronizer>();
+        services.AddSingleton<Wino.Core.Synchronizers.DavEndpointCache>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
         services.AddTransient<ICalDavSynchronizationEngine, CalDavSynchronizationEngine>();
         services.AddTransient<CalDavSynchronizationEngine>();

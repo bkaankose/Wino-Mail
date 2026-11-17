@@ -1,3 +1,4 @@
+using Wino.Core.Helpers;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -64,13 +65,15 @@ public sealed partial class MapiExchangeSynchronizer : ExchangeSynchronizer
     private readonly ConcurrentDictionary<Guid, Lazy<Task>> _mimeDownloads = new();
 
     public MapiExchangeSynchronizer(MailAccount account,
-                                    IExchangeAuthenticator exchangeAuthenticator,
+                                                                        IMessenger messenger,
+                                    RequestUiChangeCoordinator uiChanges,
+IExchangeAuthenticator exchangeAuthenticator,
                                     IExchangeChangeProcessor exchangeChangeProcessor,
                                     IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
                                     IContactService? contactService = null,
                                     IPictureStorageService? contactPictureService = null,
                                     ITaskService? taskService = null)
-        : base(account, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService)
+        : base(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService)
     {
     }
 

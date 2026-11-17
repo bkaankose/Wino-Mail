@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -12,10 +13,10 @@ using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class ToDoPreferenceSettingsPageViewModel(
+public partial class ToDoPreferenceSettingsPageViewModel(IMessenger messenger, 
     IPreferencesService preferencesService,
     ITaskQueryService taskService,
-    IAccountService accountService) : CoreBaseViewModel
+    IAccountService accountService) : CoreBaseViewModel(messenger)
 {
     private bool _isLoaded;
 

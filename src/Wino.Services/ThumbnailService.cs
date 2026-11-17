@@ -21,8 +21,10 @@ public class ThumbnailService(
     IPreferencesService preferencesService,
     IDatabaseService databaseService,
     IApplicationConfiguration applicationConfiguration,
-    IApplicationResourceResolver resources) : IThumbnailService
+    IApplicationResourceResolver resources,
+    IMessenger messenger) : IThumbnailService
 {
+    private readonly IMessenger _messenger = messenger;
     private readonly IPreferencesService _preferencesService = preferencesService;
     private readonly IDatabaseService _databaseService = databaseService;
     private readonly string _thumbnailCacheFolderPath = Path.Combine(applicationConfiguration.ApplicationDataFolderPath, ThumbnailCacheFolderName);
@@ -201,7 +203,7 @@ public class ThumbnailService(
 
         _cache[email] = new ThumbnailCacheEntry(gravatarFileName, faviconFileName);
 
-        WeakReferenceMessenger.Default.Send(new ThumbnailAdded(email));
+        _messenger.Send(new ThumbnailAdded(email));
     }
 
     private async Task<string?> GetGravatarFileNameAsync(string email)

@@ -296,7 +296,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     /// </summary>
     public IShellMenuProvider ShellMenuProvider { get; }
 
+    private readonly ISynchronizationManager _synchronizationManager;
+
     public CalendarPageViewModel(
+        IMessenger messenger,
+        ISynchronizationManager synchronizationManager,
         IStatePersistanceService statePersistanceService,
         ICalendarService calendarService,
         INavigationService navigationService,
@@ -310,8 +314,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         ICalendarRangeTextFormatter calendarRangeTextFormatter,
         ICalendarShellClient shellMenuProvider,
         IAppModeReadinessService appModeReadinessService = null,
-        IMailShellClient mailShell = null)
+        IMailShellClient mailShell = null) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         Readiness = new Wino.Core.ViewModels.Data.ModeReadinessViewModel(
             WinoApplicationMode.Calendar,
             appModeReadinessService,
@@ -1265,7 +1270,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             IWinoSynchronizerBase synchronizer;
             try
             {
-                synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+                synchronizer = await _synchronizationManager.GetSynchronizerAsync(accountId).ConfigureAwait(false);
             }
             catch (InvalidOperationException)
             {

@@ -34,9 +34,9 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
     public bool HasImportStatus => !string.IsNullOrWhiteSpace(ImportStatusMessage);
 
-    public WelcomePageV2ViewModel(IMailDialogService dialogService,
+    public WelcomePageV2ViewModel(IMessenger messenger, IMailDialogService dialogService,
                                   IWinoAccountDataSyncService syncService,
-                                  IPlatformCapabilities platformCapabilities)
+                                  IPlatformCapabilities platformCapabilities) : base(messenger)
     {
         _dialogService = dialogService;
         _syncService = syncService;

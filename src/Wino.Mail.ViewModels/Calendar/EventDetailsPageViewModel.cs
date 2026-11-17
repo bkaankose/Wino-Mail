@@ -282,7 +282,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 
     #endregion
 
-    public EventDetailsPageViewModel(ICalendarService calendarService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public EventDetailsPageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, ICalendarService calendarService,
                                      IExternalLauncher externalLauncher,
                                      IPreferencesService preferencesService,
                                      IMailDialogService dialogService,
@@ -294,8 +296,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                                      IApplicationConfiguration applicationConfiguration,
                                      IAttachmentFileService attachmentFileService = null,
                                      ICalendarCapabilityService calendarCapabilityService = null,
-                                     ILinkBrowserService linkBrowserService = null)
+                                     ILinkBrowserService linkBrowserService = null) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         _calendarService = calendarService;
         _externalLauncher = externalLauncher;
         _linkBrowserService = linkBrowserService;
@@ -1090,7 +1093,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         var localFilePath = Path.Combine(attachmentsFolder, attachmentViewModel.FileName);
 
         // Download attachment using synchronizer
-        await SynchronizationManager.Instance.DownloadCalendarAttachmentAsync(
+        await _synchronizationManager.DownloadCalendarAttachmentAsync(
             CurrentEvent.CalendarItem,
             attachmentViewModel.Attachment,
             localFilePath);

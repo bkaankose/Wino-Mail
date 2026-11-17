@@ -1,3 +1,4 @@
+using Wino.Core.Domain.Interfaces;
 using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Enums;
@@ -19,9 +20,9 @@ public static class ShellSynchronizationStateReader
     /// count makes the aggregate unmeasurable, because a percentage that ignores it would
     /// finish while work is still running.
     /// </summary>
-    public static ShellSynchronizationState Read(IEnumerable<Guid> accountIds, SynchronizationProgressCategory category)
+    public static ShellSynchronizationState Read(ISynchronizationManager synchronizationManager, IEnumerable<Guid> accountIds, SynchronizationProgressCategory category)
     {
-        if (accountIds == null)
+        if (synchronizationManager == null || accountIds == null)
             return ShellSynchronizationState.Idle;
 
         var isSynchronizing = false;
@@ -35,7 +36,7 @@ public static class ShellSynchronizationStateReader
 
             try
             {
-                progress = SynchronizationManager.Instance.GetSynchronizationProgress(accountId, category);
+                progress = synchronizationManager.GetSynchronizationProgress(accountId, category);
             }
             catch (InvalidOperationException)
             {

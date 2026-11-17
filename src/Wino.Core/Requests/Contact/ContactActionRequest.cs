@@ -1,5 +1,4 @@
 using System;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -39,24 +38,24 @@ public sealed record ContactActionRequest : IContactActionRequest
 
     public object GroupingKey() => (AddressBookId, LocalContactId, Operation);
 
-    public void ApplyUIChanges()
-        => Send(Contact, Operation == ContactSynchronizerOperation.Delete
+    public void ApplyUIChanges(IUIMessageSender sender)
+        => Send(sender, Contact, Operation == ContactSynchronizerOperation.Delete
             ? OptimisticEntityChange.Delete
             : OptimisticEntityChange.Upsert, EntityUpdateSource.ClientUpdated);
 
-    public void RevertUIChanges()
+    public void RevertUIChanges(IUIMessageSender sender)
     {
         if (Operation == ContactSynchronizerOperation.Create)
         {
-            Send(Contact, OptimisticEntityChange.Delete, EntityUpdateSource.ClientReverted);
+            Send(sender, Contact, OptimisticEntityChange.Delete, EntityUpdateSource.ClientReverted);
             return;
         }
 
-        Send(OriginalContact ?? Contact, OptimisticEntityChange.Upsert, EntityUpdateSource.ClientReverted);
+        Send(sender, OriginalContact ?? Contact, OptimisticEntityChange.Upsert, EntityUpdateSource.ClientReverted);
     }
 
-    private static void Send(AccountContact contact, OptimisticEntityChange change, EntityUpdateSource source)
-        => WeakReferenceMessenger.Default.Send(new ContactStateChanged(
+    private static void Send(IUIMessageSender sender, AccountContact contact, OptimisticEntityChange change, EntityUpdateSource source)
+        => sender.Send(new ContactStateChanged(
             RequestEntityCloner.Contact(contact),
             change,
             source));

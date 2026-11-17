@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -27,11 +28,12 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     private string _selectedCloseBehaviorMode;
 
     public AppPreferencesPageViewModel(
+        IMessenger messenger,
         IMailDialogService dialogService,
         IPreferencesService preferencesService,
         IStartupIntegrationService startupIntegrationService,
         IPlatformCapabilities platformCapabilities,
-        ITranslationService translationService)
+        ITranslationService translationService) : base(messenger)
     {
         _dialogService = dialogService;
         PreferencesService = preferencesService;

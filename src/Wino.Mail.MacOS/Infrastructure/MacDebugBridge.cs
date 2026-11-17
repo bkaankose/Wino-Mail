@@ -147,7 +147,7 @@ public static class MacDebugBridge
             Dump("AccentChanged", Wino.Presentation.AppKit.WinoLiveObjects.EventTargets(typeof(Wino.Presentation.AppKit.WinoStyle), null, "AccentChanged"));
             Dump("BackdropChanged", Wino.Presentation.AppKit.WinoLiveObjects.EventTargets(typeof(Wino.Presentation.AppKit.WinoStyle), null, "BackdropChanged"));
             Dump("StyleChanged", Wino.Presentation.AppKit.WinoLiveObjects.EventTargets(typeof(Wino.Presentation.AppKit.WinoIcons), null, "StyleChanged"));
-            var sync = Wino.Core.Services.SynchronizationManager.Instance;
+            var sync = Get<ISynchronizationManager>();
             foreach (var evt in sync.GetType().GetEvents()) Dump("Sync." + evt.Name, Wino.Presentation.AppKit.WinoLiveObjects.EventTargets(sync.GetType(), sync, evt.Name));
             return Task.FromResult(report.ToString());
         });

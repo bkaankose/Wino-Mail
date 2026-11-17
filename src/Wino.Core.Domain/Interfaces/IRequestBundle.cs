@@ -48,12 +48,12 @@ public interface IUIChangeRequest
     /// Changes here only affect the UI, not the item itself.
     /// Changes here are reverted if the request fails by calling <see cref="RevertUIChanges"/>.
     /// </summary>
-    void ApplyUIChanges();
+    void ApplyUIChanges(IUIMessageSender sender);
 
     /// <summary>
     /// Reverts the UI changes applied by <see cref="ApplyUIChanges"/> if the request fails.
     /// </summary>
-    void RevertUIChanges();
+    void RevertUIChanges(IUIMessageSender sender);
 }
 
 public interface IMailActionRequest : IRequestBase

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Wino.Core.Helpers;
+using CommunityToolkit.Mvvm.Messaging;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,7 +66,12 @@ public class SynchronizerFactory : ISynchronizerFactory
 
     private SemaphoreSlim GetAccountGate(Guid accountId) => _accountGates.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
 
-    public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
+    private readonly IMessenger _messenger;
+    private readonly RequestUiChangeCoordinator _uiChanges;
+
+    public SynchronizerFactory(IMessenger messenger,
+                               RequestUiChangeCoordinator uiChanges,
+                               IOutlookChangeProcessor outlookChangeProcessor,
                                IGmailChangeProcessor gmailChangeProcessor,
                                IImapChangeProcessor imapChangeProcessor,
                                IAuthenticationProvider authenticationProvider,
@@ -96,6 +103,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory = null,
                                ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null)
     {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
+        _uiChanges = uiChanges ?? throw new ArgumentNullException(nameof(uiChanges));
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
         _imapChangeProcessor = imapChangeProcessor;
@@ -171,13 +180,15 @@ public class SynchronizerFactory : ISynchronizerFactory
         {
             case Domain.Enums.MailProviderType.Outlook:
                 var outlookAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Outlook) as IOutlookAuthenticator;
-                return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory, _mailCategoryService, _mailFilterExecutor, _contactService, _contactPictureFileService, _taskService, _cardDavSynchronizationEngine);
+                return new OutlookSynchronizer(mailAccount, _messenger, _uiChanges, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory, _mailCategoryService, _mailFilterExecutor, _contactService, _contactPictureFileService, _taskService, _cardDavSynchronizationEngine);
             case Domain.Enums.MailProviderType.Gmail:
                 var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
-                return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory, _mailFilterExecutor, _contactService, _contactPictureFileService, _taskService, _cardDavSynchronizationEngine);
+                return new GmailSynchronizer(mailAccount, _messenger, _uiChanges, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory, _mailFilterExecutor, _contactService, _contactPictureFileService, _taskService, _cardDavSynchronizationEngine);
             case Domain.Enums.MailProviderType.IMAP4:
                 return new ImapSynchronizer(
                     mailAccount,
+                    _messenger,
+                    _uiChanges,
                     _imapChangeProcessor,
                     _applicationConfiguration,
                     _unifiedImapSynchronizer,
@@ -199,6 +210,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                     ?? throw new InvalidOperationException("The Exchange authenticator is not registered.");
                 return ExchangeSynchronizerSelector.Create(
                     mailAccount,
+                    _messenger,
+                    _uiChanges,
                     exchangeAuthenticator,
                     _exchangeChangeProcessor ?? throw new InvalidOperationException("The Exchange change processor is not registered."),
                     _exchangeSynchronizerErrorHandlerFactory ?? throw new InvalidOperationException("The Exchange error handler factory is not registered."),
@@ -208,6 +221,8 @@ public class SynchronizerFactory : ISynchronizerFactory
             case Domain.Enums.MailProviderType.POP3:
                 return new Pop3Synchronizer(
                     mailAccount,
+                    _messenger,
+                    _uiChanges,
                     _pop3ClientFactory ?? throw new InvalidOperationException("POP3 client factory is not registered."),
                     _pop3PersistenceService ?? throw new InvalidOperationException("POP3 persistence service is not registered."),
                     _mailService ?? throw new InvalidOperationException("Mail service is not registered."),

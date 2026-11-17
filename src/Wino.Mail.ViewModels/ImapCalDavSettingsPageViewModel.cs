@@ -276,7 +276,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
     }
 
-    public ImapCalDavSettingsPageViewModel(IAutoDiscoveryService autoDiscoveryService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public ImapCalDavSettingsPageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IAutoDiscoveryService autoDiscoveryService,
                                            ICalDavClient calDavClient,
                                            IAccountService accountService,
                                            IMailDialogService mailDialogService,
@@ -292,8 +294,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            IImapAuthCapabilityProbe imapAuthCapabilityProbe = null,
                                            IAccountOAuthProfileService accountOAuthProfileService = null,
                                            IDavOAuthAuthenticationProvider davOAuthAuthenticationProvider = null,
-                                           ITaskService taskService = null)
+                                           ITaskService taskService = null) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         _taskService = taskService;
         _davOAuthAuthenticationProvider = davOAuthAuthenticationProvider;
         _oauthTokenService = oauthTokenService;
@@ -1229,7 +1232,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (_accountCapabilityService != null)
             await _accountCapabilityService.EnsureLocalCapabilityStoresAsync(account);
 
-        await SynchronizationManager.Instance.DestroySynchronizerAsync(account.Id);
+        await _synchronizationManager.DestroySynchronizerAsync(account.Id);
 
         // Leaving CalDAV removes only the synced copies; the server keeps them and local lists stay.
         if (hadCalDavTaskSource && account.TaskIntegrationSource != AccountIntegrationSource.Dav && _taskService != null)

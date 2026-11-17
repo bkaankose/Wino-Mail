@@ -53,14 +53,18 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
     private readonly ICalDavStateStore _stateStore;
     private readonly IDavOAuthAuthenticationProvider? _oauthAuthenticationProvider;
 
+    private readonly DavEndpointCache _davEndpoints;
+
     public CalDavTaskSynchronizationEngine(
         ICalDavClient client,
         ITaskService taskService,
         ICalendarIcsFileService icsFileService,
         IAutoDiscoveryService autoDiscoveryService,
         ICalDavStateStore stateStore,
+        DavEndpointCache davEndpoints,
         IDavOAuthAuthenticationProvider? oauthAuthenticationProvider = null)
     {
+        _davEndpoints = davEndpoints ?? throw new ArgumentNullException(nameof(davEndpoints));
         _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _taskService = taskService ?? throw new ArgumentNullException(nameof(taskService));
@@ -157,7 +161,7 @@ public sealed partial class CalDavTaskSynchronizationEngine : ICalDavTaskSynchro
     /// <summary>The CalDAV endpoint is shared with the calendar, whether or not the calendar uses it.</summary>
     private async Task<CalDavConnectionSettings?> CreateSettingsAsync(MailAccount account, CancellationToken cancellationToken)
     {
-        var serviceUri = await CalDavConnection.ResolveServiceUriAsync(account, _autoDiscoveryService, cancellationToken).ConfigureAwait(false);
+        var serviceUri = await CalDavConnection.ResolveServiceUriAsync(account, _autoDiscoveryService, _davEndpoints, cancellationToken).ConfigureAwait(false);
         if (serviceUri == null)
         {
             Logger.Information("Skipping task sync for {AccountName}: CalDAV endpoint is not configured.", account.Name);

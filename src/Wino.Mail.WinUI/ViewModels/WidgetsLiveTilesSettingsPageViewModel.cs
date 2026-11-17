@@ -13,7 +13,7 @@ namespace Wino.Mail.WinUI.ViewModels;
 /// Settings › Companion › Widgets / Live Tiles. Each section is enabled only on the Windows version that has its
 /// surface: widgets on Windows 11, Live Tiles on Windows 10.
 /// </summary>
-public sealed partial class WidgetsLiveTilesSettingsPageViewModel(WindowsShellPreferences shellPreferences) : CoreBaseViewModel
+public sealed partial class WidgetsLiveTilesSettingsPageViewModel(IMessenger messenger, WindowsShellPreferences shellPreferences) : CoreBaseViewModel(messenger)
 {
     public bool IsWidgetsSupported => WidgetsAndTilesService.AreWidgetsSupported;
     public bool IsWidgetsUnsupported => !WidgetsAndTilesService.AreWidgetsSupported;

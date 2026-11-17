@@ -870,7 +870,7 @@ public sealed partial class AgentPlanExecutor
 
         foreach (var account in accounts)
         {
-            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = MailSynchronizationType.FullFolders

@@ -113,10 +113,13 @@ public sealed partial class VoiceBubbleController : IDisposable
     private bool _isRendering;
     private bool _disposed;
 
+    private readonly IMessenger _messenger;
+
     public VoiceBubbleController(IVoiceBubbleHost host, IAgentPlanHost? planHost, IServiceProvider services)
     {
         _host = host;
         _preferences = services.GetRequiredService<IPreferencesService>();
+        _messenger = services.GetRequiredService<IMessenger>();
         _entitlementService = services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
         _microphone = services.GetRequiredService<IMicrophoneService>();
         _commands = services.GetRequiredService<IAssistantCommandService>();
@@ -157,7 +160,7 @@ public sealed partial class VoiceBubbleController : IDisposable
         _host.HotKeyPressed += HostHotKeyPressed;
         _host.FrameRendered += HostFrameRendered;
 
-        var messenger = WeakReferenceMessenger.Default;
+        var messenger = _messenger;
         messenger.Register<VoiceBubbleController, PreferenceChangedMessage>(this, static (controller, message) => controller._host.Post(() => controller.PreferenceChanged(message.PropertyName)));
         messenger.Register<VoiceBubbleController, WinoIntelligenceEntitlementChanged>(this, static (controller, message) => controller._host.Post(() => controller.ApplyAccess(message.Entitlement.CanAccessSurfaces)));
         messenger.Register<VoiceBubbleController, VoiceSelectionRequested>(this, static (controller, message) => controller._host.Post(() => controller.OpenForSelection(message.Selection)));
@@ -315,7 +318,7 @@ public sealed partial class VoiceBubbleController : IDisposable
         _disposed = true;
         if (_runtime.Prompter.Handler == ProposeAsync)
             _runtime.Prompter.Handler = null;
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
         _host.HotKeyPressed -= HostHotKeyPressed;
         _host.FrameRendered -= HostFrameRendered;
         var bubble = _host.Bubble;

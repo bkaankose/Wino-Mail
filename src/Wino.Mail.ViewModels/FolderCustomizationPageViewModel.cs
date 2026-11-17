@@ -51,10 +51,10 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
     public ObservableCollection<FolderCustomizationItemViewModel> CategoryFolders { get; } = [];
     public ObservableCollection<FolderCustomizationItemViewModel> MoreFolders { get; } = [];
 
-    public FolderCustomizationPageViewModel(IMailDialogService dialogService,
+    public FolderCustomizationPageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                             IFolderService folderService,
                                             IAccountService accountService,
-                                            IWinoRequestDelegator winoRequestDelegator)
+                                            IWinoRequestDelegator winoRequestDelegator) : base(messenger)
     {
         _dialogService = dialogService;
         _folderService = folderService;
@@ -208,7 +208,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
             await _folderService.ChangeFolderDisplayNameAsync(folder.Id, newDisplayName);
 
             folder.DisplayName = newDisplayName;
-            WeakReferenceMessenger.Default.Send(new FolderRenamed(folder));
+            Messenger.Send(new FolderRenamed(folder));
         }
 
         if (canRenameOnServer && newFolderName.Length > 0 && !string.Equals(newFolderName, folder.FolderName, StringComparison.Ordinal))

@@ -698,12 +698,12 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
 
     #endregion
 
-    public MessageListPageViewModel(IPreferencesService preferencesService,
+    public MessageListPageViewModel(IMessenger messenger, IPreferencesService preferencesService,
                                     IThumbnailService thumbnailService,
                                     IStatePersistanceService statePersistenceService,
                                     IDialogServiceBase dialogService,
                                     IPlatformCapabilities platformCapabilities,
-                                    IAccountService accountService)
+                                    IAccountService accountService) : base(messenger)
     {
         PreferencesService = preferencesService;
         _platformCapabilities = platformCapabilities;

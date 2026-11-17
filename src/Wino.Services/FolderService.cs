@@ -27,9 +27,9 @@ public class FolderService : BaseDatabaseService, IFolderService
     private readonly IMailCategoryService _mailCategoryService;
     private readonly ILogger _logger = Log.ForContext<FolderService>();
 
-    public FolderService(IDatabaseService databaseService,
+    public FolderService(IDatabaseService databaseService, IMessenger messenger,
                            IAccountService accountService,
-                           IMailCategoryService mailCategoryService) : base(databaseService)
+                           IMailCategoryService mailCategoryService) : base(databaseService, messenger)
     {
         _accountService = accountService;
         _mailCategoryService = mailCategoryService;
