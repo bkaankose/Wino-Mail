@@ -28,6 +28,8 @@ The projects:
 - `Wino.Editor.Android` (`net10.0-android`) contains the Android `WebView` reader and editor sessions over `Wino.Editor.Core`, with assets served by `WebViewAssetLoader` and the `winoMail` message bridge (a Java `WinoJavaScriptBridge` fallback where `WebMessageListener` is missing).
 - `Wino.Mail.Controls.Playground.WinUI` is the development and verification app. It must demonstrate every public UI control.
 
+Projects here reference `Wino.Core.Domain` and each other only. Never reference `Wino.Services`, `Wino.Core`, `Wino.Authentication` or anything that synchronizes; the playground runs on sample data.
+
 Do not move application-specific mail behavior into these projects. Keep reusable contracts and collection behavior in Core, reusable presentation behavior in the control libraries, and sample-only data or wiring in the playground.
 
 ## Repository Navigation

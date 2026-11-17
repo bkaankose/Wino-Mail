@@ -12,7 +12,28 @@ Wino Mail is a native mail, calendar, contacts, and To Do client with four appli
 All applications use the shared backend: `Wino.Core.Domain`, `Wino.Core`, `Wino.Services`, `Wino.Authentication`, `Wino.Messaging`, `Wino.Core.ML`, `Wino.Mail.ViewModels`, `controls/Wino.Mail.Controls.Core`, and `controls/Wino.Editor.Core`.
 Platform services live in `Wino.Platform.Windows`, `Wino.Platform.MacOS`, `Wino.Platform.iOS`, and `Wino.Platform.Android`. The Apple apps share `Wino.Platform.Apple` (Foundation-level services: paths, configuration, Keychain, StoreKit, notifications), `Wino.Core.Apple.Bindings`, and `controls/Wino.Editor.WebKit`; `Wino.Platform.MacOS` and `Wino.Platform.iOS` hold only AppKit-only and UIKit-only services.
 
+## Guidance map
+
+Before you edit under one of these folders, read its `AGENTS.md`. It is binding for that folder and holds what this file does not: the project's hard stops, how its code is run and checked, and its performance rules.
+
+| You edit | Read first |
+| --- | --- |
+| `src/Wino.Core.Domain` (contracts, entities, translations, client ids) | [src/Wino.Core.Domain/AGENTS.md](src/Wino.Core.Domain/AGENTS.md) |
+| `src/Wino.Services` (database, schema, MIME store, logging, preferences) | [src/Wino.Services/AGENTS.md](src/Wino.Services/AGENTS.md) |
+| `src/Wino.Core` (synchronizers, requests, sync schedule, account setup) | [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md) |
+| `src/Wino.Mail.ViewModels` | [src/Wino.Mail.ViewModels/AGENTS.md](src/Wino.Mail.ViewModels/AGENTS.md) |
+| `src/Wino.Mail.WinUI`, `src/Wino.Platform.Windows` (XAML, dialogs, Native AOT) | [src/Wino.Mail.WinUI/AGENTS.md](src/Wino.Mail.WinUI/AGENTS.md) |
+| `src/Wino.Mail.MacOS`, `src/Wino.Platform.MacOS`, Apple signing or entitlements | [src/Wino.Mail.MacOS/AGENTS.md](src/Wino.Mail.MacOS/AGENTS.md) |
+| `src/Wino.Mail.UIKit`, `src/Wino.Mail.UIKit.Phone`, `src/Wino.Mail.iOS`, `src/Wino.Platform.iOS` | [src/Wino.Mail.UIKit/AGENTS.md](src/Wino.Mail.UIKit/AGENTS.md) |
+| `src/Wino.Mail.Android`, `src/Wino.Platform.Android` | [src/Wino.Mail.Android/AGENTS.md](src/Wino.Mail.Android/AGENTS.md) |
+| `src/Wino.Platform.Apple` | [src/Wino.Platform.Apple/AGENTS.md](src/Wino.Platform.Apple/AGENTS.md) |
+| `controls/` | [controls/AGENTS.md](controls/AGENTS.md) |
+
+A change that crosses folders follows every file it touches. When you add a project, add its `AGENTS.md` and a row here in the same change.
+
 ## Platform routing
+
+Each platform has a project file in the guidance map and a development guide. Read both.
 
 - **Windows change** (WinUI head, Windows platform services, WinUI controls, XAML, MSIX, `build/Wino.Windows.*`, Windows scripts): read the [Windows guide](docs/harness/development-windows.md) before editing. Its Native AOT and build safety section is release-blocking.
 - **macOS change** (AppKit head, Mac platform services, AppKit controls, entitlements, `build/Wino.MacOS.*`, Mac scripts): read the [macOS guide](docs/harness/development-macos.md).
@@ -29,6 +50,7 @@ Platform services live in `Wino.Platform.Windows`, `Wino.Platform.MacOS`, `Wino.
 - After a passing check, repeat it only for changed inputs, new failures, or unresolved concerns.
 - Report the result, verification evidence, and remaining limits. A build alone does not prove runtime behavior.
 - Run checks on the available host. Report the other platform's exact pending checks as a handoff; do not claim cross-platform completion without that evidence.
+- Any machine may change any code, including a head it cannot build. Verify everything the machine allows, follow that project's `AGENTS.md` for the rest, and report its build and UI check as pending.
 - Never commit or push unless the user explicitly asks in the current request. Creating a local branch is fine; changes stay uncommitted on the local machine until the user asks for a commit or push.
 
 ## Commits and release notes
@@ -51,15 +73,22 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 - Write no comments in source code unless one identifies a potential risk, explains an uncommon decision behind the code, or is needed for everyone to understand it. Do not restate member names, describe what the code plainly does, or narrate the feature.
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
+- The database changes only after the server confirms a change. The UI change is applied in memory and reverted on failure, through the request pipeline in [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md). Add no offline queue and no retry queue.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
 - Shared Release builds keep their Native AOT, trimming, and warnings-as-errors gates. Only projects that target `-macos`, `-ios`, or `-android` (the AppKit, UIKit, and Android projects and the Apple shared layer) are exempt from the AOT gate.
 - `WinoTargetPlatform` (`Windows`, `MacOS`, `iOS`, or `Android`) and `WinoTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. The host never selects `iOS` or `Android`; those builds pass it explicitly. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
 
-## Windows dialogs
+## Running backend code without an app
 
-- Every `ContentDialog` in the WinUI head is a dedicated `ContentDialog` file in `src/Wino.Mail.WinUI/Dialogs`, with its text from `Translator`. Never write `new ContentDialog { ... }` or declare a `<ContentDialog>` inside a page or control.
-- `src/Wino.Mail.WinUI/Services/DialogService.cs` (with `DialogServiceBase`) is the only code that creates or presents dialogs. It returns the result through an async method. Pages, controls, and other services call `IMailDialogService`, `IDialogServiceBase`, or the Windows-only `IWinoDialogService`; they never call `ShowAsync` or set `XamlRoot`.
-- WinUI allows one open `ContentDialog` per `XamlRoot`. Queued dialogs go through `HandleDialogPresentationAsync`. Progress dialogs that their owner closes go through `StartSessionDialog`.
+There are no test projects, written tests, mocks or fakes in this repository or in any other Wino repository, and none are added. Verify a change by running the real code and reporting what it printed.
+
+- Write one C# file in your scratchpad, outside the repository, and run it with `dotnet run <file>.cs`. A first line `#:project <absolute path to a .csproj>` references a repository project, so the script needs no project file.
+- Use the real services, the real network and a real database in an empty scratch folder. Replace nothing with a stand-in.
+- A script disables reflection-based JSON. To print an object as JSON, add the line `#:property JsonSerializerIsReflectionEnabledByDefault=true`.
+- Keep scripts out of the repository, and never point one at the installed app's data folder.
+- Report the command, its output, and what the run did not cover.
+
+Working samples: a storage service in [src/Wino.Services/AGENTS.md](src/Wino.Services/AGENTS.md) and a network service in [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md).
 
 ## Discovery and references
 
@@ -102,7 +131,7 @@ Use focused skills for the affected subsystem. Avoid loading overlapping general
 ## Development loop
 
 Use plain `dotnet`, `winapp`, and platform tools. Build and run commands restore dependencies by default; use the SDK's normal incremental behavior.
-VS Code F5 on Windows uses the approved `scripts/development/windows/start-wino.ps1` helper to reuse unchanged Debug x64 output. This is the only development wrapper and input-hash cache. Keep custom debug build targets out of the project.
+The Windows F5 helper is described in [src/Wino.Mail.WinUI/AGENTS.md](src/Wino.Mail.WinUI/AGENTS.md); it is the only development wrapper.
 Mac F5 prepares the debugger, then runs a plain `dotnet build`. The iOS workspace has build tasks only; install and launch in the Simulator with `xcrun simctl`. The Android workspace has build and emulator tasks; deploy with `-t:Install` or `-t:Run`, never `adb install` of a Debug APK.
 
 ## Verification scope
@@ -124,14 +153,8 @@ Mac F5 prepares the debugger, then runs a plain `dotnet build`. The iOS workspac
 | Android release inputs (manifest, signing, trimming, Mono AOT) | Release Mono AOT `android-arm64` build and the 16 KB page-size check |
 | Shared production code, dependencies, or build configuration | Windows Debug x64 build and Release x64 gate, the Android Debug build, and the macOS and iOS builds as a handoff when no Mac is available |
 
-Windows production changes always need the Release gate, run without launching or deploying:
-
-```powershell
-dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false
-```
-
-Format changed XAML before building with `scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
-The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. The remote [mail lab](tools/lab/README.md) is the application testing environment; `scripts/lab/windows/lab.ps1 install-app` leases its accounts and puts them into the Windows Debug app. Agents lease accounts (`lab.ps1 lease` or `install-app`) instead of using the shared baseline accounts, and `lab.ps1 release` the lease when done. Before any lab test, check that the lab manifest `~/.wino-lab/fixtures.json` exists (on Windows `%USERPROFILE%\.wino-lab\fixtures.json`). If it does not exist, refuse the lab test: do not run it, do not fetch or create the manifest, and do not look for the lab password anywhere else; report that the lab is not set up on this machine and that the owner sets it up with `lab.ps1 manifest`. When the manifest exists, take the lab accounts, endpoints, password and control token from it or from a lease file, and never write the password or the token into the repository, a commit, a log, or a reply. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
+Windows production changes always need the Release gate, run without launching or deploying. Its command, XAML formatting and the UI check commands are in [src/Wino.Mail.WinUI/AGENTS.md](src/Wino.Mail.WinUI/AGENTS.md).
+Backend code is checked by running it from a scratchpad script; see "Running backend code without an app" above. The remote [mail lab](tools/lab/README.md) is the application testing environment; `scripts/lab/windows/lab.ps1 install-app` leases its accounts and puts them into the Windows Debug app. Agents lease accounts (`lab.ps1 lease` or `install-app`) instead of using the shared baseline accounts, and `lab.ps1 release` the lease when done. Before any lab test, check that the lab manifest `~/.wino-lab/fixtures.json` exists (on Windows `%USERPROFILE%\.wino-lab\fixtures.json`). If it does not exist, refuse the lab test: do not run it, do not fetch or create the manifest, and do not look for the lab password anywhere else; report that the lab is not set up on this machine and that the owner sets it up with `lab.ps1 manifest`. When the manifest exists, take the lab accounts, endpoints, password and control token from it or from a lease file, and never write the password or the token into the repository, a commit, a log, or a reply. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
 A passing build does not prove UI behavior. Report a UI check as done only when it was performed, by an agent through `winapp ui` or by a person, and say which.
 
 ## Accounts, OAuth clients and signing (hard rules)
@@ -167,24 +190,13 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
   = the web client `973025879644-92h0mdbvgaiq0p6efdv16hpiop65er6a.apps.googleusercontent.com`
   (`WinoAuthenticationClientIds.Google.AndroidServer`). The Android client ids are never named in code; Google
   matches package `com.winomail.android` and the signing certificate.
-- Apple: iOS and macOS share App ID `com.winomail.macos` (team `4VB7YWRAQ9`) with Sign in with Apple enabled. The
-  iOS entitlements files and `Wino.Mail.MacOS/Entitlements.AppStore.plist` carry `com.apple.developer.applesignin`;
-  macOS development builds get it through `CustomEntitlements` when a profile signs the build.
-- Developer ID profiles cannot carry Sign in with Apple. `build-macos-release.sh` passes `-p:WinoAppleSignIn=false`;
-  never remove that or add the entitlement to DMG builds, or macOS refuses to launch the app. DMG users sign in
-  with Apple through the API's browser flow. The Mac csproj defines `WINO_APPLE_SIGNIN` under exactly the
-  entitlement condition; `Composition` registers the native `AppleNativeSignInProvider` with it, and without it the
-  shared `WinoAccountExternalSignInService` falls back to the `ASWebAuthenticationSession` browser flow. Android
-  always uses the browser flow for Apple.
+- Apple App ID, Sign in with Apple entitlements, the Developer ID (DMG) rule, provisioning profile names and Apple
+  build and signing rules are hard stops in [src/Wino.Mail.MacOS/AGENTS.md](src/Wino.Mail.MacOS/AGENTS.md). They
+  bind the iOS app too. Read them before you touch an entitlement, a profile or `build-macos-release.sh`.
+- Android always uses the browser flow for Apple.
 - The browser flow's callback address (`wino://auth-complete`, the API's `Secrets:ExternalAuth:AppCallbackUri`)
   is spelled once on the client, in `WinoAccountExternalAuth` (`Wino.Core.Domain`); the Android intent filter and
   the Mac web session read it from there. Change it there and in the API together.
-- Provisioning profiles are selected by name ("Wino Mail iOS Development", "Wino Mail iOS App Store", "Wino Mail
-  macOS App Store", "Wino Mail macOS Developer ID", "Wino Mail macOS Development"). Recreating a profile must keep
-  its exact name. Changing App ID capabilities invalidates all of them.
-- Build Apple targets with `~/.dotnet/dotnet` (it has the ios/macos/android workloads; `/usr/local/share/dotnet`
-  does not). Code signing fails over SSH (`errSecInternalComponent`: the login keychain is locked per SSH
-  session), so signed builds run in a local Terminal.
 - The production API starts the flow on `https://winomail.app/auth/{provider}`; a local API is opened directly at
   `api/v1/auth/{provider}/authorize` (`WinoAccountApiClient.GetExternalSignInAuthorizationUri`).
 
