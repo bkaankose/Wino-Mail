@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels.Companion;
 
@@ -171,8 +172,14 @@ public sealed class CompanionActionHandler(
             return;
 
         cancellationToken.ThrowIfCancellationRequested();
+        var preparation = await services.GetRequiredService<WinoRequestCoordinator>()
+            .AnswerMailOperationAsync(new MailOperationPreperationRequest(operation, stored))
+            .ConfigureAwait(false);
+        if (preparation is null)
+            return;
+
         var requests = await services.GetRequiredService<IWinoRequestProcessor>()
-            .PrepareRequestsAsync(new MailOperationPreperationRequest(operation, stored))
+            .PrepareRequestsAsync(preparation)
             .ConfigureAwait(false);
         if (requests is null || requests.Count == 0)
             return;

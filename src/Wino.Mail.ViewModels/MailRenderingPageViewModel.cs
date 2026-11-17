@@ -34,6 +34,7 @@ using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels;
 
@@ -56,6 +57,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IFolderService _folderService;
     private readonly IFileService _fileService;
     private readonly IWinoRequestDelegator _requestDelegator;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly IContactService _contactService;
     private readonly IUnsubscriptionService _unsubscriptionService;
     private readonly IApplicationConfiguration _applicationConfiguration;
@@ -247,6 +249,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IFolderService folderService,
         IFileService fileService,
         IWinoRequestDelegator requestDelegator,
+        WinoRequestCoordinator requestCoordinator,
         IStatePersistanceService statePersistenceService,
         IContactService contactService,
         IUnsubscriptionService unsubscriptionService,
@@ -286,6 +289,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _folderService = folderService;
         _fileService = fileService;
         _requestDelegator = requestDelegator;
+        _requestCoordinator = requestCoordinator;
         Invitation = new MailInvitationCardViewModel(mailInvitationService, calendarService, navigationService, preferencesService, ExecuteUIThread);
         IsDarkWebviewRenderer = GetReaderThemeIsDark(_underlyingThemeService.IsUnderlyingThemeDark());
         ReaderDarkModeMethod = PreferencesService.ReaderDarkModeMethod;
@@ -475,7 +479,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             {
                 // All other operations require a mail item.
                 var prepRequest = new MailOperationPreperationRequest(operation, initializedMailItemViewModel.MailCopy);
-                await _requestDelegator.ExecuteAsync(prepRequest);
+                await _requestCoordinator.ExecuteMailOperationAsync(prepRequest);
             }
         }
         catch (UnavailableSpecialFolderException unavailableSpecialFolderException)

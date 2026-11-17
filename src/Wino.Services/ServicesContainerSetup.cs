@@ -49,8 +49,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<ILinkBrowserService, LinkBrowserService>();
         // Needs the platform INotificationBuilder; each head starts it once its shell is running.
         services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
-        // Needs the head's INotificationResponseNavigator (ViewModels layer) and platform INotificationBuilder.
-        services.AddTransient<INotificationResponseService, Wino.Services.Notifications.NotificationResponseService>();
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();

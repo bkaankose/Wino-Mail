@@ -33,7 +33,7 @@ var discovery = wino.Get<IAutoDiscoveryService>();
 var settings = await discovery.GetAutoDiscoverySettings(new AutoDiscoveryMinimalSettings { Email = args[1] });
 Console.WriteLine(settings?.Domain);
 
-foreach (var interaction in wino.Interactions)   // what the backend asked of a screen, and the host's answer
+foreach (var interaction in wino.Interactions)   // what ViewModels asked of a screen, and the host's answer
     Console.WriteLine(interaction);
 ```
 

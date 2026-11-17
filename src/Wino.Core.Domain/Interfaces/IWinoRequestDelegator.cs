@@ -11,14 +11,10 @@ namespace Wino.Core.Domain.Interfaces;
 public interface IWinoRequestDelegator
 {
     /// <summary>
-    /// Prepares requires IRequest collection for mail actions and executes them via proper synchronizers.
-    /// </summary>
-    /// <param name="prerperationRequest">Preperation model that encapsulates action and mail items.</param>
-    Task ExecuteAsync(MailOperationPreperationRequest prerperationRequest);
-
-    /// <summary>
-    /// Like <see cref="ExecuteAsync(MailOperationPreperationRequest)"/>, but returns what happened instead of showing an
-    /// InfoBar when the requests can't be prepared.
+    /// Prepares the requests for a mail action and queues them for the synchronizers. Nothing is shown: an error that
+    /// stopped the preparation is returned, and an unanswered question (a protected permanent delete, a move without a
+    /// destination) comes back as a <see cref="Exceptions.MailOperationDecisionRequiredException"/>. ViewModels call this
+    /// through their request coordinator, which asks first and shows the error.
     /// </summary>
     Task<WinoRequestDelegationResult> ExecuteWithResultAsync(MailOperationPreperationRequest preparationRequest);
 
@@ -35,16 +31,16 @@ public interface IWinoRequestDelegator
     Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest);
 
     /// <summary>
-    /// Prepares requires IRequest collection for folder actions and executes them via proper synchronizers.
+    /// Prepares the request for a folder action and queues it for the synchronizer. The caller has already asked for
+    /// any name or confirmation the action needs; an unsupported action comes back as a <see cref="System.NotImplementedException"/>.
     /// </summary>
-    /// <param name="folderOperationPreperationRequest">Folder prep request.</param>
-    Task ExecuteAsync(FolderOperationPreperationRequest folderOperationPreperationRequest);
+    Task<WinoRequestDelegationResult> ExecuteAsync(FolderOperationPreperationRequest folderOperationPreperationRequest);
 
     /// <summary>
-    /// Prepares and queues calendar action requests for proper synchronizers.
+    /// Prepares and queues calendar action requests for proper synchronizers. A read-only target calendar queues
+    /// nothing and comes back as a <see cref="Exceptions.ReadOnlyCalendarException"/>.
     /// </summary>
-    /// <param name="calendarOperationPreparationRequest">Calendar preparation request.</param>
-    Task ExecuteAsync(CalendarOperationPreparationRequest calendarOperationPreparationRequest);
+    Task<WinoRequestDelegationResult> ExecuteAsync(CalendarOperationPreparationRequest calendarOperationPreparationRequest);
 
     Task ExecuteAsync(ContactOperationPreparationRequest contactOperationPreparationRequest);
     Task ExecuteAsync(IReadOnlyList<ContactOperationPreparationRequest> preparationRequests);

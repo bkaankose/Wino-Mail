@@ -14,13 +14,15 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Notifications;
+using Wino.Mail.ViewModels.Requests;
 
-namespace Wino.Services.Notifications;
+namespace Wino.Mail.ViewModels.Activation;
 
 /// <summary>
 /// The notification response rules shared by every head (the Windows AppNotificationHandler and
 /// App.xaml.cs toast handlers, the macOS UNUserNotificationCenter delegate). UI work goes through
-/// <see cref="INotificationResponseNavigator"/>.
+/// <see cref="INotificationResponseNavigator"/>, and a mail action asks and reports through the same
+/// <see cref="WinoRequestCoordinator"/> a page uses, so it lives in the ViewModel layer.
 /// </summary>
 public sealed class NotificationResponseService(
     ICalendarService calendarService,
@@ -29,6 +31,7 @@ public sealed class NotificationResponseService(
     IAccountService accountService,
     IMimeFileService mimeFileService,
     IWinoRequestDelegator requestDelegator,
+    WinoRequestCoordinator requestCoordinator,
     INotificationBuilder notificationBuilder,
     IPreferencesService preferencesService,
     IExternalLauncher externalLauncher,
@@ -234,7 +237,7 @@ public sealed class NotificationResponseService(
         MailCopy? mailItem = await mailService.GetSingleMailItemAsync(mailUniqueId);
         if (mailItem is null) return;
 
-        await requestDelegator.ExecuteAsync(new MailOperationPreperationRequest(action, mailItem));
+        await requestCoordinator.ExecuteMailOperationAsync(new MailOperationPreperationRequest(action, mailItem));
         await notificationBuilder.UpdateTaskbarIconBadgeAsync();
     }
 

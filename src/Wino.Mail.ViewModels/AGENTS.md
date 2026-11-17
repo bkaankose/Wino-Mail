@@ -5,7 +5,7 @@ The one ViewModel library for all four apps. A ViewModel holds the state a scree
 ## Hard stops
 
 - **No UI framework type.** Nothing from WinUI, AppKit, UIKit or Android, and no hook for one platform. There is no platform copy of a production ViewModel.
-- **A ViewModel holds UI state only.** Business rules and data access go in a service. An action that changes server data goes through `IWinoRequestDelegator`; a ViewModel never writes the database. The pipeline is described in [Wino.Core](../Wino.Core/AGENTS.md).
+- **A ViewModel holds UI state only.** Business rules and data access go in a service. A mail, folder or calendar action that changes server data goes through `WinoRequestCoordinator`, which asks the user's questions and shows backend errors in one place for every caller; a ViewModel never writes the database. The pipeline is described in [Wino.Core](../Wino.Core/AGENTS.md).
 - **CsWinRT attributes are for Windows marshalling only.** The project has a second, Windows-only target that defines `WINRT_EXPOSED`. Add `[GeneratedWinRTExposedType]` or `[GeneratedBindableCustomProperty]` under that symbol only for a type that a WinUI items source or a runtime `{Binding}` receives.
 - **Register shared ViewModels only in `RegisterWinoViewModels`** (`WinoViewModelRegistration.cs`). Every head calls it.
 

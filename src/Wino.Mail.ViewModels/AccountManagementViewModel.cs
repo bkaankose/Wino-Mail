@@ -29,6 +29,7 @@ using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Settings;
 
 namespace Wino.Mail.ViewModels;
 
@@ -40,6 +41,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private readonly SemaphoreSlim _accountsReloadGate = new(1, 1);
 
     private readonly IWinoAccountDataSyncService _syncService;
+    private readonly AppearanceSnapshotService _appearance;
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
@@ -57,6 +59,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IWinoBillingService billingService,
                                       IWinoAccountProfileService winoAccountProfileService,
                                       IWinoAccountDataSyncService syncService,
+                                      AppearanceSnapshotService appearance,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
@@ -69,6 +72,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         _synchronizationManager = synchronizationManager;
         MailDialogService = dialogService;
         _syncService = syncService;
+        _appearance = appearance;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
@@ -297,7 +301,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var exportResult = await _syncService.ExportToFileAsync(new(), PromptSyncSecretAsync).ConfigureAwait(false);
+            var exportResult = await _syncService.ExportToFileAsync(new() { Appearance = _appearance.Capture() }, PromptSyncSecretAsync).ConfigureAwait(false);
             await File.WriteAllBytesAsync(exportPath, exportResult.Content).ConfigureAwait(false);
 
             DialogService.InfoBarMessage(
@@ -337,7 +341,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync).ConfigureAwait(false);
             if (result.Appearance != null)
             {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                await ExecuteUIThread(() => _appearance.Apply(result.Appearance));
             }
 
             await InitializeAccountsAsync().ConfigureAwait(false);

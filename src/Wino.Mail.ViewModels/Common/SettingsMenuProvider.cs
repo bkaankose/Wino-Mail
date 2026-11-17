@@ -51,7 +51,7 @@ public partial class SettingsMenuProvider(IMessenger messenger,
         _isPreparedForShellShutdown = false;
         _shellMenu = new ShellMenu
         {
-            Items = new MenuItemCollection(Dispatcher),
+            Items = new MenuItemCollection(),
             HandlesSelection = true
         };
 

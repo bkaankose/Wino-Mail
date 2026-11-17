@@ -25,9 +25,7 @@ namespace Wino.Core.Services;
 public class WinoRequestProcessor : IWinoRequestProcessor
 {
     private readonly IFolderService _folderService;
-    private readonly IShortcutPlatformService _shortcutPlatformService;
     private readonly IPreferencesService _preferencesService;
-    private readonly IMailDialogService _dialogService;
     private readonly IMailService _mailService;
     private readonly IContactService _contactService;
 
@@ -43,16 +41,12 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     ];
 
     public WinoRequestProcessor(IFolderService folderService,
-                                IShortcutPlatformService shortcutPlatformService,
                                 IPreferencesService preferencesService,
-                                IMailDialogService dialogService,
                                 IMailService mailService,
                                 IContactService contactService)
     {
         _folderService = folderService;
-        _shortcutPlatformService = shortcutPlatformService;
         _preferencesService = preferencesService;
-        _dialogService = dialogService;
         _mailService = mailService;
         _contactService = contactService;
     }
@@ -114,40 +108,19 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         if (mailItems.Count == 0)
             return [];
 
-        // Ask confirmation for permanent delete operation.
+        // The caller confirms a protected permanent delete and picks a move destination before it gets here.
         // Drafts are always hard deleted without any protection.
 
-        if (!preperationRequest.IgnoreHardDeleteProtection && ((action == MailOperation.SoftDelete && _shortcutPlatformService.IsShiftKeyPressed()) || action == MailOperation.HardDelete))
-        {
-            if (_preferencesService.IsHardDeleteProtectionEnabled)
-            {
-                var shouldDelete = await _dialogService.ShowHardDeleteConfirmationAsync();
-
-                if (!shouldDelete) return default;
-            }
-
-            action = MailOperation.HardDelete;
-        }
-
-        // Make sure there is a move target folder if action is move.
-        // Let user pick a folder to move from the dialog.
+        if (!preperationRequest.IgnoreHardDeleteProtection && action == MailOperation.HardDelete && _preferencesService.IsHardDeleteProtectionEnabled)
+            throw new MailOperationDecisionRequiredException(MailOperationDecision.ConfirmPermanentDelete);
 
         if (action == MailOperation.Move && moveTargetStructure == null)
         {
-            // Handle the case when user is trying to move multiple mails that belong to different accounts.
-            // We can't handle this with only 1 picker dialog.
-
-            bool isInvalidMoveTarget = mailItems.Select(a => a.AssignedAccount.Id).Distinct().Count() > 1;
-
-            if (isInvalidMoveTarget)
+            // One destination picker cannot serve mails from several accounts.
+            if (mailItems.Select(a => a.AssignedAccount.Id).Distinct().Count() > 1)
                 throw new InvalidMoveTargetException(InvalidMoveTargetReason.MultipleAccounts);
 
-            var accountId = mailItems[0].AssignedAccount.Id;
-
-            moveTargetStructure = await _dialogService.PickFolderAsync(accountId, PickFolderReason.Move, _folderService);
-
-            if (moveTargetStructure == null)
-                return default;
+            throw new MailOperationDecisionRequiredException(MailOperationDecision.PickMoveTarget);
         }
 
         if (action == MailOperation.Move)
@@ -350,8 +323,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                 break;
 
             case FolderOperation.Rename:
-                var newFolderName = request.NewFolderName
-                    ?? await _dialogService.ShowTextInputDialogAsync(folder.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_Rename);
+                var newFolderName = request.NewFolderName;
 
                 if (!string.IsNullOrEmpty(newFolderName))
                 {
@@ -374,21 +346,11 @@ public class WinoRequestProcessor : IWinoRequestProcessor
 
                 break;
             case FolderOperation.Delete:
-                var deleteQuestion = string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, folder.ResolvedDisplayName);
-                var shouldDelete = await _dialogService.ShowConfirmationDialogAsync(deleteQuestion, Translator.FolderOperation_Delete, Translator.FolderOperation_Delete);
-
-                if (shouldDelete)
-                {
-                    change = new DeleteFolderRequest(folder);
-                }
+                change = new DeleteFolderRequest(folder);
 
                 break;
             case FolderOperation.CreateSubFolder:
-                var subFolderName = await _dialogService.ShowTextInputDialogAsync(
-                    string.Empty,
-                    Translator.FolderOperation_CreateSubFolder,
-                    Translator.DialogMessage_RenameFolderMessage,
-                    Translator.FolderOperation_CreateSubFolder);
+                var subFolderName = request.NewFolderName;
 
                 if (!string.IsNullOrWhiteSpace(subFolderName))
                 {

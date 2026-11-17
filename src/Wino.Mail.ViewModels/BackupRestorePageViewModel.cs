@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Settings;
 
 namespace Wino.Mail.ViewModels;
 
@@ -28,14 +29,17 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountDataSyncService _syncService;
+    private readonly AppearanceSnapshotService _appearance;
     private readonly IWinoAccountProfileService _profileService;
 
     public BackupRestorePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                       IWinoAccountDataSyncService syncService,
+                                      AppearanceSnapshotService appearance,
                                       IWinoAccountProfileService profileService) : base(messenger)
     {
         _dialogService = dialogService;
         _syncService = syncService;
+        _appearance = appearance;
         _profileService = profileService;
     }
 
@@ -119,7 +123,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var result = await _syncService.ExportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync).ConfigureAwait(false);
+            var result = await _syncService.ExportAsync(new WinoAccountSyncSelection() { Appearance = _appearance.Capture() }, PromptSyncSecretAsync).ConfigureAwait(false);
 
             _dialogService.InfoBarMessage(
                 Translator.GeneralTitle_Info,
@@ -150,7 +154,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
             if (result.Appearance != null)
             {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                await ExecuteUIThread(() => _appearance.Apply(result.Appearance));
             }
 
             if (!result.HasAnyRemoteData)
@@ -205,7 +209,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var exportResult = await _syncService.ExportToFileAsync(new(), PromptSyncSecretAsync).ConfigureAwait(false);
+            var exportResult = await _syncService.ExportToFileAsync(new() { Appearance = _appearance.Capture() }, PromptSyncSecretAsync).ConfigureAwait(false);
             await File.WriteAllBytesAsync(exportPath, exportResult.Content).ConfigureAwait(false);
 
             _dialogService.InfoBarMessage(
@@ -244,7 +248,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
                 var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync).ConfigureAwait(false);
                 if (result.Appearance != null)
                 {
-                    await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                    await ExecuteUIThread(() => _appearance.Apply(result.Appearance));
                 }
 
                 var messageType = result.FailedPreferenceCount > 0

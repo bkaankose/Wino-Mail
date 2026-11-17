@@ -2,6 +2,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -9,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Browsers;
 using Wino.Core.Domain.Models.Platform;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services;
 
@@ -24,19 +26,19 @@ public sealed class LinkBrowserService : ILinkBrowserService
     private readonly IExternalLauncher _externalLauncher;
     private readonly IConfigurationService _configurationService;
     private readonly IAccountService _accountService;
-    private readonly IDialogServiceBase _dialogService;
+    private readonly IMessenger _messenger;
 
     public LinkBrowserService(IInstalledBrowserService installedBrowserService,
                               IExternalLauncher externalLauncher,
                               IConfigurationService configurationService,
                               IAccountService accountService,
-                              IDialogServiceBase dialogService)
+                              IMessenger messenger)
     {
         _installedBrowserService = installedBrowserService;
         _externalLauncher = externalLauncher;
         _configurationService = configurationService;
         _accountService = accountService;
-        _dialogService = dialogService;
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
     }
 
     public bool IsBrowserSelectionSupported => _installedBrowserService.IsSupported;
@@ -180,9 +182,9 @@ public sealed class LinkBrowserService : ILinkBrowserService
     {
         AllAccountsBrowser = null;
         Log.Information("The All accounts link browser is no longer installed and was reset to the system default.");
-        _dialogService.InfoBarMessage(Translator.LinkBrowser_StaleTitle,
-            string.Format(Translator.LinkBrowser_StaleMessageAllAccounts, staleBrowser.DisplayName),
-            InfoBarMessageType.Warning);
+        _messenger.Send(new InfoBarMessageRequested(InfoBarMessageType.Warning,
+            Translator.LinkBrowser_StaleTitle,
+            string.Format(Translator.LinkBrowser_StaleMessageAllAccounts, staleBrowser.DisplayName)));
     }
 
     private async Task ResetAccountBrowserAsync(MailAccountPreferences preferences, BrowserOption staleBrowser, string accountName)
@@ -190,8 +192,8 @@ public sealed class LinkBrowserService : ILinkBrowserService
         SetCustomBrowser(preferences, null);
         await _accountService.UpdateAccountPreferencesAsync(preferences).ConfigureAwait(false);
         Log.Information("An account's link browser is no longer installed and was reset to the system default.");
-        _dialogService.InfoBarMessage(Translator.LinkBrowser_StaleTitle,
-            string.Format(Translator.LinkBrowser_StaleMessage, staleBrowser.DisplayName, accountName),
-            InfoBarMessageType.Warning);
+        _messenger.Send(new InfoBarMessageRequested(InfoBarMessageType.Warning,
+            Translator.LinkBrowser_StaleTitle,
+            string.Format(Translator.LinkBrowser_StaleMessage, staleBrowser.DisplayName, accountName)));
     }
 }

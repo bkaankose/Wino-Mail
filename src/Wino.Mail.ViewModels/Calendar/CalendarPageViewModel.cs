@@ -28,6 +28,7 @@ using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -243,7 +244,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly IExternalLauncher _externalLauncher;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IPreferencesService _preferencesService;
-    private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly IMailDialogService _dialogService;
     private readonly IDateContextProvider _dateContextProvider;
     private readonly ICalendarRangeTextFormatter _calendarRangeTextFormatter;
@@ -308,7 +309,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IAccountCalendarStateService accountCalendarStateService,
         INotificationBuilder notificationBuilder,
         IPreferencesService preferencesService,
-        IWinoRequestDelegator winoRequestDelegator,
+        WinoRequestCoordinator requestCoordinator,
         IMailDialogService dialogService,
         IDateContextProvider dateContextProvider,
         ICalendarRangeTextFormatter calendarRangeTextFormatter,
@@ -332,7 +333,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _externalLauncher = externalLauncher;
         _notificationBuilder = notificationBuilder;
         _preferencesService = preferencesService;
-        _winoRequestDelegator = winoRequestDelegator;
+        _requestCoordinator = requestCoordinator;
         _dialogService = dialogService;
         _dateContextProvider = dateContextProvider;
         _calendarRangeTextFormatter = calendarRangeTextFormatter;
@@ -370,7 +371,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             deletingItem,
             null);
 
-        await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
         DisplayDetailsCalendarItemViewModel = null;
     }
 
@@ -642,7 +643,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         var preparationRequest = new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.CreateEvent,
             ComposeResult: composeResult);
-        await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
         LastQuickCreationSucceeded = true;
     }
 
@@ -802,7 +803,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             OriginalItem: originalItem,
             OriginalAttendees: originalAttendees);
 
-        await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
+        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
     }
 
     partial void OnDisplayDetailsCalendarItemViewModelChanged(CalendarItemViewModel value)
@@ -1651,7 +1652,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             targetItem,
             null);
 
-        await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
+        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
     }
 
     private async Task UpdateShowAsAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType, CalendarItemShowAs showAs)
@@ -1681,7 +1682,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             OriginalItem: originalItem,
             OriginalAttendees: attendees);
 
-        await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
+        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
     }
 
     private async Task RespondToCalendarItemAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType, CalendarItemStatus responseStatus)
@@ -1710,7 +1711,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             targetItem,
             null);
 
-        await _winoRequestDelegator.ExecuteAsync(preparationRequest).ConfigureAwait(false);
+        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
     }
 
     private async Task<CalendarItem> ResolveCalendarItemTargetAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType)

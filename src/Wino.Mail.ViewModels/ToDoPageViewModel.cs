@@ -571,8 +571,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _isPreparedForShellShutdown = false;
         ShellMenu = new ShellMenu
         {
-            Items = new MenuItemCollection(Dispatcher),
-            FooterItems = new MenuItemCollection(Dispatcher),
+            Items = new MenuItemCollection(),
+            FooterItems = new MenuItemCollection(),
             HandlesSelection = true
         };
         _newListMenuItem.NewGroupRequested = CreateGroupAsync;

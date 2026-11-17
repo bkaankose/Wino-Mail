@@ -30,8 +30,6 @@ namespace Wino.Core.Services;
 public class WinoRequestDelegator : IWinoRequestDelegator
 {
     private readonly IWinoRequestProcessor _winoRequestProcessor;
-    private readonly IFolderService _folderService;
-    private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
     private readonly ISynchronizationManager _synchronizationManager;
@@ -42,8 +40,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IMessenger _messenger;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
-                                IFolderService folderService,
-                                IMailDialogService dialogService,
                                 IAccountService accountService,
                                 ICalendarService calendarService,
                                 ISynchronizationManager synchronizationManager,
@@ -54,21 +50,12 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     {
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _winoRequestProcessor = winoRequestProcessor;
-        _folderService = folderService;
-        _dialogService = dialogService;
         _accountService = accountService;
         _calendarService = calendarService;
         _synchronizationManager = synchronizationManager;
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
         _applicationLocalRequestExecutor = applicationLocalRequestExecutor;
-    }
-
-    public async Task ExecuteAsync(MailOperationPreperationRequest request)
-    {
-        var result = await ExecuteWithResultAsync(request);
-        if (result.Error is { } error)
-            ShowPreparationError(error);
     }
 
     public async Task<WinoRequestDelegationResult> ExecuteWithResultAsync(MailOperationPreperationRequest request)
@@ -81,7 +68,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         }
         catch (Exception ex)
         {
-            if (ex is not (UnavailableSpecialFolderException or InvalidMoveTargetException or NotImplementedException))
+            if (ex is not (UnavailableSpecialFolderException or InvalidMoveTargetException or NotImplementedException or MailOperationDecisionRequiredException))
                 Log.Error(ex, "Request creation failed.");
 
             return new WinoRequestDelegationResult(0, ex);
@@ -106,40 +93,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         return new WinoRequestDelegationResult(requests.Count, null);
     }
 
-    private void ShowPreparationError(Exception error)
+    public async Task<WinoRequestDelegationResult> ExecuteAsync(FolderOperationPreperationRequest folderRequest)
     {
-        switch (error)
-        {
-            case UnavailableSpecialFolderException unavailableSpecialFolderException:
-                _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle,
-                                              string.Format(Translator.Info_MissingFolderMessage, unavailableSpecialFolderException.SpecialFolderType),
-                                              InfoBarMessageType.Warning,
-                                              Translator.SettingConfigureSpecialFolders_Button,
-                                              () =>
-                                              {
-                                                  _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
-                                              });
-                break;
-            case InvalidMoveTargetException { Reason: InvalidMoveTargetReason.NonMoveTarget }:
-                _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Info_InvalidMoveTargetMessage, InfoBarMessageType.Warning);
-                break;
-            case InvalidMoveTargetException { Reason: InvalidMoveTargetReason.MultipleAccounts }:
-                _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Exception_InvalidMultiAccountMoveTarget, InfoBarMessageType.Warning);
-                break;
-            case InvalidMoveTargetException:
-                break;
-            case NotImplementedException:
-                _dialogService.ShowNotSupportedMessage();
-                break;
-            default:
-                _dialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, error.Message, InfoBarMessageType.Error);
-                break;
-        }
-    }
-
-    public async Task ExecuteAsync(FolderOperationPreperationRequest folderRequest)
-    {
-        if (folderRequest == null || folderRequest.Folder == null) return;
+        if (folderRequest == null || folderRequest.Folder == null) return new WinoRequestDelegationResult(0, null);
 
         IRequestBase request = null;
 
@@ -149,16 +105,17 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             request = await _winoRequestProcessor.PrepareFolderRequestAsync(folderRequest);
         }
-        catch (NotImplementedException)
+        catch (NotImplementedException ex)
         {
-            _dialogService.ShowNotSupportedMessage();
+            return new WinoRequestDelegationResult(0, ex);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Folder operation execution failed.");
+            return new WinoRequestDelegationResult(0, ex);
         }
 
-        if (request == null) return;
+        if (request == null) return new WinoRequestDelegationResult(0, null);
 
         await QueueRequestAsync(request, accountId);
         await QueueSynchronizationAsync(accountId);
@@ -167,6 +124,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             await QueueFoldersOnlySynchronizationAsync(accountId);
         }
+
+        return new WinoRequestDelegationResult(1, null);
     }
 
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
@@ -187,17 +146,14 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         await QueueSynchronizationAsync(account.Id);
     }
 
-    public async Task ExecuteAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
+    public async Task<WinoRequestDelegationResult> ExecuteAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
     {
         if (calendarPreparationRequest == null)
-            return;
+            return new WinoRequestDelegationResult(0, null);
 
         var resolvedCalendar = await ResolveCalendarAsync(calendarPreparationRequest).ConfigureAwait(false);
         if (resolvedCalendar?.IsReadOnly == true)
-        {
-            _dialogService.ShowReadOnlyCalendarMessage();
-            return;
-        }
+            return new WinoRequestDelegationResult(0, new ReadOnlyCalendarException(resolvedCalendar.Id));
 
         IRequestBase request = calendarPreparationRequest.Operation switch
         {
@@ -229,7 +185,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         };
 
         if (request == null)
-            return;
+            return new WinoRequestDelegationResult(0, null);
 
         var accountId = calendarPreparationRequest.Operation == CalendarSynchronizerOperation.CreateEvent
             ? calendarPreparationRequest.ComposeResult.AccountId
@@ -242,11 +198,13 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (account?.IsCalendarAccessEnabled == true && !account.IsCalendarAccessGranted)
         {
             await ExecuteLocalCalendarRequestAsync(account, request).ConfigureAwait(false);
-            return;
+            return new WinoRequestDelegationResult(1, null);
         }
 
         await QueueRequestAsync(request, accountId);
         await QueueCalendarSynchronizationAsync(accountId);
+
+        return new WinoRequestDelegationResult(1, null);
     }
 
     private async Task ExecuteLocalCalendarRequestAsync(MailAccount account, IRequestBase request)

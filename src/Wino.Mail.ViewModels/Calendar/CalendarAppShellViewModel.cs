@@ -156,8 +156,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _isPreparedForShellShutdown = false;
         _hasCompletedAccountCalendarInitialization = false;
         AccountCalendarStateService.Dispatcher = Dispatcher;
-        MenuItems = new MenuItemCollection(Dispatcher);
-        FooterItems = new MenuItemCollection(Dispatcher);
+        MenuItems = new MenuItemCollection();
+        FooterItems = new MenuItemCollection();
         BuildShellMenu();
         _ = RefreshFooterItemsAsync(false);
     }

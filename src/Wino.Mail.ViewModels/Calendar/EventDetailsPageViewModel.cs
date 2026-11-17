@@ -24,6 +24,7 @@ using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -36,7 +37,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IPreferencesService _preferencesService;
     private readonly IMailDialogService _dialogService;
-    private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly INavigationService _navigationService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly INotificationBuilder _notificationBuilder;
@@ -288,7 +289,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                                      IExternalLauncher externalLauncher,
                                      IPreferencesService preferencesService,
                                      IMailDialogService dialogService,
-                                     IWinoRequestDelegator winoRequestDelegator,
+                                     WinoRequestCoordinator requestCoordinator,
                                      INavigationService navigationService,
                                      INotificationBuilder notificationBuilder,
                                      IUnderlyingThemeService underlyingThemeService,
@@ -305,7 +306,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         _applicationConfiguration = applicationConfiguration;
         _preferencesService = preferencesService;
         _dialogService = dialogService;
-        _winoRequestDelegator = winoRequestDelegator;
+        _requestCoordinator = requestCoordinator;
         _navigationService = navigationService;
         _underlyingThemeService = underlyingThemeService;
         _notificationBuilder = notificationBuilder;
@@ -684,7 +685,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                 Reminders: newReminders,
                 OriginalReminders: originalReminders);
 
-            await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+            await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
 
             LastMutationSucceeded = true;
             if (NavigatesBackAfterSave)
@@ -724,7 +725,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                 deletingItem,
                 null);
 
-            await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+            await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
 
             LastMutationSucceeded = true;
             NavigateBackToCalendar(forceReload: true);
@@ -843,7 +844,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                 null,
                 responseMessage);
 
-            await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+            await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
 
             // Reload attendees to get the updated status from the server
             await LoadAttendeesAsync(CurrentEvent.CalendarItem.Id, CurrentEvent.CalendarItem);

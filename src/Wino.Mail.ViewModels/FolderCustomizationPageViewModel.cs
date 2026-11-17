@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels;
 
@@ -26,7 +27,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IFolderService _folderService;
     private readonly IAccountService _accountService;
-    private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly WinoRequestCoordinator _requestCoordinator;
 
     private static readonly SpecialFolderType[] GmailCategorySubTypes =
     [
@@ -54,12 +55,12 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
     public FolderCustomizationPageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                             IFolderService folderService,
                                             IAccountService accountService,
-                                            IWinoRequestDelegator winoRequestDelegator) : base(messenger)
+                                            WinoRequestCoordinator requestCoordinator) : base(messenger)
     {
         _dialogService = dialogService;
         _folderService = folderService;
         _accountService = accountService;
-        _winoRequestDelegator = winoRequestDelegator;
+        _requestCoordinator = requestCoordinator;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
@@ -213,7 +214,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
         if (canRenameOnServer && newFolderName.Length > 0 && !string.Equals(newFolderName, folder.FolderName, StringComparison.Ordinal))
         {
-            await _winoRequestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.Rename, folder, newFolderName));
+            await _requestCoordinator.ExecuteFolderOperationAsync(new FolderOperationPreperationRequest(FolderOperation.Rename, folder, newFolderName));
         }
     }
 

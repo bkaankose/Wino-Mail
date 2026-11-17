@@ -103,7 +103,7 @@ public partial class ContactsPageViewModel
         _isPreparedForShellShutdown = false;
         _shellMenu = new ShellMenu
         {
-            Items = new MenuItemCollection(Dispatcher),
+            Items = new MenuItemCollection(),
             HandlesSelection = true
         };
 

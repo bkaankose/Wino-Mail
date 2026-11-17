@@ -41,6 +41,7 @@ using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels;
 
@@ -110,6 +111,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly ILogger _logger = Log.ForContext<MailListPageViewModel>();
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
@@ -369,6 +371,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IContextMenuItemService contextMenuItemService,
                                  IMailCategoryService mailCategoryService,
                                  IWinoRequestDelegator winoRequestDelegator,
+                                 WinoRequestCoordinator requestCoordinator,
                                  IPreferencesService preferencesService,
                                  INewThemeService themeService,
                                  IWinoLogger winoLogger,
@@ -388,6 +391,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _contextMenuItemService = contextMenuItemService;
         _mailCategoryService = mailCategoryService;
         _winoRequestDelegator = winoRequestDelegator;
+        _requestCoordinator = requestCoordinator;
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
         _entitlementService = entitlementService;
@@ -1211,7 +1215,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         foreach (var folder in ActiveFolder.HandlingFolders.OfType<MailItemFolder>())
         {
             var folderPrepRequest = new FolderOperationPreperationRequest(FolderOperation.Empty, folder);
-            await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
+            await _requestCoordinator.ExecuteFolderOperationAsync(folderPrepRequest);
         }
     }
 
@@ -1355,7 +1359,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     #endregion
 
-    public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
+    public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _requestCoordinator.ExecuteMailOperationAsync(package);
 
     [RelayCommand]
     private async Task UndoLatestQueuedActionAsync()

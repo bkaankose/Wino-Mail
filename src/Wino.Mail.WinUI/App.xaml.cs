@@ -1632,8 +1632,8 @@ public partial class App : WinoApplication,
             // The synchronization will happen in the background.
             LogActivation("App is running. Queueing request via delegator.");
 
-            var delegator = Services.GetRequiredService<IWinoRequestDelegator>();
-            await delegator.ExecuteAsync(package);
+            var requestCoordinator = Services.GetRequiredService<Wino.Mail.ViewModels.Requests.WinoRequestCoordinator>();
+            await requestCoordinator.ExecuteMailOperationAsync(package);
 
             // Don't exit - app continues running.
             LogActivation($"Toast action {action} queued successfully.");
@@ -1652,8 +1652,10 @@ public partial class App : WinoApplication,
             var processor = Services.GetRequiredService<IWinoRequestProcessor>();
             var notificationBuilder = Services.GetRequiredService<INotificationBuilder>();
 
+            var answeredPackage = await Services.GetRequiredService<Wino.Mail.ViewModels.Requests.WinoRequestCoordinator>().AnswerMailOperationAsync(package);
+
             // Prepare the requests for the action.
-            var requests = await processor.PrepareRequestsAsync(package);
+            var requests = answeredPackage == null ? null : await processor.PrepareRequestsAsync(answeredPackage);
 
             if (requests != null && requests.Any())
             {
@@ -2084,7 +2086,7 @@ public partial class App : WinoApplication,
             {
                 try
                 {
-                    Services.GetRequiredService<IWinoAccountDataSyncService>().ApplyAppearance(message.Appearance);
+                    Services.GetRequiredService<Wino.Mail.ViewModels.Settings.AppearanceSnapshotService>().Apply(message.Appearance);
                 }
                 catch (Exception ex)
                 {

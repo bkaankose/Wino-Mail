@@ -30,6 +30,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels;
 
@@ -192,6 +193,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IAccountService _accountService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly IWinoRequestDelegator _worker;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     public readonly IPreferencesService PreferencesService;
     public readonly IContactService ContactService;
     public readonly IRecipientSuggestionService RecipientSuggestionService;
@@ -217,6 +219,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IAccountService accountService,
                                 IEmailTemplateService emailTemplateService,
                                 IWinoRequestDelegator worker,
+                                WinoRequestCoordinator requestCoordinator,
                                 IContactService contactService,
                                 IPreferencesService preferencesService,
                                 ISmimeCertificateService smimeCertificateService,
@@ -245,6 +248,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _accountService = accountService;
         _emailTemplateService = emailTemplateService;
         _worker = worker;
+        _requestCoordinator = requestCoordinator;
         _smimeCertificateService = smimeCertificateService;
         IsSmimeAvailable = platformCapabilities.Smime;
         _activationStateService = activationStateService;
@@ -751,13 +755,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                         MailOperation.HardDelete,
                         mappedDraft,
                         ignoreHardDeleteProtection: true);
-                    await _worker.ExecuteAsync(deletePackage).ConfigureAwait(false);
+                    await _requestCoordinator.ExecuteMailOperationAsync(deletePackage).ConfigureAwait(false);
                 }
             }
             else
             {
                 var deletePackage = new MailOperationPreperationRequest(MailOperation.HardDelete, CurrentMailDraftItem.MailCopy, ignoreHardDeleteProtection: true);
-                await _worker.ExecuteAsync(deletePackage).ConfigureAwait(false);
+                await _requestCoordinator.ExecuteMailOperationAsync(deletePackage).ConfigureAwait(false);
             }
         }
         catch

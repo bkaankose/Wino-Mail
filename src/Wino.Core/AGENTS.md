@@ -6,7 +6,7 @@ The synchronization engine: one synchronizer per provider (Outlook, Gmail, IMAP,
 
 Every user action that changes server data takes this path. Know it before you change a request, a synchronizer or a ViewModel command.
 
-1. **ViewModel** calls `IWinoRequestDelegator.ExecuteAsync(...)`.
+1. **ViewModel** calls `WinoRequestCoordinator` (in `Wino.Mail.ViewModels`). It asks any question first (confirm a permanent delete, pick a move target, name a folder), then calls `IWinoRequestDelegator` with the answer as data, and shows the error if the backend returns one. The backend never asks.
 2. **`WinoRequestProcessor`** turns the action into request objects, for example `MarkReadRequest`. Each request implements `ApplyUIChanges(IUIMessageSender)` and `RevertUIChanges(IUIMessageSender)`; the pipeline hands it the sender, because a request is created with `new` and cannot be injected.
 3. **`SynchronizationManager.QueueRequestPackAsync`** applies the UI change in memory through `RequestUiChangeCoordinator.ApplyRequests`. The UI receives a message with `EntityUpdateSource.ClientUpdated`. The request then enters the account synchronizer's queue with `QueueRequest`.
 4. **`ApplicationRuntime`** receives `NewMailSynchronizationRequested` and starts the synchronizer. The synchronizer groups queued requests into bundles and runs `ExecuteNativeRequestsAsync`, which makes the network call.
@@ -21,7 +21,7 @@ Every user action that changes server data takes this path. Know it before you c
 - **`SyncCoordinator` owns the schedule.** No other code keeps an interval constant. Google Tasks and Google contacts use a six-hour window for automatic syncs only; a manual sync always runs. Never show a quota or a rate limit to the user.
 - **OAuth clients, token storage and sign-in:** read "Accounts, OAuth clients and signing" in the [root guidance](../../AGENTS.md) first.
 - **One way to build a Graph client.** Outlook uses the official `Microsoft.Graph` package; there is no generated client. Create every `GraphServiceClient` through `OutlookSynchronizer.CreateGraphClient`, which wraps the adapter in `GraphRequestAdapterWithoutBackingStore`. A client built on a plain adapter turns on change tracking for every client in the process: properties set to null are then sent as explicit nulls, and a model serialized twice sends only its changes.
-- **No UI service in new code.** Do not inject a dialog or navigation contract here. Code that needs a decision returns it to the ViewModel.
+- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project. Code that needs a decision takes the answer as data on the request, or returns a typed result such as `MailOperationDecisionRequiredException` to the ViewModel. A notice goes out as `InfoBarMessageRequested` through `IMessenger`.
 
 ## Always
 
