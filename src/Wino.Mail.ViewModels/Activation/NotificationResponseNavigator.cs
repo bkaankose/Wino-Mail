@@ -32,13 +32,13 @@ public sealed class NotificationResponseNavigator(
 
     public Task OpenModeAsync(WinoApplicationMode mode, object? parameter = null) => host.EnsureShellAsync(mode, parameter);
 
-    /// <summary>App.HandleToastNavigationAsync: a running mail shell navigates now; a new or switching shell consumes the launch parameter after its menu is rebuilt.</summary>
+    /// <summary>A running mail shell navigates now; a new or switching shell consumes the launch parameter after its menu is rebuilt.</summary>
     public async Task OpenMailAsync(Guid accountId, Guid folderId, MailCopy mailItem)
     {
         var mailReady = host.IsShellActive(WinoApplicationMode.Mail);
         if (!mailReady) activationState.LaunchParameter = new AccountMenuItemExtended(folderId, mailItem);
 
-        if (!await host.EnsureShellAsync(WinoApplicationMode.Mail) || !mailReady) return;
+        if (!await host.EnsureShellForMessageAsync() || !mailReady) return;
 
         var shell = MailShell;
         await RunOnUIAsync(async () =>

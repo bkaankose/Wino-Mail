@@ -36,7 +36,9 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Activation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
@@ -75,7 +77,6 @@ public partial class App : WinoApplication,
 {
     private IApplicationRuntime? _applicationRuntime;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
-    private ISynchronizationManager? _synchronizationManager;
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
     private bool _windowManagerConfigured;
@@ -85,7 +86,6 @@ public partial class App : WinoApplication,
     private bool _appHostInfrastructureInitialized;
     private int _initialNotificationActivationHandled;
     private int _initialShareActivationHandled;
-    private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
     private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
@@ -328,13 +328,13 @@ public partial class App : WinoApplication,
                 () => OpenCompanionInboxAsync(accountId),
                 cancellationToken),
             (accountId, mailId, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => HandleToastNavigationAsync(mailId),
+                () => NotificationResponses.OpenMailAsync(mailId),
                 cancellationToken),
             (accountId, eventId, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => HandleCalendarToastNavigationAsync(eventId),
+                () => NotificationResponses.OpenCalendarItemAsync(eventId),
                 cancellationToken),
             (accountId, eventId, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => HandleCalendarToastJoinOnlineAsync(eventId),
+                () => NotificationResponses.JoinOnlineAsync(eventId),
                 cancellationToken),
             (query, cancellationToken) => ExecuteCompanionNavigationAsync(
                 () => FindCompanionContactAsync(query),
@@ -667,7 +667,7 @@ public partial class App : WinoApplication,
             var updates = Services.GetService<IDraftUpdateCoordinator>();
             // Stop accepts no further work before draft shutdown begins. Both operations
             // share the existing five-second bound; local drafts are already durable.
-            var runtimeStop = _applicationRuntime?.StopAsync() ?? Task.CompletedTask;
+            var runtimeStop = Lifecycle.StopAsync(this);
             var draftStop = updates?.DisposeAsync().AsTask() ?? Task.CompletedTask;
             await Task.WhenAll(runtimeStop, draftStop).WaitAsync(TimeSpan.FromSeconds(5));
         }
@@ -727,21 +727,6 @@ public partial class App : WinoApplication,
 
     internal async void ExitApplication() => await ExitApplicationAsync();
 
-    [DynamicWindowsRuntimeCast(typeof(AppNotificationActivatedEventArgs))]
-    public bool IsNotificationActivation(out AppNotificationActivatedEventArgs args)
-    {
-        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
-
-        if (activationArgs.Kind == ExtendedActivationKind.AppNotification)
-        {
-            args = ((AppNotificationActivatedEventArgs)activationArgs.Data);
-            return true;
-        }
-
-        args = null!;
-        return false;
-    }
-
     #region Dependency Injection
 
 
@@ -757,6 +742,9 @@ public partial class App : WinoApplication,
         services.AddSingleton<IMailDialogService, DialogService>();
         services.AddSingleton<ISearchHistoryService, SearchHistoryService>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
+        services.AddSingleton<ApplicationLifecycleCoordinator>();
+        services.AddSingleton<IApplicationShellHost>(_ => (App)Current);
+        services.AddSingleton<INotificationResponseNavigator, NotificationResponseNavigator>();
     }
 
     private void RegisterViewModels(IServiceCollection services)
@@ -789,9 +777,6 @@ public partial class App : WinoApplication,
         return services.BuildServiceProvider();
     }
 
-    private bool IsStartupTaskLaunch()
-        => ActivationArgumentsReader.TryGetKind(ActivationArgumentsReader.TryGetCurrent(), out var kind) &&
-           kind == ExtendedActivationKind.StartupTask;
     public bool IsAppRunning()
     {
         var windowManager = Services.GetService<IWinoWindowManager>();
@@ -809,42 +794,6 @@ public partial class App : WinoApplication,
     {
         await EnsureCoreActivationInfrastructureAsync();
         await EnsureAppHostInfrastructureAsync();
-    }
-
-    private async Task EnsureCoreActivationInfrastructureAsync()
-    {
-        if (_activationInfrastructureInitialized)
-            return;
-
-        await _activationInfrastructureSemaphore.WaitAsync();
-
-        try
-        {
-            if (_activationInfrastructureInitialized)
-                return;
-
-            _applicationRuntime = Services.GetRequiredService<IApplicationRuntime>();
-            await _applicationRuntime.InitializeAsync();
-
-            _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
-            _preferencesService = Services.GetRequiredService<IPreferencesService>();
-            _accountService = Services.GetRequiredService<IAccountService>();
-
-            _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
-
-            if (_companionIntegration != null)
-            {
-                await _companionIntegration.SetReadinessAsync(_hasConfiguredAccounts
-                    ? CompanionReadinessState.Ready
-                    : CompanionReadinessState.NoAccounts);
-            }
-
-            _activationInfrastructureInitialized = true;
-        }
-        finally
-        {
-            _activationInfrastructureSemaphore.Release();
-        }
     }
 
     private async Task EnsureAppHostInfrastructureAsync()
@@ -1163,12 +1112,6 @@ public partial class App : WinoApplication,
     private static AppActivationArguments? ResolveStartupActivation()
         => ActivationArgumentsReader.TryGetCurrent();
 
-    /// <summary>
-    /// Handles toast notification activation scenarios.
-    /// </summary>
-    private Task HandleToastActivationAsync(NotificationArguments toastArguments, IDictionary<string, string>? userInput = null)
-        => _notificationHandler.HandleActivationAsync(toastArguments, userInput);
-
     private Task HandleToastActivationAsync(string toastArgument, IDictionary<string, string>? userInput = null)
         => _notificationHandler.HandleActivationAsync(toastArgument, userInput);
 
@@ -1396,72 +1339,6 @@ public partial class App : WinoApplication,
         await storeService.StartUpdateAsync();
     }
 
-    private async Task HandleCalendarToastNavigationAsync(Guid calendarItemId)
-    {
-        var calendarService = Services.GetRequiredService<ICalendarService>();
-        var fallbackNavigationArgs = new CalendarPageNavigationArgs
-        {
-            RequestDefaultNavigation = true
-        };
-
-        if (!HasShellWindow())
-        {
-            await EnsureShellWindowAsync(
-                WinoApplicationMode.Calendar,
-                activateWindow: true,
-                activationParameter: fallbackNavigationArgs);
-        }
-
-        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
-        if (calendarItem == null)
-        {
-            LogActivation($"Calendar notification navigation item was not found for {calendarItemId}. Opening calendar shell only.");
-
-            await EnsureShellWindowAsync(
-                WinoApplicationMode.Calendar,
-                activateWindow: true,
-                activationParameter: fallbackNavigationArgs);
-            return;
-        }
-
-        var target = new CalendarItemTarget(calendarItem, CalendarEventTargetType.Single);
-        var navigationArgs = new CalendarPageNavigationArgs
-        {
-            NavigationDate = calendarItem.LocalStartDate,
-            PendingTarget = target
-        };
-
-        await EnsureShellWindowAsync(
-            WinoApplicationMode.Calendar,
-            activateWindow: true,
-            activationParameter: navigationArgs);
-    }
-
-    private async Task HandleCalendarToastSnoozeAsync(IDictionary<string, string>? userInput, Guid calendarItemId)
-    {
-        if (!TryGetSnoozeDurationMinutes(userInput, out var snoozeDurationMinutes))
-            return;
-
-        var calendarService = Services.GetRequiredService<ICalendarService>();
-        var snoozedUntilLocal = DateTime.Now.AddMinutes(snoozeDurationMinutes);
-
-        await calendarService.SnoozeCalendarItemAsync(calendarItemId, snoozedUntilLocal);
-    }
-
-    private async Task HandleCalendarToastJoinOnlineAsync(Guid calendarItemId)
-    {
-        var calendarService = Services.GetRequiredService<ICalendarService>();
-        var nativeAppService = Services.GetRequiredService<INativeAppService>();
-
-        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
-        if (!CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out var joinUri))
-        {
-            return;
-        }
-
-        await nativeAppService.LaunchUriAsync(joinUri);
-    }
-
     private void CompleteStartupTaskLaunch(bool hasAnyAccount)
     {
         if (!hasAnyAccount)
@@ -1512,276 +1389,6 @@ public partial class App : WinoApplication,
         LogActivation("Window created and activated.");
     }
 
-    private bool TryGetSnoozeDurationMinutes(IDictionary<string, string>? userInput, out int snoozeDurationMinutes)
-    {
-        snoozeDurationMinutes = _preferencesService?.DefaultSnoozeDurationInMinutes ?? 0;
-
-        if (userInput == null ||
-            !userInput.TryGetValue(Constants.ToastCalendarSnoozeDurationInputId, out var selectedValue) ||
-            selectedValue == null)
-        {
-            return snoozeDurationMinutes > 0;
-        }
-
-        var selectedText = selectedValue.ToString();
-
-        return int.TryParse(selectedText, out snoozeDurationMinutes) && snoozeDurationMinutes > 0;
-    }
-
-    /// <summary>
-    /// Handles toast notification click for navigation.
-    /// Creates window if not running, sets up navigation parameter.
-    /// </summary>
-    private async Task HandleToastNavigationAsync(Guid mailItemUniqueId)
-    {
-        var mailService = Services.GetRequiredService<IMailService>();
-
-        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId);
-        if (account == null)
-        {
-            LogActivation($"Notification navigation mail account was not found for {mailItemUniqueId}.");
-            await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
-            return;
-        }
-
-        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
-        if (mailItem == null)
-        {
-            LogActivation($"Notification navigation mail item was not found for {mailItemUniqueId}.");
-            await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
-            return;
-        }
-
-        var shellWindowAlreadyExists = HasShellWindow();
-        var isMailModeActive = Services.GetRequiredService<IStatePersistanceService>().ApplicationMode == WinoApplicationMode.Mail;
-        var deferNavigationUntilMailIsReady = !shellWindowAlreadyExists || !isMailModeActive;
-
-        if (deferNavigationUntilMailIsReady)
-        {
-            // A new or switching shell consumes this after its mail menu has been rebuilt.
-            // Mode activation is asynchronous, so looking up the folder immediately would
-            // race the menu initialization when the notification was opened from another mode.
-            Services.GetRequiredService<IActivationStateService>().LaunchParameter =
-                new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
-        }
-
-        await EnsureShellWindowAsync(
-            WinoApplicationMode.Mail,
-            activateWindow: true,
-            applyThemeToExistingWindow: false);
-
-        if (deferNavigationUntilMailIsReady)
-            return;
-
-        await ExecuteOnActivationUiThreadAsync(async () =>
-        {
-            var mailShellViewModel = Services.GetRequiredService<MailAppShellViewModel>();
-            var navigatedToFolder = false;
-
-            if (mailShellViewModel.MenuItems.TryGetFolderMenuItem(mailItem.AssignedFolder.Id, out IBaseFolderMenuItem folderMenuItem))
-            {
-                await mailShellViewModel.NavigateFolderAsync(folderMenuItem);
-                navigatedToFolder = true;
-            }
-            else if (mailShellViewModel.MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
-            {
-                await mailShellViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
-
-                if (mailShellViewModel.MenuItems.TryGetFolderMenuItem(mailItem.AssignedFolder.Id, out folderMenuItem))
-                {
-                    await mailShellViewModel.NavigateFolderAsync(folderMenuItem);
-                    navigatedToFolder = true;
-                }
-            }
-
-            if (!navigatedToFolder)
-            {
-                LogActivation($"Notification navigation folder was not found for mail {mailItemUniqueId}.");
-                return;
-            }
-
-            // NavigateFolderAsync completes only once MailListPage has initialized, so its
-            // recipient is ready for the selection request.
-            WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(mailItemUniqueId, ScrollToItem: true));
-        });
-    }
-
-    /// <summary>
-    /// Handles toast action button clicks (Mark as Read, Delete, etc.).
-    /// Executes the action without showing UI and exits the app.
-    /// </summary>
-    private async Task HandleToastActionAsync(MailOperation action, Guid mailItemUniqueId)
-    {
-        LogActivation($"Handling toast action: {action} for mail {mailItemUniqueId}");
-
-        var mailService = Services.GetRequiredService<IMailService>();
-        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
-
-        if (mailItem == null)
-        {
-            LogActivation("Mail item not found.");
-            return;
-        }
-
-        var package = new MailOperationPreperationRequest(action, mailItem);
-
-        // Check if app is already running (has a window).
-        if (HasShellWindow())
-        {
-            // App is running - use the simple delegator pattern.
-            // The synchronization will happen in the background.
-            LogActivation("App is running. Queueing request via delegator.");
-
-            var requestCoordinator = Services.GetRequiredService<Wino.Mail.ViewModels.Requests.WinoRequestCoordinator>();
-            await requestCoordinator.ExecuteMailOperationAsync(package);
-
-            // Don't exit - app continues running.
-            LogActivation($"Toast action {action} queued successfully.");
-        }
-        else
-        {
-            // App is not running - we need to wait for sync before exiting.
-            LogActivation("App is not running. Executing synchronization and waiting for completion.");
-
-            if (_synchronizationManager == null)
-            {
-                LogActivation("Synchronization manager is not initialized.");
-                return;
-            }
-
-            var processor = Services.GetRequiredService<IWinoRequestProcessor>();
-            var notificationBuilder = Services.GetRequiredService<INotificationBuilder>();
-
-            var answeredPackage = await Services.GetRequiredService<Wino.Mail.ViewModels.Requests.WinoRequestCoordinator>().AnswerMailOperationAsync(package);
-
-            // Prepare the requests for the action.
-            var requests = answeredPackage == null ? null : await processor.PrepareRequestsAsync(answeredPackage);
-
-            if (requests != null && requests.Any())
-            {
-                // Group requests by account ID (usually just one account).
-                var accountIds = requests.GroupBy(a => a.Item.AssignedAccount.Id);
-
-                foreach (var accountGroup in accountIds)
-                {
-                    var accountId = accountGroup.Key;
-
-                    // Queue all requests for this account.
-                    foreach (var request in accountGroup)
-                    {
-                        // No window can show the undo bar, and a deferred request would be lost on exit.
-                        await _synchronizationManager.QueueRequestAsync(request, accountId, triggerSynchronization: false, allowUndo: false);
-                    }
-
-                    // Create synchronization options to execute the queued requests.
-                    var syncOptions = new MailSynchronizationOptions()
-                    {
-                        AccountId = accountId,
-                        Type = MailSynchronizationType.ExecuteRequests
-                    };
-
-                    LogActivation($"Executing synchronization for account {accountId}...");
-
-                    // Wait for synchronization to complete before exiting.
-                    var syncResult = await _synchronizationManager.SynchronizeMailAsync(syncOptions);
-
-                    LogActivation($"Toast action {action} completed. Sync result: {syncResult.CompletedState}");
-                }
-
-                await notificationBuilder.UpdateTaskbarIconBadgeAsync();
-            }
-
-            // The notification handler exits a transient process once this completes.
-            LogActivation("Toast action handling complete.");
-        }
-    }
-
-    private async Task HandleToastComposeActionAsync(MailOperation action, Guid mailItemUniqueId)
-    {
-        LogActivation($"Handling compose toast action: {action} for mail {mailItemUniqueId}");
-
-        var mailService = Services.GetRequiredService<IMailService>();
-        var folderService = Services.GetRequiredService<IFolderService>();
-        var mimeFileService = Services.GetRequiredService<IMimeFileService>();
-        var navigationService = Services.GetRequiredService<INavigationService>();
-        var requestDelegator = Services.GetRequiredService<IWinoRequestDelegator>();
-        var mailShellViewModel = Services.GetRequiredService<MailAppShellViewModel>();
-
-        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
-        if (mailItem == null)
-        {
-            LogActivation($"Compose toast mail item was not found for {mailItemUniqueId}.");
-            return;
-        }
-
-        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId) ?? mailItem.AssignedAccount;
-        if (account == null)
-        {
-            LogActivation($"Compose toast account was not found for {mailItemUniqueId}.");
-            return;
-        }
-
-        var draftFolder = await folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft);
-        if (draftFolder == null)
-        {
-            LogActivation($"Compose toast draft folder is missing for account {account.Id}.");
-            return;
-        }
-
-        var mimeInformation = await mimeFileService.GetMimeMessageInformationAsync(mailItem.FileId, account.Id);
-        if (mimeInformation?.MimeMessage == null)
-        {
-            LogActivation($"Compose toast MIME payload was not found for mail {mailItemUniqueId}.");
-            return;
-        }
-
-        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
-
-        await ExecuteOnActivationUiThreadAsync(async () =>
-        {
-            if (mailShellViewModel.MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
-            {
-                await mailShellViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
-            }
-
-            if (mailShellViewModel.MenuItems.TryGetSpecialFolderMenuItem(account.Id, SpecialFolderType.Draft, out var draftFolderMenuItem))
-            {
-                await mailShellViewModel.NavigateFolderAsync(draftFolderMenuItem);
-            }
-        });
-
-        var draftOptions = new DraftCreationOptions
-        {
-            Reason = action switch
-            {
-                MailOperation.Reply => DraftCreationReason.Reply,
-                MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
-                MailOperation.Forward => DraftCreationReason.Forward,
-                _ => DraftCreationReason.Empty
-            },
-            ReferencedMessage = new ReferencedMessage
-            {
-                MimeMessage = mimeInformation.MimeMessage,
-                MailCopy = mailItem
-            }
-        };
-
-        var (draftMailCopy, draftBase64MimeMessage) = await mailService.CreateDraftAsync(account.Id, draftOptions);
-        var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, mailItem);
-
-        await requestDelegator.ExecuteAsync(draftPreparationRequest);
-
-        await ExecuteOnActivationUiThreadAsync(() =>
-        {
-            navigationService.Navigate(WinoPage.ComposePage,
-                                       new MailItemViewModel(draftMailCopy) { ShouldFocusComposerOnOpen = true },
-                                       NavigationReferenceFrame.RenderingFrame,
-                                       NavigationTransitionType.DrillIn);
-
-            return Task.CompletedTask;
-        });
-    }
-
     /// <summary>
     /// Creates the main window and activates it.
     /// </summary>
@@ -1804,13 +1411,6 @@ public partial class App : WinoApplication,
         }
 
         LogActivation("Window created and activated.");
-    }
-
-    public Task OpenManageAccountsFromWelcomeAsync()
-    {
-        Services.GetRequiredService<INavigationService>()
-            .Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.DrillIn);
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -2042,7 +1642,7 @@ public partial class App : WinoApplication,
 
         try
         {
-            await _applicationRuntime.StartAsync().ConfigureAwait(false);
+            await Lifecycle.StartRuntimeAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

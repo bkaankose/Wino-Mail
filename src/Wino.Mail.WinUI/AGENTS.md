@@ -51,6 +51,8 @@ public abstract class AccountUnreadBadgePageAbstract : SettingsPageBase<AccountU
 ## Always
 
 - Put a business rule in shared services or ViewModels. This head adapts them.
+- Start and stop the backend only through `ApplicationLifecycleCoordinator`; the Windows side of that sequence is in [App.Lifecycle.cs](App.Lifecycle.cs). Opening or closing a window, and close-to-tray, never start or stop it.
+- Parse a toast activation here, then hand the action to the shared `NotificationResponseService`. Build no request and no draft in this head.
 - Put a new operating-system service that needs no XAML type and no window in `Wino.Platform.Windows`, behind a contract in `Wino.Core.Domain`. Services that need XAML stay in `Services/`.
 - Register services in [CoreUWPContainerSetup.cs](CoreUWPContainerSetup.cs) or `ConfigureServices` in [App.xaml.cs](App.xaml.cs). A class that implements several interfaces is registered once and each interface forwards to it, so there is one instance.
 - Wire `Loaded`, `Unloaded` and input events in XAML. Keep visual composition out of `.xaml.cs`.

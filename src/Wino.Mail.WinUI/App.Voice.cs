@@ -29,9 +29,9 @@ namespace Wino.Mail.WinUI;
 /// </summary>
 public partial class App
 {
-    internal Task OpenVoiceMailAsync(MailCopy mail) => HandleToastNavigationAsync(mail.UniqueId);
+    internal Task OpenVoiceMailAsync(MailCopy mail) => NotificationResponses.OpenMailAsync(mail.UniqueId);
 
-    internal Task OpenVoiceEventAsync(Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem) => HandleCalendarToastNavigationAsync(calendarItem.Id);
+    internal Task OpenVoiceEventAsync(Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem) => NotificationResponses.OpenCalendarItemAsync(calendarItem.Id);
 
     internal async Task OpenVoiceSearchAsync(MailAccount account, IReadOnlyList<IMailItemFolder> folders, MailSearchCriteria criteria)
     {

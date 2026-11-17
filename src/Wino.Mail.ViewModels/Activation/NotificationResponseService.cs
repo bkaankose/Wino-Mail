@@ -14,13 +14,14 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Notifications;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels.Activation;
 
 /// <summary>
-/// The notification response rules shared by every head (the Windows AppNotificationHandler and
-/// App.xaml.cs toast handlers, the macOS UNUserNotificationCenter delegate). UI work goes through
+/// The notification response rules shared by every head (the Windows toast activation, the Apple
+/// UNUserNotificationCenter delegate, the Android notification intents). UI work goes through
 /// <see cref="INotificationResponseNavigator"/>, and a mail action asks and reports through the same
 /// <see cref="WinoRequestCoordinator"/> a page uses, so it lives in the ViewModel layer.
 /// </summary>
@@ -31,6 +32,8 @@ public sealed class NotificationResponseService(
     IAccountService accountService,
     IMimeFileService mimeFileService,
     IWinoRequestDelegator requestDelegator,
+    IWinoRequestProcessor requestProcessor,
+    ISynchronizationManager synchronizationManager,
     WinoRequestCoordinator requestCoordinator,
     INotificationBuilder notificationBuilder,
     IPreferencesService preferencesService,
@@ -71,6 +74,8 @@ public sealed class NotificationResponseService(
                 await ReplyInlineAsync(mailUniqueId, replyText);
             else if (action is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward)
                 await ComposeAsync(action, mailUniqueId);
+            else if (response.RunsWithoutWindow)
+                await ExecuteMailActionWithoutWindowAsync(action, mailUniqueId);
             else
                 await ExecuteMailActionAsync(action, mailUniqueId);
 
@@ -176,7 +181,6 @@ public sealed class NotificationResponseService(
 
     #region Calendar
 
-    /// <summary>App.HandleCalendarToastNavigationAsync.</summary>
     public async Task OpenCalendarItemAsync(Guid calendarItemId)
     {
         var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
@@ -194,14 +198,12 @@ public sealed class NotificationResponseService(
         });
     }
 
-    /// <summary>App.HandleCalendarToastSnoozeAsync.</summary>
     private Task SnoozeAsync(Guid calendarItemId, IReadOnlyDictionary<string, string> values)
     {
         var minutes = ResolveSnoozeMinutes(values, preferencesService.DefaultSnoozeDurationInMinutes);
         return calendarService.SnoozeCalendarItemAsync(calendarItemId, DateTime.Now.AddMinutes(minutes));
     }
 
-    /// <summary>App.HandleCalendarToastJoinOnlineAsync.</summary>
     public async Task JoinOnlineAsync(Guid calendarItemId)
     {
         var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
@@ -214,7 +216,6 @@ public sealed class NotificationResponseService(
 
     #region Mail
 
-    /// <summary>App.HandleToastNavigationAsync.</summary>
     public async Task OpenMailAsync(Guid mailUniqueId)
     {
         MailAccount? account = await mailService.GetMailAccountByUniqueIdAsync(mailUniqueId);
@@ -231,13 +232,48 @@ public sealed class NotificationResponseService(
         await navigator.OpenMailAsync(account.Id, folder.Id, mailItem);
     }
 
-    /// <summary>App.HandleToastActionAsync (the app is running here, so the delegator queues the request).</summary>
+    /// <summary>A window is open, so the delegator queues the request with undo and synchronization runs in the background.</summary>
     private async Task ExecuteMailActionAsync(MailOperation action, Guid mailUniqueId)
     {
         MailCopy? mailItem = await mailService.GetSingleMailItemAsync(mailUniqueId);
         if (mailItem is null) return;
 
         await requestCoordinator.ExecuteMailOperationAsync(new MailOperationPreperationRequest(action, mailItem));
+        await notificationBuilder.UpdateTaskbarIconBadgeAsync();
+    }
+
+    /// <summary>
+    /// No window can show the undo bar, and a request held for undo would be lost when the process ends, so the
+    /// requests are queued without undo and each account runs them on the server before this returns.
+    /// </summary>
+    private async Task ExecuteMailActionWithoutWindowAsync(MailOperation action, Guid mailUniqueId)
+    {
+        MailCopy? mailItem = await mailService.GetSingleMailItemAsync(mailUniqueId);
+        if (mailItem is null)
+        {
+            _logger.Information("Notification mail {Id} for action {Action} was not found.", mailUniqueId, action);
+            return;
+        }
+
+        var answered = await requestCoordinator.AnswerMailOperationAsync(new MailOperationPreperationRequest(action, mailItem));
+        var requests = answered is null ? null : await requestProcessor.PrepareRequestsAsync(answered);
+        if (requests is null || requests.Count == 0) return;
+
+        foreach (var accountRequests in requests.GroupBy(request => request.Item.AssignedAccount.Id))
+        {
+            var accountId = accountRequests.Key;
+            foreach (var request in accountRequests)
+                await synchronizationManager.QueueRequestAsync(request, accountId, triggerSynchronization: false, allowUndo: false);
+
+            var result = await synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
+            {
+                AccountId = accountId,
+                Type = MailSynchronizationType.ExecuteRequests
+            });
+
+            _logger.Information("Notification action {Action} ran for account {AccountId}: {State}.", action, accountId, result.CompletedState);
+        }
+
         await notificationBuilder.UpdateTaskbarIconBadgeAsync();
     }
 
@@ -282,7 +318,6 @@ public sealed class NotificationResponseService(
         return (draft, base64);
     }
 
-    /// <summary>App.HandleToastComposeActionAsync.</summary>
     private async Task ComposeAsync(MailOperation action, Guid mailUniqueId)
     {
         var source = await LoadComposeSourceAsync(mailUniqueId);
