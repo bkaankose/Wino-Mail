@@ -235,13 +235,22 @@ public sealed class ContactEditPageViewController : WinoViewController<ContactEd
             destinationPopup.RemoveAllItems();
             foreach (var destination in vm.Destinations) destinationPopup.AddItem(destination.DisplayName);
             var index = vm.SelectedDestination is { } selected ? vm.Destinations.ToList().FindIndex(item => item.AddressBookId == selected.AddressBookId) : -1;
+            // "Ask every time" starts with no destination; an empty pop-up read as broken, so it names the choice.
+            if (index < 0 && vm.Destinations.Count > 0)
+            {
+                destinationPopup.InsertItem(Translator.ContactEditor_DestinationRequired, 0);
+                destinationPopup.ItemAtIndex(0)!.Enabled = false;
+                destinationPopup.SelectItem(0);
+                return;
+            }
             destinationPopup.SelectItem(index);
         }
         Collection(vm.Destinations, RebuildDestinations);
         Bind(nameof(vm.SelectedDestination), v => v.SelectedDestination, _ => RebuildDestinations());
         destinationPopup.Activated += (_, _) =>
         {
-            var index = (int)destinationPopup.IndexOfSelectedItem;
+            var placeholder = destinationPopup.ItemCount > vm.Destinations.Count ? 1 : 0;
+            var index = (int)destinationPopup.IndexOfSelectedItem - placeholder;
             if (index >= 0 && index < vm.Destinations.Count) vm.SelectedDestination = vm.Destinations[index];
         };
         Bind(nameof(vm.SourceDescription), v => v.SourceDescription, value => destinationLabel.StringValue = value ?? string.Empty);
