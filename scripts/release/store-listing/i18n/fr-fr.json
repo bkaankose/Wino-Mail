@@ -1,0 +1,114 @@
+{
+  "scenes": {
+    "head_mail": "Tous vos comptes,<br><em>une boîte sereine</em>",
+    "head_calendar": "Votre semaine,<br>juste à côté<br><em>de vos e-mails</em>",
+    "head_people": "Tous vos contacts,<br><em>au même endroit</em>",
+    "head_todo": "Planifiez<br>votre journée<br><em>près de vos e-mails</em>",
+    "head_themes": "À votre<br><em>image</em>",
+    "head_privacy": "Lisez vos e-mails<br><em>à l’abri des regards</em>",
+    "head_assistant": "Wino<br><em>Assistant</em>",
+    "head_companion": "Votre journée<br><em>en un coup d’œil</em>",
+    "head_features": "Tout l’essentiel,<br><em>déjà intégré</em>",
+    "assistant_sub": "Un planificateur intelligent qui gère vos e-mails, votre calendrier et vos tâches en respectant votre vie privée.",
+    "badge_privacy": "Confidentialité d’abord",
+    "badge_paid": "Abonnement payant",
+    "features": [
+      [
+        "Notifications push en direct",
+        "Vos e-mails dès leur arrivée"
+      ],
+      [
+        "Application native et rapide",
+        "Légère en mémoire, sans surcouche web"
+      ],
+      [
+        "Comptes regroupés",
+        "Plusieurs comptes, une seule boîte"
+      ],
+      [
+        "Alias de messagerie",
+        "Écrivez depuis chacune de vos adresses"
+      ],
+      [
+        "Raccourcis clavier",
+        "Travaillez sans quitter le clavier"
+      ],
+      [
+        "Widgets &amp; Live Tiles",
+        "E-mails, agenda et tâches sur le Bureau"
+      ],
+      [
+        "Modèles d’e-mails",
+        "Réutilisez vos réponses fréquentes"
+      ],
+      [
+        "Signatures",
+        "Une signature pour chaque compte"
+      ],
+      [
+        "Correcteur orthographique",
+        "Corrigez vos fautes au fil de la frappe"
+      ]
+    ],
+    "vb_said_heard": "Ajoute un déjeuner avec Morgan vendredi",
+    "vb_said_rest": "à mon calendrier et invite l’équipe design",
+    "vb_ask": "Voici ce que je vais faire",
+    "vb_account": "Travail",
+    "vb_step1": "Rechercher les e-mails contenant <strong>facture</strong> reçus <strong>ce mois-ci</strong>",
+    "vb_step1_detail": "7 trouvés dans alex@contoso.com",
+    "vb_step2": "Les déplacer vers <strong>Finances</strong>",
+    "vb_step3": "Répondre à <strong>Avery</strong>",
+    "vb_step3_detail": "« J’aurai dix minutes de retard, la réunion budget se prolonge. »",
+    "vb_yes": "Oui",
+    "vb_no": "Non",
+    "vb_done": "<strong>12 e-mails</strong> de newsletters marqués comme lus"
+  },
+  "listing": {
+    "shortDescription": "Une application Windows native et rapide pour vos e-mails, votre calendrier, vos contacts et vos tâches. Outlook, Gmail, iCloud, Exchange, IMAP et POP3 réunis dans une seule boîte de réception, en toute sérénité.",
+    "description": "Wino Mail est une application Windows native pour vos e-mails, votre calendrier, vos contacts et vos tâches. Ce n’est pas un site web déguisé en application. Elle démarre vite, reste réactive et consomme peu de mémoire, sur x64 comme sur ARM64. Wino se synchronise directement avec vos fournisseurs et conserve votre courrier sur votre PC.\n\nWino propose quatre modes : Courrier, Calendrier, Contacts et Tâches. Vous passez de l’un à l’autre instantanément, et chacun dispose de sa propre entrée dans le menu Démarrer.\n\nWINO MAIL\n• Connectez Outlook, Gmail, iCloud, Exchange Server et n’importe quel compte IMAP ou POP3\n• Connectez-vous à vos comptes IMAP en toute sécurité dans votre navigateur, sans mot de passe d’application\n• Réunissez vos comptes en groupes de comptes avec une seule boîte de réception, ou gardez chaque compte séparé\n• Traitez vos e-mails sans les ouvrir grâce aux actions de survol, aux actions de balayage et aux menus contextuels avec recherche\n• Triez automatiquement le courrier entrant avec les filtres de courrier\n• Répondez aux invitations directement depuis le message\n• Lisez vos messages en mode sombre et disposez les boutons du volet de lecture comme vous le souhaitez\n• Rédigez avec des alias, des signatures, des modèles et une mise en forme enrichie\n\nWINO CALENDAR\n• Affichez vos calendriers Outlook, Google, Exchange et CalDAV dans une seule vue\n• Profitez des vues Jour, Semaine, Semaine de travail et Mois, qui s’ouvrent à l’heure actuelle\n• Créez et modifiez des événements, des séries périodiques et des rappels\n• Parcourez les jours, les semaines et les mois à la souris, au stylet ou du bout des doigts\n\nWINO PEOPLE\n• Gérez les contacts de tous vos comptes au même endroit\n• Organisez-les avec des carnets d’adresses, des listes, des catégories et des favoris\n• Enregistrez pour chaque contact plusieurs adresses e-mail, numéros de téléphone et adresses postales, ainsi qu’un anniversaire, des notes et une photo\n• Synchronisez-les via Outlook, Gmail, Exchange et CardDAV\n\nWINO TO DO\n• Organisez-vous avec My Day, Important, Planifié, Tous et Terminé\n• Ajoutez des étapes, des échéances, des rappels, un niveau d’importance et des notes\n• Regroupez vos listes de tâches et attribuez-leur des couleurs\n• Synchronisez-les avec Microsoft To Do, Google Tasks, Exchange et CalDAV\n\nEN UN COUP D’ŒIL\n• Ajoutez les widgets Wino au tableau des widgets de Windows 11, ou épinglez la Live Tile sous Windows 10\n• Recevez des notifications push instantanées et traitez un message depuis sa notification\n• Consultez votre prochaine réunion, vos e-mails non lus et vos tâches My Day depuis la zone de notification\n\nCONFIDENTIALITÉ ET SÉCURITÉ\n• Bloquez les traqueurs et le contenu distant\n• Définissez des règles pour les expéditeurs et les domaines de confiance\n• Débarrassez les liens de leurs éléments de suivi et soyez averti avant l’ouverture d’une pièce jointe à risque\n• Sauvegardez et restaurez vos données, protégées par mot de passe\n\nÀ VOTRE IMAGE\n• Choisissez un thème dans la galerie ou créez le vôtre à partir d’un fond d’écran et d’une couleur d’accentuation\n• Utilisez les thèmes Clair, Sombre et les thèmes de contraste de Windows, ainsi qu’un style d’icônes coloré\n• N’affichez que les modes que vous utilisez et donnez à chaque compte sa propre image\n\nWINO INTELLIGENCE (FACULTATIF)\n• Wino Assistant : appuyez sur un raccourci depuis n’importe quelle application, puis écrivez ou dites ce que vous voulez faire. Wino affiche son plan et ne modifie rien tant que vous n’avez pas dit Oui\n• Briefing quotidien : les e-mails qui comptent, avec des actions comme Payer la facture ou Suivre le colis\n• Résumez et traduisez n’importe quel message\nWino Intelligence nécessite un abonnement Wino Account. Tout le reste de cette liste est gratuit.\n\nWino Mail s’adresse à celles et ceux qui cherchent un remplaçant fiable et moderne aux anciennes applications Courrier et Calendrier de Windows. Son code est open source : https://github.com/bkaankose/Wino-Mail",
+    "features": [
+      "Comptes Outlook, Gmail, iCloud, Exchange Server, IMAP et POP3 dans une seule application",
+      "Application Windows native pour x64 et ARM64, pas un site web déguisé en application",
+      "Quatre modes dans une seule fenêtre : Courrier, Calendrier, Contacts et Tâches",
+      "Groupes de comptes réunissant plusieurs comptes dans une seule boîte de réception",
+      "Actions de survol, actions de balayage et menus contextuels avec recherche",
+      "Filtres de courrier qui déplacent, archivent, signalent ou marquent vos nouveaux e-mails à votre place",
+      "Invitations à accepter ou à refuser directement depuis le message",
+      "Calendriers Outlook, Google, Exchange et CalDAV dans une seule vue",
+      "Contacts avec carnets d’adresses, listes, catégories et favoris",
+      "Tâches avec My Day, étapes, échéances et rappels",
+      "Synchronisation avec Microsoft To Do, Google Tasks et les listes de tâches CalDAV",
+      "Widgets Windows 11 et Live Tiles Windows 10",
+      "Notifications push instantanées avec actions",
+      "Blocage des traqueurs, règles pour le contenu distant et liens nettoyés",
+      "Galerie de thèmes, thèmes personnalisés et style d’icônes coloré",
+      "Thèmes Clair, Sombre et thèmes de contraste de Windows",
+      "Mode sombre pour les messages",
+      "Sauvegarde et restauration protégées par mot de passe",
+      "Wino Assistant, briefing quotidien, résumés et traduction (sur abonnement)",
+      "Open source"
+    ],
+    "keywords": [
+      "client mail",
+      "messagerie",
+      "boîte mail",
+      "outlook gmail imap",
+      "calendrier agenda",
+      "contacts et tâches",
+      "alternative courrier windows"
+    ],
+    "captions": {
+      "01-mail.png": "Vos comptes Outlook, Gmail, iCloud, Exchange, IMAP et POP3 dans une seule application Windows, native et rapide.",
+      "02-mail-dark.png": "Wino Mail en mode sombre.",
+      "03-calendar.png": "Vos calendriers Outlook, Google, Exchange et CalDAV dans une seule vue, avec des invitations auxquelles vous répondez depuis le message.",
+      "04-calendar-dark.png": "Wino Calendar en mode sombre.",
+      "05-people.png": "Les contacts de tous vos comptes, avec carnets d’adresses, listes, catégories et favoris.",
+      "06-todo.png": "My Day, étapes, échéances et rappels, synchronisés avec Microsoft To Do, Google Tasks et CalDAV.",
+      "07-features.png": "Notifications push en direct, comptes regroupés, alias, modèles, signatures, correcteur orthographique, raccourcis, widgets et Live Tiles.",
+      "08-companion.png": "Consultez votre prochaine réunion, vos e-mails non lus et vos tâches My Day depuis la zone de notification, sans ouvrir Wino.",
+      "09-themes.png": "Choisissez un thème dans la galerie ou créez le vôtre à partir de votre fond d’écran et de votre couleur d’accentuation.",
+      "10-assistant.png": "Wino Assistant est un planificateur intelligent et respectueux de votre vie privée pour vos e-mails, votre calendrier et vos tâches. Abonnement payant."
+    },
+    "releaseNotes": "Points forts :\n• Wino Assistant. Appuyez sur un raccourci dans n’importe quelle application, puis écrivez ou dites quoi faire de vos e-mails (rechercher, déplacer, répondre, supprimer), même en plusieurs étapes. Wino affiche son plan et ne modifie rien sans votre Oui. Inclus dans Wino Intelligence ; à configurer dans Paramètres > Wino Assistant.\n• Exchange local et connexion sécurisée pour IMAP. Ajoutez le compte Exchange Server de votre organisation : courrier, calendrier, contacts et tâches. Les comptes IMAP se connectent dans votre navigateur si votre fournisseur le permet, sans mot de passe d’application. Saisissez votre adresse : Wino trouve les serveurs, aussi via Outlook Autodiscover.\n• Confidentialité et sécurité. Chargez tout, bloquez les traqueurs ou tout le contenu distant, autorisez ou bloquez des expéditeurs et domaines, nettoyez les liens et soyez averti avant d’ouvrir une pièce jointe à risque, dans Paramètres > Confidentialité et sécurité.\n• Groupes de comptes. Les boîtes liées deviennent des groupes de comptes : un nom, une couleur, une icône, et des dossiers réunis en une seule boîte ou séparés par compte, dans Paramètres > Gérer les comptes.\n• Invitations. Une carte compacte propose Accepter, Provisoire et Refuser, y compris pour les invitations transférées et les comptes IMAP ; la liste des messages indique la date de l’événement.\n\nNouveautés et améliorations :\n…\n\nFull release notes: https://github.com/bkaankose/Wino-Mail/releases/tag/v2.2.13.0"
+  }
+}
