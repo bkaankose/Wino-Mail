@@ -21,7 +21,7 @@ public sealed class SettingsWindowController : NSWindowController
     public const string AutosaveName = "WinoSettingsWindow";
     private const string ToolbarIdentifier = "WinoSettingsToolbar";
     private const string NavigationItemIdentifier = "WinoSettingsNavigation";
-    private const double SidebarWidth = 230;
+    private const double SidebarWidth = 250;
 
     private readonly SettingsSidebarViewController _sidebar = new();
     private readonly NSSegmentedControl _navigation;
