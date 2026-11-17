@@ -26,7 +26,7 @@ namespace Wino.Platform.Windows.Services;
 /// Access needs the microphone device capability; when Windows privacy settings deny it, the graph reports
 /// <see cref="AudioDeviceNodeCreationStatus.AccessDenied"/> and the caller gets <see cref="MicrophoneAccess.Denied"/>.
 /// </summary>
-public sealed class WindowsMicrophoneService : IMicrophoneService, IDisposable
+public sealed partial class WindowsMicrophoneService : IMicrophoneService, IDisposable
 {
     private readonly Lock _watcherLock = new();
     private EventHandler? _devicesChanged;
@@ -320,7 +320,7 @@ public sealed class WindowsMicrophoneService : IMicrophoneService, IDisposable
     /// Reads each audio quantum of an open microphone: reports a smoothed peak level about 30 times a second and, for a
     /// capture, downmixes, resamples and converts the samples to 16-bit PCM in chunks of about 100 ms.
     /// </summary>
-    private sealed class GraphSession : IDisposable
+    private sealed partial class GraphSession : IDisposable
     {
         private static readonly Guid MemoryBufferByteAccessId = new("5b0d3235-4dba-4d44-865e-8f1d0e4fd04d");
         private const double ReportIntervalSeconds = 1.0 / 30;

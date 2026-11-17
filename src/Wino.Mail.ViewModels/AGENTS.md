@@ -6,7 +6,7 @@ The one ViewModel library for all four apps. A ViewModel holds the state a scree
 
 - **No UI framework type.** Nothing from WinUI, AppKit, UIKit or Android, and no hook for one platform. There is no platform copy of a production ViewModel.
 - **A ViewModel holds UI state only.** Business rules and data access go in a service. A mail, folder or calendar action that changes server data goes through `WinoRequestCoordinator`, which asks the user's questions and shows backend errors in one place for every caller; a ViewModel never writes the database. The pipeline is described in [Wino.Core](../Wino.Core/AGENTS.md).
-- **CsWinRT attributes are for Windows marshalling only.** The project has a second, Windows-only target that defines `WINRT_EXPOSED`. Add `[GeneratedWinRTExposedType]` or `[GeneratedBindableCustomProperty]` under that symbol only for a type that a WinUI items source or a runtime `{Binding}` receives.
+- **No CsWinRT here.** The project has one `net10.0` target on every operating system and no CsWinRT reference or attribute. When WinUI receives a type from this project (an items source, an item in it, a value stored in a WinUI property), list the type in `src/Wino.Mail.WinUI/WinRTExposedTypes.cs`; the Windows head generates its marshalling code.
 - **Register shared ViewModels only in `RegisterWinoViewModels`** (`WinoViewModelRegistration.cs`). Every head calls it.
 
 ## The contract with a view
@@ -34,7 +34,7 @@ How each framework binds to this is in the head's file: [WinUI](../Wino.Mail.Win
 
 ## Running a change
 
-Build the project. It has one portable target off Windows and two targets on Windows:
+Build the project. It has one portable target on every operating system:
 
 ```powershell
 dotnet build src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj

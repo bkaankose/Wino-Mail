@@ -22,10 +22,12 @@ The Windows app: WinUI 3 pages in XAML over the shared services and ViewModels, 
 
 ### Native AOT
 
-- Every value that reaches `ItemsSource`, `MenuItemsSource`, `FooterMenuItemsSource`, `TabItemsSource` or `CollectionViewSource.Source` has a concrete static type: an array, `List<T>`, `ObservableCollection<T>` or a `[GeneratedWinRTExposedType]` subclass. An interface type there throws in Release. `WINOAOT001` fails the build; fix the type.
+- Every value that reaches `ItemsSource`, `MenuItemsSource`, `FooterMenuItemsSource`, `TabItemsSource` or `CollectionViewSource.Source` has a concrete static type: an array, `List<T>`, `ObservableCollection<T>` or a concrete collection class. An interface type there throws in Release. `WINOAOT001` fails the build; fix the type.
 - Release treats trim, AOT, single-file and CsWinRT warnings as errors. Fix the cause. The only allowed suppressions are the allowlist in `build/Wino.Windows.targets`; add nothing to `NoWarn`.
 - Fix CsWinRT1034 and CsWinRT1035 with `[WinRT.DynamicWindowsRuntimeCast(typeof(T))]`.
-- A runtime `{Binding}` needs every CLR object in its path audited and marked for CsWinRT. Use compiled `x:Bind` and the audit is not needed.
+- A shared type that WinUI receives must be listed with `[assembly: WinRT.GeneratedWinRTExposedExternalType(typeof(T))]`, or lists come up empty in Release. Types from `Wino.Mail.ViewModels` go in [WinRTExposedTypes.cs](WinRTExposedTypes.cs); types from `Wino.Mail.Controls.Core` go in `controls/Wino.Mail.Controls.WinUI/WinRTExposedTypes.cs`; a closed generic goes in the app that names its type argument. The portable projects carry no CsWinRT attribute.
+- A runtime `{Binding}` must never pass through a shared type: it fails silently in Release. Use compiled `x:Bind`, or mirror the value onto a dependency property of the view, as `ApplicationThemeEditorPage` does.
+- A class in `Wino.Platform.Windows` that implements a WinRT interface or is handed to WinRT must be `partial`; CsWinRT reports `CsWinRT1028` in Release otherwise.
 
 ## How a page consumes a ViewModel
 
