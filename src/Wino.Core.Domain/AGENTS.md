@@ -1,6 +1,6 @@
 # Wino.Core.Domain
 
-The contracts every other project builds on: service interfaces, entities, enums, models, and the translations. Every app and every shared project references it, so a change here rebuilds everything.
+The contracts every other project builds on: service interfaces, entities, enums, models, the message records (`Messaging/`, namespaces `Wino.Messaging.*`), and the translations. Every app and every shared project references it, so a change here rebuilds everything.
 
 ## Hard stops
 
