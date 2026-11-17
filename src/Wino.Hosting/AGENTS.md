@@ -14,7 +14,7 @@ The host that runs the shared backend, up to the ViewModels, without an app. A s
 ## Always
 
 - When shared code gains a contract that a host must supply, add its implementation here in the same change, or `WinoHost.StartAsync` fails for every script. The apps' registrations are the reference: `src/Wino.Mail.Android/AndroidComposition.cs` has the closest shape.
-- Reuse a portable implementation from `Wino.Services` or `Wino.Authentication` before writing one here.
+- Reuse a portable implementation from `Wino.Services` or `Wino.Authentication` before writing one here. The ones every non-Windows host shares come from `AddPortablePlatformServices`.
 - A screen contract answers as dismissed or cancelled and records the call in `WinoHost.Interactions`. An interactive sign-in surface throws `NotSupportedException` with a clear message and records the attempt.
 - Start through `ApplicationLifecycleCoordinator`, the same entry the apps use. Do not copy a startup order by hand.
 
