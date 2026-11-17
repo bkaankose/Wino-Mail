@@ -16,6 +16,7 @@ Storage and everything around it: the SQLite database and its schema, the MIME f
 - Take dependencies through the constructor, including `IMessenger`, and hold no `static` mutable state. `WINOMSG001` fails the build on `WeakReferenceMessenger.Default`; the one allowed use is the registration line in `ServicesContainerSetup.cs`, which the apps need because their views use the global instance.
 - Register the service in `RegisterSharedServices` (`ServicesContainerSetup.cs`). A class that implements several interfaces is registered once, and each interface forwards to that instance.
 - Log errors with `IWinoLogger`, and wrap async external operations in try/catch.
+- Keep the namespace of the files under `Domain/`. They are the contracts and models that need MimeKit or MailKit (`IMailService`, `IMimeFileService`, `HtmlPreviewVisitor`, the synchronizer contracts and others). They moved out of the Domain project and kept their `Wino.Core.Domain.*` names so every head compiles unchanged. A new MIME-typed contract goes there too.
 - Keep JSON source-generated. Reflection-based serialization fails the Windows Release gate.
 
 ## Running a change

@@ -29,6 +29,7 @@ Every user action that changes server data takes this path. Know it before you c
 - Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager, and `WINOMSG001` fails the build on `WeakReferenceMessenger.Default` in a shared project.
 - Give every synchronizer, error handler and request executor the one `RequestUiChangeCoordinator` singleton from the container. A second instance does not know which changes were applied, so a revert would be skipped.
 - Register services in `RegisterCoreServices` (`CoreContainerSetup.cs`).
+- Keep the namespace of the files under `Domain/` (the POP3 adapter, SMTP transport and IMAP pool contracts). They moved out of the Domain project and kept their `Wino.Core.Domain.*` names.
 - Treat code after `ConfigureAwait(false)` and every messenger recipient as background-thread code.
 
 ## Running a change
