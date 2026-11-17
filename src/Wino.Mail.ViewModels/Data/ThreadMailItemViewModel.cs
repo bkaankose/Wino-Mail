@@ -10,21 +10,12 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Thread mail item (multiple IMailItem) view model representation.
 /// </summary>
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-[GeneratedBindableCustomProperty(
-    new string[] { nameof(IsSelected), nameof(IsThreadExpanded), nameof(IsSelectedOrExpanded), nameof(IsBusy) },
-    new Type[] { })]
-#endif
 public partial class ThreadMailItemViewModel : ObservableObject, IMailListItem, IMailItemDisplayInformation
 {
     private readonly string _threadId;

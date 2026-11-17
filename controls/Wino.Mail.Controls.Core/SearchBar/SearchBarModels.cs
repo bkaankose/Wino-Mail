@@ -1,7 +1,3 @@
-#if WINRT_EXPOSED
-using WinRT;
-#endif
-
 namespace Wino.Mail.Controls.Core.SearchBar;
 
 public enum SearchBarMode
@@ -82,9 +78,6 @@ public sealed class SearchBarSuggestion
     public override string ToString() => Title;
 }
 
-#if WINRT_EXPOSED
-[GeneratedBindableCustomProperty]
-#endif
 public sealed partial class SearchBarContactSuggestion
 {
     public string DisplayName { get; set; } = string.Empty;

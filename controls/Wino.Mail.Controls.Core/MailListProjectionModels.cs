@@ -1,8 +1,5 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Mail.Controls.Core;
 
@@ -36,9 +33,6 @@ public sealed class MailListThread
     internal void ReplaceItems(IReadOnlyList<IMailListSourceItem> items) => _items = items;
 }
 
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial class MailListRow : INotifyPropertyChanged
 {
     private MailListRow(
@@ -95,9 +89,6 @@ public sealed partial class MailListRow : INotifyPropertyChanged
     }
 }
 
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial class MailListGroup : ObservableCollection<MailListRow>
 {
     internal MailListGroup(object key, IEnumerable<MailListRow> rows)

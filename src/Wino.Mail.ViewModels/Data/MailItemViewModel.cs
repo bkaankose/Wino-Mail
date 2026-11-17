@@ -12,21 +12,12 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-[GeneratedBindableCustomProperty(
-    new string[] { nameof(IsBusy) },
-    new Type[] { })]
-#endif
 public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailItemDisplayInformation, IMailListSourceItem
 {
     private bool isSyncingCategories;
