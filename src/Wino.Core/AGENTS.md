@@ -25,7 +25,8 @@ Every user action that changes server data takes this path. Know it before you c
 
 ## Always
 
-- Put provider-specific behavior in that provider's synchronizer, change processor or error handler. Shared code asks the provider; it does not add a new `switch` on the provider type.
+- Put provider-specific behavior in that provider's synchronizer, change processor or error handler. Shared code never names a provider's classes and never switches on the provider type: it asks `IMailProviderRegistry`. A yes-or-no difference between providers is a flag on `MailProviderTraits`; behavior is a member of `IMailProviderModule`. Each provider has one file under `Providers/` with its module and its `Add...Provider` registration method.
+- Keep the module contract small. Add a member only when shared code would otherwise have to name a provider.
 - Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager, and `WINOMSG001` fails the build on `WeakReferenceMessenger.Default` in a shared project.
 - Give every synchronizer, error handler and request executor the one `RequestUiChangeCoordinator` singleton from the container. A second instance does not know which changes were applied, so a revert would be skipped.
 - Register services in `RegisterCoreServices` (`CoreContainerSetup.cs`).
