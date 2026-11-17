@@ -39,6 +39,6 @@ Build the project. It has one portable target off Windows and two targets on Win
 dotnet build src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj
 ```
 
-A ViewModel cannot be created from a script yet: it needs about twenty services that only an app registers, including the dispatcher, navigation and dialogs. Until a portable host exists, check behavior in a running app. On Windows that is the Debug app with `winapp ui` against leased lab accounts. On a machine with no app to run, report the build result and "behavior check pending" with the ViewModel and command you changed.
+A ViewModel runs from a script through the host: [Wino.Hosting](../Wino.Hosting/AGENTS.md) resolves it with the real services and drives it on a real dispatcher thread, the way a page does. Use that on any machine to check state and commands. What only a screen shows (layout, bindings, input) is checked in a running app; on Windows that is the Debug app with `winapp ui` against leased lab accounts.
 
 Logic that needs no ViewModel instance, such as a static helper or a model, runs from a single-file script; see "Running backend code without an app" in the [root guidance](../../AGENTS.md).

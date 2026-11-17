@@ -52,7 +52,7 @@ Console.WriteLine("carddav: " + await discovery.DiscoverCardDavServiceUriAsync(a
 
 How to run a script, and the rules for it, are under "Running backend code without an app" in the [root guidance](../../AGENTS.md). The first build of this project compiles 3,699 generated Graph files and takes about a minute.
 
-A full synchronization cannot run from a script yet: the synchronizers need services that only an app registers. Check a synchronizer change in the Windows Debug app against leased lab accounts, as the root guidance describes.
+A synchronizer or a request runs from a script through the host: [Wino.Hosting](../Wino.Hosting/AGENTS.md) adds a leased lab account with the app's own setup path and synchronizes it against the real server. Use that for every change to a synchronizer, a request or the runtime, then check user-visible behavior in the Windows Debug app as the root guidance describes.
 
 ## Performance
 

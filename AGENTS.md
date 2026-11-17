@@ -22,6 +22,7 @@ Before you edit under one of these folders, read its `AGENTS.md`. It is binding 
 | `src/Wino.Services` (database, schema, MIME store, logging, preferences) | [src/Wino.Services/AGENTS.md](src/Wino.Services/AGENTS.md) |
 | `src/Wino.Core` (synchronizers, requests, sync schedule, account setup) | [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md) |
 | `src/Wino.Mail.ViewModels` | [src/Wino.Mail.ViewModels/AGENTS.md](src/Wino.Mail.ViewModels/AGENTS.md) |
+| `src/Wino.Hosting` (the host that runs the backend without an app), or you add a contract a host must supply | [src/Wino.Hosting/AGENTS.md](src/Wino.Hosting/AGENTS.md) |
 | `src/Wino.Mail.WinUI`, `src/Wino.Platform.Windows` (XAML, dialogs, Native AOT) | [src/Wino.Mail.WinUI/AGENTS.md](src/Wino.Mail.WinUI/AGENTS.md) |
 | `src/Wino.Mail.MacOS`, `src/Wino.Platform.MacOS`, Apple signing or entitlements | [src/Wino.Mail.MacOS/AGENTS.md](src/Wino.Mail.MacOS/AGENTS.md) |
 | `src/Wino.Mail.UIKit`, `src/Wino.Mail.UIKit.Phone`, `src/Wino.Mail.iOS`, `src/Wino.Platform.iOS` | [src/Wino.Mail.UIKit/AGENTS.md](src/Wino.Mail.UIKit/AGENTS.md) |
@@ -88,7 +89,7 @@ There are no test projects, written tests, mocks or fakes in this repository or 
 - Keep scripts out of the repository, and never point one at the installed app's data folder.
 - Report the command, its output, and what the run did not cover.
 
-Working samples: a storage service in [src/Wino.Services/AGENTS.md](src/Wino.Services/AGENTS.md) and a network service in [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md).
+Working samples: a storage service in [src/Wino.Services/AGENTS.md](src/Wino.Services/AGENTS.md), a network service in [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md), and the whole backend with synchronization and ViewModels in [src/Wino.Hosting/AGENTS.md](src/Wino.Hosting/AGENTS.md).
 
 ## Discovery and references
 
