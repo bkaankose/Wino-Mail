@@ -15,6 +15,7 @@ using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
@@ -210,9 +211,14 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 #endif
         _state.PropertyChanged += StateChanged;
         WeakReferenceMessenger.Default.Register<WinoAppShellViewController, DailyBriefingOpenRequested>(this, static (shell, _) => shell.OpenBriefingRequested());
+        // Rows keep the text they were configured with (New Mail, New Event), and the title is composed here,
+        // so both are rebuilt in the new language; the ViewModel rebuilds the account and folder items itself.
+        WeakReferenceMessenger.Default.Register<WinoAppShellViewController, LanguageChanged>(this, static (shell, _) =>
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(shell.ApplyLanguage));
         Bindings.Own(new ActionDisposable(() =>
         {
             WeakReferenceMessenger.Default.Unregister<DailyBriefingOpenRequested>(this);
+            WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
             _state.PropertyChanged -= StateChanged;
             ObserveProvider(null);
             ObserveTitle(null);
@@ -689,6 +695,14 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         catch (Exception exception) { ReportError(exception); }
     }
 
+    private void ApplyLanguage()
+    {
+        if (Bindings.IsDisposed) return;
+        _sidebar?.ReconfigureVisibleRows();
+        _toolbar?.ApplyLanguage();
+        UpdateTitle();
+    }
+
     /// <summary>
     /// Window title and subtitle in the unified toolbar: in Mail the selected folder, then its account
     /// and unread count; in the other modes the mode title and whatever the page reports.
@@ -704,7 +718,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
             var owner = folder is IFolderMenuItem { ParentAccount: { } account }
                 ? (string.IsNullOrWhiteSpace(account.Address) ? account.Name : account.Address)
                 : folder.AssignedAccountName;
-            var unread = folder.ShowUnreadCount && folder.UnreadItemCount > 0 ? $"{folder.UnreadItemCount} unread" : null;
+            var unread = folder.ShowUnreadCount && folder.UnreadItemCount > 0 ? string.Format(Translator.UnreadBadges_Folders_UnreadFormat, folder.UnreadItemCount) : null;
             subtitle = string.Join(" · ", new[] { owner, unread }.Where(part => !string.IsNullOrWhiteSpace(part)));
         }
         else

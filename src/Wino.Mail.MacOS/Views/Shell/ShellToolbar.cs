@@ -473,6 +473,35 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         ApplyStableWidth(button);
     }
 
+    /// <summary>Re-labels the items whose text was fixed when they were created, after the app language changed.</summary>
+    public void ApplyLanguage()
+    {
+        foreach (var (command, item) in _commandItems)
+        {
+            var entry = Commands.First(entry => entry.Command == command);
+            var (glyph, title) = ToggledAppearance(command, _isActive(command)) ?? (entry.Glyph, entry.Title());
+            SetItemText(item, title);
+            if (item.View is NSButton button)
+            {
+                button.Image = WinoIcons.Image(glyph, 17, null, title);
+                ApplyCommandLabel(button, item);
+            }
+        }
+        if (_whatsNewItem is not null) SetItemText(_whatsNewItem, Translator.WhatsNew_ShellButtonTooltip);
+        if (_briefingItem is not null) SetItemText(_briefingItem, Translator.DailyBriefing_Menu);
+        SetRelayFallbackActive(_relayFallbackActive);
+    }
+
+    private static void SetItemText(NSToolbarItem item, string title)
+    {
+        item.Label = title;
+        item.PaletteLabel = title;
+        item.ToolTip = title;
+        if (item.View is not NSButton button) return;
+        button.ToolTip = title;
+        WinoAccessibility.Label(button, title);
+    }
+
     private void ApplyCommandState(ShellCommand command, NSToolbarItem item)
     {
         if (SupportsHiddenItems) item.Hidden = !_hasCommandTarget();
@@ -508,7 +537,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
 
     private NSToolbarItem CreateSyncItem()
     {
-        var label = "Synchronize";
+        var label = Translator.Buttons_Sync;
         var item = Button(SyncId, WinoIconGlyph.Sync, label, () => _synchronize());
         _syncButton = (NSButton)item.View!;
         _syncProgress = new NSProgressIndicator
@@ -546,7 +575,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         _relayFallbackActive = active;
         if (_relayFallbackDot is not null) _relayFallbackDot.Hidden = !active;
         if (_syncButton is not null)
-            _syncButton.ToolTip = active ? $"{Translator.Relay_FallbackFlyoutTitle}. {Translator.Relay_FallbackFlyoutMessage}" : "Synchronize";
+            _syncButton.ToolTip = active ? $"{Translator.Relay_FallbackFlyoutTitle}. {Translator.Relay_FallbackFlyoutMessage}" : Translator.Buttons_Sync;
     }
 
     private NSToolbarItem CreateBriefingItem()
@@ -658,9 +687,9 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         _syncHidden = !supported;
         SetItemHidden(_syncItem, !supported);
         _syncButton.Enabled = canSynchronize && !isSynchronizing;
-        _syncButton.Image = isSynchronizing ? null : WinoIcons.Image(WinoIconGlyph.Sync, 17, null, "Synchronize");
+        _syncButton.Image = isSynchronizing ? null : WinoIcons.Image(WinoIconGlyph.Sync, 17, null, Translator.Buttons_Sync);
         if (isSynchronizing) _syncProgress.StartAnimation(null); else _syncProgress.StopAnimation(null);
-        var tip = string.IsNullOrWhiteSpace(toolTip) ? "Synchronize" : toolTip;
+        var tip = string.IsNullOrWhiteSpace(toolTip) ? Translator.Buttons_Sync : toolTip;
         _syncItem.ToolTip = tip;
         _syncButton.ToolTip = tip;
         WinoAccessibility.Label(_syncButton, tip);

@@ -118,7 +118,13 @@ internal sealed partial class ShellSidebarViewController : NSViewController
     }
 
     /// <summary>Selected titles and the selection fill use the accent colour, so visible rows are redrawn when it changes.</summary>
-    private void AccentChanged(object? sender, EventArgs args) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+    private void AccentChanged(object? sender, EventArgs args) => NSApplication.SharedApplication.BeginInvokeOnMainThread(ReconfigureVisibleRows);
+
+    /// <summary>
+    /// Re-applies every visible row's text and state in place, for a new language or accent. ReloadData would
+    /// bypass the row bookkeeping and break the inserts of a menu rebuild that lands right after it.
+    /// </summary>
+    public void ReconfigureVisibleRows()
     {
         if (!ViewLoaded) return;
         var visible = _outline.RowsInRect(_outline.VisibleRect());
@@ -127,7 +133,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             if (_outline.ItemAtRow(row) is Node node) _selection.Configure(_outline.GetView(0, row, false), node.Item, row);
             if (_outline.GetRowView(row, false) is { } rowView) rowView.NeedsDisplay = true;
         }
-    });
+    }
 
     /// <summary>Replaces the menu shown in the pane.</summary>
     public void Bind(ShellMenu? menu)
