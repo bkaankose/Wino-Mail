@@ -1,6 +1,8 @@
 # Wino.Core
 
-The synchronization engine: one synchronizer per provider (Outlook, Gmail, IMAP, POP3, Exchange, CalDAV, CardDAV), the request pipeline, the synchronization manager, the application runtime, account setup and autodiscovery. It references `Wino.Services`, `Wino.Authentication` and `Wino.Core.Domain`, and no platform or UI project.
+What every mail provider shares: the synchronizer base classes, the request pipeline, the provider registry, the synchronization manager, the application runtime, account setup and autodiscovery. It references `Wino.Services`, `Wino.Authentication` and `Wino.Core.Domain`. It references no provider project and no platform or UI project.
+
+Each provider lives in its own project and has its own file: [Outlook](../Wino.Providers.Outlook/AGENTS.md), [Gmail](../Wino.Providers.Gmail/AGENTS.md), [IMAP and POP3](../Wino.Providers.Imap/AGENTS.md), [Exchange](../Wino.Providers.Exchange/AGENTS.md), [CalDAV and CardDAV](../Wino.Providers.Dav/AGENTS.md).
 
 ## The request pipeline
 
@@ -13,25 +15,40 @@ Every user action that changes server data takes this path. Know it before you c
 5. **On success** the provider's change processor writes the database, and the storage service sends a message with `EntityUpdateSource.Server`.
 6. **On failure** `RequestUiChangeCoordinator.RevertBundle` reverts the in-memory change with `EntityUpdateSource.ClientReverted`. The database is untouched.
 
+## The provider registry
+
+Shared code never names a provider's classes and never switches on the provider type. It asks `IMailProviderRegistry`:
+
+- A yes-or-no or enum difference between providers is data on `MailProviderTraits` (for example `SupportsFocusedInbox`, `StoresMessageInSeveralFolders`, `UsesQuotaWindowForTasksAndContacts`).
+- Behavior is a member of `IMailProviderModule`: create the authenticator, create the synchronizer, decide whether an existing synchronizer still fits, recognize an authorization failure.
+- Each provider project exposes one `Add...Provider` method that registers its module and its own services. Every host calls all five directly after `RegisterCoreServices()`, Gmail first, because the push relay builders depend on that order.
+
+Keep the module contract small. Add a member only when shared code would otherwise have to name a provider.
+
 ## Hard stops
 
 - **The database changes only after the server confirms.** Route every server-changing action through the pipeline above, with both `ApplyUIChanges` and `RevertUIChanges`. Never write a guessed result to the database, and add no offline queue and no retry queue. If a server operation needs several calls, say what state a failure between them leaves on the server.
+- **No reference to a provider project**, here or in `Wino.Services`, `Wino.Authentication`, `Wino.Core.Domain` or `Wino.Mail.ViewModels`. A provider project never references another provider project. When two providers need the same code, it lives here.
 - **Fixes to a synchronizer follow the RFC or the provider's documented API and are generic.** Add no per-server exception. For a server that misbehaves, write a note for the owner.
 - **A fix must not break data that existing users have already synced.**
-- **`SyncCoordinator` owns the schedule.** No other code keeps an interval constant. Google Tasks and Google contacts use a six-hour window for automatic syncs only; a manual sync always runs. Never show a quota or a rate limit to the user.
+- **`SyncCoordinator` owns the schedule.** No other code keeps an interval constant. Never show a quota or a rate limit to the user.
 - **OAuth clients, token storage and sign-in:** read "Accounts, OAuth clients and signing" in the [root guidance](../../AGENTS.md) first.
-- **One way to build a Graph client.** Outlook uses the official `Microsoft.Graph` package; there is no generated client. Create every `GraphServiceClient` through `OutlookSynchronizer.CreateGraphClient`, which wraps the adapter in `GraphRequestAdapterWithoutBackingStore`. A client built on a plain adapter turns on change tracking for every client in the process: properties set to null are then sent as explicit nulls, and a model serialized twice sends only its changes.
-- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project. Code that needs a decision takes the answer as data on the request, or returns a typed result such as `MailOperationDecisionRequiredException` to the ViewModel. A notice goes out as `InfoBarMessageRequested` through `IMessenger`.
+- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project or a provider project. Code that needs a decision takes the answer as data on the request, or returns a typed result such as `MailOperationDecisionRequiredException` to the ViewModel. A notice goes out as `InfoBarMessageRequested` through `IMessenger`.
 
 ## Always
 
-- Put provider-specific behavior in that provider's synchronizer, change processor or error handler. Shared code never names a provider's classes and never switches on the provider type: it asks `IMailProviderRegistry`. A yes-or-no difference between providers is a flag on `MailProviderTraits`; behavior is a member of `IMailProviderModule`. Each provider has one file under `Providers/` with its module and its `Add...Provider` registration method.
-- Keep the module contract small. Add a member only when shared code would otherwise have to name a provider.
 - Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager, and `WINOMSG001` fails the build on `WeakReferenceMessenger.Default` in a shared project.
 - Give every synchronizer, error handler and request executor the one `RequestUiChangeCoordinator` singleton from the container. A second instance does not know which changes were applied, so a revert would be skipped.
-- Register services in `RegisterCoreServices` (`CoreContainerSetup.cs`).
-- Keep the namespace of the files under `Domain/` (the POP3 adapter, SMTP transport and IMAP pool contracts). They moved out of the Domain project and kept their `Wino.Core.Domain.*` names.
+- Register shared services in `RegisterCoreServices` (`CoreContainerSetup.cs`). A service only one provider needs is registered in that provider's `Add...Provider` method.
+- Keep the namespace of the files under `Domain/`. They moved out of the Domain project and kept their `Wino.Core.Domain.*` names.
 - Treat code after `ConfigureAwait(false)` and every messenger recipient as background-thread code.
+
+Shared code that looks provider-specific but stays here, because more than one provider uses it:
+
+- `CalDavChangeProcessor`, `CalendarIcsBuilder` and `CalDavAttachmentRows`: the calendar ICS store that IMAP, DAV and local calendars share.
+- `MailKitSmtpTransport`, its connection policy and `MailKitOAuthAuthenticator`: IMAP, Exchange and MAPI send through them.
+- `WinoProtocolLogger`: a ViewModel reads its log folder.
+- `OutlookDeclineEventRequest`: created by the shared delegator and checked by Gmail.
 
 ## Running a change
 
@@ -59,16 +76,5 @@ A synchronizer or a request runs from a script through the host: [Wino.Hosting](
 
 ## Performance
 
-These limits exist for provider quotas and memory. Change one only with the reason stated.
-
-| Limit | Value | Where |
-| --- | --- | --- |
-| Outlook Graph batch | 20 requests | `OutlookSynchronizer.cs` |
-| Gmail batch | 10 requests | `GmailSynchronizer.cs` |
-| IMAP new-message fetch | 200 per batch | `ImapSync/UnifiedImapSynchronizer.cs` |
-| IMAP connection pool | 5 by default, 1 to 10 | `Integration/ImapClientPool.cs` |
-| IMAP parallel folder sync | 3 clients | `ImapSynchronizer.cs` |
-| CalDAV and CardDAV download | 50 per batch, 4 at once | the two `*DavSynchronizationEngine.cs` files |
-| Default sync interval | mail 3 minutes, calendar 5 minutes | `Wino.Core.Domain/Constants.cs` |
-
-Initial synchronization stores message identifiers and downloads MIME content on demand. Keep it that way.
+- The default sync interval is 3 minutes for mail and 5 minutes for calendar (`Wino.Core.Domain/Constants.cs`). Batch sizes and connection limits are in each provider's file.
+- Initial synchronization stores message identifiers and downloads MIME content on demand. Keep it that way.

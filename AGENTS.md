@@ -9,7 +9,7 @@ Wino Mail is a native mail, calendar, contacts, and To Do client with four appli
 | iOS and iPadOS | `src/Wino.Mail.iOS` (UIKit, Mono), UI projects `Wino.Mail.UIKit` and `.Phone` (the shell for iPhone and iPad) | `WinoMail.iOS.slnx` | [iOS development](docs/harness/development-ios.md) |
 | Android | `src/Wino.Mail.Android` (Android Views with XML layouts, AndroidX, Material, Mono) | `WinoMail.Android.slnx` | [Android development](docs/harness/development-android.md) |
 
-All applications use the shared backend: `Wino.Core.Domain` (contracts, entities and the message records under `Messaging/`), `Wino.Core`, `Wino.Services`, `Wino.Authentication`, `Wino.Core.ML`, `Wino.Mail.ViewModels`, `controls/Wino.Mail.Controls.Core`, and `controls/Wino.Editor.Core`.
+All applications use the shared backend: `Wino.Core.Domain` (contracts, entities and the message records under `Messaging/`), `Wino.Services`, `Wino.Core`, `Wino.Authentication`, the five provider projects `Wino.Providers.Outlook`, `.Gmail`, `.Imap`, `.Exchange` and `.Dav`, `Wino.Core.ML`, `Wino.Mail.ViewModels`, `controls/Wino.Mail.Controls.Core`, and `controls/Wino.Editor.Core`.
 Platform services live in `Wino.Platform.Windows`, `Wino.Platform.MacOS`, `Wino.Platform.iOS`, and `Wino.Platform.Android`. The Apple apps share `Wino.Platform.Apple` (Foundation-level services: paths, configuration, Keychain, StoreKit, notifications), `Wino.Core.Apple.Bindings`, and `controls/Wino.Editor.WebKit`; `Wino.Platform.MacOS` and `Wino.Platform.iOS` hold only AppKit-only and UIKit-only services.
 
 ## Guidance map
@@ -20,7 +20,12 @@ Before you edit under one of these folders, read its `AGENTS.md`. It is binding 
 | --- | --- |
 | `src/Wino.Core.Domain` (contracts, entities, translations, client ids) | [src/Wino.Core.Domain/AGENTS.md](src/Wino.Core.Domain/AGENTS.md) |
 | `src/Wino.Services` (database, schema, MIME store, logging, preferences) | [src/Wino.Services/AGENTS.md](src/Wino.Services/AGENTS.md) |
-| `src/Wino.Core` (synchronizers, requests, sync schedule, account setup) | [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md) |
+| `src/Wino.Core` (request pipeline, provider registry, sync schedule, account setup) | [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md) |
+| `src/Wino.Providers.Outlook` (Graph synchronizer, MSAL sign-in) | [src/Wino.Providers.Outlook/AGENTS.md](src/Wino.Providers.Outlook/AGENTS.md) |
+| `src/Wino.Providers.Gmail` (Gmail synchronizer, Google REST clients) | [src/Wino.Providers.Gmail/AGENTS.md](src/Wino.Providers.Gmail/AGENTS.md) |
+| `src/Wino.Providers.Imap` (IMAP and POP3) | [src/Wino.Providers.Imap/AGENTS.md](src/Wino.Providers.Imap/AGENTS.md) |
+| `src/Wino.Providers.Exchange` (EWS and MAPI) | [src/Wino.Providers.Exchange/AGENTS.md](src/Wino.Providers.Exchange/AGENTS.md) |
+| `src/Wino.Providers.Dav` (CalDAV and CardDAV) | [src/Wino.Providers.Dav/AGENTS.md](src/Wino.Providers.Dav/AGENTS.md) |
 | `src/Wino.Mail.ViewModels` | [src/Wino.Mail.ViewModels/AGENTS.md](src/Wino.Mail.ViewModels/AGENTS.md) |
 | `src/Wino.Hosting` (the host that runs the backend without an app), or you add a contract a host must supply | [src/Wino.Hosting/AGENTS.md](src/Wino.Hosting/AGENTS.md) |
 | `src/Wino.Mail.WinUI`, `src/Wino.Platform.Windows` (XAML, dialogs, Native AOT) | [src/Wino.Mail.WinUI/AGENTS.md](src/Wino.Mail.WinUI/AGENTS.md) |
