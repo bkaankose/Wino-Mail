@@ -68,7 +68,6 @@ public static class WindowsPlatformRegistration
         services.AddTransient<IFileService, FileService>();
         services.AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>();
         services.AddSingleton<INotificationHostClient, NotificationHostClient>();
-        services.AddSingleton<IWindowsPrintService, PrintService>();
 
         return services;
     }
