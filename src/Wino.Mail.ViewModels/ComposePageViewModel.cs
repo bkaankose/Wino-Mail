@@ -1264,8 +1264,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         CurrentMimeMessage.From.Clear();
 
-        // Try to get the sender name from the alias. If not, fallback to account sender name.
-        var senderName = SelectedAlias.AliasSenderName ?? ComposingAccount.SenderName;
+        // Primary aliases are stored with an empty sender name, which must fall back to the account's name too.
+        var senderName = string.IsNullOrWhiteSpace(SelectedAlias.AliasSenderName) ? ComposingAccount.SenderName : SelectedAlias.AliasSenderName;
 
         CurrentMimeMessage.From.Add(new MailboxAddress(senderName, SelectedAlias.AliasAddress));
     }

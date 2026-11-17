@@ -100,7 +100,7 @@ public class MailService : BaseDatabaseService, IMailService
             Id = Guid.NewGuid().ToString(), // This will be replaced after network call with the remote draft id.
             CreationDate = DateTime.UtcNow,
             FromAddress = selectedAlias?.AliasAddress ?? primaryAlias?.AliasAddress ?? composerAccount.Address,
-            FromName = selectedAlias?.AliasSenderName ?? composerAccount.SenderName,
+            FromName = string.IsNullOrWhiteSpace(selectedAlias?.AliasSenderName) ? composerAccount.SenderName : selectedAlias.AliasSenderName,
             HasAttachments = false,
             Importance = MailImportance.Normal,
             Subject = createdDraftMimeMessage.Subject,
@@ -2343,7 +2343,7 @@ public class MailService : BaseDatabaseService, IMailService
             ?? throw new MissingAliasException();
 
         // Set FromName and FromAddress by alias.
-        message.From.Add(new MailboxAddress(selectedAlias.AliasSenderName ?? account.SenderName, selectedAlias.AliasAddress));
+        message.From.Add(new MailboxAddress(string.IsNullOrWhiteSpace(selectedAlias.AliasSenderName) ? account.SenderName : selectedAlias.AliasSenderName, selectedAlias.AliasAddress));
         EnsureOutgoingMessageId(message, selectedAlias.AliasAddress);
 
         if (!string.IsNullOrWhiteSpace(selectedAlias.ReplyToAddress))
