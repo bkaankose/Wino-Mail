@@ -40,8 +40,8 @@ public static class WindowsPlatformRegistration
         services.AddSingleton<ContactPictureThumbnailer>();
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
         services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
-        services.AddSingleton<IStartupIntegrationService, WindowsStartupIntegrationService>();
-        services.AddSingleton<IReaderRuntimeService, WindowsReaderRuntimeService>();
+        services.AddSingleton<IStartupIntegrationService>(provider => provider.GetRequiredService<NativeAppService>());
+        services.AddSingleton<IReaderRuntimeService>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IInstalledBrowserService, WindowsInstalledBrowserService>();
         services.AddSingleton<IMicrophoneService, WindowsMicrophoneService>();
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();

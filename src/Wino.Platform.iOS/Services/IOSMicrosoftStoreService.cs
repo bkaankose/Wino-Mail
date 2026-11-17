@@ -3,13 +3,13 @@ using UIKit;
 using Wino.Core.Apple.Bindings.StoreKit2;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services.Platform;
 
 namespace Wino.Platform.iOS.Services;
 
 /// <summary>
 /// The Microsoft Store does not exist on iOS; purchases go through <see cref="IAppStoreClient"/> and the Wino Account.
-/// Ratings use the system review prompt (StoreKit 2), throttled with the same rules as the Mac App Store build.
-/// The throttle is a copy of <c>MacMicrosoftStoreService</c>'s: that class is AppKit-bound and has no reusable core.
+/// Ratings use the system review prompt (StoreKit 2), throttled by <see cref="StoreRatingRequestSchedule"/> like the Mac App Store build.
 /// </summary>
 public sealed class IOSMicrosoftStoreService(IConfigurationService configurationService, IDispatcher dispatcher) : IMicrosoftStoreService
 {
@@ -21,11 +21,7 @@ public sealed class IOSMicrosoftStoreService(IConfigurationService configuration
     private const string FirstTriggerKey = "IOSRatingFirstTriggerUtc";
     private const string LatestRequestKey = "IOSRatingLatestRequestUtc";
 
-    /// <summary>Time between the first rating trigger and the first request, so new users are not asked.</summary>
-    private static readonly TimeSpan FirstRequestDelay = TimeSpan.FromDays(3);
-
-    /// <summary>The system also limits prompts (three a year); this keeps Wino's own requests rare.</summary>
-    private static readonly TimeSpan RequestInterval = TimeSpan.FromDays(120);
+    private readonly StoreRatingRequestSchedule _ratingSchedule = new(configurationService, FirstTriggerKey, LatestRequestKey);
 
     public bool HasAvailableUpdate => false;
     public Task<bool> HasProductAsync(WinoAddOnProductType productType) => Task.FromResult(false);
@@ -37,19 +33,8 @@ public sealed class IOSMicrosoftStoreService(IConfigurationService configuration
     public Task PromptRatingDialogAsync()
     {
         if (System.Diagnostics.Debugger.IsAttached) return Task.CompletedTask;
+        if (!_ratingSchedule.TryBeginRequest()) return Task.CompletedTask;
 
-        var now = DateTime.UtcNow;
-        var firstTrigger = configurationService.Get(FirstTriggerKey, DateTime.MinValue);
-        if (firstTrigger == DateTime.MinValue)
-        {
-            configurationService.Set(FirstTriggerKey, now);
-            return Task.CompletedTask;
-        }
-
-        var latestRequest = configurationService.Get(LatestRequestKey, DateTime.MinValue);
-        if (now - firstTrigger < FirstRequestDelay || now - latestRequest < RequestInterval) return Task.CompletedTask;
-
-        configurationService.Set(LatestRequestKey, now);
         // The bridge asks the foreground-active window scene; UIKit state is read on the main thread.
         return dispatcher.ExecuteOnUIThread(StoreKit2Client.RequestReview);
     }

@@ -45,7 +45,15 @@ public sealed class BackendUiContractAnalyzer : DiagnosticAnalyzer
         "INotificationResponseNavigator",
         "INewThemeService",
         "IUnderlyingThemeService",
-        "IDispatcher");
+        "IDispatcher",
+        "IShellMenuProvider",
+        "IMailShellClient",
+        "ICalendarShellClient",
+        "IShellViewModel",
+        "IShellHost",
+        "IShellMenuOwner",
+        "IShellMenuProviderResolver",
+        "IShellMenuSink");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(UiContractInBackend);
 

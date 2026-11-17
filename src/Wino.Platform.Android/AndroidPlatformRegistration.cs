@@ -76,34 +76,25 @@ public static class AndroidPlatformRegistration
         services.AddSingleton(context);
         services.AddSingleton(paths);
         services.AddSingleton(bootstrap.SecureItems);
-        services.AddSingleton<ISecureItemStore>(bootstrap.SecureItems);
-        services.AddSingleton<ISecretProtector>(bootstrap.Protector);
-        services.Replace(ServiceDescriptor.Singleton<IApplicationConfiguration>(new ApplicationConfiguration
+        services.AddPortablePlatformServices(new ApplicationConfiguration
         {
             ApplicationDataFolderPath = paths.ApplicationDataRoot,
             PublisherSharedFolderPath = Path.Combine(paths.ApplicationDataRoot, ApplicationConfiguration.SharedFolderName),
             ApplicationTempFolderPath = paths.TemporaryRoot,
             ApplicationDisplayName = "Wino Mail",
             AllowLegacyDataMigration = false,
-        }));
+        }, bootstrap.SecureItems, bootstrap.Protector, CreateMetadata(context, bootstrap.ApplicationIdentity));
 
         // Shared services with the same list and lifetimes as the Mac and iOS registrations.
-        services.AddSingleton<IConfigurationService>(_ => new JsonFileConfigurationService(paths.ApplicationDataRoot));
-        services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<IApplicationResourceResolver>(provider => new FileSystemApplicationResourceResolver(
             paths.PackagedResourceRoot, provider.GetRequiredService<IApplicationConfiguration>()));
-        services.AddSingleton<IFileService, FileSystemFileService>();
-        services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
-        services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
         services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
         services.AddSingleton<IOAuthTokenStore, SecureItemOAuthTokenStore>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
-        services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
         services.AddSingleton<IAttachmentPlatformService, LauncherAttachmentPlatformService>();
         services.AddSingleton<IStartupIntegrationService, UnavailableStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, UnavailableSmimeCertificateService>();
-        services.AddSingleton<IAppMetadataService>(CreateMetadata(context, bootstrap.ApplicationIdentity));
 
         // Android implementations.
         services.AddSingleton<IDispatcher, AndroidDispatcher>();

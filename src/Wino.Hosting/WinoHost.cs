@@ -11,7 +11,6 @@ using Wino.Mail.ViewModels.Activation;
 using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Messaging.Client.Shell;
 using Wino.Services;
-using Wino.Services.Dav;
 using Wino.Services.Platform;
 using Wino.Services.Security;
 
@@ -126,30 +125,21 @@ public sealed partial class WinoHost : IAsyncDisposable
         services.AddSingleton(log);
         services.AddSingleton(dispatcher);
         services.AddSingleton<IDispatcher>(dispatcher);
-        services.AddSingleton<ISecureItemStore>(secureItems);
-        services.AddSingleton<ISecretProtector>(protector);
-        services.Replace(ServiceDescriptor.Singleton<IApplicationConfiguration>(new HostApplicationConfiguration
+        services.AddPortablePlatformServices(new HostApplicationConfiguration
         {
             ApplicationDataFolderPath = layout.ApplicationDataRoot,
             PublisherSharedFolderPath = Path.Combine(layout.ApplicationDataRoot, ApplicationConfiguration.SharedFolderName),
             ApplicationTempFolderPath = layout.TemporaryRoot
-        }));
+        }, secureItems, protector, CreateMetadata());
 
-        services.AddSingleton<IConfigurationService>(_ => new JsonFileConfigurationService(layout.ApplicationDataRoot));
-        services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<IApplicationResourceResolver>(provider => new FileSystemApplicationResourceResolver(
             AppContext.BaseDirectory, provider.GetRequiredService<IApplicationConfiguration>()));
-        services.AddSingleton<IFileService, FileSystemFileService>();
-        services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
-        services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
         services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
         services.AddSingleton<IOAuthTokenStore, Wino.Authentication.OAuth.SecureItemOAuthTokenStore>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
-        services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         services.AddSingleton<IAttachmentPlatformService, LauncherAttachmentPlatformService>();
         services.AddSingleton<IStartupIntegrationService, UnavailableStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, UnavailableSmimeCertificateService>();
-        services.AddSingleton<IAppMetadataService>(CreateMetadata());
 
         services.AddSingleton<IExternalLauncher, HostExternalLauncher>();
         services.AddSingleton<IClipboardService, HostClipboardService>();

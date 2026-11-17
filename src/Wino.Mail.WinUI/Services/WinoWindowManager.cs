@@ -270,52 +270,6 @@ public partial class WinoWindowManager : IWinoWindowManager
         }
     }
 
-    public void CloseAllWindows()
-    {
-        List<WindowEx> windows;
-        lock (_syncLock)
-        {
-            windows = _windows.Values.Distinct().ToList();
-        }
-
-        foreach (var window in windows)
-        {
-            try
-            {
-                if (window.DispatcherQueue.HasThreadAccess)
-                {
-                    window.Activated -= WindowActivated;
-                    window.Closed -= WindowClosed;
-                    window.Close();
-                }
-                else
-                {
-                    window.DispatcherQueue.TryEnqueue(() =>
-                    {
-                        window.Activated -= WindowActivated;
-                        window.Closed -= WindowClosed;
-                        window.Close();
-                    });
-                }
-            }
-            catch
-            {
-                // Best effort shutdown for all tracked windows.
-            }
-        }
-
-        lock (_syncLock)
-        {
-            _windowKeys.Clear();
-            _windows.Clear();
-            _visibleWindows.Clear();
-            ActiveWindow = null;
-        }
-
-        LeaveBackgroundResourceSavingMode();
-        ActiveWindowChanged?.Invoke(this, null);
-    }
-
     private bool HasVisibleWindowsLocked() => _visibleWindows.Any(window => _windowKeys.ContainsKey(window));
 
     private void EnterBackgroundResourceSavingMode()

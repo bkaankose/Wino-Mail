@@ -33,7 +33,8 @@ namespace Wino.Services;
 /// Single owner of the stateless Windows platform capabilities the app needs: launching, clipboard,
 /// keyboard state, startup task, WebView2 probe, notification sound, taskbar and shell presence state.
 /// </summary>
-public partial class NativeAppService : INativeAppService, IAppMetadataService, IUserPresenceStateProvider, IExternalLauncher, IClipboardService, IShortcutPlatformService, ITaskCompletionSound
+public partial class NativeAppService : INativeAppService, IAppMetadataService, IUserPresenceStateProvider, IExternalLauncher, IClipboardService, IShortcutPlatformService, ITaskCompletionSound,
+    IStartupIntegrationService, IReaderRuntimeService
 {
     private readonly IWindowsThreadQueue? _platformDispatcher;
     private readonly Func<Task> _syncSessionStartRegistrationAsync;
@@ -54,6 +55,24 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
     public ModifierKeys PrimaryCommandModifier => ModifierKeys.Control;
 
     void ITaskCompletionSound.Play() => PlayTaskCompletionSound();
+
+    Task<StartupBehaviorResult> IStartupIntegrationService.GetCurrentBehaviorAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return GetCurrentStartupBehaviorAsync();
+    }
+
+    Task<StartupBehaviorResult> IStartupIntegrationService.SetEnabledAsync(bool isEnabled, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ToggleStartupBehavior(isEnabled);
+    }
+
+    Task<bool> IReaderRuntimeService.IsAvailableAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return IsWebView2RuntimeAvailableAsync();
+    }
 
     async Task<PlatformOperationResult> IExternalLauncher.LaunchFileAsync(string path, CancellationToken cancellationToken)
         => await RunPlatformOperationAsync(async () => await LaunchFileAsync(path), cancellationToken);
