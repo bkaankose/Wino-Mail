@@ -433,9 +433,10 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var commands = new List<MailReaderCommand?>();
         foreach (var slot in plan.Primary)
         {
-            // The window toolbar carries reply, file and mark actions; the reader keeps the rest.
+            // The window toolbar carries reply, file and mark actions; the reader keeps the rest. A pop-out
+            // window has no such toolbar, so it keeps them all.
             if (slot is null) { if (commands.Count > 0 && commands[^1] is not null) commands.Add(null); continue; }
-            if (ToolbarOperations.Contains(slot.Operation)) continue;
+            if (!IsPoppedOut && ToolbarOperations.Contains(slot.Operation)) continue;
             var captured = slot.Item;
             commands.Add(new MailReaderCommand(MailOperationDisplay.GetGlyph(slot.Operation), slot.Title,
                 captured is null ? static () => { } : () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), slot.IsEnabled));
