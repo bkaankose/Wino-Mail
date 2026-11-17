@@ -2685,7 +2685,7 @@ public class MailService : BaseDatabaseService, IMailService
                     <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
                     <b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>
                     {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
-                    <b>Subject:</b> {referenceMessage.Subject}
+                    <b>Subject:</b> {System.Net.WebUtility.HtmlEncode(referenceMessage.Subject ?? string.Empty)}
                   </font>
                   <div>&nbsp;</div>
                   {visitor.HtmlBody}
@@ -2696,8 +2696,18 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         static string ParticipantsToHtml(InternetAddressList internetAddresses) =>
-            string.Join("; ", internetAddresses.Mailboxes
-                                        .Select(x => $"{x.Name ?? Translator.UnknownSender} &lt;<a href=\"mailto:{x.Address ?? Translator.UnknownAddress}\">{x.Address ?? Translator.UnknownAddress}</a>&gt;"));
+            string.Join("; ", internetAddresses.Mailboxes.Select(ParticipantToHtml));
+
+        // Servers often repeat the address as the display name; that would read "a@b.com <a@b.com>".
+        static string ParticipantToHtml(MailboxAddress mailbox)
+        {
+            var address = System.Net.WebUtility.HtmlEncode(mailbox.Address ?? Translator.UnknownAddress);
+            var link = $"&lt;<a href=\"mailto:{address}\">{address}</a>&gt;";
+            var name = mailbox.Name;
+            if (string.IsNullOrWhiteSpace(name) || string.Equals(name, mailbox.Address, StringComparison.OrdinalIgnoreCase))
+                return link;
+            return $"{System.Net.WebUtility.HtmlEncode(name)} {link}";
+        }
     }
 
     /// <summary>
