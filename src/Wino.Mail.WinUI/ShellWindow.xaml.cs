@@ -52,7 +52,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoIntelligenceEntitlementChanged>,
     IRecipient<WhatsNewOpened>,
     IRecipient<WhatsNewOpenRequested>,
-    IRecipient<AccountSynchronizationProgressUpdatedMessage>
+    IRecipient<AccountSynchronizationProgressUpdatedMessage>,
+    IRecipient<LanguageChanged>
 {
     private bool _allowClose;
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
@@ -444,6 +445,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public void Receive(ApplicationThemeChanged message)
     {
         DispatcherQueue.TryEnqueue(() => UpdateTitleBarColors(message.IsUnderlyingThemeDark));
+    }
+
+    // The title bar binds Translator strings once; re-read them in the new language.
+    public void Receive(LanguageChanged message)
+    {
+        DispatcherQueue.TryEnqueue(Bindings.Update);
     }
 
     public void Receive(InfoBarMessageRequested message)
@@ -1248,6 +1255,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<WhatsNewOpened>(this);
         WeakReferenceMessenger.Default.Register<WhatsNewOpenRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
     }
 
     private void UnregisterRecipients()
@@ -1265,6 +1273,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<WhatsNewOpened>(this);
         WeakReferenceMessenger.Default.Unregister<WhatsNewOpenRequested>(this);
         WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
     }
 
     private readonly Queue<InfoBarMessageRequested> _pendingInfoBarMessages = new();
