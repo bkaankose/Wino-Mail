@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -26,20 +27,10 @@ public sealed partial class AccountGroupMenuItem : MenuItemBase<MergedInbox, IMe
 
     public int AccountCount => SubMenuItems.Count;
 
-    private int _unreadItemCount;
-
     /// <summary>The summed unread count of the group's accounts; the Mail pane fills it.</summary>
-    public int UnreadItemCount
-    {
-        get => _unreadItemCount;
-        set
-        {
-            if (!SetProperty(ref _unreadItemCount, value))
-                return;
-
-            OnPropertyChanged(nameof(IsUnreadCountVisible));
-        }
-    }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsUnreadCountVisible))]
+    public partial int UnreadItemCount { get; set; }
 
     /// <summary>
     /// A collapsed group shows the unread count its hidden account rows would show. <see cref="MenuItemBase.IsExpanded"/>

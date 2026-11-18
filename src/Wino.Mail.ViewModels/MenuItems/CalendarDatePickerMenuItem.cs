@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Translations;
 using Wino.Core.Domain.Enums;
@@ -12,25 +12,10 @@ namespace Wino.Core.Domain.MenuItems;
 public sealed partial class CalendarDatePickerMenuItem : MenuItemBase<ICalendarShellClient>
 {
     private readonly IPreferencesService _preferencesService;
-    private bool _isCalendarExpanded;
 
-    public bool IsCalendarExpanded
-    {
-        get => _isCalendarExpanded;
-        set
-        {
-            if (EqualityComparer<bool>.Default.Equals(_isCalendarExpanded, value))
-                return;
-
-            OnPropertyChanging();
-            _isCalendarExpanded = value;
-            OnIsCalendarExpandedChanged(value);
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(ExpansionAutomationName));
-            OnPropertyChanged(nameof(ExpansionToolTip));
-            OnPropertyChanged(nameof(ExpansionGlyph));
-        }
-    }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ExpansionAutomationName), nameof(ExpansionToolTip), nameof(ExpansionGlyph))]
+    public partial bool IsCalendarExpanded { get; set; }
 
     public string ExpansionAutomationName => IsCalendarExpanded
         ? Translator.CalendarPane_CollapseDatePicker
@@ -46,6 +31,6 @@ public sealed partial class CalendarDatePickerMenuItem : MenuItemBase<ICalendarS
         IsCalendarExpanded = preferencesService.IsCalendarDatePickerExpanded;
     }
 
-    private void OnIsCalendarExpandedChanged(bool value)
+    partial void OnIsCalendarExpandedChanged(bool value)
         => _preferencesService.IsCalendarDatePickerExpanded = value;
 }

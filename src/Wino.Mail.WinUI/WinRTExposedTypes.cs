@@ -52,6 +52,23 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailItemViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ThreadMailItemViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailListCollection<MailItemViewModel>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountProviderDetailViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MergedAccountProviderDetailViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<IAccountProviderDetailViewModel>))]
+
+// Mail pane menu items. They moved here from Wino.Core.Domain, which never generated marshalling data.
+
+[assembly: GeneratedWinRTExposedExternalType(typeof(MenuItemCollection))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(NewMailMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(SeperatorItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MergedAccountMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountGroupMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(FixAccountIssuesMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(FolderMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MergedAccountFolderMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MailCategoryMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MergedMailCategoryMenuItem))]
 
 // Types the Release build of Wino.Mail.ViewModels generated for itself while it still carried
 // CsWinRT. They are listed to keep the marshalling data the app shipped with.

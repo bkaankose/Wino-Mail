@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System;
+using CommunityToolkit.Diagnostics;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -38,24 +39,17 @@ public partial class MergedAccountFolderMenuItem : MenuItemBase<List<IMailItemFo
 
     public new IEnumerable<IMenuItem> SubMenuItems => base.SubMenuItems;
 
-    private int _unreadItemCount;
-
-    public int UnreadItemCount
-    {
-        get => _unreadItemCount;
-        set => SetProperty(ref _unreadItemCount, value);
-    }
+    [ObservableProperty]
+    public partial int UnreadItemCount { get; set; }
 
     // Merged account's shared folder menu item does not have an entity id.
     // Navigations to specific folders are done by explicit folder id if needed.
 
     public MergedAccountFolderMenuItem(List<IMailItemFolder> parameter, IMenuItem parentMenuItem, MergedInbox mergedInbox) : base(parameter, null, parentMenuItem)
     {
-        ArgumentNullException.ThrowIfNull(mergedInbox, nameof(mergedInbox));
-        ArgumentNullException.ThrowIfNull(parameter, nameof(parameter));
-
-        if (parameter.Count <= 0)
-            throw new ArgumentException("The folder list must not be empty.", nameof(parameter));
+        Guard.IsNotNull(mergedInbox, nameof(mergedInbox));
+        Guard.IsNotNull(parameter, nameof(parameter));
+        Guard.HasSizeGreaterThan(parameter, 0, nameof(parameter));
 
         MergedInbox = mergedInbox;
 

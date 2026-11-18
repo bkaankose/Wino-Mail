@@ -189,7 +189,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More)
             return default;
 
-        return _contextMenuItemService.GetFolderContextMenuActions(folder);
+        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder);
     }
 
     private async Task CreateFooterItemsAsync(bool showNotification = false)
@@ -1114,8 +1114,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await ExecuteUIThread(() => MenuItems.SetAccountMenuItemEnabledStatus(false)).ConfigureAwait(false);
 
         // Load account folder structure and replace the visible folders.
-        var folders = await _folderService
-            .GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem)
+        var folders = await MailFolderMenuBuilder
+            .BuildAsync(_folderService, clickedBaseAccountMenuItem)
             .ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
@@ -1777,11 +1777,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (loadedAccountMenuItem == null)
             return;
 
-        var folders = await _folderService
-            .GetAccountFoldersForDisplayAsync(loadedAccountMenuItem)
+        var folders = await MailFolderMenuBuilder
+            .BuildAsync(_folderService, loadedAccountMenuItem)
             .ConfigureAwait(false);
 
-        await ExecuteUIThread(() => MenuItems.ReplaceFolders(folders)).ConfigureAwait(false);
+        await ExecuteUIThread(() => MenuItems.ReplaceFolders(folders, keepExpansion: latestSelectedAccountMenuItem == loadedAccountMenuItem)).ConfigureAwait(false);
         await UpdateUnreadItemCountAsync().ConfigureAwait(false);
 
         IBaseFolderMenuItem selectedFolderMenuItem = null;

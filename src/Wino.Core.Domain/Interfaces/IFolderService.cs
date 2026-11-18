@@ -167,10 +167,14 @@ public interface IFolderService
     Task<uint> InitializeFolderUidValidityAsync(Guid folderId, uint uidValidity);
 
     /// <summary>
-    /// Returns the active folder menu items for the given account for UI.
+    /// Returns the visible folders and favorite categories of the account, placed the way the navigation pane lists them.
     /// </summary>
-    /// <param name="accountMenuItem">Account to get folder menu items for.</param>
-    Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
+    Task<AccountFolderLayout> GetAccountFolderLayoutAsync(MailAccount account);
+
+    /// <summary>
+    /// Returns the combined folders and favorite categories that an account group with combined folders shows.
+    /// </summary>
+    Task<MergedAccountFolderLayout> GetMergedAccountFolderLayoutAsync(IEnumerable<MailAccount> accounts);
 
     /// <summary>
     /// Returns a list of unread item counts for the given account ids.

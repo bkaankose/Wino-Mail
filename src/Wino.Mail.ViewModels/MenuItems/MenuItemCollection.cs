@@ -39,28 +39,23 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     }
 
     public IEnumerable<IBaseFolderMenuItem> GetAllFolderMenuItems(Guid folderId)
+        => EnumerateFolderMenuItems(this.ToList())
+            .Where(a => a.HandlingFolders.Any(b => b.Id == folderId))
+            .ToList();
+
+    /// <summary>Folder entries at any depth: the virtual More folder puts a nested folder two or more levels below the root.</summary>
+    private static IEnumerable<IBaseFolderMenuItem> EnumerateFolderMenuItems(IEnumerable<IMenuItem> items)
     {
-        var rootItems = this.ToList();
-
-        foreach (var item in rootItems)
+        foreach (var item in items.OfType<IBaseFolderMenuItem>())
         {
-            if (item is IBaseFolderMenuItem folderMenuItem && item is not IMailCategoryMenuItem && item is not IMergedMailCategoryMenuItem)
-            {
-                if (folderMenuItem.HandlingFolders.Any(a => a.Id == folderId))
-                {
-                    yield return folderMenuItem;
-                }
-                else if (folderMenuItem.SubMenuItems.Any())
-                {
-                    foreach (var subItem in folderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>().ToList())
-                    {
-                        if (subItem.HandlingFolders.Any(a => a.Id == folderId))
-                        {
-                            yield return subItem;
-                        }
-                    }
+            if (item is IMailCategoryMenuItem || item is IMergedMailCategoryMenuItem)
+                continue;
 
-                }
+            yield return item;
+
+            foreach (var subItem in EnumerateFolderMenuItems(item.SubMenuItems.ToList()))
+            {
+                yield return subItem;
             }
         }
     }
@@ -105,17 +100,8 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
     public bool TryGetFolderMenuItem(Guid folderId, out IBaseFolderMenuItem value)
     {
-        var rootItems = this.ToList();
-
-        // Root folders
-        value = rootItems.OfType<IBaseFolderMenuItem>()
-                .Where(a => a is not IMailCategoryMenuItem && a is not IMergedMailCategoryMenuItem)
-                .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
-
-        value ??= rootItems.OfType<FolderMenuItem>()
-            .SelectMany(a => a.SubMenuItems)
-                .OfType<IBaseFolderMenuItem>()
-                .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
+        value = EnumerateFolderMenuItems(this.ToList())
+            .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
 
         return value != null;
     }
@@ -186,11 +172,67 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     }
 
     /// <summary>Must run on the UI thread.</summary>
-    public void ReplaceFolders(IEnumerable<IMenuItem> folders)
+    /// <param name="keepExpansion">
+    /// The folders are a rebuilt list of the folders already shown, for example after a folder was created or renamed.
+    /// Folders that were expanded, including the virtual More and Categories folders, stay expanded.
+    /// </param>
+    public void ReplaceFolders(IEnumerable<IMenuItem> folders, bool keepExpansion = false)
     {
+        var newFolders = folders.ToList();
+
+        if (keepExpansion)
+        {
+            var expandedFolderKeys = new HashSet<FolderExpansionKey>();
+            CollectExpandedFolderKeys(this, expandedFolderKeys);
+            RestoreFolderExpansion(newFolders, expandedFolderKeys);
+        }
+
         ClearFolderAreaMenuItems();
         Add(new SeperatorItem());
-        AddRange(folders);
+        AddRange(newFolders);
+    }
+
+    /// <summary>
+    /// The virtual More and Categories folders are recreated with an empty id on every rebuild, so they are matched by
+    /// their folder type; real folders keep their id across a rename.
+    /// </summary>
+    private readonly record struct FolderExpansionKey(Guid FolderId, SpecialFolderType SpecialFolderType);
+
+    private static FolderExpansionKey? GetFolderExpansionKey(IMenuItem item)
+    {
+        if (item is not FolderMenuItem folderMenuItem || folderMenuItem.Parameter == null)
+            return null;
+
+        var folder = folderMenuItem.Parameter;
+
+        return folder.Id == Guid.Empty
+            ? new FolderExpansionKey(Guid.Empty, folder.SpecialFolderType)
+            : new FolderExpansionKey(folder.Id, SpecialFolderType.Other);
+    }
+
+    private static void CollectExpandedFolderKeys(IEnumerable<IMenuItem> items, HashSet<FolderExpansionKey> expandedFolderKeys)
+    {
+        foreach (var item in items.OfType<FolderMenuItem>())
+        {
+            if (item.IsExpanded && GetFolderExpansionKey(item) is { } key)
+                expandedFolderKeys.Add(key);
+
+            CollectExpandedFolderKeys(item.SubMenuItems, expandedFolderKeys);
+        }
+    }
+
+    private static void RestoreFolderExpansion(IEnumerable<IMenuItem> items, HashSet<FolderExpansionKey> expandedFolderKeys)
+    {
+        if (expandedFolderKeys.Count == 0)
+            return;
+
+        foreach (var item in items.OfType<FolderMenuItem>())
+        {
+            if (GetFolderExpansionKey(item) is { } key && expandedFolderKeys.Contains(key))
+                item.IsExpanded = true;
+
+            RestoreFolderExpansion(item.SubMenuItems, expandedFolderKeys);
+        }
     }
 
     /// <summary>

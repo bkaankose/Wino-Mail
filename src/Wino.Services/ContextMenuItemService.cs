@@ -13,11 +13,11 @@ namespace Wino.Services;
 
 public class ContextMenuItemService : IContextMenuItemService
 {
-    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folderInformation)
+    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder)
     {
         var list = new List<FolderOperationMenuItem>();
 
-        if (folderInformation.IsSticky)
+        if (isSticky)
             list.Add(FolderOperationMenuItem.Create(FolderOperation.Unpin));
         else
             list.Add(FolderOperationMenuItem.Create(FolderOperation.Pin));
@@ -26,9 +26,9 @@ public class ContextMenuItemService : IContextMenuItemService
 
         // Following 4 items are disabled for system folders.
 
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Rename, !folderInformation.IsSystemFolder));
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Delete, !folderInformation.IsSystemFolder));
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.CreateSubFolder, !folderInformation.IsSystemFolder));
+        list.Add(FolderOperationMenuItem.Create(FolderOperation.Rename, !isSystemFolder));
+        list.Add(FolderOperationMenuItem.Create(FolderOperation.Delete, !isSystemFolder));
+        list.Add(FolderOperationMenuItem.Create(FolderOperation.CreateSubFolder, !isSystemFolder));
 
         list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
 

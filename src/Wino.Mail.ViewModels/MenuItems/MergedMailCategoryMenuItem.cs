@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -12,13 +13,8 @@ public partial class MergedMailCategoryMenuItem : MenuItemBase<List<MailCategory
 {
     private readonly IReadOnlyList<IMailItemFolder> _handlingFolders;
 
-    private int _unreadItemCount;
-
-    public int UnreadItemCount
-    {
-        get => _unreadItemCount;
-        set => SetProperty(ref _unreadItemCount, value);
-    }
+    [ObservableProperty]
+    public partial int UnreadItemCount { get; set; }
 
     public MergedMailCategoryMenuItem(List<MailCategory> categories, IEnumerable<IMailItemFolder> handlingFolders, MergedInbox mergedInbox)
         : base(categories, null, null)

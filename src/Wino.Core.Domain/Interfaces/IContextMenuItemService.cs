@@ -9,7 +9,7 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface IContextMenuItemService
 {
-    IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folderInformation);
+    IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder);
     IEnumerable<MailOperationMenuItem> GetMailItemContextMenuActions(IEnumerable<MailCopy> selectedMailItems);
     IEnumerable<MailOperationMenuItem> GetMailItemRenderMenuActions(MailCopy mailItem, bool isDarkEditor);
     IReadOnlyList<CalendarContextMenuItem> GetCalendarItemContextMenuItems(CalendarItem calendarItem);
