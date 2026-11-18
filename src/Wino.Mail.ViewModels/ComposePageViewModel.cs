@@ -472,106 +472,114 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         if (!await UpdateMimeChangesAsync().ConfigureAwait(false)) return;
 
         isUpdatingMimeBlocked = true;
-        var currentDraft = await _draftUpdates.StopAsync(ComposingAccount.Id, CurrentMailDraftItem.UniqueId).ConfigureAwait(false);
-        if (currentDraft != null)
-            await ExecuteUIThread(() => DraftUpdateIdentity.From(currentDraft).Apply(CurrentMailDraftItem.MailCopy));
-
-        var assignedAccount = CurrentMailDraftItem.MailCopy.AssignedAccount;
-        var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
-
-
-        if (shouldSign || shouldEncrypt)
-        {
-            var ownedCertificates = new List<X509Certificate2>();
-            IReadOnlyList<X509Certificate2> GetSendCertificates(string email, SmimeCertificatePurpose purpose = SmimeCertificatePurpose.Personal)
-            {
-                var certificates = _smimeCertificateService.GetCertificates(purpose, email);
-                ownedCertificates.AddRange(certificates);
-                return certificates;
-            }
-
-            try
-            {
-                // Load alias certs
-                var certs = GetSendCertificates(SelectedAlias.AliasAddress);
-                using var secureMimeContext = _smimeCertificateService.CreateContext();
-
-                if (shouldSign)
-                {
-                    var signingCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedSigningCertificateThumbprint)
-                        ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedSigningCertificateThumbprint)
-                        : null;
-
-                    var signer = new CmsSigner(signingCertificate) { DigestAlgorithm = DigestAlgorithm.Sha1 };
-
-                    if (shouldEncrypt)
-                    {
-                        var recipients = new CmsRecipientCollection();
-                        var cmsRecipients = CurrentMimeMessage.To.Mailboxes
-                            .Select(mailbox => new CmsRecipient(
-                                GetSendCertificates(mailbox.Address).FirstOrDefault() ?? GetSendCertificates(mailbox.Address, SmimeCertificatePurpose.Recipient).FirstOrDefault()
-                            ));
-                        foreach (var recipient in cmsRecipients)
-                        {
-                            recipients.Add(recipient);
-                        }
-
-                        CurrentMimeMessage.Body = ApplicationPkcs7Mime.SignAndEncrypt(
-                            secureMimeContext,
-                            signer,
-                            recipients,
-                            CurrentMimeMessage.Body);
-                    }
-                    else
-                    {
-                        // CurrentMimeMessage.Body = MultipartSigned.Create(signer, CurrentMimeMessage.Body);
-                        CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(
-                            secureMimeContext,
-                            signer,
-                            CurrentMimeMessage.Body);
-                    }
-                }
-                else if (shouldEncrypt)
-                {
-                    // var encryptionCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedEncryptionCertificateThumbprint)
-                    //     ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedEncryptionCertificateThumbprint)
-                    //     : null;
-                    // Encrypt the message if encryption certificate is selected.
-                    CurrentMimeMessage.Body = ApplicationPkcs7Mime.Encrypt(
-                        secureMimeContext,
-                        CurrentMimeMessage.To.Mailboxes,
-                        CurrentMimeMessage.Body);
-                }
-
-            }
-            finally
-            {
-                foreach (var certificate in ownedCertificates) certificate.Dispose();
-            }
-        }
-
-        using MemoryStream memoryStream = new();
-        CurrentMimeMessage.WriteTo(FormatOptions.Default, memoryStream);
-        var base64EncodedMessage = Convert.ToBase64String(memoryStream.ToArray());
-        var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy,
-                                                                          SelectedAlias,
-                                                                          sentFolder,
-                                                                          CurrentMailDraftItem.MailCopy.AssignedFolder,
-                                                                          CurrentMailDraftItem.MailCopy.AssignedAccount.Preferences,
-                                                                          base64EncodedMessage);
-
-        await ExecuteUIThread(() =>
-        {
-            IsDraftBusy = true;
-        });
 
         try
         {
+            var currentDraft = await _draftUpdates.StopAsync(ComposingAccount.Id, CurrentMailDraftItem.UniqueId).ConfigureAwait(false);
+            if (currentDraft != null)
+                await ExecuteUIThread(() => DraftUpdateIdentity.From(currentDraft).Apply(CurrentMailDraftItem.MailCopy));
+
+            var assignedAccount = CurrentMailDraftItem.MailCopy.AssignedAccount;
+            var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
+
+            if (shouldSign || shouldEncrypt)
+            {
+                var ownedCertificates = new List<X509Certificate2>();
+                IReadOnlyList<X509Certificate2> GetSendCertificates(string email, SmimeCertificatePurpose purpose = SmimeCertificatePurpose.Personal)
+                {
+                    var certificates = _smimeCertificateService.GetCertificates(purpose, email);
+                    ownedCertificates.AddRange(certificates);
+                    return certificates;
+                }
+
+                try
+                {
+                    // Load alias certs
+                    var certs = GetSendCertificates(SelectedAlias.AliasAddress);
+                    using var secureMimeContext = _smimeCertificateService.CreateContext();
+
+                    if (shouldSign)
+                    {
+                        var signingCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedSigningCertificateThumbprint)
+                            ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedSigningCertificateThumbprint)
+                            : null;
+
+                        var signer = new CmsSigner(signingCertificate) { DigestAlgorithm = DigestAlgorithm.Sha1 };
+
+                        if (shouldEncrypt)
+                        {
+                            var recipients = new CmsRecipientCollection();
+                            var cmsRecipients = CurrentMimeMessage.To.Mailboxes
+                                .Select(mailbox => new CmsRecipient(
+                                    GetSendCertificates(mailbox.Address).FirstOrDefault() ?? GetSendCertificates(mailbox.Address, SmimeCertificatePurpose.Recipient).FirstOrDefault()
+                                ));
+                            foreach (var recipient in cmsRecipients)
+                            {
+                                recipients.Add(recipient);
+                            }
+
+                            CurrentMimeMessage.Body = ApplicationPkcs7Mime.SignAndEncrypt(
+                                secureMimeContext,
+                                signer,
+                                recipients,
+                                CurrentMimeMessage.Body);
+                        }
+                        else
+                        {
+                            // CurrentMimeMessage.Body = MultipartSigned.Create(signer, CurrentMimeMessage.Body);
+                            CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(
+                                secureMimeContext,
+                                signer,
+                                CurrentMimeMessage.Body);
+                        }
+                    }
+                    else if (shouldEncrypt)
+                    {
+                        // var encryptionCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedEncryptionCertificateThumbprint)
+                        //     ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedEncryptionCertificateThumbprint)
+                        //     : null;
+                        // Encrypt the message if encryption certificate is selected.
+                        CurrentMimeMessage.Body = ApplicationPkcs7Mime.Encrypt(
+                            secureMimeContext,
+                            CurrentMimeMessage.To.Mailboxes,
+                            CurrentMimeMessage.Body);
+                    }
+
+                }
+                finally
+                {
+                    foreach (var certificate in ownedCertificates) certificate.Dispose();
+                }
+            }
+
+            using MemoryStream memoryStream = new();
+            CurrentMimeMessage.WriteTo(FormatOptions.Default, memoryStream);
+            var base64EncodedMessage = Convert.ToBase64String(memoryStream.ToArray());
+            var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy,
+                                                                              SelectedAlias,
+                                                                              sentFolder,
+                                                                              CurrentMailDraftItem.MailCopy.AssignedFolder,
+                                                                              CurrentMailDraftItem.MailCopy.AssignedAccount.Preferences,
+                                                                              base64EncodedMessage);
+
+            await ExecuteUIThread(() =>
+            {
+                IsDraftBusy = true;
+            });
+
             await _worker.ExecuteAsync(draftSendPreparationRequest);
         }
-        catch (AppLockedException ex)
+        catch (Exception ex)
         {
             await ExecuteUIThread(() => IsDraftBusy = false);
+            isUpdatingMimeBlocked = false;
+
+            // Stopping the draft updates dropped the pending server update, and S/MIME replaced the body in place.
+            await UpdateMimeChangesAsync().ConfigureAwait(false);
+
+            if (ex is not AppLockedException)
+                throw;
+
             _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
         }
     }
