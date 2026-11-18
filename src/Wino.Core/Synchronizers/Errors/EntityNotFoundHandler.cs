@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Serilog;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
@@ -42,6 +43,18 @@ public class EntityNotFoundHandler : ISynchronizerErrorHandler
         error.Category = SynchronizerErrorCategory.ResourceNotFound;
 
         var uiRequest = error.RequestBundle.UIChangeRequest;
+
+        // Deleting something that is already gone did what the user asked. Any other action did not happen.
+        error.NotifyUser = uiRequest switch
+        {
+            IFolderActionRequest folderRequest => folderRequest.Operation != FolderSynchronizerOperation.DeleteFolder,
+            IMailActionRequest mailRequest => mailRequest.Operation != MailSynchronizerOperation.Delete,
+            ICalendarActionRequest calendarRequest => calendarRequest.Operation != CalendarSynchronizerOperation.DeleteEvent,
+            _ => false
+        };
+
+        if (error.NotifyUser)
+            error.ErrorMessage = Translator.Synchronizer_ItemNoLongerOnServer;
 
         // --- Folder actions ---
         if (uiRequest is IFolderActionRequest folderAction)

@@ -305,6 +305,20 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     protected void CaptureSynchronizationIssue(SynchronizerErrorContext errorContext)
         => CaptureSynchronizationIssue(SynchronizationIssue.FromErrorContext(errorContext));
 
+    /// <summary>
+    /// Runs the error handlers for a failed request. A handled error that the handler marked for the user
+    /// is captured as an issue, so the synchronization result reports it like an unhandled failure.
+    /// </summary>
+    protected async Task<bool> HandleRequestErrorAsync(ISynchronizerErrorHandlerFactory errorHandlerFactory, SynchronizerErrorContext errorContext)
+    {
+        var handled = await errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+        if (handled && errorContext.NotifyUser)
+            CaptureSynchronizationIssue(errorContext);
+
+        return handled;
+    }
+
     protected IReadOnlyList<SynchronizationIssue> GetCapturedSynchronizationIssues()
         => CapturedSynchronizationIssues.ToArray();
 

@@ -4398,6 +4398,7 @@
   "DavError_Conflict": "The DAV item changed on the server. Wino will refresh it before another edit.",
   "DavError_RateLimited": "The DAV server is temporarily limiting requests. Try again later.",
   "DavError_ServerUnavailable": "The DAV server is temporarily unavailable.",
+  "Synchronizer_ItemNoLongerOnServer": "It no longer exists on the server, so the change was not made. Another app or device may have deleted or moved it.",
   "DavError_Network": "Wino could not reach the DAV server.",
   "DavError_InvalidResponse": "The DAV server returned an invalid response.",
   "DavError_QuotaExceeded": "There is not enough storage left on the calendar server for this change.",

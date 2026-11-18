@@ -115,6 +115,12 @@ public class SynchronizerErrorContext
     public string HandledBy { get; set; }
 
     /// <summary>
+    /// Gets or sets whether a handled error still reaches the user as a synchronization issue,
+    /// because the action the user asked for did not happen on the server.
+    /// </summary>
+    public bool NotifyUser { get; set; }
+
+    /// <summary>
     /// Gets whether this error should be retried based on severity and retry count.
     /// </summary>
     public bool ShouldRetry => Severity == SynchronizerErrorSeverity.Transient && RetryCount < MaxRetries;

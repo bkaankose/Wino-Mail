@@ -1001,7 +1001,7 @@ IExchangeAuthenticator exchangeAuthenticator,
             OperationType = "ExchangeExecuteRequest"
         };
 
-        var handled = await ErrorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+        var handled = await HandleRequestErrorAsync(ErrorHandlerFactory, errorContext).ConfigureAwait(false);
 
         // Handlers own the non-transient errors they handled.
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)

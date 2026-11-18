@@ -3510,7 +3510,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         };
 
         // Try to handle the error with registered handlers
-        var handled = await _gmailSynchronizerErrorHandlerFactory.HandleErrorAsync(errorContext);
+        var handled = await HandleRequestErrorAsync(_gmailSynchronizerErrorHandlerFactory, errorContext).ConfigureAwait(false);
 
         if (handled)
         {
