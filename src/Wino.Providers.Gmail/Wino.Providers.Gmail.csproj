@@ -11,9 +11,6 @@
 	</PropertyGroup>
 	
 	<ItemGroup>
-		<!-- Only for Base64UrlEncoder (Microsoft.IdentityModel.Tokens), which reached Gmail through Wino.Core's Graph packages
-		     before the provider split. That package has no central version of its own. -->
-		<PackageReference Include="Microsoft.Graph.Core" />
 		<PackageReference Include="MimeKit" />
 	</ItemGroup>
 	

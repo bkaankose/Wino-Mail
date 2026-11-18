@@ -14,7 +14,7 @@ Gmail mailboxes over Google's REST APIs: the synchronizer for mail, calendar, co
 - Register a service only Gmail needs in `AddGmailProvider` ([Providers/GmailProvider.cs](Providers/GmailProvider.cs)). `AddLoopbackGoogleAuthorizationCodeReceiver` lives here too; the Windows head calls it.
 - `GmailAuthenticator` stays in `Wino.Authentication`, because the Android platform project uses the concrete class. The interactive part of sign-in is each platform's `IGoogleAuthorizationCodeReceiver`.
 - When you add a field to a REST model, add it to the JSON source-generation context in `Google/GoogleApiClient.cs`.
-- The `Microsoft.Graph.Core` reference exists only because `Base64UrlEncoder` comes with it. Do not use anything else from it.
+- Base64url text (raw MIME, body parts) goes through `System.Buffers.Text.Base64Url`; add no package for it.
 - Every file's namespace is `Wino.Providers.Gmail` plus its folder path.
 
 ## Running a change

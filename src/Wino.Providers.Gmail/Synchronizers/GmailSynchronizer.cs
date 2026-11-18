@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -11,7 +12,6 @@ using System.Threading.Tasks;
 using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
-using Microsoft.IdentityModel.Tokens;
 using MimeKit;
 using MoreLinq;
 using Serilog;
@@ -2612,7 +2612,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         mimeMessage.Prepare(EncodingConstraint.None);
 
         var mimeString = mimeMessage.ToString();
-        var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
+        var base64UrlEncodedMime = Base64Url.EncodeToString(Encoding.UTF8.GetBytes(mimeString));
 
         var nativeMessage = new Message()
         {
@@ -2838,7 +2838,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
 
         var mimeString = singleDraftRequest.Request.Mime.ToString();
-        var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
+        var base64UrlEncodedMime = Base64Url.EncodeToString(Encoding.UTF8.GetBytes(mimeString));
         message.Raw = base64UrlEncodedMime;
 
         var draft = new Draft()
@@ -3236,7 +3236,7 @@ IGmailChangeProcessor gmailChangeProcessor,
             ? MailBodyFormat.Html
             : MailBodyFormat.PlainText;
         return new SemanticMailContent(
-            new MailBodyContent(format, Encoding.UTF8.GetString(Base64UrlEncoder.DecodeBytes(data))),
+            new MailBodyContent(format, Encoding.UTF8.GetString(Base64Url.DecodeFromChars(data))),
             ParseSemanticFrom(message?.Payload),
             ParseSemanticRecipients(message?.Payload, "To"),
             ParseSemanticRecipients(message?.Payload, "Cc"),
