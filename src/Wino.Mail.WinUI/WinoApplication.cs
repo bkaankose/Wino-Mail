@@ -129,8 +129,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
         ApplicationLanguages.PrimaryLanguageOverride = languageModel.Code;
 
-        CultureInfo.DefaultThreadCurrentCulture = newCulture;
-        CultureInfo.DefaultThreadCurrentUICulture = newCulture;
+        DisplayCulture.Apply(languageModel.Code);
 
         var flowDirection = newCulture.TextInfo.IsRightToLeft
             ? FlowDirection.RightToLeft

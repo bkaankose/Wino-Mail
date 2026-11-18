@@ -312,7 +312,8 @@
                                     MinWidth="150"
                                     AutomationProperties.AutomationId="CalendarEventComposeStartDatePicker"
                                     AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_StartDate, Mode=OneTime}"
-                                    Date="{x:Bind ViewModel.StartDateValue, Mode=TwoWay}" />
+                                    Date="{x:Bind ViewModel.StartDateValue, Mode=TwoWay}"
+                                    DateFormat="{x:Bind winuiHelpers:RegionalDateFormat.ShortDate, Mode=OneTime}" />
                                 <TimePicker
                                     Grid.Column="2"
                                     MinWidth="0"
@@ -332,7 +333,8 @@
                                     MinWidth="150"
                                     AutomationProperties.AutomationId="CalendarEventComposeEndDatePicker"
                                     AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_EndDate, Mode=OneTime}"
-                                    Date="{x:Bind ViewModel.EndDateValue, Mode=TwoWay}" />
+                                    Date="{x:Bind ViewModel.EndDateValue, Mode=TwoWay}"
+                                    DateFormat="{x:Bind winuiHelpers:RegionalDateFormat.ShortDate, Mode=OneTime}" />
                                 <TimePicker
                                     Grid.Row="1"
                                     Grid.Column="2"
@@ -543,6 +545,7 @@
                                     AutomationProperties.AutomationId="CalendarEventComposeRecurrenceEndDatePicker"
                                     AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_RepeatEnds, Mode=OneTime}"
                                     Date="{x:Bind ViewModel.RecurrenceEndDate, Mode=TwoWay}"
+                                    DateFormat="{x:Bind winuiHelpers:RegionalDateFormat.ShortDate, Mode=OneTime}"
                                     PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_NoEndDate, Mode=OneTime}" />
                                 <Button
                                     AutomationProperties.AutomationId="CalendarEventComposePageButton2"

@@ -7,7 +7,6 @@ using System.Linq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Translations;
 using Wino.Mail.ViewModels.Calendar.Data;
 using Wino.Mail.ViewModels.Common;
 using Wino.Mail.ViewModels.Common.Data;
@@ -26,8 +25,7 @@ public abstract class CalendarSettingsSectionViewModelBase : CalendarBaseViewMod
         CalendarService = calendarService;
         AccountService = accountService;
 
-        var languageCode = WinoTranslationDictionary.GetLanguageFileNameRelativePath(preferencesService.CurrentLanguage);
-        CalendarCulture = new CultureInfo(languageCode);
+        CalendarCulture = CultureInfo.CurrentCulture;
 
         for (var index = 0; index < 7; index++)
         {

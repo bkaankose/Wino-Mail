@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -537,7 +538,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
             ? Translator.SemanticIndex_CoverageNothingSelected
             : string.Format(
                 Translator.SemanticIndex_CoverageReachesBackTo,
-                resolved.ReachDate.Value.ToString("d MMMM yyyy"));
+                resolved.ReachDate.Value.ToString(DateTimeDisplayFormatter.GetDatePattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture));
     }
 
     /// <summary>Recomputes the footer, which spans every included folder rather than one.</summary>

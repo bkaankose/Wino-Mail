@@ -269,7 +269,7 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
         {
             case CalendarDisplayType.Day:
                 var day = range.AnchorDate;
-                return new NSAttributedString(At(day).ToString(day.Year == thisYear ? "ddd, MMM d" : "ddd, MMM d, yyyy", culture), primary);
+                return new NSAttributedString(At(day).ToString(day.Year == thisYear ? DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(culture, abbreviatedWeekday: true, abbreviatedMonth: true) : DateTimeDisplayFormatter.GetLongDatePattern(culture, abbreviated: true), culture), primary);
             case CalendarDisplayType.Month:
                 var text = new NSMutableAttributedString(At(range.AnchorDate).ToString("MMMM", culture), primary);
                 text.Append(new NSAttributedString(" " + range.AnchorDate.Year.ToString(culture),
@@ -277,12 +277,10 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
                 return text;
             default:
                 var dates = range.Dates;
-                if (dates.Count == 0) return new NSAttributedString(At(range.AnchorDate).ToString("MMMM yyyy", culture), primary);
+                if (dates.Count == 0) return new NSAttributedString(At(range.AnchorDate).ToString("Y", culture), primary);
                 var first = dates[0];
                 var last = dates[^1];
-                string span = first.Month == last.Month
-                    ? $"{At(first).ToString("MMM d", culture)} – {last.Day.ToString(culture)}"
-                    : $"{At(first).ToString("MMM d", culture)} – {At(last).ToString("MMM d", culture)}";
+                var span = DateTimeDisplayFormatter.FormatMonthDayRange(At(first), At(last), culture, abbreviatedMonth: true, separator: " – ");
                 if (last.Year != thisYear) span += ", " + last.Year.ToString(culture);
                 return new NSAttributedString(span, primary);
         }

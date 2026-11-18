@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Intelligence;
@@ -84,8 +85,8 @@ public partial class SemanticIndexRangeBucketViewModel : ObservableObject
 
     public string Tooltip => string.Format(
         Translator.SemanticIndex_CoverageBucketTooltip,
-        OldestDate.ToString("d MMMM yyyy"),
-        NewestDate.ToString("d MMMM yyyy"),
+        OldestDate.ToString(DateTimeDisplayFormatter.GetDatePattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture),
+        NewestDate.ToString(DateTimeDisplayFormatter.GetDatePattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture),
         IndexedCount,
         SelectedNotIndexedCount,
         OutsideCount);

@@ -52,12 +52,12 @@ public static class CalendarXamlHelpers
         var start = calendarItemViewModel.Period.Start;
         var end = calendarItemViewModel.Period.End;
 
-        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType);
-        var dateFormat = $"dddd, dd MMMM {timeFormat}";
+        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType, settings.CultureInfo);
+        var dateFormat = $"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo)} {timeFormat}";
 
         if (calendarItemViewModel.IsMultiDayEvent)
         {
-            return $"{start.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)} - {end.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)}";
+            return $"{start.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo, abbreviatedWeekday: true)} {timeFormat}", settings.CultureInfo)} - {end.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo, abbreviatedWeekday: true)} {timeFormat}", settings.CultureInfo)}";
         }
 
         return $"{start.ToString(dateFormat, settings.CultureInfo)} - {end.ToString(timeFormat, settings.CultureInfo)}";

@@ -237,7 +237,7 @@ public partial class MailRenderingPageViewModel
         RemoteContentSenderPolicy.Block => Translator.RemoteContentRules_PolicyBlock,
         RemoteContentSenderPolicy.ImagesOnly => Translator.RemoteContentRules_PolicyImagesOnly,
         _ => string.Format(Translator.Reader_Privacy_RuleAdded,
-            rule.CreatedUtc.ToLocalTime().ToString("d MMM", CultureInfo.CurrentCulture))
+            rule.CreatedUtc.ToLocalTime().ToString(DateTimeDisplayFormatter.GetMonthDayPattern(CultureInfo.CurrentCulture, abbreviatedMonth: true), CultureInfo.CurrentCulture))
     };
 
     private string GetDetailLine(RemoteContentDecision decision,

@@ -362,7 +362,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         if (value == default) return string.Empty;
 
-        var culture = System.Globalization.CultureInfo.DefaultThreadCurrentUICulture ?? System.Globalization.CultureInfo.CurrentUICulture;
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
         var local = value.ToLocalTime();
         var today = DateTime.Today;
         var time = DateTimeDisplayFormatter.FormatTime(local, DateTimeDisplayFormatter.GetTimeDisplayType(timeFormat, culture), culture);

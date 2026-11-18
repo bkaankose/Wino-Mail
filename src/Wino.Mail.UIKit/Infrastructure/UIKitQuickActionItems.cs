@@ -117,7 +117,7 @@ public sealed class UIKitQuickActionItems(
             var candidates = upcoming.Where(static item => !item.IsCancelled).ToList();
             if ((candidates.FirstOrDefault(item => !CompanionContentService.IsAllDayUpcoming(item, now)) ?? candidates.FirstOrDefault()) is { } next)
             {
-                var culture = CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+                var culture = CultureInfo.CurrentCulture;
                 var display = DateTimeDisplayFormatter.GetTimeDisplayType(preferences.CalendarTimeFormatPreference, culture);
                 string subtitle;
                 if (CompanionContentService.IsAllDayUpcoming(next, now))

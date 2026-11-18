@@ -210,6 +210,7 @@
                         AutomationProperties.AutomationId="MailSearchFilterDateStart"
                         AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_DateStart, Mode=OneTime}"
                         Date="{x:Bind ViewModel.SearchFilterEditor.CustomStartDate, Mode=TwoWay}"
+                        DateFormat="{x:Bind winuiHelpers:RegionalDateFormat.ShortDate, Mode=OneTime}"
                         PlaceholderText="{x:Bind domain:Translator.SearchBar_DateStart, Mode=OneTime}" />
                     <CalendarDatePicker
                         Grid.Column="1"
@@ -217,6 +218,7 @@
                         AutomationProperties.AutomationId="MailSearchFilterDateEnd"
                         AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_DateEnd, Mode=OneTime}"
                         Date="{x:Bind ViewModel.SearchFilterEditor.CustomEndDate, Mode=TwoWay}"
+                        DateFormat="{x:Bind winuiHelpers:RegionalDateFormat.ShortDate, Mode=OneTime}"
                         PlaceholderText="{x:Bind domain:Translator.SearchBar_DateEnd, Mode=OneTime}" />
                 </Grid>
 

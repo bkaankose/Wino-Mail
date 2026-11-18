@@ -173,7 +173,7 @@ public sealed class CalendarEventComposeFragment : WinoFragment<CalendarEventCom
         void Apply(CalendarFormRow? row, DateTimeOffset date, TimeSpan time, string label, string? supporting)
         {
             if (row is null) return;
-            row.Text = date.ToString("ddd, d MMM yyyy", culture);
+            row.Text = date.ToString(DateTimeDisplayFormatter.GetLongDatePattern(culture, abbreviated: true), culture);
             row.Supporting = supporting;
             if (row.Tag is MaterialButton button)
             {

@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Globalization;
 using System.Linq;
 using Wino.Core.Domain.Entities.Shared;
 
@@ -21,7 +22,9 @@ public static class ContactDisplayFormatter
         var referenceYear = knownYear ?? 2000;
         var date = new DateTime(referenceYear, month.Value, Math.Min(day.Value, DateTime.DaysInMonth(referenceYear, month.Value)));
 
-        return knownYear.HasValue ? date.ToString("d MMMM yyyy") : date.ToString("d MMMM");
+        return knownYear.HasValue
+            ? date.ToString(DateTimeDisplayFormatter.GetDatePattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture)
+            : date.ToString(DateTimeDisplayFormatter.GetMonthDayPattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture);
     }
 
     /// <summary>

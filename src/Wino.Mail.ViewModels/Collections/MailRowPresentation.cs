@@ -43,7 +43,7 @@ public sealed record MailRowContent(
 /// </summary>
 public static class MailRowPresentation
 {
-    private static CultureInfo Culture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+    private static CultureInfo Culture => CultureInfo.CurrentCulture;
 
     public static WinoMailRowDensity Density(MailListDisplayMode mode) => mode switch
     {

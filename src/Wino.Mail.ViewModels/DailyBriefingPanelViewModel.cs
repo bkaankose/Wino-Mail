@@ -317,7 +317,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
 
         return date == today.AddDays(-1)
             ? Translator.DailyBriefing_Yesterday
-            : date.ToString("MMMM d", CultureInfo.CurrentCulture);
+            : date.ToString("M", CultureInfo.CurrentCulture);
     }
 
     /// <summary>

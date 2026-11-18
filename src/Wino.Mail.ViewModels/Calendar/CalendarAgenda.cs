@@ -107,13 +107,14 @@ public static class CalendarAgenda
     /// <summary>A day header: "Today · Wednesday, 14 October" for today, else "Thursday, 15 October".</summary>
     public static string DayTitle(DateOnly date, DateOnly today, CultureInfo? culture)
     {
-        var text = date.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMMM", culture ?? CultureInfo.CurrentCulture);
+        var displayCulture = culture ?? CultureInfo.CurrentCulture;
+        var text = date.ToDateTime(TimeOnly.MinValue).ToString(DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(displayCulture), displayCulture);
         return date == today ? $"{Translator.Today} · {text}" : text;
     }
 
     /// <summary>The month title of a date ("October 2026"), the phone calendar's top app bar title.</summary>
     public static string MonthTitle(DateOnly date, CultureInfo? culture)
-        => date.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", culture ?? CultureInfo.CurrentCulture);
+        => date.ToDateTime(TimeOnly.MinValue).ToString("Y", culture ?? CultureInfo.CurrentCulture);
 
     /// <summary>The colour of an event: its own colour, else its calendar's, else null (the accent).</summary>
     public static string? ColorHex(CalendarItemViewModel item)

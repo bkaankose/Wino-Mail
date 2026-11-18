@@ -12,7 +12,7 @@ namespace Wino.Mail.ViewModels.Helpers;
 /// </summary>
 public static class EventDateRangeFormatter
 {
-    public static CultureInfo DisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+    public static CultureInfo DisplayCulture => CultureInfo.CurrentCulture;
 
     /// <summary>The invitation's range in local time; empty when it has no start.</summary>
     public static string Format(MailInvitation invitation, TimeFormatPreference timeFormatPreference, CultureInfo culture)
@@ -52,13 +52,14 @@ public static class EventDateRangeFormatter
         }
 
         var displayType = DateTimeDisplayFormatter.GetTimeDisplayType(timeFormatPreference, culture);
-        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(displayType);
+        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(displayType, culture);
+        var dateFormat = $"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(culture, abbreviatedWeekday: true, abbreviatedMonth: true)} {timeFormat}";
 
         if (startLocal.Date == endLocal.Date)
         {
-            return $"{startLocal.ToString($"ddd, MMM d {timeFormat}", culture)} - {endLocal.ToString(timeFormat, culture)}";
+            return $"{startLocal.ToString(dateFormat, culture)} - {endLocal.ToString(timeFormat, culture)}";
         }
 
-        return $"{startLocal.ToString($"ddd, MMM d {timeFormat}", culture)} - {endLocal.ToString($"ddd, MMM d {timeFormat}", culture)}";
+        return $"{startLocal.ToString(dateFormat, culture)} - {endLocal.ToString(dateFormat, culture)}";
     }
 }

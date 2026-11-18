@@ -70,9 +70,7 @@ public class TranslationService : ITranslationService
 
         if (CurrentLanguageModel != null)
         {
-            var newCulture = new CultureInfo(CurrentLanguageModel.Code);
-            CultureInfo.DefaultThreadCurrentCulture = newCulture;
-            CultureInfo.DefaultThreadCurrentUICulture = newCulture;
+            DisplayCulture.Apply(CurrentLanguageModel.Code);
         }
 
         isInitialized = true;

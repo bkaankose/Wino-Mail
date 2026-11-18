@@ -170,6 +170,7 @@
                         <TimePicker
                             AutomationProperties.AutomationId="NotificationSettingsQuietHoursStartPicker"
                             AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_QuietHours_From_Title, Mode=OneTime}"
+                            ClockIdentifier="{x:Bind winuiHelpers:XamlHelpers.GetTimePickerClockIdentifier(winuiHelpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneTime}"
                             SelectedTimeChanged="QuietHoursTimeChanged"
                             Time="{x:Bind ViewModel.PreferencesService.QuietHoursStart, Mode=TwoWay}" />
                         <TextBlock
@@ -179,6 +180,7 @@
                         <TimePicker
                             AutomationProperties.AutomationId="NotificationSettingsQuietHoursEndPicker"
                             AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_QuietHours_To, Mode=OneTime}"
+                            ClockIdentifier="{x:Bind winuiHelpers:XamlHelpers.GetTimePickerClockIdentifier(winuiHelpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneTime}"
                             SelectedTimeChanged="QuietHoursTimeChanged"
                             Time="{x:Bind ViewModel.PreferencesService.QuietHoursEnd, Mode=TwoWay}" />
                     </StackPanel>

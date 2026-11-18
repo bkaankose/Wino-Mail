@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -376,7 +377,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         => IsEmptyAccountSelected
             ? string.Empty
             : IsMyDaySelected
-                ? $"{DateTime.Now:dddd, MMMM d} • {TaskCountText}"
+                ? $"{DateTime.Now.ToString(DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture)} • {TaskCountText}"
                 : TaskCountText;
 
     public bool HasSurfaceSubtitle => !string.IsNullOrEmpty(SelectedSurfaceSubtitle);
