@@ -1163,6 +1163,7 @@
     "NotificationSound_Play": "播放通知音效",
     "NotificationSound_Reminder": "提醒",
     "NotificationSound_SMS": "簡訊",
+    "NotificationSound_None": "無",
     "Notifications_WinoUpdatedMessage": "查看新版本 {0}",
     "Notifications_WinoUpdatedTitle": "Wino Mail 已更新。",
     "Notifications_StoreUpdateAvailableTitle": "有可用的更新",

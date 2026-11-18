@@ -1163,6 +1163,7 @@
     "NotificationSound_Play": "Reproducir sonido de notificación",
     "NotificationSound_Reminder": "Recordatorio",
     "NotificationSound_SMS": "Mensaje de texto",
+    "NotificationSound_None": "Ninguno",
     "Notifications_WinoUpdatedMessage": "Comprobar nueva versión {0}",
     "Notifications_WinoUpdatedTitle": "Wino Mail ha sido actualizado.",
     "Notifications_StoreUpdateAvailableTitle": "Actualización disponible",

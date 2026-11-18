@@ -1163,6 +1163,7 @@
     "NotificationSound_Play": "Воспроизвести звук уведомления",
     "NotificationSound_Reminder": "Напоминание",
     "NotificationSound_SMS": "SMS-сообщение",
+    "NotificationSound_None": "Нет",
     "Notifications_WinoUpdatedMessage": "Ознакомьтесь с новой версией {0}",
     "Notifications_WinoUpdatedTitle": "Почта Wino обновлена.",
     "Notifications_StoreUpdateAvailableTitle": "Обновление доступно.",

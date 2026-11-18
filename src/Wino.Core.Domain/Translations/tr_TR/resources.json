@@ -1163,6 +1163,7 @@
     "NotificationSound_Play": "Bildirim sesini çal",
     "NotificationSound_Reminder": "Hatırlatıcı",
     "NotificationSound_SMS": "Kısa mesaj",
+    "NotificationSound_None": "Yok",
     "Notifications_WinoUpdatedMessage": "{0} sürümünü deneyin",
     "Notifications_WinoUpdatedTitle": "Wino Mail güncellendi.",
     "Notifications_StoreUpdateAvailableTitle": "Güncelleme mevcut",

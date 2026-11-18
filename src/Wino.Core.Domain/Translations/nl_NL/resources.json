@@ -1163,6 +1163,7 @@
     "NotificationSound_Play": "Notificatiegeluid afspelen",
     "NotificationSound_Reminder": "Herinnering",
     "NotificationSound_SMS": "Tekstbericht",
+    "NotificationSound_None": "Geen",
     "Notifications_WinoUpdatedMessage": "Bekijk de nieuwe versie {0}",
     "Notifications_WinoUpdatedTitle": "Wino-Mail is bijgewerkt.",
     "Notifications_StoreUpdateAvailableTitle": "Update beschikbaar",

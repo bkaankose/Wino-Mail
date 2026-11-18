@@ -1163,6 +1163,7 @@
     "NotificationSound_Play": "Αναπαραγωγή ήχου ειδοποίησης",
     "NotificationSound_Reminder": "Υπενθύμιση",
     "NotificationSound_SMS": "Μήνυμα κειμένου",
+    "NotificationSound_None": "Κανένας",
     "Notifications_WinoUpdatedMessage": "Ρίξτε μια ματιά στη νέα έκδοση {0}",
     "Notifications_WinoUpdatedTitle": "Το Wino Mail έχει ενημερωθεί.",
     "Notifications_StoreUpdateAvailableTitle": "Διαθέσιμη ενημέρωση",

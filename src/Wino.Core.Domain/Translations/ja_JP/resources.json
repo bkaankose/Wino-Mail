@@ -1163,6 +1163,7 @@
     "NotificationSound_Play": "通知音を再生",
     "NotificationSound_Reminder": "リマインダー",
     "NotificationSound_SMS": "テキストメッセージ",
+    "NotificationSound_None": "なし",
     "Notifications_WinoUpdatedMessage": "新しいバージョン {0} をチェックしてください",
     "Notifications_WinoUpdatedTitle": "Wino Mail が更新されました。",
     "Notifications_StoreUpdateAvailableTitle": "更新が利用可能です",

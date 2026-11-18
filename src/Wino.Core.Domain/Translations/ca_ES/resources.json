@@ -1163,6 +1163,7 @@
     "NotificationSound_Play": "Reprodueix el so de la notificació",
     "NotificationSound_Reminder": "Recordatori",
     "NotificationSound_SMS": "Missatge de text",
+    "NotificationSound_None": "Cap",
     "Notifications_WinoUpdatedMessage": "Consulta la nova versió {0}",
     "Notifications_WinoUpdatedTitle": "Wino Mail s'ha actualitzat.",
     "Notifications_StoreUpdateAvailableTitle": "Actualització disponible",
