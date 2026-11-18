@@ -95,7 +95,7 @@ The dependency rules:
 - `Wino.Core.Domain` has no MVVM or MIME dependency and holds no UI state. Contracts and models that need MimeKit or MailKit live in `Wino.Services` or `Wino.Core`, in the namespace of their folder.
 - `Wino.Core` and the shared projects below it reference no provider project. Shared code asks `IMailProviderRegistry` for a provider's module and its `MailProviderTraits`; it never switches on the provider type.
 - A provider project references `Wino.Core` only, and never another provider project. Only the application heads and `Wino.Hosting` reference the providers.
-- No dialog, navigation, theme, or dispatcher contract is used below `Wino.Mail.ViewModels`. The `WINOUI001` analyzer fails the build otherwise. The backend takes answers as data on the request or returns a typed result to the ViewModel.
+- No dialog, navigation, theme, or dispatcher contract is used below `Wino.Mail.ViewModels`, in any form: a member, local or return type, a type argument, `GetService<T>()`, a cast, `typeof` or a type pattern. The `WINOUI001` analyzer fails the build otherwise. The backend takes answers as data on the request or returns a typed result to the ViewModel.
 - The portable projects target plain `net10.0` and carry no CsWinRT reference. The Windows heads list the shared types WinUI receives in their `WinRTExposedTypes.cs` files.
 
 ### Request flow
@@ -194,7 +194,7 @@ Use public partial properties with `[ObservableProperty]`. Do not annotate priva
 
 Register messenger recipients in `RegisterRecipients()`. Unregister them in `UnregisterRecipients()`.
 
-Messenger handlers can run outside the UI thread. Dispatch UI-bound state and platform UI work through `ExecuteUIThread(...)` or the correct dispatcher. Take `IMessenger` through the constructor; the `WINOMSG001` analyzer fails the build on `WeakReferenceMessenger.Default` in shared code.
+Messenger handlers can run outside the UI thread. Dispatch UI-bound state and platform UI work through `ExecuteUIThread(...)` or the correct dispatcher. Take `IMessenger` through the constructor; the `WINOMSG001` analyzer fails the build on `WeakReferenceMessenger.Default` in shared code. Shared code keeps no process-wide state either: `WINOMSG002` fails the build on a static field that is not `readonly` or `const`, a static auto-property with a setter, and a static that holds a service, the container or the messenger. The only exemptions are the named entries, each with its reason, in `AnalyzerAllowList.cs` in `Wino.SourceGenerators`; there is no pragma or `NoWarn` for these rules.
 
 Each head has one composition root: [`App.xaml.cs`](src/Wino.Mail.WinUI/App.xaml.cs) on Windows, [`Composition.cs`](src/Wino.Mail.MacOS/Composition.cs) on macOS, [`Composition.cs`](src/Wino.Mail.iOS/Composition.cs) on iOS, [`AndroidComposition.cs`](src/Wino.Mail.Android/AndroidComposition.cs) on Android, and [`WinoHost`](src/Wino.Hosting/WinoHost.cs) in `Wino.Hosting`. Each one calls the same shared registrations:
 

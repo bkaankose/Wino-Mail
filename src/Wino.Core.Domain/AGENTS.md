@@ -14,7 +14,7 @@ The contracts every other project builds on: service interfaces, entities, enums
 - Declare a contract in `Interfaces/` and implement it in `Wino.Services`, `Wino.Core` or a platform project.
 - Write a contract as what the app needs, not how one platform does it: `Launch`, `Protect`, `Print`, never a window handle, a WebView type or a store path. Give external operations a `CancellationToken`, and let the result tell cancelled, unavailable and failed apart.
 - Add English strings only to `Translations/en_US/resources.json`. The `Translator` class is generated from that file by `Wino.SourceGenerators` on every build. Other locales are managed elsewhere; leave them untouched.
-- Keep `static` mutable state out. `Translator` and culture are the only process-wide state this project owns.
+- Keep `static` mutable state out. `Translator` and culture are the only process-wide state this project owns; `WINOMSG002` fails the build on any other assignable static or static service. `MailAccountReauthenticationExtensions.IsOfflineDemoMode` is a known exemption in `AnalyzerAllowList.cs` in `Wino.SourceGenerators`.
 
 ## Running a change
 

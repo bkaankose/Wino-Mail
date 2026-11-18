@@ -37,11 +37,11 @@ Keep the module contract small. Add a member only when shared code would otherwi
 - **A fix must not break data that existing users have already synced.**
 - **`SyncCoordinator` owns the schedule.** No other code keeps an interval constant. Never show a quota or a rate limit to the user.
 - **OAuth clients, token storage and sign-in:** read "Accounts, OAuth clients and signing" in the [root guidance](../../AGENTS.md) first.
-- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project or a provider project. Code that needs a decision takes the answer as data on the request, or returns a typed result such as `MailOperationDecisionRequiredException` to the ViewModel. A notice goes out as `InfoBarMessageRequested` through `IMessenger`.
+- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project or a provider project, in any form, `GetService<T>()` included. `IAgentPlanHost` counts as one; its use in `AgentPlanExecutor` is a known exemption in `AnalyzerAllowList.cs` in `Wino.SourceGenerators`. Code that needs a decision takes the answer as data on the request, or returns a typed result such as `MailOperationDecisionRequiredException` to the ViewModel. A notice goes out as `InfoBarMessageRequested` through `IMessenger`.
 
 ## Always
 
-- Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager, and `WINOMSG001` fails the build on `WeakReferenceMessenger.Default` in a shared project.
+- Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager: `WINOMSG002` fails the build on an assignable static or a static that holds a service, and `WINOMSG001` on `WeakReferenceMessenger.Default`, in every shared project.
 - Give every synchronizer, error handler and request executor the one `RequestUiChangeCoordinator` singleton from the container. A second instance does not know which changes were applied, so a revert would be skipped.
 - Register shared services in `RegisterCoreServices` (`CoreContainerSetup.cs`). A service only one provider needs is registered in that provider's `Add...Provider` method.
 - The contracts that need MimeKit or MailKit live in `Interfaces/`, in the `Wino.Core.Interfaces` namespace.

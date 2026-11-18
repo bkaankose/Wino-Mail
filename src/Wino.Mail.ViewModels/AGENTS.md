@@ -29,7 +29,7 @@ How each framework binds to this is in the head's file: [WinUI](../Wino.Mail.Win
 - Register messenger handlers in `RegisterRecipients()` and remove them in `UnregisterRecipients()`.
 - Recipients run on background threads. Change UI state, collections and navigation inside `ExecuteUIThread(...)` or `ExecuteUIThreadAsync(...)`. Code after `ConfigureAwait(false)` is background-thread code too.
 - Give a collection that reaches an items source a concrete static type (`List<T>`, `ObservableCollection<T>`, an array). `WINOAOT001` fails the build otherwise.
-- Take services through the constructor as interfaces. A ViewModel takes `IMessenger` as its first constructor parameter and passes it to its base class. Never use the parameterless `ObservableRecipient` constructor: it binds the global messenger without any warning. `WINOMSG001` fails the build on `WeakReferenceMessenger.Default`.
+- Take services through the constructor as interfaces. A ViewModel takes `IMessenger` as its first constructor parameter and passes it to its base class. Never use the parameterless `ObservableRecipient` constructor: it binds the global messenger without any warning. `WINOMSG001` fails the build on `WeakReferenceMessenger.Default`, and `WINOMSG002` on an assignable static or a static that holds a service: a host runs these ViewModels from a script, and state that one host instance writes must not reach another.
 - Take every user-visible string from `Translator`.
 - Tie a command's availability to state with `CanExecute` and `[NotifyCanExecuteChangedFor]`.
 
