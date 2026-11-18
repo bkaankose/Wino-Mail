@@ -718,7 +718,8 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (account == null)
         {
-            _logger.Error("Could not find account with id {AccountId}", accountId);
+            // A removed account is an expected answer: work that was already queued for it asks once more and stops.
+            _logger.Debug("Account {AccountId} does not exist", accountId);
         }
         else
         {

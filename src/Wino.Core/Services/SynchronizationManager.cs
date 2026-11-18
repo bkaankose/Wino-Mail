@@ -33,7 +33,7 @@ namespace Wino.Core.Services;
 /// Singleton manager that handles synchronizer instances and operations for all accounts.
 /// The container creates it; <see cref="SynchronizationManagerInitializer"/> supplies its remaining dependencies at startup.
 /// </summary>
-public class SynchronizationManager : ISynchronizationManager, IRecipient<AccountSynchronizerStateChanged>, IRecipient<AccountUpdatedMessage>
+public class SynchronizationManager : ISynchronizationManager, IRecipient<AccountSynchronizerStateChanged>, IRecipient<AccountUpdatedMessage>, IRecipient<AccountRemovedMessage>
 {
     private IReadOnlyDictionary<Guid, IWinoSynchronizerBase> _synchronizerCache => _concreteSynchronizerFactory.CachedSynchronizers;
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _accountSynchronizationCancellationSources = new();
@@ -82,15 +82,36 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     }
 
     internal static async Task PublishMailSynchronizationNotificationsAsync(
-        MailSynchronizationResult result, INotificationBuilder notifications, bool notificationsEnabled)
+        MailSynchronizationResult result, MailAccount account, INotificationBuilder notifications, bool notificationsEnabled)
     {
         // An unavailable native integration must not turn successful provider work into failed sync.
         if (!notificationsEnabled) return;
 
-        if (result.DownloadedMessages?.Any() ?? false)
-            await notifications.CreateNotificationsAsync(result.DownloadedMessages).ConfigureAwait(false);
+        var newMessages = GetNotifiableMessages(result.DownloadedMessages, account);
+        if (newMessages.Count > 0)
+            await notifications.CreateNotificationsAsync(newMessages).ConfigureAwait(false);
 
         await notifications.UpdateTaskbarIconBadgeAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Mail the server received before the account was added is backfill: the initial synchronization, a resumed
+    /// one, or a wider synchronization range downloads it, and none of it is new mail. Accounts created before the
+    /// creation date was recorded have no date and keep every message.
+    /// </summary>
+    internal static List<MailCopy> GetNotifiableMessages(IEnumerable<MailCopy> downloadedMessages, MailAccount account)
+    {
+        if (downloadedMessages == null)
+            return [];
+
+        if (account.CreatedAt is not { } createdAt)
+            return downloadedMessages.ToList();
+
+        var accountCreatedAtUtc = createdAt.AsStoredUtc();
+
+        return downloadedMessages
+            .Where(message => message.CreationDate >= accountCreatedAtUtc)
+            .ToList();
     }
 
     /// <summary>
@@ -145,6 +166,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             {
                 _messenger.Register<AccountSynchronizerStateChanged>(this);
                 _messenger.Register<AccountUpdatedMessage>(this);
+                _messenger.Register<AccountRemovedMessage>(this);
                 _isRegisteredForProgressMessages = true;
             }
 
@@ -300,9 +322,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             }
         }
 
-        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
+        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId, "mail synchronization").ConfigureAwait(false))
         {
-            _logger.Information("Skipping mail synchronization for account {AccountId} because it needs attention.", options.AccountId);
             var result = MailSynchronizationResult.Canceled;
             return result;
         }
@@ -364,7 +385,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
             await PersistSignInAttentionIfRequiredAsync(synchronizer.Account, result.Exception, result.AllIssues).ConfigureAwait(false);
 
-            await PublishMailSynchronizationNotificationsAsync(result, _notificationBuilder, _notificationsEnabled).ConfigureAwait(false);
+            await PublishMailSynchronizationNotificationsAsync(result, synchronizer.Account, _notificationBuilder, _notificationsEnabled).ConfigureAwait(false);
 
             return result;
         }
@@ -959,9 +980,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         EnsureInitialized();
 
         // Same gate as mail and calendar: a sign-in the user has not redone yet can only fail.
-        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
+        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId, "contact synchronization").ConfigureAwait(false))
         {
-            _logger.Information("Skipping contact synchronization for account {AccountId} because it needs attention.", options.AccountId);
             return ContactSynchronizationResult.Canceled;
         }
 
@@ -1042,9 +1062,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (options is null)
             return TaskSynchronizationResult.Failed(new ArgumentNullException(nameof(options)));
 
-        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
+        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId, "task synchronization").ConfigureAwait(false))
         {
-            _logger.Information("Skipping task synchronization for account {AccountId} because it needs attention.", options.AccountId);
             return TaskSynchronizationResult.Canceled;
         }
 
@@ -1197,9 +1216,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     {
         EnsureInitialized();
 
-        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
+        if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId, "calendar synchronization").ConfigureAwait(false))
         {
-            _logger.Information("Skipping calendar synchronization for account {AccountId} because it needs attention.", options.AccountId);
             var result = CalendarSynchronizationResult.Canceled;
             return result;
         }
@@ -1308,7 +1326,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return null;
 
         cancellationToken.ThrowIfCancellationRequested();
-        if (await IsSynchronizationBlockedByAttentionAsync(snapshot.AccountId).ConfigureAwait(false))
+        if (await IsSynchronizationBlockedByAttentionAsync(snapshot.AccountId, "draft update").ConfigureAwait(false))
             return null;
 
         var synchronizer = _synchronizerCache.TryGetValue(snapshot.AccountId, out var existing)
@@ -1329,9 +1347,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     {
         EnsureInitialized();
 
-        if (await IsSynchronizationBlockedByAttentionAsync(accountId).ConfigureAwait(false))
+        if (await IsSynchronizationBlockedByAttentionAsync(accountId, "MIME download").ConfigureAwait(false))
         {
-            _logger.Information("Skipping MIME download for mail item {MailItemId} because account {AccountId} needs attention.", mailItem.Id, accountId);
             return null;
         }
 
@@ -1677,14 +1694,23 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// synchronizer's queue and remembers the account, so the first synchronization allowed after
     /// the fix publishes their execution (see <see cref="ResumeDeferredRequests"/>).
     /// </summary>
-    private async Task<bool> IsSynchronizationBlockedByAttentionAsync(Guid accountId)
+    private async Task<bool> IsSynchronizationBlockedByAttentionAsync(Guid accountId, string operation)
     {
         if (_accountService == null)
             return false;
 
         var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        if (account == null)
+        {
+            // A request, timer or live listener that was already on its way when the account was removed.
+            _logger.Debug("Skipping {Operation} for account {AccountId} because the account was removed.", operation, accountId);
+            return true;
+        }
+
         if (!account.IsNetworkAccessBlocked())
             return false;
+
+        _logger.Information("Skipping {Operation} for account {AccountId} because it needs attention.", operation, accountId);
 
         _accountsWithDeferredRequests[accountId] = 0;
         return true;
@@ -1786,7 +1812,31 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         });
     }
 
-    private void PublishSynchronizationProgress(AccountSynchronizationProgress progress)
+    /// <summary>
+    /// The caller stops the synchronizer before it deletes the account, but a synchronization request that arrives
+    /// while the deletion runs creates a new one. Stopping it again once the account is gone leaves nothing running.
+    /// </summary>
+    public void Receive(AccountRemovedMessage message)
+    {
+        if (!_isInitialized || message.Account == null)
+            return;
+
+        var accountId = message.Account.Id;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await DestroySynchronizerAsync(accountId).ConfigureAwait(false);
+                _accountsWithDeferredRequests.TryRemove(accountId, out _);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to stop the synchronizer of removed account {AccountId}", accountId);
+            }
+        });
+    }
+
+        private void PublishSynchronizationProgress(AccountSynchronizationProgress progress)
     {
         var normalized = progress.IsInProgress
             ? progress

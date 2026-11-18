@@ -557,7 +557,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 if (DequeueMailRequestsBeforeExecution)
                     RemoveQueuedRequests(requestCopies);
 
-                Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
+                Logger.Debug("Prepared {NativeRequestCount} native mail requests for account {AccountId}", nativeRequests.Count, Account.Id);
 
                 try
                 {
@@ -824,7 +824,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 // Remove processed calendar requests from queue
                 RemoveQueuedRequests(requestCopies);
 
-                Console.WriteLine($"Prepared {nativeRequests.Count()} native calendar requests");
+                Logger.Debug("Prepared {NativeRequestCount} native calendar requests for account {AccountId}", nativeRequests.Count, Account.Id);
 
                 try
                 {

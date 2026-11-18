@@ -45,8 +45,15 @@ public class SynchronizerFactory : ISynchronizerFactory
             var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
             if (account == null)
             {
-                // The account was deleted; its queued actions have nothing left to run against.
+                // The account was deleted; its queued actions have nothing left to run against. A synchronizer
+                // created while the deletion was running would otherwise keep its live listener open.
                 _carriedOverRequests.TryRemove(accountId, out _);
+                _accountsWithRequeuedRequests.TryRemove(accountId, out _);
+                if (_synchronizers.TryRemove(accountId, out var orphaned))
+                {
+                    try { await orphaned.KillSynchronizerAsync().ConfigureAwait(false); }
+                    catch (Exception ex) { Log.Warning(ex, "Failed to stop the synchronizer of removed account {AccountId}.", accountId); }
+                }
                 return null;
             }
             if (_synchronizers.TryGetValue(accountId, out var existing))
