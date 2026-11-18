@@ -70,12 +70,16 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     public partial AppLanguageModel SelectedLanguage { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorEnabled))]
+    [NotifyPropertyChangedFor(nameof(StartupBehaviorActionText))]
     public partial StartupBehaviorResult StartupBehaviorResult { get; set; }
 
-    public bool IsStartupBehaviorDisabled => !IsStartupBehaviorEnabled;
     public bool IsStartupBehaviorEnabled => StartupBehaviorResult == StartupBehaviorResult.Enabled;
+
+    /// <summary>The action the launch-at-sign-in button performs for the current state.</summary>
+    public string StartupBehaviorActionText => IsStartupBehaviorEnabled
+        ? Translator.SettingsAppPreferences_StartupBehavior_Disable
+        : Translator.SettingsAppPreferences_StartupBehavior_Enable;
 
     public string SelectedCloseBehaviorMode
     {
@@ -154,6 +158,7 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             await EnableStartupAsync();
 
         OnPropertyChanged(nameof(IsStartupBehaviorEnabled));
+        OnPropertyChanged(nameof(StartupBehaviorActionText));
     }
 
     private async Task EnableStartupAsync()
