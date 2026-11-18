@@ -6,7 +6,7 @@ Rejected: backup-dialog return signature; donor snapshot/CardDAV regression; unr
 
 ## Selected sources
 
-Paths show where each file lives today. The shared-backend restructure moved provider code into the `Wino.Providers.*` projects, MIME-typed contracts under `src/Wino.Services/Domain`, and UI models into `Wino.Mail.ViewModels`; moved files kept their namespaces. The `tests/` project and the intelligence console were removed later; their entries and the verification below are a record of the import, not current files.
+Paths show where each file lives today. The shared-backend restructure moved provider code into the `Wino.Providers.*` projects, MIME-typed contracts under `src/Wino.Services`, and UI models into `Wino.Mail.ViewModels`. The `tests/` project and the intelligence console were removed later; their entries and the verification below are a record of the import, not current files.
 
 - `src/Wino.Core.Domain/Enums/ApplicationRuntimeState.cs`
 - `src/Wino.Core.Domain/Enums/AttachmentFileOperationStatus.cs`
@@ -31,7 +31,7 @@ Paths show where each file lives today. The shared-backend restructure moved pro
 - `src/Wino.Core.Domain/Interfaces/ISecretProtector.cs`
 - `src/Wino.Mail.ViewModels/Shell/Contracts/IShellMenuProviderResolver.cs`
 - `src/Wino.Core.Domain/Interfaces/IShortcutPlatformService.cs`
-- `src/Wino.Services/Domain/Interfaces/ISmimeCertificateService.cs`
+- `src/Wino.Services/Interfaces/ISmimeCertificateService.cs`
 - `src/Wino.Core.Domain/Interfaces/IStartupIntegrationService.cs`
 - `src/Wino.Core.Domain/Interfaces/ISubstrateTaskTokenProvider.cs`
 - `src/Wino.Core.Domain/Interfaces/ITaskCompletionSound.cs`
@@ -118,7 +118,7 @@ Paths show where each file lives today. The shared-backend restructure moved pro
 - `tests/Wino.Core.Tests/Services/WinoPurchaseReconciliationServiceTests.cs`
 - `tests/Wino.Core.Tests/Telemetry/WinoTelemetryPolicyTests.cs`
 
-- `src/Wino.Services/Domain/Models/MailItem/HtmlPreviewVisitor.cs` — host-supplied S/MIME context.
+- `src/Wino.Services/Models/MailItem/HtmlPreviewVisitor.cs` — host-supplied S/MIME context.
 - `tests/Wino.Core.Tests/Models/HtmlPreviewVisitorTests.cs`
 
 ## Compatibility and lifecycle

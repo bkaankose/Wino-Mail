@@ -15,7 +15,7 @@ Calendars, tasks and contacts over CalDAV and CardDAV: the three synchronization
 - The calendar store is `CalDavChangeProcessor` in `Wino.Core`, with `CalendarIcsBuilder` and `CalDavAttachmentRows`. They stay there because IMAP accounts and local calendars use them too. Change calendar storage there, not here.
 - Discovered endpoints are cached in `DavEndpointCache`, a container singleton. Add no static cache.
 - DAV credentials are stored through `IDavCredentialStore`. Never write a password to a log or a file.
-- Keep the namespaces of moved files. They came from `Wino.Core` unchanged.
+- Every file's namespace is `Wino.Providers.Dav` plus its folder path.
 
 ## Running a change
 

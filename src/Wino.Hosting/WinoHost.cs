@@ -10,10 +10,16 @@ using Wino.Core.Domain.Models.Platform;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Activation;
 using Wino.Mail.ViewModels.Lifecycle;
-using Wino.Messaging.Client.Shell;
 using Wino.Services;
 using Wino.Services.Platform;
 using Wino.Services.Security;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Providers.Dav.Providers;
+using Wino.Providers.Exchange.Providers;
+using Wino.Providers.Gmail.Providers;
+using Wino.Providers.Imap.Providers;
+using Wino.Providers.Outlook.Providers;
+using Wino.Services.Interfaces;
 
 namespace Wino.Hosting;
 

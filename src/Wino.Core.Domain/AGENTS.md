@@ -1,12 +1,12 @@
 # Wino.Core.Domain
 
-The contracts every other project builds on: service interfaces, entities, enums, models, the message records (`Messaging/`, namespaces `Wino.Messaging.*`), and the translations. Every app and every shared project references it, so a change here rebuilds everything.
+The contracts every other project builds on: service interfaces, entities, enums, models, the message records (`Messaging/`, namespaces `Wino.Core.Domain.Messaging.*`), and the translations. Every app and every shared project references it, so a change here rebuilds everything.
 
 ## Hard stops
 
 - **Client ids** for Outlook, Gmail and Wino Account live in `Models/Authentication/WinoAuthenticationClientIds.cs`. The iOS notification extension links that file directly, so it stays dependency-free. The rules for the ids themselves are under "Accounts, OAuth clients and signing" in the [root guidance](../../AGENTS.md).
 - **An entity change is a schema change.** Entities are plain classes with sqlite-net attributes. Their tables are created in `CreateTablesAsync` and upgraded in `EnsureSchemaUpgradesAsync`, both in `src/Wino.Services/DatabaseService.cs`. Existing installs must keep their data: a new column gets an `ALTER TABLE … ADD COLUMN` step there. Ask the owner before a change that renames, drops or rewrites a column or a table.
-- **Add no package reference here.** There is no CommunityToolkit in this project, and no model here derives from an observable base: observable state is UI state and lives in `Wino.Mail.ViewModels`. There is no MimeKit or MailKit here either: a contract or model that needs a MIME or IMAP type lives in `src/Wino.Services/Domain` or `src/Wino.Core/Domain`, under its original `Wino.Core.Domain.*` namespace.
+- **Add no package reference here.** There is no CommunityToolkit in this project, and no model here derives from an observable base: observable state is UI state and lives in `Wino.Mail.ViewModels`. There is no MimeKit or MailKit here either: a contract or model that needs a MIME or IMAP type lives in `src/Wino.Services` or `src/Wino.Core`, under that project's namespace for its folder.
 - **No UI state.** Menu items, the shell menu contracts, theme, navigation and printing models belong to `Wino.Mail.ViewModels`. A service returns plain data (for example `AccountFolderLayout` from `IFolderService`), and the ViewModel layer builds the observable items from it.
 
 ## Always

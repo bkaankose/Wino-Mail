@@ -92,7 +92,7 @@ flowchart TD
 
 The dependency rules:
 
-- `Wino.Core.Domain` has no MVVM or MIME dependency and holds no UI state. Contracts and models that need MimeKit or MailKit live under `Domain/` in `Wino.Services` or `Wino.Core`, with their original `Wino.Core.Domain.*` namespaces.
+- `Wino.Core.Domain` has no MVVM or MIME dependency and holds no UI state. Contracts and models that need MimeKit or MailKit live in `Wino.Services` or `Wino.Core`, in the namespace of their folder.
 - `Wino.Core` and the shared projects below it reference no provider project. Shared code asks `IMailProviderRegistry` for a provider's module and its `MailProviderTraits`; it never switches on the provider type.
 - A provider project references `Wino.Core` only, and never another provider project. Only the application heads and `Wino.Hosting` reference the providers.
 - No dialog, navigation, theme, or dispatcher contract is used below `Wino.Mail.ViewModels`. The `WINOUI001` analyzer fails the build otherwise. The backend takes answers as data on the request or returns a typed result to the ViewModel.
@@ -135,7 +135,7 @@ sequenceDiagram
 
 Shared backend:
 
-- [`Wino.Core.Domain`](src/Wino.Core.Domain) contains service contracts, entities, enums, models, the messenger message records (`Messaging/`, namespaces `Wino.Messaging.*`), and the translations.
+- [`Wino.Core.Domain`](src/Wino.Core.Domain) contains service contracts, entities, enums, models, the messenger message records (`Messaging/`, namespaces `Wino.Core.Domain.Messaging.*`), and the translations.
 - [`Wino.Services`](src/Wino.Services) contains the SQLite database and schema, the MIME file store, account, mail, folder, calendar, contact, and task services, preferences, logging, the Wino account client, and the portable platform services shared by the macOS, iOS, Android, and hosting heads (`AddPortablePlatformServices`).
 - [`Wino.Core`](src/Wino.Core) contains the synchronizer base classes, the request pipeline, the provider registry, `SynchronizationManager`, `ApplicationRuntime`, account setup, and autodiscovery.
 - [`Wino.Providers.Outlook`](src/Wino.Providers.Outlook), [`Wino.Providers.Gmail`](src/Wino.Providers.Gmail), [`Wino.Providers.Imap`](src/Wino.Providers.Imap) (IMAP, POP3, and SMTP), [`Wino.Providers.Exchange`](src/Wino.Providers.Exchange) (EWS and the MAPI protocol layer), and [`Wino.Providers.Dav`](src/Wino.Providers.Dav) (CalDAV and CardDAV) each hold one provider's synchronizer, change processor, error handlers, and services.

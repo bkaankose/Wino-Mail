@@ -79,6 +79,7 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 - Give collection expressions that target read-only interfaces an explicit concrete backing type. Collections that reach an items source need a concrete static type, not an interface; `WINOAOT001` enforces it. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
 - Write no comments in source code unless one identifies a potential risk, explains an uncommon decision behind the code, or is needed for everyone to understand it. Do not restate member names, describe what the code plainly does, or narrate the feature.
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
+- A file's namespace is its project's `RootNamespace` plus its folder path; `IDE0130` is an error in `.editorconfig`, so the build fails on a mismatch. Move a file or rename a namespace together with every `using`, XAML `using:` prefix, `x:Class`, trimming root (`ILLink*.xml`) and type name written in a string.
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
 - The database changes only after the server confirms a change. The UI change is applied in memory and reverted on failure, through the request pipeline in [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md). Add no offline queue and no retry queue.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.

@@ -42,7 +42,7 @@ Keep the module contract small. Add a member only when shared code would otherwi
 - Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager, and `WINOMSG001` fails the build on `WeakReferenceMessenger.Default` in a shared project.
 - Give every synchronizer, error handler and request executor the one `RequestUiChangeCoordinator` singleton from the container. A second instance does not know which changes were applied, so a revert would be skipped.
 - Register shared services in `RegisterCoreServices` (`CoreContainerSetup.cs`). A service only one provider needs is registered in that provider's `Add...Provider` method.
-- Keep the namespace of the files under `Domain/`. They moved out of the Domain project and kept their `Wino.Core.Domain.*` names.
+- The contracts that need MimeKit or MailKit live in `Interfaces/`, in the `Wino.Core.Interfaces` namespace.
 - Treat code after `ConfigureAwait(false)` and every messenger recipient as background-thread code.
 
 Shared code that looks provider-specific but stays here, because more than one provider uses it:

@@ -1,70 +1,64 @@
 using System;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Windows.Foundation;
 
-namespace Wino.Mail.WinUI.Controls
+namespace Wino.Mail.WinUI.Controls;
+
+public partial class CustomWrapPanel : Panel
 {
-    using Windows.Foundation;
-    using Microsoft.UI.Xaml;
-    using Microsoft.UI.Xaml.Controls;
-
-    namespace CustomControls
+    protected override Size MeasureOverride(Size availableSize)
     {
-        public partial class CustomWrapPanel : Panel
+        double currentRowWidth = 0;
+        double currentRowHeight = 0;
+        double totalHeight = 0;
+
+        foreach (UIElement child in Children)
         {
-            protected override Size MeasureOverride(Size availableSize)
+            child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+
+            var childDesiredSize = child.DesiredSize;
+
+            if (currentRowWidth + childDesiredSize.Width > availableSize.Width)
             {
-                double currentRowWidth = 0;
-                double currentRowHeight = 0;
-                double totalHeight = 0;
-
-                foreach (UIElement child in Children)
-                {
-                    child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-
-                    var childDesiredSize = child.DesiredSize;
-
-                    if (currentRowWidth + childDesiredSize.Width > availableSize.Width)
-                    {
-                        // Wrap to the next row
-                        totalHeight += currentRowHeight;
-                        currentRowWidth = 0;
-                        currentRowHeight = 0;
-                    }
-
-                    currentRowWidth += childDesiredSize.Width;
-                    currentRowHeight = Math.Max(currentRowHeight, childDesiredSize.Height);
-                }
-
+                // Wrap to the next row
                 totalHeight += currentRowHeight;
-
-                return new Size(availableSize.Width, totalHeight);
+                currentRowWidth = 0;
+                currentRowHeight = 0;
             }
 
-            protected override Size ArrangeOverride(Size finalSize)
-            {
-                double currentRowWidth = 0;
-                double currentRowHeight = 0;
-                double currentY = 0;
-
-                foreach (UIElement child in Children)
-                {
-                    var childDesiredSize = child.DesiredSize;
-
-                    if (currentRowWidth + childDesiredSize.Width > finalSize.Width)
-                    {
-                        currentY += currentRowHeight;
-                        currentRowWidth = 0;
-                        currentRowHeight = 0;
-                    }
-
-                    child.Arrange(new Rect(new Point(currentRowWidth, currentY), childDesiredSize));
-
-                    currentRowWidth += childDesiredSize.Width;
-                    currentRowHeight = Math.Max(currentRowHeight, childDesiredSize.Height);
-                }
-
-                return finalSize;
-            }
+            currentRowWidth += childDesiredSize.Width;
+            currentRowHeight = Math.Max(currentRowHeight, childDesiredSize.Height);
         }
+
+        totalHeight += currentRowHeight;
+
+        return new Size(availableSize.Width, totalHeight);
     }
 
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        double currentRowWidth = 0;
+        double currentRowHeight = 0;
+        double currentY = 0;
+
+        foreach (UIElement child in Children)
+        {
+            var childDesiredSize = child.DesiredSize;
+
+            if (currentRowWidth + childDesiredSize.Width > finalSize.Width)
+            {
+                currentY += currentRowHeight;
+                currentRowWidth = 0;
+                currentRowHeight = 0;
+            }
+
+            child.Arrange(new Rect(new Point(currentRowWidth, currentY), childDesiredSize));
+
+            currentRowWidth += childDesiredSize.Width;
+            currentRowHeight = Math.Max(currentRowHeight, childDesiredSize.Height);
+        }
+
+        return finalSize;
+    }
 }

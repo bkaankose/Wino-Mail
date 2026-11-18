@@ -37,7 +37,10 @@ public sealed class BackendUiContractAnalyzer : DiagnosticAnalyzer
         "Wino.Providers.Exchange",
         "Wino.Providers.Dav");
 
-    private const string ContractNamespace = "Wino.Core.Domain.Interfaces";
+    private static readonly ImmutableHashSet<string> ContractNamespaces = ImmutableHashSet.Create(
+        StringComparer.Ordinal,
+        "Wino.Core.Domain.Interfaces",
+        "Wino.Mail.ViewModels.Shell.Contracts");
 
     private static readonly ImmutableHashSet<string> UiContracts = ImmutableHashSet.Create(
         StringComparer.Ordinal,
@@ -151,5 +154,5 @@ public sealed class BackendUiContractAnalyzer : DiagnosticAnalyzer
     private static bool IsUiContract(INamedTypeSymbol type)
         => type.TypeKind == TypeKind.Interface
            && UiContracts.Contains(type.Name)
-           && type.ContainingNamespace?.ToDisplayString() == ContractNamespace;
+           && type.ContainingNamespace?.ToDisplayString() is { } containing && ContractNamespaces.Contains(containing);
 }

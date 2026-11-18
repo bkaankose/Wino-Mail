@@ -13,7 +13,7 @@ Outlook and Microsoft 365 mailboxes over Microsoft Graph: the synchronizer for m
 ## Always
 
 - Register a service only Outlook needs in `AddOutlookProvider` ([Providers/OutlookProvider.cs](Providers/OutlookProvider.cs)). Describe a difference from other providers as a trait or a module member, never as a type check in shared code.
-- Keep the namespaces of moved files (`Wino.Core.Synchronizers.Mail`, `Wino.Core.Integration.Processors` and others). They came from `Wino.Core` and `Wino.Authentication` unchanged.
+- Every file's namespace is `Wino.Providers.Outlook` plus its folder path.
 - `MsalLogForwarding` stays in `Wino.Authentication`, because the platform sign-in hosts use it. The interactive part of sign-in is each platform's `IOutlookAuthenticationHost`.
 - Keep JSON source-generated; the Windows app is Native AOT.
 

@@ -10,7 +10,7 @@
     xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
     xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
-    xmlns:wrap="using:Wino.Mail.WinUI.Controls.CustomControls"
+    xmlns:wrap="using:Wino.Mail.WinUI.Controls"
     x:Name="root"
     Loaded="ContactEditPage_Loaded"
     LosingFocus="ContactEditPage_LosingFocus"

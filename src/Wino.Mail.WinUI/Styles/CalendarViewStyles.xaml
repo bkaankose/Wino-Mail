@@ -3,9 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Mail.WinUI.Controls"
-    xmlns:data="using:Wino.Calendar.ViewModels.Data"
-    xmlns:local="using:Wino.Mail.WinUI.Styles"
-    xmlns:selectors1="using:Wino.Selectors">
+    xmlns:local="using:Wino.Mail.WinUI.Styles">
 
     <Style x:Key="WinoCalendarViewStyle" TargetType="controls:ShellCalendarView">
         <Setter Property="BlackoutStrikethroughBrush" Value="{ThemeResource CalendarViewBlackoutStrikethroughBrush}" />

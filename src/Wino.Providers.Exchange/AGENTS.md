@@ -12,10 +12,10 @@ On-premises Exchange mailboxes over two transports: EWS and MAPI over HTTP. It h
 ## Always
 
 - Register a service only Exchange needs in `AddExchangeProvider` ([Providers/ExchangeProvider.cs](Providers/ExchangeProvider.cs)).
-- The MAPI protocol layer is under [MAPI/](MAPI), namespace `Wino.Core.MAPI`. It was its own project and has no implicit usings: each file lists the `System.*` namespaces it needs.
+- The MAPI protocol layer is under [MAPI/](MAPI), namespace `Wino.Providers.Exchange.MAPI`. It was its own project and has no implicit usings: each file lists the `System.*` namespaces it needs.
 - Sending builds the message with `MailKitSmtpTransport.CreateSmtpMessage` from `Wino.Core`.
 - Exchange autodiscovery skips the SCP lookup off Windows. Keep code that needs Active Directory behind that check.
-- Keep the namespaces of moved files. They came from `Wino.Core`, `Wino.Authentication` and `Wino.Core.MAPI` unchanged.
+- Every file's namespace is `Wino.Providers.Exchange` plus its folder path.
 
 ## Running a change
 

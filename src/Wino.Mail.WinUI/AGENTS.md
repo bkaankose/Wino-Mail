@@ -39,7 +39,7 @@ public abstract class AccountUnreadBadgePageAbstract : SettingsPageBase<AccountU
 ```
 
 ```xml
-<abstract:AccountUnreadBadgePageAbstract x:Class="Wino.Views.Settings.AccountUnreadBadgePage" ...>
+<abstract:AccountUnreadBadgePageAbstract x:Class="Wino.Mail.WinUI.Views.Settings.AccountUnreadBadgePage" ...>
     <ToggleSwitch IsOn="{x:Bind ViewModel.IsAccountBadgeEnabled, Mode=TwoWay}" />
     <ItemsRepeater ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}" />
     <Button Command="{x:Bind ViewModel.RestoreDefaultsCommand}" />
