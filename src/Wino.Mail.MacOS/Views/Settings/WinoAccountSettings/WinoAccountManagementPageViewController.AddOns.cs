@@ -5,7 +5,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Presentation.AppKit;
 
-namespace Wino.Mail.MacOS.Views.Settings.WinoAccount;
+namespace Wino.Mail.MacOS.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Wino add-ons: the Wino Intelligence status row, Unlimited Accounts (usage meter, purchase or Unlocked) and the

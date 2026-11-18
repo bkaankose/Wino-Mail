@@ -1,6 +1,6 @@
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Android.Infrastructure;
-using Wino.Mail.Android.Views.Settings.WinoAccount;
+using Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Common;
 

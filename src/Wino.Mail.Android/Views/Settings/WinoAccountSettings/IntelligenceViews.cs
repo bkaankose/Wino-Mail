@@ -14,7 +14,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Presentation.Android;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Small factory helpers shared by the Wino Account and Intelligence pages (iOS IntelligenceViews and

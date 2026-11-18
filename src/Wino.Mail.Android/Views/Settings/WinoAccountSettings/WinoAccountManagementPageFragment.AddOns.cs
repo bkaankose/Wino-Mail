@@ -5,7 +5,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Wino add-ons: Wino Intelligence (status row; the offer, usage and settings are on the Wino Intelligence page),

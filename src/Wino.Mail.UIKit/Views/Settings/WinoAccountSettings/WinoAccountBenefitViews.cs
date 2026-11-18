@@ -6,7 +6,7 @@ using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Presentation.UIKit;
 using Wino.Mail.ViewModels.Common.Data;
 
-namespace Wino.Mail.UIKit.Views.Settings.WinoAccount;
+namespace Wino.Mail.UIKit.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// One selectable offer (Windows BenefitTileTemplate): the glyph in a 36pt rounded box, the title

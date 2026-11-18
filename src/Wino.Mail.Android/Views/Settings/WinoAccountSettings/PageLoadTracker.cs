@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Lets a page view learn when its ViewModel's first load finished. The iOS pages reveal their content at the end of

@@ -7,7 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>Coverage band colours shared by the histogram bars and the band tiles.</summary>
 internal static class CoverageColors

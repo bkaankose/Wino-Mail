@@ -8,7 +8,7 @@ using Wino.Core.Domain;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// The Windows ConsentPolicyDialog as a Material bottom sheet (iOS IntelligenceConsentPolicySheet): title, notice, the

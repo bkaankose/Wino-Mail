@@ -3,7 +3,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.UIKit;
 
-namespace Wino.Mail.UIKit.Views.Settings.WinoAccount;
+namespace Wino.Mail.UIKit.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Management: Wino Account backups live on the Backup and restore page, next to the backup file

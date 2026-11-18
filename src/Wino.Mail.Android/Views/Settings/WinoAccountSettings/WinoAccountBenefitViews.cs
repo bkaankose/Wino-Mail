@@ -8,7 +8,7 @@ using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
 using Wino.Mail.ViewModels.Common.Data;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// One selectable offer (Windows BenefitTileTemplate, iOS WinoAccountBenefitTileView): the glyph in a rounded

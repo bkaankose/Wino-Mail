@@ -15,7 +15,7 @@ using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Per-mailbox Wino Intelligence (Windows WinoIntelligenceManagementPage, iOS twin): the hero with state, counts and

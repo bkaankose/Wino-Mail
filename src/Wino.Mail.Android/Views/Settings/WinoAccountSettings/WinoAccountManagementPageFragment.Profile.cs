@@ -7,7 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Presentation.Android;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Signed-in state: the profile card (photo with its options, name with rename, email, save status, Change password and

@@ -7,7 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Presentation.Android;
 using AndroidPath = Android.Graphics.Path;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>Shared drawing for the vector illustrations: rounded rectangles, ovals and SVG path data in canvas units.</summary>
 internal abstract class CanvasIllustrationView : View

@@ -3,7 +3,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
 
-namespace Wino.Mail.MacOS.Views.Settings.WinoAccount;
+namespace Wino.Mail.MacOS.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Management: Wino Account backups live on the Backup and restore page, next to the backup file

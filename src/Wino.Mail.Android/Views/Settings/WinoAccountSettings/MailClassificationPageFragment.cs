@@ -14,7 +14,7 @@ using Wino.Mail.ViewModels.Common;
 using Wino.Mail.ViewModels.Common.Data;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Smart Labels and Daily Briefing (Windows MailClassificationPage, Mac MailClassificationPageViewController): the

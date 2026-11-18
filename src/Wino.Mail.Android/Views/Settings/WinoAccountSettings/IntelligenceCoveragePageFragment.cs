@@ -18,7 +18,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// The coverage editor (Windows IntelligenceCoveragePage, iOS IntelligenceCoveragePageViewController): totals with

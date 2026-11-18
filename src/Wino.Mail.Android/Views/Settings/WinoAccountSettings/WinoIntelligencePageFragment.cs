@@ -15,7 +15,7 @@ using Wino.Presentation.Bindings;
 using Wino.Mail.ViewModels.Common;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>
 /// Wino Intelligence home (Windows WinoIntelligencePage, Mac WinoIntelligencePageViewController; shared

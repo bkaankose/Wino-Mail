@@ -4,7 +4,7 @@ using Wino.Core.Domain;
 using Wino.Presentation.Android;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 
-namespace Wino.Mail.Android.Views.Settings.WinoAccount;
+namespace Wino.Mail.Android.Views.Settings.WinoAccountSettings;
 
 /// <summary>Signed-out state: the account header, the offers list and the selected offer's detail panel.</summary>
 public sealed partial class WinoAccountManagementPageFragment
