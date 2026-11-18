@@ -43,6 +43,7 @@ public sealed class ExchangeProviderModule(
         ManagesProviderContactCollections = false,
         ManagesProviderTaskSteps = false,
         ArchiveRequiresArchiveFolder = true,
+        SupportsProfileInfoSync = true,
         LiveCoverage = LiveCoverageKind.ExchangeNotifications
     };
 

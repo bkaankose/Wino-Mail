@@ -8,10 +8,11 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
+using Wino.Services.Interfaces;
 
 namespace Wino.Services;
 
-public class ContextMenuItemService : IContextMenuItemService
+public class ContextMenuItemService(IMailProviderRegistry providers) : IContextMenuItemService
 {
     public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder)
     {
@@ -199,7 +200,7 @@ public class ContextMenuItemService : IContextMenuItemService
         else if (!mailItem.IsDraft && mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent && mailItem.AssignedAccount?.ProviderType != MailProviderType.POP3)
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
 
-        if (IsOutlookInboxMail(mailItem))
+        if (IsFocusedInboxMail(mailItem))
         {
             var moveOperation = mailItem.IsFocused ? MailOperation.MoveToOther : MailOperation.MoveToFocused;
             var alwaysMoveOperation = mailItem.IsFocused ? MailOperation.AlwaysMoveToOther : MailOperation.AlwaysMoveToFocused;
@@ -211,9 +212,9 @@ public class ContextMenuItemService : IContextMenuItemService
         return actionList;
     }
 
-    private static void AddFocusedInboxActions(List<MailOperationMenuItem> operationList, IReadOnlyCollection<MailCopy> selectedItems)
+    private void AddFocusedInboxActions(List<MailOperationMenuItem> operationList, IReadOnlyCollection<MailCopy> selectedItems)
     {
-        if (selectedItems.Count == 0 || !selectedItems.All(IsOutlookInboxMail))
+        if (selectedItems.Count == 0 || !selectedItems.All(IsFocusedInboxMail))
             return;
 
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
@@ -235,8 +236,9 @@ public class ContextMenuItemService : IContextMenuItemService
         }
     }
 
-    private static bool IsOutlookInboxMail(MailCopy mailItem)
-        => mailItem?.AssignedAccount?.ProviderType == MailProviderType.Outlook
+    private bool IsFocusedInboxMail(MailCopy mailItem)
+        => mailItem?.AssignedAccount is { } account
+           && providers.GetTraits(account.ProviderType).SupportsFocusedInbox
            && mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox
            && !mailItem.IsDraft;
 

@@ -56,6 +56,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly INavigationService _navigationService;
     private readonly ICalendarService _calendarService;
+    private readonly IMailProviderRegistry _providers;
     private readonly IMailDialogService _dialogService;
     private readonly IPreferencesService _preferencesService;
     private readonly ITaskCompletionSound _taskCompletionSound;
@@ -522,6 +523,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         INavigationService navigationService,
         ICalendarService calendarService,
         IMailDialogService dialogService,
+        IMailProviderRegistry providers,
         IPreferencesService preferencesService = null,
         ITaskCompletionSound taskCompletionSound = null,
         IAppModeReadinessService appModeReadinessService = null,
@@ -536,6 +538,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _navigationService = navigationService;
         _calendarService = calendarService;
         _dialogService = dialogService;
+        _providers = providers;
         _preferencesService = preferencesService;
         _taskCompletionSound = taskCompletionSound;
         TaskGroups = new ReadOnlyObservableCollection<TaskGroup>(_taskGroups);
@@ -2625,16 +2628,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         }
     }
 
-    private static TaskSourceKind ResolveTaskSource(MailAccount account)
+    private TaskSourceKind ResolveTaskSource(MailAccount account)
         => account.TaskIntegrationSource switch
         {
-            AccountIntegrationSource.Provider when account.IsTaskAccessGranted => account.ProviderType switch
-            {
-                MailProviderType.Gmail => TaskSourceKind.Gmail,
-                MailProviderType.Outlook => TaskSourceKind.Outlook,
-                MailProviderType.Exchange => TaskSourceKind.Exchange,
-                _ => TaskSourceKind.Local
-            },
+            AccountIntegrationSource.Provider when account.IsTaskAccessGranted
+                => _providers.GetTraits(account.ProviderType).ProviderTaskSource ?? TaskSourceKind.Local,
             AccountIntegrationSource.Dav when account.IsTaskAccessGranted => TaskSourceKind.CalDav,
             _ => TaskSourceKind.Local
         };

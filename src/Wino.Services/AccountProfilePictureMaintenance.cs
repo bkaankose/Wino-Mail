@@ -23,6 +23,7 @@ public sealed class AccountProfilePictureMaintenance
     private readonly IMessenger _messenger;
     private readonly IAccountService _accountService;
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IMailProviderRegistry _providers;
     private readonly ILogger _logger = Log.ForContext<AccountProfilePictureMaintenance>();
     private int _isBackfillRunning;
 
@@ -31,13 +32,15 @@ public sealed class AccountProfilePictureMaintenance
         IPictureStorageService pictureStorage,
         IMessenger messenger,
         IAccountService accountService,
-        ISynchronizationManager synchronizationManager)
+        ISynchronizationManager synchronizationManager,
+        IMailProviderRegistry providers)
     {
         _databaseService = databaseService;
         _pictureStorage = pictureStorage;
         _messenger = messenger;
         _accountService = accountService;
         _synchronizationManager = synchronizationManager;
+        _providers = providers;
     }
 
     /// <summary>
@@ -93,7 +96,7 @@ public sealed class AccountProfilePictureMaintenance
         {
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
             var eligibleAccounts = accounts
-                .Where(account => account.IsProfileInfoSyncSupported)
+                .Where(account => _providers.GetTraits(account.ProviderType).SupportsProfileInfoSync)
                 .Where(account => !account.IsProfilePictureBackfillComplete ||
                                   account.ProfilePictureFileId is { } fileId &&
                                   _pictureStorage.GetPicturePath(PictureKind.AccountProfile, fileId) == null)

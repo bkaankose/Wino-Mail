@@ -44,7 +44,11 @@ public sealed class GmailProviderModule(
         ServesModesFromProvider = true,
         ProviderContactSource = ContactSourceKind.Gmail,
         ProviderTaskSource = TaskSourceKind.Gmail,
+        ManagesProviderContactCollections = true,
+        ManagesProviderTaskSteps = true,
         AnswersInvitationsThroughProvider = true,
+        SupportsAliasSync = true,
+        SupportsProfileInfoSync = true,
         StoresMessageInSeveralFolders = true,
         UsesQuotaWindowForTasksAndContacts = true,
         LiveCoverage = LiveCoverageKind.RelayMailbox

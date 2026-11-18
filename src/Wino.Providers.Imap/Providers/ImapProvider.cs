@@ -43,6 +43,8 @@ public sealed class ImapProviderModule(
 
     public MailProviderTraits Traits { get; } = new()
     {
+        ManagesProviderContactCollections = true,
+        ManagesProviderTaskSteps = true,
         SupportsDavIntegration = true,
         ArchiveRequiresArchiveFolder = true,
         MovesJunkAsFolderMove = true,
@@ -92,6 +94,8 @@ public sealed class Pop3ProviderModule(
 
     public MailProviderTraits Traits { get; } = new()
     {
+        ManagesProviderContactCollections = true,
+        ManagesProviderTaskSteps = true,
         ArchiveRequiresArchiveFolder = true
     };
 

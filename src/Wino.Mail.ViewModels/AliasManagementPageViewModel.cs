@@ -52,7 +52,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(HasSynchronizationError))]
     public partial string SynchronizationError { get; set; }
 
-    public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
+    public bool CanSynchronizeAliases => Account != null && _providers.GetTraits(Account.ProviderType).SupportsAliasSync;
 
     public AliasManagementItemList AliasItems => AliasManagementItem.Create(AccountAliases, IsSmimeAvailable);
 
@@ -94,14 +94,17 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     }
 
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IMailProviderRegistry _providers;
 
     public AliasManagementPageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                                         IAccountService accountService,
                                         ISmimeCertificateService smimeCertificateService,
                                         IPlatformCapabilities platformCapabilities,
-                                        IWinoLogger logger) : base(messenger)
+                                        IWinoLogger logger,
+                                        IMailProviderRegistry providers) : base(messenger)
     {
         _synchronizationManager = synchronizationManager;
+        _providers = providers;
         _dialogService = dialogService;
         _accountService = accountService;
         _smimeCertificateService = smimeCertificateService;

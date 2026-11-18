@@ -5,7 +5,7 @@ namespace Wino.Core.Domain.Models.Accounts;
 
 /// <summary>
 /// What shared code needs to know about a mail provider, as data. Each provider module states its own values;
-/// <see cref="None"/> is what an unregistered provider type answers.
+/// <see cref="None"/> is what an unregistered provider type answers: every flag is off.
 /// </summary>
 public sealed record MailProviderTraits
 {
@@ -24,10 +24,10 @@ public sealed record MailProviderTraits
     public TaskSourceKind? ProviderTaskSource { get; init; }
 
     /// <summary>Address books can be created, renamed and deleted on the provider.</summary>
-    public bool ManagesProviderContactCollections { get; init; } = true;
+    public bool ManagesProviderContactCollections { get; init; }
 
     /// <summary>Provider tasks have checklist steps.</summary>
-    public bool ManagesProviderTaskSteps { get; init; } = true;
+    public bool ManagesProviderTaskSteps { get; init; }
 
     /// <summary>Calendar and To Do can come from a CalDAV server configured on the account.</summary>
     public bool SupportsDavIntegration { get; init; }
@@ -43,6 +43,12 @@ public sealed record MailProviderTraits
 
     /// <summary>Category definitions live on the server and synchronize with it.</summary>
     public bool SupportsCategorySync { get; init; }
+
+    /// <summary>The sender addresses (aliases) of the mailbox are read from the server.</summary>
+    public bool SupportsAliasSync { get; init; }
+
+    /// <summary>The display name and picture of the mailbox are read from the server.</summary>
+    public bool SupportsProfileInfoSync { get; init; }
 
     public bool SupportsFocusedInbox { get; init; }
 

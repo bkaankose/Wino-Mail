@@ -347,7 +347,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
             await SynchronizeFoldersAsync(run, cancellationToken);
 
-            if (account.IsCategorySyncSupported)
+            if (_providers.GetTraits(account.ProviderType).SupportsCategorySync)
             {
                 run.Start(AccountSetupStepKind.SyncingCategories);
                 await TrySynchronizeCategoriesAsync(account, cancellationToken);
@@ -362,7 +362,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         {
             run.Start(AccountSetupStepKind.SyncingAliases);
 
-            if (account.IsAliasSyncSupported)
+            if (_providers.GetTraits(account.ProviderType).SupportsAliasSync)
             {
                 var aliasResult = await _synchronizationManager.SynchronizeAliasesAsync(account.Id, cancellationToken);
                 if (aliasResult.CompletedState != SynchronizationCompletedState.Success)

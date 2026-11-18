@@ -121,6 +121,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
+    private readonly IMailProviderRegistry _providers;
     private MailItemViewModel _activeMailItem;
     private CancellationTokenSource markAsReadDelayCancellationTokenSource;
     private CancellationTokenSource? _dayChangeWatchCancellationTokenSource;
@@ -383,6 +384,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IWinoLogger winoLogger,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
+                                 IMailProviderRegistry providers,
                                  IMailShellClient shellMenuProvider = null,
                                  IWinoAccountIntelligenceSnapshotService entitlementService = null,
                                  IAppLockService appLockService = null) : base(messenger)
@@ -402,6 +404,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _requestCoordinator = requestCoordinator;
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
+        _providers = providers;
         _entitlementService = entitlementService;
 
         PreferencesService = preferencesService;
@@ -1655,7 +1658,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         await ApplyCategoryAssignmentToVisibleItemsAsync(category, targetList, isAssignedToAll).ConfigureAwait(false);
 
-        if (targetList.First().MailCopy.AssignedAccount.ProviderType != MailProviderType.Outlook)
+        if (!_providers.GetTraits(targetList.First().MailCopy.AssignedAccount.ProviderType).SupportsCategorySync)
             return;
 
         var requests = new List<IRequestBase>();
@@ -2377,7 +2380,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private async Task<List<MailCopy>> GetSurvivingLabelCopiesAsync(IEnumerable<MailCopy> removedMails)
     {
-        var removed = removedMails.Where(mail => mail.AssignedAccount?.ProviderType == MailProviderType.Gmail).ToArray();
+        var removed = removedMails.Where(mail => mail.AssignedAccount is { } account && _providers.GetTraits(account.ProviderType).StoresMessageInSeveralFolders).ToArray();
         var ids = removed.Select(mail => mail.Id).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToArray();
         if (ids.Length == 0)
             return new List<MailCopy>();
