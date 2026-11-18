@@ -8,7 +8,7 @@ Outlook and Microsoft 365 mailboxes over Microsoft Graph: the synchronizer for m
 - **One way to build a Graph client.** Create every `GraphServiceClient` through `OutlookSynchronizer.CreateGraphClient`, which wraps the adapter in `GraphRequestAdapterWithoutBackingStore`. A client built on a plain adapter turns on change tracking for every client in the process: a property set to null is then sent as an explicit null, and a model serialized twice sends only its changes.
 - **The official package only.** Outlook uses `Microsoft.Graph`. Add no generated client and no hand-written copy of a Graph model.
 - **No other provider.** This project never references another `Wino.Providers.*` project, and nothing outside the hosts references this one.
-- **Request bodies are part of the contract with the server.** The move request body is serialized from `OutlookMovePostBody` and must keep its exact shape. Compare a request before and after any change to how it is built.
+- **Request bodies are part of the contract with the server.** Build every request through the official SDK request builders and their Kiota serialization (for example the move body is `{"destinationId": "..."}` from `Move.ToPostRequestInformation`). Compare a request before and after any change to how it is built.
 
 ## Always
 

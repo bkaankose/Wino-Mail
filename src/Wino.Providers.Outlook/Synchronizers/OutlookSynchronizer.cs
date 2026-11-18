@@ -6,9 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -60,13 +58,6 @@ using GlobalizationCultureInfo = System.Globalization.CultureInfo;
 using GraphTaskStatus = Microsoft.Graph.Models.TaskStatus;
 
 namespace Wino.Core.Synchronizers.Mail;
-
-// The move body keeps the exact shape the generated MovePostRequestBody serialized to. The official model also
-// exposes its BackingStore, which System.Text.Json would write into the request.
-internal sealed record OutlookMovePostBody(Dictionary<string, string> AdditionalData, string DestinationId);
-
-[JsonSerializable(typeof(OutlookMovePostBody))]
-internal partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// Outlook synchronizer implementation with delta token synchronization.
@@ -3427,9 +3418,6 @@ IAuthenticator authenticator,
         return requestInformation;
     }
 
-    private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody content)
-        => PreparePostRequestInformation(requestInformation, JsonSerializer.Serialize(new OutlookMovePostBody([], content.DestinationId), OutlookSynchronizerJsonContext.Default.OutlookMovePostBody));
-
     private RequestInformation PrepareReportMessageRequestInformation(ChangeJunkStateRequest request)
     {
         var reportAction = request.IsJunk ? "junk" : "notJunk";
@@ -3460,8 +3448,7 @@ IAuthenticator authenticator,
                 DestinationId = item.ToFolder.RemoteFolderId
             };
 
-            return PreparePostRequestInformation(_graphClient.Me.Messages[item.Item.Id].Move.ToPostRequestInformation(requestBody),
-                                                                 requestBody);
+            return _graphClient.Me.Messages[item.Item.Id].Move.ToPostRequestInformation(requestBody);
         });
     }
 
@@ -4183,7 +4170,7 @@ IAuthenticator authenticator,
         };
 
         // Try to handle the error with registered handlers
-        var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext);
+        var handled = await HandleRequestErrorAsync(_errorHandlingFactory, errorContext).ConfigureAwait(false);
 
         // Transient errors still need to bubble so the request can be retried or surfaced to the caller.
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
