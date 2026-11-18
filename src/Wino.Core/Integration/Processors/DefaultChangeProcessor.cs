@@ -76,6 +76,15 @@ public interface IDefaultChangeProcessor
         List<CalendarEventAttendee> attendees,
         List<Reminder> reminders,
         string remoteEventId);
+
+    /// <summary>
+    /// Stores an edit of an existing event after the server accepted it. Null attendees keep the stored ones and
+    /// null reminders keep the stored reminders. Does nothing when the event is no longer stored.
+    /// </summary>
+    Task PersistUpdatedCalendarEventAsync(
+        CalendarItem calendarItem,
+        List<CalendarEventAttendee> attendees,
+        List<Reminder> reminders);
     Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds);
     Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId);
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
@@ -202,6 +211,32 @@ public class DefaultChangeProcessor(IDatabaseService databaseService, IMessenger
         }
 
         await CalendarService.SaveRemindersAsync(calendarItem.Id, reminders).ConfigureAwait(false);
+    }
+
+    public async Task PersistUpdatedCalendarEventAsync(
+        CalendarItem calendarItem,
+        List<CalendarEventAttendee> attendees,
+        List<Reminder> reminders)
+    {
+        ArgumentNullException.ThrowIfNull(calendarItem);
+
+        // The server already has the edit; a failed local write must not turn the request into a failure and revert it.
+        try
+        {
+            if (await CalendarService.GetCalendarItemAsync(calendarItem.Id).ConfigureAwait(false) == null)
+                return;
+
+            attendees ??= await CalendarService.GetAttendeesAsync(calendarItem.Id).ConfigureAwait(false);
+
+            await CalendarService.UpdateCalendarItemAsync(calendarItem, attendees).ConfigureAwait(false);
+
+            if (reminders != null)
+                await CalendarService.SaveRemindersAsync(calendarItem.Id, reminders).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Could not store the confirmed edit of calendar item {CalendarItemId}", calendarItem.Id);
+        }
     }
 
     private static void ReassignCalendarItemId(IEnumerable<CalendarEventAttendee> attendees, Guid calendarItemId)

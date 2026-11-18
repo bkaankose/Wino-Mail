@@ -1080,9 +1080,6 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         var updatedReminders = BuildEditedReminders(updatedItem.Id, originalReminders);
         var attachmentDrafts = BuildEditedAttachmentDrafts();
 
-        await _calendarService.SaveRemindersAsync(updatedItem.Id, updatedReminders);
-        await _calendarService.UpdateCalendarItemAsync(updatedItem, updatedAttendees);
-
         await _requestCoordinator.ExecuteCalendarOperationAsync(new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.UpdateEvent,
             updatedItem,

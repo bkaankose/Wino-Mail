@@ -196,7 +196,7 @@ IImapChangeProcessor imapChangeProcessor,
 
         _clientPool = new ImapClientPool(poolOptions);
         _localCalendarOperationHandler = new LocalCalendarOperationAdapter(new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local"));
-        _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(Account, _calDavSynchronizationEngine);
+        _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(Account, _calDavSynchronizationEngine, _imapChangeProcessor);
     }
 
     /// <summary>
@@ -1698,20 +1698,25 @@ IImapChangeProcessor imapChangeProcessor,
     {
         private readonly MailAccount _account;
         private readonly ICalDavSynchronizationEngine _engine;
+        private readonly IImapChangeProcessor _changeProcessor;
 
         public bool RequiresConnectedClient => false;
 
-        public CalDavCalendarOperationHandler(MailAccount account, ICalDavSynchronizationEngine engine)
+        public CalDavCalendarOperationHandler(MailAccount account, ICalDavSynchronizationEngine engine, IImapChangeProcessor changeProcessor)
         {
             _account = account;
             _engine = engine;
+            _changeProcessor = changeProcessor;
         }
 
         public Task CreateCalendarEventAsync(CreateCalendarEventRequest request)
             => _engine.CreateEventAsync(_account, request.PreparedItem, request.PreparedEvent.Attendees, request.PreparedEvent.Reminders, request.ComposeResult?.Attachments);
 
-        public Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
-            => _engine.UpdateEventAsync(_account, request.Item, request.Attendees, request.Attachments);
+        public async Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
+        {
+            await _engine.UpdateEventAsync(_account, request.Item, request.Attendees, request.Attachments).ConfigureAwait(false);
+            await _changeProcessor.PersistUpdatedCalendarEventAsync(request.Item, request.Attendees, request.Reminders).ConfigureAwait(false);
+        }
 
         public Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
             => _engine.DeleteEventAsync(_account, request.Item);

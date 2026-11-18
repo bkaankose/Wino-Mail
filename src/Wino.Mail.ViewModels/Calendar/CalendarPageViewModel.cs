@@ -795,8 +795,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             calendarItemViewModel.DurationInSeconds = durationInSeconds;
         }).ConfigureAwait(false);
 
-        await _calendarService.UpdateCalendarItemAsync(calendarItem, attendees).ConfigureAwait(false);
-
         var preparationRequest = new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.ChangeStartAndEndDate,
             calendarItem,
@@ -805,7 +803,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             OriginalItem: originalItem,
             OriginalAttendees: originalAttendees);
 
-        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
+        var result = await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
+        if (result.Error == null)
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            calendarItemViewModel.StartDate = currentLocalStart;
+            calendarItemViewModel.DurationInSeconds = originalItem.DurationInSeconds;
+        }).ConfigureAwait(false);
     }
 
     partial void OnDisplayDetailsCalendarItemViewModelChanged(CalendarItemViewModel value)
@@ -1070,7 +1076,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             activeCalendars = AccountCalendarStateService.ActiveCalendars.ToList();
         }).ConfigureAwait(false);
 
-        var pendingCalendarItemIds = await GetPendingCalendarItemIdsAsync(activeCalendars, lifetimeVersion).ConfigureAwait(false);
+        var pendingCalendarEdits = new Dictionary<Guid, CalendarItem>();
+        var pendingCalendarItemIds = await GetPendingCalendarItemIdsAsync(activeCalendars, lifetimeVersion, pendingCalendarEdits).ConfigureAwait(false);
 
         foreach (var calendarViewModel in activeCalendars)
         {
@@ -1078,8 +1085,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 return [];
 
             var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, loadPeriod).ConfigureAwait(false);
-            foreach (var calendarItem in events)
+            foreach (var storedItem in events)
             {
+                var calendarItem = pendingCalendarEdits.TryGetValue(storedItem.Id, out var editedItem) ? editedItem : storedItem;
+
                 if (calendarItem.IsRecurringParent || calendarItem.IsHidden)
                     continue;
 
@@ -1256,7 +1265,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-    private async Task<HashSet<Guid>> GetPendingCalendarItemIdsAsync(IEnumerable<AccountCalendarViewModel> activeCalendars, long lifetimeVersion)
+    /// <summary>
+    /// Also fills <paramref name="pendingCalendarEdits"/> with events whose edit the server has not accepted yet: the
+    /// database still holds their previous state, so a reload shows the edited copy instead.
+    /// </summary>
+    private async Task<HashSet<Guid>> GetPendingCalendarItemIdsAsync(IEnumerable<AccountCalendarViewModel> activeCalendars, long lifetimeVersion, Dictionary<Guid, CalendarItem> pendingCalendarEdits)
     {
         var pendingCalendarItemIds = new HashSet<Guid>();
         var accountIds = activeCalendars
@@ -1286,6 +1299,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             foreach (var pendingCalendarItemId in synchronizer.GetPendingCalendarOperationIds())
             {
                 pendingCalendarItemIds.Add(pendingCalendarItemId);
+            }
+
+            foreach (var pendingCalendarEdit in synchronizer.GetPendingCalendarEdits())
+            {
+                pendingCalendarEdits[pendingCalendarEdit.Id] = pendingCalendarEdit;
             }
         }
 
@@ -1672,9 +1690,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         var originalItem = await _calendarService.GetCalendarItemAsync(targetItem.Id).ConfigureAwait(false);
         var attendees = await _calendarService.GetAttendeesAsync(targetItem.Id).ConfigureAwait(false);
+        var previousShowAs = targetItem.ShowAs;
 
         targetItem.ShowAs = showAs;
-        await _calendarService.UpdateCalendarItemAsync(targetItem, attendees).ConfigureAwait(false);
 
         var preparationRequest = new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.UpdateEvent,
@@ -1684,7 +1702,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             OriginalItem: originalItem,
             OriginalAttendees: attendees);
 
-        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
+        var result = await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
+        if (result.Error != null)
+            targetItem.ShowAs = previousShowAs;
     }
 
     private async Task RespondToCalendarItemAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType, CalendarItemStatus responseStatus)

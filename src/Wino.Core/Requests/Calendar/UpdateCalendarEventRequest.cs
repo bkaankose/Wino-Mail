@@ -9,8 +9,10 @@ using Wino.Core.Domain.Messaging.Client.Calendar;
 namespace Wino.Core.Requests.Calendar;
 
 /// <summary>
-/// Request to update an existing calendar event on the server.
-/// The calendar item should be already updated in the local database before queuing this request.
+/// Request to update an existing calendar event on the server. <c>Item</c>, <c>Attendees</c> and
+/// <c>Reminders</c> carry the wanted state; the caller does not store it.
+/// The UI shows it at once, and the provider's success path stores it through
+/// <c>IDefaultChangeProcessor.PersistUpdatedCalendarEventAsync</c> after the server accepts the edit.
 /// </summary>
 public record UpdateCalendarEventRequest(
     CalendarItem Item,
@@ -28,7 +30,7 @@ public record UpdateCalendarEventRequest(
     public CalendarItem OriginalItem { get; init; }
 
     /// <summary>
-    /// Original reminders before the update, retained with the request for revert handling.
+    /// Original reminders before the update. The stored reminders stay as they are until the server accepts the edit.
     /// </summary>
     public List<Reminder> OriginalReminders { get; init; }
 
@@ -48,22 +50,11 @@ public record UpdateCalendarEventRequest(
 
     public override void ApplyUIChanges(IUIMessageSender sender)
     {
-        // Notify UI that the event was updated locally
         sender.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges(IUIMessageSender sender)
     {
-        // If update fails, restore the original state
-        if (OriginalItem != null && OriginalAttendees != null)
-        {
-            // Send the original item back to restore UI state
-            sender.Send(new CalendarItemUpdated(OriginalItem, EntityUpdateSource.ClientReverted));
-        }
-        else
-        {
-            // Fallback: just notify with current item to trigger refresh
-            sender.Send(new CalendarItemUpdated(Item, EntityUpdateSource.ClientReverted));
-        }
+        sender.Send(new CalendarItemUpdated(OriginalItem ?? Item, EntityUpdateSource.ClientReverted));
     }
 }

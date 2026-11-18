@@ -8,7 +8,7 @@ namespace Wino.Core.Requests.Calendar;
 
 /// <summary>
 /// Request to decline a calendar event invitation on the server.
-/// The calendar item status should be updated locally before queuing this request.
+/// The status changes in memory only; the stored status follows from the provider after the server accepts the answer.
 /// </summary>
 public record DeclineEventRequest(CalendarItem Item, string ResponseMessage = null) : CalendarRequestBase(Item)
 {

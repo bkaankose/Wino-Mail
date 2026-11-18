@@ -478,6 +478,7 @@ public partial class ExchangeSynchronizer
                 ? SendInvitationsOrCancellationsMode.SendToAllAndSaveCopy
                 : SendInvitationsOrCancellationsMode.SendToNone;
             await appointment.Update(ConflictResolutionMode.AutoResolve, sendMode).ConfigureAwait(false);
+            await ExchangeChangeProcessor.PersistUpdatedCalendarEventAsync(item, attendees, request.Reminders).ConfigureAwait(false);
         }, request, request);
     }
 

@@ -388,6 +388,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                     CurrentEvent.Attendees.Add(attendee);
                 }
 
+                if (source == EntityUpdateSource.ClientReverted)
+                    await RestoreStoredEditStateAsync(calendarItem);
+
                 return;
             }
 
@@ -453,6 +456,21 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         {
             CurrentEvent.IsBusy = false;
         }
+    }
+
+    /// <summary>A refused edit leaves the stored event untouched, so the selections go back to what is stored.</summary>
+    private async Task RestoreStoredEditStateAsync(CalendarItem revertedItem)
+    {
+        var storedReminders = await _calendarService.GetRemindersAsync(revertedItem.Id);
+
+        await LoadAttendeesAsync(revertedItem.Id, revertedItem);
+
+        await ExecuteUIThread(() =>
+        {
+            Reminders = storedReminders;
+            InitializeReminderOptions();
+            SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == revertedItem.ShowAs) ?? SelectedShowAsOption;
+        });
     }
 
     private bool IsCurrentEventMatch(CalendarItem calendarItem)
@@ -662,20 +680,13 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                 });
             }
 
-            // Save reminders to database
-            await _calendarService.SaveRemindersAsync(CurrentEvent.CalendarItem.Id, newReminders);
             Reminders = newReminders;
 
-            // Update ShowAs if changed
             if (SelectedShowAsOption != null)
             {
                 CurrentEvent.CalendarItem.ShowAs = SelectedShowAsOption.ShowAs;
             }
 
-            // Update the calendar item and attendees in database
-            await _calendarService.UpdateCalendarItemAsync(CurrentEvent.CalendarItem, CurrentEvent.Attendees.ToList());
-
-            // Queue the update request to synchronizer with original state for revert capability
             var preparationRequest = new CalendarOperationPreparationRequest(
                 CalendarSynchronizerOperation.UpdateEvent,
                 CurrentEvent.CalendarItem,
@@ -686,7 +697,13 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                 Reminders: newReminders,
                 OriginalReminders: originalReminders);
 
-            await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
+            var result = await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
+            if (result.Error != null)
+            {
+                Reminders = originalReminders;
+                if (originalItem != null)
+                    CurrentEvent.CalendarItem.ShowAs = originalItem.ShowAs;
+            }
 
             LastMutationSucceeded = true;
             if (NavigatesBackAfterSave)

@@ -434,6 +434,7 @@ public sealed partial class MapiExchangeSynchronizer
                 var change = ToAppointmentWrite(item, null, null);
                 await MapiOccurrenceOperations.ModifyOccurrenceAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, change, cancellationToken, Diagnostics).ConfigureAwait(false);
                 await NotifyOccurrenceChangeAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, change, item, cancel: false, cancellationToken).ConfigureAwait(false);
+                await ExchangeChangeProcessor.PersistUpdatedCalendarEventAsync(item, request.Attendees, request.Reminders).ConfigureAwait(false);
                 return;
             }
 
@@ -466,6 +467,8 @@ public sealed partial class MapiExchangeSynchronizer
             {
                 await MapiCalendarOperations.UpdateAppointmentAsync(session, folderId, messageId, tags, write, cancellationToken).ConfigureAwait(false);
             }
+
+            await ExchangeChangeProcessor.PersistUpdatedCalendarEventAsync(item, request.Attendees, request.Reminders).ConfigureAwait(false);
         }, request, request);
     }
 

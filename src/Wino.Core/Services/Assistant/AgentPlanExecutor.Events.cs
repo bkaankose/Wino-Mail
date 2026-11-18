@@ -547,9 +547,9 @@ public sealed partial class AgentPlanExecutor
     }
 
     /// <summary>
-    /// Changes an event the way the calendar page does: the stored copy is updated first, then the request carries the
-    /// original so the synchronizer can send only what changed and roll back on failure. Returns why the change was
-    /// refused, after putting the stored copy back, or null when it was queued.
+    /// Changes an event the way the calendar page does: the request carries the wanted state and the original, and
+    /// the stored copy changes only after the server accepts the edit. Returns why the change was refused, or null
+    /// when it was queued.
     /// </summary>
     private async Task<string?> SaveEventAsync(EventTarget target, CalendarSynchronizerOperation operation, Action<CalendarItem> change, List<Reminder>? newReminders = null)
     {
@@ -563,11 +563,8 @@ public sealed partial class AgentPlanExecutor
         var reminders = await calendarService.GetRemindersAsync(item.Id).ConfigureAwait(false) ?? [];
 
         change(item);
-        await calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
-        if (newReminders is not null)
-            await calendarService.SaveRemindersAsync(item.Id, newReminders).ConfigureAwait(false);
 
-        var refusal = RefusalReason(await requestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
+        return RefusalReason(await requestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
             operation,
             item,
             attendees,
@@ -575,15 +572,6 @@ public sealed partial class AgentPlanExecutor
             OriginalAttendees: originalAttendees,
             Reminders: newReminders ?? reminders,
             OriginalReminders: reminders)).ConfigureAwait(false));
-
-        if (refusal is not null)
-        {
-            await calendarService.UpdateCalendarItemAsync(original, originalAttendees).ConfigureAwait(false);
-            if (newReminders is not null)
-                await calendarService.SaveRemindersAsync(item.Id, reminders).ConfigureAwait(false);
-        }
-
-        return refusal;
     }
 
     // ---- creation ------------------------------------------------------------------------------------------------

@@ -65,6 +65,10 @@ public sealed class LocalCalendarOperationHandler
         var attendees = request.Attendees ?? await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
 
         await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+
+        if (request.Reminders != null)
+            await _calendarService.SaveRemindersAsync(item.Id, request.Reminders).ConfigureAwait(false);
+
         await PersistIcsAsync(item, attendees).ConfigureAwait(false);
     }
 

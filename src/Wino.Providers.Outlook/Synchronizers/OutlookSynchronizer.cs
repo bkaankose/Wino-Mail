@@ -4288,6 +4288,15 @@ IAuthenticator authenticator,
                 return;
             }
 
+            if (bundle?.UIChangeRequest is UpdateCalendarEventRequest updateCalendarEventRequest)
+            {
+                await _outlookChangeProcessor.PersistUpdatedCalendarEventAsync(
+                    updateCalendarEventRequest.Item,
+                    updateCalendarEventRequest.Attendees,
+                    updateCalendarEventRequest.Reminders).ConfigureAwait(false);
+                return;
+            }
+
             if (bundle?.UIChangeRequest is ChangeFlagRequest changeFlagRequest)
             {
                 await _outlookChangeProcessor.ChangeFlagStatusAsync(changeFlagRequest.Item.Id, changeFlagRequest.IsFlagged).ConfigureAwait(false);

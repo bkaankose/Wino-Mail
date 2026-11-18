@@ -3662,6 +3662,15 @@ IGmailChangeProcessor gmailChangeProcessor,
             return;
         }
 
+        if (bundle?.UIChangeRequest is UpdateCalendarEventRequest updateCalendarEventRequest)
+        {
+            await _gmailChangeProcessor.PersistUpdatedCalendarEventAsync(
+                updateCalendarEventRequest.Item,
+                updateCalendarEventRequest.Attendees,
+                updateCalendarEventRequest.Reminders).ConfigureAwait(false);
+            return;
+        }
+
         if (bundle is HttpRequestBundle<IGoogleApiRequest, Message> messageBundle)
         {
             var gmailMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, GmailSynchronizerJsonContext.Default.Message, cancellationToken).ConfigureAwait(false);
