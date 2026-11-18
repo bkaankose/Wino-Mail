@@ -146,7 +146,15 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (request == null) return new WinoRequestDelegationResult(0, null);
 
-        await QueueRequestAsync(request, accountId);
+        try
+        {
+            await QueueRequestAsync(request, accountId);
+        }
+        catch (AppLockedException ex)
+        {
+            return new WinoRequestDelegationResult(0, ex);
+        }
+
         await QueueSynchronizationAsync(accountId);
 
         if (folderRequest.Action is FolderOperation.Delete or FolderOperation.CreateSubFolder)
@@ -231,13 +239,22 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             : calendarPreparationRequest.CalendarItem.AssignedCalendar.MailAccount?.Name;
 
         var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-        if (account?.IsCalendarAccessEnabled == true && !account.IsCalendarAccessGranted)
+
+        try
         {
-            await ExecuteLocalCalendarRequestAsync(account, request).ConfigureAwait(false);
-            return new WinoRequestDelegationResult(1, null);
+            if (account?.IsCalendarAccessEnabled == true && !account.IsCalendarAccessGranted)
+            {
+                await ExecuteLocalCalendarRequestAsync(account, request).ConfigureAwait(false);
+                return new WinoRequestDelegationResult(1, null);
+            }
+
+            await QueueRequestAsync(request, accountId);
+        }
+        catch (AppLockedException ex)
+        {
+            return new WinoRequestDelegationResult(0, ex);
         }
 
-        await QueueRequestAsync(request, accountId);
         await QueueCalendarSynchronizationAsync(accountId);
 
         return new WinoRequestDelegationResult(1, null);
