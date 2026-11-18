@@ -654,14 +654,18 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
 
     // ---- More ----
 
-    private const int MoreCcBcc = 1, MoreReadReceipt = 2, MoreTheme = 3, MoreDiscard = 4;
+    private const int MoreCcBcc = 1, MoreReadReceipt = 2, MoreTheme = 3, MoreDiscard = 4, MoreTemplate = 5;
     private const int ImportanceHigh = 10, ImportanceNormal = 11, ImportanceLow = 12;
     private const int SignatureNone = 100, SignatureFirst = 101;
 
-    /// <summary>Cc/Bcc, importance, read receipt, signature, editor theme and Discard (Windows and Mac overflow order).</summary>
-    private void ShowMore()
+    /// <summary>Cc/Bcc, importance, read receipt, signature, template (only with templates), editor theme and Discard.</summary>
+    private void ShowMore() => Observe(ShowMoreAsync());
+
+    private async Task ShowMoreAsync()
     {
-        if (_more?.Context is not { } context || ViewModel is not { } viewModel) return;
+        if (ViewModel is not { } viewModel) return;
+        await viewModel.RefreshEmailTemplatesAsync();
+        if (_more is not { IsAttachedToWindow: true, Context: { } context }) return;
         var popup = new PopupMenu(context, _more);
         var menu = popup.Menu;
         var ccBcc = menu.Add(0, MoreCcBcc, 0, Translator.Composer_CcBcc);
@@ -695,8 +699,11 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
             }
         }
 
-        menu.Add(0, MoreTheme, 4, _darkEditor ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme);
-        menu.Add(0, MoreDiscard, 5, Translator.Buttons_Discard);
+        if (viewModel.AvailableEmailTemplates.Count > 0)
+            menu.Add(0, MoreTemplate, 4, Translator.Composer_InsertTemplate);
+
+        menu.Add(0, MoreTheme, 5, _darkEditor ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme);
+        menu.Add(0, MoreDiscard, 6, Translator.Buttons_Discard);
 
         popup.MenuItemClick += (_, args) =>
         {
@@ -721,11 +728,28 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
                     Observe(viewModel.ApplySignatureCommand.ExecuteAsync(signatures[id - SignatureFirst]));
                     ScheduleAutosave();
                     break;
+                case MoreTemplate: ShowTemplates(viewModel); break;
                 case MoreTheme: SetEditorTheme(!_darkEditor); break;
                 case MoreDiscard: Observe(DiscardAsync()); break;
             }
         };
         popup.Show();
+    }
+
+    private void ShowTemplates(ComposePageViewModel viewModel)
+    {
+        if (Context is not { } context) return;
+        ComposeTemplateSheet.Show(context, viewModel.AvailableEmailTemplates.ToList(), template => Observe(InsertTemplateAsync(template)));
+    }
+
+    private async Task InsertTemplateAsync(EmailTemplate template)
+    {
+        if (_editor is not { } editor || _editorDisposed || ViewModel is not { } viewModel) return;
+        // Windows EmailTemplateSelectionChanged order; the subject fills only when empty, so a reply keeps its RE: subject.
+        await editor.RenderHtmlAsync(template.HtmlContent ?? string.Empty);
+        await viewModel.ReapplySignatureAsync();
+        viewModel.ApplyTemplateSubject(template);
+        ScheduleAutosave();
     }
 
     private void SetImportance(ComposePageViewModel viewModel, MessageImportance importance)
