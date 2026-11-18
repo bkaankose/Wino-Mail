@@ -78,7 +78,16 @@ public sealed class WindowsMigratingGoogleTokenStore(
         if (_cache.TryGetValue(credentialKey, out var cached) && cached.Stamp == stamp)
             return (byte[])cached.Token.Clone();
 
-        var token = store.Read(Scope, credentialKey);
+        byte[]? token;
+        try { token = store.Read(Scope, credentialKey); }
+        catch (CryptographicException exception)
+        {
+            // Lost DPAPI keys (an admin password reset or a restored profile) must lead to a new sign-in, which
+            // overwrites the item, rather than a sync error on every attempt.
+            _logger.Warning(exception, "The Gmail token {CredentialKey} cannot be decrypted; the account has to sign in again.", credentialKey);
+            token = null;
+        }
+
         if (token is null)
         {
             _cache.TryRemove(credentialKey, out _);
@@ -95,6 +104,11 @@ public sealed class WindowsMigratingGoogleTokenStore(
         await _migrationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // The startup pass may have moved the file while this read waited for the lock. The startup pass itself
+            // goes on, so a file left beside an existing item is still deleted.
+            if (lazy && ReadSecure(credentialKey) is { } migratedToken)
+                return migratedToken;
+
             var legacyToken = await legacy.ReadAsync(credentialKey, cancellationToken).ConfigureAwait(false);
             if (legacyToken is null || (lazy && _failedThisProcess.ContainsKey(credentialKey)))
                 return legacyToken;

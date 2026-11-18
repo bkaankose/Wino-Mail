@@ -54,6 +54,11 @@ public sealed class LegacyMigratingDavCredentialStore(ISecureItemStore store, Da
         await _migrationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // The startup pass may have moved the file while this read waited for the lock. The startup pass itself
+            // goes on, so a file left beside an existing item is still deleted.
+            if (lazy && await _secure.GetPasswordAsync(accountId, cancellationToken).ConfigureAwait(false) is { } migratedPassword)
+                return migratedPassword;
+
             string? legacyPassword;
             try { legacyPassword = await legacy.GetPasswordAsync(accountId, cancellationToken).ConfigureAwait(false); }
             catch (CryptographicException exception)
