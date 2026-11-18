@@ -12,7 +12,7 @@ namespace Wino.Services;
 
 public class RemoteContentRuleStore : BaseDatabaseService, IRemoteContentRuleStore
 {
-    public RemoteContentRuleStore(IDatabaseService databaseService) : base(databaseService)
+    public RemoteContentRuleStore(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
     {
     }
 

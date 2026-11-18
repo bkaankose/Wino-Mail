@@ -71,12 +71,6 @@
 		<EmbeddedResource Include="Translations\zh_TW\resources.json" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="CommunityToolkit.Diagnostics" />
-		<PackageReference Include="CommunityToolkit.Mvvm" />
-		<PackageReference Include="MimeKit" />
-		<!-- Direct reference so the audited 10.0.13 wins over MimeKit's 10.0.0 (no transitive pinning). -->
-		<PackageReference Include="System.Security.Cryptography.Pkcs" />
-		<PackageReference Include="MailKit" />
 		<PackageReference Include="sqlite-net-pcl" />
 		<PackageReference Include="TimePeriodLibrary.NET" />
 	</ItemGroup>
@@ -94,8 +88,5 @@
 			OutputItemType="Analyzer"
 			ReferenceOutputAssembly="false"
 			GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
-	</ItemGroup>
-	<ItemGroup>
-		<PackageReference Include="Wino.Mail.AI.Abstractions" />
 	</ItemGroup>
 </Project>

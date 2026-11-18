@@ -254,7 +254,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         _currentItem = parameter as MailItemViewModel;
         IntelligenceBeginItem(_currentItem);
-        var reader = _reader = new WebKitHtmlMailReaderSession(_webView) { ContentInset = BodyInset };
+        var reader = _reader = new WebKitHtmlMailReaderSession(_webView) { ContentInset = BodyInset, FitContentToWidth = true };
         reader.Configure(ViewModel.ExternalLauncher);
         reader.OperationFailed += (_, exception) => ReportError(exception);
         reader.LinkHovered += (_, args) => _linkTarget.Show(args);
@@ -569,6 +569,16 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
             ViewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
         UpdateWebHeight();
+        Observe(RemeasureAfterLoadAsync());
+    }
+
+    /// <summary>Fitting a wide mail can make it shorter after images and fonts load, which the scroll view never reports.</summary>
+    private async Task RemeasureAfterLoadAsync()
+    {
+        await Task.Delay(300);
+        UpdateWebHeight();
+        await Task.Delay(1200);
+        UpdateWebHeight();
     }
 
     private Task ClearAsync()
@@ -579,10 +589,18 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         return _reader is null || _disposedReader ? Task.CompletedTask : _reader.ClearAsync();
     }
 
-    private void UpdateWebHeight()
+    private void UpdateWebHeight() => Observe(UpdateWebHeightAsync());
+
+    /// <summary>
+    /// Sizes the body to the mail. The scroll view's content size never drops below the web view's own height, so
+    /// the reader measures the mail itself and falls back to the content size while no document is ready.
+    /// </summary>
+    private async Task UpdateWebHeightAsync()
     {
+        if (_webHeight is null || _disposedReader || _reader is null) return;
+        var measured = await _reader.MeasureContentHeightAsync();
         if (_webHeight is null || _disposedReader) return;
-        var height = Math.Max(120, (double)_webView.ScrollView.ContentSize.Height);
+        var height = Math.Max(120, measured > 0 ? measured : (double)_webView.ScrollView.ContentSize.Height);
         if (Math.Abs(_webHeight.Constant - height) < 1) return;
         _webHeight.Constant = (nfloat)height;
     }

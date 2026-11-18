@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,9 +17,10 @@ namespace Wino.Calendar.ViewModels;
 public abstract class CalendarSettingsSectionViewModelBase : CalendarBaseViewModel
 {
     protected CalendarSettingsSectionViewModelBase(
+        IMessenger messenger,
         IPreferencesService preferencesService,
         ICalendarService calendarService,
-        IAccountService accountService)
+        IAccountService accountService) : base(messenger)
     {
         PreferencesService = preferencesService;
         CalendarService = calendarService;

@@ -23,7 +23,8 @@ public sealed class NotificationResponseNavigator(
     IApplicationShellHost host,
     INavigationService navigation,
     IActivationStateService activationState,
-    IDispatcher dispatcher) : INotificationResponseNavigator
+    IDispatcher dispatcher,
+    IMessenger messenger) : INotificationResponseNavigator
 {
     private readonly ILogger _logger = Log.ForContext<NotificationResponseNavigator>();
 
@@ -31,13 +32,13 @@ public sealed class NotificationResponseNavigator(
 
     public Task OpenModeAsync(WinoApplicationMode mode, object? parameter = null) => host.EnsureShellAsync(mode, parameter);
 
-    /// <summary>App.HandleToastNavigationAsync: a running mail shell navigates now; a new or switching shell consumes the launch parameter after its menu is rebuilt.</summary>
+    /// <summary>A running mail shell navigates now; a new or switching shell consumes the launch parameter after its menu is rebuilt.</summary>
     public async Task OpenMailAsync(Guid accountId, Guid folderId, MailCopy mailItem)
     {
         var mailReady = host.IsShellActive(WinoApplicationMode.Mail);
         if (!mailReady) activationState.LaunchParameter = new AccountMenuItemExtended(folderId, mailItem);
 
-        if (!await host.EnsureShellAsync(WinoApplicationMode.Mail) || !mailReady) return;
+        if (!await host.EnsureShellForMessageAsync() || !mailReady) return;
 
         var shell = MailShell;
         await RunOnUIAsync(async () =>
@@ -58,7 +59,7 @@ public sealed class NotificationResponseNavigator(
                 }
             }
 
-            if (navigated) WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(mailItem.UniqueId, ScrollToItem: true));
+            if (navigated) messenger.Send(new MailItemNavigationRequested(mailItem.UniqueId, ScrollToItem: true));
             else _logger.Information("Notification folder for mail {Id} was not found.", mailItem.UniqueId);
         });
     }

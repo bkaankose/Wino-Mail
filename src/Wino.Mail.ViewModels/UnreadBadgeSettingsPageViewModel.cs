@@ -38,11 +38,11 @@ public partial class UnreadBadgeSettingsPageViewModel : MailBaseViewModel
     /// <summary>Opening the counted folder at launch needs a taskbar or Dock badge that launches the app.</summary>
     public bool IsLaunchNavigationAvailable { get; }
 
-    public UnreadBadgeSettingsPageViewModel(IAccountService accountService,
+    public UnreadBadgeSettingsPageViewModel(IMessenger messenger, IAccountService accountService,
                                             IUnreadBadgeService unreadBadgeService,
                                             INotificationBuilder notificationBuilder,
                                             IPreferencesService preferencesService,
-                                            IPlatformCapabilities platformCapabilities)
+                                            IPlatformCapabilities platformCapabilities) : base(messenger)
     {
         IsLaunchNavigationAvailable = SettingAvailability.IsAvailable(PlatformSetting.BadgeLaunchNavigation, platformCapabilities);
         _accountService = accountService;

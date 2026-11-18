@@ -19,8 +19,8 @@ public static class SettingsPageAvailability
 
     /// <summary>
     /// The full platform rule: besides S/MIME, the Companion page needs a tray
-    /// or menu bar companion, Widgets / Live Tiles needs Windows widgets and tiles, Keyboard shortcuts needs hardware keyboard shortcut handling, and Backup and restore needs
-    /// backup files the platform can save and open by path.
+    /// or menu bar companion, Widgets / Live Tiles needs Windows widgets and tiles, Keyboard shortcuts needs hardware keyboard shortcut handling, Backup and restore needs
+    /// backup files the platform can save and open by path, and App lock needs the platform lock prompt and secure storage.
     /// </summary>
     public static bool IsAvailable(WinoPage page, IPlatformCapabilities capabilities) => page switch
     {
@@ -30,6 +30,7 @@ public static class SettingsPageAvailability
         WinoPage.VoiceBrainPage => capabilities.VoiceControl,
         WinoPage.KeyboardShortcutsPage => capabilities.KeyboardShortcuts,
         WinoPage.BackupRestorePage => capabilities.FileBackup,
+        WinoPage.AppLockPage => capabilities.AppLock,
         _ => IsAvailable(page, capabilities.Smime)
     };
 }

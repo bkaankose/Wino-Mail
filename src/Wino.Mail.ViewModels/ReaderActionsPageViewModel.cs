@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -51,9 +52,9 @@ public partial class ReaderActionsPageViewModel : MailBaseViewModel
     [NotifyCanExecuteChangedFor(nameof(ResetToDefaultCommand))]
     public partial bool IsDefaultLayout { get; set; }
 
-    public ReaderActionsPageViewModel(IPreferencesService preferencesService,
+    public ReaderActionsPageViewModel(IMessenger messenger, IPreferencesService preferencesService,
                                       IMailDialogService dialogService,
-                                      IPlatformCapabilities platformCapabilities)
+                                      IPlatformCapabilities platformCapabilities) : base(messenger)
     {
         _preferencesService = preferencesService;
         _dialogService = dialogService;

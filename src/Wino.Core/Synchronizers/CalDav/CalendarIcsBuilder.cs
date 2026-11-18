@@ -12,7 +12,7 @@ namespace Wino.Core.Synchronizers.CalDav;
 /// Builds the iCalendar text of a new event and fills the defaults every stored calendar item
 /// needs. Shared by the CalDAV engine and the local calendar handler.
 /// </summary>
-internal static partial class CalendarIcsBuilder
+public static partial class CalendarIcsBuilder
 {
     public static void EnsureCalendarItemDefaults(CalendarItem item, MailAccount account, string idPrefix)
     {

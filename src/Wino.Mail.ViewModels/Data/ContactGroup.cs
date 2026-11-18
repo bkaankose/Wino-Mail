@@ -1,7 +1,4 @@
 using System.Collections.ObjectModel;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -11,9 +8,6 @@ namespace Wino.Mail.ViewModels.Data;
 /// grouped CollectionViewSource cannot enumerate them and the list renders empty in
 /// trimmed builds.
 /// </summary>
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial class ContactGroup : ObservableCollection<AccountContactViewModel>
 {
     public ContactGroup(string key) => Key = key;

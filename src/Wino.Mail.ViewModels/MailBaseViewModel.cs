@@ -26,6 +26,8 @@ public partial class MailBaseViewModel : CoreBaseViewModel,
     IRecipient<FolderDeleted>,
     IRecipient<FolderSynchronizationEnabled>
 {
+    public MailBaseViewModel(IMessenger messenger) : base(messenger) { }
+
     protected virtual void OnMailAdded(MailCopy addedMail, EntityUpdateSource source) { }
     protected virtual void OnBulkMailAdded(IReadOnlyList<MailCopy> addedMails, EntityUpdateSource source)
     {

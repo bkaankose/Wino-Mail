@@ -14,6 +14,10 @@ namespace Wino.Core.ViewModels;
 
 public partial class CoreBaseViewModel : ObservableRecipient, INavigationAware
 {
+    public CoreBaseViewModel(IMessenger messenger) : base(messenger)
+    {
+    }
+
     private IDispatcher _dispatcher;
     public IDispatcher Dispatcher
     {

@@ -26,10 +26,13 @@ public sealed partial class VoiceAssistantActivation : IDisposable
     private bool _disposed;
 
     /// <param name="post">Runs an action on the UI thread; <paramref name="activate"/> and <paramref name="deactivate"/> run through it.</param>
+    private readonly IMessenger _messenger;
+
     public VoiceAssistantActivation(IServiceProvider services, Action<Action> post, Action activate, Action deactivate)
     {
         _entitlements = services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
         _runtime = services.GetRequiredService<IAgentRuntimeHost>();
+        _messenger = services.GetRequiredService<IMessenger>();
         _post = post;
         _activate = activate;
         _deactivate = deactivate;
@@ -37,7 +40,7 @@ public sealed partial class VoiceAssistantActivation : IDisposable
 
     public void Start()
     {
-        WeakReferenceMessenger.Default.Register<VoiceAssistantActivation, WinoIntelligenceEntitlementChanged>(this, static (activation, _) => activation._post(activation.Apply));
+        _messenger.Register<VoiceAssistantActivation, WinoIntelligenceEntitlementChanged>(this, static (activation, _) => activation._post(activation.Apply));
         _ = RefreshAsync();
     }
 
@@ -99,7 +102,7 @@ public sealed partial class VoiceAssistantActivation : IDisposable
             return;
 
         _disposed = true;
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
         if (!_isActive)
             return;
 

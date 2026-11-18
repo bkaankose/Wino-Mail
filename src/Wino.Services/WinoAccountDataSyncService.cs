@@ -34,6 +34,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     private readonly IWinoAccountProfileService _profileService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IMessenger _messenger;
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly ISignatureService _signatureService;
@@ -42,8 +43,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private readonly IMailFilterService? _filterService;
     private readonly IKeyboardShortcutService? _shortcutService;
     private readonly IMailCategoryService? _categoryService;
-    private readonly INewThemeService? _themeService;
-    private readonly IStatePersistanceService? _stateService;
     private readonly IKnownImapProviderCatalog? _providerCatalog;
     private readonly IAccountOAuthProfileService? _oauthProfileService;
     private readonly IRemoteContentRuleStore? _remoteContentRuleStore;
@@ -55,13 +54,12 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         IAccountService accountService,
         IFolderService folderService,
         ISignatureService signatureService,
+        IMessenger messenger,
         ISyncSnapshotKeyService? keyService = null,
         IEmailTemplateService? templateService = null,
         IMailFilterService? filterService = null,
         IKeyboardShortcutService? shortcutService = null,
         IMailCategoryService? categoryService = null,
-        INewThemeService? themeService = null,
-        IStatePersistanceService? stateService = null,
         IKnownImapProviderCatalog? providerCatalog = null,
         IAccountOAuthProfileService? oauthProfileService = null,
         IRemoteContentRuleStore? remoteContentRuleStore = null)
@@ -71,13 +69,12 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         _accountService = accountService;
         _folderService = folderService;
         _signatureService = signatureService;
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _keyService = keyService;
         _templateService = templateService;
         _filterService = filterService;
         _shortcutService = shortcutService;
         _categoryService = categoryService;
-        _themeService = themeService;
-        _stateService = stateService;
         _providerCatalog = providerCatalog;
         _oauthProfileService = oauthProfileService;
         _remoteContentRuleStore = remoteContentRuleStore;
@@ -150,44 +147,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             IncludeAccounts: document.Mailboxes?.Count > 0);
 
         return await ApplyDocumentAsync(selection, document, cancellationToken).ConfigureAwait(false);
-    }
-
-    public void ApplyAppearance(SyncSnapshotAppearance appearance)
-    {
-        ArgumentNullException.ThrowIfNull(appearance);
-
-        if (_themeService != null)
-        {
-            if (Enum.IsDefined((WindowBackdropType)appearance.BackdropType))
-            {
-                _themeService.CurrentBackdropType = (WindowBackdropType)appearance.BackdropType;
-            }
-
-            if (Enum.IsDefined((ApplicationElementTheme)appearance.RootTheme))
-            {
-                _themeService.RootTheme = (ApplicationElementTheme)appearance.RootTheme;
-            }
-
-            if (appearance.AccentColor != null && !string.Equals(_themeService.AccentColor, appearance.AccentColor, StringComparison.OrdinalIgnoreCase))
-            {
-                _themeService.AccentColor = appearance.AccentColor;
-            }
-
-            // Built-in theme ids are the same on every device. A custom theme only exists where it
-            // was made, so an unknown id is left alone rather than selecting nothing.
-            if (appearance.ThemeId is { } themeId && themeId != _themeService.CurrentApplicationThemeId)
-            {
-                _themeService.CurrentApplicationThemeId = themeId;
-            }
-        }
-
-        if (_stateService != null)
-        {
-            if (appearance.OpenPaneLength > 0) _stateService.OpenPaneLength = appearance.OpenPaneLength;
-            if (appearance.MailListPaneLength > 0) _stateService.MailListPaneLength = appearance.MailListPaneLength;
-            if (Enum.IsDefined((CalendarDisplayType)appearance.CalendarDisplayType)) _stateService.CalendarDisplayType = (CalendarDisplayType)appearance.CalendarDisplayType;
-            if (appearance.DayDisplayCount > 0) _stateService.DayDisplayCount = appearance.DayDisplayCount;
-        }
     }
 
     #region Keys
@@ -294,7 +253,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             document.Templates = await ExportTemplatesAsync().ConfigureAwait(false);
             document.Shortcuts = await ExportShortcutsAsync().ConfigureAwait(false);
             document.RemoteContentRules = await ExportRemoteContentRulesAsync().ConfigureAwait(false);
-            document.Appearance = ExportAppearance();
+            document.Appearance = selection.Appearance;
 
             exportedAppDataCount += (document.Templates?.Count ?? 0) + (document.Shortcuts?.Count ?? 0) + (document.RemoteContentRules?.Count ?? 0);
         }
@@ -384,23 +343,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 CreatedUtc = a.CreatedUtc
             })
             .ToList();
-    }
-
-    private SyncSnapshotAppearance? ExportAppearance()
-    {
-        if (_themeService == null && _stateService == null) return null;
-
-        return new SyncSnapshotAppearance
-        {
-            RootTheme = (int)(_themeService?.RootTheme ?? ApplicationElementTheme.Default),
-            ThemeId = _themeService?.CurrentApplicationThemeId,
-            AccentColor = _themeService?.AccentColor,
-            BackdropType = (int)(_themeService?.CurrentBackdropType ?? WindowBackdropType.Mica),
-            OpenPaneLength = _stateService?.OpenPaneLength ?? 0,
-            MailListPaneLength = _stateService?.MailListPaneLength ?? 0,
-            CalendarDisplayType = (int)(_stateService?.CalendarDisplayType ?? CalendarDisplayType.Week),
-            DayDisplayCount = _stateService?.DayDisplayCount ?? 0
-        };
     }
 
     private async Task<List<SnapshotFilter>?> ExportFiltersAsync(List<MailAccount> accounts)
@@ -665,7 +607,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
             if (importedMailboxCount > 0)
             {
-                WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested(false));
+                _messenger.Send(new AccountsMenuRefreshRequested(false));
             }
 
             foreach (var mailbox in orderedMailboxes)
@@ -1244,7 +1186,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         {
             // The bulk path has to announce the change itself. The single-folder mutators on
             // IFolderService do not all broadcast, so the shell would keep the stale layout.
-            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(accountId));
+            _messenger.Send(new AccountFolderConfigurationUpdated(accountId));
         }
 
         return appliedFolderCount;

@@ -14,5 +14,8 @@ public enum CompanionSurfaceState
     Initializing,
     NoAccounts,
     Ready,
-    Unavailable
+    Unavailable,
+
+    /// <summary>The app lock is on and no window was unlocked; nothing is loaded.</summary>
+    Locked
 }

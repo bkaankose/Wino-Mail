@@ -41,4 +41,11 @@ public sealed record NotificationResponse(
     /// <summary>The notification was dismissed, or the explicit Dismiss action.</summary>
     public bool IsDismiss => Kind == NotificationResponseKind.Dismiss ||
                              string.Equals(ActionIdentifier, NotificationActionIdentifiers.Dismiss, StringComparison.Ordinal);
+
+    /// <summary>
+    /// No window is open to offer undo or show an error, and the process may end once the response is handled
+    /// (Windows: a toast action while no shell window exists). A mail action is then sent to the server before
+    /// <see cref="Interfaces.INotificationResponseService.HandleAsync"/> returns.
+    /// </summary>
+    public bool RunsWithoutWindow { get; init; }
 }

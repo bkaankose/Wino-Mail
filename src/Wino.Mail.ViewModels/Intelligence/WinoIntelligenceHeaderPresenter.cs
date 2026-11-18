@@ -66,14 +66,18 @@ public sealed partial class WinoIntelligenceHeaderPresenter : ObservableObject, 
     private bool _isAttached;
     private bool _isDisposed;
 
+    private readonly IMessenger _messenger;
+
     public WinoIntelligenceHeaderPresenter(IWinoIntelligenceCoordinator intelligenceCoordinator,
                                            IMailService mailService,
                                            IClipboardService clipboardService,
                                            IPreferencesService preferencesService,
                                            IMailDialogService dialogService,
                                            IMailContentProjector contentProjector,
-                                           IDispatcher dispatcher)
+                                           IDispatcher dispatcher,
+                                           IMessenger messenger)
     {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _intelligenceCoordinator = intelligenceCoordinator;
         _mailService = mailService;
         _clipboardService = clipboardService;
@@ -196,11 +200,11 @@ public sealed partial class WinoIntelligenceHeaderPresenter : ObservableObject, 
             return;
 
         _isAttached = true;
-        WeakReferenceMessenger.Default.Register<MailIntelligenceJobChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
-        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
+        _messenger.Register<MailIntelligenceJobChanged>(this);
+        _messenger.Register<WinoIntelligenceAccessChanged>(this);
+        _messenger.Register<WinoIntelligenceEntitlementChanged>(this);
+        _messenger.Register<IntelligenceMetadataChanged>(this);
+        _messenger.Register<IntelligenceVisibilityChanged>(this);
     }
 
     /// <summary>Stops receiving intelligence messages.</summary>
@@ -210,11 +214,11 @@ public sealed partial class WinoIntelligenceHeaderPresenter : ObservableObject, 
             return;
 
         _isAttached = false;
-        WeakReferenceMessenger.Default.Unregister<MailIntelligenceJobChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<IntelligenceVisibilityChanged>(this);
+        _messenger.Unregister<MailIntelligenceJobChanged>(this);
+        _messenger.Unregister<WinoIntelligenceAccessChanged>(this);
+        _messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
+        _messenger.Unregister<IntelligenceMetadataChanged>(this);
+        _messenger.Unregister<IntelligenceVisibilityChanged>(this);
     }
 
     public void Dispose()

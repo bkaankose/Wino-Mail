@@ -27,7 +27,7 @@ public partial class App
     {
         if (action == WidgetActions.EnableWidgets)
         {
-            await OpenWidgetsSettingsAsync();
+            await OpenSettingsPageAsync(WinoPage.WidgetsLiveTilesSettingsPage);
             return;
         }
 
@@ -42,19 +42,22 @@ public partial class App
         switch (action)
         {
             case WidgetActions.OpenMail when id is { } mailId:
-                await HandleToastNavigationAsync(mailId);
+                await NotificationResponses.OpenMailAsync(mailId);
                 break;
             case WidgetActions.NewMail:
                 await OpenCompanionNewMailAsync(null);
                 break;
             case WidgetActions.OpenEvent when id is { } eventId:
-                await HandleCalendarToastNavigationAsync(eventId);
+                await NotificationResponses.OpenCalendarItemAsync(eventId);
                 break;
             case WidgetActions.OpenEvent:
                 await EnsureShellWindowAsync(WinoApplicationMode.Calendar, activateWindow: true);
                 break;
+            case WidgetActions.JoinEvent when NotificationResponses.IsActionRefusedByAppLock("widget join"):
+                await ActivatePreferredWindowAsync();
+                break;
             case WidgetActions.JoinEvent when id is { } joinId:
-                await HandleCalendarToastJoinOnlineAsync(joinId);
+                await NotificationResponses.JoinOnlineAsync(joinId);
                 break;
             case WidgetActions.NewEvent:
                 await OpenCompanionNewEventAsync(null, null);
@@ -77,7 +80,7 @@ public partial class App
         }
     }
 
-    private async Task OpenWidgetsSettingsAsync()
+    private async Task OpenSettingsPageAsync(WinoPage page)
     {
         // Building a new shell straight into Settings crashes Native AOT builds (see OpenCompanionSettingsAsync), so a
         // closed app first comes up in Mail and lets that shell load.
@@ -94,6 +97,6 @@ public partial class App
         await EnsureShellWindowAsync(
             WinoApplicationMode.Settings,
             activateWindow: true,
-            activationParameter: WinoPage.WidgetsLiveTilesSettingsPage);
+            activationParameter: page);
     }
 }

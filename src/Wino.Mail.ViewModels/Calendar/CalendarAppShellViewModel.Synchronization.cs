@@ -22,7 +22,7 @@ public partial class CalendarAppShellViewModel
     public bool CanSynchronize => CalendarAccountIds.Count > 0 && !SynchronizationState.IsSynchronizing;
 
     public ShellSynchronizationState SynchronizationState
-        => ShellSynchronizationStateReader.Read(CalendarAccountIds, SynchronizationProgressCategory.Calendar);
+        => ShellSynchronizationStateReader.Read(_synchronizationManager, CalendarAccountIds, SynchronizationProgressCategory.Calendar);
 
     public string SynchronizationDescription => Translator.TitleBar_Sync_CalendarDescription;
 

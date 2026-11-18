@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -145,13 +146,13 @@ public partial class MailFilterActionEditorItem : ObservableObject
     public ObservableCollection<MailFilterFolderOption> FolderOptions { get; init; }
 }
 
-public partial class MailFilterEditorPageViewModel(
+public partial class MailFilterEditorPageViewModel(IMessenger messenger, 
     IMailFilterService mailFilterService,
     IMailFilterProviderService providerService,
     IAccountService accountService,
     IFolderService folderService,
     IMailDialogService dialogService,
-    INavigationService navigationService) : MailBaseViewModel
+    INavigationService navigationService) : MailBaseViewModel(messenger)
 {
     private readonly IMailFilterService _mailFilterService = mailFilterService;
     private readonly IMailFilterProviderService _providerService = providerService;

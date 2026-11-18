@@ -17,13 +17,13 @@ namespace Wino.Core.Synchronizers.CalDav;
 /// The local reminder the alarm maps to, or null when Wino cannot express it: a trigger after the
 /// start or relative to the end.
 /// </param>
-internal sealed record CalDavDefaultAlarm(string Block, CalDavEventReminder? Reminder);
+public sealed record CalDavDefaultAlarm(string Block, CalDavEventReminder? Reminder);
 
 /// <summary>
 /// Reads the default VALARMs a CalDAV server stores for new events and writes them into an event
 /// the way Apple Calendar does.
 /// </summary>
-internal static partial class CalendarIcsBuilder
+public static partial class CalendarIcsBuilder
 {
     internal const string AppleDefaultAlarmProperty = "X-APPLE-DEFAULT-ALARM";
 

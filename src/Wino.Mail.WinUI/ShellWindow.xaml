@@ -174,7 +174,10 @@
                         </searchControls:WinoSearchBar>
                     </TitleBar.Content>
                     <TitleBar.RightHeader>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
+                        <StackPanel
+                            x:Name="TitleBarRightHeaderPanel"
+                            Orientation="Horizontal"
+                            Spacing="8">
                             <ToggleButton
                                 x:Name="DailyBriefingToggleButton"
                                 Width="38"

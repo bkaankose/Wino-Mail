@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Services;
@@ -23,13 +24,16 @@ public sealed class ModeSynchronizerFactory :
 {
     private readonly IAccountService _accountService;
     private readonly ISynchronizerFactory _accountSynchronizerFactory;
+    private readonly IMailProviderRegistry _providers;
 
     public ModeSynchronizerFactory(
         IAccountService accountService,
-        ISynchronizerFactory accountSynchronizerFactory)
+        ISynchronizerFactory accountSynchronizerFactory,
+        IMailProviderRegistry providers)
     {
         _accountService = accountService;
         _accountSynchronizerFactory = accountSynchronizerFactory;
+        _providers = providers;
     }
 
     async Task<IMailSynchronizer> IMailSynchronizerFactory.GetSynchronizerAsync(Guid accountId)
@@ -53,7 +57,7 @@ public sealed class ModeSynchronizerFactory :
         var (account, synchronizer) = await ResolveAccountAsync(accountId).ConfigureAwait(false);
         var available = account.IsContactAccessEnabled && IsContactSourceViable(account);
 
-        return new ContactAdapter(account, synchronizer, available, Translator.Synchronizer_ContactsUnavailable);
+        return new ContactAdapter(account, synchronizer, available, Translator.Synchronizer_ContactsUnavailable, ManagesContactCollections(account));
     }
 
     async Task<ITaskSynchronizer> ITaskSynchronizerFactory.GetSynchronizerAsync(Guid accountId)
@@ -61,7 +65,7 @@ public sealed class ModeSynchronizerFactory :
         var (account, synchronizer) = await ResolveAccountAsync(accountId).ConfigureAwait(false);
         var available = account.IsTaskAccessEnabled && IsTaskSourceViable(account);
 
-        return new TaskAdapter(account, synchronizer, available, Translator.Synchronizer_TasksUnavailable);
+        return new TaskAdapter(account, synchronizer, available, Translator.Synchronizer_TasksUnavailable, ManagesTaskSteps(account));
     }
 
     private async Task<(MailAccount Account, IWinoSynchronizerBase Synchronizer)> ResolveAccountAsync(Guid accountId)
@@ -73,18 +77,18 @@ public sealed class ModeSynchronizerFactory :
         return (account, synchronizer);
     }
 
-    private static bool IsCalendarSourceViable(MailAccount account)
+    private bool IsCalendarSourceViable(MailAccount account)
         => account.GetEffectiveCalendarIntegrationSource() switch
         {
             AccountIntegrationSource.Local => true,
             AccountIntegrationSource.Provider => account.IsCalendarAccessGranted && IsProviderAccount(account),
             AccountIntegrationSource.Dav => account.IsCalendarAccessGranted &&
-                                            account.ProviderType == MailProviderType.IMAP4 &&
+                                            Traits(account).SupportsDavIntegration &&
                                             !string.IsNullOrWhiteSpace(account.ServerInformation?.CalDavServiceUrl),
             _ => false
         };
 
-    private static bool IsContactSourceViable(MailAccount account)
+    private bool IsContactSourceViable(MailAccount account)
         => account.ContactIntegrationSource switch
         {
             AccountIntegrationSource.Local => true,
@@ -95,27 +99,26 @@ public sealed class ModeSynchronizerFactory :
             _ => false
         };
 
-    private static bool IsTaskSourceViable(MailAccount account)
+    private bool IsTaskSourceViable(MailAccount account)
         => account.TaskIntegrationSource switch
         {
             AccountIntegrationSource.Local => true,
             AccountIntegrationSource.Provider => account.IsTaskAccessGranted && IsProviderAccount(account),
             AccountIntegrationSource.Dav => account.IsTaskAccessGranted &&
-                                            account.ProviderType == MailProviderType.IMAP4 &&
+                                            Traits(account).SupportsDavIntegration &&
                                             !string.IsNullOrWhiteSpace(account.ServerInformation?.CalDavServiceUrl),
             _ => false
         };
 
-    private static bool IsProviderAccount(MailAccount account)
-        => account.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.Exchange;
+    private MailProviderTraits Traits(MailAccount account) => _providers.GetTraits(account.ProviderType);
 
-    // Exchange serves one Contacts folder from this client, so no address books are written back. Its task folders are
-    // task lists, but Exchange tasks have no checklist steps.
-    private static bool ManagesContactCollections(MailAccount account)
-        => account.ContactIntegrationSource != AccountIntegrationSource.Provider || account.ProviderType != MailProviderType.Exchange;
+    private bool IsProviderAccount(MailAccount account) => Traits(account).ServesModesFromProvider;
 
-    private static bool ManagesTaskSteps(MailAccount account)
-        => account.TaskIntegrationSource != AccountIntegrationSource.Provider || account.ProviderType != MailProviderType.Exchange;
+    private bool ManagesContactCollections(MailAccount account)
+        => account.ContactIntegrationSource != AccountIntegrationSource.Provider || Traits(account).ManagesProviderContactCollections;
+
+    private bool ManagesTaskSteps(MailAccount account)
+        => account.TaskIntegrationSource != AccountIntegrationSource.Provider || Traits(account).ManagesProviderTaskSteps;
 
     private abstract class AdapterBase(MailAccount account, IWinoSynchronizerBase synchronizer, bool isAvailable, string unavailableReason)
         : IModeSynchronizer
@@ -192,10 +195,10 @@ public sealed class ModeSynchronizerFactory :
         }
     }
 
-    private sealed class ContactAdapter(MailAccount account, IWinoSynchronizerBase synchronizer, bool available, string reason)
+    private sealed class ContactAdapter(MailAccount account, IWinoSynchronizerBase synchronizer, bool available, string reason, bool managesCollections)
         : AdapterBase(account, synchronizer, available, reason), IContactSynchronizer
     {
-        public ContactSynchronizerCapabilities Capabilities { get; } = new(available, available, available && ManagesContactCollections(account));
+        public ContactSynchronizerCapabilities Capabilities { get; } = new(available, available, available && managesCollections);
 
         public Task<ContactSynchronizationResult> SynchronizeAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
@@ -216,10 +219,10 @@ public sealed class ModeSynchronizerFactory :
         }
     }
 
-    private sealed class TaskAdapter(MailAccount account, IWinoSynchronizerBase synchronizer, bool available, string reason)
+    private sealed class TaskAdapter(MailAccount account, IWinoSynchronizerBase synchronizer, bool available, string reason, bool managesSteps)
         : AdapterBase(account, synchronizer, available, reason), ITaskSynchronizer
     {
-        public TaskSynchronizerCapabilities Capabilities { get; } = new(available, available, available, available && ManagesTaskSteps(account));
+        public TaskSynchronizerCapabilities Capabilities { get; } = new(available, available, available, available && managesSteps);
 
         public Task<TaskSynchronizationResult> SynchronizeAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
         {

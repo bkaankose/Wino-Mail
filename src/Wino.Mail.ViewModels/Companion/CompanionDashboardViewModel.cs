@@ -47,6 +47,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     private readonly ICompanionActionHandler _actions;
     private readonly IMessenger _messenger;
     private readonly IDispatcher _dispatcher;
+    private readonly IAppLockService? _appLock;
     private readonly DateTimeOffset _sessionStartedAtUtc;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private CancellationTokenSource? _visibilityCancellation;
@@ -71,6 +72,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _sessionStartedAtUtc = sessionStartedAtUtc;
         _messenger = services.GetRequiredService<IMessenger>();
+        _appLock = services.GetService<IAppLockService>();
     }
 
     /// <summary>Raised after a navigation command succeeded, so the host can close its surface.</summary>
@@ -91,6 +93,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsNoAccounts))]
     [NotifyPropertyChangedFor(nameof(IsReady))]
     [NotifyPropertyChangedFor(nameof(IsUnavailable))]
+    [NotifyPropertyChangedFor(nameof(IsLocked))]
     public partial CompanionSurfaceState SurfaceState { get; set; } = CompanionSurfaceState.Initializing;
 
     [ObservableProperty]
@@ -135,6 +138,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     public bool IsNoAccounts => SurfaceState == CompanionSurfaceState.NoAccounts;
     public bool IsReady => SurfaceState == CompanionSurfaceState.Ready;
     public bool IsUnavailable => SurfaceState == CompanionSurfaceState.Unavailable;
+    public bool IsLocked => SurfaceState == CompanionSurfaceState.Locked;
     public bool HasEvent => NextEvent is not null;
     public bool HasLaterEvents => LaterEvents.Count > 0;
     public bool HasUnreadMail => UnreadMail.Count > 0;
@@ -256,6 +260,12 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         _visibilityCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         RegisterRecipients();
 
+        if (_appLock?.IsLocked == true)
+        {
+            ShowLocked();
+            return;
+        }
+
         switch (readiness)
         {
             case CompanionReadinessState.NoAccounts:
@@ -286,11 +296,25 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     public async Task RefreshAsync(CancellationToken cancellationToken)
     {
         var generation = ++_generation;
+        if (_appLock?.IsLocked == true)
+        {
+            ShowLocked();
+            ContentRefreshed?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
         SurfaceState = CompanionSurfaceState.Initializing;
         await _refreshGate.WaitAsync(cancellationToken);
 
         try
         {
+            // The lock can turn on while the gate is held by an earlier refresh.
+            if (_appLock?.IsLocked == true)
+            {
+                await RunOnUIAsync(ShowLocked);
+                return;
+            }
+
             var accounts = await _services.GetRequiredService<CompanionContentService>().GetAccountsAsync();
             cancellationToken.ThrowIfCancellationRequested();
             if (accounts.Count == 0)
@@ -330,7 +354,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
             var loadedAt = DateTimeOffset.Now;
 
             cancellationToken.ThrowIfCancellationRequested();
-            if (generation != _generation)
+            if (generation != _generation || _appLock?.IsLocked == true)
                 return;
 
             await RunOnUIAsync(() => ApplyResults(mail, tasks, contacts, events, unreadTotal, loadedAt));
@@ -394,6 +418,13 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         ErrorText = string.Empty;
         RaiseContentProperties();
         SurfaceState = CompanionSurfaceState.Ready;
+    }
+
+    private void ShowLocked()
+    {
+        ClearContent();
+        ErrorText = string.Empty;
+        SurfaceState = CompanionSurfaceState.Locked;
     }
 
     private void ClearContent()
@@ -472,6 +503,9 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         // The snooze can also be changed from the settings page, or cleared by expiry, so follow
         // the preference rather than only re-reading it on the next content refresh.
         _messenger.Register<CompanionDashboardViewModel, PreferenceChangedMessage>(this, static (recipient, message) => recipient.OnPreferenceChanged(message.PropertyName));
+
+        if (_appLock is not null)
+            _appLock.StateChanged += OnAppLockStateChanged;
     }
 
     private void UnregisterRecipients()
@@ -481,7 +515,12 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
 
         _recipientsRegistered = false;
         _messenger.UnregisterAll(this);
+
+        if (_appLock is not null)
+            _appLock.StateChanged -= OnAppLockStateChanged;
     }
+
+    private void OnAppLockStateChanged(object? sender, EventArgs e) => ScheduleRefresh();
 
     private void OnPreferenceChanged(string propertyName)
     {

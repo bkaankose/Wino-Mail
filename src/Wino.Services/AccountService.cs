@@ -30,6 +30,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     private readonly ISignatureService _signatureService;
     private readonly IAuthenticationProvider _authenticationProvider;
+    private readonly IMailProviderRegistry _providers;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
     private readonly IPictureStorageService _pictureStorageService;
@@ -44,28 +45,30 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
-    public AccountService(IDatabaseService databaseService,
+    public AccountService(IDatabaseService databaseService, IMessenger messenger,
                           ISignatureService signatureService,
                           IAuthenticationProvider authenticationProvider,
                           IMimeFileService mimeFileService,
                           IPreferencesService preferencesService,
                           IPictureStorageService pictureStorageService,
                           IAccountCredentialPersistence credentialPersistence,
+                          IMailProviderRegistry providers,
                           IServerCertificateTrustService serverCertificateTrustService = null,
                           ISemanticIndexJobRegistry semanticIndexJobRegistry = null,
                           IMailIntelligenceStore localIntelligenceStore = null,
                           ICardDavSynchronizationStore cardDavSynchronizationStore = null,
                           IDavCredentialStore davCredentialStore = null,
                           Func<IPushRelayRegistrationService> pushRelay = null,
-                          Func<IOAuthTokenService> oauthTokenService = null) : base(databaseService)
+                          Func<IOAuthTokenService> oauthTokenService = null) : base(databaseService, messenger)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
+        _providers = providers;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
         _pictureStorageService = pictureStorageService;
         _credentialPersistence = credentialPersistence;
-        _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService);
+        _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService, messenger);
         _semanticIndexJobRegistry = semanticIndexJobRegistry;
         _localIntelligenceStore = localIntelligenceStore;
         _cardDavSynchronizationStore = cardDavSynchronizationStore;
@@ -331,7 +334,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             "DELETE FROM MailCopy WHERE Id IN (SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?))",
             accountId);
 
-        WeakReferenceMessenger.Default.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
+        Messenger.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
     }
 
     public async Task DeleteAccountMailDataAsync(Guid accountId)
@@ -513,12 +516,12 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         foreach (var calendarItem in deletedCalendarItems)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
+            Messenger.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
         }
 
         foreach (var accountCalendar in accountCalendars)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
+            Messenger.Send(new CalendarListDeleted(accountCalendar));
         }
 
         ReportUIChange(new AccountRemovedMessage(account));
@@ -535,15 +538,15 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         Guard.IsNotNull(account);
 
-        if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+        if (_providers.GetTraits(account.ProviderType).UsesInteractiveOAuth)
         {
             var authenticator = _authenticationProvider.GetAuthenticator(account.ProviderType);
             await authenticator.DeleteTokenInformationAsync(account).ConfigureAwait(false);
         }
         else if (account.ProviderType.IsCustomMailProvider())
         {
-            if (account.ProviderType == MailProviderType.Exchange)
-                await DeleteProviderTokenAsync(account).ConfigureAwait(false);
+            // Only Exchange among these keeps a token in its authenticator's store; the others have no authenticator.
+            await DeleteProviderTokenAsync(account).ConfigureAwait(false);
 
             var serverInformation = await ReadServerInformationMetadataAsync(account.Id).ConfigureAwait(false);
 
@@ -609,12 +612,16 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     private async Task DeleteProviderTokenAsync(MailAccount account)
     {
-        if (account == null || account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange))
+        var module = account == null ? null : _providers.Find(account.ProviderType);
+        if (module == null)
             return;
 
         try
         {
-            var authenticator = _authenticationProvider.GetAuthenticator(account.ProviderType);
+            var authenticator = module.CreateAuthenticator();
+            if (authenticator == null)
+                return;
+
             await authenticator.DeleteTokenInformationAsync(account).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -837,7 +844,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         ReportUIChange(new AccountUpdatedMessage(account));
 
         if (account.Preferences is not null)
-            WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(
+            Messenger.Send(new IntelligenceVisibilityChanged(
                 account.Id,
                 [.. account.Preferences.ExcludedIntelligenceIndicatorIds]));
     }
@@ -848,7 +855,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         preferences.PrepareForStorage();
         await Connection.UpdateAsync(preferences, typeof(MailAccountPreferences)).ConfigureAwait(false);
-        WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(
+        Messenger.Send(new IntelligenceVisibilityChanged(
             preferences.AccountId,
             [.. preferences.ExcludedIntelligenceIndicatorIds]));
     }
@@ -1247,7 +1254,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (enableMailFilters &&
             account.IsMailAccessGranted &&
-            account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+            _providers.GetTraits(account.ProviderType).UsesInteractiveOAuth)
         {
             var authorizedAt = DateTime.UtcNow;
             await Connection.InsertAsync(new AccountProviderFeature
@@ -1299,12 +1306,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         account.Preferences = preferences;
 
-        // Outlook & Office 365 supports Focused inbox. Enabled by default.
-        bool isMicrosoftProvider = account.ProviderType == MailProviderType.Outlook;
-
         // TODO: This should come from account settings API.
         // Wino doesn't have MailboxSettings yet.
-        if (isMicrosoftProvider)
+        if (_providers.GetTraits(account.ProviderType).SupportsFocusedInbox)
             account.Preferences.IsFocusedInboxEnabled = true;
 
         // Setup default signature.
@@ -1323,7 +1327,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             customServerInformation.PendingCertificateTrusts.Clear();
         }
 
-        if (account.ProviderType == MailProviderType.POP3)
+        if (!account.ProviderType.SupportsRemoteFolderSynchronization())
         {
             await EnsurePop3LocalFoldersAsync(account.Id).ConfigureAwait(false);
         }

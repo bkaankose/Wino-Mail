@@ -1,16 +1,16 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Services.WidgetsAndTiles;
 using Wino.Services;
 using Wino.Services.Security;
 using Wino.Platform.Windows;
-using Wino.Platform.Windows.Authentication;
-using Wino.Platform.Windows.Services;
-using Wino.Platform.Windows.PushRelay;
 using Wino.PushRelay.Socket;
 using Wino.PushRelay.Socket.KeyStores;
 using Wino.Authentication;
@@ -27,31 +27,20 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<WinUIDispatcher>();
         services.AddSingleton<IDispatcher>(provider => provider.GetRequiredService<WinUIDispatcher>());
 
-        services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();
         services.AddSingleton<IWinoWindowManager, WinoWindowManager>();
+        services.AddSingleton<IWindowsMainWindowHost, WindowsMainWindowHost>();
+        services.AddSingleton<IWindowsPrintService, PrintService>();
         // Capture the host UI dispatcher before background initialization resolves it.
-        services.AddSingleton(new NativeAppService());
-        services.AddSingleton<INativeAppService>(provider => provider.GetRequiredService<NativeAppService>());
-        services.AddSingleton<IExternalLauncher>(provider => provider.GetRequiredService<NativeAppService>());
-        services.AddSingleton<IClipboardService>(provider => provider.GetRequiredService<NativeAppService>());
-        services.AddSingleton<IShortcutPlatformService>(provider => provider.GetRequiredService<NativeAppService>());
-        services.AddSingleton<ITaskCompletionSound>(provider => provider.GetRequiredService<NativeAppService>());
-        services.AddSingleton<IWindowsAttachmentPolicyService, WindowsAttachmentPolicyService>();
-        services.AddSingleton<IAttachmentPlatformService, WindowsAttachmentPlatformService>();
-        services.AddSingleton<IAppMetadataService>(provider => provider.GetRequiredService<NativeAppService>());
-        services.AddSingleton<IUserPresenceStateProvider>(provider => provider.GetRequiredService<NativeAppService>());
+        var platformDispatcher = DispatcherQueue.GetForCurrentThread();
+        services.AddWindowsPlatformServices(new NativeAppService(
+            platformDispatcher == null ? null : new DispatcherQueueThreadQueue(platformDispatcher),
+            SessionStartActivation.SyncRegistrationAsync,
+            WebViewExtensions.GetSharedEnvironmentAsync));
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<WindowsShellPreferences>();
-        services.AddSingleton<ContactPictureThumbnailer>();
         services.AddSingleton<WidgetsAndTilesService>();
-        services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
         // DPAPI-protected secure items under LocalState\secure; earlier releases' plaintext columns and files move there at startup.
         services.AddProtectedFileCredentialStorage();
-        services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
-        services.AddSingleton<IStartupIntegrationService, WindowsStartupIntegrationService>();
-        services.AddSingleton<IReaderRuntimeService, WindowsReaderRuntimeService>();
-        services.AddSingleton<IInstalledBrowserService, WindowsInstalledBrowserService>();
-        services.AddSingleton<IMicrophoneService, WindowsMicrophoneService>();
         services.AddSingleton<IPlatformCapabilities>(_ => new PlatformCapabilities(
             Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,
             Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
@@ -59,19 +48,11 @@ public static class CoreUWPContainerSetup
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
             ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true, WidgetsAndLiveTiles: true,
-            AttachmentSecurityCheck: true, VoiceControl: true));
-        services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
-        services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
-        services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();
-        services.AddSingleton<IDeviceAttestationProvider, WindowsBoundKeyAttestationProvider>();
+            AttachmentSecurityCheck: true, VoiceControl: true, AppLock: true));
         // The desktop socket (Wino.PushRelay.Socket): the key is a DPAPI-protected file. ApplicationRuntimeInitialization
         // starts the socket after the relay registration in background startup.
         services.AddSingleton<IPushRelaySocketKeyStore, ProtectedFilePushRelaySocketKeyStore>();
         services.AddWinoRelaySocketClient();
-        services.AddSingleton<IOutlookAuthenticationHost>(provider => new WindowsOutlookAuthenticationHost(
-            provider.GetRequiredService<IApplicationConfiguration>(),
-            provider.GetRequiredService<IAuthenticatorConfig>(),
-            () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
         services.AddSingleton(provider => new WindowsMigratingGoogleTokenStore(
             provider.GetRequiredService<ISecureItemStore>(),
             provider.GetRequiredService<ProtectedFileSecureItemStore>().ItemPath,
@@ -81,44 +62,32 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IOAuthTokenStore, SecureItemOAuthTokenStore>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
-        services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
 
         // One dialog stack, one presentation semaphore: the base interface forwards to the mail dialog service.
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IWinoDialogService>(provider => (IWinoDialogService)provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
 
-        // Wino Account Sign in with Microsoft, Google and Apple: all through the API's browser flow. The wino://auth-complete
-        // protocol activation (App.WinoAccountAuthActivation) delivers the redirect to the waiting broker.
-        services.AddSingleton<WindowsExternalAuthCallbacks>();
-        services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new WindowsBrowserAuthBroker(
-            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>()));
-        // IMAP and SMTP OAuth sign-in: wino://auth-complete/oauth callbacks complete only this broker's wait.
-        services.AddSingleton<IOAuthBrowserBroker>(provider => new WindowsOAuthBrowserBroker(
-            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>(),
-            () => provider.GetService<IExternalBrowserAuthenticationPresenter>()));
         // Exchange modern-auth sign-in: a WebView2 dialog that captures the redirect in-process, apart from every
-        // system-browser flow above.
+        // system-browser flow in AddWindowsPlatformServices.
         services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new WindowsEmbeddedBrowserAuthBroker(
             provider.GetRequiredService<IDispatcher>(), provider.GetRequiredService<Lazy<IWinoDialogService>>()));
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
-        global::Wino.Core.CoreContainerSetup.AddLoopbackGoogleAuthorizationCodeReceiver(services);
-        services.AddTransient<IConfigurationService, ConfigurationService>();
-        services.AddTransient<IFileService, FileService>();
-        services.AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>();
+        global::Wino.Core.Providers.GmailProviderRegistration.AddLoopbackGoogleAuthorizationCodeReceiver(services);
         // Lazy edges break the two constructor cycles in the shell: the Store service reaches the
         // dialog service (dialog -> profile -> intelligence -> billing -> store), and the window
         // manager reaches the theme service (theme -> window manager).
         services.AddSingleton(provider => new Lazy<IMailDialogService>(provider.GetRequiredService<IMailDialogService>));
         services.AddSingleton(provider => new Lazy<INewThemeService>(provider.GetRequiredService<INewThemeService>));
         services.AddSingleton(provider => new Lazy<IWinoDialogService>(provider.GetRequiredService<IWinoDialogService>));
-        services.AddSingleton<INotificationHostClient, NotificationHostClient>();
+        // The lock service takes this platform in its constructor, and the PIN dialog reaches the lock service, so the
+        // dialog service is only resolved when a prompt opens.
+        services.AddSingleton<IAppLockPlatform>(provider => new WindowsAppLockPlatform(
+            provider.GetRequiredService<Lazy<IWinoDialogService>>(),
+            provider.GetRequiredService<WinUIDispatcher>(),
+            () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
-        services.AddSingleton<IWindowsPrintService, PrintService>();
-
     }
 }
-
-

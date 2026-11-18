@@ -22,6 +22,7 @@ namespace Wino.Core.Services;
 public sealed class AppModeReadinessService : IAppModeReadinessService
 {
     private readonly IAccountService _accountService;
+    private readonly IMailProviderRegistry _providers;
     private readonly IFolderService _folderService;
     private readonly ICalendarService _calendarService;
     private readonly ITaskQueryService _taskQueryService;
@@ -39,9 +40,12 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
         ITaskQueryService taskQueryService,
         IContactQueryService contactQueryService,
         IPreferencesService preferencesService,
+        IMessenger messenger,
+        IMailProviderRegistry providers,
         IWinoLogger logger = null,
         IDatabaseService databaseService = null)
     {
+        _providers = providers;
         _accountService = accountService;
         _folderService = folderService;
         _calendarService = calendarService;
@@ -52,7 +56,7 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
         _databaseService = databaseService;
 
         _preferencesService.PreferenceChanged += PreferenceChanged;
-        RegisterInvalidationMessages(WeakReferenceMessenger.Default);
+        RegisterInvalidationMessages(messenger);
     }
 
     public async Task<AppModeVisibility> GetVisibilityAsync(CancellationToken cancellationToken = default)
@@ -166,9 +170,9 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
     }
 
     /// <summary>Mirrors the To Do page's local fallback list rule.</summary>
-    private static bool RequiresLocalTaskList(MailAccount account)
+    private bool RequiresLocalTaskList(MailAccount account)
         => account.IsTaskAccessEnabled &&
-           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange) ||
+           (!_providers.GetTraits(account.ProviderType).ServesModesFromProvider ||
             !account.IsTaskAccessGranted ||
             account.IsTaskReauthorizationRequired);
 

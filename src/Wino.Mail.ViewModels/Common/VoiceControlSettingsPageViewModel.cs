@@ -55,12 +55,13 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
     private bool _isLoadingMicrophones;
 
     public VoiceControlSettingsPageViewModel(
+        IMessenger messenger,
         IPreferencesService preferencesService,
         IMicrophoneService microphoneService,
         IWinoAccountIntelligenceSnapshotService entitlementService,
         IMailDialogService dialogService,
         IWinoAccountProfileService profileService,
-        IWinoBillingService billingService)
+        IWinoBillingService billingService) : base(messenger)
     {
         PreferencesService = preferencesService;
         _dialogService = dialogService;

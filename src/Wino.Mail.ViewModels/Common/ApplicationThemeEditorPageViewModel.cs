@@ -14,18 +14,9 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Core.ViewModels;
 
-// Surface previews in the color-option template bind to these properties through the page.
-#if WINRT_EXPOSED
-[GeneratedBindableCustomProperty(
-    new string[] { nameof(PreviewPalette), nameof(WallpaperAlignment), nameof(WallpaperFit) },
-    new Type[] { })]
-#endif
 public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
     IConfirmBackNavigation,
     IBreadcrumbNavigationResultProvider
@@ -145,7 +136,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
         ? Translator.ApplicationThemeEditor_FocalPointDescription
         : Translator.ApplicationThemeEditor_FocalPointFitDescription;
 
-    public ApplicationThemeEditorPageViewModel(INewThemeService themeService, IDialogServiceBase dialogService, IApplicationResourceResolver resourceResolver, IWinoLogger? logger = null)
+    public ApplicationThemeEditorPageViewModel(IMessenger messenger, INewThemeService themeService, IDialogServiceBase dialogService, IApplicationResourceResolver resourceResolver, IWinoLogger? logger = null) : base(messenger)
     {
         _themeService = themeService;
         _dialogService = dialogService;
@@ -335,7 +326,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
         if (!await CanNavigateBackAsync())
             return;
 
-        WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
+        Messenger.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
     }
 
     private bool CanDelete() => IsEditMode && !_isInitializing && !IsSaving && !IsDeleting;
@@ -374,7 +365,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
             _isNavigationCommitted = true;
             IsDirty = false;
             _pendingNavigationResult = NavigationResult.Deleted(themeId);
-            WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
+            Messenger.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
         }
         catch (Exception ex)
         {
@@ -424,7 +415,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
             _isNavigationCommitted = true;
             IsDirty = false;
             _pendingNavigationResult = NavigationResult.Saved(savedTheme.Id);
-            WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
+            Messenger.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
         }
         catch (Exception ex)
         {

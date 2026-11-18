@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Windows.AppNotifications;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Notifications;
 using Wino.Mail.WinUI;
 using Wino.NotificationHost.Contracts;
 
@@ -140,9 +141,12 @@ internal sealed class AppNotificationHandler
         {
             route = calendarAction switch
             {
-                Constants.ToastCalendarNavigateAction => new NotificationActivationRoute(NotificationActivationPath.CalendarNavigation, true, () => _host.HandleCalendarToastNavigationAsync(calendarItemId)),
-                Constants.ToastCalendarSnoozeAction => new NotificationActivationRoute(NotificationActivationPath.CalendarSnooze, false, () => _host.HandleCalendarToastSnoozeAsync(userInput, calendarItemId)),
-                Constants.ToastCalendarJoinOnlineAction => new NotificationActivationRoute(NotificationActivationPath.CalendarJoinOnline, false, () => _host.HandleCalendarToastJoinOnlineAsync(calendarItemId)),
+                Constants.ToastCalendarNavigateAction => CreateResponseRoute(NotificationActivationPath.CalendarNavigation, true,
+                    CreateResponse(toastArguments, userInput, NotificationResponseKind.Default, string.Empty)),
+                Constants.ToastCalendarSnoozeAction => CreateResponseRoute(NotificationActivationPath.CalendarSnooze, false,
+                    CreateResponse(toastArguments, userInput, NotificationResponseKind.Action, NotificationActionIdentifiers.CalendarSnooze)),
+                Constants.ToastCalendarJoinOnlineAction => CreateResponseRoute(NotificationActivationPath.CalendarJoinOnline, false,
+                    CreateResponse(toastArguments, userInput, NotificationResponseKind.Action, NotificationActionIdentifiers.CalendarJoin)),
                 _ => default
             };
 
@@ -152,19 +156,22 @@ internal sealed class AppNotificationHandler
         if (toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation action) &&
             Guid.TryParse(toastArguments[Constants.ToastMailUniqueIdKey], out Guid mailItemUniqueId))
         {
+            var mailValues = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [Constants.ToastMailUniqueIdKey] = mailItemUniqueId.ToString()
+            };
+
             if (action == MailOperation.Navigate)
             {
-                route = new NotificationActivationRoute(NotificationActivationPath.MailNavigation, true, () => _host.HandleMailToastNavigationAsync(mailItemUniqueId));
+                route = CreateResponseRoute(NotificationActivationPath.MailNavigation, true,
+                    new NotificationResponse(NotificationResponseKind.Default, string.Empty, null, null, mailValues));
                 return true;
             }
 
-            if (IsComposeToastAction(action))
-            {
-                route = new NotificationActivationRoute(NotificationActivationPath.MailCompose, true, () => _host.HandleMailToastComposeActionAsync(action, mailItemUniqueId));
-                return true;
-            }
-
-            route = new NotificationActivationRoute(NotificationActivationPath.MailBackgroundAction, false, () => _host.HandleMailToastBackgroundActionAsync(action, mailItemUniqueId));
+            var mailResponse = new NotificationResponse(NotificationResponseKind.Action, NotificationActionIdentifiers.MailAction(action), null, null, mailValues);
+            route = IsComposeToastAction(action)
+                ? CreateResponseRoute(NotificationActivationPath.MailCompose, true, mailResponse)
+                : CreateResponseRoute(NotificationActivationPath.MailBackgroundAction, false, mailResponse);
             return true;
         }
 
@@ -176,17 +183,40 @@ internal sealed class AppNotificationHandler
             return true;
         }
 
-        if (ToastActivationResolver.TryResolveMode(toastArguments, out var mode))
+        if (ToastActivationResolver.TryResolveMode(toastArguments, out _))
         {
-            route = new NotificationActivationRoute(
-                NotificationActivationPath.ModeNavigation,
-                true,
-                () => _host.HandleNotificationModeActivationAsync(mode));
+            toastArguments.TryGetValue(Constants.ToastModeKey, out string modeValue);
+            route = CreateResponseRoute(NotificationActivationPath.ModeNavigation, true,
+                new NotificationResponse(NotificationResponseKind.Default, string.Empty, null, null,
+                    new Dictionary<string, string>(StringComparer.Ordinal) { [Constants.ToastModeKey] = modeValue }));
             return true;
         }
 
         route = default;
         return false;
+    }
+
+    /// <summary>
+    /// The head resolved which notification path this is; the shared service runs it. Mail and mode responses carry
+    /// only the values of that path, so the service cannot pick another one from extra keys on the toast.
+    /// </summary>
+    private NotificationActivationRoute CreateResponseRoute(NotificationActivationPath path, bool requiresForegroundWindow, NotificationResponse response)
+        => new(path, requiresForegroundWindow, () => _host.HandleNotificationResponseAsync(response));
+
+    private static NotificationResponse CreateResponse(NotificationArguments toastArguments,
+                                                       IDictionary<string, string>? userInput,
+                                                       NotificationResponseKind kind,
+                                                       string actionIdentifier)
+    {
+        var values = new Dictionary<string, string>(toastArguments.Values, StringComparer.Ordinal);
+
+        if (userInput != null)
+        {
+            foreach (var (key, value) in userInput)
+                values[key] = value;
+        }
+
+        return new NotificationResponse(kind, actionIdentifier, null, null, values);
     }
 
     private void LogNotificationRoute(NotificationActivationRoute route)

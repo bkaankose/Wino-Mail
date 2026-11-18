@@ -5,9 +5,6 @@ using System.Security.Cryptography.X509Certificates;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -15,9 +12,6 @@ namespace Wino.Mail.ViewModels.Data;
 /// One alias row on the alias management page. The page reloads the whole list after every write,
 /// so this item is a snapshot over its alias: it shapes the row's text and never mutates it in place.
 /// </summary>
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial class AliasManagementItem(MailAccountAlias alias, bool smimeAvailable = true)
 {
     private const string Separator = " • ";
@@ -109,13 +103,7 @@ public sealed partial class AliasManagementItem(MailAccountAlias alias, bool smi
 /// The alias rows bound to the page's list. Native AOT requires a concrete, WinRT-exposed collection type:
 /// an array or generic list of a non-WinRT type has no generated vector vtable, so the list control rejects it.
 /// </summary>
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial class AliasManagementItemList(IEnumerable<AliasManagementItem> items) : List<AliasManagementItem>(items);
 
 /// <summary>The signing certificate choices of one alias row, with the leading blank entry. See <see cref="AliasManagementItemList"/>.</summary>
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial class AliasCertificateList(IEnumerable<X509Certificate2> certificates) : List<X509Certificate2>(certificates);

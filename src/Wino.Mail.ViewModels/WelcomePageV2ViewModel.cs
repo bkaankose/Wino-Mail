@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Settings;
 
 namespace Wino.Mail.ViewModels;
 
@@ -20,6 +21,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountDataSyncService _syncService;
+    private readonly AppearanceSnapshotService _appearance;
     private readonly IPlatformCapabilities _platformCapabilities;
 
     [ObservableProperty]
@@ -34,12 +36,14 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
     public bool HasImportStatus => !string.IsNullOrWhiteSpace(ImportStatusMessage);
 
-    public WelcomePageV2ViewModel(IMailDialogService dialogService,
+    public WelcomePageV2ViewModel(IMessenger messenger, IMailDialogService dialogService,
                                   IWinoAccountDataSyncService syncService,
-                                  IPlatformCapabilities platformCapabilities)
+                                  AppearanceSnapshotService appearance,
+                                  IPlatformCapabilities platformCapabilities) : base(messenger)
     {
         _dialogService = dialogService;
         _syncService = syncService;
+        _appearance = appearance;
         _platformCapabilities = platformCapabilities;
     }
 
@@ -77,7 +81,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
             if (result.Appearance != null)
             {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                await ExecuteUIThread(() => _appearance.Apply(result.Appearance));
             }
 
             await ExecuteUIThread(() => ImportStatusMessage = BuildInlineImportMessage(result));
@@ -120,7 +124,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
             if (result.Appearance != null)
             {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                await ExecuteUIThread(() => _appearance.Apply(result.Appearance));
             }
 
             await ExecuteUIThread(() => ImportStatusMessage = BuildInlineImportMessage(result));

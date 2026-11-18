@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -73,10 +74,11 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
         => DateTimeDisplayFormatter.GetTimeDisplayType(GetSelectedTimeFormatPreference(), CalendarCulture) == DayHeaderDisplayType.TwentyFourHour;
 
     public CalendarRenderingSettingsPageViewModel(
+        IMessenger messenger,
         IPreferencesService preferencesService,
         ICalendarService calendarService,
         IAccountService accountService)
-        : base(preferencesService, calendarService, accountService)
+        : base(messenger, preferencesService, calendarService, accountService)
     {
         SelectedFirstDayOfWeekIndex = DayNames.IndexOf(CalendarCulture.DateTimeFormat.GetDayName(preferencesService.FirstDayOfWeek));
         selectedTimeFormatPreferenceIndex = timeFormatPreferences.IndexOf(preferencesService.CalendarTimeFormatPreference);

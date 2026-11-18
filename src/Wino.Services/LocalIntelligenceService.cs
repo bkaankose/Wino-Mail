@@ -33,17 +33,21 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
     private readonly IMailIntelligenceStore _store;
     private readonly IAccountService _accountService;
 
+    private readonly IMessenger _messenger;
+
     public LocalIntelligenceService(
         IDatabaseService databaseService,
         IMailIntelligenceStore store,
-        IAccountService accountService)
+        IAccountService accountService,
+        IMessenger messenger)
     {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _databaseService = databaseService;
         _store = store;
         _accountService = accountService;
-        WeakReferenceMessenger.Default.Register<LocalIntelligenceService, IntelligenceMetadataChanged>(
+        _messenger.Register<LocalIntelligenceService, IntelligenceMetadataChanged>(
             this, static (recipient, message) => recipient.Receive(message));
-        WeakReferenceMessenger.Default.Register<LocalIntelligenceService, IntelligenceVisibilityChanged>(
+        _messenger.Register<LocalIntelligenceService, IntelligenceVisibilityChanged>(
             this, static (recipient, message) => recipient.Receive(message));
     }
 
@@ -341,5 +345,5 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
 
     public void Receive(IntelligenceVisibilityChanged message) { }
 
-    public void Dispose() => WeakReferenceMessenger.Default.UnregisterAll(this);
+    public void Dispose() => _messenger.UnregisterAll(this);
 }

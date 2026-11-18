@@ -28,6 +28,7 @@ namespace Wino.Services;
 public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, IDisposable
 {
     private readonly IWinoAccountProfileService _profileService;
+    private readonly IMessenger _messenger;
     private readonly IWinoAccountApiClient _apiClient;
     private readonly IMailIntelligenceCoordinator _mailIntelligenceCoordinator;
     private readonly IIntelligenceMessageContextResolver _messageResolver;
@@ -57,8 +58,10 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         IPreferencesService preferencesService,
         IWinoLogger logger,
         IMailContentProjector contentProjector,
+        IMessenger messenger,
         IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null)
     {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _profileService = profileService;
         _apiClient = apiClient;
         _mailIntelligenceCoordinator = mailIntelligenceCoordinator;
@@ -74,13 +77,13 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         _contentProjector = contentProjector;
         _accountSnapshotService = accountSnapshotService;
 
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this, static (recipient, _) =>
+        _messenger.Register<WinoIntelligenceAccessChanged>(this, static (recipient, _) =>
             ((WinoIntelligenceCoordinator)recipient).InvalidateAccess());
-        WeakReferenceMessenger.Default.Register<WinoAccountSignedInMessage>(this, static (recipient, _) =>
+        _messenger.Register<WinoAccountSignedInMessage>(this, static (recipient, _) =>
             ((WinoIntelligenceCoordinator)recipient).InvalidateAccessAndNotify());
-        WeakReferenceMessenger.Default.Register<WinoAccountSignedOutMessage>(this, static (recipient, _) =>
+        _messenger.Register<WinoAccountSignedOutMessage>(this, static (recipient, _) =>
             ((WinoIntelligenceCoordinator)recipient).InvalidateAccessAndNotify());
-        WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this, static (recipient, _) =>
+        _messenger.Register<WinoAccountProfileUpdatedMessage>(this, static (recipient, _) =>
             ((WinoIntelligenceCoordinator)recipient).InvalidateAccessAndNotify());
     }
 
@@ -311,12 +314,12 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     private void InvalidateAccessAndNotify()
     {
         InvalidateAccess();
-        WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+        _messenger.Send(new WinoIntelligenceAccessChanged());
     }
 
     public void Dispose()
     {
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
         foreach (var request in _requests.Values)
             request.Cancellation.Cancel();
     }

@@ -13,15 +13,19 @@ namespace Wino.Core.Services;
 public sealed class ApplicationLocalRequestExecutor : IApplicationLocalRequestExecutor
 {
     private readonly IContactService _contactService;
+    private readonly RequestUiChangeCoordinator _uiChanges;
 
-    public ApplicationLocalRequestExecutor(IContactService contactService)
-        => _contactService = contactService;
+    public ApplicationLocalRequestExecutor(IContactService contactService, RequestUiChangeCoordinator uiChanges)
+    {
+        _contactService = contactService;
+        _uiChanges = uiChanges;
+    }
 
     public async Task ExecuteAsync(IRequestBase request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        RequestUiChangeCoordinator.ApplyRequests([request]);
+        _uiChanges.ApplyRequests([request]);
 
         try
         {
@@ -29,12 +33,12 @@ public sealed class ApplicationLocalRequestExecutor : IApplicationLocalRequestEx
                 throw new NotSupportedException($"Application-local request {request.GetType().Name} is not supported.");
 
             await _contactService.SetContactFavoriteAsync(contactRequest.Contact.Id, contactRequest.Contact.IsFavorite).ConfigureAwait(false);
-            RequestUiChangeCoordinator.CompleteRequests([request]);
+            _uiChanges.CompleteRequests([request]);
         }
         catch
         {
-            RequestUiChangeCoordinator.RevertRequests([request]);
-            RequestUiChangeCoordinator.CompleteRequests([request]);
+            _uiChanges.RevertRequests([request]);
+            _uiChanges.CompleteRequests([request]);
             throw;
         }
     }

@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +10,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 
-public class MailFilterService(IDatabaseService databaseService) : BaseDatabaseService(databaseService), IMailFilterService
+public class MailFilterService(IDatabaseService databaseService, IMessenger messenger) : BaseDatabaseService(databaseService, messenger), IMailFilterService
 {
     public async Task<List<MailFilter>> GetFiltersAsync(Guid accountId, CancellationToken cancellationToken = default)
     {

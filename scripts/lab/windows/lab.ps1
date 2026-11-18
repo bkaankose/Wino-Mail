@@ -334,7 +334,10 @@ function Install-App {
     if (!$IsWindows) { throw 'install-app installs into the Windows Debug package. On a Mac, see tools/lab/macos/README.md.' }
     $package = @(Get-AppxPackage | Where-Object { $_.IsDevelopmentMode -and $_.Name -match 'WinoMail' }) | Select-Object -First 1
     if (!$package) { throw 'No Wino development package is registered. Start the Debug app once (F5), close it, and retry.' }
-    if (Get-Process -Name 'Wino.Mail.WinUI' -ErrorAction SilentlyContinue) { throw 'Wino is running. Close it and retry; its data is not replaced while it runs.' }
+    # The Store, Beta and Sideload installations share the process name and keep their own data.
+    $running = @(Get-Process -Name 'Wino.Mail.WinUI' -ErrorAction SilentlyContinue |
+        Where-Object { !$_.Path -or $_.Path.StartsWith($package.InstallLocation, [StringComparison]::OrdinalIgnoreCase) })
+    if ($running) { throw 'Wino is running. Close it and retry; its data is not replaced while it runs.' }
     $null = Get-LabManifest
     if ($Shared) {
         Write-Output 'Installing the shared baseline accounts. Other agents may change them at the same time.'

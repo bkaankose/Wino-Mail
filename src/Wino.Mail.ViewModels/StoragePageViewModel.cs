@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -13,11 +14,11 @@ using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class StoragePageViewModel(
+public partial class StoragePageViewModel(IMessenger messenger, 
     IAccountService accountService,
     IMimeFileService mimeFileService,
     IMailService mailService,
-    IMailDialogService dialogService) : MailBaseViewModel
+    IMailDialogService dialogService) : MailBaseViewModel(messenger)
 {
     private readonly ILogger _logger = Log.ForContext<StoragePageViewModel>();
     private readonly IAccountService _accountService = accountService;

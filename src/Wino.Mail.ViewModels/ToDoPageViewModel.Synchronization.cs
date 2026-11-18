@@ -25,7 +25,7 @@ public partial class ToDoPageViewModel
     public bool CanSynchronize => TaskAccountIds.Count > 0 && !SynchronizationState.IsSynchronizing;
 
     public ShellSynchronizationState SynchronizationState
-        => ShellSynchronizationStateReader.Read(TaskAccountIds, SynchronizationProgressCategory.Tasks);
+        => ShellSynchronizationStateReader.Read(_synchronizationManager, TaskAccountIds, SynchronizationProgressCategory.Tasks);
 
     public string SynchronizationDescription => Translator.TitleBar_Sync_TasksDescription;
 

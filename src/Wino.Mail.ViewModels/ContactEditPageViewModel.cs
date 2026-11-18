@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -129,9 +130,9 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     public double BirthdayMonthValue { get => BirthdayMonth ?? double.NaN; set { BirthdayMonth = double.IsNaN(value) ? null : (int)value; IsDirty = true; } }
     public double BirthdayDayValue { get => BirthdayDay ?? double.NaN; set { BirthdayDay = double.IsNaN(value) ? null : (int)value; IsDirty = true; } }
 
-    public ContactEditPageViewModel(IContactQueryService contactService, IWinoRequestDelegator requestDelegator,
+    public ContactEditPageViewModel(IMessenger messenger, IContactQueryService contactService, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService, IPictureStorageService pictureFileService,
-        IPreferencesService preferencesService = null, IMailCategoryService mailCategoryService = null)
+        IPreferencesService preferencesService = null, IMailCategoryService mailCategoryService = null) : base(messenger)
     {
         _mailCategoryService = mailCategoryService;
         _contactService = contactService;

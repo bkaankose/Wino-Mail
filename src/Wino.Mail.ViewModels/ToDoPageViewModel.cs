@@ -506,7 +506,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         }
     }
 
+    private readonly ISynchronizationManager _synchronizationManager;
+
     public ToDoPageViewModel(
+        IMessenger messenger,
+        ISynchronizationManager synchronizationManager,
         ITaskQueryService taskService,
         IAccountService accountService,
         AccountGroupExpansionStore accountGroupExpansion,
@@ -517,8 +521,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         IPreferencesService preferencesService = null,
         ITaskCompletionSound taskCompletionSound = null,
         IAppModeReadinessService appModeReadinessService = null,
-        IMailShellClient mailShell = null)
+        IMailShellClient mailShell = null) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
         _accountService = accountService;
@@ -566,8 +571,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _isPreparedForShellShutdown = false;
         ShellMenu = new ShellMenu
         {
-            Items = new MenuItemCollection(Dispatcher),
-            FooterItems = new MenuItemCollection(Dispatcher),
+            Items = new MenuItemCollection(),
+            FooterItems = new MenuItemCollection(),
             HandlesSelection = true
         };
         _newListMenuItem.NewGroupRequested = CreateGroupAsync;
@@ -2498,7 +2503,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     {
         foreach (var account in accounts)
         {
-            WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            Messenger.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = TaskSynchronizationType.Delta,

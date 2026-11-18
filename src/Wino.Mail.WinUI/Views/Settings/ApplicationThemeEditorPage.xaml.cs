@@ -21,7 +21,9 @@ using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
 
-// The color-option template reads ViewModel through an ElementName binding.
+// The color-option template reads the page's preview dependency properties through ElementName
+// bindings. The attribute stays so the page keeps the binding surface those bindings shipped with;
+// removing it is untested in Native AOT.
 [GeneratedBindableCustomProperty(
     new string[] { nameof(ViewModel) },
     new Type[] { })]
@@ -53,6 +55,18 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
     /// </summary>
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string PreviewAccentColorHex { get; set; }
+
+    // Mirrors of view model state for the color-option template, which cannot reach the view
+    // model with x:Bind and must not bind through it at run time: the portable view model has no
+    // WinRT binding metadata.
+    [GeneratedDependencyProperty]
+    public partial CustomThemePalette? PreviewPalette { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = ThemeWallpaperAlignment.Center)]
+    public partial ThemeWallpaperAlignment PreviewWallpaperAlignment { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = ThemeWallpaperFit.Fill)]
+    public partial ThemeWallpaperFit PreviewWallpaperFit { get; set; }
 
     public ApplicationThemeEditorPage() => InitializeComponent();
 
@@ -106,6 +120,9 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
         // application actually renders. Otherwise a dark shell opens the Light palette.
         ViewModel.ResolveSystemPaletteMode(ActualTheme == ElementTheme.Dark);
 
+        PreviewPalette = ViewModel.PreviewPalette;
+        PreviewWallpaperAlignment = ViewModel.WallpaperAlignment;
+        PreviewWallpaperFit = ViewModel.WallpaperFit;
         UpdatePreviewAccent();
         SynchronizeSegments();
         _ = UpdateWallpaperAsync();
@@ -152,6 +169,15 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
             case nameof(ViewModel.PaletteModeIndex):
             case nameof(ViewModel.WallpaperFitIndex):
                 SynchronizeSegments();
+                break;
+            case nameof(ViewModel.PreviewPalette):
+                PreviewPalette = ViewModel.PreviewPalette;
+                break;
+            case nameof(ViewModel.WallpaperAlignment):
+                PreviewWallpaperAlignment = ViewModel.WallpaperAlignment;
+                break;
+            case nameof(ViewModel.WallpaperFit):
+                PreviewWallpaperFit = ViewModel.WallpaperFit;
                 break;
         }
     }

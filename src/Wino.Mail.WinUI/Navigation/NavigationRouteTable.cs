@@ -56,6 +56,7 @@ public static class NavigationRouteTable
         Settings(WinoPage.ApplicationThemeGalleryPage, typeof(ApplicationThemeGalleryPage)),
         Settings(WinoPage.ApplicationThemeEditorPage, typeof(ApplicationThemeEditorPage)),
         Settings(WinoPage.PrivacySecurityPage, typeof(PrivacySecurityPage)),
+        Settings(WinoPage.AppLockPage, typeof(AppLockPage)),
         Settings(WinoPage.RemoteContentRulesPage, typeof(RemoteContentRulesPage)),
         Settings(WinoPage.MessageListPage, typeof(MessageListPage)),
         Settings(WinoPage.NotificationSettingsPage, typeof(NotificationSettingsPage)),

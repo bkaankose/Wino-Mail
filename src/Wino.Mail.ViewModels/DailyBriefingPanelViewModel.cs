@@ -93,6 +93,8 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
 
     public bool ShowFilteredEmpty => !IsLoading && !IsUnavailable && IsFilteredEmpty && !HasLoadError;
 
+    private readonly IMessenger _messenger;
+
     public DailyBriefingPanelViewModel(
         ILocalIntelligenceService localService,
         IDateContextProvider dateContext,
@@ -102,8 +104,10 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         IMailService mailService,
         IMimeFileService mimeFileService,
         IWinoRequestDelegator requestDelegator,
-        IClipboardService clipboardService)
+        IClipboardService clipboardService,
+        IMessenger messenger)
     {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _localService = localService;
         _dateContext = dateContext;
         _dispatcher = dispatcher;
@@ -114,9 +118,9 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         _requestDelegator = requestDelegator;
         _clipboardService = clipboardService;
         IsShowingIgnored = preferencesService.IsDailyBriefingShowingIgnored;
-        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
-        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
+        _messenger.Register<IntelligenceVisibilityChanged>(this);
+        _messenger.Register<IntelligenceMetadataChanged>(this);
+        _messenger.Register<WinoIntelligenceEntitlementChanged>(this);
     }
 
     public event EventHandler? CloseRequested;
@@ -470,7 +474,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         }
 
         CloseRequested?.Invoke(this, EventArgs.Empty);
-        WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(item.MailUniqueId, ScrollToItem: true));
+        _messenger.Send(new MailItemNavigationRequested(item.MailUniqueId, ScrollToItem: true));
     }
 
     [RelayCommand]
@@ -555,7 +559,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         }).ConfigureAwait(false);
 
         // The title-bar badge is the same unseen state, so it has to be told the briefing was read.
-        WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
+        _messenger.Send(new DailyBriefingStateChanged());
     }
 
     internal static string GetInitials(string name)
@@ -619,6 +623,6 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
     public void Dispose()
     {
         CancelPendingWork();
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
     }
 }

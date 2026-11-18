@@ -17,10 +17,24 @@ public enum ApplicationStartupTarget
     Welcome
 }
 
+/// <summary>When startup starts the runtime's periodic work.</summary>
+public enum ApplicationRuntimeStart
+{
+    /// <summary>The runtime starts and the theme loads before the first window (macOS, iOS, Android, Wino.Hosting).</summary>
+    BeforeFirstWindow,
+
+    /// <summary>
+    /// The runtime is only initialized. The head loads the theme with its first window and calls
+    /// <see cref="ApplicationLifecycleCoordinator.StartRuntimeAsync"/> once that window has rendered, so the first
+    /// synchronization does not compete with the first frame (Windows).
+    /// </summary>
+    AfterFirstWindow
+}
+
 /// <summary>Head feature work that runs when services are ready and when the app quits.</summary>
 public interface IApplicationLifecycleHook
 {
-    /// <summary>Right after the runtime started and the theme loaded; services are available.</summary>
+    /// <summary>Right after the runtime started (or initialized, see <see cref="ApplicationRuntimeStart"/>); services are available.</summary>
     Task ServicesReadyAsync();
 
     /// <summary>
@@ -33,7 +47,11 @@ public interface IApplicationLifecycleHook
 /// <summary>The head side of startup and shutdown: its feature hooks plus the window work only it can do.</summary>
 public interface IApplicationLifecycleHost : IApplicationLifecycleHook
 {
-    /// <summary>Shows the first window content for <paramref name="target"/>.</summary>
+    /// <summary>
+    /// Shows the first window content for <paramref name="target"/>. A head whose first window depends on how the
+    /// process was activated (Windows: a toast, a share, a file, a logon start without any window) records the
+    /// target here and shows the window from its activation route right after startup returns.
+    /// </summary>
     Task ShowStartupAsync(ApplicationStartupTarget target);
 
     /// <summary>Stops navigation and closes windows; runs after <see cref="IApplicationLifecycleHook.StoppingAsync"/>.</summary>
@@ -52,18 +70,51 @@ public sealed class ApplicationLifecycleCoordinator(
     IWinoLogger logger,
     IApplicationConfiguration configuration)
 {
+    private bool _loggerConfigured;
+    private bool _stopsRuntime;
+
     /// <summary>Log file below the application data folder.</summary>
     public string LogFilePath => Path.Combine(configuration.ApplicationDataFolderPath, "Logs", "wino.log");
 
-    /// <summary>The runtime started and the theme loaded; services-ready hooks have run or are running.</summary>
+    /// <summary>
+    /// The runtime started and the theme loaded (with <see cref="ApplicationRuntimeStart.AfterFirstWindow"/>: the
+    /// runtime initialized); services-ready hooks have run or are running.
+    /// </summary>
     public bool RuntimeStarted { get; private set; }
 
-    public async Task<ApplicationStartupTarget> StartAsync(IApplicationLifecycleHost host)
+    /// <summary>
+    /// Sets the logger up once. Startup calls it with <see cref="LogFilePath"/>; a head that logs before startup
+    /// (Windows, from its application constructor) calls it earlier with its own file, and startup keeps that.
+    /// </summary>
+    public void SetupLogger(string? logFilePath = null)
     {
-        logger.SetupLogger(LogFilePath);
+        if (_loggerConfigured) return;
 
-        await services.GetRequiredService<IApplicationRuntime>().StartAsync();
-        await services.GetRequiredService<INewThemeService>().InitializeAsync();
+        logger.SetupLogger(logFilePath ?? LogFilePath);
+        _loggerConfigured = true;
+    }
+
+    public async Task<ApplicationStartupTarget> StartAsync(
+        IApplicationLifecycleHost host,
+        ApplicationRuntimeStart runtimeStart = ApplicationRuntimeStart.BeforeFirstWindow)
+    {
+        SetupLogger();
+
+        var runtime = services.GetRequiredService<IApplicationRuntime>();
+        if (runtimeStart == ApplicationRuntimeStart.AfterFirstWindow)
+        {
+            // Set before initializing: quitting during initialization stops the runtime, whose lifetime token
+            // then cancels the remaining initialization steps.
+            _stopsRuntime = true;
+            await runtime.InitializeAsync();
+        }
+        else
+        {
+            await runtime.StartAsync();
+            await services.GetRequiredService<INewThemeService>().InitializeAsync();
+            _stopsRuntime = true;
+        }
+
         RuntimeStarted = true;
 
         await host.ServicesReadyAsync();
@@ -72,6 +123,9 @@ public sealed class ApplicationLifecycleCoordinator(
         await host.ShowStartupAsync(target);
         return target;
     }
+
+    /// <summary>Starts the runtime's periodic work after a startup with <see cref="ApplicationRuntimeStart.AfterFirstWindow"/>.</summary>
+    public Task StartRuntimeAsync() => services.GetRequiredService<IApplicationRuntime>().StartAsync();
 
     /// <summary>The shell when at least one account exists, Welcome otherwise.</summary>
     public async Task<ApplicationStartupTarget> GetStartupTargetAsync()
@@ -85,6 +139,6 @@ public sealed class ApplicationLifecycleCoordinator(
         await host.StoppingAsync(RuntimeStarted);
         await host.StopNavigationAsync();
 
-        if (RuntimeStarted) await services.GetRequiredService<IApplicationRuntime>().StopAsync();
+        if (_stopsRuntime) await services.GetRequiredService<IApplicationRuntime>().StopAsync();
     }
 }

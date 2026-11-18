@@ -11,7 +11,7 @@ public static partial class MacViewModelRegistration
     {
         // INotificationBuilder → AppleNotificationBuilder (notifications, Dock badge through MacDockBadgePresenter, Dock menu quick folders) is
         // registered with the platform services in Composition; its dependencies resolve from the container.
-        // ICalendarReminderServer and INotificationResponseService are registered by Wino.Services; the
+        // ICalendarReminderServer is registered by Wino.Services and INotificationResponseService by RegisterWinoViewModels; the
         // response service shows UI through this navigator (over IApplicationShellHost, see the Activation partial).
         // AppleNotificationResponseHandler (Wino.Platform.Apple) is created by AppDelegate before launch finishes (it must be the
         // notification center delegate before any service exists), so it is not a container service.

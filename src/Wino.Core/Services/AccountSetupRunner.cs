@@ -41,6 +41,9 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
     private readonly IAccountOAuthProfileService? _accountOAuthProfileService;
     private readonly IDavOAuthAuthenticationProvider? _davOAuthAuthenticationProvider;
     private readonly IGoogleMailboxProfileService? _googleMailboxProfileService;
+    private readonly IMailProviderRegistry _providers;
+
+    private readonly IMessenger _messenger;
 
     public AccountSetupRunner(
         IAccountService accountService,
@@ -49,12 +52,16 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         IAuthenticationProvider authenticationProvider,
         ICalDavClient calDavClient,
         IWinoLogger winoLogger,
+        IMessenger messenger,
+        IMailProviderRegistry providers,
         IOAuthTokenService? oauthTokenService = null,
         IAccountOAuthProfileService? accountOAuthProfileService = null,
         IDavOAuthAuthenticationProvider? davOAuthAuthenticationProvider = null,
         IGoogleMailboxProfileService? googleMailboxProfileService = null)
     {
+        _providers = providers ?? throw new ArgumentNullException(nameof(providers));
         _googleMailboxProfileService = googleMailboxProfileService;
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _accountService = accountService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _synchronizationManager = synchronizationManager;
@@ -87,7 +94,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
                     Add(AccountSetupStepKind.FetchingProfile);
                     Add(AccountSetupStepKind.SyncingFolders);
 
-                    if (plan.ProviderType == MailProviderType.Outlook)
+                    if (_providers.GetTraits(plan.ProviderType).SupportsCategorySync)
                         Add(AccountSetupStepKind.SyncingCategories);
 
                     Add(AccountSetupStepKind.SyncingAliases);
@@ -166,7 +173,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
     {
         ArgumentNullException.ThrowIfNull(transientAccount);
 
-        if (transientAccount.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
+        if (!_providers.GetTraits(transientAccount.ProviderType).UsesInteractiveOAuth)
             throw new ArgumentException("Only Gmail and Outlook accounts sign in through their provider.", nameof(transientAccount));
 
         var authenticator = _authenticationProvider.GetAuthenticator(transientAccount.ProviderType);
@@ -310,7 +317,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, null, enableMailFilters: account.IsMailAccessGranted);
-        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        _messenger.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
         run.Succeed();
 
@@ -411,7 +418,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, serverInformation, true);
-        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        _messenger.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
         run.Succeed();
 
@@ -453,7 +460,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, serverInformation, setupData.ShouldAppendMessagesToSentFolder);
-        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        _messenger.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
 
         if (oauthSession != null)
@@ -510,7 +517,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         // Exchange files sent mail on the server itself, so no copy is appended to Sent.
         await _accountService.CreateAccountAsync(account, serverInformation, shouldAppendMessagesToSentFolder: false);
-        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        _messenger.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
         run.Succeed();
 
@@ -541,9 +548,9 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         }
     }
 
-    private static MailAccount BuildAccount(AccountSetupPlan plan)
+    private MailAccount BuildAccount(AccountSetupPlan plan)
     {
-        var isProviderApi = plan.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.Exchange;
+        var isProviderApi = _providers.GetTraits(plan.ProviderType).ServesModesFromProvider;
 
         var account = new MailAccount
         {
@@ -726,7 +733,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             ["setup_operation"] = operationName,
             ["setup_step"] = run.CurrentStep is { } currentStep ? GetStepTitle(plan, currentStep) : string.Empty,
             ["provider_type"] = plan.ProviderType.ToString(),
-            ["is_oauth_provider"] = (plan.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail).ToString(),
+            ["is_oauth_provider"] = _providers.GetTraits(plan.ProviderType).UsesInteractiveOAuth.ToString(),
             ["is_mail_access_enabled"] = plan.IsMailAccessEnabled.ToString(),
             ["is_calendar_access_enabled"] = plan.IsCalendarAccessEnabled.ToString(),
             ["is_contact_access_enabled"] = plan.IsContactAccessEnabled.ToString(),

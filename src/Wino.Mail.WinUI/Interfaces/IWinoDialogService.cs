@@ -51,4 +51,8 @@ public interface IWinoDialogService
     /// Call on the UI thread.
     /// </summary>
     Task<EmbeddedBrowserAuthResult> ShowEmbeddedBrowserSignInDialogAsync(Uri startUri, Uri redirectUri, CancellationToken cancellationToken);
+
+    /// <summary>Asks for the app lock PIN, or Windows Hello when it is turned on, before a sensitive step. Call on the UI thread.</summary>
+    /// <returns>True only when the PIN or Windows Hello was verified.</returns>
+    Task<bool> ShowAppLockVerificationDialogAsync();
 }

@@ -7,6 +7,7 @@ using Serilog;
 using Wino.Authentication;
 using Wino.Authentication.OAuth;
 using Wino.Core;
+using Wino.Core.Providers;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Platform;
@@ -60,26 +61,27 @@ internal static class Composition
         Views.Settings.WinoAccountSessionSimulation.Register(services);
 #endif
         services.RegisterCoreServices();
+        services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
         services.AddSingleton(dispatcher);
         services.AddSingleton(identity);
         services.AddSingleton(paths);
         services.AddSingleton(keychain);
-        services.AddSingleton<ISecureItemStore>(secureStore);
-        services.AddSingleton<ISecretProtector>(protector);
-        services.Replace(ServiceDescriptor.Singleton<IApplicationConfiguration>(new ApplicationConfiguration
+        // The bundle's CFBundleShortVersionString is the app version; CFBundleVersion is the build (Sentry dist).
+        services.AddPortablePlatformServices(new ApplicationConfiguration
         {
             ApplicationDataFolderPath = paths.ApplicationDataRoot,
             PublisherSharedFolderPath = Path.Combine(paths.ApplicationDataRoot, ApplicationConfiguration.SharedFolderName),
             ApplicationTempFolderPath = paths.TemporaryRoot,
             ApplicationDisplayName = "Wino Mail",
             AllowLegacyDataMigration = false,
-        }));
-        services.AddSingleton<IConfigurationService>(_ => new JsonFileConfigurationService(paths.ApplicationDataRoot));
-        services.AddSingleton<IPreferencesService, PreferencesService>();
+        }, secureStore, protector, new HostAppMetadataService(BundleString("CFBundleShortVersionString"), identity.Value,
+#if DEBUG
+            true
+#else
+            false
+#endif
+            , BundleString("CFBundleVersion"), "Mac"));
         services.AddSingleton<IApplicationResourceResolver, AppleApplicationResourceResolver>();
-        services.AddSingleton<IFileService, FileSystemFileService>();
-        services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
-        services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
         services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
         services.AddSingleton<IOAuthTokenStore, SecureItemOAuthTokenStore>();
         // Gmail mailboxes sign in with the Wino Mail iOS client in the web authentication sheet; Windows keeps the UWP client.
@@ -95,6 +97,7 @@ internal static class Composition
         services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
         services.AddSingleton<IStartupIntegrationService, MacStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, MacSmimeCertificateService>();
+        services.AddSingleton<IAppLockPlatform, UnavailableAppLockPlatform>();
         services.AddSingleton<ITaskCompletionSound, MacTaskCompletionSound>();
         services.AddSingleton<IUserPresenceStateProvider, MacUserPresenceStateProvider>();
         services.AddSingleton<INotificationSoundCatalog, MacNotificationSoundCatalog>();
@@ -103,7 +106,6 @@ internal static class Composition
         services.AddSingleton<AppleNotificationSounds>();
         services.AddSingleton<INotificationSoundProvider>(provider => provider.GetRequiredService<AppleNotificationSounds>());
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
-        services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         // WinoRelay on the Mac is socket-only: no push token is registered, so nothing arrives while the app is not running.
         services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, MacPushRelayDeviceInfo>();
@@ -145,14 +147,6 @@ internal static class Composition
             AppleAppStore: false
 #endif
         ));
-        // The bundle's CFBundleShortVersionString is the app version; CFBundleVersion is the build (Sentry dist).
-        services.AddSingleton<IAppMetadataService>(new HostAppMetadataService(BundleString("CFBundleShortVersionString"), identity.Value,
-#if DEBUG
-            true
-#else
-            false
-#endif
-            , BundleString("CFBundleVersion"), "Mac"));
         services.AddSingleton<IMailDialogService>(provider => new AppKitDialogService(dispatcher, owner, error, provider));
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         // Wino Account external sign-in. Google runs natively in a web authentication session with the Wino Accounts iOS

@@ -19,9 +19,11 @@ public class EntityNotFoundHandler : ISynchronizerErrorHandler
     private readonly IMailService _mailService;
     private readonly IFolderService _folderService;
     private readonly ICalendarService _calendarService;
+    private readonly RequestUiChangeCoordinator _uiChanges;
 
-    public EntityNotFoundHandler(IMailService mailService, IFolderService folderService, ICalendarService calendarService)
+    public EntityNotFoundHandler(IMailService mailService, IFolderService folderService, ICalendarService calendarService, RequestUiChangeCoordinator uiChanges)
     {
+        _uiChanges = uiChanges;
         _mailService = mailService;
         _folderService = folderService;
         _calendarService = calendarService;
@@ -68,7 +70,7 @@ public class EntityNotFoundHandler : ISynchronizerErrorHandler
                 mailAction.Operation, mailAction.Item.Id);
 
             // Revert optimistic UI change (e.g. mark-read/flag toggle) before deleting
-            RequestUiChangeCoordinator.RevertBundle(error.RequestBundle);
+            _uiChanges.RevertBundle(error.RequestBundle);
 
             try
             {

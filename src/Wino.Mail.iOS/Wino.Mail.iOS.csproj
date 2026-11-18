@@ -58,6 +58,11 @@
   <ItemGroup>
     <ProjectReference Include="../Wino.Mail.UIKit/Wino.Mail.UIKit.csproj" />
     <ProjectReference Include="../Wino.Mail.UIKit.Phone/Wino.Mail.UIKit.Phone.csproj" />
+    <ProjectReference Include="../Wino.Providers.Outlook/Wino.Providers.Outlook.csproj" />
+    <ProjectReference Include="../Wino.Providers.Gmail/Wino.Providers.Gmail.csproj" />
+    <ProjectReference Include="../Wino.Providers.Imap/Wino.Providers.Imap.csproj" />
+    <ProjectReference Include="../Wino.Providers.Exchange/Wino.Providers.Exchange.csproj" />
+    <ProjectReference Include="../Wino.Providers.Dav/Wino.Providers.Dav.csproj" />
     <ProjectReference Include="../Wino.Platform.iOS/Wino.Platform.iOS.csproj" />
     <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
     <!-- Embedded Notification Service Extension (PlugIns/): rewrites relay alerts with sender, subject and preview. -->

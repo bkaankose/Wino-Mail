@@ -25,6 +25,7 @@ using Wino.Core.Domain.Presentation;
 using Wino.Core.Domain.Validation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -51,7 +52,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     private readonly CoalescedRefresh _calendarSettingsRefresh;
     private readonly IPreferencesService _preferencesService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
-    private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly CalendarEventComposeResultValidator _composeResultValidator = new();
     private readonly IAttachmentFileService _attachmentFileService;
     private readonly ICalendarCapabilityService _calendarCapabilityService;
@@ -289,17 +290,17 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     public string ComposerFont => _preferencesService.ComposerFont;
     public int ComposerFontSize => _preferencesService.ComposerFontSize;
 
-    public CalendarEventComposePageViewModel(IAccountService accountService,
+    public CalendarEventComposePageViewModel(IMessenger messenger, IAccountService accountService,
                                              ICalendarService calendarService,
                                              INavigationService navigationService,
                                              IMailDialogService dialogService,
                                              IContactService contactService,
                                              IPreferencesService preferencesService,
                                              IUnderlyingThemeService underlyingThemeService,
-                                             IWinoRequestDelegator winoRequestDelegator,
+                                             WinoRequestCoordinator requestCoordinator,
                                              IAttachmentFileService attachmentFileService = null,
                                              IRecipientSuggestionService recipientSuggestionService = null,
-                                             ICalendarCapabilityService calendarCapabilityService = null)
+                                             ICalendarCapabilityService calendarCapabilityService = null) : base(messenger)
     {
         _accountService = accountService;
         _calendarService = calendarService;
@@ -308,7 +309,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         _contactService = contactService;
         _preferencesService = preferencesService;
         _underlyingThemeService = underlyingThemeService;
-        _winoRequestDelegator = winoRequestDelegator;
+        _requestCoordinator = requestCoordinator;
         _attachmentFileService = attachmentFileService;
         _recipientSuggestionService = recipientSuggestionService;
         _calendarCapabilityService = calendarCapabilityService;
@@ -1016,7 +1017,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
             return;
         }
 
-        await _winoRequestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
+        await _requestCoordinator.ExecuteCalendarOperationAsync(new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.CreateEvent,
             ComposeResult: createdResult));
 
@@ -1082,7 +1083,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         await _calendarService.SaveRemindersAsync(updatedItem.Id, updatedReminders);
         await _calendarService.UpdateCalendarItemAsync(updatedItem, updatedAttendees);
 
-        await _winoRequestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
+        await _requestCoordinator.ExecuteCalendarOperationAsync(new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.UpdateEvent,
             updatedItem,
             updatedAttendees,

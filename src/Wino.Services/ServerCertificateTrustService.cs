@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +11,7 @@ namespace Wino.Services;
 
 public sealed class ServerCertificateTrustService : BaseDatabaseService, IServerCertificateTrustService
 {
-    public ServerCertificateTrustService(IDatabaseService databaseService) : base(databaseService)
+    public ServerCertificateTrustService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
     {
     }
 

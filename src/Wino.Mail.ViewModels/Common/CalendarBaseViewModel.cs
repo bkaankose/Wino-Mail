@@ -13,6 +13,8 @@ public partial class CalendarBaseViewModel : CoreBaseViewModel,
     IRecipient<CalendarItemDeleted>,
     IRecipient<CalendarItemOperationsCompleted>
 {
+    public CalendarBaseViewModel(IMessenger messenger) : base(messenger) { }
+
     public void Receive(CalendarItemAdded message) => DispatchToUIThread(() => OnCalendarItemAdded(message.CalendarItem, message.Source));
     public void Receive(CalendarItemUpdated message) => DispatchToUIThread(() => OnCalendarItemUpdated(message.CalendarItem, message.Source));
     public void Receive(CalendarItemDeleted message) => DispatchToUIThread(() => OnCalendarItemDeleted(message.CalendarItem, message.Source));

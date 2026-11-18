@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Services;
@@ -18,6 +19,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
     private readonly ITaskService _taskService;
     private readonly ICalendarService _calendarService;
     private readonly IAuthenticationProvider _authenticationProvider;
+    private readonly IMailProviderRegistry _providers;
 
     public AccountCapabilityService(
         ISynchronizationManager synchronizationManager,
@@ -25,8 +27,10 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         IContactService contactService,
         ITaskService taskService,
         ICalendarService calendarService,
+        IMailProviderRegistry providers,
         IAuthenticationProvider authenticationProvider = null)
     {
+        _providers = providers;
         _synchronizationManager = synchronizationManager;
         _accountService = accountService;
         _contactService = contactService;
@@ -57,17 +61,18 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         ArgumentNullException.ThrowIfNull(account);
         if (!includeMail && !includeCalendar && !includeContacts && !includeTasks)
             throw new InvalidOperationException("At least one account capability must remain enabled.");
-        if (includeContacts && account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange))
+        var traits = _providers.GetTraits(account.ProviderType);
+        if (includeContacts && !traits.ServesModesFromProvider)
             throw new NotSupportedException("Provider contacts are available only for Gmail, Outlook and Exchange accounts.");
 
         var previous = CapabilityFlags.Capture(account);
         var synchronizer = await _synchronizationManager.GetSynchronizerAsync(account.Id).ConfigureAwait(false);
         var synchronizerAccount = synchronizer?.Account;
-        var isOAuthProvider = account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook;
 
         // Exchange serves the modes from its server like Gmail and Outlook, but signs in with the account's stored
         // credentials, so it never needs the interactive authorization the OAuth providers ask for.
-        var isProviderBacked = isOAuthProvider || account.ProviderType == MailProviderType.Exchange;
+        var isOAuthProvider = traits.UsesInteractiveOAuth;
+        var isProviderBacked = traits.ServesModesFromProvider;
 
         // The page shows the mode as on for a local-only store too. Leaving that toggle on is
         // not a request for the provider; only off -> on is.
@@ -79,7 +84,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         var shouldRemoveMailDataAfterCommit = !includeMail && previous.Mail;
         HashSet<Guid> existingProviderTaskListIds = isProviderBacked
             ? (await _taskService.GetTaskListsAsync(account.Id).ConfigureAwait(false))
-                .Where(list => list.SourceKind == ProviderTaskSource(account))
+                .Where(list => list.SourceKind == ProviderTaskSource(traits))
                 .Select(list => list.Id)
                 .ToHashSet()
             : [];
@@ -104,7 +109,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                     account,
                     forceInteractive: true).ConfigureAwait(false);
 
-                if (includeTasks && account.ProviderType == MailProviderType.Outlook &&
+                if (includeTasks &&
                     _authenticationProvider?.GetAuthenticator(account.ProviderType) is ISubstrateTaskTokenProvider substrateTokenProvider)
                 {
                     try
@@ -194,11 +199,11 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
 
             if (!previous.Contacts)
             {
-                await _contactService.DeleteAddressBooksBySourceAsync(account.Id, ProviderContactSource(account)).ConfigureAwait(false);
+                await _contactService.DeleteAddressBooksBySourceAsync(account.Id, ProviderContactSource(traits)).ConfigureAwait(false);
             }
             if (isProviderBacked && !previous.Tasks)
             {
-                var source = ProviderTaskSource(account);
+                var source = ProviderTaskSource(traits);
                 var currentProviderLists = await _taskService.GetTaskListsAsync(account.Id).ConfigureAwait(false);
                 foreach (var list in currentProviderLists.Where(list => list.SourceKind == source && !existingProviderTaskListIds.Contains(list.Id)))
                     await _taskService.RemoveTaskListAsync(list.Id).ConfigureAwait(false);
@@ -271,19 +276,9 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
     }
 
     // Accounts that are not provider-backed keep the Outlook value they always resolved to here.
-    private static ContactSourceKind ProviderContactSource(MailAccount account) => account.ProviderType switch
-    {
-        MailProviderType.Gmail => ContactSourceKind.Gmail,
-        MailProviderType.Exchange => ContactSourceKind.Exchange,
-        _ => ContactSourceKind.Outlook
-    };
+    private static ContactSourceKind ProviderContactSource(MailProviderTraits traits) => traits.ProviderContactSource ?? ContactSourceKind.Outlook;
 
-    private static TaskSourceKind ProviderTaskSource(MailAccount account) => account.ProviderType switch
-    {
-        MailProviderType.Gmail => TaskSourceKind.Gmail,
-        MailProviderType.Exchange => TaskSourceKind.Exchange,
-        _ => TaskSourceKind.Outlook
-    };
+    private static TaskSourceKind ProviderTaskSource(MailProviderTraits traits) => traits.ProviderTaskSource ?? TaskSourceKind.Outlook;
 
     /// <summary>Snapshot of every capability flag, so a failed transition can put them all back.</summary>
     private readonly record struct CapabilityFlags(

@@ -99,7 +99,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial bool UseAccentColor { get; set; }
 
-    public SettingOptionsPageViewModel(IExternalLauncher externalLauncher,
+    public SettingOptionsPageViewModel(IMessenger messenger, IExternalLauncher externalLauncher,
                                         IAppMetadataService appMetadataService,
                                         IAccountService accountService,
                                         IMimeFileService mimeFileService,
@@ -109,7 +109,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
                                           IPreferencesService preferencesService,
                                          IKnownImapProviderCatalog providerCatalog,
                                          IPlatformCapabilities platformCapabilities,
-                                         IWinoAccountProfileService winoAccountProfileService)
+                                         IWinoAccountProfileService winoAccountProfileService) : base(messenger)
     {
         _externalLauncher = externalLauncher;
         _appMetadataService = appMetadataService;

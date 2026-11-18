@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -16,23 +15,67 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
 
     public IEnumerable<MailAccount> HoldingAccounts { get; }
 
-    [ObservableProperty]
-    public partial int UnreadItemCount { get; set; }
+    private int _unreadItemCount;
+    private bool _isSynchronizationInProgress;
+    private int _totalItemsToSync;
+    private int _remainingItemsToSync;
+    private string _synchronizationStatus = string.Empty;
+    private string _mergedAccountName;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate), nameof(SynchronizationProgress), nameof(SynchronizationProgressValue))]
-    public partial bool IsSynchronizationInProgress { get; set; }
+    public int UnreadItemCount
+    {
+        get => _unreadItemCount;
+        set => SetProperty(ref _unreadItemCount, value);
+    }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(SynchronizationProgressValue), nameof(IsProgressIndeterminate))]
-    public partial int TotalItemsToSync { get; set; }
+    public bool IsSynchronizationInProgress
+    {
+        get => _isSynchronizationInProgress;
+        set
+        {
+            if (!SetProperty(ref _isSynchronizationInProgress, value))
+                return;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(SynchronizationProgressValue), nameof(IsProgressIndeterminate))]
-    public partial int RemainingItemsToSync { get; set; }
+            OnPropertyChanged(nameof(IsSynchronizationProgressVisible));
+            OnPropertyChanged(nameof(IsProgressIndeterminate));
+            OnPropertyChanged(nameof(SynchronizationProgress));
+            OnPropertyChanged(nameof(SynchronizationProgressValue));
+        }
+    }
 
-    [ObservableProperty]
-    public partial string SynchronizationStatus { get; set; } = string.Empty;
+    public int TotalItemsToSync
+    {
+        get => _totalItemsToSync;
+        set
+        {
+            if (!SetProperty(ref _totalItemsToSync, value))
+                return;
+
+            OnPropertyChanged(nameof(SynchronizationProgress));
+            OnPropertyChanged(nameof(SynchronizationProgressValue));
+            OnPropertyChanged(nameof(IsProgressIndeterminate));
+        }
+    }
+
+    public int RemainingItemsToSync
+    {
+        get => _remainingItemsToSync;
+        set
+        {
+            if (!SetProperty(ref _remainingItemsToSync, value))
+                return;
+
+            OnPropertyChanged(nameof(SynchronizationProgress));
+            OnPropertyChanged(nameof(SynchronizationProgressValue));
+            OnPropertyChanged(nameof(IsProgressIndeterminate));
+        }
+    }
+
+    public string SynchronizationStatus
+    {
+        get => _synchronizationStatus;
+        set => SetProperty(ref _synchronizationStatus, value);
+    }
 
     public double SynchronizationProgress
     {
@@ -51,8 +94,11 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
 
     public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
 
-    [ObservableProperty]
-    public partial string MergedAccountName { get; set; }
+    public string MergedAccountName
+    {
+        get => _mergedAccountName;
+        set => SetProperty(ref _mergedAccountName, value);
+    }
 
     public string? ColorKey => AccountGroupColors.Normalize(Parameter?.ColorKey);
 

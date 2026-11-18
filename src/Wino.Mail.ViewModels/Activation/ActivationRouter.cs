@@ -53,7 +53,8 @@ public sealed class ActivationRouter(
     IMailDialogService dialogs,
     IActivationStateService activationState,
     IActivationFileImportService importer,
-    IDispatcher dispatcher)
+    IDispatcher dispatcher,
+    IMessenger messenger)
 {
     /// <summary>Most message windows one activation opens; the rest are logged and skipped.</summary>
     public const int MaxMailFileWindows = 10;
@@ -189,7 +190,7 @@ public sealed class ActivationRouter(
         activationState.MailToUri = mailTo;
 
         if (!await host.EnsureShellAsync(WinoApplicationMode.Mail)) return;
-        if (mailReady) WeakReferenceMessenger.Default.Send(new MailtoProtocolMessageRequested());
+        if (mailReady) messenger.Send(new MailtoProtocolMessageRequested());
     }
 
     /// <summary>App.HandleFileActivationAsync. Files are read inside their access scope.</summary>

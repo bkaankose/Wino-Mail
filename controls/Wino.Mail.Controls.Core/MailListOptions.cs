@@ -1,7 +1,3 @@
-#if WINRT_EXPOSED
-using WinRT;
-#endif
-
 namespace Wino.Mail.Controls.Core;
 
 public enum MailListSortMode
@@ -39,9 +35,6 @@ public enum MailListSelectionState
     All,
 }
 
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial record MailListProjectionOptions
 {
     public MailListSortMode SortMode { get; init; } = MailListSortMode.Date;

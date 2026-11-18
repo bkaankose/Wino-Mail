@@ -27,5 +27,4 @@ public interface IWinoWindowManager
     bool ActivateWindow(WinoWindowKind kind, string? name = null);
     void HideWindow(WindowEx window);
     bool HideWindow(WinoWindowKind kind, string? name = null);
-    void CloseAllWindows();
 }

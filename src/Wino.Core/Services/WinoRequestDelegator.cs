@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
@@ -22,7 +23,7 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Synchronizers.Mail;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 
 namespace Wino.Core.Services;
@@ -30,45 +31,54 @@ namespace Wino.Core.Services;
 public class WinoRequestDelegator : IWinoRequestDelegator
 {
     private readonly IWinoRequestProcessor _winoRequestProcessor;
-    private readonly IFolderService _folderService;
-    private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
     private readonly ISynchronizationManager _synchronizationManager;
-    private readonly IImapChangeProcessor _imapChangeProcessor;
+    private readonly ICalDavChangeProcessor _calendarChangeProcessor;
+    private readonly IMailProviderRegistry _providers;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IApplicationLocalRequestExecutor _applicationLocalRequestExecutor;
+    private readonly IAppLockService _appLockService;
+
+    private readonly IMessenger _messenger;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
-                                IFolderService folderService,
-                                IMailDialogService dialogService,
                                 IAccountService accountService,
                                 ICalendarService calendarService,
                                 ISynchronizationManager synchronizationManager,
-                                IImapChangeProcessor imapChangeProcessor,
+                                ICalDavChangeProcessor calendarChangeProcessor,
                                 IApplicationConfiguration applicationConfiguration,
-                                IApplicationLocalRequestExecutor applicationLocalRequestExecutor)
+                                IApplicationLocalRequestExecutor applicationLocalRequestExecutor,
+                                IMessenger messenger,
+                                IMailProviderRegistry providers,
+                                IAppLockService appLockService)
     {
+        _providers = providers;
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _winoRequestProcessor = winoRequestProcessor;
-        _folderService = folderService;
-        _dialogService = dialogService;
         _accountService = accountService;
         _calendarService = calendarService;
         _synchronizationManager = synchronizationManager;
-        _imapChangeProcessor = imapChangeProcessor;
+        _calendarChangeProcessor = calendarChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
         _applicationLocalRequestExecutor = applicationLocalRequestExecutor;
+        _appLockService = appLockService ?? throw new ArgumentNullException(nameof(appLockService));
     }
 
-    public async Task ExecuteAsync(MailOperationPreperationRequest request)
+    // The overloads that return no result cannot hand the refusal to a request coordinator, so they say it as a notice.
+    private bool IsRefusedWhileLocked()
     {
-        var result = await ExecuteWithResultAsync(request);
-        if (result.Error is { } error)
-            ShowPreparationError(error);
+        if (!_appLockService.AreActionsRefused) return false;
+
+        _messenger.Send(new InfoBarMessageRequested(InfoBarMessageType.Warning, Translator.AppLock_LockedTitle, Translator.AppLock_ActionDenied));
+        return true;
     }
 
     public async Task<WinoRequestDelegationResult> ExecuteWithResultAsync(MailOperationPreperationRequest request)
     {
+        if (_appLockService.AreActionsRefused)
+            return new WinoRequestDelegationResult(0, new AppLockedException());
+
         List<IMailActionRequest> requests;
 
         try
@@ -77,7 +87,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         }
         catch (Exception ex)
         {
-            if (ex is not (UnavailableSpecialFolderException or InvalidMoveTargetException or NotImplementedException))
+            if (ex is not (UnavailableSpecialFolderException or InvalidMoveTargetException or NotImplementedException or MailOperationDecisionRequiredException))
                 Log.Error(ex, "Request creation failed.");
 
             return new WinoRequestDelegationResult(0, ex);
@@ -92,7 +102,14 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                 group => group.Key,
                 group => group.Cast<IRequestBase>().ToList());
 
-        await QueueRequestPackAsync(accountGroups).ConfigureAwait(false);
+        try
+        {
+            await QueueRequestPackAsync(accountGroups).ConfigureAwait(false);
+        }
+        catch (AppLockedException ex)
+        {
+            return new WinoRequestDelegationResult(0, ex);
+        }
 
         foreach (var accountGroup in requests.GroupBy(a => a.Item.AssignedAccount.Id))
         {
@@ -102,40 +119,10 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         return new WinoRequestDelegationResult(requests.Count, null);
     }
 
-    private void ShowPreparationError(Exception error)
+    public async Task<WinoRequestDelegationResult> ExecuteAsync(FolderOperationPreperationRequest folderRequest)
     {
-        switch (error)
-        {
-            case UnavailableSpecialFolderException unavailableSpecialFolderException:
-                _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle,
-                                              string.Format(Translator.Info_MissingFolderMessage, unavailableSpecialFolderException.SpecialFolderType),
-                                              InfoBarMessageType.Warning,
-                                              Translator.SettingConfigureSpecialFolders_Button,
-                                              () =>
-                                              {
-                                                  _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
-                                              });
-                break;
-            case InvalidMoveTargetException { Reason: InvalidMoveTargetReason.NonMoveTarget }:
-                _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Info_InvalidMoveTargetMessage, InfoBarMessageType.Warning);
-                break;
-            case InvalidMoveTargetException { Reason: InvalidMoveTargetReason.MultipleAccounts }:
-                _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Exception_InvalidMultiAccountMoveTarget, InfoBarMessageType.Warning);
-                break;
-            case InvalidMoveTargetException:
-                break;
-            case NotImplementedException:
-                _dialogService.ShowNotSupportedMessage();
-                break;
-            default:
-                _dialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, error.Message, InfoBarMessageType.Error);
-                break;
-        }
-    }
-
-    public async Task ExecuteAsync(FolderOperationPreperationRequest folderRequest)
-    {
-        if (folderRequest == null || folderRequest.Folder == null) return;
+        if (folderRequest == null || folderRequest.Folder == null) return new WinoRequestDelegationResult(0, null);
+        if (_appLockService.AreActionsRefused) return new WinoRequestDelegationResult(0, new AppLockedException());
 
         IRequestBase request = null;
 
@@ -145,16 +132,17 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             request = await _winoRequestProcessor.PrepareFolderRequestAsync(folderRequest);
         }
-        catch (NotImplementedException)
+        catch (NotImplementedException ex)
         {
-            _dialogService.ShowNotSupportedMessage();
+            return new WinoRequestDelegationResult(0, ex);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Folder operation execution failed.");
+            return new WinoRequestDelegationResult(0, ex);
         }
 
-        if (request == null) return;
+        if (request == null) return new WinoRequestDelegationResult(0, null);
 
         await QueueRequestAsync(request, accountId);
         await QueueSynchronizationAsync(accountId);
@@ -163,10 +151,14 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             await QueueFoldersOnlySynchronizationAsync(accountId);
         }
+
+        return new WinoRequestDelegationResult(1, null);
     }
 
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
     {
+        if (IsRefusedWhileLocked()) return;
+
         var request = new CreateDraftRequest(draftPreperationRequest);
         var accountId = draftPreperationRequest.Account.Id;
 
@@ -176,6 +168,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
     {
+        if (IsRefusedWhileLocked()) return;
+
         var request = new SendDraftRequest(sendDraftPreperationRequest);
         var account = sendDraftPreperationRequest.MailItem.AssignedAccount;
 
@@ -183,17 +177,17 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         await QueueSynchronizationAsync(account.Id);
     }
 
-    public async Task ExecuteAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
+    public async Task<WinoRequestDelegationResult> ExecuteAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
     {
         if (calendarPreparationRequest == null)
-            return;
+            return new WinoRequestDelegationResult(0, null);
+
+        if (_appLockService.AreActionsRefused)
+            return new WinoRequestDelegationResult(0, new AppLockedException());
 
         var resolvedCalendar = await ResolveCalendarAsync(calendarPreparationRequest).ConfigureAwait(false);
         if (resolvedCalendar?.IsReadOnly == true)
-        {
-            _dialogService.ShowReadOnlyCalendarMessage();
-            return;
-        }
+            return new WinoRequestDelegationResult(0, new ReadOnlyCalendarException(resolvedCalendar.Id));
 
         IRequestBase request = calendarPreparationRequest.Operation switch
         {
@@ -225,7 +219,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         };
 
         if (request == null)
-            return;
+            return new WinoRequestDelegationResult(0, null);
 
         var accountId = calendarPreparationRequest.Operation == CalendarSynchronizerOperation.CreateEvent
             ? calendarPreparationRequest.ComposeResult.AccountId
@@ -238,18 +232,23 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (account?.IsCalendarAccessEnabled == true && !account.IsCalendarAccessGranted)
         {
             await ExecuteLocalCalendarRequestAsync(account, request).ConfigureAwait(false);
-            return;
+            return new WinoRequestDelegationResult(1, null);
         }
 
         await QueueRequestAsync(request, accountId);
         await QueueCalendarSynchronizationAsync(accountId);
+
+        return new WinoRequestDelegationResult(1, null);
     }
 
     private async Task ExecuteLocalCalendarRequestAsync(MailAccount account, IRequestBase request)
     {
-        var handler = new ImapSynchronizer.LocalCalendarOperationHandler(
+        if (_appLockService.AreActionsRefused)
+            throw new AppLockedException();
+
+        var handler = new LocalCalendarOperationHandler(
             account,
-            _imapChangeProcessor,
+            _calendarChangeProcessor,
             _calendarService,
             _applicationConfiguration.ApplicationDataFolderPath,
             "local");
@@ -292,6 +291,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (valid.Count == 0)
             return;
 
+        if (IsRefusedWhileLocked()) return;
+
         var preparedRequests = new List<IContactActionRequest>();
 
         foreach (var preparationRequest in valid)
@@ -307,7 +308,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             await QueueRequestsAsync(group.Cast<IRequestBase>(), group.Key).ConfigureAwait(false);
 
-            WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+            _messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
             {
                 AccountId = group.Key,
                 AddressBookId = group.First().AddressBookId,
@@ -318,6 +319,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests)
     {
+        if (IsRefusedWhileLocked()) return;
+
         var requestList = new List<IRequestBase>();
 
         foreach (var request in requests?.Where(request => request is not null) ?? [])
@@ -355,7 +358,13 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     }
 
     public Task ExecuteLocalAsync(IRequestBase request)
-        => _applicationLocalRequestExecutor.ExecuteAsync(request);
+    {
+        // Callers keep their own copy of the change and revert it only when this throws.
+        if (_appLockService.AreActionsRefused)
+            return Task.FromException(new AppLockedException());
+
+        return _applicationLocalRequestExecutor.ExecuteAsync(request);
+    }
 
     private async Task<IRequestBase> CreateCalendarEventRequestAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
     {
@@ -392,7 +401,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     {
         // For Outlook accounts, declined events are deleted by the server after synchronization.
         // Use OutlookDeclineEventRequest to handle UI removal.
-        if (calendarItem.AssignedCalendar?.MailAccount?.ProviderType == MailProviderType.Outlook)
+        if (calendarItem.AssignedCalendar?.MailAccount is { } account &&
+            _providers.GetTraits(account.ProviderType).RemovesDeclinedEvents)
         {
             return new OutlookDeclineEventRequest(calendarItem, responseMessage);
         }
@@ -429,7 +439,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             Type = MailSynchronizationType.ExecuteRequests
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        _messenger.Send(new NewMailSynchronizationRequested(options));
         return Task.CompletedTask;
     }
 
@@ -441,7 +451,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             Type = MailSynchronizationType.FoldersOnly
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        _messenger.Send(new NewMailSynchronizationRequested(options));
         return Task.CompletedTask;
     }
 
@@ -453,11 +463,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             Type = CalendarSynchronizationType.ExecuteRequests
         };
 
-        WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(options));
+        _messenger.Send(new NewCalendarSynchronizationRequested(options));
         return Task.CompletedTask;
     }
 
-    private static void PublishSynchronizationRequests(Guid accountId, IReadOnlyCollection<IRequestBase> requests)
+    private void PublishSynchronizationRequests(Guid accountId, IReadOnlyCollection<IRequestBase> requests)
     {
         var hasCalendarRequests = requests.Any(request => request is ICalendarActionRequest);
         var hasContactRequests = requests.Any(request => request is IContactActionRequest);
@@ -466,7 +476,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (hasCalendarRequests)
         {
-            WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            _messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = CalendarSynchronizationType.ExecuteRequests
@@ -477,7 +487,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             foreach (var addressBookId in requests.OfType<IContactActionRequest>().Select(request => request.AddressBookId).Distinct())
             {
-                WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+                _messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
                 {
                     AccountId = accountId,
                     AddressBookId = addressBookId,
@@ -488,7 +498,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (hasTaskRequests)
         {
-            WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            _messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = TaskSynchronizationType.ExecuteRequests
@@ -497,7 +507,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (hasMailRequests || (!hasCalendarRequests && !hasContactRequests && !hasTaskRequests))
         {
-            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            _messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = MailSynchronizationType.ExecuteRequests
@@ -506,7 +516,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         if (requests.Any(request => request is DeleteFolderRequest or CreateSubFolderRequest or CreateRootFolderRequest))
         {
-            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            _messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = MailSynchronizationType.FoldersOnly

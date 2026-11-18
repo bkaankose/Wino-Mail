@@ -121,7 +121,7 @@ public sealed partial class EventDetailsPageViewController
 
     private void PrepareDescriptionReader()
     {
-        var reader = _descriptionReader = new WebKitHtmlMailReaderSession(_descriptionWeb);
+        var reader = _descriptionReader = new WebKitHtmlMailReaderSession(_descriptionWeb) { FitContentToWidth = true };
         reader.Configure(ViewModel.ExternalLauncher);
         reader.OperationFailed += (_, exception) => ReportError(exception);
         _dark = IsDarkAppearance();
@@ -166,12 +166,25 @@ public sealed partial class EventDetailsPageViewController
         if (_descriptionHeight is not null) _descriptionHeight.Constant = (nfloat)MinDescriptionHeight;
         await reader.RenderAsync(new HtmlMailReaderRequest(document, RemoteContentPolicy.ImagesAndFontsAllowed));
         UpdateDescriptionHeight();
+        Observe(RemeasureDescriptionAfterLoadAsync());
     }
 
-    private void UpdateDescriptionHeight()
+    /// <summary>Fitting a wide description can make it shorter after images load, which the scroll view never reports.</summary>
+    private async Task RemeasureDescriptionAfterLoadAsync()
     {
+        await Task.Delay(300);
+        UpdateDescriptionHeight();
+    }
+
+    private void UpdateDescriptionHeight() => Observe(UpdateDescriptionHeightAsync());
+
+    /// <summary>The scroll view's content size never drops below the web view's height, so the reader measures the description.</summary>
+    private async Task UpdateDescriptionHeightAsync()
+    {
+        if (_descriptionHeight is null || _readerDisposed || _descriptionReader is not { } reader) return;
+        var measured = await reader.MeasureContentHeightAsync();
         if (_descriptionHeight is null || _readerDisposed) return;
-        var height = Math.Max(MinDescriptionHeight, (double)_descriptionWeb.ScrollView.ContentSize.Height);
+        var height = Math.Max(MinDescriptionHeight, measured > 0 ? measured : (double)_descriptionWeb.ScrollView.ContentSize.Height);
         if (Math.Abs(_descriptionHeight.Constant - height) < 1) return;
         _descriptionHeight.Constant = (nfloat)height;
     }

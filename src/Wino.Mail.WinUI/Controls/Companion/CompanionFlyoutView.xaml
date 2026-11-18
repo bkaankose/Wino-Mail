@@ -208,6 +208,38 @@
             </StackPanel>
         </Grid>
 
+        <Grid
+            Padding="32"
+            AutomationProperties.AutomationId="CompanionLockedState"
+            Visibility="{x:Bind ViewModel.LockedVisibility, Mode=OneWay}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="12">
+                <coreControls:WinoFontIcon
+                    FontSize="48"
+                    Icon="LockClosed"
+                    IsHitTestVisible="False" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{ThemeResource SubtitleTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.AppLock_LockedTitle, Mode=OneTime}" />
+                <TextBlock
+                    MaxWidth="280"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind domain:Translator.AppLock_OpenToUnlock, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+                <Button
+                    HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="CompanionLaunchWinoLockedButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.AppLock_OpenWino, Mode=OneTime}"
+                    Command="{x:Bind ViewModel.OpenWinoCommand}"
+                    Content="{x:Bind domain:Translator.AppLock_OpenWino, Mode=OneTime}"
+                    Style="{ThemeResource AccentButtonStyle}" />
+            </StackPanel>
+        </Grid>
+
         <Grid AutomationProperties.AutomationId="CompanionReadyState" Visibility="{x:Bind ViewModel.ReadyVisibility, Mode=OneWay}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />

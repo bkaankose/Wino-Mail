@@ -9,11 +9,6 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Integration.Processors;
-using Wino.Core.Synchronizers.Exchange;
-using Wino.Core.Synchronizers.ImapSync;
-using Wino.Core.Synchronizers.Mail;
-using Wino.Core.Synchronizers.Mapi;
 
 namespace Wino.Core.Services;
 
@@ -22,36 +17,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private bool isInitialized = false;
 
     private readonly IAccountService _accountService;
-    private readonly IApplicationConfiguration _applicationConfiguration;
-    private readonly IOutlookSynchronizerErrorHandlerFactory _outlookSynchronizerErrorHandlerFactory;
-    private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
-    private readonly IImapSynchronizerErrorHandlerFactory _imapSynchronizerErrorHandlerFactory;
-    private readonly IOutlookChangeProcessor _outlookChangeProcessor;
-    private readonly IGmailChangeProcessor _gmailChangeProcessor;
-    private readonly IImapChangeProcessor _imapChangeProcessor;
-    private readonly IExchangeChangeProcessor _exchangeChangeProcessor;
-    private readonly IExchangeSynchronizerErrorHandlerFactory _exchangeSynchronizerErrorHandlerFactory;
-    private readonly IAuthenticationProvider _authenticationProvider;
-    private readonly UnifiedImapSynchronizer _unifiedImapSynchronizer;
-    private readonly ICalDavClient _calDavClient;
-    private readonly IAutoDiscoveryService _autoDiscoveryService;
-    private readonly ICalendarService _calendarService;
-    private readonly IMailCategoryService _mailCategoryService;
-    private readonly IMailFilterExecutor _mailFilterExecutor;
-    private readonly IServerCertificateTrustService _serverCertificateTrustService;
-    private readonly IContactService _contactService;
-    private readonly IPictureStorageService _contactPictureFileService;
-    private readonly ITaskService _taskService;
-    private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
-    private readonly IPop3ClientFactory _pop3ClientFactory;
-    private readonly IPop3PersistenceService _pop3PersistenceService;
-    private readonly IMailService _mailService;
-    private readonly IFolderService _folderService;
-    private readonly ISmtpTransport _smtpTransport;
-    private readonly IMimeFileService _mimeFileService;
-    private readonly ICalDavSynchronizationEngine _calDavSynchronizationEngine;
-    private readonly IOAuthTokenService _oauthTokenService;
-    private readonly ICalDavTaskSynchronizationEngine _calDavTaskSynchronizationEngine;
+    private readonly IMailProviderRegistry _providers;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
     internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
@@ -64,69 +30,10 @@ public class SynchronizerFactory : ISynchronizerFactory
 
     private SemaphoreSlim GetAccountGate(Guid accountId) => _accountGates.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
 
-    public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
-                               IGmailChangeProcessor gmailChangeProcessor,
-                               IImapChangeProcessor imapChangeProcessor,
-                               IAuthenticationProvider authenticationProvider,
-                               IAccountService accountService,
-                               IApplicationConfiguration applicationConfiguration,
-                               IOutlookSynchronizerErrorHandlerFactory outlookSynchronizerErrorHandlerFactory,
-                               IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
-                               IImapSynchronizerErrorHandlerFactory imapSynchronizerErrorHandlerFactory,
-                               UnifiedImapSynchronizer unifiedImapSynchronizer,
-                               ICalDavClient calDavClient,
-                               IAutoDiscoveryService autoDiscoveryService,
-                               ICalendarService calendarService,
-                               IMailCategoryService mailCategoryService,
-                               IMailFilterExecutor mailFilterExecutor,
-                               IServerCertificateTrustService serverCertificateTrustService,
-                               IContactService contactService,
-                               IPictureStorageService contactPictureFileService,
-                               ITaskService taskService = null,
-                               ICardDavSynchronizationEngine cardDavSynchronizationEngine = null,
-                               IPop3ClientFactory pop3ClientFactory = null,
-                               IPop3PersistenceService pop3PersistenceService = null,
-                               IMailService mailService = null,
-                               IFolderService folderService = null,
-                               ISmtpTransport smtpTransport = null,
-                               IMimeFileService mimeFileService = null,
-                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
-                               IOAuthTokenService oauthTokenService = null,
-                               IExchangeChangeProcessor exchangeChangeProcessor = null,
-                               IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory = null,
-                               ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null)
+    public SynchronizerFactory(IAccountService accountService, IMailProviderRegistry providers)
     {
-        _outlookChangeProcessor = outlookChangeProcessor;
-        _gmailChangeProcessor = gmailChangeProcessor;
-        _imapChangeProcessor = imapChangeProcessor;
-        _authenticationProvider = authenticationProvider;
-        _accountService = accountService;
-        _applicationConfiguration = applicationConfiguration;
-        _outlookSynchronizerErrorHandlerFactory = outlookSynchronizerErrorHandlerFactory;
-        _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
-        _imapSynchronizerErrorHandlerFactory = imapSynchronizerErrorHandlerFactory;
-        _unifiedImapSynchronizer = unifiedImapSynchronizer;
-        _calDavClient = calDavClient;
-        _autoDiscoveryService = autoDiscoveryService;
-        _calendarService = calendarService;
-        _mailCategoryService = mailCategoryService;
-        _mailFilterExecutor = mailFilterExecutor;
-        _serverCertificateTrustService = serverCertificateTrustService;
-        _contactService = contactService;
-        _contactPictureFileService = contactPictureFileService;
-        _taskService = taskService;
-        _cardDavSynchronizationEngine = cardDavSynchronizationEngine;
-        _pop3ClientFactory = pop3ClientFactory;
-        _pop3PersistenceService = pop3PersistenceService;
-        _mailService = mailService;
-        _folderService = folderService;
-        _smtpTransport = smtpTransport;
-        _mimeFileService = mimeFileService;
-        _calDavSynchronizationEngine = calDavSynchronizationEngine;
-        _oauthTokenService = oauthTokenService;
-        _exchangeChangeProcessor = exchangeChangeProcessor;
-        _exchangeSynchronizerErrorHandlerFactory = exchangeSynchronizerErrorHandlerFactory;
-        _calDavTaskSynchronizationEngine = calDavTaskSynchronizationEngine;
+        _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
+        _providers = providers ?? throw new ArgumentNullException(nameof(providers));
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -145,7 +52,7 @@ public class SynchronizerFactory : ISynchronizerFactory
             if (_synchronizers.TryGetValue(accountId, out var existing))
             {
                 if (!SynchronizationManager.RequiresSynchronizerRefresh(existing.Account, account) &&
-                    !ExchangeTransportChanged(existing, account))
+                    CanReuse(existing, account))
                 {
                     await ApplyAttentionStateAsync(existing, account).ConfigureAwait(false);
                     return existing;
@@ -164,78 +71,10 @@ public class SynchronizerFactory : ISynchronizerFactory
     }
 
     private IWinoSynchronizerBase CreateIntegratorWithDefaultProcessor(MailAccount mailAccount)
-    {
-        var providerType = mailAccount.ProviderType;
+        => _providers.Find(mailAccount.ProviderType)?.CreateSynchronizer(mailAccount);
 
-        switch (providerType)
-        {
-            case Domain.Enums.MailProviderType.Outlook:
-                var outlookAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Outlook) as IOutlookAuthenticator;
-                return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory, _mailCategoryService, _mailFilterExecutor, _contactService, _contactPictureFileService, _taskService, _cardDavSynchronizationEngine);
-            case Domain.Enums.MailProviderType.Gmail:
-                var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
-                return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory, _mailFilterExecutor, _contactService, _contactPictureFileService, _taskService, _cardDavSynchronizationEngine);
-            case Domain.Enums.MailProviderType.IMAP4:
-                return new ImapSynchronizer(
-                    mailAccount,
-                    _imapChangeProcessor,
-                    _applicationConfiguration,
-                    _unifiedImapSynchronizer,
-                    _imapSynchronizerErrorHandlerFactory,
-                    _calDavClient,
-                    _autoDiscoveryService,
-                    _calendarService,
-                    _mailFilterExecutor,
-                    _serverCertificateTrustService,
-                    _cardDavSynchronizationEngine,
-                    _contactService,
-                    _taskService,
-                    _smtpTransport,
-                    _calDavSynchronizationEngine,
-                    _oauthTokenService,
-                    _calDavTaskSynchronizationEngine);
-            case Domain.Enums.MailProviderType.Exchange:
-                var exchangeAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Exchange) as IExchangeAuthenticator
-                    ?? throw new InvalidOperationException("The Exchange authenticator is not registered.");
-                return ExchangeSynchronizerSelector.Create(
-                    mailAccount,
-                    exchangeAuthenticator,
-                    _exchangeChangeProcessor ?? throw new InvalidOperationException("The Exchange change processor is not registered."),
-                    _exchangeSynchronizerErrorHandlerFactory ?? throw new InvalidOperationException("The Exchange error handler factory is not registered."),
-                    _contactService,
-                    _contactPictureFileService,
-                    _taskService);
-            case Domain.Enums.MailProviderType.POP3:
-                return new Pop3Synchronizer(
-                    mailAccount,
-                    _pop3ClientFactory ?? throw new InvalidOperationException("POP3 client factory is not registered."),
-                    _pop3PersistenceService ?? throw new InvalidOperationException("POP3 persistence service is not registered."),
-                    _mailService ?? throw new InvalidOperationException("Mail service is not registered."),
-                    _folderService ?? throw new InvalidOperationException("Folder service is not registered."),
-                    _accountService,
-                    _smtpTransport ?? throw new InvalidOperationException("SMTP transport is not registered."),
-                    _mimeFileService ?? throw new InvalidOperationException("MIME file service is not registered."),
-                    _mailFilterExecutor);
-            default:
-                break;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Whether the cached synchronizer of an Exchange account runs on another transport than the account now asks for:
-    /// the connection method was changed, or a MAPI over HTTP attempt recorded that the server does not offer it. The
-    /// MAPI synchronizer records that on its own account object, so comparing the settings alone never sees it.
-    /// </summary>
-    internal static bool ExchangeTransportChanged(IWinoSynchronizerBase existing, MailAccount account)
-    {
-        if (account.ProviderType != Domain.Enums.MailProviderType.Exchange || account.ServerInformation == null)
-            return false;
-
-        var wantsMapi = account.ServerInformation.EffectiveExchangeTransport != Domain.Enums.ExchangeTransport.Ews;
-        return wantsMapi != (existing is MapiExchangeSynchronizer);
-    }
+    private bool CanReuse(IWinoSynchronizerBase existing, MailAccount account)
+        => _providers.Find(account.ProviderType)?.CanReuseSynchronizer(existing, account) ?? true;
 
     public IWinoSynchronizerBase CreateNewSynchronizer(MailAccount account)
     {
@@ -251,9 +90,9 @@ public class SynchronizerFactory : ISynchronizerFactory
     }
 
     /// <summary>
-    /// Desktop IMAP never goes through the relay, so the local IDLE client is what makes it instant. It runs in both
-    /// sync methods, as it did before the relay existed; the timer stays the safety net. The sync coordinator reads
-    /// its state to decide which accounts the timer may skip.
+    /// Desktop IMAP and Exchange never go through the relay, so their own listener (IMAP IDLE, Exchange notifications)
+    /// is what makes them instant. It runs in both sync methods, as it did before the relay existed; the timer stays the
+    /// safety net. The sync coordinator reads its state to decide which accounts the timer may skip.
     /// </summary>
     private IWinoSynchronizerBase CreateAndCache(MailAccount account)
     {
@@ -269,15 +108,9 @@ public class SynchronizerFactory : ISynchronizerFactory
 
             Log.Information("Re-queued {RequestCount} request(s) from the previous synchronizer of account {AccountId}.", carriedOverRequests.Count, account.Id);
         }
-        if (synchronizer is IImapSynchronizer imapSynchronizer && !account.IsNetworkAccessBlocked())
+        if (synchronizer is ILiveChangeListener listener && !account.IsNetworkAccessBlocked())
         {
-            // The pool is warmed after the first synchronization so startup opens
-            // only the IDLE socket and one worker instead of competing handshakes.
-            _ = imapSynchronizer.StartIdleClientAsync();
-        }
-        else if (synchronizer is IExchangeSynchronizer exchangeSynchronizer && !account.IsNetworkAccessBlocked())
-        {
-            _ = exchangeSynchronizer.StartChangeListenerAsync();
+            _ = listener.StartListeningAsync();
         }
         return synchronizer;
     }
@@ -311,27 +144,16 @@ public class SynchronizerFactory : ISynchronizerFactory
 
         if (wasBlocked == isBlocked) return;
 
-        if (synchronizer is IExchangeSynchronizer exchangeSynchronizer)
-        {
-            if (isBlocked)
-                await exchangeSynchronizer.StopChangeListenerAsync().ConfigureAwait(false);
-            else
-                await exchangeSynchronizer.StartChangeListenerAsync().ConfigureAwait(false);
-
-            return;
-        }
-
-        if (synchronizer is not IImapSynchronizer imapSynchronizer) return;
+        if (synchronizer is not ILiveChangeListener listener) return;
 
         if (isBlocked)
         {
-            Log.Information("Account {AccountId} needs attention ({AttentionReason}). Suspending its IMAP connections.", cached.Id, cached.AttentionReason);
-            await imapSynchronizer.SuspendNetworkAccessAsync().ConfigureAwait(false);
+            await listener.SuspendListeningAsync().ConfigureAwait(false);
         }
         else
         {
-            Log.Information("Account {AccountId} no longer needs attention. Resuming IMAP IDLE.", cached.Id);
-            await imapSynchronizer.StartIdleClientAsync().ConfigureAwait(false);
+            Log.Information("Account {AccountId} no longer needs attention. Resuming its live change listener.", cached.Id);
+            await listener.StartListeningAsync().ConfigureAwait(false);
         }
     }
 

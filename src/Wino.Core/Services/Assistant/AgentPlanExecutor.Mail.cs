@@ -364,7 +364,7 @@ public sealed partial class AgentPlanExecutor
     private async Task<StepOutcome> MoveToInboxTabAsync(ResolvedStep step, PlanRun run, bool focused, CancellationToken ct)
     {
         var mails = (await ResolveMailsAsync(step, run, ct).ConfigureAwait(false))
-            .Where(static mail => mail.AssignedAccount?.ProviderType == MailProviderType.Outlook)
+            .Where(mail => mail.AssignedAccount is { } account && providers.GetTraits(account.ProviderType).SupportsFocusedInbox)
             .ToList();
         if (mails.Count == 0)
             return Failed(step, Translator.VoiceIssue_FocusedOutlookOnly);
@@ -423,7 +423,7 @@ public sealed partial class AgentPlanExecutor
         else
             await mailCategoryService.UnassignCategoryAsync(category.Id, ids).ConfigureAwait(false);
 
-        if (unique[0].AssignedAccount!.ProviderType == MailProviderType.Outlook)
+        if (providers.GetTraits(unique[0].AssignedAccount!.ProviderType).SupportsCategorySync)
         {
             var requests = new List<IRequestBase>();
             foreach (var mail in unique)
@@ -870,7 +870,7 @@ public sealed partial class AgentPlanExecutor
 
         foreach (var account in accounts)
         {
-            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = MailSynchronizationType.FullFolders

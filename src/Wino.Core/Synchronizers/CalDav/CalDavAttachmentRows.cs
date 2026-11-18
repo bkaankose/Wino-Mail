@@ -17,7 +17,7 @@ namespace Wino.Core.Synchronizers.CalDav;
 /// properties of its CalDAV event. Rows whose remote ID is unchanged keep their ID and downloaded
 /// copy; removed attachments lose their row and their downloaded copy.
 /// </summary>
-internal static class CalDavAttachmentRows
+public static class CalDavAttachmentRows
 {
     private const int MaximumFileNameLength = 120;
     private static readonly ILogger Logger = Log.ForContext(typeof(CalDavAttachmentRows));

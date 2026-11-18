@@ -19,11 +19,12 @@ using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services;
 
-public partial class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
+public partial class PreferencesService(IConfigurationService configurationService, IMessenger messenger) : ObservableObject, IPreferencesService
 {
     private const string LegacyRenderImagesKey = "RenderImages";
 
     private readonly IConfigurationService _configurationService = configurationService;
+    private readonly IMessenger _messenger = messenger;
 
     public event EventHandler<string>? PreferenceChanged;
 
@@ -34,7 +35,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
         var propertyName = e.PropertyName ?? string.Empty;
 
         PreferenceChanged?.Invoke(this, propertyName);
-        WeakReferenceMessenger.Default.Send(new PreferenceChangedMessage(propertyName));
+        _messenger.Send(new PreferenceChangedMessage(propertyName));
     }
 
     private void SaveProperty(string propertyName, object? value) => _configurationService.Set(propertyName, value ?? string.Empty);

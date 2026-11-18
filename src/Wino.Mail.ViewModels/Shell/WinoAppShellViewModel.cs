@@ -72,7 +72,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     private bool _isPaneCompact;
     private bool _isShutdown;
 
-    public WinoAppShellViewModel(IShellMenuProviderResolver providerResolver,
+    public WinoAppShellViewModel(IMessenger messenger, IShellMenuProviderResolver providerResolver,
                                  IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistenceService,
                                  INavigationService navigationService,
@@ -81,7 +81,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
                                  IWinoLogger logger,
                                  IPlatformCapabilities platformCapabilities,
                                  IAppModeReadinessService appModeReadinessService,
-                                 IRelayHealth? relayHealth = null)
+                                 IRelayHealth? relayHealth = null) : base(messenger)
     {
         _relayHealth = relayHealth;
         if (_relayHealth is not null)

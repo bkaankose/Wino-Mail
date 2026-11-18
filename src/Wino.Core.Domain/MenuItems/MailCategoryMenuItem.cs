@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -14,8 +13,13 @@ public partial class MailCategoryMenuItem : MenuItemBase<MailCategory, IMenuItem
 {
     private IReadOnlyList<IMailItemFolder> _handlingFolders;
 
-    [ObservableProperty]
-    public partial int UnreadItemCount { get; set; }
+    private int _unreadItemCount;
+
+    public int UnreadItemCount
+    {
+        get => _unreadItemCount;
+        set => SetProperty(ref _unreadItemCount, value);
+    }
 
     public MailCategoryMenuItem(MailCategory category, MailAccount parentAccount, IEnumerable<IMailItemFolder> handlingFolders, IMenuItem parentMenuItem)
         : base(category, category.Id, parentMenuItem)

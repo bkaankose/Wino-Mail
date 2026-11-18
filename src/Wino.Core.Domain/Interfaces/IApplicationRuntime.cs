@@ -16,6 +16,11 @@ public interface IApplicationRuntime
     Task SynchronizeCreatedAccountAsync(MailAccount account, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Whether work the runtime started for a synchronization request message is still running.
+    /// </summary>
+    bool HasRunningWork { get; }
+
+    /// <summary>
     /// Runs one bounded synchronization pass across all accounts and returns when it finishes:
     /// inbox mail, calendar metadata, and the task and contact modes when their six-hour window is due.
     /// It initializes the runtime when needed but never starts the periodic loops, so hosts that only

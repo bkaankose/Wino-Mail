@@ -623,14 +623,14 @@ public partial class ImapCalDavSettingsPageViewModel
     private Task<ImapConnectivityTestResults> RunImapConnectivityTestAsync(CustomServerInformation serverInformation)
     {
         if (!UsesOAuth(serverInformation))
-            return SynchronizationManager.Instance.TestImapConnectivityAsync(serverInformation);
+            return _synchronizationManager.TestImapConnectivityAsync(serverInformation);
 
         var tokenService = _oauthTokenService;
         if (tokenService == null || !HasOAuthCredentialForTest)
             throw new InvalidOperationException(Translator.ImapSetup_OAuthSignInRequired);
 
         var tokenKey = IsCreateMode && _oauthSession != null ? _oauthSession.Key : _editingAccountId;
-        return SynchronizationManager.Instance.TestImapConnectivityAsync(serverInformation, tokenService, tokenKey);
+        return _synchronizationManager.TestImapConnectivityAsync(serverInformation, tokenService, tokenKey);
     }
 
     private static bool UsesOAuth(CustomServerInformation? serverInformation)

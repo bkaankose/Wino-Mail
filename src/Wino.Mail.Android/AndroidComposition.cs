@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Wino.Core;
+using Wino.Core.Providers;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.ViewModels;
@@ -36,6 +37,7 @@ internal static class AndroidComposition
         });
         services.RegisterSharedServices();
         services.RegisterCoreServices();
+        services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
         services.AddAndroidPlatformServices(bootstrap, () => activities.Current);
 
         services.RegisterWinoViewModels();

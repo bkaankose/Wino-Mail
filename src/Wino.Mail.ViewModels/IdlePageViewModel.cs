@@ -53,10 +53,10 @@ public partial class IdlePageViewModel : CoreBaseViewModel, IShellMenuOwner, IRe
     /// </summary>
     public IShellMenuProvider ShellMenuProvider => IsMailEmptyStateVisible || IsAccountStateVisible ? _mailShell : null;
 
-    public IdlePageViewModel(IMailDialogService dialogService,
+    public IdlePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                              INavigationService navigationService,
                              IAccountService accountService = null,
-                             IMailShellClient mailShell = null)
+                             IMailShellClient mailShell = null) : base(messenger)
     {
         _navigationService = navigationService;
         _accountService = accountService;

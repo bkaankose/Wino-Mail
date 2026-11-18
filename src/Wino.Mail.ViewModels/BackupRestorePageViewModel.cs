@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Settings;
 
 namespace Wino.Mail.ViewModels;
 
@@ -28,15 +29,21 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountDataSyncService _syncService;
+    private readonly AppearanceSnapshotService _appearance;
     private readonly IWinoAccountProfileService _profileService;
+    private readonly IAppLockService _appLockService;
 
-    public BackupRestorePageViewModel(IMailDialogService dialogService,
+    public BackupRestorePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                       IWinoAccountDataSyncService syncService,
-                                      IWinoAccountProfileService profileService)
+                                      AppearanceSnapshotService appearance,
+                                      IWinoAccountProfileService profileService,
+                                      IAppLockService appLockService) : base(messenger)
     {
         _dialogService = dialogService;
         _syncService = syncService;
+        _appearance = appearance;
         _profileService = profileService;
+        _appLockService = appLockService;
     }
 
     /// <summary>
@@ -109,6 +116,11 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     [RelayCommand(CanExecute = nameof(CanTransferWinoAccountData))]
     private async Task ExportToWinoAccountAsync()
     {
+        if (!await ExecuteUIThreadAsync(_appLockService.RequestVerificationAsync).ConfigureAwait(false))
+        {
+            return;
+        }
+
         try
         {
             var isConfirmed = await ExecuteUIThreadAsync(_dialogService.ShowWinoAccountExportDialogAsync).ConfigureAwait(false);
@@ -119,7 +131,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var result = await _syncService.ExportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync).ConfigureAwait(false);
+            var result = await _syncService.ExportAsync(new WinoAccountSyncSelection() { Appearance = _appearance.Capture() }, PromptSyncSecretAsync).ConfigureAwait(false);
 
             _dialogService.InfoBarMessage(
                 Translator.GeneralTitle_Info,
@@ -150,7 +162,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
             if (result.Appearance != null)
             {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                await ExecuteUIThread(() => _appearance.Apply(result.Appearance));
             }
 
             if (!result.HasAnyRemoteData)
@@ -189,6 +201,11 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
     private async Task ExportLocalDataAsync()
     {
+        if (!await ExecuteUIThreadAsync(_appLockService.RequestVerificationAsync).ConfigureAwait(false))
+        {
+            return;
+        }
+
         try
         {
             // Write to exactly the path the platform returns. On macOS this is the URL of the save
@@ -205,7 +222,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var exportResult = await _syncService.ExportToFileAsync(new(), PromptSyncSecretAsync).ConfigureAwait(false);
+            var exportResult = await _syncService.ExportToFileAsync(new() { Appearance = _appearance.Capture() }, PromptSyncSecretAsync).ConfigureAwait(false);
             await File.WriteAllBytesAsync(exportPath, exportResult.Content).ConfigureAwait(false);
 
             _dialogService.InfoBarMessage(
@@ -244,7 +261,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
                 var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync).ConfigureAwait(false);
                 if (result.Appearance != null)
                 {
-                    await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                    await ExecuteUIThread(() => _appearance.Apply(result.Appearance));
                 }
 
                 var messageType = result.FailedPreferenceCount > 0

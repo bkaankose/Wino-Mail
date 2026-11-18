@@ -12,7 +12,8 @@ namespace Wino.Core.Services;
 public sealed class MigrationAccountAuthorizationService(
     IAccountService accountService,
     IAccountProviderFeatureService featureService,
-    IAuthenticationProvider authenticationProvider) : IMigrationAccountAuthorizationService
+    IAuthenticationProvider authenticationProvider,
+    IMailProviderRegistry providers) : IMigrationAccountAuthorizationService
 {
     public async Task AuthenticateAsync(
         MigrationAccountOptions options,
@@ -109,9 +110,9 @@ public sealed class MigrationAccountAuthorizationService(
         }
     }
 
-    private static void EnsureProviderSupportsAuthorization(MailAccount account)
+    private void EnsureProviderSupportsAuthorization(MailAccount account)
     {
-        if (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
+        if (!providers.GetTraits(account.ProviderType).UsesInteractiveOAuth)
             throw new NotSupportedException("Only Gmail and Outlook accounts require provider capability authorization.");
     }
 }

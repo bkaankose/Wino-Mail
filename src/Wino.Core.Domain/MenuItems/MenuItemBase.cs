@@ -1,24 +1,37 @@
 ﻿using System;
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain.ComponentModel;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.MenuItems;
 
-public partial class MenuItemBase : ObservableObject, IMenuItem
+public partial class MenuItemBase : ObservableModel, IMenuItem
 {
-    [ObservableProperty]
-    public partial bool IsExpanded { get; set; }
+    private bool _isExpanded;
+    private bool _isSelected;
+    private bool _isEnabled = true;
 
-    [ObservableProperty]
-    public partial bool IsSelected { get; set; }
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set => SetProperty(ref _isExpanded, value);
+    }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
 
     /// <summary>
     /// Whether the pane entry can be invoked. A mode drills into a detail page while its
     /// menu stays published, so its entries are disabled rather than left clickable and dead.
     /// </summary>
-    [ObservableProperty]
-    public partial bool IsEnabled { get; set; } = true;
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set => SetProperty(ref _isEnabled, value);
+    }
 
     public IMenuItem ParentMenuItem { get; }
 
@@ -59,16 +72,26 @@ public partial class MenuItemBase : ObservableObject, IMenuItem
 
 public partial class MenuItemBase<T> : MenuItemBase
 {
-    [ObservableProperty]
-    public partial T Parameter { get; set; }
+    private T _parameter;
+
+    public T Parameter
+    {
+        get => _parameter;
+        set => SetProperty(ref _parameter, value);
+    }
 
     public MenuItemBase(T parameter, Guid? entityId, IMenuItem parentMenuItem = null) : base(entityId, parentMenuItem) => Parameter = parameter;
 }
 
 public partial class MenuItemBase<TValue, TCollection> : MenuItemBase<TValue>
 {
-    [ObservableProperty]
-    public partial bool IsChildSelected { get; set; }
+    private bool _isChildSelected;
+
+    public bool IsChildSelected
+    {
+        get => _isChildSelected;
+        set => SetProperty(ref _isChildSelected, value);
+    }
 
     protected MenuItemBase(TValue parameter, Guid? entityId, IMenuItem parentMenuItem = null) : base(parameter, entityId, parentMenuItem) { }
 

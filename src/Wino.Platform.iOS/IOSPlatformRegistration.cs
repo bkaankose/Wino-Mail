@@ -70,38 +70,29 @@ public static class IOSPlatformRegistration
         services.AddSingleton(identity);
         services.AddSingleton(paths);
         services.AddSingleton(bootstrap.Keychain);
-        services.AddSingleton<ISecureItemStore>(bootstrap.Keychain);
-        services.AddSingleton<ISecretProtector>(bootstrap.Protector);
-        services.Replace(ServiceDescriptor.Singleton<IApplicationConfiguration>(new ApplicationConfiguration
+        services.AddPortablePlatformServices(new ApplicationConfiguration
         {
             ApplicationDataFolderPath = paths.ApplicationDataRoot,
             PublisherSharedFolderPath = Path.Combine(paths.ApplicationDataRoot, ApplicationConfiguration.SharedFolderName),
             ApplicationTempFolderPath = paths.TemporaryRoot,
             ApplicationDisplayName = "Wino Mail",
             AllowLegacyDataMigration = false,
-        }));
+        }, bootstrap.Keychain, bootstrap.Protector, new HostAppMetadataService(
+            BundleString("CFBundleShortVersionString"), identity.Value, IsDebugBuild, BundleString("CFBundleVersion"),
+            isPad ? "iPadOS" : "iOS"));
 
         // Apple services shared with the Mac head (same list and lifetimes as its Composition).
-        services.AddSingleton<IConfigurationService>(_ => new JsonFileConfigurationService(paths.ApplicationDataRoot));
-        services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<IApplicationResourceResolver, AppleApplicationResourceResolver>();
-        services.AddSingleton<IFileService, FileSystemFileService>();
-        services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
-        services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
         services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
         services.AddSingleton<IOAuthTokenStore, SecureItemOAuthTokenStore>();
         // Gmail mailboxes sign in with the Wino Mail iOS client in the web authentication sheet; Windows keeps the UWP client.
         services.AddSingleton<IAuthenticatorConfig>(provider => new MailAuthenticatorConfiguration(
             provider.GetService<IApplicationConfiguration>(), WinoAuthenticationClientIds.Google.Apple));
         services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
-        services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         services.AddSingleton<AppleNotificationSounds>();
         services.AddSingleton<INotificationSoundProvider>(provider => provider.GetRequiredService<AppleNotificationSounds>());
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
         services.AddSingleton<IAppStoreClient, AppleAppStoreClient>();
-        services.AddSingleton<IAppMetadataService>(new HostAppMetadataService(
-            BundleString("CFBundleShortVersionString"), identity.Value, IsDebugBuild, BundleString("CFBundleVersion"),
-            isPad ? "iPadOS" : "iOS"));
 
         // iOS implementations.
         services.AddSingleton<INotificationSoundCatalog, IOSNotificationSoundCatalog>();
@@ -130,6 +121,7 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IAttachmentPlatformService, LauncherAttachmentPlatformService>();
         services.AddSingleton<IStartupIntegrationService, UnavailableStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, UnavailableSmimeCertificateService>();
+        services.AddSingleton<IAppLockPlatform, UnavailableAppLockPlatform>();
         services.AddSingleton<ITaskCompletionSound, IOSTaskCompletionSound>();
         services.AddSingleton<IUserPresenceStateProvider, IOSUserPresenceStateProvider>();
         services.AddSingleton<IMicrosoftStoreService, IOSMicrosoftStoreService>();

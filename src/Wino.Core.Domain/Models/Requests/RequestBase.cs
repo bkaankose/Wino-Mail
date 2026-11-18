@@ -10,8 +10,8 @@ namespace Wino.Core.Domain.Models.Requests;
 public abstract record RequestBase<TOperation> where TOperation : Enum
 {
     public RequestTrace Trace { get; set; }
-    public virtual void ApplyUIChanges() { }
-    public virtual void RevertUIChanges() { }
+    public virtual void ApplyUIChanges(IUIMessageSender sender) { }
+    public virtual void RevertUIChanges(IUIMessageSender sender) { }
     public virtual int ResynchronizationDelay => 0;
     public abstract TOperation Operation { get; }
     public virtual object GroupingKey() { return Operation; }
@@ -24,8 +24,8 @@ public abstract record MailRequestBase(MailCopy Item) : RequestBase<MailSynchron
 public abstract record FolderRequestBase(MailItemFolder Folder, FolderSynchronizerOperation Operation) : IFolderActionRequest
 {
     public RequestTrace Trace { get; set; }
-    public abstract void ApplyUIChanges();
-    public abstract void RevertUIChanges();
+    public abstract void ApplyUIChanges(IUIMessageSender sender);
+    public abstract void RevertUIChanges(IUIMessageSender sender);
 
     public virtual int ResynchronizationDelay => 0;
 
@@ -46,6 +46,6 @@ public class BatchCollection<TRequestType> : List<TRequestType>, IUIChangeReques
     public BatchCollection(IEnumerable<TRequestType> collection) : base(collection)
     {
     }
-    public virtual void ApplyUIChanges() => ForEach(x => x.ApplyUIChanges());
-    public virtual void RevertUIChanges() => ForEach(x => x.RevertUIChanges());
+    public virtual void ApplyUIChanges(IUIMessageSender sender) => ForEach(x => x.ApplyUIChanges(sender));
+    public virtual void RevertUIChanges(IUIMessageSender sender) => ForEach(x => x.RevertUIChanges(sender));
 }

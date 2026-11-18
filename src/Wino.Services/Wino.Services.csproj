@@ -14,8 +14,14 @@
 	  <None Remove="Misc\**" />
 	</ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+		<PackageReference Include="MailKit" />
+		<PackageReference Include="MimeKit" />
+		<!-- Direct reference so the audited 10.0.13 wins over MimeKit's 10.0.0 (no transitive pinning). -->
+		<PackageReference Include="System.Security.Cryptography.Pkcs" />
 		<PackageReference Include="Ical.Net" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 		<PackageReference Include="Microsoft.Extensions.Logging" />
@@ -32,7 +38,6 @@
 		<ProjectReference Include="..\Wino.Agent.Runtime\Wino.Agent.Runtime.csproj" />
 		<PackageReference Include="Wino.Mail.Contracts" />
 		<ProjectReference Include="..\Wino.Core.ML\Wino.Core.ML.csproj" />
-		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
 	</ItemGroup>
 	<ItemGroup>

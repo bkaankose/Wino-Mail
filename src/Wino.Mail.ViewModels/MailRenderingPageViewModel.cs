@@ -34,6 +34,7 @@ using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels;
 
@@ -56,6 +57,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IFolderService _folderService;
     private readonly IFileService _fileService;
     private readonly IWinoRequestDelegator _requestDelegator;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly IContactService _contactService;
     private readonly IUnsubscriptionService _unsubscriptionService;
     private readonly IApplicationConfiguration _applicationConfiguration;
@@ -236,7 +238,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         args.Handled = true;
     }
 
-    public MailRenderingPageViewModel(IMailDialogService dialogService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public MailRenderingPageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
         IExternalLauncher externalLauncher,
         IClipboardService clipboardService,
         IUnderlyingThemeService underlyingThemeService,
@@ -245,6 +249,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IFolderService folderService,
         IFileService fileService,
         IWinoRequestDelegator requestDelegator,
+        WinoRequestCoordinator requestCoordinator,
         IStatePersistanceService statePersistenceService,
         IContactService contactService,
         IUnsubscriptionService unsubscriptionService,
@@ -259,8 +264,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         ICalendarService calendarService,
         IAttachmentFileService attachmentFileService = null,
         ILinkBrowserService linkBrowserService = null,
-        IMailInvitationService mailInvitationService = null)
+        IMailInvitationService mailInvitationService = null) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         _dialogService = dialogService;
         ExternalLauncher = externalLauncher;
         _linkBrowserService = linkBrowserService;
@@ -283,6 +289,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _folderService = folderService;
         _fileService = fileService;
         _requestDelegator = requestDelegator;
+        _requestCoordinator = requestCoordinator;
         Invitation = new MailInvitationCardViewModel(mailInvitationService, calendarService, navigationService, preferencesService, ExecuteUIThread);
         IsDarkWebviewRenderer = GetReaderThemeIsDark(_underlyingThemeService.IsUnderlyingThemeDark());
         ReaderDarkModeMethod = PreferencesService.ReaderDarkModeMethod;
@@ -472,7 +479,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             {
                 // All other operations require a mail item.
                 var prepRequest = new MailOperationPreperationRequest(operation, initializedMailItemViewModel.MailCopy);
-                await _requestDelegator.ExecuteAsync(prepRequest);
+                await _requestCoordinator.ExecuteMailOperationAsync(prepRequest);
             }
         }
         catch (UnavailableSpecialFolderException unavailableSpecialFolderException)
@@ -658,7 +665,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             await ExecuteUIThread(() => IsIndetermineProgress = true);
 
             // Download missing MIME message using SynchronizationManager
-            await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+            await _synchronizationManager.DownloadMimeMessageAsync(
                 mailItemViewModel.MailCopy,
                 mailItemViewModel.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
 

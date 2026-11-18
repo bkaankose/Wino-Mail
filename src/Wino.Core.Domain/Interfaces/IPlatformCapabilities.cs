@@ -75,4 +75,7 @@ public interface IPlatformCapabilities
 
     /// <summary>The app hosts the voice bubble (the Voice Control settings page).</summary>
     bool VoiceControl { get; }
+
+    /// <summary>The platform has secure storage and a lock prompt, so the app lock can be turned on (the App lock settings page).</summary>
+    bool AppLock { get; }
 }

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Serilog;
 using Windows.Storage;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Notifications;
 using Wino.Mail.ViewModels.Companion;
@@ -23,7 +24,8 @@ namespace Wino.Mail.WinUI.Services.WidgetsAndTiles;
 public sealed partial class WidgetsAndTilesService(
     CompanionContentService content,
     ContactPictureThumbnailer pictureThumbnailer,
-    WindowsShellPreferences shellPreferences)
+    WindowsShellPreferences shellPreferences,
+    IAppLockService appLock)
 {
     private const int WindowsElevenBuild = 22000;
     private const int MaximumMail = 5;
@@ -130,7 +132,8 @@ public sealed partial class WidgetsAndTilesService(
                 shellPreferences.ShowTasksOnLiveTiles);
             var tiles = UpdatesTiles && (tileModes.Mail || tileModes.Calendar || tileModes.Tasks);
             var widgets = UpdatesWidgets;
-            var showDetails = shellPreferences.ShowDetailsInWidgetsAndTiles;
+            // Widgets and the tile stay on screen whatever the window's session, so the lock alone hides details.
+            var showDetails = shellPreferences.ShowDetailsInWidgetsAndTiles && !appLock.IsEnabled;
 
             var snapshot = tiles || widgets
                 ? await LoadAsync(

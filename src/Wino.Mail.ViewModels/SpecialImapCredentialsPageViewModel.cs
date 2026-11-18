@@ -155,11 +155,12 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         => string.Format(Translator.ProviderSelection_CalendarMode_CalDavDescription, ProviderName);
 
     public SpecialImapCredentialsPageViewModel(
+        IMessenger messenger,
         IAccountService accountService,
         IDialogServiceBase dialogService,
         IExternalLauncher externalLauncher,
         WelcomeWizardContext wizardContext,
-        IKnownImapProviderCatalog knownImapProviderCatalog)
+        IKnownImapProviderCatalog knownImapProviderCatalog) : base(messenger)
     {
         _accountService = accountService;
         _dialogService = dialogService;

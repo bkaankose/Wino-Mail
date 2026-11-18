@@ -42,12 +42,9 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
         swatches.SelectionChanged += picked;
         Bindings.Own(new ActionDisposable(() => swatches.SelectionChanged -= picked));
         Bind.Enabled(swatches, _appearance, nameof(MacAppearanceModel.UseSystemAccent), s => !s.UseSystemAccent);
-        var swatchCard = Card(string.Empty, null, WinoIconGlyph.None);
-        swatchCard.Content = swatches;
-        swatches.WidthAnchor.ConstraintEqualTo(300).Active = true;
 
         var accent = Expander(Translator.SettingsAccentColor_Title, Translator.SettingsAccentColor_Description, WinoIconGlyph.Color, null,
-            swatchCard,
+            swatches,
             Card(string.Empty, null, WinoIconGlyph.None,
                 Bind.Checkbox(_appearance, Translator.SettingsAccentColor_UseSystemAccentColor, nameof(MacAppearanceModel.UseSystemAccent),
                     s => s.UseSystemAccent, (s, v) => s.UseSystemAccent = v)));

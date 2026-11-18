@@ -1,36 +1,20 @@
 ﻿using System;
-using Wino.Authentication;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using IAuthenticationProvider = Wino.Core.Domain.Interfaces.IAuthenticationProvider;
 
 namespace Wino.Core.Services;
 
 public class AuthenticationProvider : IAuthenticationProvider
 {
-    private readonly Func<IOutlookAuthenticator> _outlookFactory;
-    private readonly Func<IGmailAuthenticator> _gmailFactory;
-    private readonly Func<IExchangeAuthenticator> _exchangeFactory;
+    private readonly IMailProviderRegistry _providers;
 
-    public AuthenticationProvider(
-        Func<IOutlookAuthenticator> outlookFactory,
-        Func<IGmailAuthenticator> gmailFactory,
-        Func<IExchangeAuthenticator> exchangeFactory)
+    public AuthenticationProvider(IMailProviderRegistry providers)
     {
-        _outlookFactory = outlookFactory;
-        _gmailFactory = gmailFactory;
-        _exchangeFactory = exchangeFactory;
+        _providers = providers;
     }
 
     public IAuthenticator GetAuthenticator(MailProviderType providerType)
-    {
-        return providerType switch
-        {
-            MailProviderType.Outlook => _outlookFactory(),
-            MailProviderType.Gmail => _gmailFactory(),
-            MailProviderType.Exchange => _exchangeFactory(),
-            _ => throw new ArgumentException(Translator.Exception_UnsupportedProvider),
-        };
-    }
+        => _providers.Find(providerType)?.CreateAuthenticator()
+           ?? throw new ArgumentException(Translator.Exception_UnsupportedProvider);
 }

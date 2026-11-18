@@ -19,11 +19,11 @@ namespace Wino.Core.ViewModels;
 /// Owns the settings navigation pane. Settings keeps its own breadcrumb frame inside
 /// <c>SettingsPage</c>, so this provider only tracks which root section is highlighted.
 /// </summary>
-public partial class SettingsMenuProvider(
+public partial class SettingsMenuProvider(IMessenger messenger, 
     INavigationService navigationService,
     IWinoAccountIntelligenceSnapshotService entitlementService,
     IPlatformCapabilities platformCapabilities) :
-    CoreBaseViewModel,
+    CoreBaseViewModel(messenger),
     IShellMenuProvider,
     IRecipient<ActiveSettingsPageChanged>,
     IRecipient<LanguageChanged>,
@@ -51,7 +51,7 @@ public partial class SettingsMenuProvider(
         _isPreparedForShellShutdown = false;
         _shellMenu = new ShellMenu
         {
-            Items = new MenuItemCollection(Dispatcher),
+            Items = new MenuItemCollection(),
             HandlesSelection = true
         };
 

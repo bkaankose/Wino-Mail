@@ -1,9 +1,6 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Mail.Controls.Core;
 
@@ -11,9 +8,6 @@ namespace Wino.Mail.Controls.Core;
 /// Flat observable storage with stable-ID indexing. Projection, selection,
 /// threading, dispatching, and domain mutations deliberately live elsewhere.
 /// </summary>
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial class MailListCollection<TItem> : ObservableCollection<TItem>, IMailListCollection
     where TItem : class, IMailListSourceItem
 {

@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
@@ -22,17 +22,17 @@ public record OutlookDeclineEventRequest(CalendarItem Item, string ResponseMessa
     /// </summary>
     public override int ResynchronizationDelay => 2000;
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
         // In Outlook, declined events are deleted from the calendar after sync
         // Send deleted message to remove from UI immediately
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
+        sender.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         // If decline fails, restore the previous status and re-add the event
         Item.Status = _previousStatus;
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
+        sender.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
     }
 }

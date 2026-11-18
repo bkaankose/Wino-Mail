@@ -44,7 +44,7 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
             : ThemeGalleryFilter.All;
     }
 
-    public ApplicationThemeGalleryPageViewModel(INewThemeService themeService, IDialogServiceBase dialogService)
+    public ApplicationThemeGalleryPageViewModel(IMessenger messenger, INewThemeService themeService, IDialogServiceBase dialogService) : base(messenger)
     {
         _themeService = themeService;
         _dialogService = dialogService;
@@ -183,7 +183,7 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
     }
 
     private void NavigateEditor(Guid? themeId)
-        => WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(
+        => Messenger.Send(new BreadcrumbNavigationRequested(
             themeId.HasValue ? Translator.ApplicationThemeEditor_EditTitle : Translator.ApplicationThemeEditor_CreateTitle,
             WinoPage.ApplicationThemeEditorPage,
             new CustomThemeEditorNavigationParameter(themeId)));

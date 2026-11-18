@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Core.Domain.Interfaces;
@@ -21,8 +22,14 @@ public static class ServicesContainerSetup
 {
     public static void RegisterSharedServices(this IServiceCollection services)
     {
+        // MimeKit's net8+ build does not register legacy code pages itself. Without them it decodes iso-8859-2,
+        // windows-1250 and similar charsets as Latin-1, so every head needs the provider before parsing mail.
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
         services.AddSingleton<Wino.Core.Domain.Models.MailItem.DraftUpdateRegistry>();
+        // The apps share the process-wide messenger with their heads; Wino.Hosting replaces it with one per host.
         services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
+        services.AddSingleton<IUIMessageSender, MessengerUIMessageSender>();
         services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<IMailContentProjector, MailContentProjector>();
         services.AddSingleton<IDatabaseSchemaService, DatabaseSchemaService>();
@@ -35,6 +42,8 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoTelemetryContextProvider, WinoTelemetryContextProvider>();
         services.AddSingleton<IWinoLogger, WinoLogger>();
         services.AddSingleton<INotificationPolicyService, NotificationPolicyService>();
+        // Every head registers an IAppLockPlatform; the lock stays off where that platform is not available.
+        services.AddSingleton<IAppLockService, AppLockService>();
         services.AddSingleton<IActivationStateService, ActivationStateService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
         services.AddSingleton<IContentTypeClassificationModel, MagikaContentTypeClassificationModel>();
@@ -47,8 +56,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<ILinkBrowserService, LinkBrowserService>();
         // Needs the platform INotificationBuilder; each head starts it once its shell is running.
         services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
-        // Needs the head's INotificationResponseNavigator (ViewModels layer) and platform INotificationBuilder.
-        services.AddTransient<INotificationResponseService, Wino.Services.Notifications.NotificationResponseService>();
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();
@@ -159,6 +166,7 @@ public static class ServicesContainerSetup
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IMessenger>(),
             provider.GetRequiredService<ITaskService>(),
+            provider.GetRequiredService<IMailProviderRegistry>(),
             provider.GetService<IRelayIntroductionService>(),
             provider.GetService<IRelaySocketCoordinator>()));
         services.AddSingleton<IRelayHealth>(provider => provider.GetRequiredService<ISyncCoordinator>());

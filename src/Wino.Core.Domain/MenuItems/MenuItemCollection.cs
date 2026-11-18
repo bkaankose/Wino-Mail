@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,13 +12,6 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     // Which types to remove from the list when folders are changing due to selection of new account.
     // We don't clear the whole list since we want to keep the New Mail button and account menu items.
     private readonly Type[] _preservingTypesForFolderArea = [typeof(AccountMenuItem), typeof(NewMailMenuItem), typeof(MergedAccountMenuItem), typeof(AccountGroupMenuItem)];
-    private readonly IDispatcher _dispatcher;
-
-    public MenuItemCollection(IDispatcher dispatcher)
-    {
-        _dispatcher = dispatcher;
-    }
-
     /// <summary>The root items with the entries of every account group in their place.</summary>
     public List<IMenuItem> GetAccountAreaItems()
         => this.SelectMany(static item => item is AccountGroupMenuItem group ? group.SubMenuItems.ToArray() : new[] { item }).ToList();
@@ -193,21 +185,20 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
         return accountMenuItem;
     }
 
-    public async Task ReplaceFoldersAsync(IEnumerable<IMenuItem> folders)
+    /// <summary>Must run on the UI thread.</summary>
+    public void ReplaceFolders(IEnumerable<IMenuItem> folders)
     {
-        await _dispatcher.ExecuteOnUIThread(() =>
-        {
-            ClearFolderAreaMenuItems();
-            Add(new SeperatorItem());
-            AddRange(folders);
-        });
+        ClearFolderAreaMenuItems();
+        Add(new SeperatorItem());
+        AddRange(folders);
     }
 
     /// <summary>
     /// Enables/disables account menu items in the list.
     /// </summary>
     /// <param name="isEnabled">Whether menu items should be enabled or disabled.</param>
-    public async Task SetAccountMenuItemEnabledStatusAsync(bool isEnabled)
+    /// <remarks>Must run on the UI thread.</remarks>
+    public void SetAccountMenuItemEnabledStatus(bool isEnabled)
     {
         // Accounts linked into a merged inbox sit under it, and the clicked one was disabled while it loaded too.
         var accountItems = GetAccountAreaItems()
@@ -217,13 +208,10 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
                 : new IAccountMenuItem[] { item })
             .ToList();
 
-        await _dispatcher.ExecuteOnUIThread(() =>
+        foreach (var item in accountItems)
         {
-            foreach (var item in accountItems)
-            {
-                item.IsEnabled = isEnabled;
-            }
-        });
+            item.IsEnabled = isEnabled;
+        }
     }
 
     public void AddAccountMenuItem(IMenuItem accountMenuItem)

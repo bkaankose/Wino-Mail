@@ -292,6 +292,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
+        UpdateCommandBar();
         ViewModel.RenderHtmlAsyncFunc = RenderAsync;
         ViewModel.ClearRenderedHtmlAsyncFunc = ClearAsync;
         ViewModel.PrintPresenter = new MacMailPrintPresenter(() => _disposedReader ? null : _webView, Dispatcher);
@@ -442,9 +443,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
                 captured is null ? static () => { } : () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), slot.IsEnabled));
         }
         while (commands.Count > 0 && commands[^1] is null) commands.RemoveAt(commands.Count - 1);
-        // A loaded message gets the pop-out command; a saved message file and the placeholder set do not.
+        // A loaded message keeps the light/dark toggle and pop out on the bar; a saved message file and the
+        // placeholder set get neither.
         if (plan.Kind == MailReaderCommandPlanKind.Message)
+        {
+            commands.Add(null);
+            commands.Add(new MailReaderCommand(_dark ? WinoIconGlyph.LightEditor : WinoIconGlyph.DarkEditor, ThemeLabel, ToggleTheme));
             AppendPopOutCommand(commands);
+        }
         var overflow = plan.Overflow;
         _commandBar.SetCommands(commands, overflow.Count == 0 ? null : () => BuildMoreMenu(overflow));
     }
@@ -470,7 +476,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             previousSeparator = false;
         }
         if (!previousSeparator) menu.AddItem(NSMenuItem.SeparatorItem);
-        // Windows OperationCommandBar: the Reader View toggle (simplified Readability layout) and the editor theme toggle.
+        // Windows OperationCommandBar: the Reader View toggle (simplified Readability layout); the theme toggle stays on the bar.
         var readerView = new NSMenuItem(Translator.Reader_ReaderView, (_, _) => ToggleReaderView())
         {
             State = ViewModel.IsReaderViewEnabled ? NSCellStateValue.On : NSCellStateValue.Off,
@@ -478,11 +484,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             Image = WinoIcons.Image(WinoIconGlyph.Document, 16)
         };
         menu.AddItem(readerView);
-        var theme = new NSMenuItem(_dark ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme, (_, _) => ToggleTheme())
-        {
-            Image = WinoIcons.Image(_dark ? WinoIconGlyph.LightEditor : WinoIconGlyph.DarkEditor, 16)
-        };
-        menu.AddItem(theme);
         return menu;
     }
 
@@ -494,11 +495,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (!string.IsNullOrWhiteSpace(_currentRenderedHtml)) Observe(RenderActiveContentAsync());
     }
 
+    private string ThemeLabel => _dark ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme;
+
     private void ToggleTheme()
     {
         if (_reader is null || _disposedReader) return;
         _dark = !_dark;
         ViewModel.IsDarkWebviewRenderer = _dark;
+        UpdateCommandBar();
         Observe(_reader.SetThemeAsync(_dark));
     }
 
@@ -609,6 +613,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (dark == _dark || _reader is null || _disposedReader) return;
         _dark = dark;
         ViewModel.IsDarkWebviewRenderer = dark;
+        UpdateCommandBar();
         Observe(_reader.SetThemeAsync(dark));
     }
 

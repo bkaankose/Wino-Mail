@@ -43,13 +43,14 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IPreferencesService _preferencesService;
     private readonly ISentMailReceiptService _sentMailReceiptService;
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly IMailProviderRegistry _providers;
     private readonly IWinoAccountProfileService _winoAccountProfileService;
     private readonly IMailIntelligenceStore _localIntelligenceStore;
     private readonly IRecipientHistoryService _recipientHistoryService;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
-    public MailService(IDatabaseService databaseService,
+    public MailService(IDatabaseService databaseService, IMessenger messenger,
                        IFolderService folderService,
                        IContactService contactService,
                        IAccountService accountService,
@@ -58,11 +59,13 @@ public class MailService : BaseDatabaseService, IMailService
                        IPreferencesService preferencesService,
                        ISentMailReceiptService sentMailReceiptService,
                        IMailCategoryService mailCategoryService,
+                       IMailProviderRegistry providers,
                        IWinoAccountProfileService winoAccountProfileService = null,
                        IMailIntelligenceStore localIntelligenceStore = null,
                        DraftUpdateRegistry draftUpdates = null,
-                       IRecipientHistoryService recipientHistoryService = null) : base(databaseService)
+                       IRecipientHistoryService recipientHistoryService = null) : base(databaseService, messenger)
     {
+        _providers = providers;
         _draftUpdates = draftUpdates;
         _recipientHistoryService = recipientHistoryService;
         _folderService = folderService;
@@ -76,6 +79,9 @@ public class MailService : BaseDatabaseService, IMailService
         _winoAccountProfileService = winoAccountProfileService;
         _localIntelligenceStore = localIntelligenceStore;
     }
+
+    private bool StoresMessageInSeveralFolders(MailAccount account)
+        => _providers.GetTraits(account.ProviderType).StoresMessageInSeveralFolders;
 
     public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
     {
@@ -1582,7 +1588,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         if (readMailUniqueIds.Count > 0)
         {
-            WeakReferenceMessenger.Default.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
+            Messenger.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
         }
 
         var hydratedUpdatesByUniqueId = (await HydrateMailCopiesAsync(
@@ -2002,7 +2008,7 @@ public class MailService : BaseDatabaseService, IMailService
         if (account == null)
             return;
 
-        if (account.ProviderType != MailProviderType.Gmail)
+        if (!StoresMessageInSeveralFolders(account))
         {
             foreach (var package in targetPackages)
                 await CreateMailAsync(accountId, package).ConfigureAwait(false);
@@ -2213,7 +2219,7 @@ public class MailService : BaseDatabaseService, IMailService
         }
         else
         {
-            if (account.ProviderType != MailProviderType.Gmail)
+            if (!StoresMessageInSeveralFolders(account))
             {
                 // Make sure there is only 1 instance left of this mail copy id.
                 await DeleteMailAsync(accountId, mailCopy.Id).ConfigureAwait(false);

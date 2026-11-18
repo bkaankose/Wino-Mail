@@ -5,6 +5,7 @@ using Microsoft.Windows.AppLifecycle;
 using Wino.Core.Activation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
+using Wino.Core.Domain.Models.Notifications;
 using Wino.Mail.WinUI.Activation;
 
 namespace Wino.Mail.WinUI;
@@ -37,13 +38,7 @@ internal interface IAppNotificationHandlerHost
     void LogActivation(string message);
     Task HandleStoreUpdateToastAsync();
     Task HandleNotificationDismissAsync();
-    Task HandleCalendarToastNavigationAsync(Guid calendarItemId);
-    Task HandleCalendarToastSnoozeAsync(IDictionary<string, string>? userInput, Guid calendarItemId);
-    Task HandleCalendarToastJoinOnlineAsync(Guid calendarItemId);
-    Task HandleMailToastNavigationAsync(Guid mailItemUniqueId);
-    Task HandleMailToastComposeActionAsync(MailOperation action, Guid mailItemUniqueId);
-    Task HandleMailToastBackgroundActionAsync(MailOperation action, Guid mailItemUniqueId);
-    Task HandleNotificationModeActivationAsync(WinoApplicationMode mode);
+    Task HandleNotificationResponseAsync(NotificationResponse response);
     Task HandleWidgetActionAsync(string action, string? value);
 }
 
@@ -85,20 +80,8 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
         LogActivation("Handling notification dismiss action.");
         return Task.CompletedTask;
     }
-    Task IAppNotificationHandlerHost.HandleCalendarToastNavigationAsync(Guid calendarItemId)
-        => HandleCalendarToastNavigationAsync(calendarItemId);
-    Task IAppNotificationHandlerHost.HandleCalendarToastSnoozeAsync(IDictionary<string, string>? userInput, Guid calendarItemId)
-        => HandleCalendarToastSnoozeAsync(userInput, calendarItemId);
-    Task IAppNotificationHandlerHost.HandleCalendarToastJoinOnlineAsync(Guid calendarItemId)
-        => HandleCalendarToastJoinOnlineAsync(calendarItemId);
-    Task IAppNotificationHandlerHost.HandleMailToastNavigationAsync(Guid mailItemUniqueId)
-        => HandleToastNavigationAsync(mailItemUniqueId);
-    Task IAppNotificationHandlerHost.HandleMailToastComposeActionAsync(MailOperation action, Guid mailItemUniqueId)
-        => HandleToastComposeActionAsync(action, mailItemUniqueId);
-    Task IAppNotificationHandlerHost.HandleMailToastBackgroundActionAsync(MailOperation action, Guid mailItemUniqueId)
-        => HandleToastActionAsync(action, mailItemUniqueId);
-    Task IAppNotificationHandlerHost.HandleNotificationModeActivationAsync(WinoApplicationMode mode)
-        => EnsureShellWindowAsync(mode, activateWindow: true);
+    Task IAppNotificationHandlerHost.HandleNotificationResponseAsync(NotificationResponse response)
+        => HandleNotificationResponseAsync(response);
     Task IAppNotificationHandlerHost.HandleWidgetActionAsync(string action, string? value)
         => HandleWidgetActionAsync(action, value);
 }

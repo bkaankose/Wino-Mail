@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -13,12 +14,12 @@ using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class ContactsPreferenceSettingsPageViewModel(
+public partial class ContactsPreferenceSettingsPageViewModel(IMessenger messenger, 
     IPreferencesService preferencesService,
     IContactQueryService contactService,
     IAccountService accountService,
     IRecipientHistoryService recipientHistoryService,
-    IMailDialogService dialogService) : CoreBaseViewModel
+    IMailDialogService dialogService) : CoreBaseViewModel(messenger)
 {
     private bool _isLoaded;
 

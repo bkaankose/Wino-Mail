@@ -12,5 +12,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../src/Wino.Platform.Windows/Wino.Platform.Windows.csproj" />
+    <!-- Wino.Platform.Windows is compiled against CsWinRT's WinRT.Runtime, which it keeps private; without this the
+         generator loads the older one from the Windows SDK projection and fails in the module initializer. -->
+    <PackageReference Include="Microsoft.Windows.CsWinRT" />
   </ItemGroup>
 </Project>

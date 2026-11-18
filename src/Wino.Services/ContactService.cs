@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -20,7 +21,7 @@ public class ContactService : BaseDatabaseService, IContactService
     private static readonly ILogger Log = Serilog.Log.ForContext<ContactService>();
     private readonly IPictureStorageService _pictureFileService;
 
-    public ContactService(IDatabaseService databaseService, IPictureStorageService pictureFileService = null) : base(databaseService)
+    public ContactService(IDatabaseService databaseService, IMessenger messenger, IPictureStorageService pictureFileService = null) : base(databaseService, messenger)
         => _pictureFileService = pictureFileService;
 
     public async Task<AccountContact> GetContactAsync(Guid contactId)

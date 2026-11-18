@@ -1,5 +1,5 @@
+using Wino.Core.Domain.Interfaces;
 using System;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -42,20 +42,20 @@ public record CreateCalendarEventRequest : CalendarRequestBase
 
     public override int ResynchronizationDelay => 5000;
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
         if (Item == null)
             return;
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientUpdated));
+        sender.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         if (Item == null)
             return;
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientReverted));
+        sender.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientReverted));
     }
 
     private static bool ShouldCreateOptimisticItem(CalendarEventComposeResult composeResult)

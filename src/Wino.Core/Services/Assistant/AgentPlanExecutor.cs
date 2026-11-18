@@ -1,10 +1,12 @@
 ﻿#nullable enable
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using MimeKit;
 using Serilog;
 using Wino.Agent.Runtime.Plan;
@@ -47,6 +49,10 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
     private readonly IPreferencesService preferencesService;
     private readonly IAccountService accountService;
     private readonly IServiceProvider services;
+    private readonly IMailProviderRegistry providers;
+
+    private readonly ISynchronizationManager synchronizationManager;
+    private readonly IMessenger messenger;
 
     public AgentPlanExecutor(
         IMailService mailService,
@@ -59,8 +65,14 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
         IMimeFileService mimeFileService,
         IPreferencesService preferencesService,
         IAccountService accountService,
-        IServiceProvider services)
+        ISynchronizationManager synchronizationManager,
+        IMessenger messenger,
+        IServiceProvider services,
+        IMailProviderRegistry providers)
     {
+        this.providers = providers;
+        this.synchronizationManager = synchronizationManager;
+        this.messenger = messenger;
         this.mailService = mailService;
         this.folderService = folderService;
         this.requestDelegator = requestDelegator;
@@ -98,6 +110,8 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
                 cancelled = true;
                 outcome = new StepOutcome(step.N, StepStatus.Cancelled, [], null);
             }
+            else if (services.GetService<IAppLockService>()?.IsLocked == true)
+                outcome = Failed(step, Translator.AppLock_ActionDenied);
             else if (DependencyBlocks(step, run) is { } blocked)
                 outcome = blocked;
             else
@@ -334,7 +348,7 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
         // then read it again. A mail that cannot be downloaded (offline, deleted on the server) stays null.
         try
         {
-            await SynchronizationManager.Instance.DownloadMimeMessageAsync(mail, account.Id, ct).ConfigureAwait(false);
+            await synchronizationManager.DownloadMimeMessageAsync(mail, account.Id, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

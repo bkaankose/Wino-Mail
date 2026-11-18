@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 
-public class EmailTemplateService(IDatabaseService databaseService) : BaseDatabaseService(databaseService), IEmailTemplateService
+public class EmailTemplateService(IDatabaseService databaseService, IMessenger messenger) : BaseDatabaseService(databaseService, messenger), IEmailTemplateService
 {
     public Task<List<EmailTemplate>> GetEmailTemplatesAsync()
     {

@@ -69,6 +69,8 @@
         }
         :where(.wino-mail-body) :where(img:not([width]):not([height])) { max-width: 100%; }
         :where(.wino-mail-body) :where(pre) { white-space: pre-wrap; }
+        :host([data-fit]) :where(.wino-mail-body) { overflow-wrap: anywhere; }
+        :host([data-fit]) .wino-mail-html { min-height: 0; }
         .wino-mail-body a[href]:hover { text-decoration-line: underline !important; text-decoration-thickness: 2px !important; }
         .wino-readability {
             box-sizing: border-box;
@@ -113,6 +115,8 @@
     let imageFetchRequestId = 0;
     let imageFetchesByUri = new Map();
     let imageFetchesById = new Map();
+    let fitToWidth = false;
+    let fitFrame = 0;
 
     function post(message) {
         message.sessionId = window.winoSessionId;
@@ -508,6 +512,7 @@
         if (!mailHtmlElement) return;
         const refresh = () => {
             if (adaptsColors) scheduleColorRefresh();
+            scheduleFit();
         };
         mailHtmlElement.querySelectorAll("img").forEach(image => {
             const fetchable = remoteContentAllowed && getRemoteImageUri(image) !== "";
@@ -565,6 +570,7 @@
         }
         image.addEventListener("load", () => {
             if (adaptsColors) scheduleColorRefresh();
+            scheduleFit();
         }, { once: true });
         image.src = dataUri;
     }
@@ -640,8 +646,51 @@
         applyColorPolicy();
         watchImageLoads();
         updateTextFallback();
+        fitContent();
         revealAfterStylesSettle(version);
         return true;
+    }
+
+    // Phone readers (setFitToWidth) scale a mail that is wider than the reader down to its width, as mobile mail
+    // clients do, instead of letting a desktop layout run off screen. CSS zoom (unlike a transform) changes the layout
+    // size, so hosts that size the web view to the document height measure the scaled mail.
+    // The body is scaled rather than the root, so the host inset around the mail keeps its size.
+    function fitContent() {
+        if (!mailBodyElement || !mailHtmlElement) return;
+        mailBodyElement.style.removeProperty("zoom");
+        if (!fitToWidth) return;
+        const rootStyle = getComputedStyle(mailHtmlElement);
+        const available = Math.min(mailHtmlElement.clientWidth, reader.clientWidth) - (parseFloat(rootStyle.paddingLeft) || 0) - (parseFloat(rootStyle.paddingRight) || 0);
+        // Overflowing content does not keep the body's end padding, and a body with its own fixed width does not
+        // overflow itself, so its border box counts too.
+        const overflows = mailBodyElement.scrollWidth > mailBodyElement.clientWidth + 1;
+        const endPadding = overflows ? parseFloat(getComputedStyle(mailBodyElement).paddingInlineEnd) || 0 : 0;
+        const needed = Math.max(mailBodyElement.scrollWidth + endPadding, mailBodyElement.offsetWidth);
+        if (available > 0 && needed > available + 1) {
+            mailBodyElement.style.setProperty("zoom", String(Math.max(0.2, available / needed)));
+        }
+    }
+
+    function scheduleFit() {
+        if (!fitToWidth) return;
+        cancelAnimationFrame(fitFrame);
+        fitFrame = requestAnimationFrame(() => {
+            fitFrame = 0;
+            fitContent();
+        });
+    }
+
+    // The mail's own height. The document's scroll height never drops below the viewport, which is the web view
+    // itself for hosts that size it to the content.
+    function contentHeight() {
+        return Math.ceil(reader.getBoundingClientRect().bottom + window.scrollY);
+    }
+
+    function setFitToWidth(enabled) {
+        fitToWidth = Boolean(enabled);
+        if (fitToWidth) reader.setAttribute("data-fit", "");
+        else reader.removeAttribute("data-fit");
+        fitContent();
     }
 
     function setTheme(isDark, method) {
@@ -658,6 +707,7 @@
         reader.style.setProperty("--wino-font-family", fontFamily || "Segoe UI");
         reader.style.setProperty("--wino-font-size", `${Math.max(8, Math.min(72, Number(fontSize) || 15))}px`);
         if (mailHtmlElement && isDarkTheme) applyColorPolicy();
+        fitContent();
     }
 
     // Optional inset around the whole mail (iOS). The default body padding shrinks so ordinary mails keep 16px in
@@ -673,6 +723,7 @@
             reader.style.removeProperty("--wino-body-padding");
             reader.removeAttribute("data-inset");
         }
+        fitContent();
     }
 
     // Keyboard focus enters the message on a visually hidden heading, so screen readers announce only the
@@ -804,8 +855,13 @@
         setTheme,
         setTypography,
         setContentInset,
+        setFitToWidth,
+        contentHeight,
         setAccessibility
     };
+
+    window.addEventListener("resize", scheduleFit);
+    if (document.fonts) document.fonts.addEventListener("loadingdone", scheduleFit);
 
     applyColorPolicy();
 
