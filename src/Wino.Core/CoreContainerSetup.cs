@@ -20,7 +20,8 @@ public static class CoreContainerSetup
 
         services.AddSingleton(loggerLevelSwitcher);
         services.AddSingleton<IMailProviderRegistry>(provider => new MailProviderRegistry(() => provider.GetServices<IMailProviderModule>()));
-        services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
+        services.AddSingleton<SynchronizerFactory>();
+        services.AddSingleton<ISynchronizerFactory>(provider => provider.GetRequiredService<SynchronizerFactory>());
 
         // Relay registrations the app manages itself (Gmail watch, Graph subscription). IMAP's builder lives in Wino.Services.
         services.AddSingleton<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>();
@@ -32,20 +33,29 @@ public static class CoreContainerSetup
         services.AddSingleton<IContactSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
         services.AddSingleton<ITaskSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
         services.AddSingleton<RequestUiChangeCoordinator>();
-        // The sync coordinator depends on this manager, so the manager resolves it on first use.
         services.AddSingleton(provider => new SynchronizationManager(
             provider.GetRequiredService<CommunityToolkit.Mvvm.Messaging.IMessenger>(),
             provider.GetRequiredService<RequestUiChangeCoordinator>(),
-            () => provider.GetRequiredService<ISyncCoordinator>(),
-            provider.GetRequiredService<IAppLockService>()));
+            provider.GetRequiredService<IAppLockService>(),
+            provider.GetRequiredService<SynchronizerFactory>(),
+            provider.GetRequiredService<IMailServerTestService>(),
+            provider.GetRequiredService<IAccountService>(),
+            provider.GetRequiredService<INotificationBuilder>(),
+            provider.GetRequiredService<IAuthenticationProvider>(),
+            provider.GetRequiredService<IPreferencesService>(),
+            provider.GetRequiredService<IDraftSyncRetryService>(),
+            provider.GetRequiredService<IMailService>(),
+            provider.GetRequiredService<Wino.Services.Synchronization.TaskQuotaGate>(),
+            provider.GetRequiredService<IWinoLogger>(),
+            provider.GetRequiredService<Wino.Core.Domain.Models.MailItem.DraftUpdateRegistry>(),
+            provider.GetService<IPlatformCapabilities>()));
         services.AddSingleton<ISynchronizationManager>(provider => provider.GetRequiredService<SynchronizationManager>());
+        services.AddSingleton<IDraftUpdateCoordinator>(provider => provider.GetRequiredService<SynchronizationManager>().DraftUpdates);
         services.AddTransient<IApplicationLocalRequestExecutor, ApplicationLocalRequestExecutor>();
-        services.AddTransient<SynchronizationManagerInitializer>();
         services.AddSingleton(provider => new ApplicationRuntimeInitialization(
             () => provider.GetRequiredService<IDatabaseService>(),
             () => provider.GetRequiredService<IMailIntelligenceStore>(),
             () => provider.GetRequiredService<ITranslationService>(),
-            () => provider.GetRequiredService<SynchronizationManagerInitializer>(),
             () => provider.GetRequiredService<IKeyboardShortcutService>(),
             () => provider.GetRequiredService<Wino.Services.AccountProfilePictureMaintenance>(),
             () => provider.GetRequiredService<Wino.Services.AccountSenderPictureDirectory>(),
@@ -82,7 +92,6 @@ public static class CoreContainerSetup
         services.AddTransient<IAccountCapabilityService, AccountCapabilityService>();
         services.AddSingleton<IAppModeReadinessService, AppModeReadinessService>();
         services.AddTransient<IDraftSaveService, DraftSaveService>();
-        services.AddSingleton<IDraftUpdateCoordinator, DraftUpdateCoordinator>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddSingleton<IDnsLookupService, DnsLookupService>();

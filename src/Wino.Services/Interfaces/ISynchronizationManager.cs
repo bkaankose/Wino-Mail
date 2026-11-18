@@ -22,18 +22,6 @@ public interface ISynchronizationManager
     Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Initializes the SynchronizationManager with required dependencies.
-    /// </summary>
-    Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
-                        IMailServerTestService mailServerTestService,
-                        IAccountService accountService,
-                        INotificationBuilder notificationBuilder,
-                        IAuthenticationProvider authenticationProvider,
-                        IPreferencesService preferencesService,
-                        IDraftSyncRetryService draftSyncRetryService,
-                        IDraftUpdateCoordinator draftUpdateCoordinator = null, IMailService draftMailService = null);
-
-    /// <summary>
     /// Tests IMAP server connectivity for the given server information.
     /// </summary>
     Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation);

@@ -18,7 +18,7 @@ public sealed class IntelligenceMessageContextResolver(
     IDatabaseService databaseService,
     IAccountService accountService,
     IMimeFileService mimeFileService,
-    ISynchronizationManager synchronizationManager) : IIntelligenceMessageContextResolver
+    ISynchronizerFactory synchronizers) : IIntelligenceMessageContextResolver
 {
     public async Task<SemanticIndexAvailableRange?> GetAvailableRangeAsync(
         Guid localAccountId,
@@ -174,7 +174,7 @@ public sealed class IntelligenceMessageContextResolver(
             candidate.FileIds,
             async () =>
             {
-                var bodySynchronizer = await synchronizationManager.GetSynchronizerAsync(localAccountId).ConfigureAwait(false)
+                var bodySynchronizer = await synchronizers.GetAccountSynchronizerAsync(localAccountId).ConfigureAwait(false)
                     as ISemanticMailBodySynchronizer
                     ?? throw new NotSupportedException("Mail body retrieval is not supported for this account.");
                 return await bodySynchronizer.GetSemanticBodyAsync(candidate.Locator, cancellationToken).ConfigureAwait(false);
@@ -230,7 +230,7 @@ public sealed class IntelligenceMessageContextResolver(
             return contents;
         }
 
-        var synchronizer = await synchronizationManager.GetSynchronizerAsync(localAccountId).ConfigureAwait(false);
+        var synchronizer = await synchronizers.GetAccountSynchronizerAsync(localAccountId).ConfigureAwait(false);
         var pending = remote.ToList();
 
         // A provider that reads many bodies per round trip gets the whole remainder at once.

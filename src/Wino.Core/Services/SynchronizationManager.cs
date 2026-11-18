@@ -28,12 +28,13 @@ using Wino.Core.Domain.Messaging.Server;
 using Wino.Core.Domain.Messaging.UI;
 using Wino.Services.Interfaces;
 using Wino.Services.Models.MailItem;
+using Wino.Services.Synchronization;
 
 namespace Wino.Core.Services;
 
 /// <summary>
-/// Singleton manager that handles synchronizer instances and operations for all accounts.
-/// The container creates it; <see cref="SynchronizationManagerInitializer"/> supplies its remaining dependencies at startup.
+/// Singleton manager that handles synchronizer instances and operations for all accounts. It owns the draft update
+/// coordinator, which calls back into it, so the container resolves <see cref="IDraftUpdateCoordinator"/> from here.
 /// </summary>
 public class SynchronizationManager : ISynchronizationManager, IRecipient<AccountSynchronizerStateChanged>, IRecipient<AccountUpdatedMessage>, IRecipient<AccountRemovedMessage>
 {
@@ -50,38 +51,63 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     // The first synchronization that is allowed to run again publishes their execution.
     private readonly ConcurrentDictionary<Guid, byte> _accountsWithDeferredRequests = new();
     private readonly ConcurrentDictionary<string, string> _reportedDavCertificateFailures = new(StringComparer.Ordinal);
-    private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
     private readonly object _undoActionPackLock = new();
     private readonly ILogger _logger = Log.ForContext<SynchronizationManager>();
 
-    private SynchronizerFactory _concreteSynchronizerFactory;
-    private IMailServerTestService _mailServerTestService;
-    private IAccountService _accountService;
-    private IAuthenticationProvider _authenticationProvider;
-    private INotificationBuilder _notificationBuilder;
-    private bool _notificationsEnabled = true;
-    private IPreferencesService _preferencesService;
-    private IDraftSyncRetryService _draftSyncRetryService;
-
-    private IDraftUpdateCoordinator _draftUpdateCoordinator;
-    private IMailService _draftMailService;
-    // Resolved on first use: the coordinator itself depends on this manager.
-    private readonly Func<ISyncCoordinator> _syncCoordinatorResolver;
-
-    private bool _isInitialized = false;
-    private bool _isRegisteredForProgressMessages;
+    private readonly SynchronizerFactory _concreteSynchronizerFactory;
+    private readonly IMailServerTestService _mailServerTestService;
+    private readonly IAccountService _accountService;
+    private readonly IAuthenticationProvider _authenticationProvider;
+    private readonly INotificationBuilder _notificationBuilder;
+    private readonly bool _notificationsEnabled;
+    private readonly IPreferencesService _preferencesService;
+    private readonly IDraftSyncRetryService _draftSyncRetryService;
+    private readonly DraftUpdateCoordinator _draftUpdateCoordinator;
+    private readonly IMailService _draftMailService;
+    private readonly TaskQuotaGate _taskQuota;
 
     private readonly IMessenger _messenger;
     private readonly RequestUiChangeCoordinator _uiChanges;
     private readonly IAppLockService _appLockService;
 
-    public SynchronizationManager(IMessenger messenger, RequestUiChangeCoordinator uiChanges, Func<ISyncCoordinator> syncCoordinatorResolver, IAppLockService appLockService)
+    public SynchronizationManager(IMessenger messenger,
+                                  RequestUiChangeCoordinator uiChanges,
+                                  IAppLockService appLockService,
+                                  SynchronizerFactory synchronizerFactory,
+                                  IMailServerTestService mailServerTestService,
+                                  IAccountService accountService,
+                                  INotificationBuilder notificationBuilder,
+                                  IAuthenticationProvider authenticationProvider,
+                                  IPreferencesService preferencesService,
+                                  IDraftSyncRetryService draftSyncRetryService,
+                                  IMailService mailService,
+                                  TaskQuotaGate taskQuota,
+                                  IWinoLogger winoLogger,
+                                  DraftUpdateRegistry draftUpdateRegistry,
+                                  IPlatformCapabilities platformCapabilities = null)
     {
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _uiChanges = uiChanges ?? throw new ArgumentNullException(nameof(uiChanges));
-        _syncCoordinatorResolver = syncCoordinatorResolver ?? throw new ArgumentNullException(nameof(syncCoordinatorResolver));
         _appLockService = appLockService ?? throw new ArgumentNullException(nameof(appLockService));
+        _concreteSynchronizerFactory = synchronizerFactory ?? throw new ArgumentNullException(nameof(synchronizerFactory));
+        _mailServerTestService = mailServerTestService ?? throw new ArgumentNullException(nameof(mailServerTestService));
+        _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
+        _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
+        _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
+        _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
+        _draftSyncRetryService = draftSyncRetryService ?? throw new ArgumentNullException(nameof(draftSyncRetryService));
+        _draftMailService = mailService ?? throw new ArgumentNullException(nameof(mailService));
+        _taskQuota = taskQuota ?? throw new ArgumentNullException(nameof(taskQuota));
+        _notificationsEnabled = platformCapabilities?.Notifications ?? true;
+        _draftUpdateCoordinator = new DraftUpdateCoordinator(this, mailService, winoLogger, draftUpdateRegistry);
+
+        // Synchronizers are created lazily, when an account first needs one.
+        _messenger.Register<AccountSynchronizerStateChanged>(this);
+        _messenger.Register<AccountUpdatedMessage>(this);
+        _messenger.Register<AccountRemovedMessage>(this);
     }
+
+    public IDraftUpdateCoordinator DraftUpdates => _draftUpdateCoordinator;
 
     internal static async Task PublishMailSynchronizationNotificationsAsync(
         MailSynchronizationResult result, MailAccount account, INotificationBuilder notifications, bool notificationsEnabled)
@@ -117,71 +143,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     }
 
     /// <summary>
-    /// Initializes the SynchronizationManager with required dependencies.
-    /// This must be called before using any other methods.
-    /// Note: Synchronizers are created lazily to avoid requiring window handles during app initialization.
-    /// </summary>
-    /// <param name="synchronizerFactory">Factory for creating synchronizers</param>
-    /// <param name="mailServerTestService">Service for testing IMAP connectivity</param>
-    /// <param name="accountService">Service for account operations</param>
-    /// <param name="authenticationProvider">Provider for OAuth authentication</param>
-    public Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
-        IMailServerTestService mailServerTestService, IAccountService accountService,
-        INotificationBuilder notificationBuilder, IAuthenticationProvider authenticationProvider,
-        IPreferencesService preferencesService,
-        IDraftSyncRetryService draftSyncRetryService,
-        IDraftUpdateCoordinator draftUpdateCoordinator = null, IMailService draftMailService = null)
-        => InitializeAsync(synchronizerFactory, mailServerTestService, accountService, notificationBuilder,
-            authenticationProvider, preferencesService, draftSyncRetryService,
-            draftUpdateCoordinator, draftMailService, null);
-
-    public async Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
-                                     IMailServerTestService mailServerTestService,
-                                     IAccountService accountService,
-                                     INotificationBuilder notificationBuilder,
-                                     IAuthenticationProvider authenticationProvider,
-                                     IPreferencesService preferencesService,
-                                     IDraftSyncRetryService draftSyncRetryService,
-                        IDraftUpdateCoordinator draftUpdateCoordinator, IMailService draftMailService,
-                        IPlatformCapabilities platformCapabilities)
-    {
-        await _initializationSemaphore.WaitAsync();
-
-        try
-        {
-            if (_isInitialized) return;
-
-            _concreteSynchronizerFactory = synchronizerFactory as SynchronizerFactory ?? throw new ArgumentException("SynchronizerFactory must be the concrete implementation");
-            _mailServerTestService = mailServerTestService ?? throw new ArgumentNullException(nameof(mailServerTestService));
-            _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
-            _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
-            _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
-            _notificationsEnabled = platformCapabilities?.Notifications ?? true;
-            _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
-            _draftUpdateCoordinator = draftUpdateCoordinator;
-            _draftMailService = draftMailService;
-            _draftSyncRetryService = draftSyncRetryService ?? throw new ArgumentNullException(nameof(draftSyncRetryService));
-
-            // DO NOT create synchronizers here to avoid requiring window handles during initialization.
-            // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
-            if (!_isRegisteredForProgressMessages)
-            {
-                _messenger.Register<AccountSynchronizerStateChanged>(this);
-                _messenger.Register<AccountUpdatedMessage>(this);
-                _messenger.Register<AccountRemovedMessage>(this);
-                _isRegisteredForProgressMessages = true;
-            }
-
-            _isInitialized = true;
-            _logger.Information("SynchronizationManager dependencies initialized. Synchronizers will be created lazily.");
-        }
-        finally
-        {
-            _initializationSemaphore.Release();
-        }
-    }
-
-    /// <summary>
     /// Tests IMAP server connectivity for the given server information.
     /// </summary>
     /// <param name="serverInformation">Server information to test</param>
@@ -194,8 +155,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     private async Task<ImapConnectivityTestResults> TestImapConnectivityCoreAsync(CustomServerInformation serverInformation, Func<Task> runTestAsync)
     {
-        EnsureInitialized();
-
         try
         {
             _logger.Information("Testing IMAP connectivity for {Server}:{Port}",
@@ -309,8 +268,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<MailSynchronizationResult> SynchronizeMailAsync(MailSynchronizationOptions options,
                                                                       CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-
         if (options.Type == MailSynchronizationType.ExecuteRequests && HasPendingUndoAction(options.AccountId))
         {
             var pendingSynchronizer = await GetOrCreateSynchronizerAsync(options.AccountId).ConfigureAwait(false);
@@ -450,8 +407,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <returns>True if synchronization is ongoing, false otherwise</returns>
     public bool IsAccountSynchronizing(Guid accountId)
     {
-        EnsureInitialized();
-
         if (_synchronizerCache.TryGetValue(accountId, out var synchronizer))
         {
             return synchronizer.State == AccountSynchronizerState.Synchronizing ||
@@ -463,8 +418,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     public AccountSynchronizationProgress GetSynchronizationProgress(Guid accountId, SynchronizationProgressCategory category)
     {
-        EnsureInitialized();
-
         return category switch
         {
             SynchronizationProgressCategory.Calendar => _calendarSynchronizationProgress.TryGetValue(accountId, out var calendarProgress)
@@ -507,8 +460,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     private async Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization, bool allowUndo)
     {
-        EnsureInitialized();
-
         var normalizedRequestsByAccount = requestsByAccount?
             .Where(pair => pair.Value?.Any(request => request != null) == true)
             .ToDictionary(
@@ -556,8 +507,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     private async Task QueueRequestsCoreAsync(IEnumerable<IRequestBase> requests, Guid accountId, bool triggerSynchronization)
     {
-        EnsureInitialized();
-
         var requestList = requests?.Where(request => request != null).ToList() ?? [];
         if (requestList.Count == 0)
             return;
@@ -587,7 +536,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         foreach (var request in requestList)
         {
-            if (_draftUpdateCoordinator != null && request is MailRequestBase mailRequest && mailRequest.Item.IsDraft &&
+            if (request is MailRequestBase mailRequest && mailRequest.Item.IsDraft &&
                 request is SendDraftRequest or DeleteRequest or MoveRequest)
             {
                 var current = await _draftUpdateCoordinator.StopAsync(accountId, mailRequest.Item.UniqueId).ConfigureAwait(false);
@@ -641,8 +590,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     public Task<bool> UndoLatestQueuedAction(Guid accountId)
     {
-        EnsureInitialized();
-
         PendingUndoActionPack pendingPack = null;
 
         lock (_undoActionPackLock)
@@ -889,8 +836,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<MailSynchronizationResult> SynchronizeFoldersAsync(Guid accountId,
                                                                          CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-
         var options = new MailSynchronizationOptions
         {
             AccountId = accountId,
@@ -909,8 +854,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<MailSynchronizationResult> SynchronizeAliasesAsync(Guid accountId,
                                                                          CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-
         var options = new MailSynchronizationOptions
         {
             AccountId = accountId,
@@ -929,8 +872,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<MailSynchronizationResult> SynchronizeCategoriesAsync(Guid accountId,
                                                                             CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-
         var options = new MailSynchronizationOptions
         {
             AccountId = accountId,
@@ -949,8 +890,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<MailSynchronizationResult> SynchronizeProfileAsync(Guid accountId,
                                                                          CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-
         var options = new MailSynchronizationOptions
         {
             AccountId = accountId,
@@ -979,8 +918,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         ContactSynchronizationOptions options,
         CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-
         // Same gate as mail and calendar: a sign-in the user has not redone yet can only fail.
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId, "contact synchronization").ConfigureAwait(false))
         {
@@ -1060,7 +997,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         TaskSynchronizationOptions options,
         CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
         if (options is null)
             return TaskSynchronizationResult.Failed(new ArgumentNullException(nameof(options)));
 
@@ -1078,10 +1014,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         // and completion for the caller.
         if (options.Type != TaskSynchronizationType.ExecuteRequests && !options.IsUserInitiated)
         {
-            var coordinator = _syncCoordinatorResolver?.Invoke()
-                ?? throw new InvalidOperationException("SynchronizationManager has no sync coordinator for the task quota gate.");
-
-            if (!await coordinator.TryBeginQuotaTaskPullAsync(synchronizer.Account).ConfigureAwait(false))
+            if (!await _taskQuota.TryBeginTaskPullAsync(synchronizer.Account).ConfigureAwait(false))
             {
                 options = new TaskSynchronizationOptions
                 {
@@ -1216,8 +1149,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         CancellationToken cancellationToken,
         bool reportState)
     {
-        EnsureInitialized();
-
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId, "calendar synchronization").ConfigureAwait(false))
         {
             var result = CalendarSynchronizationResult.Canceled;
@@ -1322,7 +1253,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     public async Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
         var draft = await _draftMailService.GetSingleMailItemAsync(snapshot.UniqueId).ConfigureAwait(false);
         if (draft?.AssignedAccount?.Id != snapshot.AccountId || !draft.IsDraft || draft.IsLocalDraft)
             return null;
@@ -1347,8 +1277,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<string> DownloadMimeMessageAsync(MailCopy mailItem, Guid accountId,
                                                        CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-
         if (await IsSynchronizationBlockedByAttentionAsync(accountId, "MIME download").ConfigureAwait(false))
         {
             return null;
@@ -1389,8 +1317,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         string localFilePath,
         CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-
         if (calendarItem == null)
             throw new ArgumentNullException(nameof(calendarItem));
 
@@ -1437,8 +1363,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <returns>Created synchronizer</returns>
     public IWinoSynchronizerBase CreateSynchronizerForAccount(MailAccount account)
     {
-        EnsureInitialized();
-
         try
         {
             var synchronizer = _concreteSynchronizerFactory.CreateNewSynchronizer(account);
@@ -1462,8 +1386,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <param name="accountId">Account ID to cancel synchronizations for</param>
     public Task CancelSynchronizationsAsync(Guid accountId)
     {
-        EnsureInitialized();
-
         if (_accountSynchronizationCancellationSources.TryRemove(accountId, out var cancellationSource))
         {
             try
@@ -1499,8 +1421,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <param name="accountId">Account ID to destroy synchronizer for</param>
     public async Task DestroySynchronizerAsync(Guid accountId)
     {
-        EnsureInitialized();
-        if (_draftUpdateCoordinator != null) await _draftUpdateCoordinator.StopAccountAsync(accountId).ConfigureAwait(false);
+        await _draftUpdateCoordinator.StopAccountAsync(accountId).ConfigureAwait(false);
         await CancelSynchronizationsAsync(accountId);
 
         if (_synchronizerCache.ContainsKey(accountId))
@@ -1532,7 +1453,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <returns>Collection of all cached synchronizers</returns>
     public IEnumerable<IWinoSynchronizerBase> GetAllSynchronizers()
     {
-        EnsureInitialized();
         return _synchronizerCache.Values.ToList();
     }
 
@@ -1543,7 +1463,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <returns>Synchronizer if found, null otherwise</returns>
     public async Task<IWinoSynchronizerBase> GetSynchronizerAsync(Guid accountId)
     {
-        EnsureInitialized();
         return await GetOrCreateSynchronizerAsync(accountId);
     }
 
@@ -1588,8 +1507,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                                                   bool forceInteractive = false,
                                                                   IReadOnlyCollection<ProviderFeature> requestedFeatures = null)
     {
-        EnsureInitialized();
-
         try
         {
             var authenticator = _authenticationProvider.GetAuthenticator(providerType);
@@ -1658,14 +1575,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             message.NewState);
 
         PublishSynchronizationProgress(progress);
-    }
-
-    private void EnsureInitialized()
-    {
-        if (!_isInitialized)
-        {
-            throw new InvalidOperationException("SynchronizationManager must be initialized before use. Call InitializeAsync first.");
-        }
     }
 
     private async Task SetInvalidCredentialAttentionAsync(MailAccount account)
@@ -1796,7 +1705,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     public void Receive(AccountUpdatedMessage message)
     {
-        if (!_isInitialized || message.Account == null)
+        if (message.Account == null)
             return;
 
         // Runs off the sender: the update may come from a synchronizer that the suspension waits for.
@@ -1820,7 +1729,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// </summary>
     public void Receive(AccountRemovedMessage message)
     {
-        if (!_isInitialized || message.Account == null)
+        if (message.Account == null)
             return;
 
         var accountId = message.Account.Id;

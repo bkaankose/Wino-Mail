@@ -61,17 +61,17 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public WinoAccountApiClient(
         IDatabaseService databaseService,
         IAccountCredentialPersistence credentialPersistence,
+        IWinoAccountSessionService sessionService,
         HttpClient? httpClient = null,
         IContentEnvelopeEncryptor? contentEnvelopeEncryptor = null,
         ITranslationService? translationService = null,
-        int maximumEncryptedAttempts = 5,
-        IWinoAccountSessionService? sessionService = null)
+        int maximumEncryptedAttempts = 5)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumEncryptedAttempts, 1);
 
         _databaseService = databaseService;
         _credentialPersistence = credentialPersistence;
-        _sessions = sessionService ?? WinoAccountSessionService.For(databaseService, credentialPersistence);
+        _sessions = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
         _contentEnvelopeEncryptor = contentEnvelopeEncryptor ??
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load());
         _translationService = translationService;
