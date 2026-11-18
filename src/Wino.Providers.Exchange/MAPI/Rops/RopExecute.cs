@@ -5,9 +5,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Rops;
+namespace Wino.Providers.Exchange.MAPI.Rops;
 
 /// <summary>
 /// The Execute request (MS-OXCMAPIHTTP 2.2.4.2) and the two layers of framing it carries.

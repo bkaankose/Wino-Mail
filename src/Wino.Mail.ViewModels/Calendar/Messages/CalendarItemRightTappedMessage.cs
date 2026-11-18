@@ -1,6 +1,7 @@
-﻿using Wino.Calendar.ViewModels.Data;
+﻿
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.ViewModels.Messages;
+namespace Wino.Mail.ViewModels.Calendar.Messages;
 
 public class CalendarItemRightTappedMessage
 {

@@ -4,7 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 

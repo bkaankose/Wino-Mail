@@ -17,8 +17,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Connectivity;
+using Wino.Core.Integration;
+using Wino.Providers.Imap.Models.Connectivity;
 
-namespace Wino.Core.Integration;
+namespace Wino.Providers.Imap.Integration;
 
 /// <summary>
 /// Connection state for tracking individual client health.

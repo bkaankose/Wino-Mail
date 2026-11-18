@@ -16,18 +16,22 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
-using Wino.Core.MAPI;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Transport;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Services;
-using Wino.Core.Synchronizers.Exchange;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Providers.Exchange.Integration.Processors;
+using Wino.Providers.Exchange.Interfaces;
+using Wino.Providers.Exchange.MAPI;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Transport;
+using Wino.Providers.Exchange.Requests.Bundles;
+using Wino.Providers.Exchange.Synchronizers.Exchange;
+using Wino.Services.Models.MailItem;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 /// <summary>
 /// Synchronizes on-premises Exchange accounts over native MAPI over HTTP. It derives from the EWS synchronizer and replaces

@@ -7,7 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 /// <summary>
 /// Decides what a delete command removes for an event that belongs to a recurring series.

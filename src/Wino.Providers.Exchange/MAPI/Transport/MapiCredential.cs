@@ -7,7 +7,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Wino.Core.MAPI.Transport;
+namespace Wino.Providers.Exchange.MAPI.Transport;
 
 /// <summary>
 /// How the transport authenticates. Exchange's MAPI virtual directory accepts OAuth bearer tokens

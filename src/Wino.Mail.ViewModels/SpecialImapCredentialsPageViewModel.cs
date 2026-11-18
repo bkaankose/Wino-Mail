@@ -12,7 +12,7 @@ using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 

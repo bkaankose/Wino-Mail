@@ -9,8 +9,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IMailItemFolder, FolderMenuItem>>, IAccountMenuItem, IAccountNavigationMenuItem
 {

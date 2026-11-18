@@ -9,7 +9,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Wino.Core.Outlook;
+namespace Wino.Providers.Outlook.Outlook;
 
 // Substrate uses PascalCase and occasionally sends numbers as strings. Source generated so the
 // client stays trim and AOT safe, matching GoogleTasksClient.

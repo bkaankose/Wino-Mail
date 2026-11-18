@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Wino.Core.MAPI.Wire;
+namespace Wino.Providers.Exchange.MAPI.Wire;
 
 /// <summary>
 /// Reader counterpart of <see cref="RopWriter"/>. Throws <see cref="MapiFormatException"/> rather than

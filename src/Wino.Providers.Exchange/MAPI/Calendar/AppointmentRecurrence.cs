@@ -6,9 +6,9 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Calendar;
+namespace Wino.Providers.Exchange.MAPI.Calendar;
 
 /// <summary>A modified instance of a series (MS-OXOCAL 2.2.1.44.4 ExceptionInfo), with the fields this client uses.</summary>
 public sealed record RecurrenceException(

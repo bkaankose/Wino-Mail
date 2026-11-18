@@ -15,8 +15,8 @@ using Wino.Core.Domain.Models.Badges;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services;
 

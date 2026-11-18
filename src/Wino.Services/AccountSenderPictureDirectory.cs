@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services;
 

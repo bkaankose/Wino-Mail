@@ -15,7 +15,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Authentication.Exchange;
+namespace Wino.Providers.Exchange.Authentication.Exchange;
 
 /// <summary>
 /// Exchange modern-auth sign-in through <see cref="IEmbeddedBrowserAuthBroker"/>. It shares only the stateless

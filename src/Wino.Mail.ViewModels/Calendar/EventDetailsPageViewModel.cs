@@ -9,7 +9,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Extensions;
@@ -21,12 +20,14 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Services;
-using Wino.Core.ViewModels;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Shell;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Common;
+using Wino.Services.Interfaces;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     IRecipient<PreferenceChangedMessage>

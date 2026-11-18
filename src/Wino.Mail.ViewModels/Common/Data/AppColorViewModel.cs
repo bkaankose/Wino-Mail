@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 
-namespace Wino.Core.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 public partial class AppColorViewModel : ObservableObject
 {

@@ -6,8 +6,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.Interfaces;
+namespace Wino.Mail.ViewModels.Shell.Contracts;
 
 /// <summary>
 /// A mode view model that owns the navigation menu shown while that mode is active.

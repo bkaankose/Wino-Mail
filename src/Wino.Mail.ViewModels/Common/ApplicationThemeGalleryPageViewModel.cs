@@ -11,9 +11,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, IBackNavigationAware
 {

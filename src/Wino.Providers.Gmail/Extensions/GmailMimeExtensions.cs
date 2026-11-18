@@ -1,12 +1,13 @@
 ﻿using System.IO;
 using System.Text;
-using Google.Apis.Gmail.v1.Data;
 using MimeKit;
 using MimeKit.IO;
 using MimeKit.IO.Filters;
 using Wino.Core.Domain.Extensions;
+using Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data;
+using Wino.Services.Extensions;
 
-namespace Wino.Core.Extensions;
+namespace Wino.Providers.Gmail.Extensions;
 
 public static class GmailMimeExtensions
 {

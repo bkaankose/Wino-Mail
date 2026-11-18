@@ -5,7 +5,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Helpers;
-using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Calendar;
 
 namespace Wino.Core.Requests.Calendar;
 

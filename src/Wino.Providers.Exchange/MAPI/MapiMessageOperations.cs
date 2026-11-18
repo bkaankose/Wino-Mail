@@ -6,10 +6,10 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI;
+namespace Wino.Providers.Exchange.MAPI;
 
 /// <summary>One row of a folder's contents table, with the list columns.</summary>
 public sealed record MapiMessageInfo(ulong MessageId, PropertyValue[] Cells)

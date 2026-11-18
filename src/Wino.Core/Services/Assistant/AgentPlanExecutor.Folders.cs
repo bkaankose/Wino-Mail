@@ -13,8 +13,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Folder;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.Server;
+using Wino.Core.Domain.Messaging.Client.Accounts;
+using Wino.Core.Domain.Messaging.Server;
 
 namespace Wino.Core.Services.Assistant;
 

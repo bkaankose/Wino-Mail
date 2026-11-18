@@ -1,14 +1,15 @@
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Google;
 using Serilog;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Interfaces;
+using Wino.Providers.Gmail.Google;
 
-namespace Wino.Core.Synchronizers.Errors.Gmail;
+namespace Wino.Providers.Gmail.Synchronizers.Errors.Gmail;
 
 public class GmailAuthenticationFailedHandler : ISynchronizerErrorHandler
 {

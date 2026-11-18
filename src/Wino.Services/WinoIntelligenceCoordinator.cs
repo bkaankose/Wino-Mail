@@ -20,8 +20,9 @@ using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
-using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
 
 namespace Wino.Services;
 

@@ -1,4 +1,4 @@
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>Raised after the What's New window opened and the current version was marked as seen.</summary>
 public sealed record WhatsNewOpened;

@@ -15,9 +15,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PushRelay;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Services.Logging;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
 
 namespace Wino.Services.Synchronization;
 

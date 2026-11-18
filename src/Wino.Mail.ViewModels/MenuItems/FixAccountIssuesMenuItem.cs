@@ -1,8 +1,9 @@
 ﻿using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 public class FixAccountIssuesMenuItem : MenuItemBase<IMailItemFolder, FolderMenuItem>
 {

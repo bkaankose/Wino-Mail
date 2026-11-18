@@ -1,7 +1,7 @@
 using System;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>
 /// Emitted when calendar synchronization state for an account changes.

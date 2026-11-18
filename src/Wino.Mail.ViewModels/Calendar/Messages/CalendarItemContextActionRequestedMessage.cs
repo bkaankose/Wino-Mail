@@ -1,7 +1,7 @@
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.ViewModels.Messages;
+namespace Wino.Mail.ViewModels.Calendar.Messages;
 
 public sealed record CalendarItemContextActionRequestedMessage(
     CalendarItemViewModel CalendarItemViewModel,

@@ -10,7 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Browsers;
 using Wino.Core.Domain.Models.Platform;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
 
 namespace Wino.Services;
 

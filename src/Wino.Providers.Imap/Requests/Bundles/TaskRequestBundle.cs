@@ -5,7 +5,7 @@ using System.Threading;
 using MailKit.Net.Imap;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Requests.Bundles;
+namespace Wino.Providers.Imap.Requests.Bundles;
 
 public class ImapRequest
 {

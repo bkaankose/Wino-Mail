@@ -1,7 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class SettingsDialogViewModel : CoreBaseViewModel
 {

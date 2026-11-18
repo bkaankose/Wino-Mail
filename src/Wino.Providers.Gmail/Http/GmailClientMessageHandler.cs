@@ -12,7 +12,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Core.Http;
+namespace Wino.Providers.Gmail.Http;
 
 internal sealed class GmailClientMessageHandler : DelegatingHandler
 {

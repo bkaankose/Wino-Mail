@@ -1,4 +1,4 @@
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 /// <summary>
 /// A non-interactive caption between groups of navigation items. Replaces the list group

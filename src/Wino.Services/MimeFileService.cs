@@ -15,6 +15,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Services.Extensions;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
+using Wino.Services.Models.Reader;
 
 namespace Wino.Services;
 

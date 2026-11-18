@@ -4,8 +4,9 @@ using System.Threading.Tasks;
 using MailKit;
 using MailKit.Net.Imap;
 using Serilog;
+using Wino.Core.Extensions;
 
-namespace Wino.Core.Extensions;
+namespace Wino.Providers.Imap.Extensions;
 
 internal static class ImapMailFolderCloseExtensions
 {

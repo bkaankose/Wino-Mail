@@ -10,6 +10,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration;
+using Wino.Core.Interfaces;
 
 namespace Wino.Core.Services;
 

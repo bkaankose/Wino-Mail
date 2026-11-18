@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Calendar;
 
-namespace Wino.Messaging.Client.Calendar;
+namespace Wino.Core.Domain.Messaging.Client.Calendar;
 
 public record CalendarListRefreshed(List<AccountCalendar> AccountCalendars);
 public record CalendarListAdded(AccountCalendar AccountCalendar);

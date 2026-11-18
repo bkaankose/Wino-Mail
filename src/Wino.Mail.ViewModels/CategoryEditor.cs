@@ -10,6 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Services;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 

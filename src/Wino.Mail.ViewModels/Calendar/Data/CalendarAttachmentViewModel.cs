@@ -8,9 +8,9 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Extensions;
-using Wino.Core.ViewModels.Attachments;
+using Wino.Mail.ViewModels.Common.Attachments;
 
-namespace Wino.Calendar.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Calendar.Data;
 
 public partial class CalendarAttachmentViewModel : AttachmentViewModelBase
 {

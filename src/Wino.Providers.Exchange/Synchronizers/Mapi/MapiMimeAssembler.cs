@@ -7,9 +7,9 @@ using System.Text;
 using MimeKit;
 using MimeKit.Utils;
 using Wino.Core.Domain.Entities.Mail;
-using Wino.Core.MAPI;
+using Wino.Providers.Exchange.MAPI;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 /// <summary>
 /// Turns MAPI message content into the RFC 822 message the rest of the app reads. There is no MIME on

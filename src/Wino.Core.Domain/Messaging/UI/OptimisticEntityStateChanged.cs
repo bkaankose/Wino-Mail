@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 public enum OptimisticEntityChange
 {

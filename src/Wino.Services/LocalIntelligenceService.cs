@@ -8,7 +8,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services;
 

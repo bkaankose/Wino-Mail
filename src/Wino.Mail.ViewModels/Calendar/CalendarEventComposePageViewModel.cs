@@ -11,7 +11,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using EmailValidation;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
@@ -23,11 +22,12 @@ using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Presentation;
 using Wino.Core.Domain.Validation;
-using Wino.Core.ViewModels;
-using Wino.Messaging.Client.Shell;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Common;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     IRecipient<PreferenceChangedMessage>

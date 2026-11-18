@@ -8,8 +8,9 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Synchronizers.CalDav;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// Default alarms (<c>calendar-default-alarms</c>, CalendarServer extension): the server stores

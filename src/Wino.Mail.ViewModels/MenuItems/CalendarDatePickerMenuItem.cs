@@ -2,8 +2,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Translations;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 /// <summary>
 /// Hosts the calendar pane's date picker. Carries the calendar mode view model so the

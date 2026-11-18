@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 /// <summary>
 /// The "Categories" entry of the contacts pane. Invoking it shows or hides the categories

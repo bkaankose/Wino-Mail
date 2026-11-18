@@ -9,7 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Extensions;
-using Wino.Core.ViewModels.Attachments;
+using Wino.Mail.ViewModels.Common.Attachments;
 
 namespace Wino.Mail.ViewModels.Data;
 

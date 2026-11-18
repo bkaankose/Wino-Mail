@@ -8,7 +8,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// Turns changed VTODO resources into a task hierarchy delta. Every VTODO is a node whose parent

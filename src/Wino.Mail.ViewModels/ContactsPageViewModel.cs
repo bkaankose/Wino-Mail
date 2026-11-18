@@ -20,10 +20,12 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Contact;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 

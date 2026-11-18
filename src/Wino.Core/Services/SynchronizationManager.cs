@@ -22,10 +22,12 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Core.Services;
 

@@ -1,9 +1,9 @@
 using System;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.MAPI;
+using Wino.Providers.Exchange.MAPI;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 /// <summary>A tasks-folder row to the local task, and a local task to the fields written back.</summary>
 internal static class MapiTaskMapper

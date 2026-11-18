@@ -1,6 +1,6 @@
 using System;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>
 /// An account's hover or swipe action overrides changed in settings.

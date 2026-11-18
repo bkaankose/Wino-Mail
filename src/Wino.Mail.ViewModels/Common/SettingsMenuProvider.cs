@@ -5,15 +5,17 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 /// <summary>
 /// Owns the settings navigation pane. Settings keeps its own breadcrumb frame inside

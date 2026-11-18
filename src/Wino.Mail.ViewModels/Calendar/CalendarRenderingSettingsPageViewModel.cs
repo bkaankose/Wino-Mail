@@ -7,7 +7,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSectionViewModelBase
 {

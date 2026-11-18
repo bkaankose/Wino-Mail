@@ -15,7 +15,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PushRelay;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services.PushRelay;
 

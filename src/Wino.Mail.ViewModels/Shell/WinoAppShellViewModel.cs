@@ -14,13 +14,15 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Calendar.ViewModels;
-using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
-namespace Wino.Shell.ViewModels;
+namespace Wino.Mail.ViewModels.Shell;
 
 /// <summary>
 /// Hosts whatever navigation menu the currently navigated page published. It deliberately

@@ -30,11 +30,13 @@ using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Models;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
-using IMailService = Wino.Core.Domain.Interfaces.IMailService;
+using IMailService = Wino.Services.Interfaces.IMailService;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
+using Wino.Services.Models.Reader;
 
 namespace Wino.Mail.ViewModels;
 
@@ -53,7 +55,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IUnderlyingThemeService _underlyingThemeService;
 
     private readonly IMimeFileService _mimeFileService;
-    private readonly Core.Domain.Interfaces.IMailService _mailService;
+    private readonly Wino.Services.Interfaces.IMailService _mailService;
     private readonly IFolderService _folderService;
     private readonly IFileService _fileService;
     private readonly IWinoRequestDelegator _requestDelegator;

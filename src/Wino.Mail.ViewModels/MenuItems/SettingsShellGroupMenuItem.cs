@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 /// <summary>
 /// A collapsible mode group in the settings pane. Groups are pane affordances only: they are not

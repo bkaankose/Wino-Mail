@@ -10,7 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class CoreBaseViewModel : ObservableRecipient, INavigationAware
 {

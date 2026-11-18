@@ -3,7 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 
-namespace Wino.Core.Synchronizers;
+namespace Wino.Providers.Dav.Synchronizers;
 
 /// <summary>
 /// What the CalDAV and CardDAV engines learn about servers and keep for the life of the container: discovered CalDAV

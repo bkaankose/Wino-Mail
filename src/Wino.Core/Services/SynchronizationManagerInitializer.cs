@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 

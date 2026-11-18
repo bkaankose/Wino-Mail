@@ -8,6 +8,7 @@ using Wino.Core.Providers;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors;
 using Wino.Services;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core;
 

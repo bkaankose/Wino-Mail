@@ -13,7 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Server;
+using Wino.Core.Domain.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 

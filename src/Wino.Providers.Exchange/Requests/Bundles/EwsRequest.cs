@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Requests.Bundles;
+namespace Wino.Providers.Exchange.Requests.Bundles;
 
 /// <summary>
 /// One on-premises Exchange operation. The EWS synchronizer runs it against a freshly authenticated

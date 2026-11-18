@@ -17,14 +17,14 @@ using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Intelligence;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common.Data;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     IRecipient<WinoAccountProfileUpdatedMessage>,

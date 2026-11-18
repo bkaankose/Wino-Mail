@@ -13,8 +13,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PushRelay;
+using Wino.Core.PushRelay;
 
-namespace Wino.Core.PushRelay;
+namespace Wino.Providers.Outlook.PushRelay;
 
 /// <summary>
 /// Builds relay registrations for Outlook accounts. The app owns the Graph subscription on the inbox: it creates it

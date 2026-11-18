@@ -1,8 +1,10 @@
 ﻿using Wino.Core.Domain.Interfaces;
 using Wino.Core.Synchronizers.Errors;
-using Wino.Core.Synchronizers.Errors.Gmail;
+using Wino.Core.Services;
+using Wino.Providers.Gmail.Interfaces;
+using Wino.Providers.Gmail.Synchronizers.Errors.Gmail;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Gmail.Services;
 
 /// <summary>
 /// Factory for handling Gmail synchronizer errors.

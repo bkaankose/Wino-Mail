@@ -7,10 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Buffers.Binary;
 using System.Text;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Rules;
+namespace Wino.Providers.Exchange.MAPI.Rules;
 
 /// <summary>Action types (MS-OXORULE 2.2.5.1.1 ActionType).</summary>
 public enum RuleActionType : byte

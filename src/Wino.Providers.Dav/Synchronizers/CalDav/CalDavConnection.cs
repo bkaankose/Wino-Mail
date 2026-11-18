@@ -12,7 +12,7 @@ using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// What every CalDAV operation of an account shares: how to reach the server, which credentials

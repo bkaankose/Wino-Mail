@@ -12,8 +12,9 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
+using Wino.Core.Synchronizers;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// Writes task mutations as VTODO resources: lists are calendar collections (MKCALENDAR,

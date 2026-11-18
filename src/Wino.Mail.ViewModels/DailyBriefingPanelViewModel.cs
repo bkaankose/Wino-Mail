@@ -18,8 +18,10 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Mail.ViewModels;
 

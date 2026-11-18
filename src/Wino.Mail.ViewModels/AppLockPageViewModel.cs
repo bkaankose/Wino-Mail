@@ -9,8 +9,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.ViewModels;
 

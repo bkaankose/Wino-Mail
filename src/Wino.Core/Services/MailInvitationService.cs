@@ -19,6 +19,8 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Integration.Processors;
 using Wino.Services;
+using Wino.Core.Interfaces;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 

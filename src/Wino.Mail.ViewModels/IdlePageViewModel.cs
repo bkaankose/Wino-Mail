@@ -7,8 +7,9 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.ViewModels;
 

@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 

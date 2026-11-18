@@ -2,7 +2,7 @@ using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Printing;
+namespace Wino.Mail.ViewModels.Models.Printing;
 
 /// <summary>
 /// Wrapper model for CoreWebView2PrintSettings that provides bindable properties for UI controls.

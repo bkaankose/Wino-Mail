@@ -10,8 +10,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
-namespace Wino.Shell.ViewModels;
+namespace Wino.Mail.ViewModels.Shell;
 
 /// <summary>
 /// The Windows WinoAppShell.ActivateMode sequence for native shells (Mac, iPhone, iPad and Android), over the shared

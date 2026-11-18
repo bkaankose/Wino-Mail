@@ -1,7 +1,7 @@
 using System;
 using Wino.Core.Domain.Models.Synchronization;
 
-namespace Wino.Messaging.Server;
+namespace Wino.Core.Domain.Messaging.Server;
 
 /// <summary>
 /// A desktop IMAP account's IDLE loop started listening, lost its connection or stopped. Sent through the

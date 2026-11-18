@@ -24,11 +24,12 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Misc;
 using Wino.Core.Services;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 

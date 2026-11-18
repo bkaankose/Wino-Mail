@@ -17,7 +17,7 @@ using EwsTask = Microsoft.Exchange.WebServices.Data.Task;
 using EwsTaskStatus = Microsoft.Exchange.WebServices.Data.TaskStatus;
 using Task = System.Threading.Tasks.Task;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 public partial class ExchangeSynchronizer
 {

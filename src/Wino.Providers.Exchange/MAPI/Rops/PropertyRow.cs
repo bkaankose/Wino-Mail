@@ -5,9 +5,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Rops;
+namespace Wino.Providers.Exchange.MAPI.Rops;
 
 /// <summary>One cell of a PropertyRow: a value, an error, or absent.</summary>
 public readonly struct PropertyValue
@@ -92,8 +92,8 @@ public static class PropertyRow
         PropertyTypes.Binary => reader.Bytes(reader.UInt16()).ToArray(),
         PropertyTypes.MultipleBinary => ReadMultipleBinary(reader),
         PropertyTypes.MultipleUnicode => ReadMultipleUnicode(reader),
-        PropertyTypes.Restriction => Restrictions.Restriction.Decode(reader, extendedFormat: false),   // rules table rows carry the narrow form
-        PropertyTypes.RuleAction => Rules.RuleActions.Read(reader, extendedFormat: false),
+        PropertyTypes.Restriction => Wino.Providers.Exchange.MAPI.Restrictions.Restriction.Decode(reader, extendedFormat: false),   // rules table rows carry the narrow form
+        PropertyTypes.RuleAction => Wino.Providers.Exchange.MAPI.Rules.RuleActions.Read(reader, extendedFormat: false),
         _ => throw new MapiFormatException($"Unhandled property type 0x{propertyType:X4}."),
     };
 

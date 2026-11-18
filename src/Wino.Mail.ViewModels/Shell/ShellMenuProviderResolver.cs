@@ -1,10 +1,11 @@
 using System;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.ViewModels;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
-namespace Wino.Shell.ViewModels;
+namespace Wino.Mail.ViewModels.Shell;
 
 /// <summary>Lazy composition factories supplied by the application host.</summary>
 public sealed class ShellMenuProviderResolver(

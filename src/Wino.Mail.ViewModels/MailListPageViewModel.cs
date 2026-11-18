@@ -36,12 +36,16 @@ using Wino.Mail.ViewModels.Search;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.Core.SearchBar;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.Client.Accounts;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Mail.ViewModels;
 

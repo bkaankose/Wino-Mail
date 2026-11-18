@@ -7,13 +7,13 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsSectionViewModelBase
 {

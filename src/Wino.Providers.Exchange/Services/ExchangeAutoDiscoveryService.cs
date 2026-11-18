@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Exchange.Services;
 
 /// <summary>
 /// Finds EWS endpoints with anonymous Exchange Autodiscover V2, trying the candidates Outlook tries: the directory's

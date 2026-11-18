@@ -4,7 +4,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 
-namespace Wino.Core.Domain.Interfaces;
+namespace Wino.Mail.ViewModels.MenuItems.Contracts;
 
 public interface IFolderMenuItem : IBaseFolderMenuItem
 {
@@ -16,7 +16,7 @@ public interface IMergedAccountFolderMenuItem : IBaseFolderMenuItem { }
 
 public interface IMailCategoryMenuItem : IBaseFolderMenuItem
 {
-    Entities.Mail.MailCategory MailCategory { get; }
+    Wino.Core.Domain.Entities.Mail.MailCategory MailCategory { get; }
     string TextColorHex { get; }
     string BackgroundColorHex { get; }
     bool HasTextColor { get; }
@@ -24,7 +24,7 @@ public interface IMailCategoryMenuItem : IBaseFolderMenuItem
 
 public interface IMergedMailCategoryMenuItem : IBaseFolderMenuItem
 {
-    IReadOnlyList<Entities.Mail.MailCategory> Categories { get; }
+    IReadOnlyList<Wino.Core.Domain.Entities.Mail.MailCategory> Categories { get; }
     string TextColorHex { get; }
     string BackgroundColorHex { get; }
     bool HasTextColor { get; }

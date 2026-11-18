@@ -3,9 +3,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers;
 using Wino.Core.Synchronizers.CalDav;
-using Wino.Core.Synchronizers.CardDav;
+using Wino.Core.Interfaces;
+using Wino.Providers.Dav.Services;
+using Wino.Providers.Dav.Synchronizers;
+using Wino.Providers.Dav.Synchronizers.CalDav;
+using Wino.Providers.Dav.Synchronizers.CardDav;
 
-namespace Wino.Core.Providers;
+namespace Wino.Providers.Dav.Providers;
 
 /// <summary>
 /// CalDAV and CardDAV. They are not a mail provider, so they register no module: IMAP accounts use them for calendar

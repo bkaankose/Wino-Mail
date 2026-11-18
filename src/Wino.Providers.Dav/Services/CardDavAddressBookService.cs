@@ -7,9 +7,9 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.CardDav;
-using Wino.Core.Synchronizers.CardDav;
+using Wino.Providers.Dav.Synchronizers.CardDav;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Dav.Services;
 
 public sealed class CardDavAddressBookService : ICardDavAddressBookService
 {

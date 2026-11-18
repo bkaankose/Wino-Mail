@@ -4,7 +4,7 @@ using System.Linq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 /// <summary>
 /// Builds the reminder and snooze duration option lists shared by the calendar settings sections

@@ -16,6 +16,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 

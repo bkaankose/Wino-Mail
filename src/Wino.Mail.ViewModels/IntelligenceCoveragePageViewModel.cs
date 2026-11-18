@@ -13,7 +13,7 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 

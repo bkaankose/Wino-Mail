@@ -10,8 +10,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.Interfaces;
+namespace Wino.Mail.ViewModels.Shell.Contracts;
 
 /// <summary>
 /// Mail specific surface used by the mail menu item templates and the mail drag and drop

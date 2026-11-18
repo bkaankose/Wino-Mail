@@ -2,8 +2,8 @@
 
 using System;
 using System.Collections.Generic;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.ViewModels.Companion;
 
@@ -24,7 +24,7 @@ public sealed class CompanionEventItem
             ? Translator.QuickEventDialog_IsAllDay
             : string.Format(Translator.Companion_EventTimeFormat, item.StartDate.ToString("t"), item.EndDate.ToString("t"));
         CalendarName = item.AssignedCalendar?.Name ?? string.Empty;
-        CalendarColorHex = Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(item) ?? string.Empty;
+        CalendarColorHex = Wino.Mail.ViewModels.Calendar.CalendarAgenda.ColorHex(item) ?? string.Empty;
         AttendeeCount = item.Attendees.Count;
 
         var minutes = (int)Math.Round((item.StartDate - now).TotalMinutes);

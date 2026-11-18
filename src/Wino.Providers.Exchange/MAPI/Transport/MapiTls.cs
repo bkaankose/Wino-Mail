@@ -8,7 +8,7 @@ using System.Net.Http;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Wino.Core.MAPI.Transport;
+namespace Wino.Providers.Exchange.MAPI.Transport;
 
 /// <summary>
 /// A seam for the host application to take part in server certificate validation. Windows completes

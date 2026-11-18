@@ -25,7 +25,10 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Mail;
-using Wino.Messaging.Server;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Services.Extensions;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Core.Services.Assistant;
 

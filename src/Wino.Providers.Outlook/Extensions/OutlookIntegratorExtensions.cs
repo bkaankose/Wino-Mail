@@ -11,8 +11,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Misc;
+using Wino.Core.Extensions;
+using Wino.Services.Extensions;
 
-namespace Wino.Core.Extensions;
+namespace Wino.Providers.Outlook.Extensions;
 
 public static class OutlookIntegratorExtensions
 {
@@ -45,7 +47,7 @@ public static class OutlookIntegratorExtensions
     public static bool GetIsReadReceiptRequested(this Message message)
         => message?.IsReadReceiptRequested.GetValueOrDefault() == true
            || message?.InternetMessageHeaders?.Any(h =>
-               string.Equals(h.Name, Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
+               string.Equals(h.Name, Wino.Core.Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
                && !string.IsNullOrWhiteSpace(h.Value)) == true;
 
     public static MailCopy AsMailCopy(this Message outlookMessage)
@@ -428,7 +430,7 @@ public static class OutlookIntegratorExtensions
             {
                 generatedNameCount++;
                 name = part.ContentType.IsMimeType("image", "*")
-                    ? $"image{generatedNameCount:000}.{MimeExtensions.GetImageFileExtension(part.ContentType.MediaSubtype)}"
+                    ? $"image{generatedNameCount:000}.{Wino.Core.Extensions.MimeExtensions.GetImageFileExtension(part.ContentType.MediaSubtype)}"
                     : $"attachment{generatedNameCount:000}.bin";
             }
 
@@ -498,7 +500,7 @@ public static class OutlookIntegratorExtensions
         }
 
         // PRIORITY: Always include WinoLocalDraftHeader first if it exists.
-        var winoDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Domain.Constants.WinoLocalDraftHeader);
+        var winoDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Wino.Core.Domain.Constants.WinoLocalDraftHeader);
         if (winoDraftHeader != null)
             AddHeader(winoDraftHeader.Field, winoDraftHeader.Value);
 
@@ -506,7 +508,7 @@ public static class OutlookIntegratorExtensions
         foreach (var header in mime.Headers)
         {
             if (headers.Count >= headerLimit) break;
-            if (Domain.Constants.IsLocalDraftHeader(header.Field)) continue;
+            if (Wino.Core.Domain.Constants.IsLocalDraftHeader(header.Field)) continue;
             if (headersToIgnore.Contains(header.Field)) continue;
 
             // Only include custom headers beyond the core threading ones.

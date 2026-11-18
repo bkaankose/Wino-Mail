@@ -1,6 +1,6 @@
 ﻿using Wino.Core.Domain.Enums;
 
-namespace Wino.Messaging.Client.Navigation;
+namespace Wino.Core.Domain.Messaging.Client.Navigation;
 
 /// <summary>
 /// When Breadcrumb control navigation requested.

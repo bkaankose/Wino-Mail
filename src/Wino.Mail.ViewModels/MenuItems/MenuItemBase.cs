@@ -2,8 +2,9 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 public partial class MenuItemBase : ObservableObject, IMenuItem
 {

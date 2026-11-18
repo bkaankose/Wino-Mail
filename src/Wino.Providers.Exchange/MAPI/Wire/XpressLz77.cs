@@ -6,7 +6,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Wino.Core.MAPI.Wire;
+namespace Wino.Providers.Exchange.MAPI.Wire;
 
 /// <summary>
 /// Plain LZ77 decompression (MS-XCA section 2.1, the "DIRECT2" variant), which is what MS-OXCRPC

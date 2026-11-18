@@ -9,9 +9,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
 namespace Wino.Mail.ViewModels.Data;
 

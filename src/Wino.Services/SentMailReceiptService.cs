@@ -7,7 +7,9 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Extensions;
+using Wino.Services.Interfaces;
 
 namespace Wino.Services;
 

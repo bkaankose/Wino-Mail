@@ -19,7 +19,8 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Client.Accounts;
+using Wino.Core.Domain.Messaging.Client.Accounts;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 

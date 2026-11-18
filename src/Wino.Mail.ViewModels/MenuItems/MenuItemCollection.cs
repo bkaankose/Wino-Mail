@@ -4,8 +4,9 @@ using System.Linq;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 {

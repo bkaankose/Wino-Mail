@@ -1,12 +1,13 @@
 using System;
 using System.Threading.Tasks;
-using Google;
 using Serilog;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Interfaces;
+using Wino.Providers.Gmail.Google;
 
-namespace Wino.Core.Synchronizers.Errors.Gmail;
+namespace Wino.Providers.Gmail.Synchronizers.Errors.Gmail;
 
 /// <summary>
 /// Handles Gmail API rate limiting errors (HTTP 429 Too Many Requests).

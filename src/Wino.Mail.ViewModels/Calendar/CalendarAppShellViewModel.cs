@@ -9,26 +9,29 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.ViewModels;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Calendar.Interfaces;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Services.Interfaces;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     ICalendarShellClient,

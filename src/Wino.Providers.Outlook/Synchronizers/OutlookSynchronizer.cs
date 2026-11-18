@@ -38,11 +38,9 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Extensions;
-using Wino.Core.Http;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
-using Wino.Core.Outlook;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Requests;
@@ -51,13 +49,22 @@ using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
-using Wino.Messaging.UI;
 using Wino.Mail.AI.Abstractions;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Core.Synchronizers;
+using Wino.Providers.Outlook.Extensions;
+using Wino.Providers.Outlook.Helpers;
+using Wino.Providers.Outlook.Http;
+using Wino.Providers.Outlook.Integration.Processors;
+using Wino.Providers.Outlook.Interfaces;
+using Wino.Providers.Outlook.Outlook;
+using Wino.Services.Extensions;
+using Wino.Services.Models.MailItem;
 using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 using GlobalizationCultureInfo = System.Globalization.CultureInfo;
 using GraphTaskStatus = Microsoft.Graph.Models.TaskStatus;
 
-namespace Wino.Core.Synchronizers.Mail;
+namespace Wino.Providers.Outlook.Synchronizers;
 
 /// <summary>
 /// Outlook synchronizer implementation with delta token synchronization.
@@ -2436,7 +2443,7 @@ IAuthenticator authenticator,
         if (message.IsDraft.GetValueOrDefault() && message.InternetMessageHeaders != null)
         {
             var winoDraftHeader = message.InternetMessageHeaders
-                .FirstOrDefault(h => Domain.Constants.IsLocalDraftHeader(h.Name));
+                .FirstOrDefault(h => Wino.Core.Domain.Constants.IsLocalDraftHeader(h.Name));
 
             if (winoDraftHeader != null && Guid.TryParse(winoDraftHeader.Value, out Guid localDraftCopyUniqueId))
             {

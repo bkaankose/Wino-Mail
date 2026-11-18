@@ -5,11 +5,11 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Restrictions;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Restrictions;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Rules;
+namespace Wino.Providers.Exchange.MAPI.Rules;
 
 /// <summary>One row of a folder's rules table (MS-OXORULE 2.2.1.3), decoded.</summary>
 public sealed record MapiRuleInfo(

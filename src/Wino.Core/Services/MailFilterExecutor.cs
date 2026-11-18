@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 

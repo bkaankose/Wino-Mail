@@ -11,8 +11,11 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Integration;
+using Wino.Core.Services;
+using Wino.Providers.Imap.Integration;
+using Wino.Providers.Imap.Models.Connectivity;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Imap.Services;
 
 public sealed class MailServerTestService : IMailServerTestService
 {

@@ -17,9 +17,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Api.Contracts.Users;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.UI;
 using Wino.Core.Domain.Models.Authentication;
+using Wino.Core.Domain.Messaging.Client.Accounts;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services;
 

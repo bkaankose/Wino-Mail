@@ -1,8 +1,9 @@
 #nullable enable
 
-using Wino.Core.Domain.MenuItems;
 
-namespace Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.MenuItems;
+
+namespace Wino.Mail.ViewModels.Shell.Contracts;
 
 /// <summary>
 /// The navigation menu definition a mode view model publishes to the shell.

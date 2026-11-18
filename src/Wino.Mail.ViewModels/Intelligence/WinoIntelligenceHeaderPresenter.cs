@@ -18,8 +18,9 @@ using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels.Intelligence;
 

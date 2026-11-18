@@ -10,10 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
-using global::Google.Apis.Calendar.v3.Data;
-using global::Google.Apis.Gmail.v1;
-using global::Google.Apis.Gmail.v1.Data;
-using Google;
 using MailKit;
 using Microsoft.IdentityModel.Tokens;
 using MimeKit;
@@ -25,7 +21,6 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
-using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
@@ -38,9 +33,7 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Extensions;
-using Wino.Core.Google;
 using Wino.Core.Helpers;
-using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
@@ -52,14 +45,26 @@ using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.AI.Abstractions;
 using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
-using Wino.Messaging.UI;
 using Wino.Services;
-using DriveFile = global::Google.Apis.Drive.v3.Data.File;
-using GmailFilter = global::Google.Apis.Gmail.v1.Data.Filter;
-using GmailMessagePart = global::Google.Apis.Gmail.v1.Data.MessagePart;
-using GoogleCalendarService = Wino.Core.Google.CalendarService;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Core.Synchronizers;
+using Wino.Providers.Gmail.Extensions;
+using Wino.Providers.Gmail.Google;
+using Wino.Providers.Gmail.Google.Apis.Calendar.v3.Data;
+using Wino.Providers.Gmail.Google.Apis.Gmail.v1;
+using Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data;
+using Wino.Providers.Gmail.Http;
+using Wino.Providers.Gmail.Integration.Processors;
+using Wino.Providers.Gmail.Interfaces;
+using Wino.Providers.Gmail.Synchronizers.Errors.Gmail;
+using Wino.Services.Extensions;
+using Wino.Services.Models.MailItem;
+using DriveFile = global::Wino.Providers.Gmail.Google.Apis.Drive.v3.Data.File;
+using GmailFilter = global::Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data.Filter;
+using GmailMessagePart = global::Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data.MessagePart;
+using GoogleCalendarService = Wino.Providers.Gmail.Google.CalendarService;
 
-namespace Wino.Core.Synchronizers.Mail;
+namespace Wino.Providers.Gmail.Synchronizers;
 
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -90,7 +95,7 @@ public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMinimalMailCopyAsync: Extracts MailCopy fields from Gmail Metadata format
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event, global::Google.Apis.PeopleService.v1.Data.Person>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
+public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event, global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Person>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
 {
     public override uint BatchModificationSize => 1000;
 
@@ -780,7 +785,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         var book = await _contactService.GetOrCreateProviderAddressBookAsync(
             Account.Id, ContactSourceKind.Gmail, "people/me/connections", Account.Name, true).ConfigureAwait(false);
         var isFull = options.Type == ContactSynchronizationType.Full || string.IsNullOrWhiteSpace(book.DeltaToken);
-        var downloaded = new List<global::Google.Apis.PeopleService.v1.Data.Person>();
+        var downloaded = new List<global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Person>();
         string pageToken = null;
         string nextSyncToken = null;
 
@@ -1063,12 +1068,12 @@ IGmailChangeProcessor gmailChangeProcessor,
         var verb = delete ? "deleteContactPhoto" : "updateContactPhoto";
         using var message = new HttpRequestMessage(HttpMethod.Patch, $"https://people.googleapis.com/v1/{escaped}:{verb}");
         if (!delete)
-            message.Content = GoogleJsonContent.Create(new global::Google.Apis.PeopleService.v1.Data.UpdateContactPhotoRequest { PhotoBytes = Convert.ToBase64String(photo ?? []) }, GoogleApiJsonContext.Default.UpdateContactPhotoRequest);
+            message.Content = GoogleJsonContent.Create(new global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.UpdateContactPhotoRequest { PhotoBytes = Convert.ToBase64String(photo ?? []) }, GoogleApiJsonContext.Default.UpdateContactPhotoRequest);
         using var response = await _googleHttpClient.SendAsync(message, cancellationToken).ConfigureAwait(false);
         await GoogleApiErrorParser.ThrowIfUnsuccessfulAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
-    private AccountContact MapGoogleContact(global::Google.Apis.PeopleService.v1.Data.Person person, ContactAddressBook book)
+    private AccountContact MapGoogleContact(global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Person person, ContactAddressBook book)
     {
         var name = person.Names?.FirstOrDefault(item => item.Metadata?.Primary == true) ?? person.Names?.FirstOrDefault();
         var organization = person.Organizations?.FirstOrDefault(item => item.Metadata?.Primary == true) ?? person.Organizations?.FirstOrDefault();
@@ -1115,14 +1120,14 @@ IGmailChangeProcessor gmailChangeProcessor,
         return contact;
     }
 
-    internal static global::Google.Apis.PeopleService.v1.Data.Person MapToGoogleContact(AccountContact contact)
+    internal static global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Person MapToGoogleContact(AccountContact contact)
     {
-        var person = new global::Google.Apis.PeopleService.v1.Data.Person { ResourceName = contact.RemoteId, Etag = contact.RemoteVersion };
+        var person = new global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Person { ResourceName = contact.RemoteId, Etag = contact.RemoteVersion };
         MergeCommonFields(person, contact);
         return person;
     }
 
-    internal static void MergeCommonFields(global::Google.Apis.PeopleService.v1.Data.Person person, AccountContact contact, AccountContact original = null)
+    internal static void MergeCommonFields(global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Person person, AccountContact contact, AccountContact original = null)
     {
         var currentName = person.Names?.FirstOrDefault(item => item.Metadata?.Primary == true) ?? person.Names?.FirstOrDefault();
         var requestedDisplayName = string.IsNullOrWhiteSpace(contact.DisplayName) ? null : contact.DisplayName.Trim();
@@ -1139,7 +1144,7 @@ IGmailChangeProcessor gmailChangeProcessor,
                 ? null
                 : currentName?.UnstructuredName;
 
-        var googleName = new global::Google.Apis.PeopleService.v1.Data.Name
+        var googleName = new global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Name
         {
             UnstructuredName = unstructuredName,
             HonorificPrefix = contact.HonorificPrefix,
@@ -1158,20 +1163,20 @@ IGmailChangeProcessor gmailChangeProcessor,
             googleName.HonorificSuffix
         }.Any(value => !string.IsNullOrWhiteSpace(value));
         person.Names = hasName ? [googleName] : [];
-        person.EmailAddresses = contact.EmailAddresses.Select(item => new global::Google.Apis.PeopleService.v1.Data.EmailAddress { Value = item.Address, Type = item.Label }).ToList();
-        person.PhoneNumbers = contact.PhoneNumbers.Select(item => new global::Google.Apis.PeopleService.v1.Data.PhoneNumber { Value = item.Number, Type = item.Kind.ToString().ToLowerInvariant() }).ToList();
-        person.Addresses = contact.PostalAddresses.Select(item => new global::Google.Apis.PeopleService.v1.Data.Address { Type = item.Kind == ContactPostalAddressKind.Business ? "work" : item.Kind.ToString().ToLowerInvariant(), PoBox = item.PostOfficeBox, StreetAddress = item.Street, City = item.City, Region = item.Region, PostalCode = item.PostalCode, Country = item.Country }).ToList();
+        person.EmailAddresses = contact.EmailAddresses.Select(item => new global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.EmailAddress { Value = item.Address, Type = item.Label }).ToList();
+        person.PhoneNumbers = contact.PhoneNumbers.Select(item => new global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.PhoneNumber { Value = item.Number, Type = item.Kind.ToString().ToLowerInvariant() }).ToList();
+        person.Addresses = contact.PostalAddresses.Select(item => new global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Address { Type = item.Kind == ContactPostalAddressKind.Business ? "work" : item.Kind.ToString().ToLowerInvariant(), PoBox = item.PostOfficeBox, StreetAddress = item.Street, City = item.City, Region = item.Region, PostalCode = item.PostalCode, Country = item.Country }).ToList();
         person.Organizations = [new() { Name = contact.CompanyName, Department = contact.Department, Title = contact.JobTitle, Location = contact.OfficeLocation, JobDescription = contact.Profession }];
         person.Birthdays = contact.BirthdayMonth.HasValue && contact.BirthdayDay.HasValue ? [new() { Date = new() { Year = contact.BirthdayYear, Month = contact.BirthdayMonth, Day = contact.BirthdayDay } }] : [];
         person.Nicknames = string.IsNullOrWhiteSpace(contact.Nickname) ? [] : [new() { Value = contact.Nickname }];
         person.FileAses = string.IsNullOrWhiteSpace(contact.FileAs) ? [] : [new() { Value = contact.FileAs }];
         person.Biographies = string.IsNullOrWhiteSpace(contact.Notes) ? [] : [new() { Value = contact.Notes, ContentType = "TEXT_PLAIN" }];
         person.Urls = string.IsNullOrWhiteSpace(contact.Website) ? [] : [new() { Value = contact.Website }];
-        person.ImClients = contact.ImAddresses.Select(item => new global::Google.Apis.PeopleService.v1.Data.ImClient { Username = item.Address, Protocol = item.Protocol }).ToList();
-        person.Relations = contact.Relations.Select(item => new global::Google.Apis.PeopleService.v1.Data.Relation { Person = item.Name, Type = item.Kind.ToString().ToLowerInvariant() }).ToList();
+        person.ImClients = contact.ImAddresses.Select(item => new global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.ImClient { Username = item.Address, Protocol = item.Protocol }).ToList();
+        person.Relations = contact.Relations.Select(item => new global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Relation { Person = item.Name, Type = item.Kind.ToString().ToLowerInvariant() }).ToList();
     }
 
-    internal static string GetGoogleContactDisplayName(global::Google.Apis.PeopleService.v1.Data.Name name)
+    internal static string GetGoogleContactDisplayName(global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Name name)
         => !string.IsNullOrWhiteSpace(name?.UnstructuredName) ? name.UnstructuredName : name?.DisplayName;
 
     private static ContactPhoneKind MapPhoneKind(string value) => value?.ToLowerInvariant() switch { "work" => ContactPhoneKind.Work, "mobile" => ContactPhoneKind.Mobile, _ => ContactPhoneKind.Home };
@@ -1186,7 +1191,7 @@ IGmailChangeProcessor gmailChangeProcessor,
 
         var profilePictureResult = ProfilePictureFetchResult.FetchFailed;
 
-        global::Google.Apis.PeopleService.v1.Data.Person userProfile = null;
+        global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Person userProfile = null;
 
         try
         {
@@ -1281,7 +1286,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         }
     }
 
-    private static string GetPrimaryProfileEmail(global::Google.Apis.PeopleService.v1.Data.Person userProfile)
+    private static string GetPrimaryProfileEmail(global::Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data.Person userProfile)
         => userProfile?.EmailAddresses?
             .FirstOrDefault(email => email?.Metadata?.Primary == true)?.Value
             ?? userProfile?.EmailAddresses?.FirstOrDefault(email => !string.IsNullOrWhiteSpace(email?.Value))?.Value;
@@ -1514,7 +1519,7 @@ IGmailChangeProcessor gmailChangeProcessor,
                     cancellationToken.ThrowIfCancellationRequested();
 
                     var request = _gmailService.Users.Messages.List("me");
-                    request.LabelIds = new global::Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
+                    request.LabelIds = new global::Wino.Providers.Gmail.Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
                     request.IncludeSpamTrash = true;
                     request.MaxResults = 500; // API max is 500
                     request.PageToken = pageToken;
@@ -2827,8 +2832,8 @@ IGmailChangeProcessor gmailChangeProcessor,
         }
 
         // Local draft mapping header must never leak to recipients.
-        singleDraftRequest.Request.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
-        singleDraftRequest.Request.Mime.Headers.Remove(Domain.Constants.LegacyWinoLocalDraftHeader);
+        singleDraftRequest.Request.Mime.Headers.Remove(Wino.Core.Domain.Constants.WinoLocalDraftHeader);
+        singleDraftRequest.Request.Mime.Headers.Remove(Wino.Core.Domain.Constants.LegacyWinoLocalDraftHeader);
 
         singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
 
@@ -4030,7 +4035,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         return MailItemType.Mail;
     }
 
-    private static bool HasCalendarHint(global::Google.Apis.Gmail.v1.Data.MessagePart part)
+    private static bool HasCalendarHint(global::Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data.MessagePart part)
         => part != null
            && (MailInvitationReader.IsCalendarHint(part.MimeType, part.Filename) || part.Parts?.Any(HasCalendarHint) == true);
 
@@ -4071,7 +4076,7 @@ IGmailChangeProcessor gmailChangeProcessor,
     }
 
     private static bool HasReadReceiptRequest(IList<MessagePartHeader> headers)
-        => headers?.Any(h => h.Name.Equals(Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
+        => headers?.Any(h => h.Name.Equals(Wino.Core.Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
                              && !string.IsNullOrWhiteSpace(h.Value)) == true;
 
     private static bool LooksLikeReadReceipt(IList<MessagePartHeader> headers)
@@ -4243,8 +4248,8 @@ IGmailChangeProcessor gmailChangeProcessor,
         // For Raw format (Payload is null), we read from parsed MIME headers.
         if (baseMailCopy.IsDraft)
         {
-            var draftIdHeader = message.Payload?.Headers?.FirstOrDefault(h => Domain.Constants.IsLocalDraftHeader(h.Name))?.Value
-                                ?? mimeMessage?.Headers?.FirstOrDefault(h => Domain.Constants.IsLocalDraftHeader(h.Field))?.Value;
+            var draftIdHeader = message.Payload?.Headers?.FirstOrDefault(h => Wino.Core.Domain.Constants.IsLocalDraftHeader(h.Name))?.Value
+                                ?? mimeMessage?.Headers?.FirstOrDefault(h => Wino.Core.Domain.Constants.IsLocalDraftHeader(h.Field))?.Value;
 
             if (!string.IsNullOrEmpty(draftIdHeader) && Guid.TryParse(draftIdHeader, out _))
             {
@@ -4458,8 +4463,8 @@ IGmailChangeProcessor gmailChangeProcessor,
 
         var insertRequest = _calendarService.Events.Insert(googleEvent, calendar.RemoteCalendarId);
         insertRequest.SendUpdates = attendees.Count > 0
-            ? global::Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.All
-            : global::Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.None;
+            ? global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.All
+            : global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.InsertRequest.SendUpdatesEnum.None;
 
         if (googleEvent.ConferenceData != null)
         {
@@ -4496,8 +4501,8 @@ IGmailChangeProcessor gmailChangeProcessor,
 
         // Send updates to other attendees if there's a message
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
-            ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
-            : global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+            ? global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
+            : global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IGoogleApiRequest>(patchRequest, request)];
     }
@@ -4526,8 +4531,8 @@ IGmailChangeProcessor gmailChangeProcessor,
             remoteEventId);
 
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
-            ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
-            : global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+            ? global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
+            : global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IGoogleApiRequest>(patchRequest, request)];
     }
@@ -4556,8 +4561,8 @@ IGmailChangeProcessor gmailChangeProcessor,
             remoteEventId);
 
         patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
-            ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
-            : global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+            ? global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
+            : global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IGoogleApiRequest>(patchRequest, request)];
     }
@@ -4596,8 +4601,8 @@ IGmailChangeProcessor gmailChangeProcessor,
 
         // Removing the last attendee still requires a notification update.
         updateRequest.SendUpdates = (attendees?.Count > 0 || request.OriginalAttendees?.Count > 0)
-            ? global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
-            : global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+            ? global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
+            : global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IGoogleApiRequest>(updateRequest, request)];
     }
@@ -4625,7 +4630,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         var deleteRequest = _calendarService.Events.Delete(calendar.RemoteCalendarId, remoteEventId);
 
         // Send cancellation notifications to attendees
-        deleteRequest.SendUpdates = global::Google.Apis.Calendar.v3.EventsResource.DeleteRequest.SendUpdatesEnum.All;
+        deleteRequest.SendUpdates = global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.DeleteRequest.SendUpdatesEnum.All;
 
         return [new HttpRequestBundle<IGoogleApiRequest>(deleteRequest, request)];
     }
@@ -4674,7 +4679,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         }, request.AssignedCalendar.RemoteCalendarId, createdEvent.Id);
 
         patchRequest.SupportsAttachments = true;
-        patchRequest.SendUpdates = global::Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+        patchRequest.SendUpdates = global::Wino.Providers.Gmail.Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         await patchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }

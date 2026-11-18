@@ -15,7 +15,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Translations;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
 
 namespace Wino.Services;
 

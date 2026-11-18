@@ -1,4 +1,4 @@
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 /// <summary>
 /// Creates a new local contact list from the contacts pane.

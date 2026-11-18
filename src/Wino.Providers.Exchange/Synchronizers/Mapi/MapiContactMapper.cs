@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.MAPI;
+using Wino.Providers.Exchange.MAPI;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 /// <summary>A contacts-folder row to the local contact, and a local contact to the fields written back.</summary>
 internal static class MapiContactMapper

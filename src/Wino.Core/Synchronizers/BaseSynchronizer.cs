@@ -15,7 +15,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Bundles;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Core.Synchronizers;
 

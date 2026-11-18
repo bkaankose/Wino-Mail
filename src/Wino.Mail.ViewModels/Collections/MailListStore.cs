@@ -11,7 +11,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Collections;
 

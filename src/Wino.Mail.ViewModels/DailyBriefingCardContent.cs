@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
 

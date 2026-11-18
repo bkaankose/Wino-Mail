@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Services;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Integration.Processors;
 

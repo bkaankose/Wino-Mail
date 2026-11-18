@@ -1,4 +1,4 @@
-﻿namespace Wino.Messaging.Client.Navigation;
+﻿namespace Wino.Core.Domain.Messaging.Client.Navigation;
 
 /// <summary>
 /// Navigates user to Settings -> App Preferences.

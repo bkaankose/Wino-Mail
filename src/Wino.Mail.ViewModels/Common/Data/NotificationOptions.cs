@@ -4,7 +4,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 /// <summary>
 /// A value plus its display text for the notification settings combo boxes. Concrete types rather

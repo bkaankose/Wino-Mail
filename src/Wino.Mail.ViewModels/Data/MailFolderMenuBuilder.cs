@@ -4,8 +4,9 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
 namespace Wino.Mail.ViewModels.Data;
 

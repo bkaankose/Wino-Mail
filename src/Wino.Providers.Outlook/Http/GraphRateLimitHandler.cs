@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
 
-namespace Wino.Core.Http;
+namespace Wino.Providers.Outlook.Http;
 
 /// <summary>
 /// DelegatingHandler that automatically handles Microsoft Graph API 429 rate limiting responses.

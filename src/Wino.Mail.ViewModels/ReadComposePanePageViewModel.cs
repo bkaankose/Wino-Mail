@@ -13,7 +13,7 @@ using Wino.Core.Domain.Models.Browsers;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Services;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 

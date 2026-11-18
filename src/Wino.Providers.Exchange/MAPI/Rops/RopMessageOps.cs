@@ -5,9 +5,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Rops;
+namespace Wino.Providers.Exchange.MAPI.Rops;
 
 /// <summary>
 /// Message mutations and attachment access (MS-OXCROPS 2.2.6 / 2.2.7 / MS-OXCFOLD / MS-OXCMSG):
@@ -257,11 +257,11 @@ public sealed record TaggedPropertyValue(uint Tag, object Value)
                     writer.UnicodeZ(item);
                 }
                 break;
-            case (PropertyTypes.Restriction, Restrictions.RestrictionNode v):
-                Restrictions.Restriction.Encode(writer, v, extendedFormat: false);
+            case (PropertyTypes.Restriction, Wino.Providers.Exchange.MAPI.Restrictions.RestrictionNode v):
+                Wino.Providers.Exchange.MAPI.Restrictions.Restriction.Encode(writer, v, extendedFormat: false);
                 break;
-            case (PropertyTypes.RuleAction, IReadOnlyList<Rules.RuleAction> v):
-                Rules.RuleActions.Write(writer, v);
+            case (PropertyTypes.RuleAction, IReadOnlyList<Wino.Providers.Exchange.MAPI.Rules.RuleAction> v):
+                Wino.Providers.Exchange.MAPI.Rules.RuleActions.Write(writer, v);
                 break;
             default:
                 throw new MapiFormatException($"Cannot encode a {Value?.GetType().Name ?? "null"} as property type 0x{Tag & 0xFFFF:X4}.");

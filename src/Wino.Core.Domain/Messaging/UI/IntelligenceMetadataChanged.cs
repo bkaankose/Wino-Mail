@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>Defines whether an intelligence change targets messages, one mailbox, or the full database.</summary>
 public enum IntelligenceMetadataChangeScope

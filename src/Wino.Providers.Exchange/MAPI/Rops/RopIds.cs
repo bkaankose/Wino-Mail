@@ -5,9 +5,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Rops;
+namespace Wino.Providers.Exchange.MAPI.Rops;
 
 /// <summary>
 /// Id conversion ROPs (MS-OXCROPS 2.2.11 / MS-OXCDATA 2.2.1.3). A folder or message id is only

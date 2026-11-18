@@ -13,7 +13,6 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
@@ -22,10 +21,14 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Misc;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
@@ -2503,7 +2506,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     {
         foreach (var account in accounts)
         {
-            Messenger.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            Messenger.Send(new Wino.Core.Domain.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = TaskSynchronizationType.Delta,

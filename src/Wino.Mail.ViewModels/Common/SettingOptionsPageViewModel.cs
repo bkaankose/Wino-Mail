@@ -15,12 +15,13 @@ using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Extensions;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 {

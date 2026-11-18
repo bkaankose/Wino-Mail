@@ -1,6 +1,6 @@
 using Wino.Core.Domain.Models.Accounts;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>
 /// The welcome window imported accounts and hands over to the main window. The restored

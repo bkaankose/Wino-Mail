@@ -1,6 +1,6 @@
 using Wino.Core.Domain.Models.Intelligence;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 public sealed record WinoIntelligenceEntitlementChanged(WinoIntelligenceEntitlementSnapshot Entitlement)
     : UIMessageBase<WinoIntelligenceEntitlementChanged>;

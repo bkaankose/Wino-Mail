@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.ViewModels.Collections;
 

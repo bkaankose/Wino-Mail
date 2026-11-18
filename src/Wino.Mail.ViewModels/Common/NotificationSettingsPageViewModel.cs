@@ -15,11 +15,11 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Notifications;
 using Wino.Core.Domain.Models.PushRelay;
 using Wino.Core.Domain.Translations;
-using Wino.Core.ViewModels.Data;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Common.Data;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Messaging.Client.Shell;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 /// <summary>
 /// Backs Settings -> General -> Notifications, which owns every alert Wino raises: the snooze state,

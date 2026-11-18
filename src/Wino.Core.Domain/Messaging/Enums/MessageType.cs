@@ -1,4 +1,4 @@
-﻿namespace Wino.Messaging.Enums;
+﻿namespace Wino.Core.Domain.Messaging.Enums;
 
 public enum MessageType
 {

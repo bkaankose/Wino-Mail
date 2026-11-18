@@ -17,7 +17,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 
-namespace Wino.Services;
+namespace Wino.Services.Activation;
 
 public sealed class ActivationFileImportService : IActivationFileImportService
 {

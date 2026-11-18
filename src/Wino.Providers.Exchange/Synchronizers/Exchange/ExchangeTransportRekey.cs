@@ -5,7 +5,7 @@ using System.Linq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 /// <summary>
 /// The EWS and MAPI transports address the same server objects under different ids: EWS by its

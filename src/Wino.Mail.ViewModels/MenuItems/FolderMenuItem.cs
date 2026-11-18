@@ -6,8 +6,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuItem>, IFolderMenuItem
 {

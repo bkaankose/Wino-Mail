@@ -6,7 +6,7 @@ using Microsoft.Exchange.WebServices.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 /// <summary>
 /// Maps the iCalendar RRULE the app stores on <see cref="CalendarItem.Recurrence"/> to the EWS

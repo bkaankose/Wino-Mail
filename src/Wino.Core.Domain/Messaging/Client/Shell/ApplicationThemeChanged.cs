@@ -1,4 +1,4 @@
-﻿namespace Wino.Messaging.Client.Shell;
+﻿namespace Wino.Core.Domain.Messaging.Client.Shell;
 
 /// <summary>
 /// When the application theme changed.

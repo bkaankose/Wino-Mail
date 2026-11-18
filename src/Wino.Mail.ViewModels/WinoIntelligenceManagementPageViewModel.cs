@@ -19,8 +19,8 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 

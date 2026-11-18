@@ -24,8 +24,10 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Core.Synchronizers;
 

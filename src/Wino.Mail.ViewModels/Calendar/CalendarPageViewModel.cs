@@ -11,9 +11,6 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Itenso.TimePeriod;
 using Serilog;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Calendar.ViewModels.Interfaces;
-using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
@@ -24,13 +21,18 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
-using Wino.Core.ViewModels;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Calendar.Interfaces;
+using Wino.Mail.ViewModels.Calendar.Messages;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Services.Interfaces;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 public partial class CalendarPageViewModel : CalendarBaseViewModel,
     IRecipient<LoadCalendarMessage>,
@@ -269,7 +271,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     /// Blocked state while Calendar cannot be used: no account, Calendar turned off everywhere,
     /// a sign-in pending, or the first sync still running. Event creation waits for it.
     /// </summary>
-    public Wino.Core.ViewModels.Data.ModeReadinessViewModel Readiness { get; }
+    public Wino.Mail.ViewModels.Common.Data.ModeReadinessViewModel Readiness { get; }
 
     /// <summary>Mirrors <see cref="Readiness"/> for the shell, which follows this view model's property changes.</summary>
     public bool IsCalendarModeReady => Readiness.IsReady;
@@ -318,7 +320,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IMailShellClient mailShell = null) : base(messenger)
     {
         _synchronizationManager = synchronizationManager;
-        Readiness = new Wino.Core.ViewModels.Data.ModeReadinessViewModel(
+        Readiness = new Wino.Mail.ViewModels.Common.Data.ModeReadinessViewModel(
             WinoApplicationMode.Calendar,
             appModeReadinessService,
             navigationService,

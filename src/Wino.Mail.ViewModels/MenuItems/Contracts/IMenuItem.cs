@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Interfaces;
+namespace Wino.Mail.ViewModels.MenuItems.Contracts;
 
 public interface IMenuItem
 {

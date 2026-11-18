@@ -1,6 +1,7 @@
-using Wino.Core.Domain.MenuItems;
 
-namespace Wino.Calendar.ViewModels.Data;
+using Wino.Mail.ViewModels.MenuItems;
+
+namespace Wino.Mail.ViewModels.Calendar.Data;
 
 /// <summary>
 /// One account's calendars in the calendar navigation pane. Rendered as a navigation item

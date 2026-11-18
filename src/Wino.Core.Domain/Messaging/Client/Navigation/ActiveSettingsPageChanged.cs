@@ -1,5 +1,5 @@
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Messaging.Client.Navigation;
+namespace Wino.Core.Domain.Messaging.Client.Navigation;
 
 public sealed record ActiveSettingsPageChanged(WinoPage RootPage);

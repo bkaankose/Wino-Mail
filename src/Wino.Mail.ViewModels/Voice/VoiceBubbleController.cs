@@ -26,8 +26,8 @@ using Wino.Services.Assistant;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.Controls.Core.VoiceBubble;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Voice;
 

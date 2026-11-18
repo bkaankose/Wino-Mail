@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 
-namespace Wino.Core.MAPI.Calendar;
+namespace Wino.Providers.Exchange.MAPI.Calendar;
 
 /// <summary>
 /// PidLidGlobalObjectId (MS-OXOCAL 2.2.1.27): the identity every message about one meeting shares.

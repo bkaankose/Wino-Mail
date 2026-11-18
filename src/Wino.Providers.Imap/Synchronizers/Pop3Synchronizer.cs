@@ -26,9 +26,15 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Services;
 using Wino.Services.Extensions;
-using WinoMailService = Wino.Core.Domain.Interfaces.IMailService;
+using Wino.Core.Interfaces;
+using Wino.Core.Synchronizers;
+using Wino.Providers.Imap.Interfaces;
+using Wino.Providers.Imap.Requests.Bundles;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
+using WinoMailService = Wino.Services.Interfaces.IMailService;
 
-namespace Wino.Core.Synchronizers.Mail;
+namespace Wino.Providers.Imap.Synchronizers;
 
 public sealed class Pop3Synchronizer
     : WinoSynchronizer<Pop3Request, MimeMessage, object, AccountContact>, IPop3Synchronizer

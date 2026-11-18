@@ -1,4 +1,4 @@
-﻿namespace Wino.Messaging.Client.Accounts;
+﻿namespace Wino.Core.Domain.Messaging.Client.Accounts;
 
 /// <summary>
 /// When a full menu refresh for accounts menu is requested.

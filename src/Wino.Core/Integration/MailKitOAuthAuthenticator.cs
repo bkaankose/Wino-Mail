@@ -10,6 +10,7 @@ using AuthenticationException = MailKit.Security.AuthenticationException;
 using Serilog;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Integration;
 

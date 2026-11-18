@@ -17,6 +17,9 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Notifications;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Services.Extensions;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Mail.ViewModels.Activation;
 

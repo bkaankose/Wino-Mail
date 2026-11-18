@@ -7,17 +7,18 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Google.Apis.Gmail.v1.Data;
 using Serilog;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PushRelay;
-using Wino.Core.Google;
-using Wino.Core.Http;
+using Wino.Core.PushRelay;
+using Wino.Providers.Gmail.Google;
+using Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data;
+using Wino.Providers.Gmail.Http;
 
-namespace Wino.Core.PushRelay;
+namespace Wino.Providers.Gmail.PushRelay;
 
 /// <summary>
 /// Builds relay registrations for Gmail accounts. The app owns the Gmail watch: it calls <c>users.watch</c> with the

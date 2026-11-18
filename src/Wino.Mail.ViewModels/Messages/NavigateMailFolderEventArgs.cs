@@ -1,7 +1,8 @@
 ﻿using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.Models.Navigation;
+namespace Wino.Mail.ViewModels.Messages;
 
 public class NavigateMailFolderEventArgs
 {

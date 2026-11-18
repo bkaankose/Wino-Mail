@@ -4,8 +4,8 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Core.ViewModels;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.ViewModels;
 

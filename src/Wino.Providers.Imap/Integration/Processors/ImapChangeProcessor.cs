@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 using Wino.Services;
+using Wino.Core.Integration.Processors;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Integration.Processors;
+namespace Wino.Providers.Imap.Integration.Processors;
 
 public class ImapChangeProcessor : CalDavChangeProcessor, IImapChangeProcessor
 {

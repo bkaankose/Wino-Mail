@@ -34,17 +34,27 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
-using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Misc;
 using Wino.Core.Services;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Services;
 using Wino.Services.Extensions;
 using Wino.Mail.AI.Abstractions;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Core.Interfaces;
+using Wino.Core.Synchronizers;
+using Wino.Providers.Imap.Extensions;
+using Wino.Providers.Imap.Integration;
+using Wino.Providers.Imap.Integration.Processors;
+using Wino.Providers.Imap.Interfaces;
+using Wino.Providers.Imap.Models.Connectivity;
+using Wino.Providers.Imap.Requests.Bundles;
+using Wino.Providers.Imap.Synchronizers.ImapSync;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 
-namespace Wino.Core.Synchronizers.Mail;
+namespace Wino.Providers.Imap.Synchronizers;
 
 public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ILiveChangeListener, ISemanticMailBodySynchronizer
 {
@@ -933,8 +943,8 @@ IImapChangeProcessor imapChangeProcessor,
         // Check draft mapping.
         // This is the same implementation as in the OutlookSynchronizer.
 
-        var draftHeaderValue = message.MimeMessage?.Headers?.FirstOrDefault(h => Domain.Constants.IsLocalDraftHeader(h.Field))?.Value
-                               ?? message.MessageSummary?.Headers?.FirstOrDefault(h => Domain.Constants.IsLocalDraftHeader(h.Field))?.Value;
+        var draftHeaderValue = message.MimeMessage?.Headers?.FirstOrDefault(h => Wino.Core.Domain.Constants.IsLocalDraftHeader(h.Field))?.Value
+                               ?? message.MessageSummary?.Headers?.FirstOrDefault(h => Wino.Core.Domain.Constants.IsLocalDraftHeader(h.Field))?.Value;
 
         if (Guid.TryParse(draftHeaderValue, out Guid localDraftCopyUniqueId))
         {

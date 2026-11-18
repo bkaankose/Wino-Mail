@@ -7,9 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Globalization;
 using System.Text;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Calendar;
+namespace Wino.Providers.Exchange.MAPI.Calendar;
 
 /// <summary>
 /// The write side of PidLidAppointmentRecur (MS-OXOCAL 2.2.1.44), the mirror of

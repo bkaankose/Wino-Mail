@@ -10,10 +10,10 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Server;
+using Wino.Core.Domain.Messaging.Server;
 using Task = System.Threading.Tasks.Task;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 /// <summary>
 /// The server change listener, the Exchange counterpart of IMAP IDLE: a store-wide subscription that turns server

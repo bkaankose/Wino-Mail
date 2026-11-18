@@ -2,7 +2,7 @@
 using MailKit;
 using Wino.Core.Domain.Entities.Mail;
 
-namespace Wino.Core.Extensions;
+namespace Wino.Providers.Imap.Extensions;
 
 public static class MailkitExtensions
 {
@@ -14,7 +14,7 @@ public static class MailkitExtensions
             FolderName = mailkitMailFolder.GetLocalFolderName(),
             RemoteFolderId = mailkitMailFolder.FullName,
             ParentRemoteFolderId = mailkitMailFolder.ParentFolder?.FullName,
-            SpecialFolderType = Domain.Enums.SpecialFolderType.Other
+            SpecialFolderType = Wino.Core.Domain.Enums.SpecialFolderType.Other
         };
     }
 

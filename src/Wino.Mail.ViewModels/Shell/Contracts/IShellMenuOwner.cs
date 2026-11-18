@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace Wino.Core.Domain.Interfaces;
+namespace Wino.Mail.ViewModels.Shell.Contracts;
 
 /// <summary>
 /// Implemented by the view model of a page that acts as the root of an application mode.

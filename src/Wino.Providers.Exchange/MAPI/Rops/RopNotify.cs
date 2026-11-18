@@ -5,9 +5,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Rops;
+namespace Wino.Providers.Exchange.MAPI.Rops;
 
 /// <summary>
 /// Server notifications (MS-OXCNOTIF): RopRegisterNotification subscribes a logon to store events;

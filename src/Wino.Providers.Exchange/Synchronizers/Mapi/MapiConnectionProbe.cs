@@ -7,10 +7,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
-using Wino.Core.MAPI;
-using Wino.Core.MAPI.Transport;
+using Wino.Providers.Exchange.MAPI;
+using Wino.Providers.Exchange.MAPI.Transport;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 /// <summary>
 /// Detects which transport Autodiscover offers for an account's mailbox with the credentials the app holds, so setup

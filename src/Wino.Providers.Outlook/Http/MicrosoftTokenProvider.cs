@@ -8,7 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Http;
+namespace Wino.Providers.Outlook.Http;
 
 public class MicrosoftTokenProvider : IAccessTokenProvider
 {

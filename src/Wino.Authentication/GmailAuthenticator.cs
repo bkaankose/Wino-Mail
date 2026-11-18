@@ -15,7 +15,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
-using Wino.Services;
 
 namespace Wino.Authentication;
 

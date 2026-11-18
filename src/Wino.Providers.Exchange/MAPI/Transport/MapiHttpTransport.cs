@@ -9,10 +9,10 @@ using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Transport;
+namespace Wino.Providers.Exchange.MAPI.Transport;
 
 /// <summary>
 /// MAPI/HTTP transport (MS-OXCMAPIHTTP). Requests are POSTed to the mailbox's emsmdb endpoint with

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Messaging.Client.Mails;
+namespace Wino.Core.Domain.Messaging.Client.Mails;
 
 /// <summary>
 /// When a IMailItem needs to be navigated (or selected)

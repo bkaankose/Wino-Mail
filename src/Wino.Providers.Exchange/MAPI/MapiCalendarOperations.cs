@@ -8,12 +8,12 @@ using System.Threading.Tasks;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
-using Wino.Core.MAPI.Calendar;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Rules;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Calendar;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Rules;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI;
+namespace Wino.Providers.Exchange.MAPI;
 
 /// <summary>The store's tags for the appointment named properties, resolved once per session.</summary>
 public sealed record MapiCalendarTags(

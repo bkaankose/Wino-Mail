@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Wino.Core.Http;
+namespace Wino.Providers.Outlook.Http;
 
 /// <summary>
 /// Adds additional Prefer header for immutable id support in the Graph service client.

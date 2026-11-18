@@ -4,7 +4,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 /// <summary>
 /// The Personalization page's theme and accent state over <see cref="INewThemeService"/>, shared by the macOS, iOS and

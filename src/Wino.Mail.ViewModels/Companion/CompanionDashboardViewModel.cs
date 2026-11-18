@@ -9,15 +9,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.ViewModels.Companion;
 
@@ -232,7 +232,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         : string.Format(Translator.Companion_EventAttendeesFormat, NextEvent.Attendees.Count);
     public string NextEventCalendarName => NextEvent?.AssignedCalendar?.Name ?? string.Empty;
     public string NextEventCalendarColorHex
-        => NextEvent is null ? string.Empty : Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(NextEvent) ?? string.Empty;
+        => NextEvent is null ? string.Empty : Wino.Mail.ViewModels.Calendar.CalendarAgenda.ColorHex(NextEvent) ?? string.Empty;
     public string NextEventPrimaryActionText => NextEvent is not null && HasJoinUri(NextEvent)
         ? Translator.Companion_Join
         : Translator.Companion_View;

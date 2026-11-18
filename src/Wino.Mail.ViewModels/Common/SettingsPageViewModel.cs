@@ -13,8 +13,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
 {

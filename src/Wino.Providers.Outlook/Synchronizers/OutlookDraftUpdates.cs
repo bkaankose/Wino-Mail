@@ -11,8 +11,10 @@ using MimeKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
+using Wino.Providers.Outlook.Extensions;
+using Wino.Services.Models.MailItem;
 
-namespace Wino.Core.Synchronizers.Mail;
+namespace Wino.Providers.Outlook.Synchronizers;
 
 public partial class OutlookSynchronizer
 {

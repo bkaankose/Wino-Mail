@@ -18,9 +18,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Misc;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
 
 namespace Wino.Services;
 

@@ -3,11 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 /// <summary>One day of an agenda list: the date and its events, all-day and multi-day events first, then by start.</summary>
 public sealed record CalendarAgendaDay(DateOnly Date, IReadOnlyList<CalendarItemViewModel> Items);

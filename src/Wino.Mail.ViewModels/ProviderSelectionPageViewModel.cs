@@ -12,9 +12,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.ViewModels;
 

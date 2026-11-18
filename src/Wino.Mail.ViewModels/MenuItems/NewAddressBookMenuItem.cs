@@ -1,4 +1,4 @@
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 /// <summary>
 /// Creates a new address book on an account's CardDAV server from the contacts pane.

@@ -16,8 +16,9 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Authentication;
+using Wino.Authentication;
 
-namespace Wino.Authentication;
+namespace Wino.Providers.Outlook.Authentication;
 
 public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, ISubstrateTaskTokenProvider
 {

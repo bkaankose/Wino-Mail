@@ -21,8 +21,10 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Services;
+using Wino.Core.Synchronizers.CalDav;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// Synchronizes the CalDAV calendars of an IMAP account the way Apple Calendar does: a calendar

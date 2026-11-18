@@ -13,6 +13,8 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Services;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Core.Integration.Processors;
 

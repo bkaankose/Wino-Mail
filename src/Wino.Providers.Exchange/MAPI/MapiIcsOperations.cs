@@ -7,11 +7,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Wino.Core.MAPI.Ics;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Ics;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI;
+namespace Wino.Providers.Exchange.MAPI;
 
 /// <summary>
 /// The client's ICS state for one folder: the four blobs the server hands back after a sync and

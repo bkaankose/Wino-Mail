@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Authentication;
+namespace Wino.Providers.Gmail.Authentication;
 
 public sealed class GoogleMailboxProfileService : IGoogleMailboxProfileService
 {

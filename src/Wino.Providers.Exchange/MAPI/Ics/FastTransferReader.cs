@@ -6,10 +6,10 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Ics;
+namespace Wino.Providers.Exchange.MAPI.Ics;
 
 /// <summary>Well-known markers and meta-properties of a FastTransfer stream (MS-OXCFXICS 2.2.4.1.4 / 2.2.4.1.5).</summary>
 public static class FxTags

@@ -6,7 +6,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 
-namespace Wino.Core.Domain.Interfaces;
+namespace Wino.Mail.ViewModels.MenuItems.Contracts;
 
 /// <summary>
 /// Common presentation contract for account selectors used by shell modes.

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>
 /// When account's special folder configuration is updated.

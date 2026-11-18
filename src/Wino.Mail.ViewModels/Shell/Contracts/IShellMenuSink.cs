@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace Wino.Core.Domain.Interfaces;
+namespace Wino.Mail.ViewModels.Shell.Contracts;
 
 /// <summary>
 /// The shell surface that hosts a navigation menu. The navigation service hands it the

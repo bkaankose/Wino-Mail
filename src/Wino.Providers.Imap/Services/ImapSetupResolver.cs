@@ -13,7 +13,7 @@ using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Models.Connectivity;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Imap.Services;
 
 public sealed class ImapSetupResolver : IImapSetupResolver
 {

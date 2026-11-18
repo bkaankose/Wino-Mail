@@ -9,7 +9,8 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Server;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 

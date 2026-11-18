@@ -29,8 +29,11 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.UI;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Extensions;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Mail.ViewModels;
 

@@ -4,10 +4,10 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Messaging.Client.Shell;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Messaging.Client.Shell;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 /// <summary>One choice of the companion's unread message behavior, with its display text.</summary>
 public sealed record CompanionUnreadBehaviorOption(CompanionUnreadMessageBehavior Behavior, string DisplayText);

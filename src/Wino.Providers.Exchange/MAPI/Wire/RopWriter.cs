@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Wino.Core.MAPI.Wire;
+namespace Wino.Providers.Exchange.MAPI.Wire;
 
 /// <summary>
 /// Little-endian primitives for MAPI wire buffers (MS-OXCDATA section 2.11). Everything in this

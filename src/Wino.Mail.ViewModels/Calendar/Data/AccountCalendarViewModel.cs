@@ -5,7 +5,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Calendar.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Calendar.Data;
 
 public partial class AccountCalendarViewModel : ObservableObject, IAccountCalendar
 {
