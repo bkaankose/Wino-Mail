@@ -55,6 +55,13 @@ public sealed class WebKitHtmlMailReaderSession : NSObject, IHtmlMailReaderSessi
         get => _contentInset;
         set => _contentInset = double.IsFinite(value) ? Math.Clamp(value, 0, 48) : 0;
     }
+
+    /// <summary>
+    /// Scales a mail wider than the reader down to its width (the iPhone and iPad readers). False (the default, used by the
+    /// Mac reader) keeps the shared document unchanged. Set it before <see cref="InitializeAsync"/>.
+    /// </summary>
+    public bool FitContentToWidth { get; set; }
+
     public Task InitializeAsync(CancellationToken cancellationToken = default) =>
         _host.Queue.RunAsync(EnsureReadyAsync, cancellationToken);
 
@@ -118,8 +125,25 @@ public sealed class WebKitHtmlMailReaderSession : NSObject, IHtmlMailReaderSessi
         await _host.EvaluateAsync($"window.WinoRenderer.setTypography({Quote(_font)}, {_fontSize})");
         if (_contentInset > 0)
             await _host.EvaluateAsync($"window.WinoRenderer.setContentInset({_contentInset.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
+        if (FitContentToWidth)
+            await _host.EvaluateAsync("window.WinoRenderer.setFitToWidth(true)");
         if (_accessibility is { } a)
             await _host.EvaluateAsync($"window.WinoRenderer.setAccessibility({Quote(a.Subject)}, {Quote(a.Sender)}, {Quote(a.Date)}, {Quote(a.BodyAutomationName)}, {Quote(a.PlainTextFallbackAutomationName)}, {Quote(a.AccessibleText)})");
+    }
+
+    /// <summary>
+    /// The mail's height in points with <see cref="FitContentToWidth"/>, for hosts that size the web view to the mail;
+    /// 0 while no document is ready. The scroll view's content size cannot report a height below the web view's.
+    /// </summary>
+    public async Task<double> MeasureContentHeightAsync()
+    {
+        if (!_host.IsReady || !FitContentToWidth) return 0;
+        try
+        {
+            var value = await _host.EvaluateAsync("window.WinoRenderer.contentHeight()");
+            return double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var height) ? height : 0;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException or Foundation.NSErrorException) { return 0; }
     }
 
     public Task SetZoomAsync(double percentage, CancellationToken cancellationToken = default) =>

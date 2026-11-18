@@ -614,7 +614,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _web.ContentDescription = Translator.Reader_MessageBodyAutomationName;
         _web.VerticalScrollBarEnabled = false;
         _web.OverScrollMode = OverScrollMode.Never;
-        var reader = _reader = new AndroidHtmlMailReaderSession(_web);
+        var reader = _reader = new AndroidHtmlMailReaderSession(_web) { FitContentToWidth = true };
         reader.Configure(viewModel.ExternalLauncher, OpenLinkAsync);
         reader.OperationFailed += (_, exception) => ReportError(exception);
         reader.NavigationRequested += (_, _) => _web?.Post(HideLinkTarget);
