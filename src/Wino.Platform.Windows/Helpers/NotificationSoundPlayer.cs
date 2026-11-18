@@ -12,6 +12,9 @@ public static class NotificationSoundPlayer
 
     public static void Play(NotificationSoundEvent soundEvent)
     {
+        if (soundEvent == NotificationSoundEvent.None)
+            return;
+
         var soundAlias = soundEvent switch
         {
             NotificationSoundEvent.IM => "Notification.IM",

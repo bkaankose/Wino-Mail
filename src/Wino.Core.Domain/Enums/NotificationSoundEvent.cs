@@ -10,5 +10,8 @@ public enum NotificationSoundEvent
     IM = 1,
     Mail = 2,
     Reminder = 3,
-    SMS = 4
+    SMS = 4,
+
+    // Outside the AppNotificationSoundEvent range: Windows mutes the notification instead of casting this value.
+    None = 100
 }

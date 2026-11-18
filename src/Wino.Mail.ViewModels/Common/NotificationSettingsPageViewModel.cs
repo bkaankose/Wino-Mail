@@ -1107,6 +1107,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
             NotificationSoundEvent.Mail => Translator.NotificationSound_Mail,
             NotificationSoundEvent.Reminder => Translator.NotificationSound_Reminder,
             NotificationSoundEvent.SMS => Translator.NotificationSound_SMS,
+            NotificationSoundEvent.None => Translator.NotificationSound_None,
             _ => soundEvent.ToString()
         };
 
