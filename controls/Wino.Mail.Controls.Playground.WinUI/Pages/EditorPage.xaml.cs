@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using System.Collections.Generic;
 using Wino.Editor;
 using Wino.Mail.Controls.Playground.Lifetime;
+using WinRT;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
@@ -162,6 +163,7 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
         await RenderSelectedScenarioAsync();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private async void RenderMode_Checked(object sender, RoutedEventArgs e)
     {
         _renderMode = string.Equals((sender as FrameworkElement)?.Tag as string, "Readability", System.StringComparison.Ordinal)
@@ -170,6 +172,7 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
         if (_rendererLoaded) await RenderSelectedScenarioAsync();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private async void RenderScenario_Click(object sender, RoutedEventArgs e)
     {
         _scenario = (sender as FrameworkElement)?.Tag as string ?? "Article";
@@ -193,11 +196,13 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
         RendererScenarioStatus.Text = $"{_renderMode} · {_scenario}";
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private async void RendererDarkMode_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleSwitch toggle) await MailRenderer.SetThemeAsync(toggle.IsOn);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private async void RendererBlockRemote_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleSwitch toggle) return;
@@ -205,6 +210,7 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
         if (_rendererLoaded) await RenderSelectedScenarioAsync();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private void ComposeDarkMode_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleSwitch toggle) ComposeEditor.IsEditorDarkMode = toggle.IsOn;

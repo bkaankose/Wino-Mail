@@ -3,7 +3,7 @@ using Wino.Mail.Controls.Core;
 
 namespace Wino.Mail.Controls.Playground.Models;
 
-public sealed class SampleMailItem(
+public sealed partial class SampleMailItem(
     string name,
     string? threadKey,
     DateTimeOffset dateSortKey,

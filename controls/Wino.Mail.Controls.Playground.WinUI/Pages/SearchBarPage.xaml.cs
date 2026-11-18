@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Wino.Mail.Controls.Core.SearchBar;
+using WinRT;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
@@ -73,6 +74,7 @@ public sealed partial class SearchBarPage : Page, IDisposable
         if (ModeComboBox.SelectedItem is SearchModeOption option) ApplyMode(option.Mode);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(RadioMenuFlyoutItem))]
     private void SearchHeaderItemClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not RadioMenuFlyoutItem item) return;

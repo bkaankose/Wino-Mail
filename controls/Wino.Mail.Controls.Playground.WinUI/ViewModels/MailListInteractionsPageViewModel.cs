@@ -12,7 +12,7 @@ namespace Wino.Mail.Controls.Playground.ViewModels;
 /// in-place updates that move rows between groups or threads, and projection option
 /// changes. The data is deterministic so a scenario can be replayed.
 /// </summary>
-public sealed class MailListInteractionsPageViewModel : INotifyPropertyChanged
+public sealed partial class MailListInteractionsPageViewModel : INotifyPropertyChanged
 {
     private static readonly string[] Senders =
     [

@@ -8,6 +8,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.Playground.Models;
 using Wino.Mail.Controls.Playground.ViewModels;
+using WinRT;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
@@ -36,6 +37,7 @@ public sealed partial class MailListPage : Page, IDisposable
         RefreshSelectionInspector();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(RadioMenuFlyoutItem))]
     private void SearchHeaderItemClicked(object sender, RoutedEventArgs e)
     {
         if (sender is RadioMenuFlyoutItem item)

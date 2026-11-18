@@ -77,10 +77,7 @@
                         MaxLines="1"
                         Text="{x:Bind models:MailListPlaygroundFormat.Preview(SourceItem)}"
                         TextTrimming="CharacterEllipsis" />
-                    <intelligenceTiles:WinoMailIntelligenceTileBar
-                        MaxWidth="360"
-                        x:SuppressXamlTrimWarnings="True"
-                        Items="{Binding SourceItem.IntelligenceTiles}" />
+                    <intelligenceTiles:WinoMailIntelligenceTileBar MaxWidth="360" Items="{x:Bind ((models:MailListPlaygroundItem)SourceItem).IntelligenceTiles, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -115,9 +112,8 @@
                     <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
                     <intelligenceTiles:WinoMailIntelligenceTileBar
                         MaxWidth="180"
-                        x:SuppressXamlTrimWarnings="True"
                         IsCompact="True"
-                        Items="{Binding SourceItem.IntelligenceTiles}" />
+                        Items="{x:Bind ((models:MailListPlaygroundItem)SourceItem).IntelligenceTiles, Mode=OneWay}" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         MaxLines="1"
@@ -143,9 +139,8 @@
                     <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
                     <intelligenceTiles:WinoMailIntelligenceTileBar
                         MaxWidth="180"
-                        x:SuppressXamlTrimWarnings="True"
                         IsCompact="True"
-                        Items="{Binding SourceItem.IntelligenceTiles}" />
+                        Items="{x:Bind ((models:MailListPlaygroundItem)SourceItem).IntelligenceTiles, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
