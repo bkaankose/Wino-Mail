@@ -15,6 +15,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Integration.Processors;
@@ -508,7 +509,16 @@ public sealed class MailInvitationService : IMailInvitationService
             ? new CalendarOperationPreparationRequest(operation, item)
             : new CalendarOperationPreparationRequest(operation, item, ResponseMessage: comment.Trim());
 
-        await _requestDelegator.ExecuteAsync(request).ConfigureAwait(false);
+        var result = await _requestDelegator.ExecuteAsync(request).ConfigureAwait(false);
+        if (result.Error is { } error)
+        {
+            throw new MailInvitationException(error switch
+            {
+                AppLockedException => Translator.AppLock_ActionDenied,
+                ReadOnlyCalendarException => Translator.CalendarReadOnly_Message,
+                _ => error.Message
+            }, error);
+        }
     }
 
     /// <summary>

@@ -337,7 +337,7 @@ public sealed partial class AgentPlanExecutor
             ? new MailOperationPreperationRequest(operation, mails, toggleExecution: false, ignoreHardDeleteProtection: true)
             : new MailOperationPreperationRequest(operation, mails, toggleExecution: false, moveTargetFolder: target, ignoreHardDeleteProtection: true);
         var result = await requestDelegator.ExecuteWithResultAsync(request).ConfigureAwait(false);
-        return result.Error?.Message;
+        return RefusalReason(result);
     }
 
     private async Task<StepOutcome> MoveToFolderAsync(ResolvedStep step, PlanRun run, CancellationToken ct)

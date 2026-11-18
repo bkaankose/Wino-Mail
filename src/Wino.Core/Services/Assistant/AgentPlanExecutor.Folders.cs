@@ -46,17 +46,23 @@ public sealed partial class AgentPlanExecutor
         switch (step.Action)
         {
             case AgentAction.MarkFolderRead:
-                await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.MarkAllAsRead, folder)).ConfigureAwait(false);
+                if (RefusalReason(await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.MarkAllAsRead, folder)).ConfigureAwait(false)) is { } markReadRefusal)
+                    return Failed(step, markReadRefusal);
+
                 return Done(step, touched, string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_FolderMarkedRead, name));
 
             case AgentAction.EmptyFolder:
-                await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.Empty, folder)).ConfigureAwait(false);
+                if (RefusalReason(await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.Empty, folder)).ConfigureAwait(false)) is { } emptyRefusal)
+                    return Failed(step, emptyRefusal);
+
                 return Done(step, touched, string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_FolderEmptied, name));
 
             case AgentAction.PinFolder or AgentAction.UnpinFolder:
             {
                 var pin = step.Action == AgentAction.PinFolder;
-                await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(pin ? FolderOperation.Pin : FolderOperation.Unpin, folder)).ConfigureAwait(false);
+                if (RefusalReason(await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(pin ? FolderOperation.Pin : FolderOperation.Unpin, folder)).ConfigureAwait(false)) is { } pinRefusal)
+                    return Failed(step, pinRefusal);
+
                 messenger.Send(new AccountsMenuRefreshRequested(false));
                 return Done(step, touched, string.Format(CultureInfo.CurrentCulture, pin ? Translator.VoiceResult_FolderPinned : Translator.VoiceResult_FolderUnpinned, name));
             }
@@ -67,7 +73,9 @@ public sealed partial class AgentPlanExecutor
                 if (string.IsNullOrWhiteSpace(newName))
                     return Failed(step, string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_Missing, Translator.VoiceIssue_Missing_FolderName));
 
-                await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.Rename, folder, newName)).ConfigureAwait(false);
+                if (RefusalReason(await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.Rename, folder, newName)).ConfigureAwait(false)) is { } renameRefusal)
+                    return Failed(step, renameRefusal);
+
                 return Done(step, touched, string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_Renamed, name, Plain(newName)));
             }
 
