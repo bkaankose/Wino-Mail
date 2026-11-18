@@ -57,7 +57,8 @@ Each platform has a project file in the guidance map and a development guide. Re
 - Report the result, verification evidence, and remaining limits. A build alone does not prove runtime behavior.
 - Run checks on the available host. Report the other platform's exact pending checks as a handoff; do not claim cross-platform completion without that evidence.
 - Any machine may change any code, including a head it cannot build. Verify everything the machine allows, follow that project's `AGENTS.md` for the rest, and report its build and UI check as pending.
-- Never commit or push unless the user explicitly asks in the current request. Creating a local branch is fine; changes stay uncommitted on the local machine until the user asks for a commit or push.
+- Development runs on two machines that stay in sync through the remote. The Windows PC develops the Windows application and coordinates all work; the Mac (`burak-mac`) develops the macOS, iOS and Android applications, through a headless Claude Code that the Windows coordinator starts. Shared code can change on either machine.
+- Commit finished, verified work and push it to the working branch so the other machine can pull it, and pull before you start. When a pull on the Mac conflicts, the Mac resolves the conflict, commits the resolution as its own commit and pushes; the Windows PC then pulls it back. Never force-push a shared branch, and push to `main` only when `main` is the working branch.
 
 ## Commits and release notes
 
