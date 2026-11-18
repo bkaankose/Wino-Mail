@@ -17,7 +17,9 @@ internal static class IntelligenceConsentPolicySheet
     public static Task<bool> PresentAsync(NSWindow parent, Uri? policy, Func<Task<bool>> accept)
     {
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var sheet = new NSWindow(new CGRect(0, 0, 560, 600), NSWindowStyle.Titled | NSWindowStyle.Resizable, NSBackingStore.Buffered, false);
+        // At the shell's minimum height a 600pt sheet ran past the window's bottom edge and hid its buttons.
+        var height = Math.Min(600, Math.Max(420, parent.ContentLayoutRect.Height - 40));
+        var sheet = new NSWindow(new CGRect(0, 0, 560, height), NSWindowStyle.Titled | NSWindowStyle.Resizable, NSBackingStore.Buffered, false);
         sheet.ReleaseWhenClosed(false);
         sheet.Title = Translator.WinoAccount_IntelligenceConsentPolicyTitle;
 
@@ -29,7 +31,7 @@ internal static class IntelligenceConsentPolicySheet
         webFrame.WantsLayer = true;
         webFrame.Layer!.MasksToBounds = true;
         WinoLayout.Fill(web, webFrame);
-        webFrame.HeightAnchor.ConstraintGreaterThanOrEqualTo(320).Active = true;
+        webFrame.HeightAnchor.ConstraintGreaterThanOrEqualTo(200).Active = true;
         var check = WinoCheckbox.Create(Translator.Intelligence_PrivacyPolicyAcknowledgement, () => { });
         check.TranslatesAutoresizingMaskIntoConstraints = false;
         var error = WinoStyle.Label(Translator.Intelligence_ConsentAcceptanceFailed, NSFont.SystemFontOfSize(12), WinoStyle.Critical, 0);

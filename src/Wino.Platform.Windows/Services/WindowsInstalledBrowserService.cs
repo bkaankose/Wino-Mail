@@ -170,7 +170,7 @@ public sealed class WindowsInstalledBrowserService : IInstalledBrowserService
         }
 
         if (profiles.Count == 0)
-            return [new BrowserOption(browser.Id, null, browser.Name)];
+            return (BrowserOption[])[new BrowserOption(browser.Id, null, browser.Name)];
 
         return profiles.Select(profile => new BrowserOption(browser.Id, profile.Id, $"{browser.Name} – {profile.DisplayName}"));
     }

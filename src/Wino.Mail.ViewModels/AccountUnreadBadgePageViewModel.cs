@@ -94,11 +94,11 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
     [RelayCommand]
     private void TurnOnFolderBadges() => AreFolderBadgesEnabled = true;
 
-    public AccountUnreadBadgePageViewModel(IAccountService accountService,
+    public AccountUnreadBadgePageViewModel(IMessenger messenger, IAccountService accountService,
                                           IFolderService folderService,
                                           IUnreadBadgeService unreadBadgeService,
                                           INotificationBuilder notificationBuilder,
-                                          IPreferencesService preferencesService)
+                                          IPreferencesService preferencesService) : base(messenger)
     {
         _accountService = accountService;
         _folderService = folderService;
@@ -133,7 +133,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
         Account = _account;
         AccountName = _account.Name;
-        AccountAddress = _account.Address;
+        AccountAddress = _account.DisplayAddress;
 
         IsAccountBadgeEnabled = _account.Preferences.IsAccountBadgeEnabled;
         IsTaskbarBadgeEnabled = _account.Preferences.IsTaskbarBadgeEnabled;

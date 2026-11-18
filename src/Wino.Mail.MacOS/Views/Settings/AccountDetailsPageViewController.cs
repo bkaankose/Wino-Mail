@@ -142,10 +142,13 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         var protocolExport = Card(Translator.ProtocolLog_ExportTitle, Translator.ProtocolLog_ExportDescription, WinoIconGlyph.ArrowDownload,
             Row(Bind.Button(Translator.ProtocolLog_ExportAction, vm.ExportProtocolLogsCommand), Bind.Button(Translator.ProtocolLog_UploadAction, vm.UploadProtocolLogsCommand)));
         foreach (var card in new NSView[] { imap, protocolLog, protocolExport })
-            Bind.Visible(card, vm, nameof(vm.ServerInformation), s => s.IsImapServer);
+            Bind.Visible(card, vm, nameof(vm.IsImapServer), s => s.IsImapServer);
+
+        var pictureCard = Card(Translator.AccountDetailsPage_ProfilePictureTitle, vm.ProfilePictureDescription, WinoIconGlyph.None, pictureButtons);
+        Bind.Bind(vm, nameof(vm.ProfilePictureDescription), s => s.ProfilePictureDescription, text => pictureCard.Description = text);
 
         AddTo(0, Group(null,
-            Card(Translator.AccountDetailsPage_ProfilePictureTitle, Translator.AccountDetailsPage_ProfilePictureDescription, WinoIconGlyph.None, pictureButtons),
+            pictureCard,
             Card(Translator.AccountDetailsPage_Title, Translator.AccountEditDialog_Message, WinoIconGlyph.Person, name),
             capabilities,
             colorCard,
@@ -158,7 +161,9 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
         var delete = Bind.Button(Translator.Buttons_Delete, vm.DeleteAccountCommand);
         delete.ContentTintColor = NSColor.SystemRed;
-        AddTo(0, Group(null, Card(Translator.SettingsDeleteAccount_Title, Translator.SettingsDeleteAccount_Description, WinoIconGlyph.Delete, delete)));
+        var deleteCard = Card(Translator.SettingsDeleteAccount_Title, vm.DeleteAccountDescription, WinoIconGlyph.Delete, delete);
+        Bind.Bind(vm, nameof(vm.DeleteAccountDescription), s => s.DeleteAccountDescription, text => deleteCard.Description = text);
+        AddTo(0, Group(null, deleteCard));
     }
 
     /// <summary>Exchange accounts: the connection method and the sign-in, a password or the organization sign-in.</summary>
@@ -396,8 +401,9 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             WinoLayout.Size(dot, 10, 10);
             var expander = new WinoSettingsExpander(item.Name, item.TimeZone, WinoIconGlyph.None);
             expander.HeaderCard.LeadingView = dot;
-            expander.Add(new WinoSettingsCard(Translator.CalendarAccountSettings_SyncEnabled, Translator.CalendarAccountSettings_SyncEnabledDescription, WinoIconGlyph.Sync,
-                rows.Switch(item, nameof(item.IsSynchronizationEnabled), s => s.IsSynchronizationEnabled, (s, v) => s.IsSynchronizationEnabled = v, Translator.CalendarAccountSettings_SyncEnabled)));
+            if (item.IsSynchronizationConfigurable)
+                expander.Add(new WinoSettingsCard(Translator.CalendarAccountSettings_SyncEnabled, Translator.CalendarAccountSettings_SyncEnabledDescription, WinoIconGlyph.Sync,
+                    rows.Switch(item, nameof(item.IsSynchronizationEnabled), s => s.IsSynchronizationEnabled, (s, v) => s.IsSynchronizationEnabled = v, Translator.CalendarAccountSettings_SyncEnabled)));
             expander.Add(new WinoSettingsCard(Translator.CalendarAccountSettings_DefaultShowAs, Translator.CalendarAccountSettings_DefaultShowAsDescription, WinoIconGlyph.Calendar,
                 rows.PopUp<AccountCalendarSettingsItemViewModel, AccountCalendarShowAsOption>(item, s => s.ShowAsOptions.ToList(), option => option.DisplayText,
                     nameof(item.SelectedShowAsOption), s => s.SelectedShowAsOption, (s, v) => s.SelectedShowAsOption = v, width: 150)));

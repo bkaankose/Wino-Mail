@@ -152,6 +152,7 @@ public sealed partial class ContactsPageViewController
     private void ShowDetail(AccountContactViewModel? contact)
     {
         ObserveDetailContact(contact);
+        UpdateDetailPane();
         _detailEmpty.Hidden = contact is not null;
         _detailScroll.Hidden = contact is null;
         if (contact is null) return;

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<RootNamespace>Wino.Core</RootNamespace>
+		<Platforms>x86;x64;arm64</Platforms>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+	</PropertyGroup>
+	
+	<ItemGroup>
+		<PackageReference Include="Exchange.WebServices.NETCore" />
+		<PackageReference Include="MimeKit" />
+		<!-- Exchange Autodiscover reads the directory service connection point; used on Windows only. -->
+		<PackageReference Include="System.DirectoryServices.Protocols" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
+	</ItemGroup>
+</Project>

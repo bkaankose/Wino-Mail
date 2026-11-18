@@ -17,7 +17,7 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS.Views.Calendar;
 
 /// <summary>
-/// Event details in their own 470×430 window (a Mac addition; Windows shows event details only in
+/// Event details in their own 470pt wide window, as tall as its content (a Mac addition; Windows shows event details only in
 /// the shell). The window hosts a fresh <see cref="EventDetailsPageViewController"/> bound to its
 /// own EventDetailsPageViewModel. One window per event: a second request brings it forward. The
 /// window closes when the event is deleted, and closing it releases the page.
@@ -41,14 +41,32 @@ internal sealed class EventDetailsWindow
         {
             ReleasedWhenClosed = false,
             Title = title,
-            ContentMinSize = new CGSize(380, 320),
+            ContentMinSize = new CGSize(380, 240),
             Identifier = $"event-details-{eventId:N}"
         };
         _window.ContentViewController = page;
         _window.SetContentSize(new CGSize(470, 430));
+        // A short event left most of the window empty: the window follows its content's height (attendees and
+        // attachments arrive after the event) until the user resizes it.
+        FitToContent(page.ContentHeight);
         _window.Center();
+        page.ContentHeightChanged += FitToContent;
+        _window.WillStartLiveResize += (_, _) => _userSized = true;
         _window.WillClose += WindowWillClose;
         WeakReferenceMessenger.Default.Register<EventDetailsWindow, CalendarItemDeleted>(this, static (recipient, message) => recipient.EventDeleted(message));
+    }
+
+    private bool _userSized;
+
+    private void FitToContent(double contentHeight)
+    {
+        if (_userSized || _closed || contentHeight <= 0) return;
+        var height = Math.Clamp(contentHeight, _window.ContentMinSize.Height, 640);
+        var frame = _window.Frame;
+        var content = _window.ContentRectFor(frame);
+        if (Math.Abs(content.Height - height) < 1) return;
+        var target = _window.FrameRectFor(new CGRect(content.X, content.GetMaxY() - height, content.Width, height));
+        _window.SetFrame(target, true);
     }
 
     private static IServiceProvider? Services => (NSApplication.SharedApplication.Delegate as AppDelegate)?.Services;
@@ -115,6 +133,7 @@ internal sealed class EventDetailsWindow
         if (_closed) return;
         _closed = true;
         _window.WillClose -= WindowWillClose;
+        _page.ContentHeightChanged -= FitToContent;
         WeakReferenceMessenger.Default.UnregisterAll(this);
         if (Open.TryGetValue(_eventId, out var owner) && ReferenceEquals(owner, this)) Open.Remove(_eventId);
         try { await _page.ReleaseAsync(); }

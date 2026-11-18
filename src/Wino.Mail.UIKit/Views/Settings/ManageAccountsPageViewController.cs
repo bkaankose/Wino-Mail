@@ -152,7 +152,7 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
             card.Description = account.DescriptionText;
             ConfigureIcon(icon, value);
             card.Content = AccountStatus(value);
-            WinoAccessibility.Help(card, value?.Address);
+            WinoAccessibility.Help(card, value?.DisplayAddress);
         });
         EventHandler handler = (_, _) =>
         {

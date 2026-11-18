@@ -85,10 +85,13 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _openInWindow = new ActionBarButton(WinoIconGlyph.OpenInNewWindow, null, Translator.CalendarEventDetails_OpenInNewWindow);
         _openInWindow.Activated += (_, _) => OpenInNewWindow();
         _openInWindow.Hidden = IsInOwnWindow || !EventDetailsWindow.IsAvailable;
-        _showAs = new NSPopUpButton { ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = Translator.CalendarEventDetails_ShowAs };
+        // A pull-down like the Reminder menu beside it, its title the current choice with a checkmark in the menu:
+        // a pop-up's up-down arrows next to the pull-down's chevron made the pair look unrelated.
+        _showAs = new NSPopUpButton { PullsDown = true, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = Translator.CalendarEventDetails_ShowAs };
         _showAs.Font = NSFont.SystemFontOfSize(12);
         _showAs.WidthAnchor.ConstraintEqualTo(130).Active = true;
-        foreach (var option in ViewModel.ShowAsOptions) _showAs.AddItem(option.DisplayText);
+        _showAs.AddItem(Translator.CalendarEventDetails_ShowAs);
+        foreach (var option in ViewModel.ShowAsOptions) _showAs.Menu!.AddItem(new NSMenuItem(option.DisplayText));
         // The details pane is an inspector: a Show as choice commits at once (like the Windows context menu).
         _showAs.Activated += (_, _) => ShowAsChosen();
         var showAsRow = WinoLayout.HStack(6, new WinoIconView(WinoIconGlyph.CalendarShowAs, 16, WinoStyle.SecondaryText), _showAs);
@@ -180,7 +183,8 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         AddRow(_attachmentsCard);
 
         _column.DetachesHiddenViews = true;
-        var document = new FlippedView();
+        var document = new FlippedView { HeightChanged = height => ContentHeightChanged?.Invoke(height) };
+        _document = document;
         WinoLayout.Fill(_column, document);
         var scroll = new NSScrollView { DocumentView = document, DrawsBackground = false, HasVerticalScroller = true, AutohidesScrollers = true, BorderType = NSBorderType.NoBorder, TranslatesAutoresizingMaskIntoConstraints = false };
         document.WidthAnchor.ConstraintEqualTo(scroll.ContentView.WidthAnchor).Active = true;
@@ -193,6 +197,21 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     {
         _column.AddArrangedSubview(view);
         view.WidthAnchor.ConstraintEqualTo(_column.WidthAnchor, 1, -32).Active = true;
+    }
+
+    private NSView? _document;
+
+    /// <summary>Raised when the details grow or shrink, for example when the attendees arrive after the event.</summary>
+    internal event Action<double>? ContentHeightChanged;
+
+    /// <summary>The height the details need at the current width, for sizing the pop-out window to its content.</summary>
+    internal double ContentHeight
+    {
+        get
+        {
+            View.LayoutSubtreeIfNeeded();
+            return _document?.Frame.Height ?? 0;
+        }
     }
 
     /// <summary>True when this page is hosted by an <see cref="EventDetailsWindow"/> rather than the calendar pane.</summary>
@@ -243,7 +262,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         Bind(nameof(ViewModel.CurrentSettings), vm => vm.CurrentSettings, _ => { if (ViewModel.CurrentEvent is { } item) ApplyEventFields(item); });
         Bind(nameof(ViewModel.IsRsvpPanelVisible), vm => vm.IsRsvpPanelVisible, visible => _rsvpPanel.Hidden = !visible || _isReadOnly);
         Bind(nameof(ViewModel.RsvpMessage), vm => vm.RsvpMessage, value => { if (_rsvpMessage.StringValue != value) _rsvpMessage.StringValue = value ?? string.Empty; });
-        Bind(nameof(ViewModel.SelectedShowAsOption), vm => vm.SelectedShowAsOption, option => { if (option is not null) _showAs.SelectItem(option.DisplayText); });
+        Bind(nameof(ViewModel.SelectedShowAsOption), vm => vm.SelectedShowAsOption, ShowShowAs);
         Bind(nameof(ViewModel.CurrentRsvpText), vm => vm.CurrentRsvpText, _ => ApplyRsvp());
         Bind(nameof(ViewModel.CanEditSeries), vm => vm.CanEditSeries, can => _series.Hidden = !can);
         Bind(nameof(ViewModel.Reminders), vm => vm.Reminders, _ => QueueReminderMenu());
@@ -347,7 +366,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         {
             if (ViewModel.CurrentEvent?.CalendarItem is { } calendarItem) calendarItem.ShowAs = showAs;
             ViewModel.SelectedShowAsOption = ViewModel.ShowAsOptions.FirstOrDefault(option => option.ShowAs == showAs) ?? ViewModel.SelectedShowAsOption;
-            if (ViewModel.SelectedShowAsOption is { } selected) _showAs.SelectItem(selected.DisplayText);
+            ShowShowAs(ViewModel.SelectedShowAsOption);
         }
         var minutes = (ViewModel.Reminders ?? []).Select(reminder => (int)(reminder.DurationInSeconds / 60)).ToHashSet();
         foreach (var option in ViewModel.ReminderOptions) option.IsSelected = minutes.Contains(option.Minutes);
@@ -368,9 +387,19 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         });
     }
 
+    private void ShowShowAs(ShowAsOption? selected)
+    {
+        if (selected is null) return;
+        var items = _showAs.Menu!.Items;
+        for (int index = 1; index < items.Length; index++)
+            items[index].State = index - 1 < ViewModel.ShowAsOptions.Count && ReferenceEquals(ViewModel.ShowAsOptions[index - 1], selected)
+                ? NSCellStateValue.On : NSCellStateValue.Off;
+        _showAs.SetTitle(selected.DisplayText);
+    }
+
     private void ShowAsChosen()
     {
-        var index = (int)_showAs.IndexOfSelectedItem;
+        var index = (int)_showAs.IndexOfSelectedItem - 1;
         if (index < 0 || index >= ViewModel.ShowAsOptions.Count) return;
         var option = ViewModel.ShowAsOptions[index];
         if (ReferenceEquals(option, ViewModel.SelectedShowAsOption)) return;
@@ -395,7 +424,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
             if (!Enum.TryParse<CalendarItemShowAs>(value, true, out var showAs)) return;
             var option = ViewModel.ShowAsOptions.FirstOrDefault(candidate => candidate.ShowAs == showAs);
             if (option is null) return;
-            _showAs.SelectItem(ViewModel.ShowAsOptions.IndexOf(option));
+            _showAs.SelectItem(ViewModel.ShowAsOptions.IndexOf(option) + 1);
             ShowAsChosen();
         });
         return await DebugAfterSaveAsync();
@@ -418,7 +447,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         for (int attempt = 0; attempt < 50 && (_saving || _savePending); attempt++) await Task.Delay(100);
         string result = string.Empty;
         await Dispatcher.ExecuteOnUIThread(() => result =
-            $"saved={ViewModel.LastMutationSucceeded} showAs={ViewModel.CurrentEvent?.CalendarItem.ShowAs} popup={_showAs.TitleOfSelectedItem} " +
+            $"saved={ViewModel.LastMutationSucceeded} showAs={ViewModel.CurrentEvent?.CalendarItem.ShowAs} popup={_showAs.Title} " +
             $"reminders=[{string.Join(",", (ViewModel.Reminders ?? []).Select(reminder => reminder.DurationInSeconds / 60))}] row='{_reminderRow.Text}' inWindow={IsInOwnWindow}");
         return result;
     }
@@ -638,6 +667,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         {
             _released = true;
             ViewModel.ReminderOptions.CollectionChanged -= ReminderOptionsChanged;
+            ContentHeightChanged = null;
             _eventBindings?.Dispose(); _eventBindings = null;
             _attachmentBindings?.Dispose(); _attachmentBindings = null;
         }
@@ -646,6 +676,15 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
 
     private sealed class FlippedView : NSView
     {
+        public Action<double>? HeightChanged { get; set; }
+
+        public override void SetFrameSize(CoreGraphics.CGSize newSize)
+        {
+            bool changed = Math.Abs(newSize.Height - Frame.Height) >= 0.5;
+            base.SetFrameSize(newSize);
+            if (changed) HeightChanged?.Invoke(newSize.Height);
+        }
+
         public FlippedView() { TranslatesAutoresizingMaskIntoConstraints = false; }
         public override bool IsFlipped => true;
     }

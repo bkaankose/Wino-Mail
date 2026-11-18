@@ -18,10 +18,9 @@ using WinRT;
 namespace Wino.Views;
 
 /// <summary>
-/// Account setup as one column: the step's title, the account pill, the step, then Back and the primary button.
+/// Account setup as one column: the account pill, the step's title and description, the step, then Back and the primary button.
 /// The step host shows one template per <see cref="AccountSetupStep"/>; the page keeps the title, the pill and the
-/// focus after each step. The welcome window centres the column; Settings starts it at the top left like its other
-/// pages.
+/// focus after each step. Both hosts centre the column horizontally; only the welcome window centres it vertically.
 /// </summary>
 public sealed partial class AccountSetupPage : AccountSetupPageAbstract
 {
@@ -56,9 +55,6 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
         return new SvgImageSource(new Uri($"ms-appx:///Assets/AppEntries/{name}.svg"));
     }
 
-    public static HorizontalAlignment GetHostAlignment(bool isSettingsHost)
-        => isSettingsHost ? HorizontalAlignment.Left : HorizontalAlignment.Center;
-
     /// <summary>Room on the email field's leading edge for the recognised provider's mark.</summary>
     public static Thickness GetEmailPadding(bool hasMatchedProvider) => new(hasMatchedProvider ? 34 : 10, 5, 6, 6);
 
@@ -80,26 +76,9 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
 
-        // The wizard centres the column in its window; Settings pages start at the top left. A left-aligned column
-        // would size to its content and change width between steps, so in Settings the first grid column carries the
-        // width and a second one takes the rest.
-        var isSettings = ViewModel.IsSettingsHost;
-        TopSpacerRow.Height = isSettings ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-
-        if (isSettings && SetupRoot.ColumnDefinitions.Count == 0)
-        {
-            SetupRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1000, GridUnitType.Star), MaxWidth = StepWidth });
-            SetupRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        }
-
-        var alignment = GetHostAlignment(isSettings);
-        var textAlignment = isSettings ? TextAlignment.Left : TextAlignment.Center;
-        StepTitleText.HorizontalAlignment = alignment;
-        StepTitleText.TextAlignment = textAlignment;
-        StepSubtitleText.HorizontalAlignment = alignment;
-        StepSubtitleText.TextAlignment = textAlignment;
-        KnownRow.HorizontalAlignment = alignment;
-        SetupLinks.HorizontalAlignment = alignment;
+        // Both hosts centre the column horizontally. The welcome window also centres it vertically; Settings starts it
+        // at the top, where a growing or shrinking step would otherwise move the whole column.
+        TopSpacerRow.Height = ViewModel.IsSettingsHost ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
 
         RenderKnownItems(isAnnounced: false);
         ShowStep(ViewModel.Step);
@@ -317,11 +296,7 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
     /// <summary>The review step's cards need more room than a single field.</summary>
     private void ApplyStepWidth(AccountSetupStep step)
     {
-        var width = step == AccountSetupStep.Review ? ReviewWidth : StepWidth;
-        SetupPanel.MaxWidth = width;
-
-        if (SetupRoot.ColumnDefinitions.Count > 0)
-            SetupRoot.ColumnDefinitions[0].MaxWidth = width;
+        SetupPanel.MaxWidth = step == AccountSetupStep.Review ? ReviewWidth : StepWidth;
     }
 
     #endregion

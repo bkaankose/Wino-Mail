@@ -1,4 +1,7 @@
 using AppKit;
+using CoreAnimation;
+using CoreGraphics;
+using Foundation;
 using Wino.Mail.Controls.Core;
 using Wino.Presentation.AppKit;
 
@@ -67,91 +70,143 @@ public sealed class WinoUnreadPill : WinoSurfaceView
 }
 
 /// <summary>
-/// The 3pt synchronization bar under an account name (Windows ProgressBar Height=3). Determinate
-/// fills from the left; indeterminate slides a third-width segment across the track.
+/// The 3pt synchronization bar under an account name (Windows ProgressBar Height=3), drawn with layers
+/// clipped to a rounded track. Determinate progress eases to each new value; indeterminate sweeps a
+/// segment that grows and shrinks across the track, and the bar fades in when it appears.
 /// </summary>
 public sealed class WinoSyncBar : NSView
 {
-    private readonly WinoSurfaceView _track = new() { CornerRadius = 1.5, Fill = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.08), WinoStyle.Hex(0xFFFFFF, 0.12)) };
-    private readonly WinoSurfaceView _fill = new() { CornerRadius = 1.5, Fill = WinoStyle.Accent };
-    private NSLayoutConstraint? _fillWidth;
-    private double _fraction = -1;
+    private const string SweepKey = "wino.sync.sweep";
+    private const double Height = 3;
+
+    private static readonly NSColor TrackColor = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.08), WinoStyle.Hex(0xFFFFFF, 0.12));
+
+    private readonly CALayer _fill = new() { CornerRadius = (nfloat)(Height / 2), AnchorPoint = new CGPoint(0, 0.5) };
+    private double _fraction;
     private bool _indeterminate;
-    // Width the running animation was built for; -1 while no animation is attached.
-    private double _animatedWidth = -1;
+    private bool _hasValue;
+    // Width the running sweep was built for; -1 while no sweep is attached.
+    private double _sweepWidth = -1;
 
     public WinoSyncBar()
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
         WantsLayer = true;
-        WinoLayout.Fill(_track, this);
-        AddSubview(_fill);
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            HeightAnchor.ConstraintEqualTo(3),
-            _fill.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
-            _fill.TopAnchor.ConstraintEqualTo(TopAnchor),
-            _fill.BottomAnchor.ConstraintEqualTo(BottomAnchor)
-        ]);
-        Update(false, 0);
-        WinoStyle.AccentWatchers.Add(this, static bar => bar._fill.Fill = WinoStyle.Accent);
+        HeightAnchor.ConstraintEqualTo((nfloat)Height).Active = true;
+        WinoStyle.AccentWatchers.Add(this, static bar => bar.NeedsDisplay = true);
+    }
+
+    public override bool WantsUpdateLayer => true;
+
+    public override void UpdateLayer()
+    {
+        if (Layer is not { } layer) return;
+        layer.MasksToBounds = true;
+        layer.CornerRadius = (nfloat)(Height / 2);
+        layer.BackgroundColor = TrackColor.CGColor;
+        if (_fill.SuperLayer is null) layer.AddSublayer(_fill);
+        WithoutActions(() => _fill.BackgroundColor = WinoStyle.Accent.CGColor);
     }
 
     /// <summary>Sets the bar; <paramref name="value"/> is 0 to 100.</summary>
     public void Update(bool indeterminate, double value)
     {
+        var fraction = Math.Clamp(value / 100, 0, 1);
+        var modeChanged = indeterminate != _indeterminate || !_hasValue;
+        var animate = _hasValue && !modeChanged && !indeterminate && fraction > _fraction && Window is not null && !Hidden;
         _indeterminate = indeterminate;
-        var fraction = indeterminate ? 0.34 : Math.Clamp(value / 100, 0, 1);
-        // The multiplier is read-only, so the constraint is replaced, but only when the fill really moves.
-        if (fraction != _fraction)
-        {
-            _fraction = fraction;
-            if (_fillWidth is not null) _fillWidth.Active = false;
-            // A zero multiplier is rejected by Auto Layout; use a hair-thin fill instead.
-            _fillWidth = _fill.WidthAnchor.ConstraintEqualTo(WidthAnchor, (nfloat)Math.Max(fraction, 0.001), 0);
-            _fillWidth.Active = true;
-        }
-        UpdateAnimation();
+        _fraction = fraction;
+        _hasValue = true;
+        ApplyFill(animate);
     }
 
     public override void Layout()
     {
         base.Layout();
-        UpdateAnimation();
+        ApplyFill(animate: false);
     }
 
     public override void ViewDidHide()
     {
         base.ViewDidHide();
-        UpdateAnimation();
+        ApplySweep();
     }
 
     public override void ViewDidUnhide()
     {
         base.ViewDidUnhide();
-        UpdateAnimation();
+        ApplyFill(animate: false);
+        if (Layer is not { } layer) return;
+        var fade = CABasicAnimation.FromKeyPath("opacity");
+        fade.From = NSNumber.FromDouble(0);
+        fade.To = NSNumber.FromDouble(1);
+        fade.Duration = 0.2;
+        layer.AddAnimation(fade, "wino.sync.fade");
     }
 
-    /// <summary>Attaches the slide when indeterminate turns on or the width changes; detaches it when it turns off.</summary>
-    private void UpdateAnimation()
+    private void ApplyFill(bool animate)
     {
-        if (_fill.Layer is not { } layer) return;
-        bool animate = _indeterminate && !Hidden && Bounds.Width > 0;
-        if (!animate)
+        var width = Bounds.Width;
+        var segment = _indeterminate ? width * 0.3 : width * _fraction;
+        // A layer added to a view-backed layer animates every frame change by default; only progress steps should.
+        if (animate)
         {
-            if (_animatedWidth < 0) return;
-            layer.RemoveAnimation("wino.sync");
-            _animatedWidth = -1;
+            CATransaction.Begin();
+            CATransaction.AnimationDuration = 0.35;
+            CATransaction.AnimationTimingFunction = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseOut);
+            _fill.Bounds = new CGRect(0, 0, segment, Height);
+            _fill.Position = new CGPoint(0, Bounds.Height / 2);
+            CATransaction.Commit();
+        }
+        else
+        {
+            WithoutActions(() =>
+            {
+                _fill.Bounds = new CGRect(0, 0, segment, Height);
+                _fill.Position = new CGPoint(0, Bounds.Height / 2);
+            });
+        }
+        ApplySweep();
+    }
+
+    /// <summary>Attaches the sweep while indeterminate and visible; rebuilds it when the width changes.</summary>
+    private void ApplySweep()
+    {
+        var width = Bounds.Width;
+        if (!_indeterminate || Hidden || width <= 0)
+        {
+            if (_sweepWidth < 0) return;
+            _fill.RemoveAnimation(SweepKey);
+            _sweepWidth = -1;
             return;
         }
-        if (_animatedWidth == Bounds.Width && layer.AnimationForKey("wino.sync") is not null) return;
-        _animatedWidth = Bounds.Width;
-        var animation = CoreAnimation.CABasicAnimation.FromKeyPath("transform.translation.x");
-        animation.From = Foundation.NSNumber.FromDouble(-Bounds.Width * 0.34);
-        animation.To = Foundation.NSNumber.FromDouble(Bounds.Width);
-        animation.Duration = 1.4;
-        animation.RepeatCount = float.MaxValue;
-        layer.AddAnimation(animation, "wino.sync");
+        if (_sweepWidth == width && _fill.AnimationForKey(SweepKey) is not null) return;
+        _sweepWidth = width;
+
+        // The segment enters from the left edge and leaves past the right one, widening in the middle of
+        // the track like the system's indeterminate bar; the track clips it.
+        var ease = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseInEaseOut);
+        var move = CAKeyFrameAnimation.FromKeyPath("position.x");
+        move.Values = [NSNumber.FromDouble(-width * 0.3), NSNumber.FromDouble(width * 0.35), NSNumber.FromDouble(width)];
+        move.KeyTimes = [NSNumber.FromDouble(0), NSNumber.FromDouble(0.5), NSNumber.FromDouble(1)];
+        move.TimingFunctions = [ease, ease];
+        var grow = CAKeyFrameAnimation.FromKeyPath("bounds.size.width");
+        grow.Values = [NSNumber.FromDouble(width * 0.2), NSNumber.FromDouble(width * 0.45), NSNumber.FromDouble(width * 0.2)];
+        grow.KeyTimes = [NSNumber.FromDouble(0), NSNumber.FromDouble(0.5), NSNumber.FromDouble(1)];
+        grow.TimingFunctions = [ease, ease];
+        var sweep = CAAnimationGroup.CreateAnimation();
+        sweep.Animations = [move, grow];
+        sweep.Duration = 1.5;
+        sweep.RepeatCount = float.MaxValue;
+        _fill.AddAnimation(sweep, SweepKey);
+    }
+
+    private static void WithoutActions(Action change)
+    {
+        CATransaction.Begin();
+        CATransaction.DisableActions = true;
+        change();
+        CATransaction.Commit();
     }
 
     protected override void Dispose(bool disposing)

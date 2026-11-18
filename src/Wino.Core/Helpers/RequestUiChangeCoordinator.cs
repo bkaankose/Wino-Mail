@@ -6,12 +6,22 @@ using Wino.Core.Requests.Mail;
 
 namespace Wino.Core.Helpers;
 
-public static class RequestUiChangeCoordinator
+/// <summary>
+/// Applies, reverts and completes the in-memory UI changes of queued requests, once each, and sends their messages
+/// through the sender the container composed it with.
+/// </summary>
+public sealed class RequestUiChangeCoordinator
 {
-    private static readonly Dictionary<IUIChangeRequest, RequestUiChangeState> RequestStates = new(ReferenceEqualityComparer<IUIChangeRequest>.Instance);
-    private static readonly object StateLock = new();
+    private readonly Dictionary<IUIChangeRequest, RequestUiChangeState> _requestStates = new(ReferenceEqualityComparer<IUIChangeRequest>.Instance);
+    private readonly object _stateLock = new();
+    private readonly IUIMessageSender _sender;
 
-    public static void ApplyRequests(IEnumerable<IRequestBase> requests, Func<IRequestBase, bool> shouldApply = null)
+    public RequestUiChangeCoordinator(IUIMessageSender sender)
+    {
+        _sender = sender ?? throw new ArgumentNullException(nameof(sender));
+    }
+
+    public void ApplyRequests(IEnumerable<IRequestBase> requests, Func<IRequestBase, bool> shouldApply = null)
     {
         var requestList = requests?
             .Where(request => request != null && (shouldApply?.Invoke(request) ?? true))
@@ -33,13 +43,13 @@ public static class RequestUiChangeCoordinator
 
             foreach (var request in groupRequests)
             {
-                request.ApplyUIChanges();
+                request.ApplyUIChanges(_sender);
                 MarkApplied(request);
             }
         }
     }
 
-    public static void RevertRequests(IEnumerable<IRequestBase> requests, Func<IRequestBase, bool> shouldRevert = null)
+    public void RevertRequests(IEnumerable<IRequestBase> requests, Func<IRequestBase, bool> shouldRevert = null)
     {
         var requestList = requests?
             .Where(request => request != null && (shouldRevert?.Invoke(request) ?? true))
@@ -61,13 +71,13 @@ public static class RequestUiChangeCoordinator
 
             foreach (var request in groupRequests)
             {
-                request.RevertUIChanges();
+                request.RevertUIChanges(_sender);
                 MarkReverted(request);
             }
         }
     }
 
-    public static void ApplyBundles<TRequest>(IEnumerable<IRequestBundle<TRequest>> bundles, Func<IRequestBase, bool> shouldApply = null)
+    public void ApplyBundles<TRequest>(IEnumerable<IRequestBundle<TRequest>> bundles, Func<IRequestBase, bool> shouldApply = null)
     {
         var bundleList = bundles?
             .Where(bundle => bundle?.Request != null && (shouldApply?.Invoke(bundle.Request) ?? true))
@@ -81,7 +91,7 @@ public static class RequestUiChangeCoordinator
 
         foreach (var uiChange in directUiChanges)
         {
-            uiChange.ApplyUIChanges();
+            uiChange.ApplyUIChanges(_sender);
             MarkApplied(uiChange);
         }
 
@@ -91,10 +101,10 @@ public static class RequestUiChangeCoordinator
             shouldApply);
     }
 
-    public static void RevertBundle<TRequest>(IRequestBundle<TRequest> bundle)
+    public void RevertBundle<TRequest>(IRequestBundle<TRequest> bundle)
         => RevertBundle((IRequestBundle)bundle);
 
-    public static void RevertBundle(IRequestBundle bundle)
+    public void RevertBundle(IRequestBundle bundle)
     {
         if (bundle?.UIChangeRequest == null)
             return;
@@ -102,16 +112,16 @@ public static class RequestUiChangeCoordinator
         if (!TryBeginRevert(bundle.UIChangeRequest))
             return;
 
-        bundle.UIChangeRequest.RevertUIChanges();
+        bundle.UIChangeRequest.RevertUIChanges(_sender);
         MarkReverted(bundle.UIChangeRequest);
     }
 
-    public static void RevertRequest(IUIChangeRequest request)
+    public void RevertRequest(IUIChangeRequest request)
     {
         if (request == null || !TryBeginRevert(request))
             return;
 
-        request.RevertUIChanges();
+        request.RevertUIChanges(_sender);
         MarkReverted(request);
     }
 
@@ -120,19 +130,19 @@ public static class RequestUiChangeCoordinator
     /// Request queues are intentionally in-memory, so completed entries must not retain the
     /// entity snapshots carried by contact and task mutations.
     /// </summary>
-    public static void CompleteRequests(IEnumerable<IRequestBase> requests)
+    public void CompleteRequests(IEnumerable<IRequestBase> requests)
     {
         if (requests is null)
             return;
 
-        lock (StateLock)
+        lock (_stateLock)
         {
             foreach (var request in requests.Where(request => request is not null))
-                RequestStates.Remove(request);
+                _requestStates.Remove(request);
         }
     }
 
-    private static bool TryApplyBatchUiChanges(IReadOnlyList<IRequestBase> requests, bool apply)
+    private bool TryApplyBatchUiChanges(IReadOnlyList<IRequestBase> requests, bool apply)
     {
         if (requests == null || requests.Count <= 1)
             return false;
@@ -153,23 +163,23 @@ public static class RequestUiChangeCoordinator
 
         if (apply)
         {
-            request.ApplyUIChanges();
+            request.ApplyUIChanges(_sender);
         }
         else
         {
-            request.RevertUIChanges();
+            request.RevertUIChanges(_sender);
         }
 
         return true;
     }
 
-    private static bool TryBeginApply(IUIChangeRequest request)
+    private bool TryBeginApply(IUIChangeRequest request)
     {
-        lock (StateLock)
+        lock (_stateLock)
         {
-            if (!RequestStates.TryGetValue(request, out var state))
+            if (!_requestStates.TryGetValue(request, out var state))
             {
-                RequestStates[request] = new RequestUiChangeState { IsApplying = true };
+                _requestStates[request] = new RequestUiChangeState { IsApplying = true };
                 return true;
             }
 
@@ -181,20 +191,20 @@ public static class RequestUiChangeCoordinator
         }
     }
 
-    private static void MarkApplied(IEnumerable<IUIChangeRequest> requests)
+    private void MarkApplied(IEnumerable<IUIChangeRequest> requests)
     {
         foreach (var request in requests)
             MarkApplied(request);
     }
 
-    private static void MarkApplied(IUIChangeRequest request)
+    private void MarkApplied(IUIChangeRequest request)
     {
-        lock (StateLock)
+        lock (_stateLock)
         {
-            if (!RequestStates.TryGetValue(request, out var state))
+            if (!_requestStates.TryGetValue(request, out var state))
             {
                 state = new RequestUiChangeState();
-                RequestStates[request] = state;
+                _requestStates[request] = state;
             }
 
             state.IsApplying = false;
@@ -202,11 +212,11 @@ public static class RequestUiChangeCoordinator
         }
     }
 
-    private static bool TryBeginRevert(IUIChangeRequest request)
+    private bool TryBeginRevert(IUIChangeRequest request)
     {
-        lock (StateLock)
+        lock (_stateLock)
         {
-            if (!RequestStates.TryGetValue(request, out var state))
+            if (!_requestStates.TryGetValue(request, out var state))
                 return false;
 
             if (!state.IsApplied || state.IsReverted || state.IsReverting)
@@ -217,20 +227,20 @@ public static class RequestUiChangeCoordinator
         }
     }
 
-    private static void MarkReverted(IEnumerable<IUIChangeRequest> requests)
+    private void MarkReverted(IEnumerable<IUIChangeRequest> requests)
     {
         foreach (var request in requests)
             MarkReverted(request);
     }
 
-    private static void MarkReverted(IUIChangeRequest request)
+    private void MarkReverted(IUIChangeRequest request)
     {
-        lock (StateLock)
+        lock (_stateLock)
         {
-            if (!RequestStates.TryGetValue(request, out var state))
+            if (!_requestStates.TryGetValue(request, out var state))
             {
                 state = new RequestUiChangeState();
-                RequestStates[request] = state;
+                _requestStates[request] = state;
             }
 
             state.IsReverting = false;

@@ -27,6 +27,13 @@ internal sealed class AccountCapabilityPicker : NSView
     private readonly CapabilityCard _mail, _calendar, _contacts, _tasks;
     private bool _refreshQueued;
 
+    /// <summary>The Mail card has no chevron; its switch lines up with the switches of the expandable cards.</summary>
+    public override void UpdateConstraints()
+    {
+        WinoSettingsCard.AlignTrailingControls(this);
+        base.UpdateConstraints();
+    }
+
     /// <param name="mailOptions">Rows under the Mail card (the wizard's download range); null shows a plain card.</param>
     public AccountCapabilityPicker(AccountCapabilitySelection selection, Func<string> mailProviderLabel, NSView? mailOptions,
         BindingScope scope, IDispatcher dispatcher, Action<Exception> error)

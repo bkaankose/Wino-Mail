@@ -9,6 +9,10 @@ public class WhatsNewFeature
     [JsonPropertyName("image")]
     public string Image { get; set; } = string.Empty;
 
+    /// <summary>Optional animated GIF of the same scene. Only Windows plays it; the other apps keep showing <see cref="Image"/>.</summary>
+    [JsonPropertyName("animation")]
+    public string Animation { get; set; } = string.Empty;
+
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
 
@@ -16,9 +20,14 @@ public class WhatsNewFeature
     public string Description { get; set; } = string.Empty;
 
     [JsonIgnore]
-    public string ImageUri => string.IsNullOrWhiteSpace(Image)
-        ? string.Empty
-        : $"ms-appx:///Assets/WhatsNew/{Image}";
+    public string ImageUri
+    {
+        get
+        {
+            var file = string.IsNullOrWhiteSpace(Animation) ? Image : Animation;
+            return string.IsNullOrWhiteSpace(file) ? string.Empty : $"ms-appx:///Assets/WhatsNew/{file}";
+        }
+    }
 
     [JsonIgnore]
     public string AccessibilityName

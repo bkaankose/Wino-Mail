@@ -20,7 +20,7 @@ public record CreateDraftRequest(DraftPreparationRequest DraftPreperationRequest
 
     public override MailSynchronizerOperation Operation => MailSynchronizerOperation.CreateDraft;
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         // Keep local draft intact when create-draft synchronization fails.
         // This allows users to retry sending the local draft to the server.

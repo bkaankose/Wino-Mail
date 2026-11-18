@@ -115,9 +115,14 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         ContactPictureFileId = contact.ContactPictureFileId;
         IsRootContact = contact.IsRootContact;
         IsOverridden = contact.IsOverridden;
-        SourceLabel = string.IsNullOrWhiteSpace(accountName) ? contact.SourceKind.ToString() : $"{accountName} · {contact.SourceKind}";
+        var sourceName = SourceDisplayName(contact.SourceKind);
+        SourceLabel = string.IsNullOrWhiteSpace(accountName) ? sourceName : $"{accountName} · {sourceName}";
         IsEditable = contact.SourceKind == ContactSourceKind.Local || isAuthorized;
     }
+
+    /// <summary>The contact source as people read it ("CardDAV", not the enum's "CardDav").</summary>
+    public static string SourceDisplayName(ContactSourceKind kind)
+        => kind == ContactSourceKind.CardDav ? Translator.ProviderSelection_SourceCardDav : kind.ToString();
 
     /// <summary>Replaces the presentation snapshot and raises the dependent binding notifications.</summary>
     public void ApplySnapshot(AccountContact contact)

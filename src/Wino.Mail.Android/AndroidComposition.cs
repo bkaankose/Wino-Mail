@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Wino.Core;
+using Wino.Core.Providers;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.ViewModels;
@@ -36,6 +37,7 @@ internal static class AndroidComposition
         });
         services.RegisterSharedServices();
         services.RegisterCoreServices();
+        services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
         services.AddAndroidPlatformServices(bootstrap, () => activities.Current);
 
         services.RegisterWinoViewModels();
@@ -52,6 +54,9 @@ internal static class AndroidComposition
         services.AddSingleton<IWindowSizeClassService>(provider => provider.GetRequiredService<AndroidWindowSizeClassService>());
 
         services.AddSingleton<AndroidPageRegistry>();
+        // Exchange modern-auth sign-in in a WebView dialog over the started activity.
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new AndroidEmbeddedBrowserAuthBroker(
+            provider.GetRequiredService<IDispatcher>(), activities));
         services.AddSingleton<Views.Mail.AndroidSenderPictureProvider>();
         // The Daily briefing entry and sheet (shown only through the shared entitlement rule).
         services.AddSingleton<Views.Extras.AndroidDailyBriefingPresenter>();

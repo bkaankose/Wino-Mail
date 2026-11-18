@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -39,12 +38,12 @@ public sealed record ContactCategoryRequest : IContactActionRequest
 
     public object GroupingKey() => (AddressBookId, LocalContactId, Operation);
 
-    public void ApplyUIChanges() => Send(Contact, EntityUpdateSource.ClientUpdated);
+    public void ApplyUIChanges(IUIMessageSender sender) => Send(sender, Contact, EntityUpdateSource.ClientUpdated);
 
-    public void RevertUIChanges() => Send(OriginalContact, EntityUpdateSource.ClientReverted);
+    public void RevertUIChanges(IUIMessageSender sender) => Send(sender, OriginalContact, EntityUpdateSource.ClientReverted);
 
-    private static void Send(AccountContact contact, EntityUpdateSource source)
-        => WeakReferenceMessenger.Default.Send(new ContactStateChanged(
+    private static void Send(IUIMessageSender sender, AccountContact contact, EntityUpdateSource source)
+        => sender.Send(new ContactStateChanged(
             RequestEntityCloner.Contact(contact),
             OptimisticEntityChange.Upsert,
             source));

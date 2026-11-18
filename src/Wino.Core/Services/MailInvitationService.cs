@@ -18,7 +18,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Synchronizers.CalDav;
 using Wino.Services;
 
 namespace Wino.Core.Services;
@@ -38,8 +37,9 @@ public sealed class MailInvitationService : IMailInvitationService
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
     private readonly IMailService _mailService;
-    private readonly IImapChangeProcessor _changeProcessor;
-    private readonly CalDavSynchronizationEngine _calDavEngine;
+    private readonly ICalDavChangeProcessor _changeProcessor;
+    private readonly ICalDavInvitationEngine _calDavEngine;
+    private readonly IMailProviderRegistry _providers;
     private readonly ICalDavClient _calDavClient;
     private readonly ISmtpTransport _smtpTransport;
     private readonly IWinoRequestDelegator _requestDelegator;
@@ -49,13 +49,15 @@ public sealed class MailInvitationService : IMailInvitationService
         IAccountService accountService,
         ICalendarService calendarService,
         IMailService mailService,
-        IImapChangeProcessor changeProcessor,
-        CalDavSynchronizationEngine calDavEngine,
+        ICalDavChangeProcessor changeProcessor,
+        ICalDavInvitationEngine calDavEngine,
         ICalDavClient calDavClient,
         ISmtpTransport smtpTransport,
         IWinoRequestDelegator requestDelegator,
-        IPreferencesService preferencesService)
+        IPreferencesService preferencesService,
+        IMailProviderRegistry providers)
     {
+        _providers = providers;
         _accountService = accountService;
         _calendarService = calendarService;
         _mailService = mailService;
@@ -402,9 +404,10 @@ public sealed class MailInvitationService : IMailInvitationService
     private static bool TargetsCancelledEvent(CalendarItem storedItem, MailInvitation invitation)
         => string.IsNullOrEmpty(invitation.RecurrenceId) || string.Equals(storedItem.RemoteEventId, GetOccurrenceRemoteEventId(invitation), StringComparison.Ordinal);
 
-    private static CalendarMode ResolveMode(MailAccount account)
+    private CalendarMode ResolveMode(MailAccount account)
     {
-        if (account.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail)
+        var traits = _providers.GetTraits(account.ProviderType);
+        if (traits.AnswersInvitationsThroughProvider)
             return CalendarMode.Provider;
 
         var source = account.GetEffectiveCalendarIntegrationSource();
@@ -412,7 +415,7 @@ public sealed class MailInvitationService : IMailInvitationService
             return CalendarMode.Local;
 
         if (source == AccountIntegrationSource.Dav &&
-            account.ProviderType == MailProviderType.IMAP4 &&
+            traits.SupportsDavIntegration &&
             account.IsCalendarAccessGranted &&
             account.ServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.CalDav)
         {
@@ -661,7 +664,7 @@ public sealed class MailInvitationService : IMailInvitationService
                 continue;
 
             expandedIds.Add(calendarEvent.RemoteEventId);
-            CalDavSynchronizationEngine.ApplyImportedResponseStatus(calendarEvent, context.Identity);
+            _calDavEngine.ApplyImportedResponseStatus(calendarEvent, context.Identity);
             await _changeProcessor.ManageCalendarEventAsync(calendarEvent, calendar, account).ConfigureAwait(false);
 
             var item = await _calendarService.GetCalendarItemAsync(calendar.Id, calendarEvent.RemoteEventId).ConfigureAwait(false);

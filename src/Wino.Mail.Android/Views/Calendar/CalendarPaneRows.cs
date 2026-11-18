@@ -267,7 +267,7 @@ internal static class CalendarPaneRows
         {
             if (_group is not { } group || Context is not { } context) return;
             _name.Text = group.Account.Name;
-            _address.Text = group.Account.Address;
+            _address.Text = group.Account.DisplayAddress;
             _calendars.RemoveAllViews();
             foreach (var calendar in group.AccountCalendars)
             {

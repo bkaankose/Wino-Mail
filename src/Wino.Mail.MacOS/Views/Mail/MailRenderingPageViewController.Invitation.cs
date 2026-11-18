@@ -47,6 +47,7 @@ public sealed partial class MailRenderingPageViewController
     private NSTextField _invitationComment = null!;
     private NSButton _invitationRemove = null!;
     private bool _invitationExpanded;
+    private bool _invitationAnswersCompact;
     private bool _invitationQueued;
     private bool _invitationCollapsePending;
     private bool _invitationDisposed;
@@ -236,10 +237,23 @@ public sealed partial class MailRenderingPageViewController
             TranslatesAutoresizingMaskIntoConstraints = false
         };
         WinoAccessibility.Label(button, title);
+        button.ToolTip = title;
         button.SetContentCompressionResistancePriority(760, NSLayoutConstraintOrientation.Horizontal);
         button.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         button.Activated += (_, _) => RunInvitationCommand(Invitation.RespondCommand, response);
         return button;
+    }
+
+    /// <summary>
+    /// Below the wide reader the answers keep only their glyphs (the title stays in the tooltip and for VoiceOver):
+    /// with their titles the event title shrank to its first letter.
+    /// </summary>
+    private void SetInvitationAnswersCompact(bool compact)
+    {
+        if (_invitationAnswersCompact == compact) return;
+        _invitationAnswersCompact = compact;
+        // ImageOnly does not hide an attributed title (it drew under the centred glyph), so the title itself goes.
+        if (_invitationAccept is not null && !_invitationDisposed) ApplyAnswerTitles(Invitation);
     }
 
     private static WinoIconGlyph AnswerGlyph(AttendeeStatus response) => response switch
@@ -256,13 +270,20 @@ public sealed partial class MailRenderingPageViewController
         _ => WinoStyle.Critical
     };
 
-    /// <summary>The answer's title, followed by a checkmark when it is the current answer (Windows shows the same mark).</summary>
-    private static void ApplyAnswerTitle(NSButton button, string title, bool isCurrent)
+    private void ApplyAnswerTitles(MailInvitationCardViewModel vm)
     {
-        var text = new NSMutableAttributedString(new NSAttributedString(title, new NSStringAttributes { Font = WinoStyle.Caption, ForegroundColor = NSColor.ControlText }));
+        ApplyAnswerTitle(_invitationAccept, Translator.CalendarEventRsvpPanel_Accept, vm.IsAcceptedResponse);
+        ApplyAnswerTitle(_invitationTentative, Translator.CalendarEventRsvpPanel_Tentative, vm.IsTentativeResponse);
+        ApplyAnswerTitle(_invitationDecline, Translator.CalendarEventRsvpPanel_Decline, vm.IsDeclinedResponse);
+    }
+
+    /// <summary>The answer's title, followed by a checkmark when it is the current answer (Windows shows the same mark).</summary>
+    private void ApplyAnswerTitle(NSButton button, string title, bool isCurrent)
+    {
+        var text = new NSMutableAttributedString(new NSAttributedString(_invitationAnswersCompact ? string.Empty : title, new NSStringAttributes { Font = WinoStyle.Caption, ForegroundColor = NSColor.ControlText }));
         if (isCurrent && WinoIcons.Font(10) is { } iconFont)
         {
-            text.Append(new NSAttributedString(" ", new NSStringAttributes { Font = WinoStyle.Caption }));
+            if (!_invitationAnswersCompact) text.Append(new NSAttributedString(" ", new NSStringAttributes { Font = WinoStyle.Caption }));
             text.Append(new NSAttributedString(WinoIcons.Glyph(WinoIconGlyph.Checkmark), new NSStringAttributes { Font = iconFont, ForegroundColor = NSColor.ControlText }));
         }
         button.AttributedTitle = text;
@@ -348,17 +369,12 @@ public sealed partial class MailRenderingPageViewController
         if (vm.IsBusy) _invitationSpinner.StartAnimation(null);
         else _invitationSpinner.StopAnimation(null);
 
-        foreach (var (button, title, isCurrent) in new[]
-        {
-            (_invitationAccept, Translator.CalendarEventRsvpPanel_Accept, vm.IsAcceptedResponse),
-            (_invitationTentative, Translator.CalendarEventRsvpPanel_Tentative, vm.IsTentativeResponse),
-            (_invitationDecline, Translator.CalendarEventRsvpPanel_Decline, vm.IsDeclinedResponse)
-        })
+        foreach (var button in new[] { _invitationAccept, _invitationTentative, _invitationDecline })
         {
             button.Hidden = !vm.CanRespond;
             button.Enabled = vm.CanRespond && !vm.IsBusy;
-            ApplyAnswerTitle(button, title, isCurrent);
         }
+        ApplyAnswerTitles(vm);
         _invitationOpen.Hidden = !vm.CanOpenInCalendar;
         _invitationOpen.Enabled = vm.CanOpenInCalendar && !vm.IsBusy;
 
@@ -417,5 +433,17 @@ public sealed partial class MailRenderingPageViewController
         public override void MouseEntered(NSEvent theEvent) => Fill = WinoStyle.RowHoverFill;
 
         public override void MouseExited(NSEvent theEvent) => Fill = null;
+    }
+
+    /// <summary>
+    /// A narrow reader leaves the header's date summary a few letters wide ("10…"); it fades out instead, and the
+    /// expanded details still show it in full. Alpha keeps its layout slot, so the measurement does not flip back.
+    /// </summary>
+    private void FitInvitationDetail()
+    {
+        if (_invitationDetail is null || _invitationDetail.Hidden) return;
+        double needed = Math.Min(_invitationDetail.IntrinsicContentSize.Width, 96);
+        nfloat alpha = _invitationDetail.Frame.Width + 0.5 >= needed ? 1 : 0;
+        if (_invitationDetail.AlphaValue != alpha) _invitationDetail.AlphaValue = alpha;
     }
 }

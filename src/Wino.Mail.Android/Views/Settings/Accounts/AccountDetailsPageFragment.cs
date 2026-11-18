@@ -110,7 +110,8 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
             picture.DisplayName = account?.Name;
             picture.Account = account is null || _pictures is null ? null : MailAccountIconInfoFactory.Create(account, _pictures);
         });
-        var pictureCard = Card(Translator.AccountDetailsPage_ProfilePictureTitle, Translator.AccountDetailsPage_ProfilePictureDescription);
+        var pictureCard = Card(Translator.AccountDetailsPage_ProfilePictureTitle, vm.ProfilePictureDescription);
+        Bind.Bind(vm, nameof(vm.ProfilePictureDescription), s => s.ProfilePictureDescription, description => pictureCard.Description = description);
         pictureCard.LeadingView = picture;
         pictureCard.BottomContent = AccountSettingsParts.Wrap(Ctx,
             Bind.Button(Translator.AccountDetailsPage_ProfilePictureChange, vm.ChangeProfilePictureCommand),
@@ -160,7 +161,10 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
         var protocolExport = StackedCard(Translator.ProtocolLog_ExportTitle, Translator.ProtocolLog_ExportDescription, WinoIconGlyph.ArrowDownload,
             AccountSettingsParts.Wrap(Ctx, Bind.Button(Translator.ProtocolLog_ExportAction, vm.ExportProtocolLogsCommand), Bind.Button(Translator.ProtocolLog_UploadAction, vm.UploadProtocolLogsCommand)));
         foreach (var card in new View[] { imap, protocolLog, protocolExport })
+        {
             Bind.Visible(card, vm, nameof(vm.ServerInformation), s => s.IsImapServer);
+            Bind.Visible(card, vm, nameof(vm.IsImapServer), s => s.IsImapServer);
+        }
 
         AddToTab(0, Group(null,
             pictureCard,
@@ -380,8 +384,9 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
             Paint(item.BackgroundColorHex);
             var expander = new WinoSettingsExpander(Ctx, item.Name, item.TimeZone, WinoIconGlyph.None);
             expander.HeaderCard.LeadingView = dot;
-            expander.Add(new WinoSettingsCard(Ctx, Translator.CalendarAccountSettings_SyncEnabled, Translator.CalendarAccountSettings_SyncEnabledDescription, WinoIconGlyph.Sync,
-                rows.Switch(item, nameof(item.IsSynchronizationEnabled), s => s.IsSynchronizationEnabled, (s, v) => s.IsSynchronizationEnabled = v, Translator.CalendarAccountSettings_SyncEnabled)));
+            if (item.IsSynchronizationConfigurable)
+                expander.Add(new WinoSettingsCard(Ctx, Translator.CalendarAccountSettings_SyncEnabled, Translator.CalendarAccountSettings_SyncEnabledDescription, WinoIconGlyph.Sync,
+                    rows.Switch(item, nameof(item.IsSynchronizationEnabled), s => s.IsSynchronizationEnabled, (s, v) => s.IsSynchronizationEnabled = v, Translator.CalendarAccountSettings_SyncEnabled)));
             expander.Add(new WinoSettingsCard(Ctx, Translator.CalendarAccountSettings_DefaultShowAs, Translator.CalendarAccountSettings_DefaultShowAsDescription, WinoIconGlyph.Calendar)
             {
                 BottomContent = rows.PopUp<AccountCalendarSettingsItemViewModel, AccountCalendarShowAsOption>(item, s => s.ShowAsOptions.ToList(), option => option.DisplayText,

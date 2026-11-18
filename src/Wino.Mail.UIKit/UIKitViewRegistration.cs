@@ -23,6 +23,7 @@ public static partial class UIKitViewRegistration
         // Onboarding pages (the same on iPhone and iPad).
         services.AddTransient<WelcomePageV2ViewController>();
         services.AddTransient<ProviderSelectionPageViewController>();
+        services.AddTransient<AccountSetupPageViewController>();
         services.AddTransient<AccountSetupProgressPageViewController>();
         services.AddTransient<SpecialImapCredentialsPageViewController>();
         services.AddTransient<ExchangeSettingsPageViewController>();
@@ -68,6 +69,10 @@ public static partial class UIKitViewRegistration
 
         services.AddSingleton<UIKitSenderPictureProvider>();
         services.AddSingleton<UIKitAuthenticationPresenter>();
+        // Exchange modern-auth sign-in: a WKWebView sheet that captures the redirect in-process, apart from every
+        // system-browser OAuth flow.
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new UIKitEmbeddedBrowserAuthBroker(dispatcher,
+            provider.GetRequiredService<UIKitAuthenticationPresenter>()));
         services.AddSingleton<IIOSFilePresenter, UIKitFilePresenter>();
         return services;
     }

@@ -394,12 +394,13 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         _oauthTokenService?.IsRedirectSupported(registration.RedirectKind) != false;
 
     public ProviderSelectionPageViewModel(
+        IMessenger messenger,
         IAccountService accountService,
         IDialogServiceBase dialogService,
         IKnownImapProviderCatalog providerCatalog,
         INewThemeService themeService,
         WelcomeWizardContext wizardContext,
-        IOAuthTokenService oauthTokenService = null)
+        IOAuthTokenService oauthTokenService = null) : base(messenger)
     {
         _oauthTokenService = oauthTokenService;
         _accountService = accountService;

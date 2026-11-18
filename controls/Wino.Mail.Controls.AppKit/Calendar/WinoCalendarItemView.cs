@@ -273,19 +273,38 @@ public sealed class WinoCalendarItemView : NSView
             ring.Stroke();
         }
 
+        NSGraphicsContext.CurrentContext?.SaveGraphicsState();
+        path.AddClip();
+        DrawContent(bounds, compact, monthEntry, band, textColor, detailColor);
+        NSGraphicsContext.CurrentContext?.RestoreGraphicsState();
+    }
+
+    /// <summary>Narrower than this, a tile drops its glyphs and then its text instead of drawing over its neighbours.</summary>
+    private const double MinTextWidth = 24;
+
+    private void DrawContent(CGRect bounds, bool compact, bool monthEntry, bool band, NSColor textColor, NSColor detailColor)
+    {
+        if (_model is null) return;
         var paragraph = new NSMutableParagraphStyle { LineBreakMode = NSLineBreakMode.TruncatingTail, Alignment = NSTextAlignment.Left };
         double glyphSize = WinoCalendarTileAppearance.GlyphSize;
-        int glyphCount = (_model.IsRecurring ? 1 : 0) + (_model.IsMultiDay ? 1 : 0);
-        double glyphsWidth = WinoCalendarTileAppearance.GlyphColumnWidth(_model.IsRecurring, _model.IsMultiDay);
         double textLeft = monthEntry ? 4 + MonthDotSize + 5 : band ? 7 : BarWidth + 7;
+        bool showRecurring = _model.IsRecurring;
+        bool showMultiDay = _model.IsMultiDay;
+        if (showRecurring && showMultiDay && bounds.Width - 4 - WinoCalendarTileAppearance.GlyphColumnWidth(true, true) - textLeft < MinTextWidth)
+            showRecurring = false;
+        if ((showRecurring || showMultiDay) && bounds.Width - 4 - WinoCalendarTileAppearance.GlyphColumnWidth(showRecurring, showMultiDay) - textLeft < MinTextWidth)
+            showRecurring = showMultiDay = false;
+        int glyphCount = (showRecurring ? 1 : 0) + (showMultiDay ? 1 : 0);
+        double glyphsWidth = WinoCalendarTileAppearance.GlyphColumnWidth(showRecurring, showMultiDay);
         double textRight = bounds.Width - 4 - glyphsWidth;
         double textWidth = Math.Max(0, textRight - textLeft);
+        bool showText = textWidth >= MinTextWidth;
 
         var titleFont = NSFont.SystemFontOfSize((nfloat)WinoCalendarTileAppearance.TitleFontSize(_kind, _model.IsMultiDay, bounds.Height), monthEntry ? NSFontWeight.Medium : NSFontWeight.Semibold);
         var titleAttributes = new NSStringAttributes { Font = titleFont, ForegroundColor = textColor, ParagraphStyle = paragraph };
         double titleHeight = titleFont.Ascender - titleFont.Descender + 2;
         double y = compact ? (bounds.Height - titleHeight) / 2 : 3;
-        if (bounds.Height >= titleHeight)
+        if (showText && bounds.Height >= titleHeight)
         {
             if (monthEntry && StartTime(_model.TimeRange) is { } start)
             {
@@ -304,7 +323,7 @@ public sealed class WinoCalendarItemView : NSView
         }
         y += titleHeight + 2;
 
-        if (!compact && bounds.Height >= WinoCalendarTileAppearance.DetailLinesMinHeight)
+        if (showText && !compact && bounds.Height >= WinoCalendarTileAppearance.DetailLinesMinHeight)
         {
             var detailFont = NSFont.SystemFontOfSize(11);
             var detailAttributes = new NSStringAttributes { Font = detailFont, ForegroundColor = detailColor, ParagraphStyle = paragraph };
@@ -321,12 +340,12 @@ public sealed class WinoCalendarItemView : NSView
         {
             double glyphY = compact ? (bounds.Height - glyphSize) / 2 : 4;
             double glyphX = bounds.Width - 4 - glyphSize;
-            if (_model.IsMultiDay)
+            if (showMultiDay)
             {
                 WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.CalendarEventMuiltiDay), new CGRect(glyphX, glyphY, glyphSize, glyphSize), textColor, EffectiveAppearance, false);
                 glyphX -= glyphSize + 6;
             }
-            if (_model.IsRecurring)
+            if (showRecurring)
                 WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.CalendarEventRepeat), new CGRect(glyphX, glyphY, glyphSize, glyphSize), textColor, EffectiveAppearance, false);
         }
     }

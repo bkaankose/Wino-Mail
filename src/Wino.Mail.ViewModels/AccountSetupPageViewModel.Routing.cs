@@ -323,7 +323,8 @@ public partial class AccountSetupPageViewModel
     private bool CanSignInWithProvider() => IsFooterSignInRoute &&
                                             Phase is AccountSetupPhase.Features or AccountSetupPhase.SignIn &&
                                             OAuthState != AccountSetupOAuthState.Waiting &&
-                                            Capabilities.HasAnyCapability;
+                                            Capabilities.HasAnyCapability &&
+                                            HasAccountName;
 
     /// <summary>
     /// Signs the unsaved account in with Google or Microsoft, then reads the mailbox address the provider returned and

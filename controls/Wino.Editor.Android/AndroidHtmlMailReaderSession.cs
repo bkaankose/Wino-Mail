@@ -47,6 +47,9 @@ public sealed class AndroidHtmlMailReaderSession : IHtmlMailReaderSession
     /// <summary>Links go to <paramref name="openLink"/> (with the anchor text when the click came from the document).</summary>
     public void Configure(IExternalLauncher launcher, Func<RendererNavigationRequestedEventArgs, Task> openLink) => _host.Configure(launcher, openLink);
 
+    /// <summary>Scales a mail wider than the reader down to its width, as phone mail clients do. Set it before <see cref="InitializeAsync"/>.</summary>
+    public bool FitContentToWidth { get; set; }
+
     public Task InitializeAsync(CancellationToken cancellationToken = default) =>
         _host.Queue.RunAsync(EnsureReadyAsync, cancellationToken);
 
@@ -108,6 +111,8 @@ public sealed class AndroidHtmlMailReaderSession : IHtmlMailReaderSession
     {
         await _host.EvaluateAsync($"document.getElementById('wino-reader').style.zoom={Quote((_zoom / 100).ToString(System.Globalization.CultureInfo.InvariantCulture))}");
         await _host.EvaluateAsync($"window.WinoRenderer.setTypography({Quote(_font)}, {_fontSize})");
+        if (FitContentToWidth)
+            await _host.EvaluateAsync("window.WinoRenderer.setFitToWidth(true)");
         if (_accessibility is { } a)
             await _host.EvaluateAsync($"window.WinoRenderer.setAccessibility({Quote(a.Subject)}, {Quote(a.Sender)}, {Quote(a.Date)}, {Quote(a.BodyAutomationName)}, {Quote(a.PlainTextFallbackAutomationName)}, {Quote(a.AccessibleText)})");
     }
@@ -165,7 +170,9 @@ public sealed class AndroidHtmlMailReaderSession : IHtmlMailReaderSession
         if (!_host.IsReady) return 0;
         try
         {
-            var value = await _host.EvaluateAsync("Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)");
+            var value = await _host.EvaluateAsync(FitContentToWidth
+                ? "window.WinoRenderer.contentHeight()"
+                : "Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)");
             return double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var height) ? height : 0;
         }
         catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException) { return 0; }

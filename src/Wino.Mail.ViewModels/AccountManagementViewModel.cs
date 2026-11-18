@@ -29,29 +29,38 @@ using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Settings;
 
 namespace Wino.Mail.ViewModels;
 
 public partial class AccountManagementViewModel : AccountManagementPageViewModelBase,
-    IRecipient<AccountLayoutChanged>
+    IRecipient<AccountLayoutChanged>,
+    IRecipient<AccountCreatedMessage>,
+    IRecipient<AccountRemovedMessage>
 {
+    private readonly SemaphoreSlim _accountsReloadGate = new(1, 1);
 
     private readonly IWinoAccountDataSyncService _syncService;
+    private readonly AppearanceSnapshotService _appearance;
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
     private readonly IMicrosoftStoreService _storeService;
     private readonly IWinoAppStorePurchaseService? _appStorePurchases;
+    private readonly IAppLockService _appLockService;
 
     public IMailDialogService MailDialogService { get; }
 
-    public AccountManagementViewModel(IMailDialogService dialogService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public AccountManagementViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                                       INavigationService navigationService,
                                       IAccountService accountService,
                                       IKnownImapProviderCatalog providerCatalog,
                                       IWinoBillingService billingService,
                                       IWinoAccountProfileService winoAccountProfileService,
                                       IWinoAccountDataSyncService syncService,
+                                      AppearanceSnapshotService appearance,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
@@ -59,15 +68,19 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService,
                                       IPlatformCapabilities platformCapabilities,
-                                      IWinoAppStorePurchaseService? appStorePurchases = null) : base(dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
+                                      IAppLockService appLockService,
+                                      IWinoAppStorePurchaseService? appStorePurchases = null) : base(messenger, dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
     {
+        _synchronizationManager = synchronizationManager;
         MailDialogService = dialogService;
         _syncService = syncService;
+        _appearance = appearance;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
         _storeService = storeService;
         _appStorePurchases = appStorePurchases;
+        _appLockService = appLockService;
     }
 
     /// <summary>The App Store price line for Unlimited Accounts; empty outside App Store builds or until StoreKit answers.</summary>
@@ -98,11 +111,18 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     public async void Receive(AccountLayoutChanged message) => await InitializeAccountsAsync();
 
+    // Platforms that add accounts in their own window leave this page open, so it does not reload on navigation.
+    public async void Receive(AccountCreatedMessage message) => await InitializeAccountsAsync();
+
+    public async void Receive(AccountRemovedMessage message) => await InitializeAccountsAsync();
+
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
 
         Messenger.Register<AccountLayoutChanged>(this);
+        Messenger.Register<AccountCreatedMessage>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -110,6 +130,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         base.UnregisterRecipients();
 
         Messenger.Unregister<AccountLayoutChanged>(this);
+        Messenger.Unregister<AccountCreatedMessage>(this);
+        Messenger.Unregister<AccountRemovedMessage>(this);
     }
 
     [RelayCommand]
@@ -197,7 +219,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     {
         while (true)
         {
-            var connectivityResult = await SynchronizationManager.Instance
+            var connectivityResult = await _synchronizationManager
                 .TestImapConnectivityAsync(serverInformation)
                 .ConfigureAwait(false);
 
@@ -266,6 +288,11 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
     private async Task ExportLocalDataAsync()
     {
+        if (!await ExecuteUIThreadAsync(_appLockService.RequestVerificationAsync).ConfigureAwait(false))
+        {
+            return;
+        }
+
         try
         {
             // Write to exactly the path the platform returns. On macOS this is the URL of the save
@@ -282,7 +309,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var exportResult = await _syncService.ExportToFileAsync(new(), PromptSyncSecretAsync).ConfigureAwait(false);
+            var exportResult = await _syncService.ExportToFileAsync(new() { Appearance = _appearance.Capture() }, PromptSyncSecretAsync).ConfigureAwait(false);
             await File.WriteAllBytesAsync(exportPath, exportResult.Content).ConfigureAwait(false);
 
             DialogService.InfoBarMessage(
@@ -322,7 +349,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync).ConfigureAwait(false);
             if (result.Appearance != null)
             {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                await ExecuteUIThread(() => _appearance.Apply(result.Appearance));
             }
 
             await InitializeAccountsAsync().ConfigureAwait(false);
@@ -406,6 +433,20 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     }
 
     public override async Task InitializeAccountsAsync()
+    {
+        // Reloads can overlap (navigation and account messages); each clears and refills the list.
+        await _accountsReloadGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await ReloadAccountsAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _accountsReloadGate.Release();
+        }
+    }
+
+    private async Task ReloadAccountsAsync()
     {
         await ExecuteUIThread(() =>
         {

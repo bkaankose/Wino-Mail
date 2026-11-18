@@ -31,7 +31,7 @@ internal sealed class SyncSecretSheet : WinoAccountSheet<string>
             : Translator.WinoAccount_Sync_SecretDialog_PasswordLabel);
 
         Sheet.Title = title;
-        var heading = WinoStyle.Label(title, NSFont.SystemFontOfSize(18, NSFontWeight.Semibold), WinoStyle.PrimaryText, 0);
+        var heading = WinoStyle.Label(title, WinoStyle.Heading, WinoStyle.PrimaryText, 0);
         heading.AccessibilityRole = NSAccessibilityRoles.StaticTextRole;
         var text = WinoStyle.Label(description, WinoStyle.Body, WinoStyle.SecondaryText, 0);
         text.PreferredMaxLayoutWidth = 432;

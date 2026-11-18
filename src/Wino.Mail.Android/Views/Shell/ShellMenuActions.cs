@@ -16,7 +16,8 @@ namespace Wino.Mail.Android.Views.Shell;
 /// <summary>
 /// Long-press menus on drawer rows (Windows ShellMenuTemplates context flyouts, iPhone Mailboxes menus): the shared
 /// folder actions of the mail provider for folders, Mark all as read for linked accounts, and for accounts Manage
-/// account settings, Fix account, Create folder and Mark all as read (no Synchronize: pull to refresh only).
+/// account settings, Fix account, Create folder and Mark all as read (no Synchronize: pull to refresh only); for
+/// address books, lists and categories New category, Rename or Edit, and Delete.
 /// </summary>
 internal static class ShellMenuActions
 {
@@ -75,10 +76,22 @@ internal static class ShellMenuActions
                     actions.Add((Translator.FolderOperation_MarkAllAsRead, () => mail.MarkAccountInboxesAsReadAsync(mailAccount), true));
                 }
                 break;
+            case ContactFilterViewModel filter when filter.CanRenameOrDelete:
+                if (filter.IsCategory)
+                    actions.Add((Translator.ContactsPage_NewCategory, () => filter.NewCategoryCommand.ExecuteAsync(null), true));
+                actions.Add((filter.IsCategory ? Translator.Buttons_Edit : Translator.ContactList_Rename, () => Execute(filter.RenameListCommand), true));
+                actions.Add((Translator.ContactsPage_Delete, () => Execute(filter.DeleteListCommand), filter.CanDelete));
+                break;
         }
         // Separators only between groups.
         while (actions.Count > 0 && actions[^1] is null) actions.RemoveAt(actions.Count - 1);
         return actions;
+    }
+
+    private static Task Execute(System.Windows.Input.ICommand command)
+    {
+        if (command.CanExecute(null)) command.Execute(null);
+        return Task.CompletedTask;
     }
 
     private static async Task RunAsync(Func<Task> run, IServiceProvider services)

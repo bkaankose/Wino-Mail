@@ -69,6 +69,8 @@ public sealed partial class MacPageRegistry
         Register<WelcomePageV2ViewController>(WinoPage.WelcomePageV2, MacPageHost.Window);
         Register<WelcomePageV2ViewController>(WinoPage.WelcomeHostPage, MacPageHost.Window);
         Register<ProviderSelectionPageViewController>(WinoPage.ProviderSelectionPage, MacPageHost.Window);
+        // The welcome wizard and Settings > Add account both show it in the onboarding window.
+        Register<AccountSetupPageViewController>(WinoPage.AccountSetupPage, MacPageHost.Window);
         Register<AccountSetupProgressPageViewController>(WinoPage.AccountSetupProgressPage, MacPageHost.Window);
         Register<SpecialImapCredentialsPageViewController>(WinoPage.SpecialImapCredentialsPage, MacPageHost.Window);
         Register<ExchangeSettingsPageViewController>(WinoPage.ExchangeSettingsPage, MacPageHost.Window);

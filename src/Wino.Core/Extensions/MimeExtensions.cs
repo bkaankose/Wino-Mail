@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text;
-using Google.Apis.Gmail.v1.Data;
 using HtmlAgilityPack;
 using MimeKit;
 using MimeKit.IO;
@@ -16,34 +15,6 @@ namespace Wino.Core.Extensions;
 
 public static class MimeExtensions
 {
-    /// <summary>
-    /// Returns MimeKit.MimeMessage instance for this GMail Message's Raw content.
-    /// </summary>
-    /// <param name="message">GMail message.</param>
-    public static MimeMessage GetGmailMimeMessage(this Message message)
-    {
-        if (message == null || message.Raw == null)
-            return null;
-
-        // Gmail raw is not base64 but base64Safe. We need to remove this HTML things.
-        var base64Encoded = message.Raw.Replace(",", "=").Replace("-", "+").Replace("_", "/");
-
-        byte[] bytes = Encoding.ASCII.GetBytes(base64Encoded);
-
-        var stream = new MemoryStream(bytes);
-
-        // This method will dispose outer stream.
-
-        using (stream)
-        {
-            using var filtered = new FilteredStream(stream);
-            filtered.Add(DecoderFilter.Create(ContentEncoding.Base64));
-
-            return MimeMessage.Load(filtered).RecoverHeaderCharsets();
-        }
-    }
-
-
     /// <summary>
     /// Sets html body replacing base64 images with cid linked resources.
     /// Updates text body based on html.
@@ -116,7 +87,7 @@ public static class MimeExtensions
         return bodyBuilder;
     }
 
-    internal static string GetImageFileExtension(string? mediaSubtype)
+    public static string GetImageFileExtension(string? mediaSubtype)
     {
         return mediaSubtype?.ToLowerInvariant() switch
         {

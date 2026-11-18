@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,9 +12,9 @@ using Wino.Messaging.UI;
 namespace Wino.Services;
 
 public class SentMailReceiptService(
-    IDatabaseService databaseService,
+    IDatabaseService databaseService, IMessenger messenger,
     IFolderService folderService,
-    IAccountService accountService) : BaseDatabaseService(databaseService), ISentMailReceiptService
+    IAccountService accountService) : BaseDatabaseService(databaseService, messenger), ISentMailReceiptService
 {
     public async Task PopulateReceiptStateAsync(MailCopy mailCopy)
     {

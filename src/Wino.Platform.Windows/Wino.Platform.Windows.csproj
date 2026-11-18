@@ -10,7 +10,15 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
     <PackageReference Include="Microsoft.Identity.Client.Broker" />
     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
+    <!-- App notifications, keyboard state, the WebView2 runtime probe, Win2D printing and the CsWinRT cast
+         attribute. Private so the unpackaged tools that reference this project do not inherit the Windows App SDK
+         bootstrapper; the app references these packages itself. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Graphics.Win2D" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Windows.CsWinRT" PrivateAssets="all" />
     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
     <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+    <ProjectReference Include="..\Wino.NotificationHost.Contracts\Wino.NotificationHost.Contracts.csproj" />
   </ItemGroup>
 </Project>

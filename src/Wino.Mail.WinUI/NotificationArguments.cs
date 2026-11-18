@@ -18,6 +18,8 @@ internal sealed class NotificationArguments
 
     public string this[string key] => _values[key];
 
+    public IReadOnlyDictionary<string, string> Values => _values;
+
     public static NotificationArguments Parse(string? encodedArguments)
     {
         if (string.IsNullOrWhiteSpace(encodedArguments))

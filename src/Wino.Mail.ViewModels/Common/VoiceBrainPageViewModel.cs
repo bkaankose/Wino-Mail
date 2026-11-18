@@ -1,4 +1,5 @@
 ﻿#nullable enable
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -34,7 +35,7 @@ public partial class VoiceBrainPageViewModel : CoreBaseViewModel
     private readonly IWinoAccountProfileService _profile;
     private CancellationTokenSource? _loadCancellation;
 
-    public VoiceBrainPageViewModel(IAgentRuntimeHost runtime, IAccountService accountService, IMailDialogService dialogService, IWinoAccountProfileService profile)
+    public VoiceBrainPageViewModel(IMessenger messenger, IAgentRuntimeHost runtime, IAccountService accountService, IMailDialogService dialogService, IWinoAccountProfileService profile) : base(messenger)
     {
         _runtime = runtime;
         _accountService = accountService;
@@ -138,7 +139,7 @@ public partial class VoiceBrainPageViewModel : CoreBaseViewModel
         try
         {
             await _runtime.EnsureInitializedAsync(CancellationToken.None).ConfigureAwait(false);
-            signedIn = await _profile.HasActiveAccountAsync().ConfigureAwait(false);
+            signedIn = await _profile.HasSignedInAccountAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

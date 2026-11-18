@@ -57,7 +57,7 @@ public sealed partial class AgentPlanExecutor
             {
                 var pin = step.Action == AgentAction.PinFolder;
                 await requestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(pin ? FolderOperation.Pin : FolderOperation.Unpin, folder)).ConfigureAwait(false);
-                WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested(false));
+                messenger.Send(new AccountsMenuRefreshRequested(false));
                 return Done(step, touched, string.Format(CultureInfo.CurrentCulture, pin ? Translator.VoiceResult_FolderPinned : Translator.VoiceResult_FolderUnpinned, name));
             }
 
@@ -77,7 +77,7 @@ public sealed partial class AgentPlanExecutor
                 return Done(step, touched, string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_Deleted, name));
 
             case AgentAction.SyncFolder:
-                WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+                messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
                 {
                     AccountId = folder.MailAccountId,
                     Type = MailSynchronizationType.CustomFolders,

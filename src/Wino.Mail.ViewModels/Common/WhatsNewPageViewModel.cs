@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -31,7 +32,7 @@ public partial class WhatsNewPageViewModel : CoreBaseViewModel
     /// <summary>Raised on the UI thread once <see cref="Releases"/> is filled.</summary>
     public event EventHandler? ReleasesLoaded;
 
-    public WhatsNewPageViewModel(IWhatsNewService whatsNewService)
+    public WhatsNewPageViewModel(IMessenger messenger, IWhatsNewService whatsNewService) : base(messenger)
     {
         _whatsNewService = whatsNewService;
     }

@@ -244,7 +244,7 @@ public partial class AccountSetupPageViewModel
     }
 
     private string GetMailNote()
-        => SelectedInitialSynchronizationRange?.IsEverything == true ? Translator.AccountSetup_Range_EverythingCaption : string.Empty;
+        => SelectedInitialSynchronizationRange?.IsEverything == true ? Translator.AccountSetup_Range_EverythingCaption_Device : string.Empty;
 
     private string GetCalendarSyncedText()
         => IsExchangeRoute
@@ -471,6 +471,7 @@ public partial class AccountSetupPageViewModel
     {
         OnPropertyChanged(nameof(IsReviewNameVisible));
         OnPropertyChanged(nameof(IsReviewSignedInVisible));
+        OnPropertyChanged(nameof(IsReviewSendAsVisible));
         OnPropertyChanged(nameof(IsPop3NoticeVisible));
         OnPropertyChanged(nameof(IsReviewDavSignInVisible));
         OnPropertyChanged(nameof(IsUseMailSignInForDavVisible));

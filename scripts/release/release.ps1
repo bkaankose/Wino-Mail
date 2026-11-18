@@ -352,7 +352,9 @@ function Get-ReleaseBody {
         $whatsNew = Join-Path $script:WhatsNewFolder "$Version.json"
         if ($name -eq 'Highlights' -and (Test-Path -LiteralPath $whatsNew)) {
             $pictures = @(foreach ($feature in @((Get-Content -LiteralPath $whatsNew -Raw | ConvertFrom-Json).features)) {
-                $src = "https://raw.githubusercontent.com/$($script:Repository)/$Tag/src/Wino.Mail.WinUI/Assets/WhatsNew/$($feature.image)"
+                $animationProperty = $feature.PSObject.Properties['animation']
+                $file = if ($animationProperty -and $animationProperty.Value) { [string]$animationProperty.Value } else { [string]$feature.image }
+                $src = "https://raw.githubusercontent.com/$($script:Repository)/$Tag/src/Wino.Mail.WinUI/Assets/WhatsNew/$file"
                 [pscustomobject]@{
                     Title = [string]$feature.title
                     Image = [string]$feature.image

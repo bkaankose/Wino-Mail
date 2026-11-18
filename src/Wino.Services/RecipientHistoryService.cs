@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,7 +25,7 @@ public class RecipientHistoryService : BaseDatabaseService, IRecipientHistorySer
         "DisplayName = CASE WHEN excluded.DisplayName IS NOT NULL AND excluded.DisplayName <> '' AND UPPER(excluded.DisplayName) <> excluded.NormalizedAddress " +
         "THEN excluded.DisplayName ELSE DisplayName END";
 
-    public RecipientHistoryService(IDatabaseService databaseService) : base(databaseService)
+    public RecipientHistoryService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
     {
     }
 

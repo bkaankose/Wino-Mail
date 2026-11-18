@@ -29,7 +29,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
             nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption, (s, v) => s.SelectedEventDisplayModeOption = v);
         Bind.Bind(vm, nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption?.Description, text => modeDescription.StringValue = text ?? string.Empty);
         var overlapCard = new WinoSettingsCard(Translator.CalendarSettings_OverlappingEvents_Header, null, WinoIconGlyph.None, modePopup) { BottomContent = modeDescription };
-        var overlap = new WinoSettingsExpander(Translator.CalendarSettings_Overlap_Header, Translator.CalendarSettings_Overlap_Description, isExpanded: true);
+        var overlap = new WinoSettingsExpander(Translator.CalendarSettings_Overlap_Header, Translator.CalendarSettings_Overlap_Description, WinoIconGlyph.CalendarWeek, isExpanded: true);
         overlap.Add(overlapCard);
 
         var preview = new OverlapPreviewView();
@@ -43,7 +43,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
 
         var startupHint = WinoStyle.Label(Translator.CalendarSettings_StartupAccount_Description, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         var startupPopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, MailAccount>(vm, s => s.CalendarStartupAccounts.ToList(),
-            account => string.IsNullOrWhiteSpace(account.Name) ? account.Address ?? string.Empty : $"{account.Name} — {account.Address}",
+            account => string.IsNullOrWhiteSpace(account.Name) ? account.DisplayAddress ?? string.Empty : $"{account.Name} — {account.DisplayAddress}",
             nameof(vm.SelectedCalendarStartupAccount), s => s.SelectedCalendarStartupAccount, (s, v) => s.SelectedCalendarStartupAccount = v,
             itemsCollection: vm.CalendarStartupAccounts, width: 260);
         var startup = WinoLayout.VStack(6, Caption(Translator.CalendarSettings_StartupAccount_Header), startupHint, startupPopup);
@@ -56,7 +56,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         var behavior = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, CalendarNewEventBehaviorOption>(vm, s => s.NewEventBehaviorOptions.ToList(), option => option.DisplayText,
             nameof(vm.SelectedNewEventBehaviorOption), s => s.SelectedNewEventBehaviorOption, (s, v) => s.SelectedNewEventBehaviorOption = v, itemsCollection: vm.NewEventBehaviorOptions);
         var calendar = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, AccountCalendarViewModel>(vm, s => s.AvailableNewEventCalendars.ToList(),
-            item => $"{item.Name} — {item.Account?.Address}",
+            item => $"{item.Name} — {item.Account?.DisplayAddress}",
             nameof(vm.SelectedNewEventCalendar), s => s.SelectedNewEventCalendar, (s, v) => s.SelectedNewEventCalendar = v, itemsCollection: vm.AvailableNewEventCalendars, width: 260);
         Bind.Visible(calendar, vm, nameof(vm.ShouldShowSpecificNewEventCalendar), s => s.ShouldShowSpecificNewEventCalendar);
         var newEvent = Card(Translator.CalendarSettings_NewEventBehavior_Header, Translator.CalendarSettings_NewEventBehavior_Description, WinoIconGlyph.Calendar, behavior);
@@ -72,7 +72,11 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         catch (Exception exception) { ReportError(exception); }
     }
 
-    /// <summary>The Windows 410x196 overlap sample: an hour gutter, hour lines and the placed sample events.</summary>
+    /// <summary>
+    /// The Windows 410x196 overlap sample: an hour gutter, hour lines and the placed sample events. The view fills the
+    /// card's width; the sample keeps its Windows size and scales down only when the card is narrower than it, while the
+    /// background and the hour lines run to the card's edge.
+    /// </summary>
     private sealed class OverlapPreviewView : NSView
     {
         private const double Width = 410, Height = 196, Gutter = 44;
@@ -81,11 +85,17 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         public OverlapPreviewView()
         {
             TranslatesAutoresizingMaskIntoConstraints = false;
-            WidthAnchor.ConstraintLessThanOrEqualTo((nfloat)Width).Active = true;
-            var ratio = HeightAnchor.ConstraintEqualTo(WidthAnchor, (nfloat)(Height / Width));
-            ratio.Active = true;
             SetContentHuggingPriorityForOrientation(250, NSLayoutConstraintOrientation.Horizontal);
+            SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+            SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
         }
+
+        /// <summary>
+        /// The height follows the width up to the Windows height. An intrinsic height, not a ratio constraint, so the
+        /// card's fill decides the width.
+        /// </summary>
+        public override CGSize IntrinsicContentSize
+            => new(NSView.NoIntrinsicMetric, Bounds.Width <= 0 ? Height : Math.Min(Height, Math.Round(Bounds.Width * Height / Width)));
 
         public IReadOnlyList<CalendarOverlapPreviewItem> Items
         {
@@ -94,21 +104,30 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
 
         public override bool IsFlipped => true;
 
+        public override void SetFrameSize(CGSize newSize)
+        {
+            var widthChanged = newSize.Width != Frame.Width;
+            base.SetFrameSize(newSize);
+            NeedsDisplay = true;
+            if (widthChanged) InvalidateIntrinsicContentSize();
+        }
+
         public override void DrawRect(CGRect dirtyRect)
         {
-            var scale = Bounds.Width / Width;
+            var scale = Math.Min(1, Bounds.Width / Width);
+            var lineWidth = Math.Max(360, Bounds.Width / scale - Gutter);
             var context = NSGraphicsContext.CurrentContext?.CGContext;
             context?.SaveState();
             context?.ScaleCTM((nfloat)scale, (nfloat)scale);
 
             WinoSettingsStyle.SubtleFill.SetFill();
-            NSGraphics.RectFill(new CGRect(0, 0, Width, Height));
+            NSGraphics.RectFill(new CGRect(0, 0, Gutter + lineWidth, Height));
             var caption = new AppKit.NSStringAttributes { Font = WinoStyle.Caption, ForegroundColor = WinoStyle.SecondaryText };
             foreach (var (label, top) in new[] { ("09:00", 4.0), ("10:00", 64.0), ("11:00", 124.0) })
                 new NSAttributedString(label, caption).DrawAtPoint(new CGPoint(0, top - 2));
             WinoSettingsStyle.CardStroke.SetFill();
             foreach (var top in new[] { 4.0, 64.0, 124.0, 184.0 })
-                NSGraphics.RectFill(new CGRect(Gutter, top, 360, 1));
+                NSGraphics.RectFill(new CGRect(Gutter, top, lineWidth, 1));
 
             var title = new AppKit.NSStringAttributes { Font = WinoStyle.Caption, ForegroundColor = NSColor.White };
             foreach (var item in _items)

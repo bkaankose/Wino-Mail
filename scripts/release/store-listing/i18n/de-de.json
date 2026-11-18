@@ -1,0 +1,114 @@
+{
+  "scenes": {
+    "head_mail": "Alle deine Konten,<br>ein ruhiger<br><em>Posteingang</em>",
+    "head_calendar": "Deine Woche,<br>direkt neben<br><em>deinen Mails</em>",
+    "head_people": "Alle deine Kontakte<br><em>an einem Ort</em>",
+    "head_todo": "Plane deinen Tag<br><em>neben dem Posteingang</em>",
+    "head_themes": "Ganz nach<br><em>deinem Geschmack</em>",
+    "head_privacy": "Mails lesen, ohne<br><em>beobachtet zu werden</em>",
+    "head_assistant": "Wino<br><em>Assistant</em>",
+    "head_companion": "Dein Tag<br><em>auf einen Blick</em>",
+    "head_features": "Alles drin,<br><em>was du brauchst</em>",
+    "assistant_sub": "Ein smarter Planer für deine Mails, Termine und Aufgaben, bei dem Datenschutz an erster Stelle steht.",
+    "badge_privacy": "Datenschutz zuerst",
+    "badge_paid": "Kostenpflichtiges Abo",
+    "features": [
+      [
+        "Live-Push-Benachrichtigungen",
+        "Neue Mails, sobald sie eintreffen"
+      ],
+      [
+        "Schnelle native App",
+        "Speicherschonend, kein Web-Wrapper"
+      ],
+      [
+        "Gruppierte Konten",
+        "Mehrere Konten in einem Posteingang"
+      ],
+      [
+        "Mail-Aliase",
+        "Sende von jeder deiner Adressen"
+      ],
+      [
+        "Tastenkombinationen",
+        "Arbeite, ohne die Tastatur loszulassen"
+      ],
+      [
+        "Widgets &amp; Live Tiles",
+        "Mails, Termine und Aufgaben am Desktop"
+      ],
+      [
+        "E-Mail-Vorlagen",
+        "Häufige Antworten wiederverwenden"
+      ],
+      [
+        "Signaturen",
+        "Eine Signatur für jedes Konto"
+      ],
+      [
+        "Rechtschreibprüfung",
+        "Tippfehler schon beim Schreiben finden"
+      ]
+    ],
+    "vb_said_heard": "Trag am Freitag ein Mittagessen mit Morgan",
+    "vb_said_rest": "in meinen Kalender ein und lade das Designteam ein",
+    "vb_ask": "Das habe ich vor",
+    "vb_account": "Arbeit",
+    "vb_step1": "Mails mit <strong>Rechnung</strong> aus <strong>diesem Monat</strong> suchen",
+    "vb_step1_detail": "7 in alex@contoso.com gefunden",
+    "vb_step2": "Nach <strong>Finanzen</strong> verschieben",
+    "vb_step3": "<strong>Avery</strong> antworten",
+    "vb_step3_detail": "„Ich komme zehn Minuten später, das Budgetmeeting dauert länger.“",
+    "vb_yes": "Ja",
+    "vb_no": "Nein",
+    "vb_done": "<strong>12 Mails</strong> aus Newslettern als gelesen markiert"
+  },
+  "listing": {
+    "shortDescription": "Schnelle, native Windows-App für Mails, Kalender, Kontakte und Aufgaben. Outlook, Gmail, iCloud, Exchange, IMAP und POP3 in einem ruhigen Posteingang.",
+    "description": "Wino Mail ist eine native Windows-App für deine Mails, Termine, Kontakte und Aufgaben. Kein Web-Wrapper: Die App startet schnell, reagiert flüssig und braucht wenig Arbeitsspeicher, auf x64 wie auf ARM64. Wino synchronisiert direkt mit deinen Anbietern, und deine Mails bleiben auf deinem PC.\n\nWino hat vier Modi: Mail, Kalender, Kontakte und To Do. Der Wechsel dazwischen geht ohne Wartezeit, und jeder Modus hat einen eigenen Eintrag im Startmenü.\n\nWINO MAIL\n• Verbinde Outlook, Gmail, iCloud, Exchange Server und jedes IMAP- oder POP3-Konto\n• Melde dich bei IMAP-Konten sicher im Browser an, ganz ohne App-Kennwort\n• Fasse Konten zu Kontogruppen mit einem gemeinsamen Posteingang zusammen oder halte sie getrennt\n• Bearbeite Mails, ohne sie zu öffnen: mit Hover-Aktionen, Wischaktionen und durchsuchbaren Kontextmenüs\n• Lass neue Mails von Mail-Filtern automatisch sortieren\n• Beantworte Termineinladungen direkt in der Nachricht\n• Lies Nachrichten im dunklen Modus und ordne die Schaltflächen der Leseansicht so an, wie du sie brauchst\n• Schreibe mit Aliasen, Signaturen, Vorlagen und umfangreicher Formatierung\n\nWINO CALENDAR\n• Sieh Outlook-, Google-, Exchange- und CalDAV-Kalender in einer Ansicht\n• Nutze Tages-, Wochen-, Arbeitswochen- und Monatsansicht, die bei der aktuellen Uhrzeit öffnen\n• Erstelle und bearbeite Termine, Terminserien und Erinnerungen\n• Gleite mit Maus, Stift oder Finger durch Tage, Wochen und Monate\n\nWINO PEOPLE\n• Verwalte die Kontakte aller deiner Konten an einem Ort\n• Ordne sie mit Adressbüchern, Listen, Kategorien und Favoriten\n• Speichere pro Kontakt mehrere E-Mail-Adressen, Telefonnummern, Anschriften, Geburtstage, Notizen und Fotos\n• Synchronisiere über Outlook, Gmail, Exchange und CardDAV\n\nWINO TO DO\n• Plane mit My Day, Wichtig, Geplant, Alle und Abgeschlossen\n• Füge Schritte, Fälligkeitsdaten, Erinnerungen, Wichtigkeit und Notizen hinzu\n• Gruppiere Aufgabenlisten und gib ihnen Farben\n• Synchronisiere mit Microsoft To Do, Google Tasks, Exchange und CalDAV\n\nAUF EINEN BLICK\n• Füge Wino-Widgets zum Widget-Board von Windows 11 hinzu oder hefte unter Windows 10 die Live Tile an\n• Erhalte Push-Benachrichtigungen ohne Verzögerung und bearbeite eine Nachricht direkt in der Benachrichtigung\n• Sieh im Infobereich nach deinem nächsten Termin, ungelesenen Mails und den Aufgaben in My Day\n\nDATENSCHUTZ & SICHERHEIT\n• Blockiere E-Mail-Tracker und externe Inhalte\n• Lege Regeln für Absender und Domänen fest, denen du vertraust\n• Entferne Tracking aus Links und lass dich warnen, bevor riskante Anlagen geöffnet werden\n• Sichere deine Daten mit Kennwortschutz und stelle sie wieder her\n\nGANZ NACH DEINEM GESCHMACK\n• Wähle ein Design aus der Galerie oder erstelle dein eigenes aus Hintergrundbild und Akzentfarbe\n• Nutze helle und dunkle Designs, die Kontrastdesigns von Windows und einen farbigen Symbolstil\n• Blende nur die Modi ein, die du nutzt, und gib jedem Konto ein eigenes Bild\n\nWINO INTELLIGENCE (OPTIONAL)\n• Wino Assistant: Drücke in einer beliebigen App eine Tastenkombination und tippe oder sag, was erledigt werden soll. Wino zeigt dir seinen Plan und ändert nichts, bevor du Ja sagst\n• Tagesbriefing: die Mails, auf die es ankommt, mit Aktionen wie Rechnung bezahlen oder Sendung verfolgen\n• Lass dir jede Nachricht zusammenfassen und übersetzen\nFür Wino Intelligence brauchst du ein Abo mit einem Wino Account. Alles andere in dieser Liste ist kostenlos.\n\nWino Mail ist für alle, die einen zuverlässigen, modernen Ersatz für die alten Windows-Apps Mail und Kalender suchen. Die App ist Open Source: https://github.com/bkaankose/Wino-Mail",
+    "features": [
+      "Outlook-, Gmail-, iCloud-, Exchange-Server-, IMAP- und POP3-Konten in einer App",
+      "Native Windows-App für x64 und ARM64, kein Web-Wrapper",
+      "Vier Modi in einem Fenster: Mail, Kalender, Kontakte und To Do",
+      "Kontogruppen, die mehrere Konten in einem Posteingang zusammenfassen",
+      "Hover-Aktionen, Wischaktionen und durchsuchbare Kontextmenüs",
+      "Mail-Filter, die neue Mails für dich verschieben, archivieren, kennzeichnen oder markieren",
+      "Termineinladungen direkt in der Nachricht annehmen oder ablehnen",
+      "Outlook-, Google-, Exchange- und CalDAV-Kalender in einer Ansicht",
+      "Kontakte mit Adressbüchern, Listen, Kategorien und Favoriten",
+      "Aufgaben mit My Day, Schritten, Fälligkeitsdaten und Erinnerungen",
+      "Synchronisierung mit Microsoft To Do, Google Tasks und CalDAV-Aufgabenlisten",
+      "Widgets für Windows 11 und Live Tiles für Windows 10",
+      "Push-Benachrichtigungen ohne Verzögerung, mit Aktionen",
+      "Tracker-Blockierung, Regeln für externe Inhalte und bereinigte Links",
+      "Designgalerie, eigene Designs und ein farbiger Symbolstil",
+      "Helle und dunkle Designs sowie die Kontrastdesigns von Windows",
+      "Dunkler Modus für Nachrichten",
+      "Kennwortgeschützte Sicherung und Wiederherstellung",
+      "Wino Assistant, Tagesbriefing, Zusammenfassungen und Übersetzung (Abo)",
+      "Open Source"
+    ],
+    "keywords": [
+      "mail programm",
+      "e-mail app",
+      "outlook gmail imap",
+      "kalender caldav",
+      "exchange mail",
+      "kontakte und aufgaben",
+      "windows mail ersatz"
+    ],
+    "captions": {
+      "01-mail.png": "Outlook-, Gmail-, iCloud-, Exchange-, IMAP- und POP3-Konten in einer schnellen, nativen Windows-App.",
+      "02-mail-dark.png": "Wino Mail im dunklen Modus.",
+      "03-calendar.png": "Outlook-, Google-, Exchange- und CalDAV-Kalender in einer Ansicht, mit Einladungen, die du direkt in der Nachricht beantwortest.",
+      "04-calendar-dark.png": "Wino Calendar im dunklen Modus.",
+      "05-people.png": "Die Kontakte aller Konten, mit Adressbüchern, Listen, Kategorien und Favoriten.",
+      "06-todo.png": "My Day, Schritte, Fälligkeitsdaten und Erinnerungen, synchron mit Microsoft To Do, Google Tasks und CalDAV.",
+      "07-features.png": "Live-Push-Benachrichtigungen, gruppierte Konten, Aliase, Vorlagen, Signaturen, Rechtschreibprüfung, Tastenkombinationen, Widgets und Live Tiles.",
+      "08-companion.png": "Sieh im Infobereich nach deinem nächsten Termin, ungelesenen Mails und den Aufgaben in My Day, ohne Wino zu öffnen.",
+      "09-themes.png": "Wähle ein Design aus der Galerie oder erstelle eins aus deinem eigenen Hintergrundbild und einer Akzentfarbe.",
+      "10-assistant.png": "Wino Assistant ist ein smarter Planer für deine Mails, Termine und Aufgaben, bei dem Datenschutz an erster Stelle steht. Kostenpflichtiges Abo."
+    },
+    "releaseNotes": "Highlights:\n• Wino Assistant. Drücke in einer beliebigen App eine Tastenkombination und tippe oder sag, was mit deinen Mails passieren soll: suchen, verschieben, antworten oder löschen, auch mehrere Schritte in einem Satz. Wino zeigt seinen Plan und ändert nichts, bevor du Ja sagst. Teil von Wino Intelligence; Einrichtung unter Einstellungen > Wino Assistant.\n• Lokales Exchange und sichere IMAP-Anmeldung. Füge das Exchange-Server-Konto deiner Organisation für Mails, Kalender, Kontakte und To Do hinzu. IMAP-Konten meldest du sicher im Browser an, wenn dein Anbieter das unterstützt, ganz ohne App-Kennwort. Du gibst nur deine E-Mail-Adresse ein, Wino findet die Server.\n• Datenschutz & Sicherheit. Lade alles, blockiere Tracker oder alle externen Inhalte, erlaube oder sperre Absender und Domänen, entferne Tracking aus Links und lass dich vor riskanten Anlagen warnen.\n• Kontogruppen. Verknüpfte Posteingänge heißen jetzt Kontogruppen. Fasse Konten in einer Gruppe mit Namen, Farbe und Symbol zusammen und lege fest, ob ihre Ordner zu einem Posteingang kombiniert werden.\n• Termineinladungen. Einladungen erscheinen als kompakte Karte mit Annehmen, Vorläufig und Ablehnen, auch bei weitergeleiteten Einladungen und IMAP-Konten.\n\nNeu und verbessert:\n…\n\nVollständige Versionshinweise: https://github.com/bkaankose/Wino-Mail/releases/tag/v2.2.13.0"
+  }
+}

@@ -81,6 +81,7 @@ public sealed class CalendarAccountSettingsPageViewController(CalendarAccountSet
 
         var sync = Card(Translator.CalendarAccountSettings_SyncEnabled, Translator.CalendarAccountSettings_SyncEnabledDescription, WinoIconGlyph.Sync,
             Bind.Switch(vm, nameof(vm.IsSyncEnabled), s => s.IsSyncEnabled, (s, v) => s.IsSyncEnabled = v, Translator.CalendarAccountSettings_SyncEnabled));
+        Bind.Visible(sync, vm, nameof(vm.IsSyncConfigurable), s => s.IsSyncConfigurable);
 
         var showAs = Card(Translator.CalendarAccountSettings_DefaultShowAs, Translator.CalendarAccountSettings_DefaultShowAsDescription, WinoIconGlyph.Calendar,
             Bind.PopUp<CalendarAccountSettingsPageViewModel, ShowAsOption>(vm, s => s.ShowAsOptions.ToList(), option => option.DisplayText,

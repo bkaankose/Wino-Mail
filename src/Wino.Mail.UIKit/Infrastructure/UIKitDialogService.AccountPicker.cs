@@ -39,7 +39,7 @@ public sealed partial class UIKitDialogService
     private static string AccountLabel(MailAccount account)
     {
         var name = account.Name?.Trim();
-        var address = account.Address?.Trim();
+        var address = account.DisplayAddress?.Trim();
         if (string.IsNullOrEmpty(name)) return address ?? string.Empty;
         if (string.IsNullOrEmpty(address) || string.Equals(name, address, StringComparison.OrdinalIgnoreCase)) return name;
         return $"{name} ({address})";

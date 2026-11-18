@@ -337,7 +337,7 @@ public sealed class CalendarEventComposeFragment : WinoFragment<CalendarEventCom
 
         var calendar = new CalendarFormRow(context, WinoIconGlyph.Calendar);
         calendar.OnTap(() => Pick(context, Translator.CalendarEventCompose_PickCalendarTitle, viewModel.AvailableCalendars.ToList(),
-            option => $"{option.Name} · {option.Account?.Address}", viewModel.SelectedCalendar, option => viewModel.SelectedCalendar = option));
+            option => $"{option.Name} · {option.Account?.DisplayAddress}", viewModel.SelectedCalendar, option => viewModel.SelectedCalendar = option));
         _column.AddView(calendar);
         Bind(viewModel, dispatcher, nameof(viewModel.SelectedCalendar), vm => vm.SelectedCalendar, _ =>
         {

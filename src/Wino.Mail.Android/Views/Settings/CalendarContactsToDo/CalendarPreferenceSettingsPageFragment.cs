@@ -52,7 +52,7 @@ public sealed class CalendarPreferenceSettingsPageFragment : SettingsPageFragmen
                 accessibilityLabel: Translator.CalendarSettings_SyncInterval_Title)));
 
         var startupPopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, MailAccount>(vm, s => s.CalendarStartupAccounts.ToList(),
-            account => string.IsNullOrWhiteSpace(account.Name) ? account.Address ?? string.Empty : $"{account.Name} — {account.Address}",
+            account => string.IsNullOrWhiteSpace(account.Name) ? account.DisplayAddress ?? string.Empty : $"{account.Name} — {account.DisplayAddress}",
             nameof(vm.SelectedCalendarStartupAccount), s => s.SelectedCalendarStartupAccount, (s, v) => s.SelectedCalendarStartupAccount = v,
             itemsCollection: vm.CalendarStartupAccounts);
         var startup = Stack(Resource.Dimension.wino_space_xs, Caption(Translator.CalendarSettings_StartupAccount_Header), Text(Translator.CalendarSettings_StartupAccount_Description, WinoTextStyle.Description), startupPopup);
@@ -64,7 +64,7 @@ public sealed class CalendarPreferenceSettingsPageFragment : SettingsPageFragmen
         var behavior = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, CalendarNewEventBehaviorOption>(vm, s => s.NewEventBehaviorOptions.ToList(), option => option.DisplayText,
             nameof(vm.SelectedNewEventBehaviorOption), s => s.SelectedNewEventBehaviorOption, (s, v) => s.SelectedNewEventBehaviorOption = v, itemsCollection: vm.NewEventBehaviorOptions);
         var calendar = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, AccountCalendarViewModel>(vm, s => s.AvailableNewEventCalendars.ToList(),
-            item => $"{item.Name} — {item.Account?.Address}",
+            item => $"{item.Name} — {item.Account?.DisplayAddress}",
             nameof(vm.SelectedNewEventCalendar), s => s.SelectedNewEventCalendar, (s, v) => s.SelectedNewEventCalendar = v, itemsCollection: vm.AvailableNewEventCalendars);
         Bind.Visible(calendar, vm, nameof(vm.ShouldShowSpecificNewEventCalendar), s => s.ShouldShowSpecificNewEventCalendar);
         var newEvent = StackedCard(Translator.CalendarSettings_NewEventBehavior_Header, Translator.CalendarSettings_NewEventBehavior_Description, WinoIconGlyph.Calendar,

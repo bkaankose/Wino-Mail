@@ -42,7 +42,7 @@
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind Address}"
+                            Text="{x:Bind DisplayAddress}"
                             TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </DataTemplate>

@@ -55,7 +55,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly IMailDialogService _dialogService;
     private readonly IPreferencesService _preferencesService;
     private readonly ITaskCompletionSound _taskCompletionSound;
-    private readonly ISyncCoordinator _syncCoordinator;
     private readonly NewTaskListMenuItem _newListMenuItem = new();
     private readonly SeperatorItem _commandSeparator = new();
     private readonly SeperatorItem _smartViewSeparator = new();
@@ -507,7 +506,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         }
     }
 
+    private readonly ISynchronizationManager _synchronizationManager;
+
     public ToDoPageViewModel(
+        IMessenger messenger,
+        ISynchronizationManager synchronizationManager,
         ITaskQueryService taskService,
         IAccountService accountService,
         AccountGroupExpansionStore accountGroupExpansion,
@@ -518,10 +521,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         IPreferencesService preferencesService = null,
         ITaskCompletionSound taskCompletionSound = null,
         IAppModeReadinessService appModeReadinessService = null,
-        IMailShellClient mailShell = null,
-        ISyncCoordinator syncCoordinator = null)
+        IMailShellClient mailShell = null) : base(messenger)
     {
-        _syncCoordinator = syncCoordinator;
+        _synchronizationManager = synchronizationManager;
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
         _accountService = accountService;
@@ -569,8 +571,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _isPreparedForShellShutdown = false;
         ShellMenu = new ShellMenu
         {
-            Items = new MenuItemCollection(Dispatcher),
-            FooterItems = new MenuItemCollection(Dispatcher),
+            Items = new MenuItemCollection(),
+            FooterItems = new MenuItemCollection(),
             HandlesSelection = true
         };
         _newListMenuItem.NewGroupRequested = CreateGroupAsync;
@@ -2024,7 +2026,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private async Task CreateListForAccountAsync(MailAccount account, Guid? groupId)
     {
         var prompt = Accounts.Count(candidate => candidate.IsTaskAccessEnabled) > 1
-            ? string.Format(Translator.ToDoPage_ListNamePromptForAccount, account.Name, account.Address)
+            ? string.Format(Translator.ToDoPage_ListNamePromptForAccount, account.Name, account.DisplayAddress)
             : Translator.ToDoPage_ListNamePrompt;
         var title = await _dialogService.ShowTextInputDialogAsync(
             string.Empty,
@@ -2497,36 +2499,19 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         RefreshShellSynchronizationState();
     }
 
-    /// <summary>
-    /// Google Tasks shares one daily quota across every installation, so an account inside its refresh window is not
-    /// asked to synchronize; the user learns when the next refresh is available instead.
-    /// </summary>
-    private async Task RequestTaskSynchronizationAsync(List<MailAccount> accounts)
+    private Task RequestTaskSynchronizationAsync(List<MailAccount> accounts)
     {
-        DateTimeOffset? nextQuotaPullUtc = null;
         foreach (var account in accounts)
         {
-            var next = _syncCoordinator is null ? null : await _syncCoordinator.GetNextQuotaTaskPullUtcAsync(account);
-            if (next is DateTimeOffset gatedUntil)
-            {
-                nextQuotaPullUtc = nextQuotaPullUtc is null || gatedUntil < nextQuotaPullUtc ? gatedUntil : nextQuotaPullUtc;
-                continue;
-            }
-
-            WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            Messenger.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = account.Id,
-                Type = TaskSynchronizationType.Delta
+                Type = TaskSynchronizationType.Delta,
+                IsUserInitiated = true
             }));
         }
 
-        if (nextQuotaPullUtc is DateTimeOffset nextUtc)
-        {
-            _dialogService.InfoBarMessage(
-                Translator.ToDoPage_GoogleTasksRefreshLimitTitle,
-                string.Format(Translator.ToDoPage_GoogleTasksRefreshLimitMessage, nextUtc.ToLocalTime().ToString("t")),
-                InfoBarMessageType.Information);
-        }
+        return Task.CompletedTask;
     }
 
     [RelayCommand]

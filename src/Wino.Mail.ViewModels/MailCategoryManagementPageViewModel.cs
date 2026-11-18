@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -31,13 +32,18 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
     public bool CanRefresh => Account?.ProviderType == MailProviderType.Outlook;
     public bool HasCategories => Categories.Count > 0;
 
+    private readonly ISynchronizationManager _synchronizationManager;
+
     public MailCategoryManagementPageViewModel(
+        IMessenger messenger,
+        ISynchronizationManager synchronizationManager,
         IMailCategoryService mailCategoryService,
         IAccountService accountService,
         IMailDialogService dialogService,
         IWinoRequestDelegator winoRequestDelegator,
-        IContactQueryService contactService)
+        IContactQueryService contactService) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         _mailCategoryService = mailCategoryService;
         _accountService = accountService;
         _dialogService = dialogService;
@@ -84,7 +90,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
         // Only the categories Outlook owns are rebuilt. Those kept on the device stay.
         await _mailCategoryService.DeleteCategoriesAsync(Account.Id, MailCategorySource.Outlook).ConfigureAwait(false);
-        await SynchronizationManager.Instance.SynchronizeCategoriesAsync(Account.Id).ConfigureAwait(false);
+        await _synchronizationManager.SynchronizeCategoriesAsync(Account.Id).ConfigureAwait(false);
 
         await LoadCategoriesAsync().ConfigureAwait(false);
     }

@@ -88,6 +88,8 @@ internal static class ShellSidebarContextMenus
     {
         FolderMenuItem or MergedAccountFolderMenuItem when target.Item is IBaseFolderMenuItem { IsMoveTarget: true } folder => FolderItems(folder, context),
         ContactFilterViewModel { HasAccountIcon: false } list => ContactListItems(list, context),
+        ContactCategoriesExpanderMenuItem { NewCategoryRequested: { } newCategory } =>
+            new List<NSMenuItem> { Item($"{Translator.ContactsPage_NewCategory}…", WinoIconGlyph.New, newCategory, context) },
         MergedAccountMenuItem merged => MergedAccountItems(merged, context),
         IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account) => AccountItems(account, context),
         AccountTaskListGroupMenuItem group => TaskGroupItems(group, context),
@@ -168,11 +170,16 @@ internal static class ShellSidebarContextMenus
     private static IReadOnlyList<NSMenuItem> ContactListItems(ContactFilterViewModel list, ShellSidebarMenuContext context)
     {
         if (!list.CanRenameOrDelete) return [];
+        var items = new List<NSMenuItem>();
+        if (list.IsCategory)
+            items.Add(Item($"{Translator.ContactsPage_NewCategory}…", WinoIconGlyph.New, () => list.NewCategoryCommand.ExecuteAsync(null), context));
         var rename = Item($"{(list.IsCategory ? Translator.Buttons_Edit : Translator.ContactList_Rename)}…", WinoIconGlyph.Rename,
             () => { list.RenameListCommand.Execute(null); return Task.CompletedTask; }, context, list.RenameListCommand.CanExecute(null));
         var delete = Item(Translator.ContactsPage_Delete, WinoIconGlyph.Delete,
             () => { list.DeleteListCommand.Execute(null); return Task.CompletedTask; }, context, list.DeleteListCommand.CanExecute(null));
-        return [rename, delete];
+        items.Add(rename);
+        items.Add(delete);
+        return items;
     }
 
     // ---- To Do (Windows TaskGroupContextRequested / TaskListContextRequested)

@@ -10,7 +10,7 @@ using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class EmailTemplatesPageViewModel(IEmailTemplateService emailTemplateService) : MailBaseViewModel
+public partial class EmailTemplatesPageViewModel(IMessenger messenger, IEmailTemplateService emailTemplateService) : MailBaseViewModel(messenger)
 {
     private readonly IEmailTemplateService _emailTemplateService = emailTemplateService;
 

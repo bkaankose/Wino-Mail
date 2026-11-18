@@ -233,7 +233,7 @@ public sealed class AppleNotificationSounds : INotificationSoundProvider
         {
             try
             {
-                Directory.CreateDirectory(ContainerSoundsFolder);
+                EnsureContainerSoundsFolder();
                 var temporary = target + ".tmp";
                 File.Copy(source, temporary, overwrite: true);
                 File.Move(temporary, target, overwrite: true);
@@ -247,6 +247,18 @@ public sealed class AppleNotificationSounds : INotificationSoundProvider
                 lock (_copyLock) _copying.Remove(name);
             }
         });
+    }
+
+    /// <summary>
+    /// macOS creates the container's Library/Sounds as a symlink to the user's ~/Library/Sounds, which the sandbox
+    /// does not let the app write, so every copy failed. The link is replaced by a real folder; Directory.Delete
+    /// removes only the link, never the user's folder it points to.
+    /// </summary>
+    private static void EnsureContainerSoundsFolder()
+    {
+        var folder = new DirectoryInfo(ContainerSoundsFolder);
+        if (folder.LinkTarget is not null) folder.Delete();
+        Directory.CreateDirectory(ContainerSoundsFolder);
     }
 
     /// <summary>Prepares every stored and mapped type sound, so the first notification already plays it.</summary>

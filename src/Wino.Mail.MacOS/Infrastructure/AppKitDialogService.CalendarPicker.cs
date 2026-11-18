@@ -51,7 +51,7 @@ public sealed partial class AppKitDialogService
     private static string AccountHeading(CalendarPickerAccountGroup group)
     {
         var name = group.Account?.Name ?? string.Empty;
-        var address = group.Account?.Address ?? string.Empty;
+        var address = group.Account?.DisplayAddress ?? string.Empty;
         return string.IsNullOrWhiteSpace(address) || address == name ? name : $"{name} ({address})";
     }
 
@@ -89,7 +89,7 @@ public sealed partial class AppKitDialogService
         sheet.Title = title;
 
         var source = new PickerSource<T>(roots, children, text, symbol, tint, selectable, header);
-        var outline = new NSOutlineView { HeaderView = null, RowHeight = 26, Style = NSTableViewStyle.SourceList, IndentationPerLevel = 14 };
+        var outline = PickerOutline();
         var column = new NSTableColumn("item") { ResizingMask = NSTableColumnResizing.Autoresizing };
         outline.AddColumn(column);
         outline.OutlineTableColumn = column;

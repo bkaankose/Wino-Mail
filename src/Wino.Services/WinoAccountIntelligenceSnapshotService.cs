@@ -40,13 +40,13 @@ public sealed class WinoAccountIntelligenceSnapshotService :
         IWinoAccountApiClient apiClient,
         IMailIntelligenceStore localStore,
         IWinoAccountSessionService sessions,
-        IMessenger? messenger = null)
+        IMessenger messenger)
     {
         this.billingService = billingService;
         this.apiClient = apiClient;
         this.localStore = localStore;
         this.sessions = sessions;
-        _messenger = messenger ?? WeakReferenceMessenger.Default;
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _messenger.Register<WinoAccountSignedInMessage>(this);
         _messenger.Register<WinoAccountSignedOutMessage>(this);
         _messenger.Register<WinoAccountProfileUpdatedMessage>(this);

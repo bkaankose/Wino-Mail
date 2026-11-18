@@ -1,5 +1,4 @@
 using System;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -54,20 +53,21 @@ public sealed record TaskActionRequest : ITaskActionRequest
 
     public object GroupingKey() => (MailAccountId, TaskGroupId, TaskListId, TaskId, Operation);
 
-    public void ApplyUIChanges()
-        => Send(List, Task, Step, Group, IsDelete(Operation)
+    public void ApplyUIChanges(IUIMessageSender sender)
+        => Send(sender, List, Task, Step, Group, IsDelete(Operation)
             ? OptimisticEntityChange.Delete
             : OptimisticEntityChange.Upsert, EntityUpdateSource.ClientUpdated);
 
-    public void RevertUIChanges()
+    public void RevertUIChanges(IUIMessageSender sender)
     {
         if (IsCreate(Operation))
         {
-            Send(List, Task, Step, Group, OptimisticEntityChange.Delete, EntityUpdateSource.ClientReverted);
+            Send(sender, List, Task, Step, Group, OptimisticEntityChange.Delete, EntityUpdateSource.ClientReverted);
             return;
         }
 
         Send(
+            sender,
             OriginalList ?? List,
             OriginalTask ?? Task,
             OriginalStep ?? Step,
@@ -77,13 +77,14 @@ public sealed record TaskActionRequest : ITaskActionRequest
     }
 
     private void Send(
+        IUIMessageSender sender,
         AccountTaskList list,
         AccountTask task,
         AccountTaskStep step,
         AccountTaskListGroup group,
         OptimisticEntityChange change,
         EntityUpdateSource source)
-        => WeakReferenceMessenger.Default.Send(new TaskStateChanged(
+        => sender.Send(new TaskStateChanged(
             Operation,
             RequestEntityCloner.TaskList(list),
             RequestEntityCloner.Task(task),

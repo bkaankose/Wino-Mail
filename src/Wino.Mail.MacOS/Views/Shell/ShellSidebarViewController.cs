@@ -118,7 +118,13 @@ internal sealed partial class ShellSidebarViewController : NSViewController
     }
 
     /// <summary>Selected titles and the selection fill use the accent colour, so visible rows are redrawn when it changes.</summary>
-    private void AccentChanged(object? sender, EventArgs args) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+    private void AccentChanged(object? sender, EventArgs args) => NSApplication.SharedApplication.BeginInvokeOnMainThread(ReconfigureVisibleRows);
+
+    /// <summary>
+    /// Re-applies every visible row's text and state in place, for a new language or accent. ReloadData would
+    /// bypass the row bookkeeping and break the inserts of a menu rebuild that lands right after it.
+    /// </summary>
+    public void ReconfigureVisibleRows()
     {
         if (!ViewLoaded) return;
         var visible = _outline.RowsInRect(_outline.VisibleRect());
@@ -127,7 +133,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             if (_outline.ItemAtRow(row) is Node node) _selection.Configure(_outline.GetView(0, row, false), node.Item, row);
             if (_outline.GetRowView(row, false) is { } rowView) rowView.NeedsDisplay = true;
         }
-    });
+    }
 
     /// <summary>Replaces the menu shown in the pane.</summary>
     public void Bind(ShellMenu? menu)
@@ -145,7 +151,18 @@ internal sealed partial class ShellSidebarViewController : NSViewController
     }
 
     /// <summary>Highlights the mode segment; the switch itself goes through the shell.</summary>
-    public void SetMode(WinoApplicationMode mode) => _switcher.Selected = mode;
+    public void SetMode(WinoApplicationMode mode)
+    {
+        if (_switcher.Selected == mode) return;
+        _switcher.Selected = mode;
+        AccentChanged(null, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Outside Mail an account row only scopes the pane (People lists that account's address books), so the
+    /// browsed account is marked by weight instead of a second accent selection beside the selected row.
+    /// </summary>
+    private bool AccountRowsScopeThePane => _switcher.Selected != WinoApplicationMode.Mail;
 
     /// <summary>Offers only the modes the accounts provide and the user kept (Windows AppModeFooterSwitcherControl).</summary>
     public void SetModeVisibility(AppModeVisibility? visibility) => _switcher.SetVisibleModes(visibility?.VisibleModes);
@@ -343,6 +360,23 @@ internal sealed partial class ShellSidebarViewController : NSViewController
                 return Task.FromResult("ran " + entry.Title);
             }
             return Task.FromResult("nothing ran");
+        });
+        // "sidebar-syncdemo [row]" plays a fake synchronization on an account row: 2 s indeterminate, then 0→100 in steps.
+        Infrastructure.MacDebugBridge.Register("sidebar-syncdemo", async args =>
+        {
+            nint row = args.Length > 0 && int.TryParse(args[0], out var index) ? index : 1;
+            if (_outline.ItemAtRow(row) is not Node { Item: AccountMenuItem account }) return "not an account row";
+            account.TotalItemsToSync = 0;
+            account.IsSynchronizationInProgress = true;
+            await Task.Delay(2000);
+            account.TotalItemsToSync = 100;
+            for (int remaining = 100; remaining >= 0; remaining -= 20)
+            {
+                account.RemainingItemsToSync = remaining;
+                await Task.Delay(600);
+            }
+            account.IsSynchronizationInProgress = false;
+            return "done " + account.AccountName;
         });
         // "sidebar-rows" lists each visible row: index, type, title, enabled/selectable/selected and its screen centre (top-left origin).
         Infrastructure.MacDebugBridge.Register("sidebar-rows", _ =>
@@ -582,7 +616,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
                             else owner._outline.CollapseItem(node);
                             Refresh(item, node, remeasure: false);
                             return;
-                        case nameof(MenuItemBase.IsEnabled) when item is NewContactMenuItem or NewAddressListMenuItem:
+                        case nameof(MenuItemBase.IsEnabled) when item is NewContactMenuItem or NewAddressListMenuItem or NewAddressBookMenuItem:
                             Bind(_items);
                             return;
                         case nameof(CalendarDatePickerMenuItem.IsCalendarExpanded):
@@ -716,7 +750,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             switch (view)
             {
                 case ShellPaneCell cell:
-                    cell.Configure(item, owner._outline.SelectedRow == row && row >= 0, owner._rows.HasChildren(item));
+                    cell.Configure(item, owner._outline.SelectedRow == row && row >= 0, owner._rows.HasChildren(item), owner.AccountRowsScopeThePane);
                     break;
                 case ShellSectionHeaderCell header when item is ShellSectionHeaderMenuItem section:
                     header.Configure(section.Title);

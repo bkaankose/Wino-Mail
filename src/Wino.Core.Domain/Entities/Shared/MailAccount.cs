@@ -217,5 +217,17 @@ public class MailAccount
     /// </summary>
     public bool IsCategorySyncSupported => ProviderType == MailProviderType.Outlook;
 
+    /// <summary>
+    /// Gets whether the account was created by the local account setup: Calendar, People and To Do on this device,
+    /// with no mail, no server and no address.
+    /// </summary>
+    public bool IsLocalOnly => ProviderType == MailProviderType.IMAP4 && !IsMailAccessGranted && string.IsNullOrWhiteSpace(Address);
+
+    /// <summary>
+    /// The address line shown for the account. A local account shows a label instead of its empty address; keep using
+    /// <see cref="Address"/> for identity, sending and storage.
+    /// </summary>
+    public string DisplayAddress => IsLocalOnly ? Translator.Account_LocalAccount : Address;
+
     public override string ToString() => Name;
 }

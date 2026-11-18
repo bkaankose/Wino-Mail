@@ -34,7 +34,7 @@ public partial class AccountGroupDetailsPageViewModel : CoreBaseViewModel
 
     private MergedInbox? _group;
 
-    public AccountGroupDetailsPageViewModel(IMailDialogService dialogService, IAccountService accountService)
+    public AccountGroupDetailsPageViewModel(IMessenger messenger, IMailDialogService dialogService, IAccountService accountService) : base(messenger)
     {
         _dialogService = dialogService;
         _accountService = accountService;

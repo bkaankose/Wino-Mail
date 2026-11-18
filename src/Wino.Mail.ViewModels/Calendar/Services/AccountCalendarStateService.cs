@@ -76,10 +76,12 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     }
 
     private readonly IAccountService _accountService;
+    private readonly ISynchronizationManager _synchronizationManager;
 
-    public AccountCalendarStateService(IAccountService accountService)
+    public AccountCalendarStateService(IAccountService accountService, ISynchronizationManager synchronizationManager, IMessenger messenger) : base(messenger)
     {
         _accountService = accountService;
+        _synchronizationManager = synchronizationManager;
 
         _internalGroupedAccountCalendars = new ObservableCollection<GroupedAccountCalendarViewModel>();
         GroupedAccountCalendars = new ReadOnlyObservableCollection<GroupedAccountCalendarViewModel>(_internalGroupedAccountCalendars);
@@ -112,7 +114,7 @@ public partial class AccountCalendarStateService : ObservableRecipient,
             groupedAccountCalendar.CollectiveSelectionStateChanged += SingleGroupCalendarCollectiveStateChanged;
             try
             {
-                groupedAccountCalendar.ApplySynchronizationProgress(SynchronizationManager.Instance.GetSynchronizationProgress(
+                groupedAccountCalendar.ApplySynchronizationProgress(_synchronizationManager.GetSynchronizationProgress(
                     groupedAccountCalendar.Account.Id,
                     SynchronizationProgressCategory.Calendar));
             }
@@ -252,9 +254,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
 
         var accountCalendarViewModel = new AccountCalendarViewModel(mailAccount, accountCalendar);
         
-        if (Dispatcher != null)
+        if (Dispatcher is { } dispatcher)
         {
-            await Dispatcher.ExecuteOnUIThread(() => AddAccountCalendar(accountCalendarViewModel));
+            await dispatcher.ExecuteOnUIThread(() => AddAccountCalendar(accountCalendarViewModel));
         }
         else
         {
@@ -266,9 +268,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     {
         var accountCalendar = message.AccountCalendar;
 
-        if (Dispatcher != null)
+        if (Dispatcher is { } dispatcher)
         {
-            await Dispatcher.ExecuteOnUIThread(() =>
+            await dispatcher.ExecuteOnUIThread(() =>
             {
                 // Find the existing calendar view model
                 var existingCalendar = AllCalendars.FirstOrDefault(c => c.Id == accountCalendar.Id);
@@ -309,9 +311,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     {
         var accountCalendar = message.AccountCalendar;
 
-        if (Dispatcher != null)
+        if (Dispatcher is { } dispatcher)
         {
-            await Dispatcher.ExecuteOnUIThread(() =>
+            await dispatcher.ExecuteOnUIThread(() =>
             {
                 // Find and remove the calendar view model
                 var existingCalendar = AllCalendars.FirstOrDefault(c => c.Id == accountCalendar.Id);
@@ -338,9 +340,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     {
         var removedAccountId = message.Account.Id;
 
-        if (Dispatcher != null)
+        if (Dispatcher is { } dispatcher)
         {
-            await Dispatcher.ExecuteOnUIThread(() =>
+            await dispatcher.ExecuteOnUIThread(() =>
             {
                 GroupedAccountCalendarViewModel? groupedAccount;
                 lock (_calendarStateLock)
@@ -371,9 +373,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
 
     public async void Receive(AccountUpdatedMessage message)
     {
-        if (Dispatcher != null)
+        if (Dispatcher is { } dispatcher)
         {
-            await Dispatcher.ExecuteOnUIThread(() => UpdateGroupedAccount(message.Account));
+            await dispatcher.ExecuteOnUIThread(() => UpdateGroupedAccount(message.Account));
         }
         else
         {
@@ -386,9 +388,9 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         if (message.Progress.Category != SynchronizationProgressCategory.Calendar)
             return;
 
-        if (Dispatcher != null)
+        if (Dispatcher is { } dispatcher)
         {
-            await Dispatcher.ExecuteOnUIThread(() => UpdateCalendarSynchronizationState(message.Progress));
+            await dispatcher.ExecuteOnUIThread(() => UpdateCalendarSynchronizationState(message.Progress));
         }
         else
         {

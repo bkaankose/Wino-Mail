@@ -467,7 +467,7 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
 
     public async Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync()
     {
-        var isWinoAccountAvailable = await _winoAccountProfileService.HasActiveAccountAsync();
+        var isWinoAccountAvailable = await _winoAccountProfileService.HasSignedInAccountAsync();
 
         var dialog = new UnlimitedAccountsPurchaseChannelDialog(isWinoAccountAvailable)
         {
@@ -608,5 +608,19 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         await HandleDialogPresentationAsync(dialog);
 
         return dialog.Result;
+    }
+
+    public async Task<bool> ShowAppLockVerificationDialogAsync()
+    {
+        var appLockService = WinoApplication.Current.Services.GetRequiredService<IAppLockService>();
+
+        var dialog = new AppLockVerificationDialog(appLockService)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.IsVerified;
     }
 }

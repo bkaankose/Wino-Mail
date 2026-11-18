@@ -453,10 +453,18 @@ public sealed class WinoModeSwitcher : NSView
         {
             bool changed = _selected != selected;
             _selected = selected;
-            _icon.Icon = selected ? Segment.Filled : Segment.Regular;
+            _icon.Icon = selected ? SelectedGlyph(Segment) : Segment.Regular;
             Refresh();
             if (selected && changed && animated) PlayGlyphPop();
         }
+
+        /// <summary>
+        /// The filled check circle and the filled envelope cut their detail (the check, the flap) out of an 18pt
+        /// shape, and the thin cut-out blurs to almost nothing on the thumb, so To Do and Mail keep their outlined
+        /// glyphs when selected.
+        /// </summary>
+        private static WinoIconGlyph SelectedGlyph(WinoModeSegment segment)
+            => segment.Filled is WinoIconGlyph.CheckmarkCircleFilled or WinoIconGlyph.MailFilled ? segment.Regular : segment.Filled;
 
         public void Refresh()
         {

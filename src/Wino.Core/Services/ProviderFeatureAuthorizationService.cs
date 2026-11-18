@@ -13,11 +13,13 @@ public class ProviderFeatureAuthorizationService(
     IAccountService accountService,
     IAuthenticationProvider authenticationProvider,
     ISynchronizerFactory synchronizerFactory,
-    IMailFilterService mailFilterService) : IProviderFeatureAuthorizationService
+    IMailFilterService mailFilterService,
+    IMailProviderRegistry providers) : IProviderFeatureAuthorizationService
 {
     public bool IsSupported(MailAccount account, ProviderFeature feature)
         => feature == ProviderFeature.MailFilters
-           && account?.ProviderType == MailProviderType.Outlook;
+           && account != null
+           && providers.GetTraits(account.ProviderType).SupportsProviderMailFilters;
 
     public Task<AccountProviderFeature> GetFeatureAsync(
         Guid accountId,

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Services.WidgetsAndTiles;
@@ -40,6 +41,8 @@ public partial class App :
 
         _widgetsAndTiles = Services.GetRequiredService<WidgetsAndTilesService>();
         Services.GetRequiredService<WindowsShellPreferences>().WidgetsAndTilesPreferencesChanged +=
+            (_, _) => _widgetsAndTiles.RequestImmediateUpdate();
+        Services.GetRequiredService<IAppLockService>().StateChanged +=
             (_, _) => _widgetsAndTiles.RequestImmediateUpdate();
 
         var messenger = WeakReferenceMessenger.Default;

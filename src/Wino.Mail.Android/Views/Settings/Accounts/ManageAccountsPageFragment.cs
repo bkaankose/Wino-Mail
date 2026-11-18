@@ -133,7 +133,7 @@ public sealed class ManageAccountsPageFragment : SettingsPageFragment<AccountMan
             card.Description = account.DescriptionText;
             ConfigureIcon(icon, value);
             card.Content = AccountStatus(value);
-            card.ContentDescription = value is null || string.IsNullOrEmpty(value.Address) ? value?.Name : $"{value.Name}, {value.Address}";
+            card.ContentDescription = value is null || string.IsNullOrEmpty(value.DisplayAddress) ? value?.Name : $"{value.Name}, {value.DisplayAddress}";
         });
         EventHandler handler = (_, _) => AccountSettingsParts.Execute(VM.NavigateAccountDetailsCommand, account, ReportError);
         card.Activated += handler;

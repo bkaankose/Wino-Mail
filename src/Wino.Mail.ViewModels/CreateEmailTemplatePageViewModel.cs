@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -8,10 +9,10 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class CreateEmailTemplatePageViewModel(
+public partial class CreateEmailTemplatePageViewModel(IMessenger messenger, 
     IEmailTemplateService emailTemplateService,
     IMailDialogService dialogService,
-    INavigationService navigationService) : MailBaseViewModel
+    INavigationService navigationService) : MailBaseViewModel(messenger)
 {
     private readonly IEmailTemplateService _emailTemplateService = emailTemplateService;
     private readonly IMailDialogService _dialogService = dialogService;

@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ public sealed class CardDavSynchronizationStore : BaseDatabaseService, ICardDavS
 {
     private static readonly TimeSpan DiscoveryLifetime = TimeSpan.FromDays(7);
 
-    public CardDavSynchronizationStore(IDatabaseService databaseService) : base(databaseService)
+    public CardDavSynchronizationStore(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
     {
     }
 

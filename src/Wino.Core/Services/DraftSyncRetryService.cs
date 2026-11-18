@@ -31,11 +31,15 @@ public class DraftSyncRetryService : IDraftSyncRetryService
     private readonly IMimeFileService _mimeFileService;
     private readonly ISynchronizerFactory _synchronizerFactory;
 
+    private readonly IMessenger _messenger;
+
     public DraftSyncRetryService(
         IMailService mailService,
         IMimeFileService mimeFileService,
-        ISynchronizerFactory synchronizerFactory)
+        ISynchronizerFactory synchronizerFactory,
+        IMessenger messenger)
     {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _mailService = mailService;
         _mimeFileService = mimeFileService;
         _synchronizerFactory = synchronizerFactory;
@@ -83,7 +87,7 @@ public class DraftSyncRetryService : IDraftSyncRetryService
         await _mailService.MarkDraftSyncAttemptAsync(draftCopy.UniqueId).ConfigureAwait(false);
         synchronizer.QueueRequest(new CreateDraftRequest(request));
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+        _messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
         {
             AccountId = draftCopy.AssignedAccount.Id,
             Type = MailSynchronizationType.ExecuteRequests

@@ -78,6 +78,8 @@ internal sealed class SetupStepIndicator : NSStackView
         Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
         Spacing = 8;
         Alignment = NSLayoutAttribute.CenterY;
+        // The indicator keeps its natural width; stretched to the page width, the extra space opened a gap after the first step.
+        SetHuggingPriority(751, NSLayoutConstraintOrientation.Horizontal);
         var features = new Step("1", Translator.ImapSetup_StepFeatures);
         _signIn = new Step("2", Translator.ImapSetup_StepSignIn);
         _servers = new Step("3", Translator.ImapSetup_StepServers);
@@ -153,7 +155,17 @@ internal static class ImapValidationLogView
     public static NSView Create(string protocolLog)
     {
         var heading = WinoStyle.Label(Translator.ImapValidationFailedDialog_ProtocolLog, WinoStyle.BodyStrong);
-        var text = new NSTextView(new CoreGraphics.CGRect(0, 0, 520, 240))
+        const double width = 514, height = 240, inset = 6;
+        var scroll = new NSScrollView(new CoreGraphics.CGRect(0, 0, width, height))
+        {
+            HasVerticalScroller = true,
+            HasHorizontalScroller = false,
+            AutohidesScrollers = true,
+            BorderType = NSBorderType.BezelBorder,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        var contentWidth = scroll.ContentSize.Width;
+        var text = new NSTextView(new CoreGraphics.CGRect(0, 0, contentWidth, scroll.ContentSize.Height))
         {
             Editable = false,
             Selectable = true,
@@ -161,29 +173,25 @@ internal static class ImapValidationLogView
             Font = NSFont.MonospacedSystemFont(11, NSFontWeight.Regular),
             TextColor = NSColor.Label,
             DrawsBackground = false,
-            HorizontallyResizable = true,
+            HorizontallyResizable = false,
             VerticallyResizable = true,
+            AutoresizingMask = NSViewResizingMask.WidthSizable,
+            MinSize = new CoreGraphics.CGSize(0, scroll.ContentSize.Height),
             MaxSize = new CoreGraphics.CGSize(float.MaxValue, float.MaxValue),
+            TextContainerInset = new CoreGraphics.CGSize(6, 6),
             Value = protocolLog ?? string.Empty
         };
-        text.TextContainer!.WidthTracksTextView = false;
-        text.TextContainer.Size = new CoreGraphics.CGSize(float.MaxValue, float.MaxValue);
-        text.TextContainerInset = new CoreGraphics.CGSize(6, 6);
+        text.TextContainer!.WidthTracksTextView = true;
+        text.TextContainer.Size = new CoreGraphics.CGSize(contentWidth, float.MaxValue);
         text.AccessibilityLabel = Translator.ImapValidationFailedDialog_ProtocolLog;
-        var scroll = new NSScrollView(new CoreGraphics.CGRect(0, 0, 520, 240))
-        {
-            HasVerticalScroller = true,
-            HasHorizontalScroller = true,
-            AutohidesScrollers = true,
-            BorderType = NSBorderType.BezelBorder,
-            DocumentView = text,
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        WinoLayout.Size(scroll, 520, 240);
+        scroll.DocumentView = text;
+        WinoLayout.Size(scroll, width, height);
         var stack = WinoLayout.VStack(6, heading, scroll);
         stack.Alignment = NSLayoutAttribute.Leading;
+        // NSAlert places the accessory a few points left of its own text; the inset lines the heading and log up with it.
+        stack.EdgeInsets = new NSEdgeInsets(0, (nfloat)inset, 0, 0);
         // NSAlert sizes its accessory from the frame, so give the stack its fitted size.
-        stack.Frame = new CoreGraphics.CGRect(0, 0, 520, 240 + 6 + heading.FittingSize.Height);
+        stack.Frame = new CoreGraphics.CGRect(0, 0, width + inset, height + 6 + heading.FittingSize.Height);
         stack.TranslatesAutoresizingMaskIntoConstraints = true;
         return stack;
     }

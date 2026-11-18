@@ -42,9 +42,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     private int _currentStepIndex;
 
     public AccountSetupProgressPageViewModel(
+        IMessenger messenger,
         IAccountSetupRunner accountSetupRunner,
         IMailDialogService dialogService,
-        WelcomeWizardContext wizardContext)
+        WelcomeWizardContext wizardContext) : base(messenger)
     {
         _accountSetupRunner = accountSetupRunner;
         _dialogService = dialogService;

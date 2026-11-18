@@ -16,7 +16,7 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
 {
     private readonly NSSegmentedControl _reach;
     private readonly NSPopUpButton _scope;
-    private readonly NSTextField _status;
+    private readonly WholeTextLabel _status;
     private readonly NSButton _done;
     private readonly WinoFlowView _chips;
     private bool _updating;
@@ -35,11 +35,20 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
 
         _scope = new NSPopUpButton { PullsDown = false, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
         _scope.Font = NSFont.SystemFontOfSize(11);
+        // Its widest title ("Current folder and subfolders") set the mail list's minimum width, even while the bar was
+        // hidden, which kept the shell sidebar from widening; the pop-up truncates its title instead.
+        _scope.SetContentCompressionResistancePriority(220, NSLayoutConstraintOrientation.Horizontal);
+        _scope.WidthAnchor.ConstraintGreaterThanOrEqualTo(96).Active = true;
         _scope.Activated += (_, _) => { if (!_updating) ScopeChanged?.Invoke(this, (int)_scope.IndexOfSelectedItem); };
 
-        _status = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+        _status = new WholeTextLabel
+        {
+            Editable = false, Selectable = false, Bordered = false, DrawsBackground = false,
+            Font = WinoStyle.Caption, TextColor = WinoStyle.SecondaryText, MaximumNumberOfLines = 1,
+            LineBreakMode = NSLineBreakMode.Clipping, TranslatesAutoresizingMaskIntoConstraints = false
+        };
         _status.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
-        _status.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
+        _status.SetContentCompressionResistancePriority(190, NSLayoutConstraintOrientation.Horizontal);
 
         _done = new NSButton { Title = doneTitle, Bordered = false, BezelStyle = NSBezelStyle.Inline, TranslatesAutoresizingMaskIntoConstraints = false };
         _done.AttributedTitle = new Foundation.NSAttributedString(doneTitle, new NSStringAttributes { Font = NSFont.SystemFontOfSize(12, NSFontWeight.Medium), ForegroundColor = WinoStyle.Accent });
@@ -49,9 +58,9 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
         var line = WinoLayout.HStack(8, _reach, _scope, _status, _done);
         _chips = new WinoFlowView();
         var stack = WinoLayout.VStack(8, line, _chips);
-        line.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-        _chips.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
         stack.EdgeInsets = new NSEdgeInsets(10, 12, 10, 12);
+        line.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor, 1, -24).Active = true;
+        _chips.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor, 1, -24).Active = true;
         WinoLayout.Fill(stack, this);
 
         var separator = new WinoSeparator();
@@ -99,7 +108,23 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
     public string Status
     {
         get => _status.StringValue;
-        set => _status.StringValue = value ?? string.Empty;
+        set
+        {
+            _status.StringValue = value ?? string.Empty;
+            _status.UpdateVisibility();
+        }
+    }
+
+    /// <summary>The result status squeezed beside the scope pop-up read as a stray letter; it shows only when it fits whole.</summary>
+    private sealed class WholeTextLabel : NSTextField
+    {
+        public override void SetFrameSize(CoreGraphics.CGSize newSize)
+        {
+            base.SetFrameSize(newSize);
+            UpdateVisibility();
+        }
+
+        public void UpdateVisibility() => AlphaValue = IntrinsicContentSize.Width <= Frame.Width + 0.5 ? 1 : 0;
     }
 
     public void SetChips(IEnumerable<WinoSearchChip> chips)

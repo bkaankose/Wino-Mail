@@ -19,9 +19,6 @@ public sealed partial class ContactsPageViewController
 
     private readonly List<ListEntry> _entries = new();
     private readonly List<ContactGroup> _observedGroups = new();
-    private NSButton _newAddressBook = null!;
-    private NSLayoutConstraint _listBelowButton = null!;
-    private NSLayoutConstraint _listAtTop = null!;
     private NSTableView _table = null!;
     private NSScrollView _scroll = null!;
     private NSView _emptyPanel = null!;
@@ -39,17 +36,7 @@ public sealed partial class ContactsPageViewController
     {
         var pane = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
 
-        // People search is the toolbar field (IShellSearchTarget); a second field in the list duplicated it.
-        // Windows ContactsPage "New address book" (CardDAV accounts only): icon-only, above the list.
-        _newAddressBook = CommandButton(string.Empty, ViewModel.CreateCardDavAddressBookCommand);
-        _newAddressBook.BezelStyle = NSBezelStyle.Rounded;
-        _newAddressBook.Image = WinoIcons.Image(WinoIconGlyph.Library, 15, null, Translator.ContactsPage_NewAddressBook);
-        _newAddressBook.ImagePosition = NSCellImagePosition.ImageOnly;
-        _newAddressBook.ToolTip = Translator.ContactsPage_NewAddressBook;
-        _newAddressBook.TranslatesAutoresizingMaskIntoConstraints = false;
-        _newAddressBook.Hidden = true;
-        WinoAccessibility.Label(_newAddressBook, Translator.ContactsPage_NewAddressBook);
-
+        // People search is the toolbar field (IShellSearchTarget); New address book is a row in the shell pane.
         _table = new NSTableView
         {
             HeaderView = null,
@@ -91,18 +78,13 @@ public sealed partial class ContactsPageViewController
         _emptyPanel = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
         _emptyPanel.AddSubview(emptyStack);
 
-        pane.AddSubview(_newAddressBook);
-        _listBelowButton = _scroll.TopAnchor.ConstraintEqualTo(_newAddressBook.BottomAnchor, 8);
-        _listAtTop = _scroll.TopAnchor.ConstraintEqualTo(pane.TopAnchor, 8);
         pane.AddSubview(_scroll);
         pane.AddSubview(_loadingMore);
         pane.AddSubview(_emptyPanel);
         pane.AddSubview(_loading);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _newAddressBook.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -16),
-            _newAddressBook.TopAnchor.ConstraintEqualTo(pane.TopAnchor, 12),
-            _listAtTop,
+            _scroll.TopAnchor.ConstraintEqualTo(pane.TopAnchor, 8),
             _scroll.LeadingAnchor.ConstraintEqualTo(pane.LeadingAnchor, 12),
             _scroll.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -12),
             _scroll.BottomAnchor.ConstraintEqualTo(_loadingMore.TopAnchor, -4),
@@ -141,13 +123,6 @@ public sealed partial class ContactsPageViewController
             if (more) _loadingMore.StartAnimation(null); else _loadingMore.StopAnimation(null);
         });
         Bind(nameof(ViewModel.SelectedContact), vm => vm.SelectedContact, contact => SelectRow(contact));
-        Bind(nameof(ViewModel.CanCreateCardDavAddressBook), vm => vm.CanCreateCardDavAddressBook, canCreate =>
-        {
-            _newAddressBook.Hidden = !canCreate;
-            // Deactivate before activating so the two top constraints never coexist.
-            (canCreate ? _listAtTop : _listBelowButton).Active = false;
-            (canCreate ? _listBelowButton : _listAtTop).Active = true;
-        });
         Bind(nameof(ViewModel.IsSelectionMode), vm => vm.IsSelectionMode, selectionMode =>
         {
             if (!selectionMode && _table.SelectedRowCount > 1) _table.DeselectAll(null);

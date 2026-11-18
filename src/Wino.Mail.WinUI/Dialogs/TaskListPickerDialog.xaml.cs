@@ -12,7 +12,7 @@ public sealed record TaskListPickerItem(AccountTaskList List, MailAccount? Accou
         get
         {
             var name = Account?.Name?.Trim() ?? string.Empty;
-            var address = Account?.Address?.Trim() ?? string.Empty;
+            var address = Account?.DisplayAddress?.Trim() ?? string.Empty;
 
             if (string.IsNullOrEmpty(name))
                 return address;

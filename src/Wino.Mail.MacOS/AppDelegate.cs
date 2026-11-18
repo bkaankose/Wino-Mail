@@ -179,6 +179,10 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
             // The router releases the old controller before disposing its native owner.
             return oldWindow is null ? null : () => { oldWindow.Close(); oldWindow.Dispose(); };
         }
+        else if (_window is WelcomeWindow welcome)
+        {
+            welcome.ShowPage(controller);
+        }
         else
         {
             _window.ContentViewController = controller;

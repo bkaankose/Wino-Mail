@@ -11,7 +11,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.Windows.Globalization;
 using Nito.AsyncEx;
 using Serilog;
-using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.Core;
 using Windows.Foundation.Metadata;
 using Windows.Storage;
@@ -20,6 +19,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Services;
 using Wino.Mail.Controls.ContactPicture;
+using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
 using Wino.Services;
@@ -34,7 +34,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     public const string WinoLaunchLogPrefix = "[Wino Launch] ";
 
     public IServiceProvider Services { get; }
-    protected IWinoLogger LogInitializer { get; }
+    protected ApplicationLifecycleCoordinator Lifecycle { get; }
     protected IApplicationConfiguration AppConfiguration { get; }
     public INewThemeService NewThemeService { get; }
     public IUnderlyingThemeService UnderlyingThemeService { get; }
@@ -70,7 +70,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
         // Constructors in the service graph may read paths. Configure them before
         // resolving logging, storage, authentication, themes or window services.
-        LogInitializer = Services.GetRequiredService<IWinoLogger>();
+        Lifecycle = Services.GetRequiredService<ApplicationLifecycleCoordinator>();
         NewThemeService = Services.GetRequiredService<INewThemeService>();
         DatabaseService = Services.GetRequiredService<IDatabaseService>();
         TranslationService = Services.GetRequiredService<ITranslationService>();
@@ -85,7 +85,8 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         // ThumbnailService requires ApplicationData paths to be setup, so we initialize it after setting up the paths.
         ThumbnailService = Services.GetRequiredService<IThumbnailService>();
 
-        ConfigureLogging();
+        // Logs start here, before OnLaunched, in the Windows log file; the shared startup keeps this logger.
+        Lifecycle.SetupLogger(Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ClientLogFile));
     }
 
     private void CurrentDomain_UnhandledException(object? sender, System.UnhandledExceptionEventArgs e)
@@ -99,10 +100,6 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         Log.Fatal(e.Exception, "Unhandled Exception");
         e.Handled = true;
     }
-
-    public Task InitializeServicesAsync() => Services.GetRequiredService<IApplicationRuntime>().InitializeAsync();
-
-    public bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
 
     public void LogActivation(string log)
         => Log.Information($"{WinoLaunchLogPrefix}{log} (T+{Stopwatch.GetElapsedTime(Program.StartupTimestamp).TotalMilliseconds:F0} ms)");
@@ -121,12 +118,6 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     }
 
     public abstract IServiceProvider ConfigureServices();
-
-    public void ConfigureLogging()
-    {
-        string logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ClientLogFile);
-        LogInitializer.SetupLogger(logFilePath);
-    }
 
     public virtual void OnLanguageChanged(AppLanguageModel languageModel)
     {

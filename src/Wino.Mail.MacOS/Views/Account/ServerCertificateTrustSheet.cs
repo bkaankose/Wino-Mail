@@ -28,7 +28,7 @@ internal sealed class ServerCertificateTrustSheet : WinoAccountSheet<bool>
         var caution = new NSImageView { Image = NSImage.ImageNamed("NSCaution"), ImageScaling = NSImageScale.ProportionallyUpOrDown, TranslatesAutoresizingMaskIntoConstraints = false };
         caution.AccessibilityElement = false;
         WinoLayout.Size(caution, 40, 40);
-        var heading = WinoStyle.Label(prompt.Title, NSFont.SystemFontOfSize(18, NSFontWeight.Semibold), WinoStyle.PrimaryText, 0);
+        var heading = WinoStyle.Label(prompt.Title, WinoStyle.Heading, WinoStyle.PrimaryText, 0);
         heading.AccessibilityRole = NSAccessibilityRoles.StaticTextRole;
         var header = WinoLayout.HStack(12, caution, heading);
         AddRow(header);

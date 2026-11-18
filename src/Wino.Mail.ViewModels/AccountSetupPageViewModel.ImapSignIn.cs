@@ -122,8 +122,12 @@ public partial class AccountSetupPageViewModel
             ? string.Format(Translator.ImapSetup_SignInWithProvider, ProviderLabel)
             : Translator.ImapSetup_SignInWithOrganization;
 
-    /// <summary>After a browser sign-in the button stays only while the sign-in still needs attention.</summary>
+    /// <summary>
+    /// The browser opens from the sign-in method step, so the button is only a retry: hidden while the browser is open,
+    /// shown after a cancelled or failed sign-in, or before an issuer the user has to confirm.
+    /// </summary>
     public bool IsBrowserSignInButtonVisible => IsBrowserPanelVisible &&
+                                                OAuthState != AccountSetupOAuthState.Waiting &&
                                                 (OAuthState != AccountSetupOAuthState.SignedIn ||
                                                  (Phase == AccountSetupPhase.SignIn && !IsSignInValidated));
 
@@ -986,6 +990,7 @@ public partial class AccountSetupPageViewModel
         OnPropertyChanged(nameof(IsSetupHintCaptionVisible));
         OnPropertyChanged(nameof(IsBrowserPanelVisible));
         OnPropertyChanged(nameof(IsPasswordPanelVisible));
+        OnPropertyChanged(nameof(IsSendAsVisible));
         OnPropertyChanged(nameof(BrowserSignInButtonText));
         OnPropertyChanged(nameof(IsBrowserSignInButtonVisible));
         OnPropertyChanged(nameof(IsIssuerConfirmationVisible));

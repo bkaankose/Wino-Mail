@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 #nullable enable
 using System;
 using System.Threading.Tasks;
@@ -8,7 +9,7 @@ namespace Wino.Services;
 
 public sealed class AccountOAuthProfileService : BaseDatabaseService, IAccountOAuthProfileService
 {
-    public AccountOAuthProfileService(IDatabaseService databaseService) : base(databaseService)
+    public AccountOAuthProfileService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
     {
     }
 

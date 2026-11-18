@@ -27,7 +27,7 @@ public sealed class AppKitNavigationService : INavigationService, INavigationHos
     private IRenderingFrameHost? _renderingHost;
     // Onboarding pages opened while the shell is up (Settings > Add account) use their own window
     // so the main window and its mail state stay in place.
-    private NSWindow? _secondaryWindow;
+    private WelcomeWindow? _secondaryWindow;
     private NSViewController? _secondaryController;
     private NSObject? _secondaryClosing;
 
@@ -178,14 +178,15 @@ public sealed class AppKitNavigationService : INavigationService, INavigationHos
         {
             if (_secondaryWindow is null)
             {
-                _secondaryWindow = new WelcomeWindow(controller) { Title = Wino.Core.Domain.Translator.WelcomeWindow_AddAccountButton };
+                _secondaryWindow = new WelcomeWindow(controller) { Title = SecondaryWindowTitle(page) };
                 _secondaryClosing = NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.WillCloseNotification,
                     _ => _coordinator.OnSecondaryWindowClosedByUser(), _secondaryWindow);
                 _secondaryWindow.MakeKeyAndOrderFront(null);
             }
             else
             {
-                _secondaryWindow.ContentViewController = controller;
+                _secondaryWindow.ShowPage(controller);
+                _secondaryWindow.Title = SecondaryWindowTitle(page);
                 _secondaryWindow.MakeKeyAndOrderFront(null);
             }
         });
@@ -195,6 +196,10 @@ public sealed class AppKitNavigationService : INavigationService, INavigationHos
         if (previous is not null) await _dispatcher.ExecuteOnUIThread(previous.Dispose);
         await ((IWinoViewController)controller).ActivateAsync(mode, parameter);
     }
+
+    /// <summary>The Window menu and Mission Control name: the app on the welcome page, "Add account" on the setup pages.</summary>
+    private static string SecondaryWindowTitle(WinoPage page)
+        => page is WinoPage.WelcomePageV2 or WinoPage.WelcomeHostPage ? "Wino Mail" : Wino.Core.Domain.Translator.WelcomeWindow_AddAccountButton;
 
     async Task INavigationHost.CloseSecondaryWindowAsync(bool closedByUser)
     {

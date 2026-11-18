@@ -15,6 +15,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
@@ -99,7 +100,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     }
     private bool _isPreparedForShellShutdown;
 
+    private readonly ISynchronizationManager _synchronizationManager;
+
     public CalendarAppShellViewModel(
+        IMessenger messenger,
+        ISynchronizationManager synchronizationManager,
         IPreferencesService preferencesService,
         IStatePersistanceService statePersistanceService,
         IAccountService accountService,
@@ -108,8 +113,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         INavigationService navigationService,
         Lazy<CalendarPageViewModel> calendarPageViewModel,
         IMailDialogService dialogService,
-        IDateContextProvider dateContextProvider)
+        IDateContextProvider dateContextProvider) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -150,8 +156,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _isPreparedForShellShutdown = false;
         _hasCompletedAccountCalendarInitialization = false;
         AccountCalendarStateService.Dispatcher = Dispatcher;
-        MenuItems = new MenuItemCollection(Dispatcher);
-        FooterItems = new MenuItemCollection(Dispatcher);
+        MenuItems = new MenuItemCollection();
+        FooterItems = new MenuItemCollection();
         BuildShellMenu();
         _ = RefreshFooterItemsAsync(false);
     }
@@ -460,7 +466,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private async Task Sync()
     {
         var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
-        foreach (var account in accounts)
+        foreach (var account in accounts.Where(account => account.HasRemoteCalendarSource()))
         {
             Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {

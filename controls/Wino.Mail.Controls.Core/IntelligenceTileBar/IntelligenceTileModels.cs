@@ -1,7 +1,3 @@
-#if WINRT_EXPOSED
-using WinRT;
-#endif
-
 namespace Wino.Mail.Controls.Core.IntelligenceTileBar;
 
 /// <summary>Identifies the semantic kind and fixed ordering group of a mail intelligence tile.</summary>
@@ -11,9 +7,6 @@ public enum WinoIntelligenceTileKind
     SmartLabel,
 }
 
-#if WINRT_EXPOSED
-[GeneratedBindableCustomProperty]
-#endif
 /// <summary>Describes one localized, noninteractive intelligence indicator.</summary>
 public sealed partial class WinoIntelligenceTile
 {

@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 namespace Wino.Mail.MacOS.Infrastructure;
 
 /// <summary>
-/// Debug builds re-bundled as the local lab app (bundle id ending in ".lab", signed ad hoc) cannot reach the data
+/// Debug builds re-bundled as the local lab app (bundle id ending in ".lab", or ".fresh" for a first-run test copy, signed ad hoc) cannot reach the data
 /// protection keychain, which needs a team-signed application identifier. They keep their secrets in a file in their
 /// own sandbox container instead: lab passwords and local API tokens only. Release builds and the normal Debug bundle
 /// never use this store.
@@ -17,7 +17,8 @@ internal sealed class LabSecureItemStore : ISecureItemStore
     private readonly string _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "wino-lab-secrets.json");
     private Dictionary<string, string>? _items;
 
-    public static bool IsLabBundle => Foundation.NSBundle.MainBundle.BundleIdentifier?.EndsWith(".lab", StringComparison.Ordinal) == true;
+    public static bool IsLabBundle => Foundation.NSBundle.MainBundle.BundleIdentifier is { } id
+        && (id.EndsWith(".lab", StringComparison.Ordinal) || id.EndsWith(".fresh", StringComparison.Ordinal));
 
     public byte[]? Read(string scope, string account)
     {

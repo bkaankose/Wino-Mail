@@ -30,4 +30,5 @@ public sealed record PlatformCapabilities(
     bool OAuthLoopbackRedirect = true,
     bool WidgetsAndLiveTiles = false,
     bool AttachmentSecurityCheck = false,
-    bool VoiceControl = false) : IPlatformCapabilities;
+    bool VoiceControl = false,
+    bool AppLock = false) : IPlatformCapabilities;

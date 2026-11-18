@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -46,10 +45,25 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     internal Func<ContactFilterViewModel, Task> NewCategoryRequested { get; set; }
     internal Func<Guid, Task> SynchronizeAccountRequested { get; set; }
 
+    // MenuItemBase is not an ObservableObject, so the toolkit cannot generate these properties.
+    private string _name;
+    private int _count;
+    private bool _isDraggingItemOver;
+
     public ContactFilterKind Kind { get; }
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AccountName))]
-    public partial string Name { get; set; }
+
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            if (!SetProperty(ref _name, value))
+                return;
+
+            OnPropertyChanged(nameof(AccountName));
+        }
+    }
+
     public string Glyph { get; init; }
     public Guid? AddressBookId { get; init; }
     public Guid? AccountId { get; init; }
@@ -58,10 +72,23 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public ContactAddressBook AddressBook { get; init; }
     public MailCategory Category { get; private set; }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(UnreadItemCount))]
-    public partial int Count { get; set; }
-    [ObservableProperty] public partial bool IsDraggingItemOver { get; set; }
+    public int Count
+    {
+        get => _count;
+        set
+        {
+            if (!SetProperty(ref _count, value))
+                return;
+
+            OnPropertyChanged(nameof(UnreadItemCount));
+        }
+    }
+
+    public bool IsDraggingItemOver
+    {
+        get => _isDraggingItemOver;
+        set => SetProperty(ref _isDraggingItemOver, value);
+    }
 
     #region Account navigation presentation
 
@@ -70,7 +97,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     // the account waits for a sign-in. The mail-only context actions stay hidden.
 
     public string AccountName => Name;
-    public string AccountAddress => Account?.Address ?? string.Empty;
+    public string AccountAddress => Account?.DisplayAddress ?? string.Empty;
     public int UnreadItemCount => Count;
     public bool IsSynchronizationProgressVisible => false;
     public bool IsProgressIndeterminate => false;
@@ -125,7 +152,11 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public Guid? CategoryId => Category?.Id;
     public string CategoryColorHex => Category?.BackgroundColorHex;
     public bool CanManageRemoteAddressBook => AddressBook?.SourceKind == ContactSourceKind.CardDav && !AddressBook.IsReadOnly;
-    public bool CanRenameOrDelete => IsList || IsCategory || CanManageRemoteAddressBook;
+    public bool CanManageLocalAddressBook => AddressBook?.SourceKind == ContactSourceKind.Local;
+    public bool CanRenameOrDelete => IsList || IsCategory || CanManageRemoteAddressBook || CanManageLocalAddressBook;
+
+    /// <summary>The default local address book receives contacts saved without a chosen one, so it can only be renamed.</summary>
+    public bool CanDelete => CanRenameOrDelete && !(CanManageLocalAddressBook && AddressBook.IsDefault);
     public bool HasAccountIcon => Kind == ContactFilterKind.Account && Account is not null;
     public Guid? ListId => List?.Id;
 
@@ -143,7 +174,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public static ContactFilterViewModel CreateAddressBook(ContactAddressBook book, MailAccount account)
         => new(ContactFilterKind.AddressBook)
         {
-            Name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? book.SourceKind.ToString() : book.DisplayName,
+            Name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? AccountContactViewModel.SourceDisplayName(book.SourceKind) : book.DisplayName,
             Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Library),
             AddressBookId = book.Id,
             AccountId = book.MailAccountId,
@@ -215,7 +246,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     [RelayCommand(CanExecute = nameof(CanModifyList))]
     private void RenameList() => RenameRequested?.Invoke(this);
 
-    [RelayCommand(CanExecute = nameof(CanModifyList))]
+    [RelayCommand(CanExecute = nameof(CanDelete))]
     private void DeleteList() => DeleteRequested?.Invoke(this);
 
     [RelayCommand]

@@ -9,10 +9,6 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Google;
-using Microsoft.Graph.Models.ODataErrors;
-using Microsoft.Kiota.Abstractions;
-using Microsoft.Identity.Client;
 using Wino.Core.Domain.Exceptions;
 
 namespace Wino.Core.Services;
@@ -21,10 +17,11 @@ public class MailFilterProviderService(
     ISynchronizerFactory synchronizerFactory,
     IMailFilterService mailFilterService,
     IAccountProviderFeatureService featureService,
-    IProviderFeatureAuthorizationService featureAuthorizationService) : IMailFilterProviderService
+    IProviderFeatureAuthorizationService featureAuthorizationService,
+    IMailProviderRegistry providers) : IMailFilterProviderService
 {
     public bool SupportsProviderFilters(MailAccount account)
-        => account?.ProviderType == MailProviderType.Outlook;
+        => account != null && providers.GetTraits(account.ProviderType).SupportsProviderMailFilters;
 
     public Task<bool> IsProviderFiltersEnabledAsync(
         Guid accountId,
@@ -123,7 +120,7 @@ public class MailFilterProviderService(
         {
             return await operation().ConfigureAwait(false);
         }
-        catch (Exception ex) when (IsAuthorizationFailure(ex))
+        catch (Exception ex) when (IsAuthorizationFailure(account, ex))
         {
             await featureAuthorizationService
                 .MarkReauthorizationRequiredAsync(account.Id, ProviderFeature.MailFilters)
@@ -138,7 +135,7 @@ public class MailFilterProviderService(
         {
             await operation().ConfigureAwait(false);
         }
-        catch (Exception ex) when (IsAuthorizationFailure(ex))
+        catch (Exception ex) when (IsAuthorizationFailure(account, ex))
         {
             await featureAuthorizationService
                 .MarkReauthorizationRequiredAsync(account.Id, ProviderFeature.MailFilters)
@@ -147,11 +144,8 @@ public class MailFilterProviderService(
         }
     }
 
-    private static bool IsAuthorizationFailure(Exception exception)
-        => exception is GoogleApiException { HttpStatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden }
-            or ODataError { ResponseStatusCode: 401 or 403 }
-            or ApiException { ResponseStatusCode: 401 or 403 }
-            or HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden }
+    private bool IsAuthorizationFailure(MailAccount account, Exception exception)
+        => exception is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden }
             or AuthenticationAttentionException
-            or MsalUiRequiredException;
+           || providers.Find(account.ProviderType)?.IsAuthorizationFailure(exception) == true;
 }

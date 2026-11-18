@@ -5,6 +5,7 @@ using CoreGraphics;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.MacOS.Infrastructure;
@@ -92,6 +93,14 @@ internal static class OnboardingDebug
             string result = string.Empty;
             await Services.GetRequiredService<IDispatcher>().ExecuteOnUIThread(() => result = CloseSetupPreview());
             return result;
+        });
+        // "acct-open [settings]" opens the address-first setup page as the welcome wizard or Settings > Add account does.
+        MacDebugBridge.Register("acct-open", args =>
+        {
+            var settings = args.Length > 0 && args[0].Equals("settings", StringComparison.OrdinalIgnoreCase);
+            return Task.FromResult(Navigate(WinoPage.AccountSetupPage, settings
+                ? ProviderSelectionNavigationContext.CreateForSettingsAddAccount()
+                : ProviderSelectionNavigationContext.CreateForWizard()));
         });
         MacDebugBridge.Register("imap-failure", args =>
         {

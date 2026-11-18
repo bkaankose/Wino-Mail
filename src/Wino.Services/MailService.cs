@@ -43,13 +43,14 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IPreferencesService _preferencesService;
     private readonly ISentMailReceiptService _sentMailReceiptService;
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly IMailProviderRegistry _providers;
     private readonly IWinoAccountProfileService _winoAccountProfileService;
     private readonly IMailIntelligenceStore _localIntelligenceStore;
     private readonly IRecipientHistoryService _recipientHistoryService;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
-    public MailService(IDatabaseService databaseService,
+    public MailService(IDatabaseService databaseService, IMessenger messenger,
                        IFolderService folderService,
                        IContactService contactService,
                        IAccountService accountService,
@@ -58,11 +59,13 @@ public class MailService : BaseDatabaseService, IMailService
                        IPreferencesService preferencesService,
                        ISentMailReceiptService sentMailReceiptService,
                        IMailCategoryService mailCategoryService,
+                       IMailProviderRegistry providers,
                        IWinoAccountProfileService winoAccountProfileService = null,
                        IMailIntelligenceStore localIntelligenceStore = null,
                        DraftUpdateRegistry draftUpdates = null,
-                       IRecipientHistoryService recipientHistoryService = null) : base(databaseService)
+                       IRecipientHistoryService recipientHistoryService = null) : base(databaseService, messenger)
     {
+        _providers = providers;
         _draftUpdates = draftUpdates;
         _recipientHistoryService = recipientHistoryService;
         _folderService = folderService;
@@ -76,6 +79,9 @@ public class MailService : BaseDatabaseService, IMailService
         _winoAccountProfileService = winoAccountProfileService;
         _localIntelligenceStore = localIntelligenceStore;
     }
+
+    private bool StoresMessageInSeveralFolders(MailAccount account)
+        => _providers.GetTraits(account.ProviderType).StoresMessageInSeveralFolders;
 
     public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
     {
@@ -100,7 +106,7 @@ public class MailService : BaseDatabaseService, IMailService
             Id = Guid.NewGuid().ToString(), // This will be replaced after network call with the remote draft id.
             CreationDate = DateTime.UtcNow,
             FromAddress = selectedAlias?.AliasAddress ?? primaryAlias?.AliasAddress ?? composerAccount.Address,
-            FromName = selectedAlias?.AliasSenderName ?? composerAccount.SenderName,
+            FromName = string.IsNullOrWhiteSpace(selectedAlias?.AliasSenderName) ? composerAccount.SenderName : selectedAlias.AliasSenderName,
             HasAttachments = false,
             Importance = MailImportance.Normal,
             Subject = createdDraftMimeMessage.Subject,
@@ -1582,7 +1588,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         if (readMailUniqueIds.Count > 0)
         {
-            WeakReferenceMessenger.Default.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
+            Messenger.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
         }
 
         var hydratedUpdatesByUniqueId = (await HydrateMailCopiesAsync(
@@ -2002,7 +2008,7 @@ public class MailService : BaseDatabaseService, IMailService
         if (account == null)
             return;
 
-        if (account.ProviderType != MailProviderType.Gmail)
+        if (!StoresMessageInSeveralFolders(account))
         {
             foreach (var package in targetPackages)
                 await CreateMailAsync(accountId, package).ConfigureAwait(false);
@@ -2213,7 +2219,7 @@ public class MailService : BaseDatabaseService, IMailService
         }
         else
         {
-            if (account.ProviderType != MailProviderType.Gmail)
+            if (!StoresMessageInSeveralFolders(account))
             {
                 // Make sure there is only 1 instance left of this mail copy id.
                 await DeleteMailAsync(accountId, mailCopy.Id).ConfigureAwait(false);
@@ -2343,7 +2349,7 @@ public class MailService : BaseDatabaseService, IMailService
             ?? throw new MissingAliasException();
 
         // Set FromName and FromAddress by alias.
-        message.From.Add(new MailboxAddress(selectedAlias.AliasSenderName ?? account.SenderName, selectedAlias.AliasAddress));
+        message.From.Add(new MailboxAddress(string.IsNullOrWhiteSpace(selectedAlias.AliasSenderName) ? account.SenderName : selectedAlias.AliasSenderName, selectedAlias.AliasAddress));
         EnsureOutgoingMessageId(message, selectedAlias.AliasAddress);
 
         if (!string.IsNullOrWhiteSpace(selectedAlias.ReplyToAddress))
@@ -2685,7 +2691,7 @@ public class MailService : BaseDatabaseService, IMailService
                     <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
                     <b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>
                     {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
-                    <b>Subject:</b> {referenceMessage.Subject}
+                    <b>Subject:</b> {System.Net.WebUtility.HtmlEncode(referenceMessage.Subject ?? string.Empty)}
                   </font>
                   <div>&nbsp;</div>
                   {visitor.HtmlBody}
@@ -2696,8 +2702,18 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         static string ParticipantsToHtml(InternetAddressList internetAddresses) =>
-            string.Join("; ", internetAddresses.Mailboxes
-                                        .Select(x => $"{x.Name ?? Translator.UnknownSender} &lt;<a href=\"mailto:{x.Address ?? Translator.UnknownAddress}\">{x.Address ?? Translator.UnknownAddress}</a>&gt;"));
+            string.Join("; ", internetAddresses.Mailboxes.Select(ParticipantToHtml));
+
+        // Servers often repeat the address as the display name; that would read "a@b.com <a@b.com>".
+        static string ParticipantToHtml(MailboxAddress mailbox)
+        {
+            var address = System.Net.WebUtility.HtmlEncode(mailbox.Address ?? Translator.UnknownAddress);
+            var link = $"&lt;<a href=\"mailto:{address}\">{address}</a>&gt;";
+            var name = mailbox.Name;
+            if (string.IsNullOrWhiteSpace(name) || string.Equals(name, mailbox.Address, StringComparison.OrdinalIgnoreCase))
+                return link;
+            return $"{System.Net.WebUtility.HtmlEncode(name)} {link}";
+        }
     }
 
     /// <summary>

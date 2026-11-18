@@ -30,6 +30,9 @@ internal interface IModeMenuRowStyle
 
     /// <summary>True when <paramref name="item"/> is the surface the content page shows.</summary>
     bool IsCurrent(IMenuItem item, object? selectedMenuItem, object? contentViewModel);
+
+    /// <summary>The long-press menu of <paramref name="item"/>, or null when it has none.</summary>
+    UIMenu? ContextMenu(IMenuItem item) => null;
 }
 
 /// <summary>
@@ -49,6 +52,7 @@ internal sealed class ModeMenuRootViewController : UIViewController
     private readonly List<INotifyCollectionChanged> _collections = [];
     private readonly List<INotifyPropertyChanged> _properties = [];
     private ShellMenu? _menu;
+    private IShellMenuProvider? _provider;
     private object? _selected;
     private bool _reloadQueued;
 
@@ -116,7 +120,32 @@ internal sealed class ModeMenuRootViewController : UIViewController
         Detach();
         _menu = menu;
         Observe(menu?.Items);
+        ObserveProvider(menu is null ? null : _shell.CurrentProvider);
         if (IsViewLoaded) RebuildRows();
+    }
+
+    private void ObserveProvider(IShellMenuProvider? provider)
+    {
+        if (ReferenceEquals(provider, _provider)) return;
+        if (_provider is not null) _provider.PropertyChanged -= ProviderChanged;
+        _provider = provider;
+        if (_provider is not null) _provider.PropertyChanged += ProviderChanged;
+        UpdateRefreshAvailability();
+    }
+
+    private void ProviderChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is nameof(IShellMenuProvider.IsSynchronizationSupported) or null or "")
+            _ = _dispatcher.ExecuteOnUIThread(UpdateRefreshAvailability);
+    }
+
+    /// <summary>Pull to refresh only where the mode has an account that synchronizes with a server.</summary>
+    private void UpdateRefreshAvailability()
+    {
+        var available = _provider?.IsSynchronizationSupported ?? true;
+        if (available == (_table.RefreshControl is not null)) return;
+        if (!available && _refresh.Refreshing) _refresh.EndRefreshing();
+        _table.RefreshControl = available ? _refresh : null;
     }
 
     /// <summary>The shell's selected menu item.</summary>
@@ -210,7 +239,11 @@ internal sealed class ModeMenuRootViewController : UIViewController
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) Detach();
+        if (disposing)
+        {
+            Detach();
+            ObserveProvider(null);
+        }
         base.Dispose(disposing);
     }
 
@@ -271,6 +304,13 @@ internal sealed class ModeMenuRootViewController : UIViewController
                 line.CenterYAnchor.ConstraintEqualTo(cell.ContentView.CenterYAnchor)
             ]);
             return cell;
+        }
+
+        public override UIContextMenuConfiguration? GetContextMenuConfiguration(UITableView tableView, NSIndexPath indexPath, CGPoint point)
+        {
+            var row = (int)indexPath.Row;
+            if (row >= owner._rows.Count || owner._style.ContextMenu(owner._rows[row].Item) is not { } menu) return null;
+            return UIContextMenuConfiguration.Create(null, null, _ => menu);
         }
 
         public override NSIndexPath? WillSelectRow(UITableView tableView, NSIndexPath indexPath)

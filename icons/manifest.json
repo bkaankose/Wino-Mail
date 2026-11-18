@@ -2429,6 +2429,18 @@
         }
       ],
       "source": "Traced from the Microsoft Exchange product logo (Assets/Providers/Exchange.png)"
+    },
+    {
+      "name": "WindowsHello",
+      "codepoint": "E0CF",
+      "svg": "WindowsHello.svg",
+      "source": "custom"
+    },
+    {
+      "name": "Dialpad",
+      "codepoint": "E0D0",
+      "svg": "Dialpad.svg",
+      "source": "fluent:dialpad"
     }
   ]
 }

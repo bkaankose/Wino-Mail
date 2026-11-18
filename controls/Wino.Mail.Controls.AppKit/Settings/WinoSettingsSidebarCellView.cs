@@ -7,7 +7,7 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.Controls.AppKit.Settings;
 
 /// <summary>
-/// Settings sidebar page row in the Windows settings pane style: a 15pt Wino glyph (or a custom
+/// Settings sidebar page row in the Windows settings pane style: a 22pt Wino glyph (or a custom
 /// image such as the app icon) and the page title, semibold while selected. The selection fill and
 /// the 3pt accent pipe are drawn by <see cref="WinoSettingsSidebarRowView"/>.
 /// </summary>
@@ -26,10 +26,10 @@ public sealed class WinoSettingsSidebarCellView : NSTableCellView
     public WinoSettingsSidebarCellView()
     {
         Identifier = RowIdentifier;
-        _glyph = new WinoIconView(WinoIconGlyph.None, 15);
-        WinoLayout.Size(_glyph, 16, 16);
+        _glyph = new WinoIconView(WinoIconGlyph.None, 22);
+        WinoLayout.Size(_glyph, 24, 24);
         _image = new NSImageView { ImageScaling = NSImageScale.ProportionallyDown, TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
-        WinoLayout.Size(_image, 16, 16);
+        WinoLayout.Size(_image, 24, 24);
         _title = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.PrimaryText);
         _title.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         TextField = _title;

@@ -49,6 +49,19 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
             [Translator.SearchBar_CurrentFolder, Translator.SearchBar_ScopeSubfolders, Translator.SearchBar_AllFolders], MailListPageViewModel.SearchScopes.IndexOf(scope)));
         Bind(nameof(ViewModel.AreSearchResultsOnline), vm => vm.AreSearchResultsOnline, _ => UpdateScopeBar());
         Bind(nameof(ViewModel.IsEmpty), vm => vm.IsEmpty, _ => UpdateScopeBar());
+        Bind(nameof(ViewModel.SearchQuery), vm => vm.SearchQuery, ShowSearchQuery);
+    }
+
+    /// <summary>A search started outside the field (voice control) sets the ViewModel's query; the toolbar field shows it.</summary>
+    private void ShowSearchQuery(string? query)
+    {
+        var text = query ?? string.Empty;
+        if (!string.Equals(text.Trim(), _searchText.Trim(), StringComparison.Ordinal))
+        {
+            _searchText = text;
+            UpdateScopeBar();
+        }
+        _navigation.Shell?.ShowSearchText(text);
     }
 
     /// <summary>Where a new search starts (Windows ApplyDefaultSearchMode); changing the reach during a search still wins.</summary>

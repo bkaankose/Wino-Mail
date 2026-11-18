@@ -28,6 +28,8 @@ The projects:
 - `Wino.Editor.Android` (`net10.0-android`) contains the Android `WebView` reader and editor sessions over `Wino.Editor.Core`, with assets served by `WebViewAssetLoader` and the `winoMail` message bridge (a Java `WinoJavaScriptBridge` fallback where `WebMessageListener` is missing).
 - `Wino.Mail.Controls.Playground.WinUI` is the development and verification app. It must demonstrate every public UI control.
 
+Projects here reference `Wino.Core.Domain` and each other only. Never reference `Wino.Services`, `Wino.Core`, `Wino.Authentication` or anything that synchronizes; the playground runs on sample data.
+
 Do not move application-specific mail behavior into these projects. Keep reusable contracts and collection behavior in Core, reusable presentation behavior in the control libraries, and sample-only data or wiring in the playground.
 
 ## Repository Navigation
@@ -45,7 +47,7 @@ Start with the named control, feature folder, or playground page. Avoid mapping 
 Run commands from the repository root. On Windows, use x64 for routine verification.
 
 ```powershell
-# Platform-neutral logic (build both target frameworks)
+# Platform-neutral logic (one net10.0 target)
 dotnet build controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj -c Debug -p:Platform=x64
 
 # WinUI control library
@@ -106,7 +108,7 @@ When a public control is added or its important states change, update `Wino.Mail
 
 ## Core Library Rules
 
-- Keep the `net10.0` target platform-neutral. Windows-only code must be isolated to the Windows target and guarded consistently with the existing project setup.
+- Keep `Wino.Mail.Controls.Core` platform-neutral: it has one `net10.0` target and no CsWinRT reference or attribute. A Core type that WinUI receives is listed in `Wino.Mail.Controls.WinUI/WinRTExposedTypes.cs`, and each closed generic in the app that names its type argument. `Wino.Mail.Controls.WinUI` references CsWinRT directly.
 - Prefer interfaces and immutable projection/state models at the control boundary.
 - Keep collection projection, selection, grouping, and thread-expansion rules deterministic and independent of XAML controls.
 - Changes to public core contracts must be checked against both `Wino.Mail.Controls.WinUI` and consumers under `src/`.

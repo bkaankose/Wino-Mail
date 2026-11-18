@@ -1,4 +1,5 @@
 using AppKit;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -30,5 +31,38 @@ internal static class ShortcutKeys
         if (char.IsLetter(character)) return character.ToString();
         if (char.IsDigit(character)) return "Number" + character;
         return null;
+    }
+
+    /// <summary>
+    /// The Mac menu notation of a stored shortcut: modifier symbols in the system order (⌃⌥⇧⌘) followed by the key,
+    /// for example ⇧⌘G or ⌘⌫. The shared DisplayName keeps the Windows "Ctrl+Shift+G" form.
+    /// </summary>
+    internal static string Display(ModifierKeys modifiers, string? key)
+    {
+        var symbols = (modifiers.HasFlag(ModifierKeys.Control) ? "⌃" : string.Empty)
+            + (modifiers.HasFlag(ModifierKeys.Alt) ? "⌥" : string.Empty)
+            + (modifiers.HasFlag(ModifierKeys.Shift) ? "⇧" : string.Empty)
+            + (modifiers.HasFlag(ModifierKeys.Command) || modifiers.HasFlag(ModifierKeys.Windows) ? "⌘" : string.Empty);
+        return symbols + KeySymbol(key);
+    }
+
+    private static string KeySymbol(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return string.Empty;
+        switch (key.ToUpperInvariant())
+        {
+            // A stored DELETE also fires on ⌫ (AppDelegate.KeyMatches), the key Mac keyboards label delete.
+            case "BACK" or "BACKSPACE" or "DELETE" or "DEL": return "⌫";
+            case "ENTER" or "RETURN": return "↩";
+            case "TAB": return "⇥";
+            case "ESCAPE" or "ESC": return "⎋";
+            case "SPACE" or "SPACEBAR": return "Space";
+            case "LEFT": return "←";
+            case "RIGHT": return "→";
+            case "UP": return "↑";
+            case "DOWN": return "↓";
+        }
+        if (key.Length == 7 && key.StartsWith("Number", StringComparison.OrdinalIgnoreCase)) return key[6..];
+        return key.Length == 1 ? key.ToUpperInvariant() : key;
     }
 }

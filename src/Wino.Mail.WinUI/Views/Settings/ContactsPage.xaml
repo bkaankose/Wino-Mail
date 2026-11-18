@@ -189,27 +189,13 @@
     </Page.Resources>
 
     <Grid x:Name="RootGrid">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="ListColumn" Width="*" />
             <ColumnDefinition x:Name="DetailColumn" Width="348" />
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="0" Grid.ColumnSpan="2">
-            <Button
-                Margin="12,8"
-                HorizontalAlignment="Right"
-                AutomationProperties.AutomationId="ContactsNewCardDavAddressBook"
-                Command="{x:Bind ViewModel.CreateCardDavAddressBookCommand}"
-                Content="{x:Bind domain:Translator.ContactsPage_NewAddressBook, Mode=OneTime}"
-                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanCreateCardDavAddressBook), Mode=OneWay}" />
-        </StackPanel>
-
         <!--  ============ CONTACT LIST ============  -->
-        <Grid Grid.Row="1" Grid.Column="0">
+        <Grid Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
@@ -327,7 +313,6 @@
         <!--  ============ DETAIL ============  -->
         <Grid
             x:Name="DetailPane"
-            Grid.Row="1"
             Grid.Column="1"
             Background="{ThemeResource LayerOnMicaBaseAltFillColorSecondaryBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -559,7 +544,6 @@
             The surface is opaque because the layout states own the detail pane's visibility.
         -->
         <controls:ModeReadinessPanel
-            Grid.Row="1"
             Grid.ColumnSpan="2"
             AutomationProperties.AutomationId="ContactsModeReadinessPanel"
             Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"

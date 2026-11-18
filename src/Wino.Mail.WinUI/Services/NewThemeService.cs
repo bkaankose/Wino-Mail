@@ -192,11 +192,6 @@ public class NewThemeService : INewThemeService
         }
     }
 
-    public FrameworkElement GetShellRootContent()
-    {
-        return TryGetShellRootContent() ?? throw new Exception("No root content found");
-    }
-
     private bool isInitialized = false;
 
     private const string ThemeNameKey = "ThemeName";

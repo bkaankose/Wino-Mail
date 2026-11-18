@@ -241,7 +241,7 @@ public static class HtmlAgilityPackExtensions
         ConvertTo(doc.DocumentNode, sw);
         sw.Flush();
 
-        return sw.ToString().Replace(Environment.NewLine, "");
+        return Regex.Replace(sw.ToString(), @"\s+", " ").Trim();
     }
 
     /// <summary>
@@ -299,27 +299,33 @@ public static class HtmlAgilityPackExtensions
                 {
                     outText.Write(HtmlEntity.DeEntitize(html));
                 }
+                else if (html.Length > 0)
+                {
+                    // The space between two inline elements, as in "<b>a</b> <i>b</i>".
+                    outText.Write(' ');
+                }
                 break;
 
             case HtmlNodeType.Element:
-                switch (node.Name)
-                {
-                    case "p":
-                        // treat paragraphs as crlf
-                        outText.Write("\r\n");
-                        break;
-                    case "br":
-                        outText.Write("\r\n");
-                        break;
-                }
+                // Block boundaries become spaces, so a heading and the paragraph after it do not run together.
+                var isTextBoundary = IsPreviewTextBoundary(node.Name);
+                if (isTextBoundary)
+                    outText.Write(' ');
 
                 if (node.HasChildNodes)
                 {
                     ConvertContentTo(node, outText);
                 }
+
+                if (isTextBoundary)
+                    outText.Write(' ');
                 break;
         }
     }
+
+    private static bool IsPreviewTextBoundary(string elementName)
+        => elementName.ToLowerInvariant() is "p" or "br" or "div" or "li" or "tr" or "td" or "th" or "table" or "section"
+            or "article" or "header" or "footer" or "blockquote" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6";
 
     private static void ConvertToAccessibleText(HtmlNode node, TextWriter outText)
     {

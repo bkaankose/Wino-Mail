@@ -60,9 +60,9 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial int SelectedReaderDarkModeMethodIndex { get; set; }
 
-    public ReadComposePanePageViewModel(IMailDialogService dialogService,
+    public ReadComposePanePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                     IPreferencesService preferencesService,
-                                    ITranslationService translationService)
+                                    ITranslationService translationService) : base(messenger)
     {
         PreferencesService = preferencesService;
         AvailableSpellCheckLanguages = translationService.GetAvailableLanguages();

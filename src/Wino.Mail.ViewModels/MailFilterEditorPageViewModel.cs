@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -145,13 +146,13 @@ public partial class MailFilterActionEditorItem : ObservableObject
     public ObservableCollection<MailFilterFolderOption> FolderOptions { get; init; }
 }
 
-public partial class MailFilterEditorPageViewModel(
+public partial class MailFilterEditorPageViewModel(IMessenger messenger, 
     IMailFilterService mailFilterService,
     IMailFilterProviderService providerService,
     IAccountService accountService,
     IFolderService folderService,
     IMailDialogService dialogService,
-    INavigationService navigationService) : MailBaseViewModel
+    INavigationService navigationService) : MailBaseViewModel(messenger)
 {
     private readonly IMailFilterService _mailFilterService = mailFilterService;
     private readonly IMailFilterProviderService _providerService = providerService;
@@ -324,8 +325,10 @@ public partial class MailFilterEditorPageViewModel(
             SelectedMatchMode = MatchModes.First(option => option.Value == (source?.MatchMode ?? MailFilterMatchMode.All));
             SelectedSourceFolder = isDuplicate
                 ? null
-                : Folders.FirstOrDefault(folder =>
-                    string.Equals(folder.RemoteFolderId, source?.SourceRemoteFolderId, StringComparison.OrdinalIgnoreCase));
+                : source is null
+                    ? Folders.FirstOrDefault(folder => folder.SpecialFolderType == SpecialFolderType.Inbox)
+                    : Folders.FirstOrDefault(folder =>
+                        string.Equals(folder.RemoteFolderId, source.SourceRemoteFolderId, StringComparison.OrdinalIgnoreCase));
 
             Conditions.Clear();
             foreach (var condition in source?.Conditions ?? [])

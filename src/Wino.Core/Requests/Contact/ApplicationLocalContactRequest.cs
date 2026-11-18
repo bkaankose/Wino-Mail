@@ -1,4 +1,3 @@
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -37,17 +36,17 @@ public sealed class ApplicationLocalContactRequest : IRequestBase
     public object GroupingKey()
         => (Operation, Contact?.Id);
 
-    public void ApplyUIChanges()
-        => Publish(revert: false);
+    public void ApplyUIChanges(IUIMessageSender sender)
+        => Publish(sender, revert: false);
 
-    public void RevertUIChanges()
-        => Publish(revert: true);
+    public void RevertUIChanges(IUIMessageSender sender)
+        => Publish(sender, revert: true);
 
-    private void Publish(bool revert)
+    private void Publish(IUIMessageSender sender, bool revert)
     {
         var contact = revert ? OriginalContact : Contact;
         if (contact is not null)
-            WeakReferenceMessenger.Default.Send(new ContactStateChanged(
+            sender.Send(new ContactStateChanged(
                 contact,
                 OptimisticEntityChange.Upsert,
                 revert ? EntityUpdateSource.ClientReverted : EntityUpdateSource.ClientUpdated));

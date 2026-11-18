@@ -236,7 +236,7 @@ public sealed partial class AndroidDialogService
         {
             var account = await accounts.GetAccountAsync(id);
             if (account is null) return null;
-            return string.IsNullOrWhiteSpace(account.Address) || account.Address == account.Name ? account.Name : $"{account.Name} · {account.Address}";
+            return string.IsNullOrWhiteSpace(account.DisplayAddress) || account.DisplayAddress == account.Name ? account.Name : $"{account.Name} · {account.DisplayAddress}";
         }
         catch (Exception exception)
         {

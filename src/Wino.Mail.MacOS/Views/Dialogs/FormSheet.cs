@@ -85,6 +85,8 @@ internal sealed class FormSheet
         }
         popup.SelectItem(selectedIndex >= 0 && selectedIndex < popup.ItemCount ? selectedIndex : (popup.ItemCount > 0 ? 0 : -1));
         popup.WidthAnchor.ConstraintGreaterThanOrEqualTo(240).Active = true;
+        // A long item title truncates inside the pop-up rather than squeezing the caption column.
+        popup.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         WinoAccessibility.Label(popup, label);
         popup.Activated += (_, _) => Refresh();
         AddRow(label, popup);
@@ -102,7 +104,13 @@ internal sealed class FormSheet
         }
         var caption = WinoStyle.Label(label, WinoStyle.Body, WinoStyle.SecondaryText);
         caption.Alignment = NSTextAlignment.Right;
-        _grid.AddRow([caption, view]);
+        caption.SetContentCompressionResistancePriority(760, NSLayoutConstraintOrientation.Horizontal);
+        var row = _grid.AddRow([caption, view]);
+        // Captions share the first text baseline of single-line controls; taller custom views keep the caption at their top.
+        if (view is NSTextField or NSPopUpButton or NSButton or NSDatePicker or NSComboBox)
+            row.RowAlignment = NSGridRowAlignment.FirstBaseline;
+        else
+            row.Y = NSGridCellPlacement.Top;
     }
 
     /// <summary>A view under the grid that spans the sheet width (a hint, a preview).</summary>
@@ -143,6 +151,8 @@ internal sealed class FormSheet
         };
 
         foreach (var view in _fullWidth) view.WidthAnchor.ConstraintEqualTo(_stack.WidthAnchor, 1, -40).Active = true;
+        // The grid stays inside the 20pt insets; without this a wide control pushed it past the sheet's leading edge.
+        _grid.WidthAnchor.ConstraintLessThanOrEqualTo(_stack.WidthAnchor, 1, -40).Active = true;
         _stack.WidthAnchor.ConstraintEqualTo((nfloat)_width).Active = true;
         WinoLayout.Fill(_stack, _sheet.ContentView!);
         _sheet.SetContentSize(_stack.FittingSize);

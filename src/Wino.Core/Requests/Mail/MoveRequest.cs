@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -18,14 +17,14 @@ public record MoveRequest(MailCopy Item, MailItemFolder FromFolder, MailItemFold
     public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Move;
     public override object GroupingKey() => (Operation, FromFolder.Id, ToFolder?.Id ?? Guid.Empty);
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
-        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
+        sender.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
-        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
+        sender.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
     }
 }
 
@@ -35,21 +34,21 @@ public class BatchMoveRequest : BatchCollection<MoveRequest>, IUIChangeRequest
     {
     }
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
         var removedMails = this.Select(x => x.Item).Where(x => x != null).ToList();
         if (removedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
+        sender.Send(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         var addedMails = this.Select(x => x.Item).Where(x => x != null).ToList();
         if (addedMails.Count == 0)
             return;
 
-        WeakReferenceMessenger.Default.Send(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
+        sender.Send(new BulkMailAddedMessage(addedMails, EntityUpdateSource.ClientReverted));
     }
 }

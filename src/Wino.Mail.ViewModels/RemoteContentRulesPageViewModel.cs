@@ -92,9 +92,9 @@ public partial class RemoteContentRulesPageViewModel : CoreBaseViewModel,
 
     public string ShowingText => string.Format(Translator.RemoteContentRules_ShowingCount, VisibleCount, TotalCount);
 
-    public RemoteContentRulesPageViewModel(IRemoteContentRuleStore ruleStore,
+    public RemoteContentRulesPageViewModel(IMessenger messenger, IRemoteContentRuleStore ruleStore,
                                            IContactService contactService,
-                                           IMailDialogService dialogService)
+                                           IMailDialogService dialogService) : base(messenger)
     {
         _ruleStore = ruleStore;
         _contactService = contactService;

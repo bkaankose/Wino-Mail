@@ -45,7 +45,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         var grouping = Card(Translator.CalendarSettings_AccountGrouping_Header, null, WinoIconGlyph.Folder,
             Bind.Switch(vm, nameof(vm.IsCalendarAccountsGrouped), s => s.IsCalendarAccountsGrouped, (s, v) => s.IsCalendarAccountsGrouped = v, Translator.CalendarSettings_AccountGrouping_Header));
         var startupPopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, MailAccount>(vm, s => s.CalendarStartupAccounts.ToList(),
-            account => string.IsNullOrWhiteSpace(account.Name) ? account.Address ?? string.Empty : $"{account.Name} — {account.Address}",
+            account => string.IsNullOrWhiteSpace(account.Name) ? account.DisplayAddress ?? string.Empty : $"{account.Name} — {account.DisplayAddress}",
             nameof(vm.SelectedCalendarStartupAccount), s => s.SelectedCalendarStartupAccount, (s, v) => s.SelectedCalendarStartupAccount = v,
             itemsCollection: vm.CalendarStartupAccounts);
         var startup = Card(Translator.CalendarSettings_StartupAccount_Header, null, WinoIconGlyph.None, startupPopup);
@@ -56,7 +56,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
             nameof(vm.SelectedNewEventBehaviorOption), s => s.SelectedNewEventBehaviorOption, (s, v) => s.SelectedNewEventBehaviorOption = v, itemsCollection: vm.NewEventBehaviorOptions);
         var newEvent = Card(Translator.CalendarSettings_NewEventBehavior_Header, null, WinoIconGlyph.Calendar, behavior);
         var calendarPopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, AccountCalendarViewModel>(vm, s => s.AvailableNewEventCalendars.ToList(),
-            item => $"{item.Name} — {item.Account?.Address}",
+            item => $"{item.Name} — {item.Account?.DisplayAddress}",
             nameof(vm.SelectedNewEventCalendar), s => s.SelectedNewEventCalendar, (s, v) => s.SelectedNewEventCalendar = v, itemsCollection: vm.AvailableNewEventCalendars);
         var calendar = Card(Translator.CalendarSettings_NewEventCalendar_Header, null, WinoIconGlyph.None, calendarPopup);
         Bind.Visible(calendar, vm, nameof(vm.ShouldShowSpecificNewEventCalendar), s => s.ShouldShowSpecificNewEventCalendar);

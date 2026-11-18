@@ -26,6 +26,8 @@ internal sealed class OnboardingForm<T>(Context context, LinearLayout root, View
 
     public Context Context => context;
 
+    public T Source => source;
+
     /// <summary>Appends a vertical block and adds the pieces <paramref name="build"/> creates to it.</summary>
     public LinearLayout Group(Action build, string? visibleProperty = null, Func<T, bool>? visible = null)
     {
@@ -128,12 +130,12 @@ internal sealed class OnboardingForm<T>(Context context, LinearLayout root, View
     }
 
     /// <summary>A text button that runs <paramref name="command"/> (help links).</summary>
-    public MaterialButton Link(string text, ICommand command)
+    public MaterialButton Link(string text, ICommand command, Func<object?>? parameter = null)
     {
         var button = new MaterialButton(context, null, Resource.Attribute.borderlessButtonStyle) { Text = text, Gravity = GravityFlags.Start | GravityFlags.CenterVertical };
         button.SetTextAppearance(Resource.Style.TextAppearance_Wino_SectionLabel);
         button.SetPadding(0, button.PaddingTop, 0, button.PaddingBottom);
-        binder.Command(button, command);
+        binder.Command(button, command, parameter);
         var parameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent);
         _container.AddView(button, parameters);
         return button;

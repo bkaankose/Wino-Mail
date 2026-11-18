@@ -21,7 +21,7 @@ public sealed class SettingsWindowController : NSWindowController
     public const string AutosaveName = "WinoSettingsWindow";
     private const string ToolbarIdentifier = "WinoSettingsToolbar";
     private const string NavigationItemIdentifier = "WinoSettingsNavigation";
-    private const double SidebarWidth = 230;
+    private const double SidebarWidth = 250;
 
     private readonly SettingsSidebarViewController _sidebar = new();
     private readonly NSSegmentedControl _navigation;
@@ -94,6 +94,9 @@ public sealed class SettingsWindowController : NSWindowController
         header.EdgeInsets = new NSEdgeInsets(22, 32, 6, 32);
         // The window title names the page, as in System Settings; the Windows title block stays out.
         header.Hidden = true;
+        // A hidden view keeps its constraints: at the stack's default (required) clipping resistance a long page
+        // description widened the window past its minimum (the Wino Account page opened 765pt wide).
+        header.SetClippingResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
         titleRow.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -64).Active = true;
         _description.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -64).Active = true;
 
@@ -143,8 +146,13 @@ public sealed class SettingsWindowController : NSWindowController
         _sidebar.PageSelected += (_, page) => SidebarPageSelected?.Invoke(this, page);
         window.WillClose += (_, _) => Closing?.Invoke(this, EventArgs.Empty);
         window.WindowShouldClose = _ => ShouldClose?.Invoke() ?? true;
+        window.InitialFirstResponder = _sidebar.InitialFocus;
         window.DidBecomeKey += (_, _) => ActiveChanged?.Invoke(this, true);
-        window.DidResignKey += (_, _) => ActiveChanged?.Invoke(this, window.IsMainWindow);
+        window.DidResignKey += (_, _) =>
+        {
+            _sidebar.DismissToolTips();
+            ActiveChanged?.Invoke(this, window.IsMainWindow);
+        };
     }
 
     public event EventHandler? BackRequested;

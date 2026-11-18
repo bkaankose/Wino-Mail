@@ -34,7 +34,7 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
     private readonly NSTextField _description;
     private readonly NSButton _modeLink;
     private readonly NSStackView? _externalRow;
-    private readonly List<NSControl> _externalButtons = [];
+    private readonly List<NSView> _externalButtons = [];
     private bool _forgot;
 
     public WinoAccountLoginSheet(IWinoAccountProfileService profile, IWinoAccountExternalSignInService? externalSignIn = null) : base(440)
@@ -57,12 +57,7 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
 
         if (externalSignIn is { IsAppleAvailable: true })
         {
-            var apple = ASAuthorizationAppleIdButton.Create(ASAuthorizationAppleIdButtonType.SignIn, ASAuthorizationAppleIdButtonStyle.Black);
-            apple.TranslatesAutoresizingMaskIntoConstraints = false;
-            apple.CornerRadius = 6;
-            apple.HeightAnchor.ConstraintEqualTo(36).Active = true;
-            WinoAccessibility.Label(apple, Translator.WinoAccount_SignInWithApple);
-            apple.Activated += async (_, _) => await SignInExternallyAsync(token => externalSignIn.SignInWithAppleAsync(token));
+            var apple = new AppleSignInButton(() => _ = SignInExternallyAsync(token => externalSignIn.SignInWithAppleAsync(token)));
             _externalButtons.Add(apple);
         }
         if (externalSignIn is { IsGoogleAvailable: true })
@@ -72,7 +67,7 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
                 BezelStyle = NSBezelStyle.Rounded,
                 ControlSize = NSControlSize.Large,
                 Title = Translator.WinoAccount_SignInWithGoogle,
-                Image = WinoIcons.ColorfulImage(WinoIconGlyph.Google, 16),
+                Image = ProviderMark(WinoIconGlyph.Google),
                 ImagePosition = NSCellImagePosition.ImageLeading,
                 ImageHugsTitle = true,
                 TranslatesAutoresizingMaskIntoConstraints = false
@@ -88,7 +83,7 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
                 BezelStyle = NSBezelStyle.Rounded,
                 ControlSize = NSControlSize.Large,
                 Title = Translator.WinoAccount_SignInWithMicrosoft,
-                Image = WinoIcons.ColorfulImage(WinoIconGlyph.Microsoft, 16),
+                Image = ProviderMark(WinoIconGlyph.Microsoft),
                 ImagePosition = NSCellImagePosition.ImageLeading,
                 ImageHugsTitle = true,
                 TranslatesAutoresizingMaskIntoConstraints = false
@@ -139,7 +134,74 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
     protected override void SetBusy(bool busy)
     {
         base.SetBusy(busy);
-        foreach (var button in _externalButtons) button.Enabled = !busy;
+        foreach (var button in _externalButtons)
+        {
+            if (button is NSControl control) control.Enabled = !busy;
+            else if (button is AppleSignInButton apple) apple.Enabled = !busy;
+        }
+    }
+
+    /// <summary>The provider's 16pt colourful mark with 6pt of space after it, so it does not touch the button title.</summary>
+    private static NSImage ProviderMark(WinoIconGlyph glyph)
+    {
+        var mark = WinoIcons.ColorfulImage(glyph, 16);
+        return NSImage.ImageWithSize(new CoreGraphics.CGSize(22, 16), false, rect =>
+        {
+            mark.Draw(new CoreGraphics.CGRect(0, 0, 16, 16));
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Apple's own button in the style the HIG asks for: white on a dark sheet, black on a light one. A button's style
+    /// is fixed when it is created, so an appearance change replaces it.
+    /// </summary>
+    private sealed class AppleSignInButton : NSView
+    {
+        private readonly Action _activated;
+        private ASAuthorizationAppleIdButton? _button;
+        private bool? _dark;
+        private bool _enabled = true;
+
+        public AppleSignInButton(Action activated)
+        {
+            _activated = activated;
+            TranslatesAutoresizingMaskIntoConstraints = false;
+            HeightAnchor.ConstraintEqualTo(36).Active = true;
+            WinoAccessibility.Label(this, Translator.WinoAccount_SignInWithApple);
+            Rebuild();
+        }
+
+        public bool Enabled
+        {
+            set
+            {
+                _enabled = value;
+                if (_button is not null) _button.Enabled = value;
+            }
+        }
+
+        public override void ViewDidChangeEffectiveAppearance()
+        {
+            base.ViewDidChangeEffectiveAppearance();
+            Rebuild();
+        }
+
+        private void Rebuild()
+        {
+            var dark = WinoIcons.IsDark(EffectiveAppearance);
+            if (_dark == dark) return;
+            _dark = dark;
+            _button?.RemoveFromSuperview();
+            var button = ASAuthorizationAppleIdButton.Create(ASAuthorizationAppleIdButtonType.SignIn,
+                dark ? ASAuthorizationAppleIdButtonStyle.White : ASAuthorizationAppleIdButtonStyle.Black);
+            button.CornerRadius = 6;
+            button.Enabled = _enabled;
+            WinoAccessibility.Label(button, Translator.WinoAccount_SignInWithApple);
+            button.Activated += (_, _) => _activated();
+            _button = button;
+            WinoLayout.Fill(button, this);
+        }
     }
 
     /// <summary>A hairline, "or", a hairline: the rule between the password form and the Apple button.</summary>

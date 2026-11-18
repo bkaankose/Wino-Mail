@@ -71,9 +71,10 @@ public interface IOAuthProtocolClient
     OAuthEndpoints CreateEndpoints(string issuer, OAuthServerMetadata metadata, OAuthTrustSource trustSource);
 
     /// <summary>
-    /// RFC 7591 registration as a public native client. Registers the custom-scheme and loopback redirects when
-    /// <paramref name="preferCustomScheme"/> is set and falls back to loopback only when the server refuses the scheme.
-    /// Without <paramref name="allowLoopback"/> a refused scheme fails the registration instead.
+    /// RFC 7591 registration as a public native client. RFC 8252 lets a server allow either native redirect, so the
+    /// redirect sets are tried in order until the server accepts one: with <paramref name="preferCustomScheme"/> both
+    /// redirects, then the custom scheme alone, then loopback alone; without it loopback alone, then the custom scheme
+    /// alone. Without <paramref name="allowLoopback"/> only the custom scheme is registered.
     /// </summary>
     Task<OAuthClientRegistration> RegisterClientAsync(Uri registrationEndpoint, string? scopes, bool preferCustomScheme, CancellationToken cancellationToken = default, bool allowLoopback = true);
 
@@ -214,23 +215,51 @@ public sealed class OAuthProtocolClient : IOAuthProtocolClient
 
     public async Task<OAuthClientRegistration> RegisterClientAsync(Uri registrationEndpoint, string? scopes, bool preferCustomScheme, CancellationToken cancellationToken = default, bool allowLoopback = true)
     {
-        if (preferCustomScheme || !allowLoopback)
+        var customScheme = OAuthRedirect.CustomSchemeRedirectUri.AbsoluteUri;
+        var loopback = LoopbackRedirectUri.AbsoluteUri;
+
+        // Servers disagree on native redirects: Stalwart registers a loopback redirect but refuses to issue a code to any
+        // http:// address; others accept only loopback and refuse a registration that lists a custom scheme.
+        var attempts = new List<(List<string> RedirectUris, OAuthRedirectKind Kind)>();
+        if (!allowLoopback)
         {
-            try
-            {
-                var clientId = await RegisterAsync(registrationEndpoint, scopes,
-                    [OAuthRedirect.CustomSchemeRedirectUri.AbsoluteUri, LoopbackRedirectUri.AbsoluteUri], cancellationToken).ConfigureAwait(false);
-                return new OAuthClientRegistration(clientId, OAuthRedirectKind.CustomScheme);
-            }
-            catch (OAuthProtocolException ex) when (ex.OAuthError == "invalid_redirect_uri" && allowLoopback)
-            {
-                // Some servers (Stalwart) accept only reverse-domain private-use schemes, so wino:// is refused.
-            }
+            attempts.Add(([customScheme], OAuthRedirectKind.CustomScheme));
+        }
+        else if (preferCustomScheme)
+        {
+            attempts.Add(([customScheme, loopback], OAuthRedirectKind.CustomScheme));
+            attempts.Add(([customScheme], OAuthRedirectKind.CustomScheme));
+            attempts.Add(([loopback], OAuthRedirectKind.Loopback));
+        }
+        else
+        {
+            attempts.Add(([loopback], OAuthRedirectKind.Loopback));
+            attempts.Add(([customScheme], OAuthRedirectKind.CustomScheme));
         }
 
-        var loopbackClientId = await RegisterAsync(registrationEndpoint, scopes, [LoopbackRedirectUri.AbsoluteUri], cancellationToken).ConfigureAwait(false);
-        return new OAuthClientRegistration(loopbackClientId, OAuthRedirectKind.Loopback);
+        for (var index = 0; ; index++)
+        {
+            var (redirectUris, kind) = attempts[index];
+            try
+            {
+                var clientId = await RegisterAsync(registrationEndpoint, scopes, redirectUris, cancellationToken).ConfigureAwait(false);
+                return new OAuthClientRegistration(clientId, kind);
+            }
+            catch (OAuthProtocolException ex) when (index < attempts.Count - 1 && IsRefusedClientMetadata(ex))
+            {
+                Logger.Information("OAuth registration with {RedirectKind} redirect ({RedirectCount}) was refused ({OAuthError}); trying the next redirect.",
+                    kind, redirectUris.Count, ex.OAuthError ?? "no_oauth_error");
+            }
+        }
     }
+
+    /// <summary>
+    /// Not every server names the refused redirect with RFC 7591's invalid_redirect_uri; a 400 or 422 without that code
+    /// is retried with the next redirect set too, and the last refusal is the one reported.
+    /// </summary>
+    private static bool IsRefusedClientMetadata(OAuthProtocolException ex)
+        => ex.OAuthError is "invalid_redirect_uri" or "invalid_client_metadata"
+           || ex.StatusCode is 400 or 422;
 
     private async Task<string> RegisterAsync(Uri registrationEndpoint, string? scopes, List<string> redirectUris, CancellationToken cancellationToken)
     {
@@ -374,7 +403,7 @@ public sealed class OAuthProtocolClient : IOAuthProtocolClient
     /// RFC 8414 requires an identical issuer; a trailing slash is ignored on both sides because servers disagree
     /// on it and it changes neither the origin nor the path.
     /// </summary>
-    internal static bool IssuerEquals(string? documentIssuer, string requestedIssuer)
+    public static bool IssuerEquals(string? documentIssuer, string requestedIssuer)
         => !string.IsNullOrWhiteSpace(documentIssuer)
            && string.Equals(documentIssuer.Trim().TrimEnd('/'), requestedIssuer.Trim().TrimEnd('/'), StringComparison.Ordinal);
 

@@ -115,13 +115,13 @@ public partial class AccountSetupPageViewModel
         AccountNameError = string.Empty;
 
         var name = AccountName?.Trim() ?? string.Empty;
-        if (IsLocalOnlyMode && name.Length == 0)
+        if (name.Length == 0)
         {
             AccountNameError = Translator.AccountSetup_AccountNameRequired;
             return false;
         }
 
-        if (name.Length > 0 && await IsAccountNameTakenAsync(name))
+        if (await IsAccountNameTakenAsync(name))
             return false;
 
         return ValidateFeatureSelection();
@@ -235,7 +235,7 @@ public partial class AccountSetupPageViewModel
 
     private void OnCapabilitiesPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AccountCapabilitySelection.HasAnyCapability) or nameof(AccountCapabilitySelection.RequiresRemoteService))
+        if (e.PropertyName is nameof(AccountCapabilitySelection.HasAnyCapability) or nameof(AccountCapabilitySelection.RequiresRemoteService) or nameof(AccountCapabilitySelection.IsMailEnabled))
             NotifyStepContentChanged();
     }
 

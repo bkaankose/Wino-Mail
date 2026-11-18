@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -91,12 +92,15 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
         }
     }
 
-    public AliasManagementPageViewModel(IMailDialogService dialogService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public AliasManagementPageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                                         IAccountService accountService,
                                         ISmimeCertificateService smimeCertificateService,
                                         IPlatformCapabilities platformCapabilities,
-                                        IWinoLogger logger)
+                                        IWinoLogger logger) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         _dialogService = dialogService;
         _accountService = accountService;
         _smimeCertificateService = smimeCertificateService;
@@ -167,7 +171,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
         try
         {
-            var aliasSyncResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(Account.Id);
+            var aliasSyncResult = await _synchronizationManager.SynchronizeAliasesAsync(Account.Id);
 
             if (aliasSyncResult.CompletedState == SynchronizationCompletedState.Success)
                 await LoadAliasesAsync();

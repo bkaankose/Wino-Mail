@@ -20,10 +20,15 @@ namespace Wino.Mail.MacOS.Views.Onboarding;
 /// Fields are a Preferences-style grid inside collapsible sections; Return runs the primary action.
 /// </summary>
 public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
-    : WinoViewController<ImapCalDavSettingsPageViewModel>(viewModel, dispatcher, logger)
+    : WinoViewController<ImapCalDavSettingsPageViewModel>(viewModel, dispatcher, logger), Settings.ISettingsPageTitleSource
 {
     private FormBinder<ImapCalDavSettingsPageViewModel> _form = null!;
     private NSButton _primary = null!;
+
+    /// <summary>Editing in the Settings window, the window title names the page; adding an account, the page shows its own title.</summary>
+    public string? PageTitle => ViewModel.IsEditMode ? Translator.ImapCalDavSettingsPage_TitleEdit : null;
+
+    public event EventHandler? PageTitleChanged;
 
     public override void LoadView()
     {
@@ -111,7 +116,14 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         _form.Bind(nameof(vm.PrimaryActionText), s => s.PrimaryActionText, text => _primary.Title = text);
         VisibleWhen(_primary, s => s.IsPrimaryActionVisible, nameof(vm.IsPrimaryActionVisible));
 
-        View = new OnboardingPageView(header, content, busy, [back, cancel], _primary, 640);
+        var page = new OnboardingPageView(header, content, busy, [back, cancel], _primary, 640);
+        _form.Bind(nameof(vm.IsEditMode), s => s.IsEditMode, editing =>
+        {
+            header.Hidden = editing;
+            page.UsesSettingsLayout = editing;
+            PageTitleChanged?.Invoke(this, EventArgs.Empty);
+        });
+        View = page;
     }
 
     #region Sections
@@ -366,7 +378,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);
         var column = WinoLayout.VStack(WinoStyle.Space3, picker, missing);
         foreach (var view in column.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
-        var group = OnboardingPageView.Group(Translator.ImapSetup_FeaturesGroup, column);
+        // The capability cards are cards already; a group surface around them nested cards inside a card.
+        var group = OnboardingPageView.Section(Translator.ImapSetup_FeaturesGroup, column);
         _form.Visible(group, nameof(vm.IsEditMode), s => s.IsEditMode);
         return group;
     }
@@ -701,6 +714,9 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         foreach (var constraint in port.Constraints.Where(c => c.FirstAttribute == NSLayoutAttribute.Width && c.Relation == NSLayoutRelation.GreaterThanOrEqual))
             constraint.Active = false;
         port.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
+        // With the port beside it, the host field may be narrower than a full-width field; the row then fits the Settings page at its minimum width.
+        foreach (var constraint in host.Constraints.Where(c => c.FirstAttribute == NSLayoutAttribute.Width && c.Relation == NSLayoutRelation.GreaterThanOrEqual))
+            constraint.Constant = 150;
         if (string.IsNullOrEmpty(port.PlaceholderString)) port.PlaceholderString = Translator.IMAPSetupDialog_IncomingMailServerPort;
         var row = WinoLayout.HStack(WinoStyle.Space2, host, port);
         row.Alignment = NSLayoutAttribute.FirstBaseline;
@@ -740,9 +756,14 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             var file = Path.Combine(Path.GetTempPath(), "wino-debug", "lab-fixtures.json");
             if (args.Length == 0 || !File.Exists(file)) return "usage: imap-fill KEY (needs lab-fixtures.json)";
             using var doc = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(file));
-            var account = doc.RootElement.GetProperty("accounts").EnumerateArray().FirstOrDefault(a => a.GetProperty("key").GetString() == args[0]);
+            // POP3 lab accounts are listed apart, under pop3Accounts, with pop3Host / pop3Port / pop3Security.
+            var account = new[] { "accounts", "pop3Accounts" }
+                .SelectMany(list => doc.RootElement.TryGetProperty(list, out var items) ? items.EnumerateArray() : Enumerable.Empty<System.Text.Json.JsonElement>())
+                .FirstOrDefault(a => a.GetProperty("key").GetString() == args[0]);
             if (account.ValueKind == System.Text.Json.JsonValueKind.Undefined) return "no such lab account";
-            string S(string name) => account.TryGetProperty(name, out var v) ? v.ToString() : string.Empty;
+            string S(string name) => account.TryGetProperty(name, out var v) ? v.ToString()
+                : name.StartsWith("imap", StringComparison.Ordinal) && account.TryGetProperty("pop3" + name[4..], out var pop) ? pop.ToString()
+                : name == "password" && doc.RootElement.TryGetProperty("password", out var shared) ? shared.ToString() : string.Empty;
             ImapConnectionSecurity Security(string name)
                 => Enum.TryParse<ImapConnectionSecurity>(S(name), out var security) ? security : ImapConnectionSecurity.None;
             var smtpUsername = S("smtpUsername") is { Length: > 0 } login ? login : S("address");

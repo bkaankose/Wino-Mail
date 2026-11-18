@@ -24,7 +24,8 @@ public sealed class AccountReauthenticationService(
     IAccountProviderFeatureService featureService,
     ISynchronizationManager synchronizationManager,
     IMessenger messenger,
-    IExchangeInteractiveSignInService exchangeSignInService) : IAccountReauthenticationService
+    IExchangeInteractiveSignInService exchangeSignInService,
+    IMailProviderRegistry providers) : IAccountReauthenticationService
 {
     private readonly ILogger _logger = Log.ForContext<AccountReauthenticationService>();
 
@@ -36,7 +37,7 @@ public sealed class AccountReauthenticationService(
         if (account.ProviderType == MailProviderType.Exchange)
             return await ReauthenticateExchangeAsync(account, cancellationToken).ConfigureAwait(false);
 
-        if (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
+        if (!providers.GetTraits(account.ProviderType).UsesInteractiveOAuth)
             throw new NotSupportedException("Only Gmail and Outlook accounts can be re-authenticated interactively.");
 
         // The sign-in asks for exactly the modes the user turned on. Provider scopes follow the
@@ -244,7 +245,8 @@ public sealed class AccountReauthenticationService(
             messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = account.Id,
-                Type = TaskSynchronizationType.Delta
+                Type = TaskSynchronizationType.Delta,
+                IsUserInitiated = true
             }));
         }
     }

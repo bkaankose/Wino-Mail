@@ -195,9 +195,12 @@ public sealed class WinoAccountBenefitDetailPanel : WinoSurfaceView
         }
         copy.SetCustomSpacing(18, _points);
         copy.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
+        copy.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
 
         var row = WinoLayout.HStack(0, _art, divider, copy);
         row.Alignment = NSLayoutAttribute.Height;
+        // Gravity areas would leave the copy at its narrowest wrap width; Fill gives it the rest of the panel.
+        row.Distribution = NSStackViewDistribution.Fill;
         WinoLayout.Fill(row, this);
         UpdateArtVisibility();
     }
@@ -334,23 +337,22 @@ public sealed class WinoAccountBenefitIllustrationView : NSView
     private static void DrawDeviceTransfer()
     {
         // Two devices: the old one in neutral strokes, the new one in the accent.
-        Rect(6, 34, 88, 98, 9, Card, Divider);
-        Rect(16, 46, 52, 7, 3.5, Tertiary(0.5));
-        Rect(16, 61, 68, 6, 3, Tertiary(0.28));
-        Rect(16, 75, 68, 6, 3, Tertiary(0.28));
-        Rect(16, 89, 46, 6, 3, Tertiary(0.28));
+        Rect(6, 34, 80, 98, 9, Card, Divider);
+        Rect(16, 46, 46, 7, 3.5, Tertiary(0.5));
+        Rect(16, 61, 60, 6, 3, Tertiary(0.28));
+        Rect(16, 75, 60, 6, 3, Tertiary(0.28));
+        Rect(16, 89, 40, 6, 3, Tertiary(0.28));
         Rect(16, 107, 34, 14, 7, Accent(0.8));
 
-        Rect(146, 34, 88, 98, 9, Card, Accent());
-        Rect(156, 46, 52, 7, 3.5, Accent(0.55));
-        Rect(156, 61, 68, 6, 3, Tertiary(0.28));
-        Rect(156, 75, 68, 6, 3, Tertiary(0.28));
-        Rect(156, 89, 46, 6, 3, Tertiary(0.28));
-        Rect(156, 107, 34, 14, 7, Accent(0.8));
+        Rect(154, 34, 80, 98, 9, Card, Accent());
+        Rect(164, 46, 46, 7, 3.5, Accent(0.55));
+        Rect(164, 61, 60, 6, 3, Tertiary(0.28));
+        Rect(164, 75, 60, 6, 3, Tertiary(0.28));
+        Rect(164, 89, 40, 6, 3, Tertiary(0.28));
+        Rect(164, 107, 34, 14, 7, Accent(0.8));
 
         // StrokeDashArray "1,3" is in stroke widths (2pt).
-        StrokePath("M96,62 C112,40 128,40 144,62", Accent(), 2, round: false, dash: [2, 6]);
-        StrokePath("M138,56 L145,62 L138,68", Accent(), 2);
+        StrokePath("M88,100 H152", Accent(), 2, round: false, dash: [2, 6]);
         Ellipse(101, 81, 38, 38, Accent());
         StrokePath("M112,100 L118,106 L128,94", NSColor.White, 2.4);
     }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
@@ -6,7 +7,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 
-public class SignatureService(IDatabaseService databaseService, IAppMetadataService appMetadataService) : BaseDatabaseService(databaseService), ISignatureService
+public class SignatureService(IDatabaseService databaseService, IMessenger messenger, IAppMetadataService appMetadataService) : BaseDatabaseService(databaseService, messenger), ISignatureService
 {
     public async Task<AccountSignature> GetSignatureAsync(Guid signatureId)
     {

@@ -19,6 +19,7 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
 {
     private const double DetailWidth = 348;
     private const double WideBreakpoint = 1008;
+    private const double DefaultSidebarWidth = 280;
 
     private readonly AppKitNavigationService _navigation;
     private readonly IPictureStorageService _pictures;
@@ -132,13 +133,25 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
     public override void ViewDidLayout()
     {
         base.ViewDidLayout();
-        var width = View.Window?.Frame.Width ?? View.Bounds.Width + 260;
-        bool wide = width >= WideBreakpoint;
-        if (_detailPane.Hidden == wide)
-        {
-            _detailPane.Hidden = !wide;
-            _detailWidth.Constant = wide ? (nfloat)DetailWidth : 0;
-        }
+        UpdateDetailPane();
+    }
+
+    /// <summary>
+    /// Below the Windows breakpoint the details pane stays collapsed until a contact is selected; then it
+    /// shares the zone with the list, narrower if needed, so a selection always shows the contact.
+    /// </summary>
+    private void UpdateDetailPane()
+    {
+        // The page's own width, not the window's: the sidebar keeps the width the user dragged it to, so a wide sidebar
+        // in a small window left the list a few letters wide beside a full-width details pane. The zone's bounds are
+        // not laid out yet when this runs, so they lagged one resize behind.
+        var width = View.Bounds.Width;
+        bool wide = width >= WideBreakpoint - DefaultSidebarWidth;
+        bool show = wide || ViewModel.SelectedContact is not null;
+        double paneWidth = wide ? DetailWidth : Math.Min(DetailWidth, Math.Max(280, Math.Floor(width / 2)));
+        if (_detailPane.Hidden != !show) _detailPane.Hidden = !show;
+        var constant = (nfloat)(show ? paneWidth : 0);
+        if (_detailWidth.Constant != constant) _detailWidth.Constant = constant;
     }
 
     private void ReadinessChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -171,7 +184,17 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
         _ = Task.Run(() =>
         {
             NSImage? image = null;
-            try { if (File.Exists(path)) image = new NSImage(path); }
+            try
+            {
+                if (File.Exists(path)) image = new NSImage(path);
+                // A file AppKit cannot decode, or a placeholder a few pixels wide (some CardDAV servers store a 1×1 PHOTO),
+                // drew an empty circle where the initials belong.
+                if (image is not null && (!image.IsValid || image.Representations().All(static rep => rep.PixelsWide is > 0 and < 8 || rep.PixelsHigh is > 0 and < 8)))
+                {
+                    image.Dispose();
+                    image = null;
+                }
+            }
             catch (Exception exception) { ReportError(exception); }
             NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
             {

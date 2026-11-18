@@ -70,6 +70,7 @@ public static class UIKitDebugBridge
 
     private static void RegisterBuiltIns(IServiceProvider services)
     {
+        (services.GetService(typeof(Wino.Core.Domain.Interfaces.IEmbeddedBrowserAuthBroker)) as UIKitEmbeddedBrowserAuthBroker)?.RegisterDebugCommands();
         Register("sleep", async args => { await Task.Delay(args.Length > 0 && int.TryParse(args[0], out var ms) ? ms : 500); return "ok"; });
         Register("snap", args => Task.FromResult(Snap(args.Length > 0 ? args[0] : "snap")));
         // "who TYPE": a field path from the page's ViewModel, the shell ViewModel or the singletons to a live TYPE instance.

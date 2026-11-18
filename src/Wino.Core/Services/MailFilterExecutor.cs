@@ -157,6 +157,14 @@ public class MailFilterExecutor(
                         break;
                     }
 
+                    // A move without a destination used to open the folder picker here; nobody answers it during a sync.
+                    if (operation == MailOperation.Move && targetFolder == null)
+                    {
+                        _logger.Warning("Skipping a move action of mail filter {FilterId}; it has no target folder.", filter.Id);
+                        terminalActionQueued |= IsTerminal(action.Type);
+                        continue;
+                    }
+
                     var preparation = new MailOperationPreperationRequest(
                         operation,
                         message,

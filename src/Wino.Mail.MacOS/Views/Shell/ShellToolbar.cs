@@ -6,6 +6,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Controls;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 
@@ -19,6 +20,7 @@ namespace Wino.Mail.MacOS.Views.Shell;
 internal sealed class ShellToolbar : NSToolbarDelegate
 {
     private const string ToggleSidebarId = "wino.toggleSidebar";
+    private const string ModesId = "wino.modes";
     private const string SyncId = "wino.sync";
     private const string SidebarSeparatorId = "wino.sidebarSeparator";
     private const string TitleId = "wino.title";
@@ -147,6 +149,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private static readonly string[] LeadingIdentifiers =
     [
         ToggleSidebarId,
+        // Shown only while the pane is collapsed: the pane's mode switcher is gone with it.
+        ModesId,
         // Adjacent buttons share one glass capsule; the space gives sync a capsule of its own.
         NSToolbar.NSToolbarSpaceItemIdentifier,
         SyncId,
@@ -190,6 +194,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private bool LegacyHidden(string id) => id switch
     {
         SyncId => _syncHidden,
+        ModesId => !_modesShown,
         BriefingId => !_briefingVisible,
         WhatsNewId => !_whatsNewVisible,
         AccountId => _accountHidden,
@@ -351,6 +356,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
                 toggle.ToolTip = $"{Translator.MacOSMenu_ToggleSidebar} (⌃⌘S)";
                 toggle.Navigational = true;
                 return toggle;
+            case ModesId:
+                return _modesItem = CreateModesItem();
             case SyncId:
                 return _syncItem = CreateSyncItem();
             case TitleId:
@@ -408,6 +415,10 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         var item = Button(id, entry.Glyph, title, null);
         var button = (NSButton)item.View!;
         button.Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
+        button.ImageHugsTitle = true;
+        // The stable width of Flag and ToggleRead leaves spare room; leading-aligned, it collects after the title
+        // instead of between the glyph and the title.
+        button.Alignment = NSTextAlignment.Left;
         button.Activated += (_, _) => Safe(() => _execute(entry.Command, button));
         _commandItems[entry.Command] = item;
         ApplyCommandState(entry.Command, item);
@@ -462,6 +473,35 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         ApplyStableWidth(button);
     }
 
+    /// <summary>Re-labels the items whose text was fixed when they were created, after the app language changed.</summary>
+    public void ApplyLanguage()
+    {
+        foreach (var (command, item) in _commandItems)
+        {
+            var entry = Commands.First(entry => entry.Command == command);
+            var (glyph, title) = ToggledAppearance(command, _isActive(command)) ?? (entry.Glyph, entry.Title());
+            SetItemText(item, title);
+            if (item.View is NSButton button)
+            {
+                button.Image = WinoIcons.Image(glyph, 17, null, title);
+                ApplyCommandLabel(button, item);
+            }
+        }
+        if (_whatsNewItem is not null) SetItemText(_whatsNewItem, Translator.WhatsNew_ShellButtonTooltip);
+        if (_briefingItem is not null) SetItemText(_briefingItem, Translator.DailyBriefing_Menu);
+        SetRelayFallbackActive(_relayFallbackActive);
+    }
+
+    private static void SetItemText(NSToolbarItem item, string title)
+    {
+        item.Label = title;
+        item.PaletteLabel = title;
+        item.ToolTip = title;
+        if (item.View is not NSButton button) return;
+        button.ToolTip = title;
+        WinoAccessibility.Label(button, title);
+    }
+
     private void ApplyCommandState(ShellCommand command, NSToolbarItem item)
     {
         if (SupportsHiddenItems) item.Hidden = !_hasCommandTarget();
@@ -497,7 +537,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
 
     private NSToolbarItem CreateSyncItem()
     {
-        var label = "Synchronize";
+        var label = Translator.Buttons_Sync;
         var item = Button(SyncId, WinoIconGlyph.Sync, label, () => _synchronize());
         _syncButton = (NSButton)item.View!;
         _syncProgress = new NSProgressIndicator
@@ -535,7 +575,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         _relayFallbackActive = active;
         if (_relayFallbackDot is not null) _relayFallbackDot.Hidden = !active;
         if (_syncButton is not null)
-            _syncButton.ToolTip = active ? $"{Translator.Relay_FallbackFlyoutTitle}. {Translator.Relay_FallbackFlyoutMessage}" : "Synchronize";
+            _syncButton.ToolTip = active ? $"{Translator.Relay_FallbackFlyoutTitle}. {Translator.Relay_FallbackFlyoutMessage}" : Translator.Buttons_Sync;
     }
 
     private NSToolbarItem CreateBriefingItem()
@@ -620,6 +660,11 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         if (_searchItem?.SearchField is { } field) field.StringValue = text ?? string.Empty;
     }
 
+    public void ShowSearchText(string text)
+    {
+        if (_searchItem?.SearchField is { CurrentEditor: null } field && field.StringValue != text) field.StringValue = text;
+    }
+
     /// <summary>Re-reads search support from the current content page.</summary>
     public void Revalidate()
     {
@@ -642,9 +687,9 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         _syncHidden = !supported;
         SetItemHidden(_syncItem, !supported);
         _syncButton.Enabled = canSynchronize && !isSynchronizing;
-        _syncButton.Image = isSynchronizing ? null : WinoIcons.Image(WinoIconGlyph.Sync, 17, null, "Synchronize");
+        _syncButton.Image = isSynchronizing ? null : WinoIcons.Image(WinoIconGlyph.Sync, 17, null, Translator.Buttons_Sync);
         if (isSynchronizing) _syncProgress.StartAnimation(null); else _syncProgress.StopAnimation(null);
-        var tip = string.IsNullOrWhiteSpace(toolTip) ? "Synchronize" : toolTip;
+        var tip = string.IsNullOrWhiteSpace(toolTip) ? Translator.Buttons_Sync : toolTip;
         _syncItem.ToolTip = tip;
         _syncButton.ToolTip = tip;
         WinoAccessibility.Label(_syncButton, tip);
@@ -677,5 +722,74 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     {
         _accountHidden = hidden;
         SetItemHidden(_accountItem, hidden);
+    }
+
+    private NSMenuToolbarItem? _modesItem;
+    private bool _modesShown;
+    private WinoApplicationMode _currentMode = WinoApplicationMode.Mail;
+    private IReadOnlyCollection<WinoApplicationMode>? _visibleModes;
+
+    /// <summary>Runs when a mode is picked from the toolbar's mode menu.</summary>
+    public Action<WinoApplicationMode>? ModeSelected { get; set; }
+
+    private NSMenuToolbarItem CreateModesItem()
+    {
+        var item = new NSMenuToolbarItem(ModesId)
+        {
+            Label = Translator.KeyboardShortcuts_Mode,
+            PaletteLabel = Translator.KeyboardShortcuts_Mode,
+            ToolTip = Translator.KeyboardShortcuts_Mode,
+            ShowsIndicator = true,
+            Navigational = true,
+            Menu = new NSMenu { AutoEnablesItems = false }
+        };
+        if (SupportsHiddenItems) item.Hidden = !_modesShown;
+        _modesItem = item;
+        ApplyModes();
+        return item;
+    }
+
+    /// <summary>
+    /// The mode menu that replaces the pane's switcher while the pane is collapsed: the current mode's glyph
+    /// with a menu of the visible modes and Settings, in the switcher's order.
+    /// </summary>
+    public void SetModes(WinoApplicationMode current, IReadOnlyCollection<WinoApplicationMode>? visible, bool shown)
+    {
+        bool changed = current != _currentMode || !ReferenceEquals(visible, _visibleModes);
+        _currentMode = current;
+        _visibleModes = visible;
+        if (_modesShown != shown)
+        {
+            _modesShown = shown;
+            SetItemHidden(_modesItem, !shown);
+        }
+        if (changed) ApplyModes();
+    }
+
+    private void ApplyModes()
+    {
+        if (_modesItem?.Menu is not { } menu) return;
+        var previous = menu.Items;
+        menu.RemoveAllItems();
+        foreach (var old in previous) old.Dispose();
+        // The item pulls its menu down: the first entry is its title and never shows.
+        menu.AddItem(new NSMenuItem(Translator.KeyboardShortcuts_Mode));
+        foreach (var segment in WinoModeSegments.All)
+        {
+            bool isSettings = segment.Mode == WinoApplicationMode.Settings;
+            if (!isSettings && _visibleModes is { } visible && !visible.Contains(segment.Mode)) continue;
+            if (isSettings) menu.AddItem(NSMenuItem.SeparatorItem);
+            var mode = segment.Mode;
+            var entry = new NSMenuItem(segment.Title, (_, _) => Safe(() => ModeSelected?.Invoke(mode)))
+            {
+                Image = WinoIcons.Image(segment.Regular, 15, null, segment.Title),
+                State = mode == _currentMode ? NSCellStateValue.On : NSCellStateValue.Off
+            };
+            menu.AddItem(entry);
+            if (mode == _currentMode)
+            {
+                _modesItem.Image = WinoIcons.Image(segment.Regular, 17, null, $"{Translator.KeyboardShortcuts_Mode}, {segment.Title}");
+            }
+        }
     }
 }

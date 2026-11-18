@@ -35,6 +35,6 @@ public partial class AccountStorageItemViewModel(MailAccount account, long sizeB
     public partial ICommand DeleteYearCommand { get; set; } = deleteYearCommand;
 
     public string AccountName => string.IsNullOrWhiteSpace(Account.Name) ? Account.Address ?? string.Empty : Account.Name;
-    public string AccountAddress => Account.Address ?? string.Empty;
+    public string AccountAddress => Account.DisplayAddress ?? string.Empty;
     public string SizeText => SizeBytes.GetBytesReadable();
 }

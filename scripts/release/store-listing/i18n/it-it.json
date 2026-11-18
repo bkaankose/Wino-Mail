@@ -1,0 +1,114 @@
+{
+  "scenes": {
+    "head_mail": "Tutti i tuoi account,<br>una sola casella,<br><em>zero stress</em>",
+    "head_calendar": "La tua settimana,<br>proprio accanto<br><em>alla tua posta</em>",
+    "head_people": "Tutti i tuoi contatti,<br><em>in un unico posto</em>",
+    "head_todo": "Organizza la giornata<br><em>accanto alla posta</em>",
+    "head_themes": "Rendilo<br><em>tuo</em>",
+    "head_privacy": "Leggi la posta senza<br><em>occhi indiscreti</em>",
+    "head_assistant": "Wino<br><em>Assistant</em>",
+    "head_companion": "La tua giornata<br><em>a colpo d'occhio</em>",
+    "head_features": "Tutto ciò che serve,<br><em>già integrato</em>",
+    "assistant_sub": "Un assistente intelligente che mette la privacy al primo posto e gestisce posta, calendario e attività.",
+    "badge_privacy": "Privacy al primo posto",
+    "badge_paid": "Abbonamento a pagamento",
+    "features": [
+      [
+        "Notifiche push in tempo reale",
+        "La nuova posta, appena arriva"
+      ],
+      [
+        "App nativa e veloce",
+        "Poca memoria, niente wrapper web"
+      ],
+      [
+        "Account raggruppati",
+        "Più account in una sola Posta in arrivo"
+      ],
+      [
+        "Alias di posta",
+        "Invia da qualsiasi tuo indirizzo"
+      ],
+      [
+        "Scelte rapide da tastiera",
+        "Lavora senza staccare le mani dai tasti"
+      ],
+      [
+        "Widget &amp; Live Tile",
+        "Posta, eventi e attività sul desktop"
+      ],
+      [
+        "Modelli di email",
+        "Riusa le risposte che scrivi più spesso"
+      ],
+      [
+        "Firme",
+        "Una firma per ogni account"
+      ],
+      [
+        "Controllo ortografico",
+        "Scova i refusi mentre scrivi"
+      ]
+    ],
+    "vb_said_heard": "Metti un pranzo con Morgan venerdì",
+    "vb_said_rest": "nel mio calendario e invita il team di design",
+    "vb_ask": "Ecco cosa farò",
+    "vb_account": "Lavoro",
+    "vb_step1": "Trova le email con <strong>fattura</strong> di <strong>questo mese</strong>",
+    "vb_step1_detail": "7 trovate in alex@contoso.com",
+    "vb_step2": "Spostale in <strong>Finanze</strong>",
+    "vb_step3": "Rispondi a <strong>Avery</strong>",
+    "vb_step3_detail": "“Arrivo con dieci minuti di ritardo, la riunione sul budget sta andando per le lunghe.”",
+    "vb_yes": "Sì",
+    "vb_no": "No",
+    "vb_done": "Ho segnato come lette <strong>12 email</strong> di newsletter"
+  },
+  "listing": {
+    "shortDescription": "App Windows nativa e veloce per posta, calendario, contatti e attività. Outlook, Gmail, iCloud, Exchange, IMAP e POP3 in un'unica Posta in arrivo, senza caos.",
+    "description": "Wino Mail è un'app nativa per Windows per la tua posta, il calendario, i contatti e le attività. Non è un wrapper web: si avvia in un attimo, resta sempre reattiva e usa poca memoria, su x64 e ARM64. Wino si sincronizza direttamente con i tuoi provider e tiene la posta sul tuo PC.\n\nWino ha quattro modalità: Mail, Calendar, People e To Do. Passi dall'una all'altra all'istante e ognuna ha la propria voce nel menu Start.\n\nWINO MAIL\n• Collega Outlook, Gmail, iCloud, Exchange Server e qualsiasi account IMAP o POP3\n• Accedi agli account IMAP in modo sicuro dal browser, senza password per le app\n• Riunisci gli account in gruppi con un'unica Posta in arrivo, oppure tienili separati\n• Gestisci i messaggi senza aprirli, con le azioni al passaggio del mouse, le azioni di scorrimento e i menu di scelta rapida con ricerca\n• Smista automaticamente la nuova posta con i filtri di posta\n• Rispondi agli inviti agli eventi direttamente dal messaggio\n• Leggi i messaggi in modalità scura e disponi come preferisci i pulsanti del riquadro di lettura\n• Scrivi con alias, firme, modelli e formattazione avanzata\n\nWINO CALENDAR\n• Vedi i calendari di Outlook, Google, Exchange e CalDAV in un'unica visualizzazione\n• Usa le visualizzazioni giorno, settimana, settimana lavorativa e mese, che si aprono sull'ora corrente\n• Crea e modifica eventi, serie ricorrenti e promemoria\n• Scorri tra giorni, settimane e mesi con mouse, penna o tocco\n\nWINO PEOPLE\n• Gestisci i contatti di tutti i tuoi account in un unico posto\n• Organizzali con rubriche, elenchi, categorie e preferiti\n• Salva per ogni contatto più indirizzi email, numeri di telefono, indirizzi, compleanni, note e foto\n• Sincronizza con Outlook, Gmail, Exchange e CardDAV\n\nWINO TO DO\n• Pianifica con My Day, Importante, Pianificato, Tutto e Completato\n• Aggiungi passaggi, scadenze, promemoria, priorità e note\n• Raggruppa le liste di attività e assegna loro un colore\n• Sincronizza con Microsoft To Do, Google Tasks, Exchange e CalDAV\n\nA COLPO D'OCCHIO\n• Aggiungi i widget di Wino alla bacheca dei widget di Windows 11, oppure aggiungi il Live Tile a Start su Windows 10\n• Ricevi notifiche push immediate e agisci sul messaggio direttamente dalla notifica\n• Controlla la prossima riunione, la posta non letta e le attività di My Day dall'area di notifica\n\nPRIVACY E SICUREZZA\n• Blocca i tracker delle email e i contenuti remoti\n• Imposta regole per i mittenti e i domini di cui ti fidi\n• Ripulisci i link dal tracciamento e ricevi un avviso prima di aprire allegati rischiosi\n• Esegui il backup dei tuoi dati e ripristinali, con protezione tramite password\n\nRENDILO TUO\n• Scegli un tema dalla raccolta o creane uno tuo partendo da uno sfondo e da un colore principale\n• Usa i temi Chiaro, Scuro e a contrasto di Windows, e uno stile di icone colorato\n• Mostra solo le modalità che usi e dai a ogni account la sua immagine\n\nWINO INTELLIGENCE (FACOLTATIVO)\n• Wino Assistant: premi una scelta rapida in qualsiasi app, poi scrivi o di' quello che vuoi fare. Wino ti mostra il suo piano e non cambia nulla finché non dici Sì\n• Riepilogo quotidiano: la posta che conta, con azioni come Paga fattura o Traccia spedizione\n• Riassumi e traduci qualsiasi messaggio\nWino Intelligence richiede un abbonamento Wino Account. Tutto il resto di questo elenco è gratuito.\n\nWino Mail è pensato per chi cerca un sostituto affidabile e moderno delle vecchie app Posta e Calendario di Windows. È open source: https://github.com/bkaankose/Wino-Mail",
+    "features": [
+      "Account Outlook, Gmail, iCloud, Exchange Server, IMAP e POP3 in una sola app",
+      "App nativa per Windows su x64 e ARM64, non un wrapper web",
+      "Quattro modalità in una finestra: Mail, Calendar, People e To Do",
+      "Gruppi di account che riuniscono più account in un'unica Posta in arrivo",
+      "Azioni al passaggio del mouse, azioni di scorrimento e menu di scelta rapida con ricerca",
+      "Filtri di posta che spostano, archiviano, contrassegnano o segnano la nuova posta al posto tuo",
+      "Inviti agli eventi da accettare o rifiutare direttamente dal messaggio",
+      "Calendari di Outlook, Google, Exchange e CalDAV in un'unica visualizzazione",
+      "Contatti con rubriche, elenchi, categorie e preferiti",
+      "Attività con My Day, passaggi, scadenze e promemoria",
+      "Sincronizzazione con Microsoft To Do, Google Tasks e le liste di attività CalDAV",
+      "Widget per Windows 11 e Live Tile per Windows 10",
+      "Notifiche push immediate con azioni",
+      "Blocco dei tracker, regole per i contenuti remoti e link ripuliti",
+      "Raccolta di temi, temi personalizzati e uno stile di icone colorato",
+      "Temi Chiaro, Scuro e a contrasto di Windows",
+      "Modalità scura per i messaggi",
+      "Backup e ripristino protetti da password",
+      "Wino Assistant, riepilogo quotidiano, riassunti e traduzione (in abbonamento)",
+      "Open source"
+    ],
+    "keywords": [
+      "client di posta",
+      "posta elettronica",
+      "app email",
+      "outlook gmail imap",
+      "calendario exchange caldav",
+      "contatti e attività",
+      "alternativa posta windows"
+    ],
+    "captions": {
+      "01-mail.png": "Account Outlook, Gmail, iCloud, Exchange, IMAP e POP3 in un'unica app nativa e veloce per Windows.",
+      "02-mail-dark.png": "Wino Mail in modalità scura.",
+      "03-calendar.png": "Calendari di Outlook, Google, Exchange e CalDAV in un'unica visualizzazione, con inviti a cui rispondi dal messaggio.",
+      "04-calendar-dark.png": "Wino Calendar in modalità scura.",
+      "05-people.png": "I contatti di tutti i tuoi account, con rubriche, elenchi, categorie e preferiti.",
+      "06-todo.png": "My Day, passaggi, scadenze e promemoria, sincronizzati con Microsoft To Do, Google Tasks e CalDAV.",
+      "07-features.png": "Notifiche push in tempo reale, account raggruppati, alias, modelli, firme, controllo ortografico, scelte rapide, widget e Live Tile.",
+      "08-companion.png": "Controlla la prossima riunione, la posta non letta e le attività di My Day dall'area di notifica, senza aprire Wino.",
+      "09-themes.png": "Scegli un tema dalla raccolta o creane uno dal tuo sfondo e dal tuo colore principale.",
+      "10-assistant.png": "Wino Assistant è un assistente intelligente, attento alla privacy, per posta, calendario e attività. Abbonamento a pagamento."
+    },
+    "releaseNotes": "In evidenza:\n• Wino Assistant. Premi una scelta rapida in qualsiasi app, poi scrivi o di' cosa vuoi fare con la posta: trovare, spostare, rispondere o eliminare, anche più passaggi in una frase. Wino mostra il suo piano e non cambia nulla finché non dici Sì. Fa parte di Wino Intelligence; configuralo in Impostazioni > Wino Assistant.\n• Exchange locale e accesso sicuro per IMAP. Aggiungi l'account Exchange Server della tua organizzazione per posta, calendario, contatti e To Do. Gli account IMAP offrono l'accesso sicuro dal browser, se il provider lo supporta, senza password per le app. Scrivi il tuo indirizzo e Wino trova i server, anche con Outlook Autodiscover.\n• Privacy e sicurezza. Carica tutto, blocca i tracker o tutti i contenuti remoti, consenti o blocca mittenti e domini, rimuovi il tracciamento dai link e ricevi un avviso prima di aprire allegati rischiosi, in Impostazioni > Privacy e sicurezza.\n• Gruppi di account. Le caselle collegate diventano gruppi di account: riunisci gli account in un gruppo con nome, colore e icona, poi scegli se unire le cartelle in un'unica Posta in arrivo o tenerle separate, in Impostazioni > Gestisci account.\n• Inviti agli eventi. Gli inviti appaiono come una scheda compatta con Accetta, Provvisorio e Rifiuta, anche per inviti inoltrati e account IMAP, e l'elenco della posta mostra la data dell'evento.\n\nNovità e miglioramenti:\n…\n\nNote di rilascio complete: https://github.com/bkaankose/Wino-Mail/releases/tag/v2.2.13.0"
+  }
+}

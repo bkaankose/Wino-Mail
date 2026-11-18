@@ -60,3 +60,14 @@ public interface IWinoAccountProfileService
     Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }
+
+public static class WinoAccountProfileServiceExtensions
+{
+    /// <summary>
+    /// True when an account is stored and its session is still accepted. A session the API rejected keeps its stored
+    /// row until the next sign-in replaces it, so the row alone would show the account signed in while every request
+    /// needs a new sign-in. Use it wherever the Wino Account is shown as signed in.
+    /// </summary>
+    public static async Task<bool> HasSignedInAccountAsync(this IWinoAccountProfileService profiles)
+        => await profiles.GetActiveAccountAsync().ConfigureAwait(false) is { SessionInvalidatedUtc: null };
+}

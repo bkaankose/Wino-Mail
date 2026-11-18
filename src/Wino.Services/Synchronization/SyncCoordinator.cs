@@ -77,6 +77,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     private readonly ThrottledLog _throttle = new(TimeSpan.FromMinutes(10));
 
     private readonly object _gate = new();
+    private readonly IMailProviderRegistry _providers;
     private readonly Dictionary<Guid, AccountFacts> _accounts = new();
     private readonly Dictionary<Guid, ImapIdleStatus> _idle = new();
     private readonly Dictionary<Guid, ExchangeNotificationStatus> _exchangeNotifications = new();
@@ -110,6 +111,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         ISynchronizationManager synchronizationManager,
         IMessenger messenger,
         ITaskService taskService,
+        IMailProviderRegistry providers,
         IRelayIntroductionService? introduction = null,
         IRelaySocketCoordinator? socket = null,
         TimeProvider? timeProvider = null)
@@ -121,6 +123,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         _synchronizationManager = synchronizationManager;
         _messenger = messenger;
         _taskService = taskService;
+        _providers = providers;
         _introduction = introduction;
         _socket = socket;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -167,7 +170,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     public TimeSpan QuotaWindow { get; } = TimeSpan.FromHours(6);
 
     public bool IsQuotaBound(MailAccount account, WinoApplicationMode mode)
-        => account.ProviderType == MailProviderType.Gmail && mode switch
+        => _providers.GetTraits(account.ProviderType).UsesQuotaWindowForTasksAndContacts && mode switch
         {
             WinoApplicationMode.Tasks => account.TaskIntegrationSource == AccountIntegrationSource.Provider,
             WinoApplicationMode.Contacts => account.ContactIntegrationSource == AccountIntegrationSource.Provider,
@@ -868,10 +871,9 @@ public sealed class SyncCoordinator : ISyncCoordinator,
                 return (LiveCoverageKind.None, _cooldownUntilUtc is not null ? LiveCoverageGap.FlapCooldown : LiveCoverageGap.SocketDown);
         }
 
-        switch (facts.Provider)
+        switch (_providers.GetTraits(facts.Provider).LiveCoverage)
         {
-            case MailProviderType.Gmail:
-            case MailProviderType.Outlook:
+            case LiveCoverageKind.RelayMailbox:
                 var mailbox = _relay?.Mailboxes.FirstOrDefault(m => m.AccountId == accountId);
                 if (mailbox is null || !mailbox.IsWatched)
                     return (LiveCoverageKind.None, LiveCoverageGap.MailboxNotWatched);
@@ -881,14 +883,14 @@ public sealed class SyncCoordinator : ISyncCoordinator,
                     return (LiveCoverageKind.None, LiveCoverageGap.MailboxError);
                 return (LiveCoverageKind.RelayMailbox, LiveCoverageGap.None);
 
-            case MailProviderType.IMAP4:
+            case LiveCoverageKind.ImapIdle:
                 if (!_idle.TryGetValue(accountId, out var idle))
                     return (LiveCoverageKind.None, LiveCoverageGap.IdleNotRunning);
                 if (idle.State == ImapIdleState.Listening)
                     return (LiveCoverageKind.ImapIdle, LiveCoverageGap.None);
                 return (LiveCoverageKind.None, IsIdleUnsupportedReason(idle.Reason) ? LiveCoverageGap.IdleUnsupported : LiveCoverageGap.IdleNotRunning);
 
-            case MailProviderType.Exchange:
+            case LiveCoverageKind.ExchangeNotifications:
                 if (_exchangeNotifications.TryGetValue(accountId, out var notifications) && notifications.State == ExchangeNotificationState.Listening)
                     return (LiveCoverageKind.ExchangeNotifications, LiveCoverageGap.None);
                 return (LiveCoverageKind.None, LiveCoverageGap.ExchangeNotificationsNotRunning);

@@ -14,10 +14,11 @@ namespace Wino.Core.Domain.Models.MailItem;
 /// <param name="ToggleExecution"> Whether the operation can be reverted if needed.
 /// eg. MarkAsRead on already read item will set the action to MarkAsUnread.
 /// This is used in hover actions for example. </param>
-/// <param name="IgnoreHardDeleteProtection"> Whether hard delete protection should be ignored.
-/// Discard draft requests for example should ignore hard delete protection. </param>
-/// <param name="MoveTargetFolder"> Moving folder for the Move operation.
-/// If null and the action is Move, the user will be prompted to select a folder. </param>
+/// <param name="IgnoreHardDeleteProtection"> Whether the permanent delete is already confirmed or needs no confirmation.
+/// Discard draft requests for example ignore hard delete protection. The backend never asks: an unconfirmed
+/// protected HardDelete is refused with a MailOperationDecisionRequiredException. </param>
+/// <param name="MoveTargetFolder"> Moving folder for the Move operation. The caller picks it; a Move without one is
+/// refused with a MailOperationDecisionRequiredException. </param>
 public record MailOperationPreperationRequest(MailOperation Action, IEnumerable<MailCopy> MailItems, bool ToggleExecution, bool IgnoreHardDeleteProtection, IMailItemFolder MoveTargetFolder)
 {
     public MailOperationPreperationRequest(MailOperation action,

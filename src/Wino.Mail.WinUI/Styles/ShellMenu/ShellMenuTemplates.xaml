@@ -802,7 +802,7 @@
         <coreControls:WinoNavigationViewItem
             Height="44"
             AutomationProperties.AutomationId="ContactsPaneNewList"
-            AutomationProperties.Name="{x:Bind domain:Translator.ContactList_NewTitle, Mode=OneTime}"
+            AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewAddressList, Mode=OneTime}"
             DataContext="{x:Bind}"
             SelectsOnInvoked="False"
             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
@@ -812,7 +812,26 @@
             <TextBlock
                 VerticalAlignment="Center"
                 Style="{StaticResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.ContactList_NewTitle, Mode=OneTime}" />
+                Text="{x:Bind domain:Translator.ContactsPane_NewAddressList, Mode=OneTime}" />
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  New CardDAV address book  -->
+    <DataTemplate x:Key="NewAddressBookTemplate" x:DataType="menu:NewAddressBookMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="44"
+            AutomationProperties.AutomationId="ContactsPaneNewAddressBook"
+            AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewAddressBook, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Library" />
+            </muxc:NavigationViewItem.Icon>
+            <TextBlock
+                VerticalAlignment="Center"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.ContactsPane_NewAddressBook, Mode=OneTime}" />
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 

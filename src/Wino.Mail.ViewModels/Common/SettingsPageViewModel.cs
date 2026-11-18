@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,11 +27,12 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
     private readonly SettingsMenuProvider _settingsMenuProvider;
 
     public SettingsPageViewModel(
+        IMessenger messenger,
         INavigationService navigationService,
         IStatePersistanceService statePersistenceService,
         IAccountService accountService,
         IWinoAccountIntelligenceSnapshotService entitlementService,
-        SettingsMenuProvider settingsMenuProvider)
+        SettingsMenuProvider settingsMenuProvider) : base(messenger)
     {
         NavigationService = navigationService;
         StatePersistenceService = statePersistenceService;

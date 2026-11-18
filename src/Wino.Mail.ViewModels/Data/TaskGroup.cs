@@ -2,9 +2,6 @@ using System;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -15,9 +12,6 @@ namespace Wino.Mail.ViewModels.Data;
 /// generated vtable, so a grouped CollectionViewSource cannot enumerate them and the list renders
 /// empty in trimmed builds. Mirrors <see cref="ContactGroup"/>.
 /// </summary>
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public sealed partial class TaskGroup : ObservableCollection<TaskItemViewModel>
 {
     public TaskGroup(string key, Guid? accountId, bool showHeader)

@@ -26,8 +26,11 @@ public class TranslationService : ITranslationService
 
     public AppLanguageModel CurrentLanguageModel { get; private set; }
 
-    public TranslationService(IPreferencesService preferencesService, IConfigurationService configurationService)
+    private readonly IMessenger _messenger;
+
+    public TranslationService(IPreferencesService preferencesService, IConfigurationService configurationService, IMessenger messenger)
     {
+        _messenger = messenger ?? throw new System.ArgumentNullException(nameof(messenger));
         _preferencesService = preferencesService;
         _configurationService = configurationService;
     }
@@ -73,7 +76,7 @@ public class TranslationService : ITranslationService
         }
 
         isInitialized = true;
-        WeakReferenceMessenger.Default.Send(new LanguageChanged());
+        _messenger.Send(new LanguageChanged());
     }
 
     private AppLanguage GetInitialLanguage()

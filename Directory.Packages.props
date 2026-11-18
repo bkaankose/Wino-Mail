@@ -32,6 +32,7 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Graph" Version="6.10.0" />
     <PackageVersion Include="Microsoft.Graph.Core" Version="4.0.1" />
     <PackageVersion Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
     <PackageVersion Include="Microsoft.Identity.Client" Version="4.90.1" />
@@ -75,7 +76,7 @@
     <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.13" />
     <PackageVersion Include="System.Text.Encodings.Web" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
-    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
     <PackageVersion Include="WinUIEx" Version="2.9.3" />
     <!-- Android (net10.0-android) platform packages -->
     <PackageVersion Include="Xamarin.AndroidX.Browser" Version="1.10.0.1" />

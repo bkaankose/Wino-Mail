@@ -41,6 +41,7 @@ using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels;
 
@@ -110,6 +111,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly ILogger _logger = Log.ForContext<MailListPageViewModel>();
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
@@ -357,7 +359,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     /// </summary>
     public IShellMenuProvider ShellMenuProvider { get; }
 
-    public MailListPageViewModel(IMailDialogService dialogService,
+    public MailListPageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                  INavigationService navigationService,
                                  IAccountService accountService,
                                  IMailDialogService mailDialogService,
@@ -369,13 +371,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IContextMenuItemService contextMenuItemService,
                                  IMailCategoryService mailCategoryService,
                                  IWinoRequestDelegator winoRequestDelegator,
+                                 WinoRequestCoordinator requestCoordinator,
                                  IPreferencesService preferencesService,
                                  INewThemeService themeService,
                                  IWinoLogger winoLogger,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
                                  IMailShellClient shellMenuProvider = null,
-                                 IWinoAccountIntelligenceSnapshotService entitlementService = null)
+                                 IWinoAccountIntelligenceSnapshotService entitlementService = null) : base(messenger)
     {
         ShellMenuProvider = shellMenuProvider;
 
@@ -388,6 +391,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _contextMenuItemService = contextMenuItemService;
         _mailCategoryService = mailCategoryService;
         _winoRequestDelegator = winoRequestDelegator;
+        _requestCoordinator = requestCoordinator;
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
         _entitlementService = entitlementService;
@@ -1211,7 +1215,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         foreach (var folder in ActiveFolder.HandlingFolders.OfType<MailItemFolder>())
         {
             var folderPrepRequest = new FolderOperationPreperationRequest(FolderOperation.Empty, folder);
-            await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
+            await _requestCoordinator.ExecuteFolderOperationAsync(folderPrepRequest);
         }
     }
 
@@ -1355,7 +1359,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     #endregion
 
-    public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
+    public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _requestCoordinator.ExecuteMailOperationAsync(package);
 
     [RelayCommand]
     private async Task UndoLatestQueuedActionAsync()
@@ -2697,7 +2701,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+            var synchronizer = await _synchronizationManager.GetSynchronizerAsync(accountId).ConfigureAwait(false);
 
             if (synchronizer == null)
                 continue;
@@ -2931,7 +2935,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             try
             {
-                var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
+                var synchronizer = await _synchronizationManager.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
                 if (synchronizer == null) return (Results: new List<MailCopy>(), FailedAccount: string.Empty);
 
                 var remoteCriteria = new RemoteMailSearchCriteria(
@@ -3493,7 +3497,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         foreach (var accountId in accountIds)
         {
-            if (SynchronizationManager.Instance.IsAccountSynchronizing(accountId))
+            if (_synchronizationManager.IsAccountSynchronizing(accountId))
             {
                 isAnyAccountSynchronizing = true;
                 break;

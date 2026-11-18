@@ -34,10 +34,19 @@ public partial class AccountSetupPageViewModel
     [ObservableProperty]
     public partial string SenderName { get; set; } = string.Empty;
 
-    /// <summary>The sender name sits on the IMAP sign-in step, under the password or the browser button.</summary>
+    /// <summary>
+    /// The sender name sits under the password on the IMAP and Exchange password sign-in. A browser sign-in returns no
+    /// display name for IMAP, so that route asks for it on the review step after signing in instead.
+    /// </summary>
     public bool IsSendAsVisible => !IsLocalOnlyMode &&
-                                   (Route == AccountRoute.Imap || (Route == AccountRoute.Exchange && !IsExchangeModernAuth)) &&
+                                   ((Route == AccountRoute.Imap && SelectedImapOption?.IsBrowser != true) ||
+                                    (Route == AccountRoute.Exchange && !IsExchangeModernAuth)) &&
                                    Capabilities.IsMailEnabled;
+
+    public bool IsReviewSendAsVisible => Step == AccountSetupStep.Review &&
+                                         IsImapRoute &&
+                                         _oauthSession != null &&
+                                         Capabilities.IsMailEnabled;
     public bool IsAddedVisible => Phase == AccountSetupPhase.Added;
     public bool IsSetupFailedVisible => Phase == AccountSetupPhase.Failed;
     public bool HasSetupFailureDetails => IsSetupFailedVisible && !string.IsNullOrWhiteSpace(_setupProtocolLog);

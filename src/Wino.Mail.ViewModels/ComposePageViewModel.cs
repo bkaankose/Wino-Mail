@@ -30,6 +30,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Requests;
 
 namespace Wino.Mail.ViewModels;
 
@@ -193,6 +194,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IAccountService _accountService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly IWinoRequestDelegator _worker;
+    private readonly WinoRequestCoordinator _requestCoordinator;
     public readonly IPreferencesService PreferencesService;
     public readonly IContactService ContactService;
     public readonly IRecipientSuggestionService RecipientSuggestionService;
@@ -210,7 +212,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IAttachmentFileService _attachmentFileService;
     private readonly ISynchronizationManager _synchronizationManager;
 
-    public ComposePageViewModel(IMailDialogService dialogService,
+    public ComposePageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                                 IMailService mailService,
                                 IMimeFileService mimeFileService,
                                 IFileService fileService,
@@ -218,6 +220,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IAccountService accountService,
                                 IEmailTemplateService emailTemplateService,
                                 IWinoRequestDelegator worker,
+                                WinoRequestCoordinator requestCoordinator,
                                 IContactService contactService,
                                 IPreferencesService preferencesService,
                                 ISmimeCertificateService smimeCertificateService,
@@ -230,8 +233,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IRecipientHistoryService recipientHistoryService,
                                 IAttachmentFileService attachmentFileService = null,
                                 IWinoIntelligenceCoordinator intelligenceCoordinator = null,
-                                ISynchronizationManager synchronizationManager = null,
-                                ISignatureService signatureService = null)
+                                ISignatureService signatureService = null) : base(messenger)
     {
         _signatureService = signatureService;
         ContactService = contactService;
@@ -247,6 +249,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _accountService = accountService;
         _emailTemplateService = emailTemplateService;
         _worker = worker;
+        _requestCoordinator = requestCoordinator;
         _smimeCertificateService = smimeCertificateService;
         IsSmimeAvailable = platformCapabilities.Smime;
         _activationStateService = activationStateService;
@@ -255,7 +258,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _draftRegistry = draftRegistry;
         _draftSaveService = draftSaveService;
         _attachmentFileService = attachmentFileService;
-        _synchronizationManager = synchronizationManager ?? SynchronizationManager.Instance;
+        _synchronizationManager = synchronizationManager;
 
         RewriteSession = new ComposerRewriteSession(
             intelligenceCoordinator,
@@ -753,13 +756,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                         MailOperation.HardDelete,
                         mappedDraft,
                         ignoreHardDeleteProtection: true);
-                    await _worker.ExecuteAsync(deletePackage).ConfigureAwait(false);
+                    await _requestCoordinator.ExecuteMailOperationAsync(deletePackage).ConfigureAwait(false);
                 }
             }
             else
             {
                 var deletePackage = new MailOperationPreperationRequest(MailOperation.HardDelete, CurrentMailDraftItem.MailCopy, ignoreHardDeleteProtection: true);
-                await _worker.ExecuteAsync(deletePackage).ConfigureAwait(false);
+                await _requestCoordinator.ExecuteMailOperationAsync(deletePackage).ConfigureAwait(false);
             }
         }
         catch
@@ -1089,7 +1092,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                 downloadIfNeeded = false;
 
                 // Download missing MIME message using SynchronizationManager
-                await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+                await _synchronizationManager.DownloadMimeMessageAsync(
                     CurrentMailDraftItem.MailCopy,
                     CurrentMailDraftItem.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
 
@@ -1265,8 +1268,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         CurrentMimeMessage.From.Clear();
 
-        // Try to get the sender name from the alias. If not, fallback to account sender name.
-        var senderName = SelectedAlias.AliasSenderName ?? ComposingAccount.SenderName;
+        // Primary aliases are stored with an empty sender name, which must fall back to the account's name too.
+        var senderName = string.IsNullOrWhiteSpace(SelectedAlias.AliasSenderName) ? ComposingAccount.SenderName : SelectedAlias.AliasSenderName;
 
         CurrentMimeMessage.From.Add(new MailboxAddress(senderName, SelectedAlias.AliasAddress));
     }

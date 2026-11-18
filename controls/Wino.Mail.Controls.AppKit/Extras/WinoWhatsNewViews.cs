@@ -58,17 +58,23 @@ public sealed class WinoVersionTab : WinoPressableView
 /// </summary>
 public sealed class WinoFeatureRow : WinoPressableView
 {
+    private readonly NSTextField _titleLabel;
+    private readonly NSTextField _descriptionLabel;
     private bool _selected;
 
     public WinoFeatureRow(string title, string description)
     {
         CornerRadius = 6;
-        var titleLabel = WinoStyle.Label(title, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
-        var descriptionLabel = WinoStyle.Label(description, WinoStyle.Caption, WinoStyle.SecondaryText, 3);
+        var titleLabel = _titleLabel = WinoStyle.Label(title, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
+        var descriptionLabel = _descriptionLabel = WinoStyle.Label(description, WinoStyle.Caption, WinoStyle.SecondaryText, 3);
+        descriptionLabel.Cell.TruncatesLastVisibleLine = true;
         var stack = WinoLayout.VStack(4, titleLabel, descriptionLabel);
         stack.EdgeInsets = new NSEdgeInsets(12, 16, 12, 16);
         foreach (var label in new[] { titleLabel, descriptionLabel })
+        {
             label.TrailingAnchor.ConstraintEqualTo(stack.TrailingAnchor, -16).Active = true;
+            label.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
+        }
         WinoLayout.Fill(stack, this);
         AccessibilityLabel = string.IsNullOrWhiteSpace(description) ? title : $"{title}. {description}";
         Apply();
@@ -78,6 +84,22 @@ public sealed class WinoFeatureRow : WinoPressableView
     {
         get => _selected;
         set { _selected = value; Apply(); }
+    }
+
+    // Wrapping labels measure their height at PreferredMaxLayoutWidth; without the real width the row is sized for
+    // fewer lines than the text draws and the last line is clipped.
+    public override void Layout()
+    {
+        base.Layout();
+        bool changed = false;
+        foreach (var label in new[] { _titleLabel, _descriptionLabel })
+        {
+            var width = label.Frame.Width;
+            if (width <= 0 || Math.Abs(label.PreferredMaxLayoutWidth - width) < 0.5) continue;
+            label.PreferredMaxLayoutWidth = width;
+            changed = true;
+        }
+        if (changed) base.Layout();
     }
 
     private void Apply()

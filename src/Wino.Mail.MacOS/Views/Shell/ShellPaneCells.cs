@@ -128,11 +128,12 @@ internal sealed class ShellPaneCell : NSTableCellView
         _action.OnActivated(this, static cell => { if (cell._item is { } item) cell.ActionClicked?.Invoke(item); });
         _chevron.WidthAnchor.ConstraintEqualTo(12).Active = true;
 
-        _row = WinoLayout.HStack(12, _leadingBox, text, _attention, _pill, _action, _chevron);
+        // The chevron sits before the unread pill so a group's count lines up with the other rows' counts.
+        _row = WinoLayout.HStack(12, _leadingBox, text, _attention, _action, _chevron, _pill);
         _row.EdgeInsets = new NSEdgeInsets(0, AvatarInset, 0, 10);
         _row.Distribution = NSStackViewDistribution.Fill;
         _row.SetCustomSpacing((nfloat)IconTextSpacing, _leadingBox);
-        _row.SetCustomSpacing(8, _pill);
+        _row.SetCustomSpacing(8, _chevron);
         WinoLayout.Fill(_row, this);
         // The text block's centre is pinned to the icon column's centre (avatar, glyph or checkbox).
         text.CenterYAnchor.ConstraintEqualTo(_leadingBox.CenterYAnchor).Active = true;
@@ -168,7 +169,8 @@ internal sealed class ShellPaneCell : NSTableCellView
 
     /// <param name="selected">True while the row is the pane selection.</param>
     /// <param name="hasChildren">True when the outline can expand this row.</param>
-    public void Configure(IMenuItem item, bool selected, bool hasChildren)
+    /// <param name="subtleActiveAccount">True when the active account row only scopes the pane and must not read as a second selection.</param>
+    public void Configure(IMenuItem item, bool selected, bool hasChildren, bool subtleActiveAccount = false)
     {
         _item = item;
         ObserveParameter(null);
@@ -192,7 +194,10 @@ internal sealed class ShellPaneCell : NSTableCellView
                 NewRow(WinoIconGlyph.NewMail, 18, Translator.ContactsPane_NewContact);
                 break;
             case NewAddressListMenuItem:
-                NewRow(WinoIconGlyph.PersonAdd, 17, Translator.ContactList_NewTitle);
+                NewRow(WinoIconGlyph.PersonAdd, 17, Translator.ContactsPane_NewAddressList);
+                break;
+            case NewAddressBookMenuItem:
+                NewRow(WinoIconGlyph.Library, 17, Translator.ContactsPane_NewAddressBook);
                 break;
             case NewTaskListMenuItem:
                 NewRow(WinoIconGlyph.Add, 18, Translator.ToDoPage_NewList);
@@ -338,7 +343,9 @@ internal sealed class ShellPaneCell : NSTableCellView
             MergedAccountMenuItem merged => selected || merged.IsSelected || merged.IsChildSelected,
             _ => false
         };
-        if (activeAccount)
+        if (activeAccount && subtleActiveAccount && !selected)
+            _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Medium);
+        else if (activeAccount)
         {
             _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Semibold);
             // A combined group keeps its own colour; the semibold weight still marks it as active.
@@ -473,7 +480,7 @@ internal sealed class ShellPaneCell : NSTableCellView
     {
         if (_chevron.Hidden) return false;
         var chevron = ConvertRectFromView(_chevron.Bounds, _chevron);
-        return point.X >= chevron.X - 12;
+        return point.X >= chevron.X - 12 && (_pill.Hidden || point.X <= chevron.GetMaxX() + 4);
     }
 
     protected override void Dispose(bool disposing)
@@ -738,7 +745,7 @@ internal sealed class ShellCalendarGroupCell : NSTableCellView
             _check.State = group.IsCheckedState switch { true => NSCellStateValue.On, false => NSCellStateValue.Off, null => NSCellStateValue.Mixed };
             _dot.Fill = WinoStyle.FromHexString(group.AccountColorHex) ?? WinoStyle.AvatarColor(group.Account?.Name);
             _name.StringValue = group.Account?.Name ?? string.Empty;
-            _address.StringValue = group.Account?.Address ?? string.Empty;
+            _address.StringValue = group.Account?.DisplayAddress ?? string.Empty;
             _status.StringValue = group.SynchronizationStatus ?? string.Empty;
             _status.Hidden = !group.IsSynchronizationProgressVisible || string.IsNullOrWhiteSpace(_status.StringValue);
             // The status takes the address line while syncing so the header keeps two centred lines.

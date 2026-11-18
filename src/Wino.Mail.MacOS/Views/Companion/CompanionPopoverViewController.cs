@@ -87,6 +87,15 @@ public sealed class CompanionPopoverViewController : NSViewController
         _height = _root.HeightAnchor.ConstraintEqualTo((nfloat)CompanionStyle.MinHeight);
         _height.Active = true;
         WinoAccessibility.Label(_root, Translator.CompanionSettings_About_Title);
+        // The popover's own glass let the desktop show through, so secondary text over a bright wallpaper fell to about 2:1;
+        // the frosted popover material keeps it legible.
+        WinoLayout.Fill(new NSVisualEffectView
+        {
+            Material = NSVisualEffectMaterial.Popover,
+            BlendingMode = NSVisualEffectBlendingMode.BehindWindow,
+            State = NSVisualEffectState.Active,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        }, _root);
 
         _initializing = new WinoStateView(WinoIconGlyph.None, Translator.Companion_InitializingTitle, Translator.Companion_InitializingDescription);
         var spinner = _initializing.UseSpinner(32);
@@ -162,6 +171,7 @@ public sealed class CompanionPopoverViewController : NSViewController
         _greeting.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         _date.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         var titles = WinoLayout.VStack(0, _greeting, _date);
+        titles.SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
         _snoozeButton = CompanionStyle.IconButton(WinoIconGlyph.Alert, Translator.Companion_SnoozeNotifications, ToggleSnooze, 32, 16);
         _snoozeButton.SetButtonType(NSButtonType.PushOnPushOff);
         var snoozeMenu = CompanionStyle.IconButton(WinoIconGlyph.ChevronDown, Translator.Companion_SnoozeNotifications, () => { }, 18, 10);
@@ -264,10 +274,10 @@ public sealed class CompanionPopoverViewController : NSViewController
             Spacing = 4,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        buttons.AddArrangedSubview(new CompanionModeButton(WinoIconGlyph.AppModeMail, Translator.Companion_Mail, () => Run(_viewModel.OpenInboxCommand.ExecuteAsync(null))));
-        buttons.AddArrangedSubview(new CompanionModeButton(WinoIconGlyph.AppModeCalendar, Translator.Companion_Calendar, () => Run(_viewModel.OpenCalendarCommand.ExecuteAsync(null))));
-        buttons.AddArrangedSubview(new CompanionModeButton(WinoIconGlyph.AppModeContacts, Translator.Companion_Contacts, () => Run(_viewModel.FindAnyContactCommand.ExecuteAsync(null))));
-        buttons.AddArrangedSubview(new CompanionModeButton(WinoIconGlyph.AppModeToDo, Translator.Companion_Tasks, () => Run(_viewModel.OpenTasksCommand.ExecuteAsync(null))));
+        buttons.AddArrangedSubview(new CompanionModeButton("AppEntryMail", Translator.Companion_Mail, () => Run(_viewModel.OpenInboxCommand.ExecuteAsync(null))));
+        buttons.AddArrangedSubview(new CompanionModeButton("AppEntryCalendar", Translator.Companion_Calendar, () => Run(_viewModel.OpenCalendarCommand.ExecuteAsync(null))));
+        buttons.AddArrangedSubview(new CompanionModeButton("AppEntryPeople", Translator.Companion_Contacts, () => Run(_viewModel.FindAnyContactCommand.ExecuteAsync(null))));
+        buttons.AddArrangedSubview(new CompanionModeButton("AppEntryToDo", Translator.Companion_Tasks, () => Run(_viewModel.OpenTasksCommand.ExecuteAsync(null))));
         WinoLayout.Fill(buttons, footer, 10, 12, 12, 12);
         var border = new WinoSeparator();
         footer.AddSubview(border);

@@ -117,10 +117,10 @@
                             AutomationProperties.AutomationId="ApplicationThemeEditorSurfacePreview"
                             AutomationProperties.Name="{x:Bind Label}"
                             HighlightedKey="{x:Bind Key}"
-                            Palette="{Binding ElementName=Root, Path=ViewModel.PreviewPalette, Mode=OneWay}"
+                            Palette="{Binding ElementName=Root, Path=PreviewPalette, Mode=OneWay}"
                             Scene="{x:Bind Scene}"
-                            WallpaperAlignment="{Binding ElementName=Root, Path=ViewModel.WallpaperAlignment, Mode=OneWay}"
-                            WallpaperFit="{Binding ElementName=Root, Path=ViewModel.WallpaperFit, Mode=OneWay}"
+                            WallpaperAlignment="{Binding ElementName=Root, Path=PreviewWallpaperAlignment, Mode=OneWay}"
+                            WallpaperFit="{Binding ElementName=Root, Path=PreviewWallpaperFit, Mode=OneWay}"
                             WallpaperSource="{Binding ElementName=Root, Path=WallpaperImageSource, Mode=OneWay}" />
 
                         <StackPanel Grid.Column="1" Spacing="12">

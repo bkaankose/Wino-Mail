@@ -31,6 +31,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? CalendarNewEventTemplate { get; set; }
     public DataTemplate? NewContactTemplate { get; set; }
     public DataTemplate? NewAddressListTemplate { get; set; }
+    public DataTemplate? NewAddressBookTemplate { get; set; }
     public DataTemplate? NewTaskListTemplate { get; set; }
     public DataTemplate? MyDayTaskTemplate { get; set; }
     public DataTemplate? PlannedTaskTemplate { get; set; }
@@ -80,6 +81,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         // Contacts
         NewContactMenuItem => NewContactTemplate,
         NewAddressListMenuItem => NewAddressListTemplate,
+        NewAddressBookMenuItem => NewAddressBookTemplate,
         NewTaskListMenuItem => NewTaskListTemplate,
         MyDayTaskMenuItem => MyDayTaskTemplate,
         PlannedTaskMenuItem => PlannedTaskTemplate,

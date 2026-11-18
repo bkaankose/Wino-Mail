@@ -22,11 +22,11 @@ public partial class AccountProviderDetailViewModel : ObservableObject, IAccount
 
     public int Order => Account.Order;
 
-    public string StartupEntityAddresses => Account.Address;
+    public string StartupEntityAddresses => Account.DisplayAddress;
     public string CapabilitySummary => BuildCapabilitySummary(Account);
-    public string DescriptionText => string.IsNullOrWhiteSpace(Account.Address)
+    public string DescriptionText => string.IsNullOrWhiteSpace(Account.DisplayAddress)
         ? CapabilitySummary
-        : $"{CapabilitySummary} | {Account.Address}";
+        : $"{CapabilitySummary} | {Account.DisplayAddress}";
 
     public int HoldingAccountCount => 1;
 

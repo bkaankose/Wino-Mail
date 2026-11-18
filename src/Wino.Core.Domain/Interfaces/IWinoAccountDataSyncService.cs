@@ -22,7 +22,4 @@ public interface IWinoAccountDataSyncService
 
     /// <summary>Applies an encrypted snapshot file. Plain JSON exports are rejected.</summary>
     Task<WinoAccountSyncImportResult> ImportFromFileAsync(byte[] content, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default);
-
-    /// <summary>Applies theme and layout from an import. Must run on the UI thread.</summary>
-    void ApplyAppearance(SyncSnapshotAppearance appearance);
 }

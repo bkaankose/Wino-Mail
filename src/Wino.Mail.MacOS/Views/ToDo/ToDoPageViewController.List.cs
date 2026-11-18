@@ -46,6 +46,7 @@ public sealed partial class ToDoPageViewController
     private NSScrollView _scroll = null!;
     private NSStackView _emptyState = null!;
     private NSTextField _emptyTitle = null!;
+    private WinoIconView _emptyIcon = null!;
     private NSTextField _emptyBody = null!;
     private WinoQuickAddView _quickAdd = null!;
     private NSPopover? _suggestionsPopover;
@@ -115,7 +116,9 @@ public sealed partial class ToDoPageViewController
         _emptyTitle.Alignment = NSTextAlignment.Center;
         _emptyBody = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.SecondaryText, 0);
         _emptyBody.Alignment = NSTextAlignment.Center;
-        _emptyState = WinoLayout.VStack(6, _emptyTitle, _emptyBody);
+        _emptyIcon = new WinoIconView(WinoIconGlyph.CheckmarkCircle, 48, WinoStyle.TertiaryText);
+        _emptyState = WinoLayout.VStack(6, _emptyIcon, _emptyTitle, _emptyBody);
+        _emptyState.SetCustomSpacing(10, _emptyIcon);
         _emptyState.Alignment = NSLayoutAttribute.CenterX;
         _emptyState.Hidden = true;
 
@@ -162,7 +165,12 @@ public sealed partial class ToDoPageViewController
         // The toolbar field searches every list; this one only filters the list on screen, so it carries the filter glyph.
         if (_search.Cell is NSSearchFieldCell { SearchButtonCell: { } searchButton })
             searchButton.Image = WinoIcons.Image(WinoIconGlyph.Filter, 13, WinoStyle.SecondaryText, Translator.ToDoPage_FilterTasks);
-        _search.WidthAnchor.ConstraintEqualTo(360).Active = true;
+        // The field gives way first on a narrow page; a fixed 360pt pushed the shell's sidebar narrower instead.
+        _search.WidthAnchor.ConstraintLessThanOrEqualTo(360).Active = true;
+        _search.WidthAnchor.ConstraintGreaterThanOrEqualTo(160).Active = true;
+        var preferredSearchWidth = _search.WidthAnchor.ConstraintEqualTo(360);
+        preferredSearchWidth.Priority = 240;
+        preferredSearchWidth.Active = true;
         _search.SetContentCompressionResistancePriority(240, NSLayoutConstraintOrientation.Horizontal);
 
         var scopeMenu = new NSMenu { AutoEnablesItems = false };
@@ -252,8 +260,16 @@ public sealed partial class ToDoPageViewController
             _compactScopeCompletedItem.Hidden = !value; _compactScopeAllItem.Hidden = !value;
         });
         Bind(nameof(ViewModel.IsCompactLayout), static vm => vm.IsCompactLayout, value => { _expandedFilters.Hidden = value; _compactFilterChip.Hidden = !value; });
-        Bind(nameof(ViewModel.IsEmpty), static vm => vm.IsEmpty, value => _emptyState.Hidden = !value || _previewGroups is not null);
-        Bind(nameof(ViewModel.EmptyStateTitle), static vm => vm.EmptyStateTitle, value => _emptyTitle.StringValue = value ?? string.Empty);
+        Bind(nameof(ViewModel.IsEmpty), static vm => vm.IsEmpty, value =>
+        {
+            _emptyIcon.Icon = EmptyStateGlyph();
+            _emptyState.Hidden = !value || _previewGroups is not null;
+        });
+        Bind(nameof(ViewModel.EmptyStateTitle), static vm => vm.EmptyStateTitle, value =>
+        {
+            _emptyTitle.StringValue = value ?? string.Empty;
+            _emptyIcon.Icon = EmptyStateGlyph();
+        });
         Bind(nameof(ViewModel.EmptyStateBody), static vm => vm.EmptyStateBody, value => _emptyBody.StringValue = value ?? string.Empty);
         Bind(nameof(ViewModel.IsQuickAddVisible), static vm => vm.IsQuickAddVisible, value => _quickAdd.Hidden = !value);
         Bind(nameof(ViewModel.ComposerPlaceholder), static vm => vm.ComposerPlaceholder, value => _quickAdd.Placeholder = value ?? string.Empty);
@@ -652,5 +668,16 @@ public sealed partial class ToDoPageViewController
             var point = ConvertPointFromView(theEvent.LocationInWindow, null);
             return owner.ContextMenuFor(GetRow(point));
         }
+    }
+
+    private WinoIconGlyph EmptyStateGlyph()
+    {
+        if (ViewModel.IsEmptyAccountSelected || ViewModel.SelectedList is not null) return WinoIconGlyph.TaskList;
+        return ViewModel.SelectedView switch
+        {
+            TaskViewKind.MyDay => WinoIconGlyph.WeatherSunny,
+            TaskViewKind.Important => WinoIconGlyph.Star,
+            _ => WinoIconGlyph.CheckmarkCircle
+        };
     }
 }

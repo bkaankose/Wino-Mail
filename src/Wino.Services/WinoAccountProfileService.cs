@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 #nullable enable
 using System;
 using System.Collections.Generic;
@@ -36,7 +37,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     private readonly Func<IPushRelayRegistrationService>? _pushRelay;
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
 
-    public WinoAccountProfileService(IDatabaseService databaseService,
+    public WinoAccountProfileService(IDatabaseService databaseService, IMessenger messenger,
                                      IWinoAccountApiClient apiClient,
                                      IAccountCredentialPersistence credentialPersistence,
                                      ITranslationService? translationService = null,
@@ -45,7 +46,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
                                      IWinoAccountSessionService? sessionService = null,
                                      IWinoPendingCheckoutStore? pendingCheckouts = null,
                                      ISyncSnapshotKeyService? snapshotKeys = null,
-                                     Func<IPushRelayRegistrationService>? pushRelay = null) : base(databaseService)
+                                     Func<IPushRelayRegistrationService>? pushRelay = null) : base(databaseService, messenger)
     {
         _pushRelay = pushRelay;
         _snapshotKeys = snapshotKeys;

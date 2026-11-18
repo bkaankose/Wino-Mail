@@ -110,6 +110,10 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
             _adapter?.SetSelected(Chrome?.WidthClass is WindowWidthClass.Compact or null ? null : contact?.Id));
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.IsLoading), static vm => vm.IsLoading, _ => UpdateState());
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.IsEmpty), static vm => vm.IsEmpty, _ => UpdateState());
+        Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.IsSynchronizationSupported), static vm => vm.IsSynchronizationSupported, supported =>
+        {
+            if (_refresh is not null) _refresh.Enabled = supported;
+        });
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.IsRefreshing), static vm => vm.IsRefreshing, refreshing =>
         {
             if (!refreshing && _refresh is not null) _refresh.Refreshing = false;
@@ -129,6 +133,7 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
 
     private const int MenuNewContact = 2;
     private const int MenuNewList = 3;
+    private const int MenuNewAddressBook = 4;
 
     private Shell.DockedSearchBar? _searchBar;
 
@@ -142,7 +147,8 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
         var menu = _toolbar.Menu;
         menu.Clear();
         menu.Add(0, MenuNewContact, 1, Translator.ContactsPane_NewContact);
-        menu.Add(0, MenuNewList, 2, Translator.ContactList_NewTitle);
+        menu.Add(0, MenuNewList, 2, Translator.ContactsPane_NewAddressList);
+        menu.Add(0, MenuNewAddressBook, 3, Translator.ContactsPane_NewAddressBook);
         _toolbar.MenuItemClick += (_, args) =>
         {
             switch (args.Item?.ItemId)
@@ -153,10 +159,14 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
                 case MenuNewList:
                     if (viewModel.CreateListCommand.CanExecute(null)) viewModel.CreateListCommand.Execute(null);
                     break;
+                case MenuNewAddressBook:
+                    if (viewModel.CanCreateAddressBook) PeopleViews.Observe(viewModel.CreateAddressBookCommand.ExecuteAsync(null), ReportError);
+                    break;
             }
         };
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.HasCreateDestinations), static vm => vm.HasCreateDestinations, value => menu.FindItem(MenuNewContact)?.SetEnabled(value));
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.HasListDestinations), static vm => vm.HasListDestinations, value => menu.FindItem(MenuNewList)?.SetVisible(value));
+        Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.CanCreateAddressBook), static vm => vm.CanCreateAddressBook, value => menu.FindItem(MenuNewAddressBook)?.SetEnabled(value));
     }
 
     // ---- Filter chips (the shared pane filters) ----

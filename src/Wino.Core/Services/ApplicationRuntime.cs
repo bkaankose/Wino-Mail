@@ -82,6 +82,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     }
 
     public ApplicationRuntimeState State { get { lock (_gate) return _state; } }
+
+    // Only synchronizations requested by message count; the periodic loops are tracked jobs that never end.
+    public bool HasRunningWork => Volatile.Read(ref _requestedWork) > 0;
+
+    private int _requestedWork;
+
     public event EventHandler<ApplicationRuntimeState>? StateChanged;
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -276,6 +282,20 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
     }
 
+    private void TrackRequested(Func<Task> operation)
+        => Track(async () =>
+        {
+            Interlocked.Increment(ref _requestedWork);
+            try
+            {
+                await operation().ConfigureAwait(false);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _requestedWork);
+            }
+        });
+
     private void Track(Func<Task> operation)
     {
         lock (_gate)
@@ -450,7 +470,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     }
 
     public void Receive(NewMailSynchronizationRequested message)
-        => Track(() => HandleMailSynchronizationRequestedAsync(message));
+        => TrackRequested(() => HandleMailSynchronizationRequestedAsync(message));
 
     private async Task HandleMailSynchronizationRequestedAsync(NewMailSynchronizationRequested message)
     {
@@ -502,7 +522,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     }
 
     public void Receive(NewCalendarSynchronizationRequested message)
-        => Track(() => HandleCalendarSynchronizationRequestedAsync(message));
+        => TrackRequested(() => HandleCalendarSynchronizationRequestedAsync(message));
 
     private async Task HandleCalendarSynchronizationRequestedAsync(NewCalendarSynchronizationRequested message)
     {
@@ -539,7 +559,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     }
 
     public void Receive(NewContactSynchronizationRequested message)
-        => Track(() => HandleContactSynchronizationRequestedAsync(message));
+        => TrackRequested(() => HandleContactSynchronizationRequestedAsync(message));
 
     private async Task HandleContactSynchronizationRequestedAsync(NewContactSynchronizationRequested message)
     {
@@ -576,7 +596,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     }
 
     public void Receive(NewTaskSynchronizationRequested message)
-        => Track(() => HandleTaskSynchronizationRequestedAsync(message));
+        => TrackRequested(() => HandleTaskSynchronizationRequestedAsync(message));
 
     private async Task HandleTaskSynchronizationRequestedAsync(NewTaskSynchronizationRequested message)
     {
@@ -632,7 +652,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
                 })));
             }
 
-            if (account.IsCalendarAccessGranted)
+            if (account.IsCalendarAccessGranted && account.HasRemoteCalendarSource())
             {
                 synchronizations.Add(HandleCalendarSynchronizationRequestedAsync(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
                 {
@@ -1196,7 +1216,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             var accounts = await GetAutoSynchronizedAccountsAsync();
             // Accounts that need attention are left alone until the user fixes them; the timer never retries them.
             var synchronizationTasks = accounts
-                .Where(account => account.IsCalendarAccessGranted && !account.IsNetworkAccessBlocked())
+                .Where(account => account.IsCalendarAccessGranted && account.HasRemoteCalendarSource() && !account.IsNetworkAccessBlocked())
                 .Select(account => ExecuteCalendarAutoSynchronizationForAccountAsync(account, cancellationToken))
                 .ToList();
 
@@ -1223,10 +1243,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (_synchronizationManager.GetSynchronizationProgress(account.Id, SynchronizationProgressCategory.Calendar).IsInProgress)
             return;
 
+        // An events pass refreshes the calendar list first. A metadata-only pass left server-side event changes
+        // waiting for a manual sync.
         await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
         {
             AccountId = account.Id,
-            Type = CalendarSynchronizationType.CalendarMetadata
+            Type = CalendarSynchronizationType.CalendarEvents
         }, cancellationToken).ConfigureAwait(false);
     }
 

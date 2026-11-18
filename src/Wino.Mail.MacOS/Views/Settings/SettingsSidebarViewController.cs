@@ -119,10 +119,30 @@ public sealed class SettingsSidebarViewController : NSViewController
 
     public void FocusSearch() => View.Window?.MakeFirstResponder(_search);
 
+    /// <summary>The page list, which takes focus when the window opens so the search field does not show its focus ring.</summary>
+    public NSView InitialFocus => _table;
+
+    /// <summary>
+    /// Takes the row tooltips down and puts them back. AppKit leaves a shown tooltip on screen when its window stops
+    /// being key without a mouse move (another window ordered front), and removing the tooltip closes it.
+    /// </summary>
+    public void DismissToolTips()
+    {
+        if (!ViewLoaded) return;
+        var rows = _table.RowsInRect(_table.VisibleRect());
+        for (var row = rows.Location; row < rows.Location + rows.Length; row++)
+        {
+            if (_table.GetView(0, row, false) is not { } cell || cell.ToolTip is not { } tip) continue;
+            cell.ToolTip = null;
+            cell.ToolTip = tip;
+        }
+    }
+
     private void ApplyFilter()
     {
         var query = _search.StringValue?.Trim();
         _source.Entries = string.IsNullOrEmpty(query) ? _all : SettingsPageCatalog.Search(query);
+        DismissToolTips();
         _table.ReloadData();
         Select(_selectedPage);
     }

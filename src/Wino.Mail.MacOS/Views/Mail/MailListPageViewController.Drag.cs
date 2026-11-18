@@ -108,7 +108,7 @@ public sealed partial class MailListPageViewController
         var mails = DraggedMails(rows);
         if (mails.Count == 0) return;
 
-        MailDragPayload.Begin(mails, SnapshotRow((nint)rows.FirstIndex));
+        MailDragPayload.Begin(mails, SnapshotRow((nint)rows.FirstIndex), DragEnded);
         var image = MailDragPayload.CreateImage(mails.Count);
         var window = _table.Window;
         var pointer = window is null ? CGPoint.Empty : _table.ConvertPointFromView(window.ConvertPointFromScreen(screenPoint), null);
@@ -137,7 +137,10 @@ public sealed partial class MailListPageViewController
     private void DragEnded()
     {
         MailDragPayload.End();
-        foreach (var rowView in _dimmedRows) rowView.AlphaValue = 1;
+        if (_released) return;
+        // The dragged rows may be gone after a drop that moved them.
+        foreach (var rowView in _dimmedRows)
+            if (rowView.Handle != IntPtr.Zero) rowView.AlphaValue = 1;
         _dimmedRows.Clear();
         ViewModel.SetDragState(false);
     }

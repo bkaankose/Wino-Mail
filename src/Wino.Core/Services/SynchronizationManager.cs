@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
@@ -30,13 +31,10 @@ namespace Wino.Core.Services;
 
 /// <summary>
 /// Singleton manager that handles synchronizer instances and operations for all accounts.
-/// Replaces the old WinoServerConnectionManager functionality.
+/// The container creates it; <see cref="SynchronizationManagerInitializer"/> supplies its remaining dependencies at startup.
 /// </summary>
 public class SynchronizationManager : ISynchronizationManager, IRecipient<AccountSynchronizerStateChanged>, IRecipient<AccountUpdatedMessage>
 {
-    private static readonly Lazy<SynchronizationManager> _instance = new(() => new SynchronizationManager());
-    public static SynchronizationManager Instance => _instance.Value;
-
     private IReadOnlyDictionary<Guid, IWinoSynchronizerBase> _synchronizerCache => _concreteSynchronizerFactory.CachedSynchronizers;
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _accountSynchronizationCancellationSources = new();
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _calendarSynchronizationLocks = new();
@@ -66,15 +64,22 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private IDraftUpdateCoordinator _draftUpdateCoordinator;
     private IMailService _draftMailService;
     // Resolved on first use: the coordinator itself depends on this manager.
-    private Func<ISyncCoordinator> _syncCoordinatorResolver;
+    private readonly Func<ISyncCoordinator> _syncCoordinatorResolver;
 
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
 
-    private SynchronizationManager() { }
+    private readonly IMessenger _messenger;
+    private readonly RequestUiChangeCoordinator _uiChanges;
+    private readonly IAppLockService _appLockService;
 
-    internal void UseSyncCoordinator(Func<ISyncCoordinator> resolver)
-        => _syncCoordinatorResolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+    public SynchronizationManager(IMessenger messenger, RequestUiChangeCoordinator uiChanges, Func<ISyncCoordinator> syncCoordinatorResolver, IAppLockService appLockService)
+    {
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
+        _uiChanges = uiChanges ?? throw new ArgumentNullException(nameof(uiChanges));
+        _syncCoordinatorResolver = syncCoordinatorResolver ?? throw new ArgumentNullException(nameof(syncCoordinatorResolver));
+        _appLockService = appLockService ?? throw new ArgumentNullException(nameof(appLockService));
+    }
 
     internal static async Task PublishMailSynchronizationNotificationsAsync(
         MailSynchronizationResult result, INotificationBuilder notifications, bool notificationsEnabled)
@@ -138,8 +143,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
             if (!_isRegisteredForProgressMessages)
             {
-                WeakReferenceMessenger.Default.Register<AccountSynchronizerStateChanged>(this);
-                WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
+                _messenger.Register<AccountSynchronizerStateChanged>(this);
+                _messenger.Register<AccountUpdatedMessage>(this);
                 _isRegisteredForProgressMessages = true;
             }
 
@@ -204,7 +209,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
     }
 
-    internal static bool TryGetCertificateException(Exception exception, out MailServerCertificateException certificateException)
+    public static bool TryGetCertificateException(Exception exception, out MailServerCertificateException certificateException)
     {
         certificateException = exception?
             .GetInnerExceptions()
@@ -261,12 +266,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 : Translator.Info_CardDavCertificateRejectedMessage,
             accountName);
 
-        WeakReferenceMessenger.Default.Send(new InfoBarMessageRequested(
+        _messenger.Send(new InfoBarMessageRequested(
             InfoBarMessageType.Warning,
             Translator.Info_DavCertificateRejectedTitle,
             message,
             Translator.Info_DavCertificateRejectedAction,
-            () => WeakReferenceMessenger.Default.Send(new AccountServerSettingsNavigationRequested(accountId))));
+            () => _messenger.Send(new AccountServerSettingsNavigationRequested(accountId))));
 
         return true;
     }
@@ -329,7 +334,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
                 if (queuedRetries && options.Type == MailSynchronizationType.FullFolders)
                 {
-                    WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+                    _messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
                     {
                         AccountId = options.AccountId,
                         Type = MailSynchronizationType.ExecuteRequests
@@ -490,12 +495,17 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (normalizedRequestsByAccount.Count == 0)
             return;
 
+        // Background synchronization keeps running while locked; only new user actions are refused here,
+        // before any optimistic UI change. Packs already waiting in the undo timer still go out.
+        if (_appLockService.AreActionsRefused)
+            throw new AppLockedException();
+
         var allRequests = normalizedRequestsByAccount.Values.SelectMany(requests => requests).ToList();
         LogTracedRequests("accepted", allRequests);
 
         // Optimistic presentation is independent from provider availability. Apply first;
         // resolution or queue failures below revert the exact same request snapshots.
-        RequestUiChangeCoordinator.ApplyRequests(allRequests);
+        _uiChanges.ApplyRequests(allRequests);
 
         var undoActionSettings = allowUndo ? CreateUndoActionSettings(allRequests) : null;
 
@@ -514,8 +524,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             }
             catch
             {
-                RequestUiChangeCoordinator.RevertRequests(pair.Value);
-                RequestUiChangeCoordinator.CompleteRequests(pair.Value);
+                _uiChanges.RevertRequests(pair.Value);
+                _uiChanges.CompleteRequests(pair.Value);
                 throw;
             }
         }
@@ -629,7 +639,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         pendingPack.CancellationTokenSource.Cancel();
         pendingPack.CancellationTokenSource.Dispose();
 
-        RequestUiChangeCoordinator.RevertRequests(pendingPack.RequestsByAccount.Values.SelectMany(requests => requests));
+        _uiChanges.RevertRequests(pendingPack.RequestsByAccount.Values.SelectMany(requests => requests));
         LogTracedRequests("undo-reverted", pendingPack.RequestsByAccount.Values.SelectMany(requests => requests), accountId);
         PublishUndoableMailActionPackChanged(pendingPack, UndoableMailActionPackState.Undone);
 
@@ -654,7 +664,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         };
         pack.VisibleMailActionPack = CreateVisibleMailActionPack(pack, undoActionSettings);
 
-        RequestUiChangeCoordinator.ApplyRequests(allRequests);
+        _uiChanges.ApplyRequests(allRequests);
 
         lock (_undoActionPackLock)
         {
@@ -704,7 +714,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
             if (pack.RequiresFolderSynchronizationByAccount.Contains(pair.Key))
             {
-                WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+                _messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
                 {
                     AccountId = pair.Key,
                     Type = MailSynchronizationType.FoldersOnly
@@ -729,7 +739,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
     }
 
-    private bool HasPendingUndoAction(Guid accountId)
+    public bool HasPendingUndoAction(Guid accountId)
     {
         lock (_undoActionPackLock)
         {
@@ -750,7 +760,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (hasCalendarRequests)
         {
             _logger.Debug("Publishing calendar synchronization request for account {AccountId}", accountId);
-            WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            _messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = CalendarSynchronizationType.ExecuteRequests
@@ -762,7 +772,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             foreach (var addressBookId in requests.OfType<IContactActionRequest>().Select(request => request.AddressBookId).Distinct())
             {
                 _logger.Debug("Publishing contact synchronization request for account {AccountId} and address book {AddressBookId}", accountId, addressBookId);
-                WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+                _messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
                 {
                     AccountId = accountId,
                     AddressBookId = addressBookId,
@@ -774,7 +784,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (hasTaskRequests)
         {
             _logger.Debug("Publishing task synchronization request for account {AccountId}", accountId);
-            WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            _messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = TaskSynchronizationType.ExecuteRequests
@@ -784,7 +794,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (hasMailRequests || (!hasCalendarRequests && !hasContactRequests && !hasTaskRequests))
         {
             _logger.Debug("Publishing mail synchronization request for account {AccountId}", accountId);
-            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            _messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = accountId,
                 Type = MailSynchronizationType.ExecuteRequests
@@ -839,12 +849,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         => request is DeleteRequest
            || request is MoveRequest { ToFolder.SpecialFolderType: SpecialFolderType.Deleted };
 
-    private static void PublishUndoableMailActionPackChanged(PendingUndoActionPack pack, UndoableMailActionPackState state)
+    private void PublishUndoableMailActionPackChanged(PendingUndoActionPack pack, UndoableMailActionPackState state)
     {
         if (pack.VisibleMailActionPack == null)
             return;
 
-        WeakReferenceMessenger.Default.Send(new UndoableMailActionPackChanged(pack.VisibleMailActionPack, state));
+        _messenger.Send(new UndoableMailActionPackChanged(pack.VisibleMailActionPack, state));
     }
 
     /// <summary>
@@ -1042,9 +1052,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (synchronizer is null)
             return TaskSynchronizationResult.Failed(new InvalidOperationException("Can't create/get synchronizer."));
 
-        // Every Google Tasks pull passes the coordinator's quota gate. A gated pull still sends the account's queued
-        // task requests, and the ExecuteRequests run publishes the usual progress and completion for the caller.
-        if (options.Type != TaskSynchronizationType.ExecuteRequests)
+        // Every automatic Google Tasks pull passes the coordinator's quota gate; a user-initiated pull always runs. A gated
+        // pull still sends the account's queued task requests, and the ExecuteRequests run publishes the usual progress
+        // and completion for the caller.
+        if (options.Type != TaskSynchronizationType.ExecuteRequests && !options.IsUserInitiated)
         {
             var coordinator = _syncCoordinatorResolver?.Invoke()
                 ?? throw new InvalidOperationException("SynchronizationManager has no sync coordinator for the task quota gate.");
@@ -1791,7 +1802,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         cache.AddOrUpdate(normalized.AccountId, normalized, (_, _) => normalized);
 
-        WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(normalized));
+        _messenger.Send(new AccountSynchronizationProgressUpdatedMessage(normalized));
     }
 
     private static string BuildSynchronizationStatus(

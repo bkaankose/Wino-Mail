@@ -19,6 +19,13 @@ public interface IApplicationShellHost
     /// </summary>
     Task<bool> EnsureShellAsync(WinoApplicationMode mode, object? parameter = null);
 
+    /// <summary>
+    /// Shows the mail shell to select a message in it, like <see cref="EnsureShellAsync"/>. A head that refreshes the
+    /// theme of a shell it brings forward (Windows) skips that here, so a visible shell does not flash while it
+    /// navigates to the message.
+    /// </summary>
+    Task<bool> EnsureShellForMessageAsync() => EnsureShellAsync(WinoApplicationMode.Mail);
+
     /// <summary>Shows Settings on <paramref name="page"/>.</summary>
     Task ShowSettingsAsync(WinoPage page, object? parameter);
 

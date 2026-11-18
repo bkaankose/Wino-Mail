@@ -6,15 +6,9 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Synchronization;
-#if WINRT_EXPOSED
-using WinRT;
-#endif
 
 namespace Wino.Calendar.ViewModels.Data;
 
-#if WINRT_EXPOSED
-[GeneratedWinRTExposedType]
-#endif
 public partial class GroupedAccountCalendarViewModel : ObservableObject
 {
     public event EventHandler CollectiveSelectionStateChanged;
@@ -104,7 +98,7 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
     public bool CanSynchronize => !IsSynchronizationInProgress;
     public bool IsSynchronizationProgressVisible => IsSynchronizationInProgress;
     public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
-    public string AccountAddressDisplay => string.IsNullOrWhiteSpace(Account?.Address) ? string.Empty : $" ({Account.Address})";
+    public string AccountAddressDisplay => string.IsNullOrWhiteSpace(Account?.DisplayAddress) ? string.Empty : $" ({Account.DisplayAddress})";
 
     public double SynchronizationProgress
     {

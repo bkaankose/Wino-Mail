@@ -16,6 +16,7 @@ internal static class AccountIconGlyphs
         AccountIconProvider.Yahoo => WinoIconCodes.Yahoo,
         AccountIconProvider.Imap => WinoIconCodes.IMAP,
         AccountIconProvider.Exchange => WinoIconCodes.Exchange,
+        AccountIconProvider.Local => WinoIconCodes.Laptop,
         _ => WinoIconCodes.IMAP,
     };
 }

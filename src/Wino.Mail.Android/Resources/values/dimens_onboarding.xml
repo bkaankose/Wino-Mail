@@ -19,4 +19,7 @@
   <dimen name="onboarding_setup_section_gap">16dp</dimen>
   <dimen name="onboarding_swatch_size">36dp</dimen>
   <dimen name="onboarding_card_radius">12dp</dimen>
+  <!-- Address-first Add account (Windows AccountSetupPage): the column's top space and the gap between its parts. -->
+  <dimen name="account_setup_page_top_padding">16dp</dimen>
+  <dimen name="account_setup_section_gap">20dp</dimen>
 </resources>

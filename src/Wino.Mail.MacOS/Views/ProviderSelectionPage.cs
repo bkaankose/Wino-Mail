@@ -40,7 +40,8 @@ public sealed class ProviderSelectionPage : NSView
         var document = new FlippedView();
         document.AddSubview(column);
         var preferredWidth = column.WidthAnchor.ConstraintEqualTo(document.WidthAnchor, 1, -96);
-        preferredWidth.Priority = 750;
+        // Below the window's stay-put priority, so the page follows the onboarding window instead of resizing it.
+        preferredWidth.Priority = 490;
         NSLayoutConstraint.ActivateConstraints(
         [
             column.TopAnchor.ConstraintEqualTo(document.TopAnchor, 36),

@@ -777,7 +777,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
             var items = calendars.Select(calendar => (UIMenuElement)EditorFormatToolbar.Action(calendar.Name ?? string.Empty,
                 () => ViewModel.SelectedCalendar = calendar, ReferenceEquals(calendar, selected), true, ColorDot(CalendarColor(calendar)))).ToArray();
             var account = group.Account;
-            var title = account is null ? string.Empty : $"{account.Name} ({account.Address})";
+            var title = account is null ? string.Empty : $"{account.Name} ({account.DisplayAddress})";
             sections.Add(EditorFormatToolbar.Inline(items, title));
         }
         return sections.ToArray();
@@ -821,12 +821,12 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         _calendarBar.BackgroundColor = color;
         var configuration = _calendarButton.Configuration ?? UIButtonConfiguration.PlainButtonConfiguration;
         configuration.Title = selected?.Name ?? Translator.CalendarEventCompose_SelectCalendar;
-        configuration.AttributedSubtitle = selected?.Account?.Address is { Length: > 0 } address
+        configuration.AttributedSubtitle = selected?.Account?.DisplayAddress is { Length: > 0 } address
             ? new NSAttributedString(address, new UIStringAttributes { ForegroundColor = WinoStyle.SecondaryText, Font = WinoStyle.Description })
             : null;
         _calendarButton.Configuration = configuration;
         _calendarButton.Enabled = ViewModel.CanChangeCalendar;
-        _calendarButton.AccessibilityValue = selected is null ? null : $"{selected.Name}, {selected.Account?.Address}";
+        _calendarButton.AccessibilityValue = selected is null ? null : $"{selected.Name}, {selected.Account?.DisplayAddress}";
         _onlineLabel.Text = string.IsNullOrEmpty(ViewModel.OnlineMeetingProviderText) ? Translator.CalendarEventCompose_OnlineMeetingInfoTitle : ViewModel.OnlineMeetingProviderText;
         WinoAccessibility.Label(_onlineSwitch, _onlineLabel.Text);
         if (_onlineRow is { } online) online.Hidden = !ViewModel.CanAddOnlineMeeting;

@@ -45,7 +45,12 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
 
     public override void LoadView()
     {
-        _page = WinoLayout.VStack(WinoSettingsStyle.CardSpacing);
+        _page = new SettingsPageStack
+        {
+            Orientation = NSUserInterfaceLayoutOrientation.Vertical,
+            Spacing = (nfloat)WinoSettingsStyle.CardSpacing,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
         _page.Alignment = NSLayoutAttribute.Leading;
         _page.Distribution = NSStackViewDistribution.Fill;
         View = SettingsPageScrollView.Create(_page);
@@ -53,6 +58,20 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     }
 
     protected abstract void BuildPage();
+
+    /// <summary>
+    /// Lines up the cards' trailing controls whenever the page stack lays out. The controller's own layout pass is
+    /// not enough: a group that hides later (an empty account list) relayouts the stack inside the scroll view
+    /// only, and the remaining cards kept the column reserved for the hidden cards' chevrons.
+    /// </summary>
+    private sealed class SettingsPageStack : NSStackView
+    {
+        public override void Layout()
+        {
+            base.Layout();
+            WinoSettingsCard.AlignTrailingControls(this);
+        }
+    }
 
     /// <summary>Adds a section to the page and stretches it to the content width.</summary>
     protected T Add<T>(T view) where T : NSView
@@ -151,6 +170,10 @@ public static class SettingsPageScrollView
         var clip = scroll.ContentView;
         var preferredWidth = content.WidthAnchor.ConstraintEqualTo(document.WidthAnchor, 1, (nfloat)(-2 * SettingsPageViewController<CoreBaseViewModel>.SidePadding));
         preferredWidth.Priority = 750;
+        // Above the 750 compression resistance of single-line labels, so a page truncates or wraps its text instead of
+        // widening the window (window stay-put is 500) every time a page with a long label appears.
+        var fitsWidth = content.LeadingAnchor.ConstraintGreaterThanOrEqualTo(document.LeadingAnchor, (nfloat)SettingsPageViewController<CoreBaseViewModel>.SidePadding);
+        fitsWidth.Priority = 999;
         NSLayoutConstraint.ActivateConstraints(
         [
             document.LeadingAnchor.ConstraintEqualTo(clip.LeadingAnchor),
@@ -160,7 +183,7 @@ public static class SettingsPageScrollView
             content.BottomAnchor.ConstraintEqualTo(document.BottomAnchor, -28),
             content.CenterXAnchor.ConstraintEqualTo(document.CenterXAnchor),
             content.WidthAnchor.ConstraintLessThanOrEqualTo((nfloat)SettingsPageViewController<CoreBaseViewModel>.ContentMaxWidth),
-            content.LeadingAnchor.ConstraintGreaterThanOrEqualTo(document.LeadingAnchor, (nfloat)SettingsPageViewController<CoreBaseViewModel>.SidePadding),
+            fitsWidth,
             preferredWidth
         ]);
         return scroll;

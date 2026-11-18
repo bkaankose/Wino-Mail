@@ -15,11 +15,11 @@ public sealed partial class AppKitDialogService
     /// Certificate prompts can arrive while the account progress sheet is attached (adding an IMAP
     /// account); a second sheet on the same window would wait behind it, so it stacks on that sheet.
     /// </summary>
-    private Task<T> PresentOnTopAsync<T>(Func<NSWindow, Task<T>> present)
-        => PresentAsync(window => present(window.AttachedSheet ?? window));
+    private Task<T> PresentOnTopAsync<T>(Func<NSWindow, Task<T>> present, bool preferSetupWindow = false)
+        => PresentAsync(window => present(window.AttachedSheet ?? window), preferSetupWindow);
 
     public Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt)
-        => PresentOnTopAsync(window => new ServerCertificateTrustSheet(prompt).PresentAsync(window));
+        => PresentOnTopAsync(window => new ServerCertificateTrustSheet(prompt).PresentAsync(window), preferSetupWindow: true);
 
     /// <summary>The secret goes straight back to the caller; nothing here logs or keeps it.</summary>
     public Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request)
@@ -32,7 +32,7 @@ public sealed partial class AppKitDialogService
         try
         {
             if (services?.GetService<IWinoAccountProfileService>() is { } profile)
-                isWinoAccountAvailable = await profile.HasActiveAccountAsync();
+                isWinoAccountAvailable = await profile.HasSignedInAccountAsync();
         }
         catch (Exception exception)
         {

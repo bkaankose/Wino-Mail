@@ -105,7 +105,7 @@
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
 
-                                <!--  Illustrations are 1120x600 PNGs: this 560x300 slot at 2x.  -->
+                                <!--  Illustrations are 1120x600 PNGs or animated GIFs: this 560x300 slot at 2x.  -->
                                 <Border
                                     Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"

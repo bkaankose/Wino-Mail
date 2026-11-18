@@ -232,8 +232,14 @@ internal sealed class FormGrid : NSGridView
 /// </summary>
 internal sealed class OnboardingPageView : NSView
 {
+    private readonly NSLayoutConstraint _columnTop;
+    private readonly NSLayoutConstraint _columnMaxWidth;
+    private readonly NSLayoutConstraint _preferredWidth;
+    private readonly double _maxContentWidth;
+
     public OnboardingPageView(NSView header, NSView content, NSView footerLeading, NSButton[] actions, NSButton primary, double maxContentWidth = 620)
     {
+        _maxContentWidth = maxContentWidth;
         TranslatesAutoresizingMaskIntoConstraints = false;
 
         var column = WinoLayout.VStack(WinoStyle.Space6, header, content);
@@ -243,21 +249,28 @@ internal sealed class OnboardingPageView : NSView
 
         var document = new FlippedView();
         document.AddSubview(column);
-        var preferredWidth = column.WidthAnchor.ConstraintEqualTo(document.WidthAnchor, 1, -96);
-        preferredWidth.Priority = 750;
+        _preferredWidth = column.WidthAnchor.ConstraintEqualTo(document.WidthAnchor, 1, -96);
+        // Below the window's stay-put priority (500): the column follows the window. At 750 it resized the onboarding
+        // window to the column (612pt, under its 640pt minimum) whenever this page arrived.
+        _preferredWidth.Priority = 490;
+        _columnTop = column.TopAnchor.ConstraintEqualTo(document.TopAnchor, 40);
+        _columnMaxWidth = column.WidthAnchor.ConstraintLessThanOrEqualTo((nfloat)maxContentWidth);
         NSLayoutConstraint.ActivateConstraints(
         [
-            column.TopAnchor.ConstraintEqualTo(document.TopAnchor, 40),
+            _columnTop,
             column.BottomAnchor.ConstraintEqualTo(document.BottomAnchor, -24),
             column.CenterXAnchor.ConstraintEqualTo(document.CenterXAnchor),
-            column.WidthAnchor.ConstraintLessThanOrEqualTo((nfloat)maxContentWidth),
-            preferredWidth
+            _columnMaxWidth,
+            _preferredWidth
         ]);
 
+        // The scroll view starts below the transparent title bar's safe area (it replaces the automatic title-bar
+        // inset), so scrolled content never runs under the traffic lights.
         var scroll = new NSScrollView
         {
             HasVerticalScroller = true,
             AutohidesScrollers = true,
+            AutomaticallyAdjustsContentInsets = false,
             DrawsBackground = false,
             TranslatesAutoresizingMaskIntoConstraints = false,
             DocumentView = document
@@ -274,7 +287,7 @@ internal sealed class OnboardingPageView : NSView
         AddSubview(footer);
         NSLayoutConstraint.ActivateConstraints(
         [
-            scroll.TopAnchor.ConstraintEqualTo(TopAnchor),
+            scroll.TopAnchor.ConstraintEqualTo(SafeAreaLayoutGuide.TopAnchor),
             scroll.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
             scroll.TrailingAnchor.ConstraintEqualTo(TrailingAnchor),
             scroll.BottomAnchor.ConstraintEqualTo(separator.TopAnchor),
@@ -285,6 +298,20 @@ internal sealed class OnboardingPageView : NSView
             footer.TrailingAnchor.ConstraintEqualTo(TrailingAnchor),
             footer.BottomAnchor.ConstraintEqualTo(BottomAnchor)
         ]);
+    }
+
+    /// <summary>
+    /// Hosted in the Settings window (editing an account), the form uses the Settings page geometry: content from the
+    /// top of the zone, 32pt side padding and the Settings content width, under the window title instead of its own.
+    /// </summary>
+    public bool UsesSettingsLayout
+    {
+        set
+        {
+            _columnTop.Constant = value ? 12 : 40;
+            _preferredWidth.Constant = value ? -2 * (nfloat)Settings.SettingsPageViewController<Wino.Core.ViewModels.CoreBaseViewModel>.SidePadding : -96;
+            _columnMaxWidth.Constant = (nfloat)(value ? Settings.SettingsPageViewController<Wino.Core.ViewModels.CoreBaseViewModel>.ContentMaxWidth : _maxContentWidth);
+        }
     }
 
     /// <summary>A title and wrapping description stacked like the other onboarding pages.</summary>
@@ -304,6 +331,15 @@ internal sealed class OnboardingPageView : NSView
         var row = WinoLayout.HStack(WinoStyle.Space4, icon, text);
         row.Alignment = NSLayoutAttribute.CenterY;
         return row;
+    }
+
+    /// <summary>A bold group heading over content that brings its own cards (no surface around them).</summary>
+    public static NSStackView Section(string heading, NSView body)
+    {
+        var stack = WinoLayout.VStack(6, WinoStyle.Label(heading, WinoStyle.BodyStrong), body);
+        stack.Alignment = NSLayoutAttribute.Leading;
+        body.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
+        return stack;
     }
 
     /// <summary>A bold group heading followed by its rows on a rounded surface.</summary>

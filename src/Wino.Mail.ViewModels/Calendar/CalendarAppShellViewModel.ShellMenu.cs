@@ -351,6 +351,7 @@ public partial class CalendarAppShellViewModel
         _hasCompletedAccountCalendarInitialization = true;
         RefreshAccountCalendarGroupSubscriptions();
         SyncShellMenuItems();
+        RefreshShellSynchronizationState();
     }
 
     private void ApplyDesiredMenuItems(List<IMenuItem> desired)

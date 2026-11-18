@@ -256,6 +256,9 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             _header.Frame = new CGRect(0, 0, bounds.Width, MonthHeaderHeight);
             _month.Frame = new CGRect(0, MonthHeaderHeight, bounds.Width, Math.Max(0, bounds.Height - MonthHeaderHeight));
             SetUnitSize(_month.Bounds.Height / Math.Max(1, VisibleUnitCount));
+            // Month units are week rows, so a width-only change (the details pane opening) keeps the unit size;
+            // the rail must still take the new width or the day columns stay at the old width and get clipped.
+            if (Math.Abs(_monthRail.Frame.Width - _month.Bounds.Width) > 0.5) _railDirty = true;
         }
         else
         {
@@ -828,7 +831,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 NowColor.SetFill();
                 FillRect(new CGRect(HourColumnWidth + span.First * dayWidth, y - 1, span.Count * dayWidth, 2));
                 if (span.TodayIndex >= 0)
-                    NSBezierPath.FromOvalInRect(new CGRect(HourColumnWidth + span.TodayIndex * dayWidth - 5, y - 5, 10, 10)).Fill();
+                    NSBezierPath.FromOvalInRect(new CGRect(HourColumnWidth + span.TodayIndex * dayWidth, y - 5, 10, 10)).Fill();
             }
             Owner.DrawTimedSelection();
         }

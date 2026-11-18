@@ -18,7 +18,7 @@ internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsP
     public PurchaseChannelSheet(bool isWinoAccountAvailable, bool microsoftStore, bool appleAppStore) : base(480)
     {
         Sheet.Title = Translator.UnlimitedAccountsPurchaseDialog_Title;
-        var heading = WinoStyle.Label(Translator.UnlimitedAccountsPurchaseDialog_Title, NSFont.SystemFontOfSize(18, NSFontWeight.Semibold), WinoStyle.PrimaryText, 0);
+        var heading = WinoStyle.Label(Translator.UnlimitedAccountsPurchaseDialog_Title, WinoStyle.Heading, WinoStyle.PrimaryText, 0);
         var description = WinoStyle.Label(Translator.UnlimitedAccountsPurchaseDialog_Description, WinoStyle.Body, WinoStyle.SecondaryText, 0);
         description.PreferredMaxLayoutWidth = 432;
         var header = WinoLayout.VStack(8, heading, description);
@@ -86,7 +86,9 @@ internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsP
         mark.AccessibilityElement = false;
         var name = WinoStyle.Label(title, WinoStyle.BodyStrong, enabled ? WinoStyle.PrimaryText : WinoStyle.TertiaryText, 0);
         var detail = WinoStyle.Label(description, NSFont.SystemFontOfSize(12), enabled ? WinoStyle.SecondaryText : WinoStyle.TertiaryText, 0);
-        detail.PreferredMaxLayoutWidth = 340;
+        // The column is about 338pt (480 sheet, insets, radio and mark); measuring at a wider width under-counted the
+        // lines, and the second line ran into the card's bottom edge.
+        detail.PreferredMaxLayoutWidth = 324;
         var text = WinoLayout.VStack(2, name, detail);
         text.Alignment = NSLayoutAttribute.Leading;
         detail.WidthAnchor.ConstraintEqualTo(text.WidthAnchor).Active = true;
@@ -95,6 +97,9 @@ internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsP
         var row = WinoLayout.HStack(12, radio, mark, text);
         row.Alignment = NSLayoutAttribute.Top;
         row.EdgeInsets = new NSEdgeInsets(10, 12, 10, 12);
+        // A top-aligned stack holds its bottom inset only weakly; the sheet's fitting height dropped it and the
+        // description's last line sat on the card's bottom edge.
+        text.BottomAnchor.ConstraintLessThanOrEqualTo(row.BottomAnchor, -10).Active = true;
         var surface = new WinoSurfaceView
         {
             Fill = Wino.Mail.Controls.AppKit.Settings.WinoSettingsStyle.CardFill,

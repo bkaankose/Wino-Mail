@@ -61,6 +61,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
     [NotifyCanExecuteChangedFor(nameof(PrimaryCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SignInWithProviderCommand))]
     public partial string AccountName { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -88,12 +89,15 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
     public bool HasIdentityError => !string.IsNullOrWhiteSpace(IdentityError);
     public bool HasAccountNameError => !string.IsNullOrWhiteSpace(AccountNameError);
 
+    private bool HasAccountName => !string.IsNullOrWhiteSpace(AccountName);
+
     public bool IsEmailFieldVisible => !IsLocalOnlyMode;
     public bool IsFooterVisible => Step == AccountSetupStep.Address && !IsLocalOnlyMode;
 
     public bool IsColorSelected => SelectedColor != null;
 
     public AccountSetupPageViewModel(
+        IMessenger messenger,
         IAccountService accountService,
         IAccountRouteResolver routeResolver,
         IAccountSetupRunner setupRunner,
@@ -110,7 +114,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         IExternalLauncher? externalLauncher = null,
         IExchangeInteractiveSignInService? exchangeSignInService = null,
         IExchangeConnectionTester? exchangeConnectionTester = null,
-        IMailServerTestService? mailServerTestService = null)
+        IMailServerTestService? mailServerTestService = null) : base(messenger)
     {
         _accountService = accountService;
         _routeResolver = routeResolver;
@@ -182,7 +186,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         => SelectedColor = string.IsNullOrEmpty(hex) ? null : AvailableColors.FirstOrDefault(color => color.Hex == hex);
 
     private bool CanContinue() => Phase == AccountSetupPhase.Identity &&
-                                  (IsLocalOnlyMode ? !string.IsNullOrWhiteSpace(AccountName) : !string.IsNullOrWhiteSpace(EmailAddress));
+                                  (IsLocalOnlyMode ? HasAccountName : !string.IsNullOrWhiteSpace(EmailAddress));
 
     [RelayCommand(CanExecute = nameof(CanContinue))]
     private async Task ContinueAsync()

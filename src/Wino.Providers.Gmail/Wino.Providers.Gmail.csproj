@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<RootNamespace>Wino.Core</RootNamespace>
+		<Platforms>x86;x64;arm64</Platforms>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+	</PropertyGroup>
+	
+	<ItemGroup>
+		<!-- Only for Base64UrlEncoder (Microsoft.IdentityModel.Tokens), which reached Gmail through Wino.Core's Graph packages
+		     before the provider split. That package has no central version of its own. -->
+		<PackageReference Include="Microsoft.Graph.Core" />
+		<PackageReference Include="MimeKit" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
+	</ItemGroup>
+</Project>

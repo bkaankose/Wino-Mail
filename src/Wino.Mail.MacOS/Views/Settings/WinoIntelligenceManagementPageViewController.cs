@@ -157,9 +157,11 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
 
         var title = WinoStyle.Label(Translator.SemanticIndex_Title, NSFont.SystemFontOfSize(18, NSFontWeight.Semibold), WinoStyle.PrimaryText);
         var address = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
-        Watch(s => s.AccountAddress, text => address.StringValue = text ?? string.Empty);
+        Watch(s => s.AccountAddress, text => { address.StringValue = text ?? string.Empty; address.Hidden = string.IsNullOrWhiteSpace(text); });
         var titles = WinoLayout.VStack(2, title, address);
         titles.Alignment = NSLayoutAttribute.Leading;
+        // A vertical stack hugs weakly, so the 44pt tile stretched it and left the title at its top.
+        titles.SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
 
         var dot = new WinoSurfaceView { CornerRadius = 3.5 };
         WinoLayout.Size(dot, 7, 7);
@@ -194,6 +196,7 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
         Watch(s => (s.QuotaSummary, s.IsQuotaAvailable, s.QuotaUsagePercentage), state =>
         {
             quotaText.StringValue = state.QuotaSummary ?? string.Empty;
+            quotaText.ToolTip = state.QuotaSummary;
             quotaBar.Hidden = !state.IsQuotaAvailable;
             quotaBar.Value = state.QuotaUsagePercentage;
         });
@@ -202,6 +205,15 @@ public sealed class WinoIntelligenceManagementPageViewController(WinoIntelligenc
         var bottom = WinoLayout.HStack(10, indexed, coverage, WinoLayout.Spacer(), quota);
         bottom.Alignment = NSLayoutAttribute.Bottom;
 
+        // Stacks resist clipping at required priority by default, so these rows widened the Settings window at its
+        // minimum width; the labels truncate instead.
+        foreach (var row in new[] { top, bottom }) row.SetClippingResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        // Below the rows' clipping resistance, or the stack clipped the quota line mid-word at the card edge.
+        foreach (var label in new[] { indexed, quotaText })
+        {
+            label.LineBreakMode = NSLineBreakMode.TruncatingTail;
+            label.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
+        }
         var stack = WinoLayout.VStack(12, top, bottom);
         stack.Alignment = NSLayoutAttribute.Leading;
         top.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;

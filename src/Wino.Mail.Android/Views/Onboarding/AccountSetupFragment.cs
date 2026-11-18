@@ -33,7 +33,7 @@ public sealed class AccountSetupFragment : WinoFragment<AccountSetupProgressPage
         OnboardingViews.InterceptBack(this, binder, viewModel, nameof(viewModel.IsSetupFailed), vm => !vm.IsSetupFailed, static () => { });
 
         if (view.FindViewById<TextView>(Resource.Id.setup_title) is { } title) title.Text = Translator.AccountSetup_Title;
-        BindSteps(view, binder, viewModel);
+        if (view.FindViewById<LinearLayout>(Resource.Id.setup_steps) is { } stepList) BindSteps(stepList, binder, viewModel.Steps);
 
         if (view.FindViewById<WinoInfoBar>(Resource.Id.setup_success) is { } success)
         {
@@ -64,20 +64,23 @@ public sealed class AccountSetupFragment : WinoFragment<AccountSetupProgressPage
         }
     }
 
-    /// <summary>One row per shared step: an empty circle while pending, a spinner while running, a check or a dismiss glyph.</summary>
-    private static void BindSteps(View view, ViewBinder binder, AccountSetupProgressPageViewModel viewModel)
+    /// <summary>
+    /// One row per shared step: an empty circle while pending, a spinner while running, a check or a dismiss glyph. Also
+    /// the progress step of <see cref="AccountSetupPageFragment"/>.
+    /// </summary>
+    internal static void BindSteps(LinearLayout list, ViewBinder binder, System.Collections.ObjectModel.ObservableCollection<AccountSetupStepModel> steps)
     {
-        if (view.FindViewById<LinearLayout>(Resource.Id.setup_steps) is not { Context: { } context } list) return;
+        if (list.Context is not { } context) return;
         var inflater = LayoutInflater.From(context) ?? throw new InvalidOperationException("No layout inflater.");
         BindingScope rows = new();
         binder.Scope.Own(new Wino.Presentation.Android.Bindings.ActionDisposable(() => rows.Dispose()));
-        binder.Collection(viewModel.Steps, () =>
+        binder.Collection(steps, () =>
         {
             rows.Dispose();
             rows = new BindingScope();
             var rowBinder = binder.Child(rows);
             list.RemoveAllViews();
-            foreach (var step in viewModel.Steps.ToList())
+            foreach (var step in steps.ToList())
             {
                 if (inflater.Inflate(Resource.Layout.onboarding_setup_step, list, false) is not { } row) continue;
                 var spinner = row.FindViewById<CircularProgressIndicator>(Resource.Id.step_spinner);

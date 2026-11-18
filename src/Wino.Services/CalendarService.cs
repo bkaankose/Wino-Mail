@@ -22,7 +22,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     // Predefined reminder options in minutes
     private static readonly int[] PredefinedReminderMinutes = [60, 30, 15, 5, 1];
 
-    public CalendarService(IDatabaseService databaseService) : base(databaseService)
+    public CalendarService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
     {
     }
 
@@ -49,7 +49,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     {
         await Connection.InsertAsync(accountCalendar, typeof(AccountCalendar));
 
-        WeakReferenceMessenger.Default.Send(new CalendarListAdded(accountCalendar));
+        Messenger.Send(new CalendarListAdded(accountCalendar));
     }
 
     // Ordering by account id lets accounts that synchronize at the same time settle on distinct colors instead of
@@ -69,7 +69,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         await Connection.UpdateAsync(accountCalendar, typeof(AccountCalendar));
 
-        WeakReferenceMessenger.Default.Send(new CalendarListUpdated(accountCalendar));
+        Messenger.Send(new CalendarListUpdated(accountCalendar));
     }
 
     public async Task SetPrimaryCalendarAsync(Guid accountId, Guid accountCalendarId)
@@ -90,7 +90,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         foreach (var calendar in calendars)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarListUpdated(calendar));
+            Messenger.Send(new CalendarListUpdated(calendar));
         }
     }
 
@@ -102,7 +102,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             accountCalendar.Id);
         await Connection.DeleteAsync<AccountCalendar>(accountCalendar.Id);
 
-        WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
+        Messenger.Send(new CalendarListDeleted(accountCalendar));
     }
 
     public async Task DeleteAccountCalendarDataAsync(Guid accountId)
@@ -143,12 +143,12 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         foreach (var calendarItem in deletedCalendarItems)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
+            Messenger.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
         }
 
         foreach (var accountCalendar in accountCalendars)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
+            Messenger.Send(new CalendarListDeleted(accountCalendar));
         }
     }
 
@@ -178,7 +178,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             await Connection.Table<Reminder>().DeleteAsync(r => r.CalendarItemId == @event.Id).ConfigureAwait(false);
             await Connection.Table<CalendarAttachment>().DeleteAsync(a => a.CalendarItemId == @event.Id).ConfigureAwait(false);
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(@event, EntityUpdateSource.Server));
+            Messenger.Send(new CalendarItemDeleted(@event, EntityUpdateSource.Server));
         }
     }
 
@@ -208,7 +208,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 }
             });
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem, EntityUpdateSource.Server));
+            Messenger.Send(new CalendarItemAdded(calendarItem, EntityUpdateSource.Server));
         }
         catch (Exception ex)
         {
@@ -236,7 +236,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 }
             });
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(calendarItem, EntityUpdateSource.Server));
+            Messenger.Send(new CalendarItemUpdated(calendarItem, EntityUpdateSource.Server));
         }
         catch (Exception ex)
         {

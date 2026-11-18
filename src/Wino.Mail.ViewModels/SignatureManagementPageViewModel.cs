@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -15,9 +16,9 @@ using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class SignatureManagementPageViewModel(IMailDialogService dialogService,
+public partial class SignatureManagementPageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                         ISignatureService signatureService,
-                                        IAccountService accountService) : MailBaseViewModel
+                                        IAccountService accountService) : MailBaseViewModel(messenger)
 {
     public ObservableCollection<AccountSignature> Signatures { get; set; } = [];
     private bool isLoaded;

@@ -149,13 +149,14 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private string ServerHost => Uri.TryCreate(ServerAddress?.Trim(), UriKind.Absolute, out var uri) ? uri.Host : ServerAddress?.Trim() ?? string.Empty;
 
     public ExchangeSettingsPageViewModel(
+        IMessenger messenger,
         WelcomeWizardContext wizardContext,
         IExchangeAutoDiscoveryService autoDiscoveryService,
         IExchangeAuthCapabilityProbe authCapabilityProbe,
         IExchangeConnectionTester connectionTester,
         IAccountService accountService,
         IAccountSetupRunner setupRunner,
-        IExchangeInteractiveSignInService? signInService = null)
+        IExchangeInteractiveSignInService? signInService = null) : base(messenger)
     {
         _wizardContext = wizardContext;
         _autoDiscoveryService = autoDiscoveryService;

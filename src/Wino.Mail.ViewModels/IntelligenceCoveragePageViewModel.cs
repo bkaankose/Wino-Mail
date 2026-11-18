@@ -64,7 +64,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
     /// </summary>
     private bool _isLoadingFolder;
 
-    public IntelligenceCoveragePageViewModel(IIntelligenceCoverageHandoff handoff)
+    public IntelligenceCoveragePageViewModel(IMessenger messenger, IIntelligenceCoverageHandoff handoff) : base(messenger)
     {
         _handoff = handoff;
     }

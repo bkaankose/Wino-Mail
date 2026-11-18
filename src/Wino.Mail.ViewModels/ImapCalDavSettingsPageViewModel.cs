@@ -276,7 +276,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
     }
 
-    public ImapCalDavSettingsPageViewModel(IAutoDiscoveryService autoDiscoveryService,
+    private readonly ISynchronizationManager _synchronizationManager;
+
+    public ImapCalDavSettingsPageViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IAutoDiscoveryService autoDiscoveryService,
                                            ICalDavClient calDavClient,
                                            IAccountService accountService,
                                            IMailDialogService mailDialogService,
@@ -292,8 +294,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            IImapAuthCapabilityProbe imapAuthCapabilityProbe = null,
                                            IAccountOAuthProfileService accountOAuthProfileService = null,
                                            IDavOAuthAuthenticationProvider davOAuthAuthenticationProvider = null,
-                                           ITaskService taskService = null)
+                                           ITaskService taskService = null) : base(messenger)
     {
+        _synchronizationManager = synchronizationManager;
         _taskService = taskService;
         _davOAuthAuthenticationProvider = davOAuthAuthenticationProvider;
         _oauthTokenService = oauthTokenService;
@@ -507,6 +510,23 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     {
         serverInformation.Id = Guid.NewGuid();
         serverInformation.AccountId = Guid.Empty;
+
+        // The account is created from the wizard context, which still holds the setup page's guess when that page
+        // found no servers (CalDAV calendar). What this page shows and saves is the user's choice.
+        _wizardContext.IsMailAccessEnabled = IsMailSupportEnabled;
+        _wizardContext.IsCalendarAccessEnabled = Capabilities.IsCalendarEnabled;
+        _wizardContext.CalendarIntegrationSource = Capabilities.CalendarMode == AccountCapabilityMode.Provider
+            ? AccountIntegrationSource.Dav
+            : AccountIntegrationSource.Local;
+        _wizardContext.CalendarSupportMode = serverInformation.CalendarSupportMode;
+        _wizardContext.IsContactAccessEnabled = Capabilities.IsContactEnabled;
+        _wizardContext.ContactIntegrationSource = Capabilities.ContactMode == AccountCapabilityMode.Provider
+            ? AccountIntegrationSource.Dav
+            : AccountIntegrationSource.Local;
+        _wizardContext.IsTaskAccessEnabled = Capabilities.IsTaskEnabled;
+        _wizardContext.TaskIntegrationSource = Capabilities.TaskMode == AccountCapabilityMode.Provider
+            ? AccountIntegrationSource.Dav
+            : AccountIntegrationSource.Local;
 
         _wizardContext.ImapCalDavSetupResult = new ImapCalDavSetupResult
         {
@@ -1212,7 +1232,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (_accountCapabilityService != null)
             await _accountCapabilityService.EnsureLocalCapabilityStoresAsync(account);
 
-        await SynchronizationManager.Instance.DestroySynchronizerAsync(account.Id);
+        await _synchronizationManager.DestroySynchronizerAsync(account.Id);
 
         // Leaving CalDAV removes only the synced copies; the server keeps them and local lists stay.
         if (hadCalDavTaskSource && account.TaskIntegrationSource != AccountIntegrationSource.Dav && _taskService != null)

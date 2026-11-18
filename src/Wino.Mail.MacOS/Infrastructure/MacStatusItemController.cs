@@ -147,6 +147,10 @@ public sealed class MacStatusItemController : IDisposable
             if (_item?.Button is null || _popover is null) return;
             // The popover takes keyboard focus (snooze menu, Escape) only while Wino is active.
             NSApplication.SharedApplication.Activate();
+            // The menu bar follows the system appearance, not the Wino theme. A dark popover over a light Wino
+            // window frosted to mid-grey and washed out the secondary text, so the companion follows the theme
+            // like the app's windows (null follows the system).
+            _popover.Appearance = NSApplication.SharedApplication.Appearance;
             _content!.RefreshNow();
             _popover.ContentSize = _content.PreferredContentSize;
             _popover.Show(button.Bounds, button, NSRectEdge.MinYEdge);

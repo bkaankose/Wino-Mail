@@ -62,6 +62,7 @@ public sealed partial class VoiceBubbleController : IDisposable
     private readonly IPictureStorageService _pictureStorage;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
+    private readonly IAppLockService? _appLock;
     private const string DoneChoiceKey = "done";
     private const string NewAddressPrefix = "new:";
     private readonly int _defaultSuccessDismissMilliseconds;
@@ -113,10 +114,13 @@ public sealed partial class VoiceBubbleController : IDisposable
     private bool _isRendering;
     private bool _disposed;
 
+    private readonly IMessenger _messenger;
+
     public VoiceBubbleController(IVoiceBubbleHost host, IAgentPlanHost? planHost, IServiceProvider services)
     {
         _host = host;
         _preferences = services.GetRequiredService<IPreferencesService>();
+        _messenger = services.GetRequiredService<IMessenger>();
         _entitlementService = services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
         _microphone = services.GetRequiredService<IMicrophoneService>();
         _commands = services.GetRequiredService<IAssistantCommandService>();
@@ -126,6 +130,7 @@ public sealed partial class VoiceBubbleController : IDisposable
         _pictureStorage = services.GetRequiredService<IPictureStorageService>();
         _accountService = services.GetRequiredService<IAccountService>();
         _calendarService = services.GetRequiredService<ICalendarService>();
+        _appLock = services.GetService<IAppLockService>();
         if (planHost is not null)
             _executor.Host = planHost;
         _hasAccess = _entitlementService.CurrentEntitlement.CanAccessSurfaces;
@@ -157,7 +162,7 @@ public sealed partial class VoiceBubbleController : IDisposable
         _host.HotKeyPressed += HostHotKeyPressed;
         _host.FrameRendered += HostFrameRendered;
 
-        var messenger = WeakReferenceMessenger.Default;
+        var messenger = _messenger;
         messenger.Register<VoiceBubbleController, PreferenceChangedMessage>(this, static (controller, message) => controller._host.Post(() => controller.PreferenceChanged(message.PropertyName)));
         messenger.Register<VoiceBubbleController, WinoIntelligenceEntitlementChanged>(this, static (controller, message) => controller._host.Post(() => controller.ApplyAccess(message.Entitlement.CanAccessSurfaces)));
         messenger.Register<VoiceBubbleController, VoiceSelectionRequested>(this, static (controller, message) => controller._host.Post(() => controller.OpenForSelection(message.Selection)));
@@ -191,7 +196,7 @@ public sealed partial class VoiceBubbleController : IDisposable
     /// <summary>Opens the bubble for speaking or typing; voice opens for typing when the spoken requests are used up.</summary>
     public void Open(VoiceBubbleInputMode mode)
     {
-        if (_disposed || !IsUsable)
+        if (_disposed || !IsUsable || ShowLockedIfLocked())
             return;
 
         ClearSelection();
@@ -243,7 +248,7 @@ public sealed partial class VoiceBubbleController : IDisposable
     /// </summary>
     public void OpenForSelection(VoiceLocalSelection selection)
     {
-        if (_disposed || !IsUsable || selection.Count == 0)
+        if (_disposed || !IsUsable || selection.Count == 0 || ShowLockedIfLocked())
             return;
 
         StartComposing(string.Empty, null);
@@ -315,7 +320,7 @@ public sealed partial class VoiceBubbleController : IDisposable
         _disposed = true;
         if (_runtime.Prompter.Handler == ProposeAsync)
             _runtime.Prompter.Handler = null;
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
         _host.HotKeyPressed -= HostHotKeyPressed;
         _host.FrameRendered -= HostFrameRendered;
         var bubble = _host.Bubble;
@@ -729,6 +734,9 @@ public sealed partial class VoiceBubbleController : IDisposable
     /// </summary>
     private void Send()
     {
+        if (ShowLockedIfLocked())
+            return;
+
         if (State == VoiceBubbleState.Composing)
         {
             SendTyped();
@@ -1083,6 +1091,9 @@ public sealed partial class VoiceBubbleController : IDisposable
     /// </summary>
     private void Confirm()
     {
+        if (ShowLockedIfLocked())
+            return;
+
         if (_followUp is { Resubmit: { } resubmit })
         {
             _followUp = null;
@@ -1356,6 +1367,26 @@ public sealed partial class VoiceBubbleController : IDisposable
 
     private IAccountIconInfo ToIcon(MailAccount account) => MailAccountIconInfoFactory.Create(account, _pictureStorage);
 
+    /// <summary>The app lock refuses every request: the bubble says so instead of listening or running a plan.</summary>
+    private bool ShowLockedIfLocked()
+    {
+        if (_appLock?.IsLocked != true)
+            return false;
+
+        if (_proposalAnswer is { } proposal)
+        {
+            _proposalAnswer = null;
+            proposal.TrySetResult(false);
+        }
+
+        EndRequest();
+        ClearSelection();
+        if (State == VoiceBubbleState.Hidden)
+            _host.Show(_preferences.VoiceBubblePosition);
+        Fail(Translator.AppLock_OpenToUnlock, canRetry: false);
+        return true;
+    }
+
     private void Fail(string message, bool canRetry)
     {
         StopRendering();
@@ -1459,6 +1490,9 @@ public sealed partial class VoiceBubbleController : IDisposable
 
     private void BubbleRetryRequested(object? sender, EventArgs e)
     {
+        if (ShowLockedIfLocked())
+            return;
+
         if (_lastInputMode == VoiceBubbleInputMode.Text)
             StartComposing(_composed, null);
         else

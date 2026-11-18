@@ -50,7 +50,6 @@ public sealed class DailyBriefingPresenter : IDailyBriefingPresenter,
 
     public bool HasUnseenItems => _hasUnseenItems;
 
-    /// <summary>True when the briefing can be shown at all (Windows hides the title-bar button otherwise).</summary>
     public bool IsAvailable => _hasAccess;
 
     public event EventHandler? UnseenItemsChanged;

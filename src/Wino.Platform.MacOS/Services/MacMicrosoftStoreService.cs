@@ -3,6 +3,7 @@ using Foundation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Apple.Bindings.StoreKit2;
+using Wino.Services.Platform;
 
 namespace Wino.Platform.MacOS.Services;
 
@@ -17,11 +18,7 @@ public sealed class MacMicrosoftStoreService(IConfigurationService configuration
     private const string FirstTriggerKey = "MacRatingFirstTriggerUtc";
     private const string LatestRequestKey = "MacRatingLatestRequestUtc";
 
-    /// <summary>Time between the first rating trigger and the first request, so new users are not asked.</summary>
-    private static readonly TimeSpan FirstRequestDelay = TimeSpan.FromDays(3);
-
-    /// <summary>The system also limits prompts (three a year); this keeps Wino's own requests rare.</summary>
-    private static readonly TimeSpan RequestInterval = TimeSpan.FromDays(120);
+    private readonly StoreRatingRequestSchedule _ratingSchedule = new(configurationService, FirstTriggerKey, LatestRequestKey);
 
     public bool HasAvailableUpdate => false;
     public Task<bool> HasProductAsync(WinoAddOnProductType productType) => Task.FromResult(false);
@@ -33,19 +30,8 @@ public sealed class MacMicrosoftStoreService(IConfigurationService configuration
     public Task PromptRatingDialogAsync()
     {
         if (!isAppStoreBuild || System.Diagnostics.Debugger.IsAttached) return Task.CompletedTask;
+        if (!_ratingSchedule.TryBeginRequest()) return Task.CompletedTask;
 
-        var now = DateTime.UtcNow;
-        var firstTrigger = configurationService.Get(FirstTriggerKey, DateTime.MinValue);
-        if (firstTrigger == DateTime.MinValue)
-        {
-            configurationService.Set(FirstTriggerKey, now);
-            return Task.CompletedTask;
-        }
-
-        var latestRequest = configurationService.Get(LatestRequestKey, DateTime.MinValue);
-        if (now - firstTrigger < FirstRequestDelay || now - latestRequest < RequestInterval) return Task.CompletedTask;
-
-        configurationService.Set(LatestRequestKey, now);
         StoreKit2Client.RequestReview();
         return Task.CompletedTask;
     }

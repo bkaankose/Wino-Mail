@@ -28,6 +28,14 @@ public static class WinoViewModelRegistration
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
         services.AddSingleton<ICalendarRangeTextFormatter, CalendarRangeTextFormatter>();
 
+        // The questions and notices of the request pipeline and the sync snapshot's theme and layout. The backend
+        // asks and shows nothing; these hold the dialog and theme services for the ViewModels that start the work.
+        services.AddTransient<Requests.WinoRequestCoordinator>();
+        services.AddTransient<Settings.AppearanceSnapshotService>();
+
+        // Notification actions run the same coordinator a page uses, so they ask and report the same way.
+        services.AddTransient<INotificationResponseService, Activation.NotificationResponseService>();
+
         // Read by the companion and, on Windows, by the widgets and the Live Tile.
         services.AddSingleton<Companion.CompanionContentService>();
 
@@ -95,6 +103,7 @@ public static class WinoViewModelRegistration
         services.AddTransient<ApplicationThemeGalleryPageViewModel>();
         services.AddTransient<ApplicationThemeEditorPageViewModel>();
         services.AddTransient<PrivacySecurityPageViewModel>();
+        services.AddTransient<AppLockPageViewModel>();
         services.AddTransient<VoiceControlSettingsPageViewModel>();
         services.AddTransient<VoiceBrainPageViewModel>();
         services.AddTransient<RemoteContentRulesPageViewModel>();

@@ -20,7 +20,7 @@ public static class ShellMenuItemRules
     /// <summary>Mirrors each template's SelectsOnInvoked.</summary>
     public static bool SelectsOnInvoked(IMenuItem item) => item switch
     {
-        NewMailMenuItem or NewContactMenuItem or NewAddressListMenuItem or NewTaskListMenuItem => false,
+        NewMailMenuItem or NewContactMenuItem or NewAddressListMenuItem or NewAddressBookMenuItem or NewTaskListMenuItem => false,
         ShellSectionHeaderMenuItem or SeperatorItem or FixAccountIssuesMenuItem => false,
         CalendarDatePickerMenuItem or AccountCalendarGroupMenuItem or UngroupedCalendarMenuItem => false,
         ContactCategoriesExpanderMenuItem or AccountTaskListGroupMenuItem or RateMenuItem or SettingsItem => false,
@@ -49,7 +49,10 @@ public static class ShellMenuItemRules
             _ => item is not MenuItemBase { IsEnabled: false }
         };
 
-    /// <summary>Windows collapses these entries while they are disabled instead of greying them out.</summary>
+    /// <summary>
+    /// Windows collapses these entries while they are disabled instead of greying them out. New Address Book stays and
+    /// greys out, so the command is discoverable even when no account can create an address book.
+    /// </summary>
     public static bool IsShown(IMenuItem item)
         => item is not (NewContactMenuItem or NewAddressListMenuItem) || item is MenuItemBase { IsEnabled: true };
 

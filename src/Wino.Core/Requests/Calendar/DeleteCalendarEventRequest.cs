@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
@@ -18,15 +18,15 @@ public record DeleteCalendarEventRequest(CalendarItem Item) : CalendarRequestBas
     /// </summary>
     public override int ResynchronizationDelay => 2000;
 
-    public override void ApplyUIChanges()
+    public override void ApplyUIChanges(IUIMessageSender sender)
     {
         // Notify UI that the event was deleted
-        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
+        sender.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientUpdated));
     }
 
-    public override void RevertUIChanges()
+    public override void RevertUIChanges(IUIMessageSender sender)
     {
         // If deletion fails, we should notify the UI to add it back
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
+        sender.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientReverted));
     }
 }

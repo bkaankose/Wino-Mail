@@ -69,6 +69,7 @@ public sealed class ApplicationThemeGalleryPageViewController(ApplicationThemeGa
         _currentCompatibility = WinoStyle.Label(string.Empty, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText);
         var currentText = WinoLayout.VStack(2, _currentName, _currentCompatibility);
         currentText.Alignment = NSLayoutAttribute.Leading;
+        currentText.SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
         var create = Bind.Button(Translator.ApplicationThemeGallery_Create, vm.CreateThemeCommand);
         Bind.Visible(create, vm, nameof(vm.IsCreateThemeVisible), s => s.IsCreateThemeVisible);
         var currentRow = WinoLayout.HStack(WinoStyle.Space3, _currentPreview, currentText, WinoLayout.Spacer(), create);

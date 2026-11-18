@@ -1,6 +1,7 @@
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
+using Foundation;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
 
@@ -15,6 +16,14 @@ namespace Wino.Mail.Controls.AppKit.Settings;
 /// </summary>
 public class WinoSettingsCard : NSView
 {
+    /// <summary>The chevron (12pt) and its 12pt gap before the trailing control.</summary>
+    private const double ChevronColumnWidth = 24;
+    /// <summary>The narrowest text column a trailing control may leave beside it.</summary>
+    private const double MinTextWidthBesideContent = 150;
+    /// <summary>A control at least this wide (a segmented control or a wide pop-up) also moves under the text when the
+    /// description beside it would wrap to more than <see cref="MaxDescriptionLinesBesideContent"/> lines.</summary>
+    private const double MinWideContentWidth = 120;
+    private const int MaxDescriptionLinesBesideContent = 3;
     private readonly WinoSurfaceView _surface = new();
     private readonly NSStackView _text;
     private readonly NSTextField _header;
@@ -37,6 +46,8 @@ public class WinoSettingsCard : NSView
     private bool _isExpanderHeader;
     private bool _hovered;
     private bool _ownsShadow = true;
+    private bool _reservesChevronSpace;
+    private bool _contentBelow;
 
     public WinoSettingsCard(string header, string? description = null, WinoIconGlyph icon = WinoIconGlyph.None, NSView? content = null)
     {
@@ -218,11 +229,15 @@ public class WinoSettingsCard : NSView
             {
                 value.TranslatesAutoresizingMaskIntoConstraints = false;
                 _surface.AddSubview(value);
+                // Content with a width limit of its own (a preview, a swatch grid) stays leading instead of narrowing the card and the page.
+                var fill = value.TrailingAnchor.ConstraintEqualTo(_surface.TrailingAnchor, -(nfloat)WinoSettingsStyle.CardPadding);
+                fill.Priority = 700;
                 _bottomConstraints =
                 [
                     value.TopAnchor.ConstraintEqualTo(_text.BottomAnchor, 10),
                     value.LeadingAnchor.ConstraintEqualTo(_text.LeadingAnchor),
-                    value.TrailingAnchor.ConstraintEqualTo(_surface.TrailingAnchor, -(nfloat)WinoSettingsStyle.CardPadding),
+                    value.TrailingAnchor.ConstraintLessThanOrEqualTo(_surface.TrailingAnchor, -(nfloat)WinoSettingsStyle.CardPadding),
+                    fill,
                     value.BottomAnchor.ConstraintEqualTo(_surface.BottomAnchor, -(nfloat)WinoSettingsStyle.CardVerticalPadding),
                     _text.TopAnchor.ConstraintEqualTo(_surface.TopAnchor, (nfloat)WinoSettingsStyle.CardVerticalPadding)
                 ];
@@ -262,6 +277,45 @@ public class WinoSettingsCard : NSView
     {
         get => _showsChevron ?? _isClickable;
         set { _showsChevron = value; UpdateChevron(); }
+    }
+
+    /// <summary>
+    /// Leaves the chevron's column empty after the trailing control, so the control lines up with the controls of
+    /// expander headers, whose chevron follows their switch. <see cref="AlignTrailingControls"/> sets it per page.
+    /// </summary>
+    public bool ReservesChevronSpace
+    {
+        get => _reservesChevronSpace;
+        set
+        {
+            if (_reservesChevronSpace == value) return;
+            _reservesChevronSpace = value;
+            RebuildFromLayout();
+        }
+    }
+
+    /// <summary>
+    /// Lines up the trailing controls of the cards under <paramref name="root"/>: when a visible card shows a chevron
+    /// after its control, the cards with a control and no chevron reserve the chevron's column. Nested rows keep their own edge.
+    /// </summary>
+    public static void AlignTrailingControls(NSView root)
+    {
+        var cards = new List<WinoSettingsCard>();
+        Collect(root, cards);
+        var hasChevronControl = cards.Exists(card => !card._chevron.Hidden && card._content is { Hidden: false });
+        foreach (var card in cards)
+            card.ReservesChevronSpace = hasChevronControl && card._chevron.Hidden && card._content is { Hidden: false };
+
+        static void Collect(NSView view, List<WinoSettingsCard> cards)
+        {
+            if (view.Hidden) return;
+            if (view is WinoSettingsCard card)
+            {
+                if (!card._isNested) cards.Add(card);
+                return;
+            }
+            foreach (var child in view.Subviews) Collect(child, cards);
+        }
     }
 
     /// <summary>Expander headers show a down chevron that turns when expanded (<see cref="IsExpanded"/>).</summary>
@@ -382,6 +436,78 @@ public class WinoSettingsCard : NSView
     {
         base.Layout();
         UpdateShadow();
+        UpdateContentPlacement();
+    }
+
+    /// <summary>
+    /// A trailing control that would leave the title and description only a word or two per line (a segmented control
+    /// or a wide pop-up in a narrow window) moves under the text, as in System Settings; it returns beside the text once
+    /// the card is wide enough again.
+    /// </summary>
+    private void UpdateContentPlacement()
+    {
+        if (_content is null || _content.Hidden || IsBottomContentShown || Bounds.IsEmpty) return;
+        var trailing = _surface.Bounds.Width - WinoSettingsStyle.CardPadding
+            - (!_chevron.Hidden || _reservesChevronSpace ? ChevronColumnWidth : 0);
+        var contentWidth = Math.Max(_content.Frame.Width, _content.FittingSize.Width);
+        var textWidthBeside = trailing - contentWidth - WinoSettingsStyle.CardPadding - _text.Frame.X;
+        var hysteresis = _contentBelow ? 24 : 0;
+        var below = textWidthBeside < MinTextWidthBesideContent + hysteresis
+            || (contentWidth >= MinWideContentWidth && DescriptionLineCount(textWidthBeside - hysteresis) > MaxDescriptionLinesBesideContent);
+        if (below == _contentBelow) return;
+
+        var width = _surface.Bounds.Width;
+        if (Math.Abs(width - _placementFlipWidth) < 1)
+        {
+            // Flipping at the same width again means the move itself changes the inputs (a scroll bar, a
+            // re-wrapping description); the card keeps the content below rather than toggling forever.
+            if (++_placementFlipsAtWidth > MaxPlacementFlipsAtWidth && !below) return;
+        }
+        else
+        {
+            _placementFlipWidth = width;
+            _placementFlipsAtWidth = 1;
+        }
+        _contentBelow = below;
+        RebuildFromLayout();
+    }
+
+    private const int MaxPlacementFlipsAtWidth = 2;
+    private double _placementFlipWidth = -1;
+    private int _placementFlipsAtWidth;
+    private bool _rebuiltThisTurn;
+    private bool _rebuildDeferred;
+
+    /// <summary>
+    /// Rebuilds the trailing constraints for a change found during layout. AppKit aborts the app ("needs another
+    /// Update Constraints pass") when constraints keep changing inside one display cycle, so only the first rebuild
+    /// of a run loop turn happens in place; a further one waits for the next turn.
+    /// </summary>
+    private void RebuildFromLayout()
+    {
+        if (!_rebuiltThisTurn)
+        {
+            _rebuiltThisTurn = true;
+            NSRunLoop.Main.BeginInvokeOnMainThread(() => _rebuiltThisTurn = false);
+            RebuildTrailingConstraints();
+            return;
+        }
+        if (_rebuildDeferred) return;
+        _rebuildDeferred = true;
+        NSRunLoop.Main.BeginInvokeOnMainThread(() =>
+        {
+            _rebuildDeferred = false;
+            RebuildTrailingConstraints();
+        });
+    }
+
+    private int DescriptionLineCount(double width)
+    {
+        if (_description.Hidden || width <= 0 || _description.Cell is not { } cell) return 0;
+        var lineHeight = cell.CellSizeForBounds(new CGRect(0, 0, 100000, 100000)).Height;
+        if (lineHeight <= 0) return 0;
+        var height = cell.CellSizeForBounds(new CGRect(0, 0, width, 100000)).Height;
+        return (int)Math.Round(height / lineHeight);
     }
 
     private void UpdateLeading()
@@ -426,9 +552,18 @@ public class WinoSettingsCard : NSView
             trailingEdge = _chevron.LeadingAnchor;
             gap = -12;
         }
-        if (_content is not null && !_content.Hidden)
+        if (_content is not null && !_content.Hidden && _contentBelow)
         {
-            constraints.Add(_content.TrailingAnchor.ConstraintEqualTo(trailingEdge, _chevron.Hidden ? -pad : -12));
+            constraints.Add(_text.TopAnchor.ConstraintEqualTo(_surface.TopAnchor, vpad));
+            constraints.Add(_content.TopAnchor.ConstraintEqualTo(_text.BottomAnchor, 8));
+            constraints.Add(_content.LeadingAnchor.ConstraintEqualTo(_text.LeadingAnchor));
+            constraints.Add(_content.TrailingAnchor.ConstraintLessThanOrEqualTo(trailingEdge, gap));
+            constraints.Add(_content.BottomAnchor.ConstraintEqualTo(_surface.BottomAnchor, -vpad));
+        }
+        else if (_content is not null && !_content.Hidden)
+        {
+            var reserved = (nfloat)(_reservesChevronSpace ? ChevronColumnWidth : 0);
+            constraints.Add(_content.TrailingAnchor.ConstraintEqualTo(trailingEdge, _chevron.Hidden ? -(pad + reserved) : -12));
             constraints.Add(_content.TopAnchor.ConstraintGreaterThanOrEqualTo(_surface.TopAnchor, vpad));
             constraints.Add(_content.BottomAnchor.ConstraintLessThanOrEqualTo(_surface.BottomAnchor, -vpad));
             // With bottom content the control stays beside the header text, above the bottom content.

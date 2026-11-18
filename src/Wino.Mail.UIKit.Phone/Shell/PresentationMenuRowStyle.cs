@@ -1,3 +1,6 @@
+using UIKit;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Presentation;
@@ -16,7 +19,7 @@ internal sealed class PresentationMenuRowStyle(string title, IPictureStorageServ
 {
     public string Title => title;
 
-    public WinoShellRowKind? Kind(IMenuItem item) => ShellMenuRowPresentation.KindOf(item) switch
+    public WinoShellRowKind? Kind(IMenuItem item) => item is NewAddressBookMenuItem ? WinoShellRowKind.NewItem : ShellMenuRowPresentation.KindOf(item) switch
     {
         ShellMenuRowKind.NewItem => WinoShellRowKind.NewItem,
         ShellMenuRowKind.Header => WinoShellRowKind.Header,
@@ -31,6 +34,7 @@ internal sealed class PresentationMenuRowStyle(string title, IPictureStorageServ
         switch (row.Kind)
         {
             case ShellMenuRowKind.NewItem:
+            case ShellMenuRowKind.Folder when item is NewAddressBookMenuItem:
                 cell.ConfigureNewItem(row.Title, row.Glyph);
                 break;
             case ShellMenuRowKind.Header:
@@ -54,4 +58,17 @@ internal sealed class PresentationMenuRowStyle(string title, IPictureStorageServ
     }
 
     public bool IsCurrent(IMenuItem item, object? selectedMenuItem, object? contentViewModel) => ReferenceEquals(item, selectedMenuItem);
+
+    /// <summary>Rename and Delete of a contact list, category or editable address book (Windows ContactListContextRequested).</summary>
+    public UIMenu? ContextMenu(IMenuItem item)
+    {
+        if (item is not ContactFilterViewModel { HasAccountIcon: false, CanRenameOrDelete: true } filter) return null;
+        var rename = UIAction.Create(filter.IsCategory ? Translator.Buttons_Edit : Translator.ContactList_Rename,
+            WinoIcons.Image(WinoIconGlyph.Rename, 18), null, _ => filter.RenameListCommand.Execute(null));
+        if (!filter.RenameListCommand.CanExecute(null)) rename.Attributes |= UIMenuElementAttributes.Disabled;
+        var delete = UIAction.Create(Translator.ContactsPage_Delete, WinoIcons.Image(WinoIconGlyph.Delete, 18), null, _ => filter.DeleteListCommand.Execute(null));
+        delete.Attributes |= UIMenuElementAttributes.Destructive;
+        if (!filter.DeleteListCommand.CanExecute(null)) delete.Attributes |= UIMenuElementAttributes.Disabled;
+        return UIMenu.Create([rename, delete]);
+    }
 }

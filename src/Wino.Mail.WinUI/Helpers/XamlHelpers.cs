@@ -331,6 +331,9 @@ public static class XamlHelpers
     public static object GetRowContactPicture(object? sourceItem)
         => GetContactPicture(sourceItem as IMailItemDisplayInformation);
 
+    public static MailItemViewModel? GetRowMailItem(object? sourceItem)
+        => sourceItem as MailItemViewModel;
+
     public static object GetThreadHeadContactPicture(IReadOnlyList<IMailListSourceItem>? leaves, object? sourceItem)
         => GetContactPicture(GetThreadHeadParty(leaves, sourceItem) ?? sourceItem as IMailItemDisplayInformation);
 
@@ -744,7 +747,7 @@ public static class XamlHelpers
     public static string GetMergedAccountToolTip(string? name, IEnumerable<MailAccount>? accounts)
         => string.Join(Environment.NewLine,
             new[] { name }
-                .Concat(accounts?.Select(account => account.Address) ?? Enumerable.Empty<string>())
+                .Concat(accounts?.Select(account => account.DisplayAddress) ?? Enumerable.Empty<string>())
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
 
     public static string GetContactAutomationName(string? name, string? address, string? source, bool isFavorite)
@@ -840,7 +843,7 @@ public static class XamlHelpers
         => MailProviderGlyphs.GetGlyph(providerType, specialImapProvider);
 
     public static WinoIconGlyph GetProviderIcon(MailAccount account)
-        => GetProviderIcon(account.ProviderType, account.SpecialImapProvider);
+        => account.IsLocalOnly ? WinoIconGlyph.Laptop : GetProviderIcon(account.ProviderType, account.SpecialImapProvider);
 
     /// <summary>
     /// Builds a Geometry from path markup held as a string. Named apart from the

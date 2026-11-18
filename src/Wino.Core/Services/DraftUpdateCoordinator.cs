@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 
@@ -99,7 +100,7 @@ public sealed class DraftUpdateCoordinator : IDraftUpdateCoordinator, IAsyncDisp
             try
             {
                 var mail = await _mailService.GetSingleMailItemAsync(key.Draft).ConfigureAwait(false);
-                if (mail?.AssignedAccount?.Id != key.Account || !mail.IsDraft || mail.AssignedAccount.ProviderType == MailProviderType.POP3)
+                if (mail?.AssignedAccount?.Id != key.Account || !mail.IsDraft || mail.AssignedAccount.ProviderType.UsesLocalMailState())
                 {
                     lock (_gate) { work.Stopped = true; work.Pending = null; }
                 }

@@ -127,7 +127,7 @@ public sealed class CalendarListView : UIView
 
         var name = WinoStyle.Label(group.Account?.Name ?? string.Empty, WinoStyle.Scaled(15, UIFontWeight.Semibold), TextColor);
         bool syncing = group.IsSynchronizationProgressVisible && !string.IsNullOrWhiteSpace(group.SynchronizationStatus);
-        var detail = WinoStyle.Label(syncing ? group.SynchronizationStatus : group.Account?.Address ?? string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+        var detail = WinoStyle.Label(syncing ? group.SynchronizationStatus : group.Account?.DisplayAddress ?? string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
         var text = WinoLayout.VStack(1, name, detail);
         text.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
         name.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);

@@ -12,7 +12,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Integration;
 
-internal static class MailKitSmtpConnectionPolicy
+public static class MailKitSmtpConnectionPolicy
 {
     public static async Task ConnectAndAuthenticateAsync(
         SmtpClient client,
