@@ -121,6 +121,7 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IAttachmentPlatformService, LauncherAttachmentPlatformService>();
         services.AddSingleton<IStartupIntegrationService, UnavailableStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, UnavailableSmimeCertificateService>();
+        services.AddSingleton<IAppLockPlatform, UnavailableAppLockPlatform>();
         services.AddSingleton<ITaskCompletionSound, IOSTaskCompletionSound>();
         services.AddSingleton<IUserPresenceStateProvider, IOSUserPresenceStateProvider>();
         services.AddSingleton<IMicrosoftStoreService, IOSMicrosoftStoreService>();

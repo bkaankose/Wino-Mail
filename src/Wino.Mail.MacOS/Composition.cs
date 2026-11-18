@@ -97,6 +97,7 @@ internal static class Composition
         services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
         services.AddSingleton<IStartupIntegrationService, MacStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, MacSmimeCertificateService>();
+        services.AddSingleton<IAppLockPlatform, UnavailableAppLockPlatform>();
         services.AddSingleton<ITaskCompletionSound, MacTaskCompletionSound>();
         services.AddSingleton<IUserPresenceStateProvider, MacUserPresenceStateProvider>();
         services.AddSingleton<INotificationSoundCatalog, MacNotificationSoundCatalog>();

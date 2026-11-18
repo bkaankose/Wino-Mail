@@ -37,6 +37,8 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoTelemetryContextProvider, WinoTelemetryContextProvider>();
         services.AddSingleton<IWinoLogger, WinoLogger>();
         services.AddSingleton<INotificationPolicyService, NotificationPolicyService>();
+        // Every head registers an IAppLockPlatform; the lock stays off where that platform is not available.
+        services.AddSingleton<IAppLockService, AppLockService>();
         services.AddSingleton<IActivationStateService, ActivationStateService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
         services.AddSingleton<IContentTypeClassificationModel, MagikaContentTypeClassificationModel>();

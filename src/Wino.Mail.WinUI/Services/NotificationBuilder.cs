@@ -66,6 +66,7 @@ public class NotificationBuilder : INotificationBuilder
     private readonly INotificationHostClient _notificationHostClient;
     private readonly INotificationPolicyService _notificationPolicyService;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IAppLockService _appLockService;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
@@ -76,7 +77,8 @@ public class NotificationBuilder : INotificationBuilder
                                IPictureStorageService pictureStorageService,
                                INotificationHostClient notificationHostClient,
                                INotificationPolicyService notificationPolicyService,
-                               IApplicationConfiguration applicationConfiguration)
+                               IApplicationConfiguration applicationConfiguration,
+                               IAppLockService appLockService)
     {
         _accountService = accountService;
         _folderService = folderService;
@@ -88,6 +90,7 @@ public class NotificationBuilder : INotificationBuilder
         _notificationHostClient = notificationHostClient;
         _notificationPolicyService = notificationPolicyService;
         _applicationConfiguration = applicationConfiguration;
+        _appLockService = appLockService;
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
@@ -421,7 +424,9 @@ public class NotificationBuilder : INotificationBuilder
             reminderDurationInSeconds,
             _preferencesService.DefaultReminderDurationInSeconds);
 
-        if (allowedSnoozeMinutes.Count > 0)
+        var isReadOnly = _appLockService.AreNotificationsReadOnly;
+
+        if (allowedSnoozeMinutes.Count > 0 && !isReadOnly)
         {
             var preferredSnoozeMinutes = _preferencesService.DefaultSnoozeDurationInMinutes;
             var defaultSnoozeMinutes = allowedSnoozeMinutes.Contains(preferredSnoozeMinutes)
@@ -451,7 +456,7 @@ public class NotificationBuilder : INotificationBuilder
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
 
         // A join link would reveal the meeting, so a hidden reminder offers Open instead.
-        if (!hidesContent && CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
+        if (!hidesContent && !isReadOnly && CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
         {
             builder.AddButton(CreateButton(Translator.CalendarEventDetails_JoinOnline, "calendar-join")
                 .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarJoinOnlineAction)
@@ -580,8 +585,10 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
 
         // Reply, Reply all and Forward open the message, so a hidden toast drops them.
+        // A toast outlives the window, so an app with the lock on offers no action that works without unlocking.
         var (firstAction, secondAction) = GetConfiguredMailNotificationActions();
-        foreach (var action in new[] { firstAction, secondAction })
+        MailOperation[] actions = _appLockService.AreNotificationsReadOnly ? [] : [firstAction, secondAction];
+        foreach (var action in actions)
         {
             if (hidesContent && IsReplyAction(action))
                 continue;

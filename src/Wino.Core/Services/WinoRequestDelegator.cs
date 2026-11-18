@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
@@ -22,6 +23,7 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Core.Integration.Processors;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 
 namespace Wino.Core.Services;
@@ -36,6 +38,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IMailProviderRegistry _providers;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IApplicationLocalRequestExecutor _applicationLocalRequestExecutor;
+    private readonly IAppLockService _appLockService;
 
     private readonly IMessenger _messenger;
 
@@ -47,7 +50,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                 IApplicationConfiguration applicationConfiguration,
                                 IApplicationLocalRequestExecutor applicationLocalRequestExecutor,
                                 IMessenger messenger,
-                                IMailProviderRegistry providers)
+                                IMailProviderRegistry providers,
+                                IAppLockService appLockService)
     {
         _providers = providers;
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
@@ -58,10 +62,23 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         _calendarChangeProcessor = calendarChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
         _applicationLocalRequestExecutor = applicationLocalRequestExecutor;
+        _appLockService = appLockService ?? throw new ArgumentNullException(nameof(appLockService));
+    }
+
+    // The overloads that return no result cannot hand the refusal to a request coordinator, so they say it as a notice.
+    private bool IsRefusedWhileLocked()
+    {
+        if (!_appLockService.AreActionsRefused) return false;
+
+        _messenger.Send(new InfoBarMessageRequested(InfoBarMessageType.Warning, Translator.AppLock_LockedTitle, Translator.AppLock_ActionDenied));
+        return true;
     }
 
     public async Task<WinoRequestDelegationResult> ExecuteWithResultAsync(MailOperationPreperationRequest request)
     {
+        if (_appLockService.AreActionsRefused)
+            return new WinoRequestDelegationResult(0, new AppLockedException());
+
         List<IMailActionRequest> requests;
 
         try
@@ -85,7 +102,14 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                 group => group.Key,
                 group => group.Cast<IRequestBase>().ToList());
 
-        await QueueRequestPackAsync(accountGroups).ConfigureAwait(false);
+        try
+        {
+            await QueueRequestPackAsync(accountGroups).ConfigureAwait(false);
+        }
+        catch (AppLockedException ex)
+        {
+            return new WinoRequestDelegationResult(0, ex);
+        }
 
         foreach (var accountGroup in requests.GroupBy(a => a.Item.AssignedAccount.Id))
         {
@@ -98,6 +122,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     public async Task<WinoRequestDelegationResult> ExecuteAsync(FolderOperationPreperationRequest folderRequest)
     {
         if (folderRequest == null || folderRequest.Folder == null) return new WinoRequestDelegationResult(0, null);
+        if (_appLockService.AreActionsRefused) return new WinoRequestDelegationResult(0, new AppLockedException());
 
         IRequestBase request = null;
 
@@ -132,6 +157,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
     {
+        if (IsRefusedWhileLocked()) return;
+
         var request = new CreateDraftRequest(draftPreperationRequest);
         var accountId = draftPreperationRequest.Account.Id;
 
@@ -141,6 +168,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
     {
+        if (IsRefusedWhileLocked()) return;
+
         var request = new SendDraftRequest(sendDraftPreperationRequest);
         var account = sendDraftPreperationRequest.MailItem.AssignedAccount;
 
@@ -152,6 +181,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     {
         if (calendarPreparationRequest == null)
             return new WinoRequestDelegationResult(0, null);
+
+        if (_appLockService.AreActionsRefused)
+            return new WinoRequestDelegationResult(0, new AppLockedException());
 
         var resolvedCalendar = await ResolveCalendarAsync(calendarPreparationRequest).ConfigureAwait(false);
         if (resolvedCalendar?.IsReadOnly == true)
@@ -211,6 +243,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     private async Task ExecuteLocalCalendarRequestAsync(MailAccount account, IRequestBase request)
     {
+        if (_appLockService.AreActionsRefused)
+            throw new AppLockedException();
+
         var handler = new LocalCalendarOperationHandler(
             account,
             _calendarChangeProcessor,
@@ -256,6 +291,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (valid.Count == 0)
             return;
 
+        if (IsRefusedWhileLocked()) return;
+
         var preparedRequests = new List<IContactActionRequest>();
 
         foreach (var preparationRequest in valid)
@@ -282,6 +319,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests)
     {
+        if (IsRefusedWhileLocked()) return;
+
         var requestList = new List<IRequestBase>();
 
         foreach (var request in requests?.Where(request => request is not null) ?? [])
@@ -319,7 +358,13 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     }
 
     public Task ExecuteLocalAsync(IRequestBase request)
-        => _applicationLocalRequestExecutor.ExecuteAsync(request);
+    {
+        // Callers keep their own copy of the change and revert it only when this throws.
+        if (_appLockService.AreActionsRefused)
+            return Task.FromException(new AppLockedException());
+
+        return _applicationLocalRequestExecutor.ExecuteAsync(request);
+    }
 
     private async Task<IRequestBase> CreateCalendarEventRequestAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
     {

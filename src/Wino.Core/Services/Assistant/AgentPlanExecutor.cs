@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using MimeKit;
 using Serilog;
 using Wino.Agent.Runtime.Plan;
@@ -109,6 +110,8 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
                 cancelled = true;
                 outcome = new StepOutcome(step.N, StepStatus.Cancelled, [], null);
             }
+            else if (services.GetService<IAppLockService>()?.IsLocked == true)
+                outcome = Failed(step, Translator.AppLock_ActionDenied);
             else if (DependencyBlocks(step, run) is { } blocked)
                 outcome = blocked;
             else

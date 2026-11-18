@@ -39,6 +39,7 @@ public sealed class NotificationResponseService(
     IPreferencesService preferencesService,
     IExternalLauncher externalLauncher,
     INotificationResponseNavigator navigator,
+    IAppLockService appLock,
     IApplicationRuntime? runtime = null) : INotificationResponseService
 {
     private static readonly TimeSpan RelayLookupSyncBudget = TimeSpan.FromSeconds(20);
@@ -53,7 +54,10 @@ public sealed class NotificationResponseService(
         if (values.TryGetValue(Constants.ToastCalendarItemIdKey, out var calendarItemValue) && Guid.TryParse(calendarItemValue, out var calendarItemId))
         {
             if (response.ActionIdentifier == NotificationActionIdentifiers.CalendarJoin) await JoinOnlineAsync(calendarItemId);
-            else if (response.ActionIdentifier == NotificationActionIdentifiers.CalendarSnooze) await SnoozeAsync(calendarItemId, values);
+            else if (response.ActionIdentifier == NotificationActionIdentifiers.CalendarSnooze)
+            {
+                if (!IsActionRefusedByAppLock("calendar snooze")) await SnoozeAsync(calendarItemId, values);
+            }
             else if (response.IsOpen) await OpenCalendarItemAsync(calendarItemId);
 
             return;
@@ -70,10 +74,22 @@ public sealed class NotificationResponseService(
             if (!NotificationActionIdentifiers.TryParseMailAction(response.ActionIdentifier, out var action)) return;
 
             var replyText = response.UserText?.Trim();
-            if (action == MailOperation.Reply && !string.IsNullOrEmpty(replyText))
-                await ReplyInlineAsync(mailUniqueId, replyText);
-            else if (action is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward)
+            var inlineReply = action == MailOperation.Reply && !string.IsNullOrEmpty(replyText) ? replyText : null;
+
+            // Compose actions open the shell, which asks for the unlock first, so only actions that run without it are checked.
+            if (inlineReply is null && action is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward)
+            {
                 await ComposeAsync(action, mailUniqueId);
+                return;
+            }
+
+            if (IsActionRefusedByAppLock($"notification action {action}")) return;
+
+            // The user kept action buttons on notifications, so this one action goes through while the window is locked.
+            using var actionScope = appLock.AllowActionsWhileLocked();
+
+            if (inlineReply is not null)
+                await ReplyInlineAsync(mailUniqueId, inlineReply);
             else if (response.RunsWithoutWindow)
                 await ExecuteMailActionWithoutWindowAsync(action, mailUniqueId);
             else
@@ -146,6 +162,15 @@ public sealed class NotificationResponseService(
         }
     }
 
+    // Only notifications created before the read-only option was turned on still carry action buttons.
+    public bool IsActionRefusedByAppLock(string action)
+    {
+        if (!appLock.IsLocked || !appLock.AreNotificationsReadOnly) return false;
+
+        _logger.Information("Ignoring {Action} while the app is locked.", action);
+        return true;
+    }
+
     /// <summary>The mode a generic notification opens (<see cref="Constants.ToastModeKey"/>); mail when absent or unknown.</summary>
     public static WinoApplicationMode ResolveMode(IReadOnlyDictionary<string, string> values)
     {
@@ -206,6 +231,8 @@ public sealed class NotificationResponseService(
 
     public async Task JoinOnlineAsync(Guid calendarItemId)
     {
+        if (IsActionRefusedByAppLock("calendar join")) return;
+
         var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
         if (calendarItem is null || !CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out var joinUri)) return;
 

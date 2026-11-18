@@ -48,7 +48,7 @@ public static class CoreUWPContainerSetup
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
             ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true, WidgetsAndLiveTiles: true,
-            AttachmentSecurityCheck: true, VoiceControl: true));
+            AttachmentSecurityCheck: true, VoiceControl: true, AppLock: true));
         // The desktop socket (Wino.PushRelay.Socket): the key is a DPAPI-protected file. ApplicationRuntimeInitialization
         // starts the socket after the relay registration in background startup.
         services.AddSingleton<IPushRelaySocketKeyStore, ProtectedFilePushRelaySocketKeyStore>();
@@ -82,6 +82,12 @@ public static class CoreUWPContainerSetup
         services.AddSingleton(provider => new Lazy<IMailDialogService>(provider.GetRequiredService<IMailDialogService>));
         services.AddSingleton(provider => new Lazy<INewThemeService>(provider.GetRequiredService<INewThemeService>));
         services.AddSingleton(provider => new Lazy<IWinoDialogService>(provider.GetRequiredService<IWinoDialogService>));
+        // The lock service takes this platform in its constructor, and the PIN dialog reaches the lock service, so the
+        // dialog service is only resolved when a prompt opens.
+        services.AddSingleton<IAppLockPlatform>(provider => new WindowsAppLockPlatform(
+            provider.GetRequiredService<Lazy<IWinoDialogService>>(),
+            provider.GetRequiredService<WinUIDispatcher>(),
+            () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
     }
 }

@@ -31,16 +31,19 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     private readonly IWinoAccountDataSyncService _syncService;
     private readonly AppearanceSnapshotService _appearance;
     private readonly IWinoAccountProfileService _profileService;
+    private readonly IAppLockService _appLockService;
 
     public BackupRestorePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                       IWinoAccountDataSyncService syncService,
                                       AppearanceSnapshotService appearance,
-                                      IWinoAccountProfileService profileService) : base(messenger)
+                                      IWinoAccountProfileService profileService,
+                                      IAppLockService appLockService) : base(messenger)
     {
         _dialogService = dialogService;
         _syncService = syncService;
         _appearance = appearance;
         _profileService = profileService;
+        _appLockService = appLockService;
     }
 
     /// <summary>
@@ -113,6 +116,11 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     [RelayCommand(CanExecute = nameof(CanTransferWinoAccountData))]
     private async Task ExportToWinoAccountAsync()
     {
+        if (!await ExecuteUIThreadAsync(_appLockService.RequestVerificationAsync).ConfigureAwait(false))
+        {
+            return;
+        }
+
         try
         {
             var isConfirmed = await ExecuteUIThreadAsync(_dialogService.ShowWinoAccountExportDialogAsync).ConfigureAwait(false);
@@ -193,6 +201,11 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
     private async Task ExportLocalDataAsync()
     {
+        if (!await ExecuteUIThreadAsync(_appLockService.RequestVerificationAsync).ConfigureAwait(false))
+        {
+            return;
+        }
+
         try
         {
             // Write to exactly the path the platform returns. On macOS this is the URL of the save

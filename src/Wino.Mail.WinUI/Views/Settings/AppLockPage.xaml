@@ -1,0 +1,189 @@
+﻿<abstract:AppLockPageAbstract
+    x:Class="Wino.Views.Settings.AppLockPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="AppLockMethodTemplate" x:DataType="data:AppLockMethodOption">
+            <ItemContainer
+                AutomationProperties.HelpText="{x:Bind Description, Mode=OneWay}"
+                AutomationProperties.Name="{x:Bind Title}"
+                IsEnabled="{x:Bind IsAvailable, Mode=OneWay}">
+                <Grid
+                    Padding="20"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <StackPanel
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Orientation="Horizontal"
+                        Spacing="4"
+                        Visibility="{x:Bind IsActive, Mode=OneWay}">
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                            FontSize="16"
+                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                            Icon="CheckmarkCircle" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                            Style="{ThemeResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ActiveText}" />
+                    </StackPanel>
+
+                    <StackPanel Margin="0,8,0,0" Spacing="12">
+                        <coreControls:WinoFontIcon
+                            HorizontalAlignment="Center"
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                            FontSize="40"
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Icon="{x:Bind Icon}" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Style="{ThemeResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind Title}"
+                            TextAlignment="Center"
+                            TextWrapping="WrapWholeWords" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{ThemeResource BodyTextBlockStyle}"
+                            Text="{x:Bind Description, Mode=OneWay}"
+                            TextAlignment="Center"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                </Grid>
+            </ItemContainer>
+        </DataTemplate>
+    </Page.Resources>
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <TextBlock
+            AutomationProperties.AutomationId="AppLockHint"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Style="{ThemeResource BodyTextBlockStyle}"
+            Text="{x:Bind domain:Translator.AppLock_Hint, Mode=OneTime}"
+            TextWrapping="WrapWholeWords" />
+
+        <InfoBar
+            AutomationProperties.AutomationId="AppLockNotSupportedInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsNotSupported, Mode=OneTime}"
+            Message="{x:Bind domain:Translator.AppLock_NotSupported, Mode=OneTime}"
+            Severity="Warning" />
+
+        <TextBlock
+            Margin="0,12,0,4"
+            Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+            Text="{x:Bind domain:Translator.AppLock_MethodHeader, Mode=OneTime}" />
+
+        <!--  Tag carries no data: its function binding moves the selection when the view model changes the method.  -->
+        <ItemsView
+            x:Name="MethodPicker"
+            AutomationProperties.AutomationId="AppLockMethodPicker"
+            AutomationProperties.Name="{x:Bind domain:Translator.AppLock_MethodHeader, Mode=OneTime}"
+            IsEnabled="{x:Bind ViewModel.CanPickMethod, Mode=OneWay}"
+            ItemTemplate="{StaticResource AppLockMethodTemplate}"
+            ItemsSource="{x:Bind ViewModel.MethodOptions, Mode=OneTime}"
+            Loaded="MethodPicker_Loaded"
+            SelectionChanged="MethodPicker_SelectionChanged"
+            SelectionMode="Single"
+            Tag="{x:Bind SyncMethodSelection(ViewModel.SelectedMethod), Mode=OneWay}">
+            <ItemsView.Layout>
+                <coreControls:EqualHeightGridLayout
+                    ColumnSpacing="8"
+                    MinItemWidth="280"
+                    RowSpacing="8" />
+            </ItemsView.Layout>
+        </ItemsView>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="AppLockPinExpander"
+            Description="{x:Bind domain:Translator.AppLock_PinDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.AppLock_PinEntryHeader, Mode=OneTime}"
+            IsExpanded="{x:Bind ViewModel.IsPinEntryVisible, Mode=OneWay}"
+            Visibility="{x:Bind ViewModel.IsPinEntryVisible, Mode=OneWay}">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Key" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard AutomationProperties.AutomationId="AppLockNewPinCard" Header="{x:Bind domain:Translator.AppLock_PinPlaceholder, Mode=OneTime}">
+                    <PasswordBox
+                        Width="200"
+                        AutomationProperties.AutomationId="AppLockNewPinBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.AppLock_PinPlaceholder, Mode=OneTime}"
+                        InputScope="NumericPin"
+                        MaxLength="12"
+                        Password="{x:Bind ViewModel.NewPin, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard AutomationProperties.AutomationId="AppLockConfirmPinCard" Header="{x:Bind domain:Translator.AppLock_PinConfirmPlaceholder, Mode=OneTime}">
+                    <PasswordBox
+                        Width="200"
+                        AutomationProperties.AutomationId="AppLockConfirmPinBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.AppLock_PinConfirmPlaceholder, Mode=OneTime}"
+                        InputScope="NumericPin"
+                        MaxLength="12"
+                        Password="{x:Bind ViewModel.ConfirmPin, Mode=TwoWay}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <TextBlock
+            Margin="0,12,0,4"
+            Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+            Text="{x:Bind domain:Translator.AppLock_NotificationsHeader, Mode=OneTime}" />
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AppLockReadOnlyNotificationsCard"
+            Description="{x:Bind domain:Translator.AppLock_ReadOnlyNotificationsDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.AppLock_ReadOnlyNotificationsHeader, Mode=OneTime}"
+            IsEnabled="{x:Bind ViewModel.IsLockOn, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Alert" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="AppLockReadOnlyNotificationsToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.AppLock_ReadOnlyNotificationsHeader, Mode=OneTime}"
+                IsOn="{x:Bind ViewModel.AreNotificationsReadOnly, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <InfoBar
+            AutomationProperties.AutomationId="AppLockErrorInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+            Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
+            Severity="Error" />
+
+        <StackPanel
+            Margin="0,8,0,0"
+            Orientation="Horizontal"
+            Spacing="8">
+            <Button
+                AutomationProperties.AutomationId="AppLockApplyButton"
+                AutomationProperties.Name="{x:Bind ViewModel.ApplyText, Mode=OneWay}"
+                Command="{x:Bind ViewModel.ApplyCommand}"
+                Content="{x:Bind ViewModel.ApplyText, Mode=OneWay}"
+                IsEnabled="{x:Bind ViewModel.CanApply, Mode=OneWay}"
+                Style="{ThemeResource AccentButtonStyle}"
+                Visibility="{x:Bind ViewModel.IsApplyVisible, Mode=OneWay}" />
+            <Button
+                AutomationProperties.AutomationId="AppLockTurnOffButton"
+                AutomationProperties.Name="{x:Bind domain:Translator.AppLock_TurnOff, Mode=OneTime}"
+                Command="{x:Bind ViewModel.TurnOffCommand}"
+                Content="{x:Bind domain:Translator.AppLock_TurnOff, Mode=OneTime}"
+                IsEnabled="{x:Bind ViewModel.CanTurnOff, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsLockOn, Mode=OneWay}" />
+        </StackPanel>
+    </StackPanel>
+</abstract:AppLockPageAbstract>

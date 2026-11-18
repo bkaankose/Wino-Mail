@@ -87,6 +87,7 @@ public partial class App : WinoApplication,
     private bool _appHostInfrastructureInitialized;
     private int _initialNotificationActivationHandled;
     private int _initialShareActivationHandled;
+    private int _launchCompletionQueued;
     private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
@@ -792,6 +793,10 @@ public partial class App : WinoApplication,
     private bool HasShellWindow()
         => Services.GetRequiredService<IWinoWindowManager>().GetWindow(WinoWindowKind.Shell) is IWinoShellWindow;
 
+    /// <summary>A locked shell window has never shown its shell, so activations treat it like a new window.</summary>
+    private bool IsShellWindowLocked()
+        => Services.GetRequiredService<IWinoWindowManager>().GetWindow(WinoWindowKind.Shell) is IWinoShellWindow { IsAppLocked: true };
+
     private async Task EnsureActivationInfrastructureAsync()
     {
         await EnsureCoreActivationInfrastructureAsync();
@@ -880,10 +885,22 @@ public partial class App : WinoApplication,
         {
             // Low priority runs after the first frame of whatever window the launch activated.
             // A launch route can also finish without a window, for example a forwarded notification.
-            if (_applicationDispatcherQueue?.TryEnqueue(DispatcherQueuePriority.Low, CompleteLaunch) != true)
-            {
-                CompleteLaunch();
-            }
+            QueueLaunchCompletion();
+        }
+    }
+
+    /// <summary>
+    /// Runs <see cref="CompleteLaunch"/> once. A launch whose shell window waits for the app lock queues it early,
+    /// because the launch activation does not finish until the unlock.
+    /// </summary>
+    private void QueueLaunchCompletion()
+    {
+        if (Interlocked.Exchange(ref _launchCompletionQueued, 1) != 0)
+            return;
+
+        if (_applicationDispatcherQueue?.TryEnqueue(DispatcherQueuePriority.Low, CompleteLaunch) != true)
+        {
+            CompleteLaunch();
         }
     }
 
@@ -1143,7 +1160,7 @@ public partial class App : WinoApplication,
             return false;
         }
 
-        var shellWindowAlreadyExists = HasShellWindow();
+        var shellWindowAlreadyExists = HasShellWindow() && !IsShellWindowLocked();
 
         await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow, suppressStartupFlows: true);
 
@@ -1244,7 +1261,8 @@ public partial class App : WinoApplication,
                                                                            bool activateWindow,
                                                                            bool suppressStartupFlows = true,
                                                                            object? activationParameter = null,
-                                                                           bool applyThemeToExistingWindow = true)
+                                                                           bool applyThemeToExistingWindow = true,
+                                                                           bool waitForUnlock = true)
     {
         if (!HasActivationUiThreadAccess())
         {
@@ -1254,13 +1272,15 @@ public partial class App : WinoApplication,
                     activateWindow,
                     suppressStartupFlows,
                     activationParameter,
-                    applyThemeToExistingWindow));
+                    applyThemeToExistingWindow,
+                    waitForUnlock));
         }
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         var navigationService = Services.GetRequiredService<INavigationService>();
         var shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
         var wasCreated = false;
+        Task? unlockedActivation;
 
         if (shellWindow == null)
         {
@@ -1278,6 +1298,8 @@ public partial class App : WinoApplication,
                     Parameter = activationParameter
                 });
 
+            unlockedActivation = (MainWindow as IWinoShellWindow)?.WhenUnlockedAsync();
+
             await NewThemeService.InitializeAsync();
 
             if (initialWinoAccount != null)
@@ -1293,11 +1315,11 @@ public partial class App : WinoApplication,
 
             // Bring an existing, not-yet-visible shell to the requested mode before it is
             // activated (for example, a shell created by a non-foreground activation).
-            navigationService.RestoreShell(mode, new ShellModeActivationContext
+            unlockedActivation = shellWindow.RunWhenUnlockedAsync(() => navigationService.RestoreShell(mode, new ShellModeActivationContext
             {
                 SuppressStartupFlows = suppressStartupFlows,
                 Parameter = activationParameter
-            });
+            }));
 
             if (activateWindow && shellWindow is WindowEx existingWindow)
             {
@@ -1321,6 +1343,17 @@ public partial class App : WinoApplication,
         if (shellWindow != null)
         {
             ReleaseBackgroundLifetimeWindow();
+        }
+
+        // Callers continue into the shell's content (a folder, a draft, a contact), so they wait for the app lock.
+        // Launch completion must not wait with them: synchronization and the tray do not depend on the unlock.
+        if (unlockedActivation is { IsCompleted: false })
+        {
+            LogActivation($"Shell window is locked. The {mode} activation continues after the unlock.");
+            QueueLaunchCompletion();
+
+            if (waitForUnlock)
+                await unlockedActivation;
         }
 
         return new ShellWindowActivationResult(shellWindow, wasCreated);
@@ -1448,7 +1481,7 @@ public partial class App : WinoApplication,
                     : AppModeActivationResolver.Resolve(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine, defaultMode);
 
             ApplyShellWindowTaskbarIdentity(shellWindow, targetMode);
-            navigationService.RestoreShell(targetMode, activationContextOverride);
+            _ = shellWindow.RunWhenUnlockedAsync(() => navigationService.RestoreShell(targetMode, activationContextOverride));
             return;
         }
 
@@ -1925,7 +1958,9 @@ public partial class App : WinoApplication,
 
         if (route.ShouldActivateWindow && shellWindow == null && _hasConfiguredAccounts)
         {
-            var result = await EnsureShellWindowAsync(route.ActivationMode, activateWindow: true);
+            // The activation below replaces the locked window's pending restore. Waiting for the unlock here would
+            // restore the mode twice in a row, which the Calendar shell's initialization does not survive.
+            var result = await EnsureShellWindowAsync(route.ActivationMode, activateWindow: true, waitForUnlock: false);
             shellWindow = result.ShellWindow;
             route = route with { ShouldActivateWindow = false };
         }
@@ -1952,7 +1987,8 @@ public partial class App : WinoApplication,
             if (wasHidden &&
                 route.Path == AppActivationPath.StandardLaunch &&
                 route.ActivationMode == WinoApplicationMode.Mail &&
-                ReferenceEquals(activationWindow, shellWindow))
+                ReferenceEquals(activationWindow, shellWindow) &&
+                shellWindow?.IsAppLocked != true)
             {
                 WeakReferenceMessenger.Default.Send(new UnreadBadgeLaunchNavigationRequested());
             }

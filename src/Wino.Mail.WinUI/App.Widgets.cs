@@ -53,6 +53,9 @@ public partial class App
             case WidgetActions.OpenEvent:
                 await EnsureShellWindowAsync(WinoApplicationMode.Calendar, activateWindow: true);
                 break;
+            case WidgetActions.JoinEvent when NotificationResponses.IsActionRefusedByAppLock("widget join"):
+                await ActivatePreferredWindowAsync();
+                break;
             case WidgetActions.JoinEvent when id is { } joinId:
                 await NotificationResponses.JoinOnlineAsync(joinId);
                 break;

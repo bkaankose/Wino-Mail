@@ -27,6 +27,7 @@ public class NavigationService : INavigationService
     private readonly IDispatcher _dispatcher;
     private readonly IWinoWindowManager _windowManager;
     private readonly NavigationReentryRuleSet _reentryRules;
+    private readonly IAppLockService _appLockService;
 
     private NavigationTransitionInfo? _pendingInnerShellTransition;
     private NavigationResult? _pendingNavigationResult;
@@ -34,13 +35,22 @@ public class NavigationService : INavigationService
     public NavigationService(IStatePersistanceService statePersistanceService,
                              IDispatcher dispatcher,
                              IWinoWindowManager windowManager,
-                             IEnumerable<INavigationReentryRule> reentryRules)
+                             IEnumerable<INavigationReentryRule> reentryRules,
+                             IAppLockService appLockService)
     {
         _statePersistanceService = statePersistanceService;
         _dispatcher = dispatcher;
         _windowManager = windowManager;
         _reentryRules = new NavigationReentryRuleSet(reentryRules);
+        _appLockService = appLockService;
     }
+
+    /// <summary>
+    /// Backstop for the shell window's unlock gate: nothing replaces the lock page until the session is unlocked,
+    /// whichever caller asks for a mode or a page.
+    /// </summary>
+    private bool IsShowingAppLock(Frame? shellFrame)
+        => shellFrame?.Content is AppLockScreenPage && _appLockService.IsLocked;
 
     public Type? GetPageType(WinoPage winoPage) => NavigationRouteTable.GetPageType(winoPage);
 
@@ -131,7 +141,7 @@ public class NavigationService : INavigationService
         if (coreFrame == null)
             return false;
 
-        if (coreFrame.Content is IdlePage)
+        if (coreFrame.Content is IdlePage or AppLockScreenPage)
             return true;
 
         _pendingInnerShellTransition = null;
@@ -159,7 +169,7 @@ public class NavigationService : INavigationService
     {
         var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, requestedWindowKind);
 
-        if (coreFrame == null) return false;
+        if (coreFrame == null || IsShowingAppLock(coreFrame)) return false;
 
         var currentMode = _statePersistanceService.ApplicationMode;
         var isInitialShellNavigation = coreFrame.Content is not IShellHost;
@@ -363,6 +373,9 @@ public class NavigationService : INavigationService
     {
         var shellFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, WinoWindowKind.Welcome)
                          ?? GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame);
+
+        if (IsShowingAppLock(shellFrame))
+            return false;
 
         return shellFrame?.Navigate(route.PageType, parameter, GetNavigationTransitionInfo(transition)) == true;
     }

@@ -65,6 +65,13 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private IWhatsNewService WhatsNewService { get; } = WinoApplication.Current.Services.GetRequiredService<IWhatsNewService>();
     private IWinoWindowManager WindowManager { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoWindowManager>();
     private IRelayHealth? RelayHealth { get; } = WinoApplication.Current.Services.GetService<IRelayHealth>();
+    private IAppLockService AppLockService { get; } = WinoApplication.Current.Services.GetRequiredService<IAppLockService>();
+
+    private bool _isAppLocked;
+    private Action? _pendingUnlockContinuation;
+    private TaskCompletionSource? _pendingUnlockCompletion;
+    private bool _isDailyBriefingOpenPending;
+    private bool _isWhatsNewPending;
 
     private bool _calendarReminderServerStartAttempted;
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
@@ -94,6 +101,10 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         DailyBriefingPanelControl.IsOpenChanged += DailyBriefingPanelIsOpenChanged;
 
+        // A lock session lasts as long as this window. Decided before any shell content can load.
+        _isAppLocked = AppLockService.IsLocked;
+        AppLockService.StateChanged += AppLockServiceStateChanged;
+
         MinWidth = 420;
         MinHeight = 420;
         ConfigureTitleBar();
@@ -101,9 +112,14 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         UpdateWinoAccountButtonVisibility();
         ApplyTitleBarSearchHost();
         ApplyShellSynchronizationProvider();
+
+        if (_isAppLocked)
+            ShowAppLock();
+
         _ = RefreshDailyBriefingStateAsync();
         _ = RefreshWhatsNewButtonAsync();
-        _ = ShowRelayIntroductionTipIfPendingAsync();
+        if (!_isAppLocked)
+            _ = ShowRelayIntroductionTipIfPendingAsync();
         AttachRelayFallbackIndicator();
         _ = EntitlementService.RefreshEntitlementAsync();
 
@@ -185,7 +201,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         var properties = pointerPoint.Properties;
 
         // XButton1 is the back button on most mice
-        if (properties.IsXButton1Pressed)
+        if (properties.IsXButton1Pressed && !_isAppLocked)
         {
             // Call GoBack on NavigationService
             NavigationService.GoBack();
@@ -200,16 +216,131 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         if (TryCreateMailFolderLaunchRequest(launchArguments, out var folderLaunchRequest))
         {
-            NavigationService.RestoreShell(targetMode, new ShellModeActivationContext
+            _ = RunWhenUnlockedAsync(() => NavigationService.RestoreShell(targetMode, new ShellModeActivationContext
             {
                 Parameter = folderLaunchRequest
-            });
+            }));
 
             return;
         }
 
-        NavigationService.RestoreShell(targetMode);
+        _ = RunWhenUnlockedAsync(() => NavigationService.RestoreShell(targetMode));
     }
+
+    #region App lock
+
+    public bool IsAppLocked => _isAppLocked;
+
+    public Task RunWhenUnlockedAsync(Action continuation)
+    {
+        if (!_isAppLocked)
+        {
+            continuation();
+            return Task.CompletedTask;
+        }
+
+        // Only the latest request runs after the unlock. The replaced request's task is left pending on purpose, so the
+        // caller awaiting it never resumes its follow-up navigation over the newer one.
+        _pendingUnlockContinuation = continuation;
+        _pendingUnlockCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        return _pendingUnlockCompletion.Task;
+    }
+
+    public Task WhenUnlockedAsync()
+    {
+        if (!_isAppLocked)
+            return Task.CompletedTask;
+
+        _pendingUnlockCompletion ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        return _pendingUnlockCompletion.Task;
+    }
+
+    private void ShowAppLock()
+    {
+        ApplyAppLockChrome();
+        WindowCleanupHelper.ClearNavigationStack(MainShellFrame);
+        MainShellFrame.Navigate(typeof(AppLockScreenPage), null, new Microsoft.UI.Xaml.Media.Animation.SuppressNavigationTransitionInfo());
+    }
+
+    /// <summary>
+    /// While locked, the title bar keeps only the window title and caption buttons: no search, synchronization,
+    /// account, briefing or What's New entries, and no subtitle that could name a folder or an account.
+    /// </summary>
+    private void ApplyAppLockChrome()
+    {
+        var unlockedVisibility = _isAppLocked ? Visibility.Collapsed : Visibility.Visible;
+
+        ShellTitleBar.IsPaneToggleButtonVisible = !_isAppLocked;
+        TitleBarSearchBox.Visibility = unlockedVisibility;
+        TitleBarRightHeaderPanel.Visibility = unlockedVisibility;
+        ShellSubtitleText.Visibility = unlockedVisibility;
+        ShellTitleText.Margin = new Thickness(_isAppLocked ? 16 : 0, 0, 0, 0);
+
+        // The briefing panel manages its own visibility; it stays closed because nothing can open it while locked.
+        if (_isAppLocked)
+        {
+            DailyBriefingPanelControl.Close();
+            RelayIntroductionTip.IsOpen = false;
+        }
+
+        UpdateShellTitles();
+        RefreshBackButtonVisibility();
+
+        if (ShellTitleBar.IsLoaded)
+            ShellTitleBar.RecomputeDragRegions();
+    }
+
+    private void AppLockServiceStateChanged(object? sender, EventArgs e)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_isAppLocked && !_isPreparedForClose && !AppLockService.IsLocked)
+                CompleteAppUnlock();
+        });
+
+    private void CompleteAppUnlock()
+    {
+        var continuation = _pendingUnlockContinuation;
+        var completion = _pendingUnlockCompletion;
+        _pendingUnlockContinuation = null;
+        _pendingUnlockCompletion = null;
+        _isAppLocked = false;
+
+        ApplyAppLockChrome();
+
+        try
+        {
+            if (continuation != null)
+                continuation();
+            else
+                NavigationService.RestoreShell(WinoApplicationMode.Mail);
+
+            completion?.TrySetResult();
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "The shell could not be restored after the app lock was unlocked.");
+            completion?.TrySetException(exception);
+        }
+
+        if (!ShellInfoBar.IsOpen && _pendingInfoBarMessages.TryDequeue(out var infoBarMessage))
+            ShowInfoBarMessage(infoBarMessage);
+
+        _ = ShowRelayIntroductionTipIfPendingAsync();
+
+        if (_isWhatsNewPending)
+        {
+            _isWhatsNewPending = false;
+            _ = ShowWhatsNewAsync();
+        }
+
+        if (_isDailyBriefingOpenPending)
+        {
+            _isDailyBriefingOpenPending = false;
+            Receive(new DailyBriefingOpenRequested());
+        }
+    }
+
+    #endregion
 
     private static bool TryCreateMailFolderLaunchRequest(string? launchArguments, out MailFolderLaunchRequest? request)
     {
@@ -243,6 +374,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void BackButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
     {
+        if (_isAppLocked)
+            return;
+
         NavigationService.GoBack();
     }
 
@@ -279,6 +413,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void PaneButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
     {
+        if (_isAppLocked)
+            return;
+
         if (MainShellFrame.Content is WinoAppShell shellPage)
         {
             shellPage.ToggleNavigationPane();
@@ -326,6 +463,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         DispatcherQueue.TryEnqueue(() =>
         {
+            if (_isAppLocked)
+            {
+                _isDailyBriefingOpenPending = true;
+                return;
+            }
+
             if (StatePersistanceService.ApplicationMode != WinoApplicationMode.Mail &&
                 !NavigationService.ChangeApplicationMode(WinoApplicationMode.Mail))
             {
@@ -391,6 +534,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void OpenRelayIntroductionTip()
     {
+        if (_isAppLocked)
+            return;
+
         // Anchored to the account button when it is shown; otherwise the tip opens in the top right corner of the window.
         if (WinoAccountButton.Visibility == Visibility.Visible)
         {
@@ -474,8 +620,17 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private async void WhatsNewButtonClicked(object sender, RoutedEventArgs e)
         => await ShowWhatsNewAsync();
 
-    public async void Receive(WhatsNewOpenRequested message)
-        => await ShowWhatsNewAsync();
+    public void Receive(WhatsNewOpenRequested message)
+        => DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_isAppLocked)
+            {
+                _isWhatsNewPending = true;
+                return;
+            }
+
+            await ShowWhatsNewAsync();
+        });
 
     private async Task ShowWhatsNewAsync()
     {
@@ -619,7 +774,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void RefreshBackButtonVisibility()
     {
-        if (!_isBackButtonVisibilityReady)
+        if (!_isBackButtonVisibilityReady || _isAppLocked)
         {
             ShellTitleBar.IsBackButtonVisible = false;
             return;
@@ -781,6 +936,16 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         // The TitleBar's own Title/Subtitle stay unset. Rendering them ourselves is what
         // lets a running synchronization fade them without collapsing their columns.
+        if (_isAppLocked)
+        {
+            // The stored mode title belongs to the previous session; the lock page shows the app's own name.
+            var lockedTitle = Wino.NotificationHost.Contracts.ReleaseIdentity.Current.MailDisplayName;
+            ShellTitleText.Text = lockedTitle;
+            ShellSubtitleText.Text = string.Empty;
+            Title = lockedTitle;
+            return;
+        }
+
         ShellTitleText.Text = StatePersistanceService.AppModeTitle;
         ShellSubtitleText.Text = StatePersistanceService.CoreWindowTitle;
         Title = string.IsNullOrWhiteSpace(StatePersistanceService.CoreWindowTitle)
@@ -805,7 +970,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         DailyBriefingPanelControl.IsOpenChanged -= DailyBriefingPanelIsOpenChanged;
+        AppLockService.StateChanged -= AppLockServiceStateChanged;
         UnregisterRecipients();
+
+        // Requests waiting for the unlock end with this window; their callers stay suspended and are collected.
+        _pendingUnlockContinuation = null;
+        _pendingUnlockCompletion = null;
 
         if (Content is UIElement rootElement)
         {
@@ -1028,6 +1198,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
+        // The lock session ends with the main window, also when it closes to the tray; the next one asks again.
+        AppLockService.LockSession();
+
         Closed -= OnWindowClosed;
         AppWindow.Closing -= OnAppWindowClosing;
         if (RelayHealth is not null)
@@ -1092,7 +1265,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void ShellInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
     {
-        if (_pendingInfoBarMessages.TryDequeue(out var message))
+        if (!_isAppLocked && _pendingInfoBarMessages.TryDequeue(out var message))
             ShowInfoBarMessage(message);
     }
 
@@ -1100,7 +1273,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         DispatcherQueue.TryEnqueue(() =>
         {
-            if (ShellInfoBar.IsOpen)
+            // Messages can name accounts, folders or senders, so they wait for the unlock.
+            if (ShellInfoBar.IsOpen || _isAppLocked)
             {
                 _pendingInfoBarMessages.Enqueue(message);
                 return;

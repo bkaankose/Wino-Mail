@@ -142,6 +142,7 @@ public sealed partial class WinoHost : IAsyncDisposable
         services.AddSingleton<IAttachmentPlatformService, LauncherAttachmentPlatformService>();
         services.AddSingleton<IStartupIntegrationService, UnavailableStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, UnavailableSmimeCertificateService>();
+        services.AddSingleton<IAppLockPlatform, HostAppLockPlatform>();
 
         services.AddSingleton<IExternalLauncher, HostExternalLauncher>();
         services.AddSingleton<IClipboardService, HostClipboardService>();

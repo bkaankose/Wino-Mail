@@ -83,8 +83,9 @@ public partial class App : IApplicationLifecycleHost, IApplicationShellHost
     private Task HandleNotificationResponseAsync(NotificationResponse response)
         => NotificationResponses.HandleAsync(response with { RunsWithoutWindow = !HasShellWindow() });
 
+    // A locked shell window has not shown its shell yet, so a message opens through the launch parameter as in a new window.
     bool IApplicationShellHost.IsShellActive(WinoApplicationMode mode)
-        => HasShellWindow() && Services.GetRequiredService<IStatePersistanceService>().ApplicationMode == mode;
+        => HasShellWindow() && !IsShellWindowLocked() && Services.GetRequiredService<IStatePersistanceService>().ApplicationMode == mode;
 
     async Task<bool> IApplicationShellHost.EnsureShellAsync(WinoApplicationMode mode, object? parameter)
         => (await EnsureShellWindowAsync(mode, activateWindow: true, activationParameter: parameter)).ShellWindow != null;

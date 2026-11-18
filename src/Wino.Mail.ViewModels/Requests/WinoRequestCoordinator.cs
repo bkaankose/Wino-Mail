@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -86,6 +87,9 @@ public sealed class WinoRequestCoordinator(
     {
         switch (error)
         {
+            case AppLockedException:
+                ShowLockedMessage();
+                break;
             case UnavailableSpecialFolderException unavailableSpecialFolderException:
                 dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle,
                                              string.Format(Translator.Info_MissingFolderMessage, unavailableSpecialFolderException.SpecialFolderType),
@@ -157,6 +161,8 @@ public sealed class WinoRequestCoordinator(
         var result = await requestDelegator.ExecuteAsync(request);
         if (result.Error is NotImplementedException)
             dialogService.ShowNotSupportedMessage();
+        else if (result.Error is AppLockedException)
+            ShowLockedMessage();
 
         return result;
     }
@@ -167,9 +173,14 @@ public sealed class WinoRequestCoordinator(
         var result = await requestDelegator.ExecuteAsync(request);
         if (result.Error is ReadOnlyCalendarException)
             dialogService.ShowReadOnlyCalendarMessage();
+        else if (result.Error is AppLockedException)
+            ShowLockedMessage();
 
         return result;
     }
+
+    private void ShowLockedMessage()
+        => dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, Translator.AppLock_ActionDenied, InfoBarMessageType.Warning);
 
     private static bool HasSeveralAccounts(List<MailCopy> mailItems)
         => mailItems.Select(a => a.AssignedAccount.Id).Distinct().Count() > 1;

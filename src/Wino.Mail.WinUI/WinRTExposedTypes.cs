@@ -42,6 +42,7 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailNotificationActionOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(SnoozePresetOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(QuietHoursDayViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AppLockMethodOption))]
 
 [assembly: GeneratedWinRTExposedExternalType(typeof(AliasManagementItem))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AliasManagementItemList))]
@@ -98,6 +99,7 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableRangeCollection<string>))]
 
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableObject[]))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AppLockMethodOption[]))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(List<AccountCalendarViewModel>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AccountCalendarViewModel[]))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(List<GroupedAccountCalendarViewModel>))]

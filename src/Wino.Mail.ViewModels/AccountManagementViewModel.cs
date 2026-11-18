@@ -47,6 +47,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private readonly ICalDavClient _calDavClient;
     private readonly IMicrosoftStoreService _storeService;
     private readonly IWinoAppStorePurchaseService? _appStorePurchases;
+    private readonly IAppLockService _appLockService;
 
     public IMailDialogService MailDialogService { get; }
 
@@ -67,6 +68,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService,
                                       IPlatformCapabilities platformCapabilities,
+                                      IAppLockService appLockService,
                                       IWinoAppStorePurchaseService? appStorePurchases = null) : base(messenger, dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
     {
         _synchronizationManager = synchronizationManager;
@@ -78,6 +80,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         _calDavClient = calDavClient;
         _storeService = storeService;
         _appStorePurchases = appStorePurchases;
+        _appLockService = appLockService;
     }
 
     /// <summary>The App Store price line for Unlimited Accounts; empty outside App Store builds or until StoreKit answers.</summary>
@@ -285,6 +288,11 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
     private async Task ExportLocalDataAsync()
     {
+        if (!await ExecuteUIThreadAsync(_appLockService.RequestVerificationAsync).ConfigureAwait(false))
+        {
+            return;
+        }
+
         try
         {
             // Write to exactly the path the platform returns. On macOS this is the URL of the save

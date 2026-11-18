@@ -609,4 +609,18 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
 
         return dialog.Result;
     }
+
+    public async Task<bool> ShowAppLockVerificationDialogAsync()
+    {
+        var appLockService = WinoApplication.Current.Services.GetRequiredService<IAppLockService>();
+
+        var dialog = new AppLockVerificationDialog(appLockService)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.IsVerified;
+    }
 }

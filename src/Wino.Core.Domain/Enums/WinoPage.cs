@@ -71,5 +71,6 @@ public enum WinoPage
     VoiceBrainPage,
     MailClassificationPage,
     AccountSetupPage,
-    ExchangeSettingsPage
+    ExchangeSettingsPage,
+    AppLockPage
 }

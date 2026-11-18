@@ -35,7 +35,8 @@ public static class CoreContainerSetup
         services.AddSingleton(provider => new SynchronizationManager(
             provider.GetRequiredService<CommunityToolkit.Mvvm.Messaging.IMessenger>(),
             provider.GetRequiredService<RequestUiChangeCoordinator>(),
-            () => provider.GetRequiredService<ISyncCoordinator>()));
+            () => provider.GetRequiredService<ISyncCoordinator>(),
+            provider.GetRequiredService<IAppLockService>()));
         services.AddSingleton<ISynchronizationManager>(provider => provider.GetRequiredService<SynchronizationManager>());
         services.AddTransient<IApplicationLocalRequestExecutor, ApplicationLocalRequestExecutor>();
         services.AddTransient<SynchronizationManagerInitializer>();

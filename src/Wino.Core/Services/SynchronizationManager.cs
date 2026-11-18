@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
@@ -70,12 +71,14 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     private readonly IMessenger _messenger;
     private readonly RequestUiChangeCoordinator _uiChanges;
+    private readonly IAppLockService _appLockService;
 
-    public SynchronizationManager(IMessenger messenger, RequestUiChangeCoordinator uiChanges, Func<ISyncCoordinator> syncCoordinatorResolver)
+    public SynchronizationManager(IMessenger messenger, RequestUiChangeCoordinator uiChanges, Func<ISyncCoordinator> syncCoordinatorResolver, IAppLockService appLockService)
     {
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _uiChanges = uiChanges ?? throw new ArgumentNullException(nameof(uiChanges));
         _syncCoordinatorResolver = syncCoordinatorResolver ?? throw new ArgumentNullException(nameof(syncCoordinatorResolver));
+        _appLockService = appLockService ?? throw new ArgumentNullException(nameof(appLockService));
     }
 
     internal static async Task PublishMailSynchronizationNotificationsAsync(
@@ -491,6 +494,11 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         if (normalizedRequestsByAccount.Count == 0)
             return;
+
+        // Background synchronization keeps running while locked; only new user actions are refused here,
+        // before any optimistic UI change. Packs already waiting in the undo timer still go out.
+        if (_appLockService.AreActionsRefused)
+            throw new AppLockedException();
 
         var allRequests = normalizedRequestsByAccount.Values.SelectMany(requests => requests).ToList();
         LogTracedRequests("accepted", allRequests);

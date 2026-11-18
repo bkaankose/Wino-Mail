@@ -95,6 +95,7 @@ public static class AndroidPlatformRegistration
         services.AddSingleton<IAttachmentPlatformService, LauncherAttachmentPlatformService>();
         services.AddSingleton<IStartupIntegrationService, UnavailableStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, UnavailableSmimeCertificateService>();
+        services.AddSingleton<IAppLockPlatform, UnavailableAppLockPlatform>();
 
         // Android implementations.
         services.AddSingleton<IDispatcher, AndroidDispatcher>();
