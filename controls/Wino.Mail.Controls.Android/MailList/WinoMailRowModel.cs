@@ -1,6 +1,7 @@
 using Android.Graphics;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.Controls.Android.MailList;
 

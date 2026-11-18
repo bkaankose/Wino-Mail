@@ -1,8 +1,6 @@
 using AppKit;
 using CoreGraphics;
 using Foundation;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,6 +11,8 @@ using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Dialogs;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
 

@@ -3,14 +3,15 @@ using AppKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
+using Wino.Mail.MacOS.Views.Settings;
+using Wino.Mail.ViewModels.Common;
 
-namespace Wino.Mail.MacOS.Views.Settings;
+namespace Wino.Mail.MacOS.Views.Settings.WinoAccount;
 
 /// <summary>
 /// Wino Account (Windows WinoAccountManagementPage, shared WinoAccountManagementPageViewModel).

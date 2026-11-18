@@ -4,7 +4,6 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Extras;
 using Wino.Mail.Controls.AppKit.Settings;
@@ -12,6 +11,7 @@ using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 

@@ -2,12 +2,12 @@ using Android.Content;
 using Android.Views;
 using Android.Widget;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Android.Views.Shell;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.Android.Views.Calendar;
 

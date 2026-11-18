@@ -10,8 +10,8 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Apple.Bindings.StoreKit2;
-using Wino.Core.ViewModels;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 

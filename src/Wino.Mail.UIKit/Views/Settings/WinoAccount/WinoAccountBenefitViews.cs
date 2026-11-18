@@ -2,11 +2,11 @@ using System.Globalization;
 using CoreGraphics;
 using UIKit;
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Common.Data;
 
-namespace Wino.Mail.UIKit.Views.Settings;
+namespace Wino.Mail.UIKit.Views.Settings.WinoAccount;
 
 /// <summary>
 /// One selectable offer (Windows BenefitTileTemplate): the glyph in a 36pt rounded box, the title

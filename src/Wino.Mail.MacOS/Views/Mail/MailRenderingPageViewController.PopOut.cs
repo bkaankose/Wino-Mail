@@ -83,7 +83,7 @@ public sealed partial class MailRenderingPageViewController : IReadingPaneChild
             window.MakeKeyAndOrderFront(null);
         });
         // Windows clears the list selection once the reader leaves the pane.
-        WeakReferenceMessenger.Default.Send(new Wino.Messaging.Client.Mails.ClearMailSelectionsRequested());
+        WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.Client.Mails.ClearMailSelectionsRequested());
         return true;
     }
 

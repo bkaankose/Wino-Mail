@@ -3,13 +3,13 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.AppKit.ToDo;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.MacOS.Views.ToDo;
 

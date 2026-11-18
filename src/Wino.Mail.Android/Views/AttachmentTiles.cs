@@ -6,8 +6,8 @@ using Android.Widget;
 using AndroidX.Core.Content.Resources;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels.Attachments;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Common.Attachments;
 using TooltipCompat = AndroidX.AppCompat.Widget.TooltipCompat;
 
 namespace Wino.Mail.Android.Views;

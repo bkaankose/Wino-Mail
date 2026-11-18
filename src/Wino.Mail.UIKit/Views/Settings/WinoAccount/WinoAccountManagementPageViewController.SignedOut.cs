@@ -2,7 +2,7 @@ using UIKit;
 using Wino.Core.Domain;
 using Wino.Presentation.UIKit;
 
-namespace Wino.Mail.UIKit.Views.Settings;
+namespace Wino.Mail.UIKit.Views.Settings.WinoAccount;
 
 /// <summary>Signed-out state: the account header, the offers list and the selected offer's detail panel.</summary>
 public sealed partial class WinoAccountManagementPageViewController

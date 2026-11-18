@@ -6,9 +6,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Views.Mail.Compose;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.UI;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.UIKit.Views.Mail;
 

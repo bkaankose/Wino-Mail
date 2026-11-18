@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Phone.Mail;
+using Wino.Mail.UIKit.Phone.Mail.Diagnostics;
 
 namespace Wino.Mail.UIKit.Phone;
 

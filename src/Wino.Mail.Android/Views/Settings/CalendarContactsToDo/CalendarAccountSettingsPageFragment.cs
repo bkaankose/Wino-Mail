@@ -4,7 +4,6 @@ using Android.Graphics.Drawables;
 using Android.Views;
 using Android.Widget;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,6 +12,7 @@ using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Calendar;
 using View = Android.Views.View;
 
 namespace Wino.Mail.Android.Views.Settings.CalendarContactsToDo;

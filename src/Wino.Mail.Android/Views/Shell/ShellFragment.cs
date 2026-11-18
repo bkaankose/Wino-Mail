@@ -12,13 +12,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Shell;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 using Wino.Presentation.Controls;
-using IMenuItem = Wino.Core.Domain.Interfaces.IMenuItem;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using IMenuItem = Wino.Mail.ViewModels.MenuItems.Contracts.IMenuItem;
 
 namespace Wino.Mail.Android.Views.Shell;
 

@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Core.ViewModels;
 using Wino.Mail.MacOS.Views.Extras;
 using Wino.Mail.ViewModels;
 

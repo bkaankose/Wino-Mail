@@ -8,13 +8,13 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Core.ViewModels;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Android.Settings;
-using Wino.Messaging.Client.Navigation;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Settings;
 

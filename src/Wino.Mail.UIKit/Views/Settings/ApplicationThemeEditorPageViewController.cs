@@ -6,12 +6,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 

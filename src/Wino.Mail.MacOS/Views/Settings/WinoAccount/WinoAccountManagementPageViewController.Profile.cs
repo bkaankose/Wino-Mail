@@ -8,7 +8,7 @@ using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
 
-namespace Wino.Mail.MacOS.Views.Settings;
+namespace Wino.Mail.MacOS.Views.Settings.WinoAccount;
 
 /// <summary>
 /// Signed-in state: the profile card (photo with its options, name with rename, email, save status,

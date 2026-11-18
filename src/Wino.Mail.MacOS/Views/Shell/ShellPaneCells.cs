@@ -2,12 +2,10 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using AppKit;
 using CoreGraphics;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Shell;
@@ -15,6 +13,10 @@ using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
 using Wino.Core.Domain.Presentation;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 

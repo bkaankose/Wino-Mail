@@ -1,9 +1,8 @@
 using AppKit;
 using Wino.Core.Domain;
-using Wino.Core.ViewModels.Data;
 using Wino.Presentation.AppKit;
 
-namespace Wino.Mail.MacOS.Views.Settings;
+namespace Wino.Mail.MacOS.Views.Settings.WinoAccount;
 
 /// <summary>Signed-out state: the account header, the offers grid and the selected offer's detail panel.</summary>
 public sealed partial class WinoAccountManagementPageViewController

@@ -4,8 +4,8 @@ using Serilog;
 using System.Text.Json;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.UI;
 using Wino.Platform.Apple.PushRelay;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Platform.iOS.PushRelay;
 

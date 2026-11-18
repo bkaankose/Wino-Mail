@@ -4,6 +4,7 @@ using Foundation;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Presentation.AppKit;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 

@@ -1,12 +1,10 @@
 using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Presentation.UIKit;
 
-namespace Wino.Mail.UIKit.Views.Settings;
+namespace Wino.Mail.UIKit.Views.Settings.WinoAccount;
 
 /// <summary>
 /// Wino add-ons: the Wino Intelligence status rows, Unlimited Accounts (usage meter, purchase or Unlocked) and the

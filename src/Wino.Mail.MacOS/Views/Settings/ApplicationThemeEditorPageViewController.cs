@@ -8,12 +8,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 

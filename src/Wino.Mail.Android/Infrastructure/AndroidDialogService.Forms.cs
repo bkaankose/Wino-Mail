@@ -20,9 +20,9 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.Android.Views.Dialogs;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Presentation.Android;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.Android.Infrastructure;
 

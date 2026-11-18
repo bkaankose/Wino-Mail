@@ -13,7 +13,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Android.Views.Contacts;
 using Wino.Mail.Android.Views.Shell;
@@ -22,7 +21,10 @@ using Wino.Mail.Controls.Android.Settings;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
-using IMenuItem = Wino.Core.Domain.Interfaces.IMenuItem;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using IMenuItem = Wino.Mail.ViewModels.MenuItems.Contracts.IMenuItem;
 
 namespace Wino.Mail.Android.Views.ToDo;
 

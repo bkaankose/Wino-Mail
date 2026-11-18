@@ -20,9 +20,9 @@ using Wino.Editor.Android;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels;
-using Wino.Messaging.Client.Mails;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Messaging.Client.Mails;
 using PopupMenu = AndroidX.AppCompat.Widget.PopupMenu;
 
 namespace Wino.Mail.Android.Views.Mail.Compose;

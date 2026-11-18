@@ -6,9 +6,9 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.UIKit.Views.Dialogs;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.UIKit.Infrastructure;
 

@@ -7,8 +7,6 @@ using Android.Widget;
 using Google.Android.Material.AppBar;
 using Google.Android.Material.Button;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -20,6 +18,8 @@ using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.Android.Views.Calendar;
 

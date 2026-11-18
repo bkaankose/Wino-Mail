@@ -6,6 +6,8 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.UIKit;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Mail.UIKit.Views.Mail;
 

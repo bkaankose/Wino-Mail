@@ -1,13 +1,13 @@
 using Android.Content;
 using Android.Graphics;
 using Itenso.TimePeriod;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.Android.Calendar;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.Android.Views.Calendar;
 

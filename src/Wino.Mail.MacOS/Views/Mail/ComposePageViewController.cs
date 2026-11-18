@@ -540,7 +540,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
                 _window.Close();
                 return;
             }
-            WeakReferenceMessenger.Default.Send(new Wino.Messaging.Client.Mails.DisposeRenderingFrameRequested());
+            WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.Client.Mails.DisposeRenderingFrameRequested());
         });
 
     // ---- Initial focus (Windows ApplyInitialFocusAsync) ----

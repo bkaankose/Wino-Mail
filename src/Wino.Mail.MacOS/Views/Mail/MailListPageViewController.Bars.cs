@@ -6,9 +6,9 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Mail.Controls.AppKit.Common;
-using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
 using Wino.Core.Domain.Presentation;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 

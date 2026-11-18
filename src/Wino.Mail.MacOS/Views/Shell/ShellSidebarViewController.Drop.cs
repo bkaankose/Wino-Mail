@@ -7,6 +7,8 @@ using Wino.Mail.Controls.AppKit.Shell;
 using Wino.Mail.MacOS.Views.Contacts;
 using Wino.Mail.MacOS.Views.Mail;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 

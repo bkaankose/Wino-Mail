@@ -1,6 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Calendar.ViewModels;
-using Wino.Core.ViewModels;
 using Wino.Mail.MacOS.Views.Settings;
 using Wino.Mail.ViewModels;
 

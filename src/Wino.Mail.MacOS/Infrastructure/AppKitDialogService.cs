@@ -16,9 +16,9 @@ using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.ViewModels.Data;
 using Wino.Presentation.AppKit;
 using Wino.Core.Domain.Presentation;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 

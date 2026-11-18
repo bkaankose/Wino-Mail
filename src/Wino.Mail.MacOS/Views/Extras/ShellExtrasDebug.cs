@@ -7,6 +7,7 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.MacOS.Views.Extras;
 

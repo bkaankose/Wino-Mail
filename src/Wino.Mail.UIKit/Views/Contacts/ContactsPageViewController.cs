@@ -106,7 +106,7 @@ public abstract partial class ContactsPageViewController : WinoViewController<Co
             SelectedContactChanged(contact);
         });
         Bind(nameof(ViewModel.IsSynchronizationSupported), static vm => vm.IsSynchronizationSupported, SetRefreshAvailable);
-        Bindings.Own(new Wino.Presentation.Bindings.PropertyBinding<Wino.Core.ViewModels.Data.ModeReadinessViewModel, bool>(
+        Bindings.Own(new Wino.Presentation.Bindings.PropertyBinding<Wino.Mail.ViewModels.Common.Data.ModeReadinessViewModel, bool>(
             ViewModel.Readiness, nameof(ViewModel.Readiness.IsBlocked), static readiness => readiness.IsBlocked, _ => ApplyReadiness(), Dispatcher, ReportError));
         ViewModel.Readiness.PropertyChanged += ReadinessChanged;
         Bindings.Own(new ActionDisposable(() => ViewModel.Readiness.PropertyChanged -= ReadinessChanged));

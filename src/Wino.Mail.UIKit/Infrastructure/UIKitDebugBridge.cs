@@ -101,7 +101,7 @@ public static class UIKitDebugBridge
                 }
                 roots.AddRange(Wino.Presentation.UIKit.WinoLiveObjects.Instances("PhoneShellViewController"));
                 if (instance is IViewModelHost host) roots.Add(host.AssociatedViewModel);
-                if (_services?.GetService(typeof(Wino.Shell.ViewModels.WinoAppShellViewModel)) is { } shell) roots.Add(shell);
+                if (_services?.GetService(typeof(Wino.Mail.ViewModels.Shell.WinoAppShellViewModel)) is { } shell) roots.Add(shell);
                 if (_services?.GetService(typeof(Wino.Core.Domain.Interfaces.IStatePersistanceService)) is { } state) roots.Add(state);
                 if (_services?.GetService(typeof(Wino.Core.Domain.Interfaces.IPreferencesService)) is { } preferences) roots.Add(preferences);
                 foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => a.GetName().Name?.StartsWith("Wino", StringComparison.Ordinal) == true))

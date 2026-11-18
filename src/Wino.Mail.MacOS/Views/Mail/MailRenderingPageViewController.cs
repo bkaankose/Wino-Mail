@@ -17,10 +17,10 @@ using Wino.Mail.Controls.AppKit.MailList;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Mails;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
 using Wino.Core.Domain.Presentation;
+using Wino.Core.Domain.Messaging.Client.Mails;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 

@@ -10,8 +10,8 @@ using Wino.Core.Domain.Translations;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views;
 using Wino.Mail.ViewModels.Lifecycle;
-using Wino.Messaging.Client.Shell;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Messaging.Client.Shell;
 
 namespace Wino.Mail.MacOS;
 

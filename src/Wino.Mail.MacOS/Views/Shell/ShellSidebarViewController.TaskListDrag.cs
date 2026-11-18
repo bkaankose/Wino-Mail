@@ -1,5 +1,5 @@
 using AppKit;
-using Wino.Core.Domain.MenuItems;
+using Wino.Mail.ViewModels.MenuItems;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 

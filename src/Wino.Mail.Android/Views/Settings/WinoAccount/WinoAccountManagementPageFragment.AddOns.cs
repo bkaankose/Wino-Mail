@@ -2,8 +2,6 @@ using Android.Views;
 using Android.Widget;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
 

@@ -1,6 +1,7 @@
 using Android.Content;
 using AndroidX.Work;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services.Interfaces;
 
 namespace Wino.Platform.Android.Background;
 

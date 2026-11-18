@@ -6,6 +6,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Presentation.UIKit;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.Controls.UIKit.MailList;
 

@@ -10,6 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services.Assistant;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Services.Assistant;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.MacOS;
 
@@ -104,9 +105,9 @@ public sealed partial class AppDelegate
         {
             foreach (var account in await _services!.GetRequiredService<IAccountService>().GetAccountsAsync())
             {
-                WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewCalendarSynchronizationRequested(
+                WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.Server.NewCalendarSynchronizationRequested(
                     new Wino.Core.Domain.Models.Synchronization.CalendarSynchronizationOptions { AccountId = account.Id, Type = CalendarSynchronizationType.Strict }));
-                WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewContactSynchronizationRequested(
+                WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.Server.NewContactSynchronizationRequested(
                     new Wino.Core.Domain.Models.Synchronization.ContactSynchronizationOptions { AccountId = account.Id, Type = ContactSynchronizationType.Full }));
             }
 

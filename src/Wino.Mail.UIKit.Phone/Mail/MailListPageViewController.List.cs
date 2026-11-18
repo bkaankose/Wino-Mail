@@ -13,6 +13,7 @@ using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
 using Wino.Mail.UIKit.Views.Mail;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.UIKit.Phone.Mail;
 

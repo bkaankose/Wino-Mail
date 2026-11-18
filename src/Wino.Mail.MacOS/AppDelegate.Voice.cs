@@ -8,7 +8,6 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -17,7 +16,8 @@ using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Infrastructure.Voice;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Voice;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
 namespace Wino.Mail.MacOS;
 

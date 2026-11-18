@@ -2,7 +2,7 @@ using Android.Graphics;
 using Android.OS;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.Android.Views.Mail;
 

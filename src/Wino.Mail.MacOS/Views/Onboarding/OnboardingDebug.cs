@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Models.Accounts;
 
 namespace Wino.Mail.MacOS.Views.Onboarding;
 

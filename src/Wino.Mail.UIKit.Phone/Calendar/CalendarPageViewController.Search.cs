@@ -1,12 +1,11 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Foundation;
 using UIKit;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Mail.UIKit.Phone.Mail;
-using Wino.Messaging.Client.Calendar;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.UIKit.Phone.Calendar;
 

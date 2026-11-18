@@ -7,12 +7,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.UIKit.Infrastructure;
-using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Mail.UIKit.Phone.Calendar;
 using Wino.Mail.UIKit.Phone.Mail;
 using Wino.Mail.UIKit.Phone.Shell;
@@ -23,7 +21,11 @@ using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Controls;
 using Wino.Presentation.UIKit;
-using Wino.Shell.ViewModels;
+using Wino.Mail.ViewModels.Calendar.Interfaces;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.UIKit.Phone;
 

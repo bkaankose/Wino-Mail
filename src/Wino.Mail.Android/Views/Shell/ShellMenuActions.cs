@@ -4,12 +4,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
 using PopupMenu = AndroidX.AppCompat.Widget.PopupMenu;
-using IMenuItem = Wino.Core.Domain.Interfaces.IMenuItem;
+using IMenuItem = Wino.Mail.ViewModels.MenuItems.Contracts.IMenuItem;
 
 namespace Wino.Mail.Android.Views.Shell;
 

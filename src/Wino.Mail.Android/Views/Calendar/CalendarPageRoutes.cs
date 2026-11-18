@@ -1,6 +1,6 @@
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.Android.Views.Calendar;
 

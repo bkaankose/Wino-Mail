@@ -5,12 +5,12 @@ using Android.Views;
 using Android.Widget;
 using Google.Android.Material.BottomSheet;
 using Google.Android.Material.Button;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.Android.Calendar;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.Android.Views.Calendar;
 

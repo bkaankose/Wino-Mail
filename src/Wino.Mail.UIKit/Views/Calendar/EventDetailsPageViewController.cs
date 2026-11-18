@@ -1,7 +1,5 @@
 using System.Collections.Specialized;
 using UIKit;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -11,6 +9,8 @@ using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 

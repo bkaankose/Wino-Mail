@@ -11,12 +11,11 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Core.ViewModels;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Settings;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
 using Wino.Presentation.Android;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Settings;
 

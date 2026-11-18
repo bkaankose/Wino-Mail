@@ -8,6 +8,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.UIKit.Views.Extras;
 

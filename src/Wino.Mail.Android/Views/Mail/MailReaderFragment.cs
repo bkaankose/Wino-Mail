@@ -25,8 +25,8 @@ using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Mails;
 using Wino.Presentation.Android;
+using Wino.Core.Domain.Messaging.Client.Mails;
 using PopupMenu = AndroidX.AppCompat.Widget.PopupMenu;
 
 namespace Wino.Mail.Android.Views.Mail;

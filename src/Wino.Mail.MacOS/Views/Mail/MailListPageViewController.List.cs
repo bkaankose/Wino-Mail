@@ -13,6 +13,7 @@ using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 

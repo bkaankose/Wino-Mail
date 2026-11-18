@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.MacOS.Infrastructure;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.MacOS.Views.Extras;
 

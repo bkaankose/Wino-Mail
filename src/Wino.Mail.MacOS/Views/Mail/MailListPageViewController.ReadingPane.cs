@@ -4,8 +4,8 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
-using Wino.Messaging.Client.Mails;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Messaging.Client.Mails;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 

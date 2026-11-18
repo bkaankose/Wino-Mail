@@ -34,7 +34,7 @@ public static class SettingsDebugDialogs
     {
         var accounts = await services.GetRequiredService<IAccountService>().GetAccountsAsync();
         var items = new System.Collections.ObjectModel.ObservableCollection<IAccountProviderDetailViewModel>(
-            accounts.Select(account => (IAccountProviderDetailViewModel)new Wino.Mail.ViewModels.Data.AccountProviderDetailViewModel(
+            accounts.Select(account => (IAccountProviderDetailViewModel)new Wino.Mail.ViewModels.Common.Data.AccountProviderDetailViewModel(
                 services.GetRequiredService<IKnownImapProviderCatalog>().GetProviderDetail(account.ProviderType), account)));
         await dialogs.ShowAccountReorderDialogAsync(items);
     }

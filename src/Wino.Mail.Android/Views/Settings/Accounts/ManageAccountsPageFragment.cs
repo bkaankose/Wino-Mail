@@ -6,13 +6,13 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Common.Data;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 
 namespace Wino.Mail.Android.Views.Settings.Accounts;

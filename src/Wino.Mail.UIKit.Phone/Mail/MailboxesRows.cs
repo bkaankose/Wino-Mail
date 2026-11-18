@@ -6,12 +6,14 @@ using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.UIKit.Shell;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.UIKit.Phone.Mail;
 

@@ -3,10 +3,10 @@ using System.ComponentModel;
 using CoreGraphics;
 using Foundation;
 using UIKit;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Calendar.Interfaces;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 

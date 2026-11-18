@@ -6,6 +6,7 @@ using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
 using Wino.Core.Domain;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 

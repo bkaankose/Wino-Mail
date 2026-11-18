@@ -7,9 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Mail.Android.Views.Settings;
 using Wino.Mail.Android.Views.Shell;
-using Wino.Messaging.Client.Navigation;
 using Wino.Mail.ViewModels.Navigation;
-using Wino.Shell.ViewModels;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.ViewModels.Shell;
 
 namespace Wino.Mail.Android.Infrastructure;
 
@@ -34,7 +35,7 @@ namespace Wino.Mail.Android.Infrastructure;
 /// while <see cref="CanHandleBack"/>, so the system's predictive back-to-home animation runs otherwise.
 /// </summary>
 public sealed class AndroidNavigationService : INavigationService, INavigationHost, IDisposable, IRecipient<SettingsRootNavigationRequested>,
-    IRecipient<Wino.Messaging.UI.WinoIntelligenceEntitlementChanged>
+    IRecipient<Wino.Core.Domain.Messaging.UI.WinoIntelligenceEntitlementChanged>
 {
     private readonly IServiceProvider _services;
     private readonly IDispatcher _dispatcher;
@@ -60,7 +61,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
         _registry = registry;
         _coordinator = new NavigationCoordinator(this, services, dispatcher);
         WeakReferenceMessenger.Default.Register<SettingsRootNavigationRequested>(this);
-        WeakReferenceMessenger.Default.Register<Wino.Messaging.UI.WinoIntelligenceEntitlementChanged>(this);
+        WeakReferenceMessenger.Default.Register<Wino.Core.Domain.Messaging.UI.WinoIntelligenceEntitlementChanged>(this);
     }
 
     /// <summary>Raised on the UI thread whenever the pages change, so the activity can update its back callback.</summary>
@@ -614,7 +615,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
     }
 
     /// <summary>Losing access leaves the Wino Intelligence sub-pages for the page below them (Windows SettingsPage).</summary>
-    public void Receive(Wino.Messaging.UI.WinoIntelligenceEntitlementChanged message)
+    public void Receive(Wino.Core.Domain.Messaging.UI.WinoIntelligenceEntitlementChanged message)
     {
         if (message.Entitlement.CanAccessSurfaces) return;
         _ = ObserveSettingsAsync(LeaveIntelligenceSubPagesAsync());

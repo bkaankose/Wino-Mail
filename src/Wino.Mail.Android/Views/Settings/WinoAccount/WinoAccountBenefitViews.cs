@@ -4,9 +4,9 @@ using Android.Views.Accessibility;
 using Android.Widget;
 using Google.Android.Material.Button;
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.Android.Views.Settings.WinoAccount;
 

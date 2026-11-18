@@ -6,10 +6,10 @@ using Android.Widget;
 using Google.Android.Material.Button;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.Android.Views.Contacts;
 

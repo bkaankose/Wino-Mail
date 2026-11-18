@@ -4,12 +4,14 @@ using Android.OS;
 using Android.Views;
 using AndroidX.RecyclerView.Widget;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Android.Shell;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
-using IMenuItem = Wino.Core.Domain.Interfaces.IMenuItem;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using IMenuItem = Wino.Mail.ViewModels.MenuItems.Contracts.IMenuItem;
 
 namespace Wino.Mail.Android.Views.Shell;
 

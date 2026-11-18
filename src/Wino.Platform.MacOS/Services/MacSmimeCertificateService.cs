@@ -9,6 +9,7 @@ using Org.BouncyCastle.X509;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Services;
+using Wino.Services.Interfaces;
 using BcCertificate = Org.BouncyCastle.X509.X509Certificate;
 
 namespace Wino.Platform.MacOS.Services;

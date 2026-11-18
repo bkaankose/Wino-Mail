@@ -11,6 +11,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Core;
 using Wino.Presentation.Android;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.Controls.Android.MailList;
 

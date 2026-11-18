@@ -6,19 +6,19 @@ using AndroidX.SwipeRefreshLayout.Widget;
 using CommunityToolkit.Mvvm.Messaging;
 using Google.Android.Material.AppBar;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Android.Views.Shell;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Calendar.Messages;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.Android.Views.Calendar;
 

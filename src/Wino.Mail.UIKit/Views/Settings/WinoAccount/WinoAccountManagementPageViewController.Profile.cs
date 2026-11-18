@@ -7,7 +7,7 @@ using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Presentation.UIKit;
 
-namespace Wino.Mail.UIKit.Views.Settings;
+namespace Wino.Mail.UIKit.Views.Settings.WinoAccount;
 
 /// <summary>
 /// Signed-in state: the profile card (photo with its options, name with rename, email, save status,

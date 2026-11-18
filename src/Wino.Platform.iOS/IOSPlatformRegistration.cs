@@ -18,6 +18,7 @@ using Wino.Services.Platform;
 using Wino.Services.PushRelay;
 using Wino.Services.Security;
 using Wino.Core.Domain.Models.Authentication;
+using Wino.Services.Interfaces;
 
 namespace Wino.Platform.iOS;
 

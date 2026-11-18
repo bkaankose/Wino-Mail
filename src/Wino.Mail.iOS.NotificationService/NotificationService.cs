@@ -7,7 +7,6 @@ using Microsoft.Identity.Client;
 using ObjCRuntime;
 using Security;
 using UserNotifications;
-using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Mail.iOS.NotificationService;
 

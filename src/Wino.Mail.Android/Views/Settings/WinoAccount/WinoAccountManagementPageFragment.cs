@@ -7,10 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Common;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 
 namespace Wino.Mail.Android.Views.Settings.WinoAccount;

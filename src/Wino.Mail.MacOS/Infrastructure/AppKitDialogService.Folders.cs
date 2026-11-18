@@ -7,10 +7,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.MacOS.Views.Dialogs;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
 using Wino.Core.Domain.Presentation;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 

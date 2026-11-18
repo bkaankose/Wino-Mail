@@ -5,8 +5,8 @@ using Google.Android.Material.Button;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Common;
 using Fragment = AndroidX.Fragment.App.Fragment;
 
 namespace Wino.Mail.Android.Infrastructure;

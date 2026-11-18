@@ -4,7 +4,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.Controls.UIKit.ToDo;
 using Wino.Mail.UIKit.Infrastructure;
@@ -13,6 +12,7 @@ using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.UIKit.Views.ToDo;
 

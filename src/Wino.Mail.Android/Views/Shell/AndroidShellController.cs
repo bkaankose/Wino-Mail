@@ -5,7 +5,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.ViewModels.Data;
-using Wino.Shell.ViewModels;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.Android.Views.Shell;
 

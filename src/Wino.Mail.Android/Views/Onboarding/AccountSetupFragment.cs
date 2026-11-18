@@ -12,6 +12,7 @@ using Wino.Mail.ViewModels;
 using Wino.Presentation.Android;
 using Wino.Presentation.Android.Bindings;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Models.Accounts;
 
 namespace Wino.Mail.Android.Views.Onboarding;
 

@@ -4,10 +4,10 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.WhatsNew;
-using Wino.Core.ViewModels;
 using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.UIKit.Views.Extras;
 

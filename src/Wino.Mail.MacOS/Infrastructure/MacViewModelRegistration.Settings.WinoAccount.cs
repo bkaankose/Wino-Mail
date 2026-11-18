@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Mail.MacOS.Views.Settings;
+using Wino.Mail.MacOS.Views.Settings.WinoAccount;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
