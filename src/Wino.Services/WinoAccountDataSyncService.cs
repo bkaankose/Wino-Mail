@@ -304,7 +304,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
         return templates
             .Where(a => !string.IsNullOrWhiteSpace(a.Name))
-            .Select(a => new SnapshotTemplate { Name = a.Name.Trim(), Description = a.Description ?? string.Empty, HtmlContent = a.HtmlContent ?? string.Empty })
+            .Select(a => new SnapshotTemplate { Name = a.Name.Trim(), Description = a.Description ?? string.Empty, HtmlContent = a.HtmlContent ?? string.Empty, Subject = a.Subject ?? string.Empty })
             .ToList();
     }
 
@@ -724,17 +724,21 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                         Id = Guid.NewGuid(),
                         Name = template.Name.Trim(),
                         Description = template.Description ?? string.Empty,
-                        HtmlContent = template.HtmlContent ?? string.Empty
+                        HtmlContent = template.HtmlContent ?? string.Empty,
+                        Subject = template.Subject ?? string.Empty
                     }).ConfigureAwait(false);
 
                     local.Add(created);
                     applied++;
                 }
                 else if (!string.Equals(existing.HtmlContent, template.HtmlContent, StringComparison.Ordinal)
-                    || !string.Equals(existing.Description, template.Description, StringComparison.Ordinal))
+                    || !string.Equals(existing.Description, template.Description, StringComparison.Ordinal)
+                    || (template.Subject != null && !string.Equals(existing.Subject ?? string.Empty, template.Subject, StringComparison.Ordinal)))
                 {
                     existing.HtmlContent = template.HtmlContent ?? string.Empty;
                     existing.Description = template.Description ?? string.Empty;
+                    if (template.Subject != null)
+                        existing.Subject = template.Subject;
                     await _templateService.UpdateEmailTemplateAsync(existing).ConfigureAwait(false);
                     applied++;
                 }

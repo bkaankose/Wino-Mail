@@ -48,6 +48,9 @@ internal sealed class SnapshotTemplate
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string HtmlContent { get; set; } = string.Empty;
+
+    /// <summary>Null in snapshots written before templates had a subject; such an import keeps the local subject.</summary>
+    public string? Subject { get; set; }
 }
 
 internal sealed class SnapshotShortcut

@@ -154,6 +154,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             await EditorSession.RenderHtmlAsync(template.HtmlContent);
             await ViewModel.ReapplySignatureAsync();
+            ViewModel.ApplyTemplateSubject(template);
         }
         catch (ObjectDisposedException) when (IsEditorUnavailable) { }
 

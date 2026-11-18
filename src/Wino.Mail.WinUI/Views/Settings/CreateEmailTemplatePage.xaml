@@ -15,6 +15,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -43,7 +44,21 @@
                 Text="{x:Bind ViewModel.TemplateDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </controls:SettingsCard>
 
-        <StackPanel Grid.Row="2" Spacing="8">
+        <controls:SettingsCard
+            Grid.Row="2"
+            AutomationProperties.AutomationId="TemplateSubjectSettingsCard"
+            Description="{x:Bind domain:Translator.SettingsEmailTemplates_SubjectDescription}"
+            Header="{x:Bind domain:Translator.SettingsEmailTemplates_SubjectTitle}"
+            IsClickEnabled="False">
+            <TextBox
+                x:Name="TemplateSubjectTextBox"
+                MinWidth="240"
+                AutomationProperties.AutomationId="TemplateSubjectTextBox"
+                PlaceholderText="{x:Bind domain:Translator.SettingsEmailTemplates_SubjectPlaceholder}"
+                Text="{x:Bind ViewModel.TemplateSubject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </controls:SettingsCard>
+
+        <StackPanel Grid.Row="3" Spacing="8">
             <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsEmailTemplates_ContentTitle}" />
             <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.SettingsEmailTemplates_ContentDescription}" />
             <winuiControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind WebViewEditor}" />
@@ -64,7 +79,7 @@
         </StackPanel>
 
         <StackPanel
-            Grid.Row="3"
+            Grid.Row="4"
             HorizontalAlignment="Right"
             Orientation="Horizontal"
             Spacing="8">
