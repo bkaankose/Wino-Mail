@@ -43,7 +43,6 @@ public sealed partial class MailRenderingPageViewController : IReadingPaneChild
     private void AppendPopOutCommand(List<MailReaderCommand?> commands)
     {
         if (!SupportsPopOut || ViewModel.CurrentMailFileId is null) return;
-        commands.Add(null);
         commands.Add(new MailReaderCommand(WinoIconGlyph.OpenInNewWindow, Translator.Buttons_PopOut, () => Observe(PopOutAsync())));
     }
 
