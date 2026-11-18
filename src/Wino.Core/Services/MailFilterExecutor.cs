@@ -17,7 +17,8 @@ public class MailFilterExecutor(
     IMailService mailService,
     IFolderService folderService,
     IWinoRequestProcessor requestProcessor,
-    IWinoRequestDelegator requestDelegator) : IMailFilterExecutor
+    IWinoRequestDelegator requestDelegator,
+    IAppLockService appLock) : IMailFilterExecutor
 {
     private readonly ILogger _logger = Log.ForContext<MailFilterExecutor>();
 
@@ -201,7 +202,12 @@ public class MailFilterExecutor(
 
         if (requests.Count > 0)
         {
-            await requestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+            // Filters run during synchronization, which the app lock does not stop; they are not user actions.
+            using (appLock.AllowActionsWhileLocked())
+            {
+                await requestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+            }
+
             foreach (var execution in executions)
             {
                 await mailFilterService.CreateExecutionAsync(execution, cancellationToken).ConfigureAwait(false);
