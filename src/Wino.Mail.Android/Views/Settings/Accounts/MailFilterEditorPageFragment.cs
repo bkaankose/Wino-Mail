@@ -54,12 +54,12 @@ public sealed partial class MailFilterEditorPageFragment : SettingsPageFragment<
             _actionScope?.Dispose();
         }));
 
-        var intro = AddIntro(SettingsCatalog.Description(SettingsPage) ?? string.Empty);
+        var intro = AddIntro(PageDescription);
         Bind.Bind(vm, nameof(vm.Account), s => s.Account, account =>
         {
             var line = account is null ? null
                 : string.Join(" · ", new[] { account.Name, account.Address }.Where(part => !string.IsNullOrWhiteSpace(part)).Distinct());
-            intro.Text = string.IsNullOrWhiteSpace(line) ? SettingsCatalog.Description(SettingsPage) ?? string.Empty : line;
+            intro.Text = string.IsNullOrWhiteSpace(line) ? PageDescription : line;
             intro.Visibility = string.IsNullOrWhiteSpace(intro.Text) ? ViewStates.Gone : ViewStates.Visible;
         });
         // The title names the filter being edited as it was loaded.

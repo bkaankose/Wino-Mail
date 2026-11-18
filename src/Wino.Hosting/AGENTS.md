@@ -9,7 +9,7 @@ The host that runs the shared backend, up to the ViewModels, without an app. A s
 - **The dispatcher is real.** `HostDispatcher` is one dedicated thread with an ordered queue and a synchronization context. Keep it that way: never make `ExecuteOnUIThread` a no-op and never run queued work on the caller's thread.
 - **The key file is for this host only.** `FileProtectionKeyProvider` keeps the protection key inside the data root because a host holds throwaway lab data. No app may use it; apps never fall back to an unprotected store.
 - **Telemetry stays off.** `HostApplicationConfiguration` leaves the Sentry address empty so runs send nothing. Do not swap in `ApplicationConfiguration`.
-- **One host per process, unless you only need separate data.** Two hosts in one process keep separate messengers, sync managers, databases, accounts and preferences, and a message sent in one does not reach the other. Logging is still shared: the second host takes over the log file, and disposing one host closes the logger for both. `SettingsCatalog` is also process-wide.
+- **One host per process, unless you only need separate data.** Two hosts in one process keep separate messengers, sync managers, databases, accounts and preferences, and a message sent in one does not reach the other. Logging is still shared: the second host takes over the log file, and disposing one host closes the logger for both.
 
 ## Always
 

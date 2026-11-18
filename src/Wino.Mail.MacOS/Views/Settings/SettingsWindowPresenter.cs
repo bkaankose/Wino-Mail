@@ -232,7 +232,7 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
     private SettingsWindowController EnsureWindow()
     {
         if (_window is not null) return _window;
-        var window = new SettingsWindowController();
+        var window = new SettingsWindowController(_services.GetRequiredService<ISettingsCatalog>());
         window.BackRequested += (_, _) => _ = ObserveAsync(GoBackAsync());
         window.ForwardRequested += (_, _) => _ = ObserveAsync(GoForwardAsync());
         window.SidebarPageSelected += (_, page) =>

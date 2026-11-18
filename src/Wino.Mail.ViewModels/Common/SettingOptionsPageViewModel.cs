@@ -34,6 +34,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     private readonly IPreferencesService _preferencesService;
     private readonly IKnownImapProviderCatalog _providerCatalog;
     private readonly IWinoAccountProfileService _winoAccountProfileService;
+    private readonly ISettingsCatalog _settingsCatalog;
     public IPlatformCapabilities PlatformCapabilities { get; }
     private bool _isInitializingSettings;
     private bool _isAppearanceSelectionPaused;
@@ -109,7 +110,8 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
                                           IPreferencesService preferencesService,
                                          IKnownImapProviderCatalog providerCatalog,
                                          IPlatformCapabilities platformCapabilities,
-                                         IWinoAccountProfileService winoAccountProfileService) : base(messenger)
+                                         IWinoAccountProfileService winoAccountProfileService,
+                                         ISettingsCatalog settingsCatalog) : base(messenger)
     {
         _externalLauncher = externalLauncher;
         _appMetadataService = appMetadataService;
@@ -121,8 +123,15 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         _preferencesService = preferencesService;
         _providerCatalog = providerCatalog;
         _winoAccountProfileService = winoAccountProfileService;
+        _settingsCatalog = settingsCatalog;
         PlatformCapabilities = platformCapabilities;
     }
+
+    /// <summary>The Settings list rows of the native root lists, in the Windows pane groups and order.</summary>
+    public List<SettingsCatalogSection> GetSettingsSections() => _settingsCatalog.GetSections();
+
+    /// <summary>The Settings rows matching <paramref name="query"/> in the shared ranking, without headers.</summary>
+    public List<SettingsCatalogEntry> SearchSettings(string query) => _settingsCatalog.Search(query);
 
     public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {

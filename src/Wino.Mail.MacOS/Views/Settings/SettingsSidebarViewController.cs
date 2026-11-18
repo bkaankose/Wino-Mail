@@ -2,6 +2,7 @@ using AppKit;
 using Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Presentation.AppKit;
 
@@ -21,13 +22,15 @@ public sealed class SettingsSidebarViewController : NSViewController
 
     private readonly NSTableView _table = new();
     private readonly NSSearchField _search = new();
+    private readonly ISettingsCatalog _catalog;
     private readonly SidebarSource _source;
     private IReadOnlyList<SettingsSidebarEntry> _all = [];
     private WinoPage? _selectedPage;
     private bool _suppressSelection;
 
-    public SettingsSidebarViewController()
+    public SettingsSidebarViewController(ISettingsCatalog catalog)
     {
+        _catalog = catalog;
         _source = new SidebarSource(this);
     }
 
@@ -93,7 +96,7 @@ public sealed class SettingsSidebarViewController : NSViewController
     /// <summary>Re-reads titles, for example after the display language changes.</summary>
     public void Reload()
     {
-        _all = SettingsPageCatalog.GetSidebarEntries();
+        _all = SettingsPageCatalog.GetSidebarEntries(_catalog);
         _search.PlaceholderString = Translator.SearchBarPlaceholder;
         ApplyFilter();
     }
@@ -141,7 +144,7 @@ public sealed class SettingsSidebarViewController : NSViewController
     private void ApplyFilter()
     {
         var query = _search.StringValue?.Trim();
-        _source.Entries = string.IsNullOrEmpty(query) ? _all : SettingsPageCatalog.Search(query);
+        _source.Entries = string.IsNullOrEmpty(query) ? _all : SettingsPageCatalog.Search(_catalog, query);
         DismissToolTips();
         _table.ReloadData();
         Select(_selectedPage);

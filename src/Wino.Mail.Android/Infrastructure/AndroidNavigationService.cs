@@ -51,6 +51,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
     private WinoApplicationMode _mode = WinoApplicationMode.Mail;
     private MainActivity? _activity;
     private IWindowSizeClassService? _sizes;
+    private ISettingsCatalog? _catalog;
 
     public AndroidNavigationService(IServiceProvider services, IDispatcher dispatcher, AndroidPageRegistry registry)
     {
@@ -105,6 +106,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
     public bool ShowsReaderPane => Sizes.WidthClass != WindowWidthClass.Compact;
 
     private IWindowSizeClassService Sizes => _sizes ??= _services.GetRequiredService<IWindowSizeClassService>();
+    private ISettingsCatalog Catalog => _catalog ??= _services.GetRequiredService<ISettingsCatalog>();
 
     /// <summary>The application mode whose back stack receives pushed pages.</summary>
     public WinoApplicationMode ActiveMode => _mode;
@@ -760,7 +762,8 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
             Activated = route.Activated,
             Initialize = route.Initialize,
             Deactivate = route.Deactivate,
-            Renavigate = route.Renavigate
+            Renavigate = route.Renavigate,
+            Description = route.Host == AndroidPageHost.Settings ? () => Catalog.Description(page) : static () => string.Empty
         };
     }
 

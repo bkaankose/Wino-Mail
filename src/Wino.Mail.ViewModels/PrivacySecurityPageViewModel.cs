@@ -36,6 +36,7 @@ public partial class PrivacySecurityPageViewModel : CoreBaseViewModel,
     private readonly IPlatformCapabilities _platformCapabilities;
     private readonly ILinkBrowserService _linkBrowserService;
     private readonly IAccountService _accountService;
+    private readonly ISettingsCatalog _settingsCatalog;
 
     public IPreferencesService PreferencesService { get; }
 
@@ -112,7 +113,7 @@ public partial class PrivacySecurityPageViewModel : CoreBaseViewModel,
     /// <summary>The Windows Security card; only Windows checks attachments through the operating system.</summary>
     public bool IsAttachmentSecurityCheckAvailable => _platformCapabilities.AttachmentSecurityCheck;
 
-    public bool IsNotificationsLinkAvailable => SettingsCatalog.IsVisible(WinoPage.NotificationSettingsPage);
+    public bool IsNotificationsLinkAvailable => _settingsCatalog.IsVisible(WinoPage.NotificationSettingsPage);
 
     public string NotificationContentText => PreferencesService.MailNotificationContent switch
     {
@@ -122,9 +123,9 @@ public partial class PrivacySecurityPageViewModel : CoreBaseViewModel,
         _ => Translator.MailNotificationContent_SenderSubjectPreview
     };
 
-    public bool IsSignaturesLinkAvailable => SettingsCatalog.IsVisible(WinoPage.SignatureAndEncryptionPage);
+    public bool IsSignaturesLinkAvailable => _settingsCatalog.IsVisible(WinoPage.SignatureAndEncryptionPage);
 
-    public bool IsIntelligenceLinkAvailable => SettingsCatalog.IsVisible(WinoPage.WinoIntelligencePage);
+    public bool IsIntelligenceLinkAvailable => _settingsCatalog.IsVisible(WinoPage.WinoIntelligencePage);
 
     public PrivacySecurityPageViewModel(IMessenger messenger, IPreferencesService preferencesService,
                                         IRemoteContentRuleStore ruleStore,
@@ -135,7 +136,8 @@ public partial class PrivacySecurityPageViewModel : CoreBaseViewModel,
                                         IWinoLogger logger,
                                         IPlatformCapabilities platformCapabilities,
                                         ILinkBrowserService linkBrowserService,
-                                        IAccountService accountService) : base(messenger)
+                                        IAccountService accountService,
+                                        ISettingsCatalog settingsCatalog) : base(messenger)
     {
         PreferencesService = preferencesService;
         _ruleStore = ruleStore;
@@ -147,6 +149,7 @@ public partial class PrivacySecurityPageViewModel : CoreBaseViewModel,
         _platformCapabilities = platformCapabilities;
         _linkBrowserService = linkBrowserService;
         _accountService = accountService;
+        _settingsCatalog = settingsCatalog;
 
         ModeOptions = RemoteContentModeOption.CreateAll(mode => SelectedMode = mode);
         SelectedMode = preferencesService.RemoteContentMode;

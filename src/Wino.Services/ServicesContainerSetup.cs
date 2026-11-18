@@ -100,6 +100,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoStorePurchaseRedeemService, WinoStorePurchaseRedeemService>();
         services.AddSingleton<IWinoAppStorePurchaseService, WinoAppStorePurchaseService>();
         services.AddSingleton<IWinoAccountIntelligenceSnapshotService, WinoAccountIntelligenceSnapshotService>();
+        services.AddSingleton<ISettingsCatalog, SettingsCatalogService>();
         services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();
         services.AddSingleton<IMailIntelligenceCoordinator, MailIntelligenceCoordinator>();

@@ -1,5 +1,6 @@
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 
 namespace Wino.Mail.MacOS.Views.Settings;
@@ -11,7 +12,7 @@ public sealed record SettingsSidebarEntry(string Title, WinoPage? Page, WinoIcon
 }
 
 /// <summary>
-/// The Settings window's page list over the shared <see cref="SettingsCatalog"/> (groups, order, titles, glyphs and
+/// The Settings window's page list over the shared <see cref="ISettingsCatalog"/> (groups, order, titles, glyphs and
 /// visibility, the same list as the Windows pane and the iOS and Android Settings). The Mac adds only the sidebar
 /// row shape and the default page for a request without one.
 /// </summary>
@@ -20,12 +21,12 @@ public static class SettingsPageCatalog
     /// <summary>The page shown when the window opens without a request. The Windows home grid is replaced by the sidebar.</summary>
     public const WinoPage DefaultPage = SettingsCatalog.DefaultPage;
 
-    public static IReadOnlyList<SettingsSidebarEntry> GetSidebarEntries()
-        => SettingsCatalog.GetEntries().Select(ToSidebar).ToList();
+    public static IReadOnlyList<SettingsSidebarEntry> GetSidebarEntries(ISettingsCatalog catalog)
+        => catalog.GetEntries().Select(ToSidebar).ToList();
 
     /// <summary>Search results in the shared ranking (title, keywords, description), without group headers.</summary>
-    public static IReadOnlyList<SettingsSidebarEntry> Search(string query)
-        => SettingsCatalog.Search(query).Select(ToSidebar).ToList();
+    public static IReadOnlyList<SettingsSidebarEntry> Search(ISettingsCatalog catalog, string query)
+        => catalog.Search(query).Select(ToSidebar).ToList();
 
     public static WinoPage RootPage(WinoPage page) => page switch
     {
@@ -36,7 +37,7 @@ public static class SettingsPageCatalog
     public static string Title(WinoPage page) => SettingsCatalog.Title(page);
 
     /// <summary>The Windows page description shown under the breadcrumb title (a sub-page shows its root page's).</summary>
-    public static string Description(WinoPage page) => SettingsCatalog.BreadcrumbDescription(page);
+    public static string Description(ISettingsCatalog catalog, WinoPage page) => catalog.BreadcrumbDescription(page);
 
     /// <summary>The Windows pane glyph of the page's root entry.</summary>
     public static WinoIconGlyph Glyph(WinoPage page) => SettingsCatalog.Glyph(RootPage(page));

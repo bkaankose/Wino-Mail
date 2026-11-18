@@ -51,6 +51,9 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
     /// <summary>The scroll view around the column (pages that scroll to a card).</summary>
     protected AndroidX.Core.Widget.NestedScrollView? ScrollView { get; private set; }
 
+    /// <summary>The Windows page description, from the entry the navigation service created.</summary>
+    protected string PageDescription => Entry?.Description() ?? string.Empty;
+
     /// <summary>The Windows page this fragment shows.</summary>
     protected WinoPage SettingsPage => Entry?.Page ?? WinoPage.None;
 
@@ -74,7 +77,7 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
             _page = null;
         }));
 
-        if (ShowsPageDescription && SettingsCatalog.Description(SettingsPage) is { Length: > 0 } description)
+        if (ShowsPageDescription && PageDescription is { Length: > 0 } description)
         {
             var intro = AddIntro(description);
             ((LinearLayout.LayoutParams)intro.LayoutParameters!).BottomMargin = WinoTokens.Px(view.RequireContext(), Resource.Dimension.wino_space_s);
