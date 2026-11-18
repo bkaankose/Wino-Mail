@@ -332,10 +332,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            await ExecuteUIThread(() => _dialogService.InfoBarMessage(
-                Translator.ContactInfoBar_ErrorTitle,
-                ex.Message,
-                InfoBarMessageType.Error));
+            await ExecuteUIThread(() => ShowActionError(ex, ex.Message));
         }
     }
 
@@ -652,7 +649,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+            ShowActionError(ex, ex.Message);
         }
     }
 
@@ -1278,8 +1275,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle,
-                string.Format(Translator.ContactInfoBar_FailedToDeleteContacts, ex.Message), InfoBarMessageType.Error);
+            ShowActionError(ex, string.Format(Translator.ContactInfoBar_FailedToDeleteContacts, ex.Message));
         }
     }
 
@@ -1369,7 +1365,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+            ShowActionError(ex, ex.Message);
         }
     }
 
@@ -1432,7 +1428,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+            ShowActionError(ex, ex.Message);
         }
     }
 
@@ -1486,7 +1482,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+            ShowActionError(ex, ex.Message);
         }
     }
 
@@ -1541,7 +1537,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+            ShowActionError(ex, ex.Message);
         }
     }
 
@@ -1663,7 +1659,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+            ShowActionError(ex, ex.Message);
         }
     }
 
@@ -1713,7 +1709,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+            ShowActionError(ex, ex.Message);
         }
     }
 
@@ -1727,6 +1723,14 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         {
             _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
         }
+    }
+
+    private void ShowActionError(Exception ex, string message)
+    {
+        if (ex is AppLockedException)
+            _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
+        else
+            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, message, InfoBarMessageType.Error);
     }
 
     /// <summary>Hands a list change to the synchronizer of the account that owns the list.</summary>

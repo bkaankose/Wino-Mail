@@ -19,6 +19,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Attachments;
@@ -494,6 +495,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                                           {
                                               _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
                                           });
+        }
+        catch (AppLockedException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
         }
         catch (MimePersistenceException ex)
         {
