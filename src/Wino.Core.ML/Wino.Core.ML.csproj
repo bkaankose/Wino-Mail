@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+    <ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Platform)' != 'x86' And '$(RuntimeIdentifier)' != 'win-x86' And '$(RuntimeIdentifier)' != 'osx-x64' And '$(WinoTargetRuntimeIdentifier)' != 'osx-x64' And '$(WinoTargetPlatform)' != 'Android'">

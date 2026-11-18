@@ -33,7 +33,7 @@ public static class ServiceConstants
     public const string FOLDER_SEPERATOR_STRING = "/";
     public const char FOLDER_SEPERATOR_CHAR = '/';
 
-    public static Dictionary<string, SpecialFolderType> KnownFolderDictionary = new Dictionary<string, SpecialFolderType>()
+    public static readonly Dictionary<string, SpecialFolderType> KnownFolderDictionary = new Dictionary<string, SpecialFolderType>()
     {
         { INBOX_LABEL_ID, SpecialFolderType.Inbox },
         { CHAT_LABEL_ID, SpecialFolderType.Chat },
@@ -51,7 +51,7 @@ public static class ServiceConstants
         { PERSONAL_LABEL_ID, SpecialFolderType.Personal},
     };
 
-    public static string[] SubCategoryFolderLabelIds =
+    public static readonly string[] SubCategoryFolderLabelIds =
     [
         FORUMS_LABEL_ID,
         UPDATES_LABEL_ID,

@@ -12,7 +12,7 @@ namespace Wino.Services.Extensions;
 
 public static class MailkitClientExtensions
 {
-    public static char MailCopyUidSeparator = '_';
+    public const char MailCopyUidSeparator = '_';
 
     public static uint ResolveUid(string mailCopyId)
     {
