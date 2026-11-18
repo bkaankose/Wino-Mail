@@ -91,6 +91,7 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 There are no test projects, written tests, mocks or fakes in this repository or in any other Wino repository, and none are added. Verify a change by running the real code and reporting what it printed.
 
 - Write one C# file in your scratchpad, outside the repository, and run it with `dotnet run <file>.cs`. A first line `#:project <absolute path to a .csproj>` references a repository project, so the script needs no project file.
+- Add `#:property TargetFramework=net10.0` below it. Outside the repository `global.json` does not apply, and the newest installed SDK would build the script for a newer .NET than the apps run on.
 - Use the real services, the real network and a real database in an empty scratch folder. Replace nothing with a stand-in.
 - A script disables reflection-based JSON. To print an object as JSON, add the line `#:property JsonSerializerIsReflectionEnabledByDefault=true`.
 - Keep scripts out of the repository, and never point one at the installed app's data folder.

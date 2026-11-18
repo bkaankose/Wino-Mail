@@ -58,6 +58,7 @@ A service that needs only the network runs from a single-file script. This one r
 
 ```csharp
 #:project D:/Wino-Mail/src/Wino.Core/Wino.Core.csproj
+#:property TargetFramework=net10.0
 #:property JsonSerializerIsReflectionEnabledByDefault=true
 using System.Text.Json;
 using Wino.Core.Domain.Models.AutoDiscovery;

@@ -25,6 +25,7 @@ A storage service runs against a real database in a scratch folder. This script 
 
 ```csharp
 #:project D:/Wino-Mail/src/Wino.Services/Wino.Services.csproj
+#:property TargetFramework=net10.0
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Services;
 

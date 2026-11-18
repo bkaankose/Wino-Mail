@@ -60,7 +60,7 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
 
     public new ObservableCollection<IMenuItem> SubMenuItems { get; set; } = new ObservableCollection<IMenuItem>();
 
-    public FolderMenuItem(IMailItemFolder folderStructure, MailAccount parentAccount, IMenuItem parentMenuItem) : base(folderStructure, folderStructure.Id, parentMenuItem)
+    public FolderMenuItem(IMailItemFolder folderStructure, MailAccount parentAccount, IMenuItem? parentMenuItem) : base(folderStructure, folderStructure.Id, parentMenuItem)
     {
         ParentAccount = parentAccount;
     }
