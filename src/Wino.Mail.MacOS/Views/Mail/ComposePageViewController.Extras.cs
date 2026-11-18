@@ -100,6 +100,7 @@ public sealed partial class ComposePageViewController
         // Same as Windows EmailTemplateSelectionChanged: the template replaces the body.
         await _editor.RenderHtmlAsync(template.HtmlContent ?? string.Empty);
         await ViewModel.ReapplySignatureAsync();
+        ViewModel.ApplyTemplateSubject(template);
         await _editor.FocusEditorAsync(true);
         ScheduleAutosave();
     }

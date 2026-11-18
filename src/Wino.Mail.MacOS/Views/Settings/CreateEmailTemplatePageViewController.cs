@@ -14,7 +14,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// <summary>
 /// Settings › Email templates › template (Windows CreateEmailTemplatePage). The window breadcrumb shows
 /// "Email Templates ›" and the template name, with "Edit template" (or "Create a new e-mail template")
-/// under it. Name and Description cards carry 280pt fields; the Template content header precedes the
+/// under it. Name, Description and Subject cards carry 280pt fields; the Template content header precedes the
 /// shared Format toolbar fused to the HTML editor, which fills the remaining height (at least 270pt).
 /// The footer holds Delete (existing templates only) and the primary Save (Cmd+S), which pass the
 /// editor HTML to the ViewModel; both return to the list. Navigation parameter: the template id, or none.
@@ -65,6 +65,11 @@ public sealed class CreateEmailTemplatePageViewController(
         WinoAccessibility.Label(descriptionField, Translator.SettingsEmailTemplates_DescriptionTitle);
         var descriptionCard = Add(Card(Translator.SettingsEmailTemplates_DescriptionTitle, Translator.SettingsEmailTemplates_DescriptionDescription, WinoIconGlyph.Note, descriptionField));
 
+        var subjectField = Bind.TextField(vm, nameof(vm.TemplateSubject), s => s.TemplateSubject, (s, v) => s.TemplateSubject = v,
+            Translator.SettingsEmailTemplates_SubjectPlaceholder, FieldWidth);
+        WinoAccessibility.Label(subjectField, Translator.SettingsEmailTemplates_SubjectTitle);
+        var subjectCard = Add(Card(Translator.SettingsEmailTemplates_SubjectTitle, Translator.SettingsEmailTemplates_SubjectDescription, WinoIconGlyph.Mail, subjectField));
+
         // ---- Template content ----
         var contentTitle = WinoStyle.Label(Translator.SettingsEmailTemplates_ContentTitle, WinoSettingsStyle.SectionTitle, WinoStyle.PrimaryText);
         var contentDescription = WinoStyle.Label(Translator.SettingsEmailTemplates_ContentDescription, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
@@ -101,11 +106,11 @@ public sealed class CreateEmailTemplatePageViewController(
         Add(footer);
 
         // The editor takes the height the other rows leave in the window.
-        foreach (var view in new NSView[] { nameCard, descriptionCard, contentHeader, footer })
+        foreach (var view in new NSView[] { nameCard, descriptionCard, subjectCard, contentHeader, footer })
             view.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Vertical);
         // Cards have no intrinsic height (only a minimum), so hugging alone left them free to absorb
         // the spare height; keep them at their minimum unless their content needs more.
-        foreach (var card in new NSView[] { nameCard, descriptionCard })
+        foreach (var card in new NSView[] { nameCard, descriptionCard, subjectCard })
         {
             var compact = card.HeightAnchor.ConstraintEqualTo((nfloat)WinoSettingsStyle.CardMinHeight);
             compact.Priority = 740;
