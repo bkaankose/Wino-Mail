@@ -47,6 +47,7 @@ public sealed class MailInvitationService : IMailInvitationService
     private readonly ISmtpTransport _smtpTransport;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly IPreferencesService _preferencesService;
+    private readonly IAppLockService _appLockService;
 
     public MailInvitationService(
         IAccountService accountService,
@@ -58,8 +59,10 @@ public sealed class MailInvitationService : IMailInvitationService
         ISmtpTransport smtpTransport,
         IWinoRequestDelegator requestDelegator,
         IPreferencesService preferencesService,
-        IMailProviderRegistry providers)
+        IMailProviderRegistry providers,
+        IAppLockService appLockService)
     {
+        _appLockService = appLockService;
         _providers = providers;
         _accountService = accountService;
         _calendarService = calendarService;
@@ -106,6 +109,8 @@ public sealed class MailInvitationService : IMailInvitationService
         if (invitation == null || invitation.Method != MailInvitationMethod.Request)
             throw new MailInvitationException(Translator.MailInvitationService_CannotRespond);
 
+        ThrowIfLocked();
+
         await AnswerGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -151,6 +156,8 @@ public sealed class MailInvitationService : IMailInvitationService
         if (invitation == null)
             throw new MailInvitationException(Translator.MailInvitationService_CannotRemove);
 
+        ThrowIfLocked();
+
         await AnswerGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -191,6 +198,12 @@ public sealed class MailInvitationService : IMailInvitationService
         {
             AnswerGate.Release();
         }
+    }
+
+    private void ThrowIfLocked()
+    {
+        if (_appLockService.AreActionsRefused)
+            throw new MailInvitationException(Translator.AppLock_ActionDenied, new AppLockedException());
     }
 
     #region State
