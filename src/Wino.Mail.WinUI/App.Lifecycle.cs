@@ -31,27 +31,35 @@ public partial class App : IApplicationLifecycleHost, IApplicationShellHost
 
         lock (_startupLock)
         {
-            return _startup ??= StartLifecycleAsync();
+            if (_startup is { } running)
+                return running;
+
+            var startup = StartLifecycleAsync();
+            _startup = startup;
+
+            // A failed start is retried by the next activation. The continuation can run inline when the start failed
+            // before its first await, so it clears the field only while it still holds this start.
+            startup.ContinueWith(
+                failed =>
+                {
+                    lock (_startupLock)
+                    {
+                        if (ReferenceEquals(_startup, failed))
+                            _startup = null;
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            return startup;
         }
     }
 
     private async Task StartLifecycleAsync()
     {
-        try
-        {
-            _applicationRuntime = Services.GetRequiredService<IApplicationRuntime>();
-            await Lifecycle.StartAsync(this, ApplicationRuntimeStart.AfterFirstWindow);
-        }
-        catch
-        {
-            // A failed start is retried by the next activation, as before.
-            lock (_startupLock)
-            {
-                _startup = null;
-            }
-
-            throw;
-        }
+        _applicationRuntime = Services.GetRequiredService<IApplicationRuntime>();
+        await Lifecycle.StartAsync(this, ApplicationRuntimeStart.AfterFirstWindow);
     }
 
     Task IApplicationLifecycleHook.ServicesReadyAsync()
