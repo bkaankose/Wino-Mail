@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Notifications;
@@ -394,7 +395,18 @@ public sealed class NotificationResponseService(
 
         if (!await navigator.ShowDraftsAsync(source.Account.Id)) return;
 
-        var (draft, _) = await CreateDraftAsync(source, action);
+        MailCopy draft;
+        try
+        {
+            (draft, _) = await CreateDraftAsync(source, action);
+        }
+        catch (AppLockedException error)
+        {
+            // The window was still locked when the shell finished opening; the delegator already deleted the local draft.
+            requestCoordinator.ShowMailOperationError(error);
+            return;
+        }
+
         await navigator.OpenComposerAsync(draft);
     }
 

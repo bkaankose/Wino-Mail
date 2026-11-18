@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Services;
@@ -28,18 +29,34 @@ public sealed class CategoryEditor
     private readonly IContactQueryService _contactService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoRequestDelegator _requestDelegator;
+    private readonly IAppLockService _appLockService;
 
     public CategoryEditor(
         IMailCategoryService categoryService,
         IContactQueryService contactService,
         IMailDialogService dialogService,
-        IWinoRequestDelegator requestDelegator)
+        IWinoRequestDelegator requestDelegator,
+        IAppLockService appLockService)
     {
         _categoryService = categoryService;
         _contactService = contactService;
         _dialogService = dialogService;
         _requestDelegator = requestDelegator;
+        _appLockService = appLockService;
     }
+
+    // A category is stored before its requests are queued, so the lock is checked before anything is stored.
+    private bool IsRefusedWhileLocked()
+    {
+        if (_appLockService?.AreActionsRefused != true)
+            return false;
+
+        ShowLockedMessage(Translator.AppLock_ActionDenied);
+        return true;
+    }
+
+    private void ShowLockedMessage(string message)
+        => _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, message, InfoBarMessageType.Warning);
 
     /// <summary>
     /// Asks for a name and a color, then creates the category or applies the edit.
@@ -71,6 +88,23 @@ public sealed class CategoryEditor
             return false;
         }
 
+        if (IsRefusedWhileLocked())
+            return false;
+
+        try
+        {
+            await SaveAsync(account, existingCategory, name, dialogResult.BackgroundColorHex, dialogResult.TextColorHex);
+        }
+        catch (AppLockedException ex)
+        {
+            ShowLockedMessage(ex.Message);
+        }
+
+        return true;
+    }
+
+    private async Task SaveAsync(MailAccount account, MailCategory existingCategory, string name, string backgroundColorHex, string textColorHex)
+    {
         if (existingCategory == null)
         {
             var category = new MailCategory
@@ -78,14 +112,14 @@ public sealed class CategoryEditor
                 Id = Guid.NewGuid(),
                 MailAccountId = account.Id,
                 Name = name,
-                BackgroundColorHex = dialogResult.BackgroundColorHex,
-                TextColorHex = dialogResult.TextColorHex,
+                BackgroundColorHex = backgroundColorHex,
+                TextColorHex = textColorHex,
                 Source = account.ProviderType == MailProviderType.Outlook ? MailCategorySource.Outlook : MailCategorySource.Local
             };
 
             await _categoryService.CreateCategoryAsync(category);
             await _requestDelegator.ExecuteAsync(account.Id, new IRequestBase[] { new MailCategoryCreateRequest(category) });
-            return true;
+            return;
         }
 
         var previousName = existingCategory.Name;
@@ -93,8 +127,8 @@ public sealed class CategoryEditor
         var isRenamed = !string.Equals(previousName, name, StringComparison.Ordinal);
 
         existingCategory.Name = name;
-        existingCategory.BackgroundColorHex = dialogResult.BackgroundColorHex;
-        existingCategory.TextColorHex = dialogResult.TextColorHex;
+        existingCategory.BackgroundColorHex = backgroundColorHex;
+        existingCategory.TextColorHex = textColorHex;
 
         await _categoryService.UpdateCategoryAsync(existingCategory);
 
@@ -109,8 +143,6 @@ public sealed class CategoryEditor
             var contacts = await _contactService.GetContactsByCategoryAsync(existingCategory.Id);
             await QueueContactRequestsAsync(account, contacts.Select(contact => new ContactCategoryRequest(contact, contact.Categories)));
         }
-
-        return true;
     }
 
     /// <summary>
@@ -127,7 +159,7 @@ public sealed class CategoryEditor
             Translator.MailCategoryManagementPage_DeleteConfirmationTitle,
             Translator.Buttons_Delete);
 
-        if (!shouldDelete)
+        if (!shouldDelete || IsRefusedWhileLocked())
             return false;
 
         // Both are read before the category and its assignments are gone.
@@ -135,12 +167,20 @@ public sealed class CategoryEditor
         var contacts = await _contactService.GetContactsByCategoryAsync(category.Id);
 
         await _categoryService.DeleteCategoryAsync(category.Id);
-        await _requestDelegator.ExecuteAsync(
-            account.Id,
-            new IRequestBase[] { new MailCategoryDeleteRequest(category, category.RemoteId, affectedMessages) });
 
-        await QueueContactRequestsAsync(account, contacts.Select(contact =>
-            new ContactCategoryRequest(contact, contact.Categories.Where(item => item.Id != category.Id))));
+        try
+        {
+            await _requestDelegator.ExecuteAsync(
+                account.Id,
+                new IRequestBase[] { new MailCategoryDeleteRequest(category, category.RemoteId, affectedMessages) });
+
+            await QueueContactRequestsAsync(account, contacts.Select(contact =>
+                new ContactCategoryRequest(contact, contact.Categories.Where(item => item.Id != category.Id))));
+        }
+        catch (AppLockedException ex)
+        {
+            ShowLockedMessage(ex.Message);
+        }
 
         return true;
     }

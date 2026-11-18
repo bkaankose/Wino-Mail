@@ -20,8 +20,12 @@ public interface IWinoRequestDelegator
     /// </summary>
     Task<WinoRequestDelegationResult> ExecuteWithResultAsync(MailOperationPreperationRequest preparationRequest);
 
+    // The overloads that return a plain Task throw AppLockedException while the app lock refuses actions; nothing
+    // is queued, and the caller reverts what it changed and shows the exception's message.
+
     /// <summary>
-    /// Queues new draft creation request for synchronizer.
+    /// Queues new draft creation request for synchronizer. When the app lock refuses it, the local draft is deleted
+    /// before the exception is thrown.
     /// </summary>
     /// <param name="draftPreperationRequest">A class that holds the parameters for creating a draft.</param>
     Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest);

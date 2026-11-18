@@ -15,6 +15,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -1338,10 +1339,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 };
 
                 lists.Add(localList);
-                await QueueMutationAsync(new TaskActionRequest(
+                if (!await QueueMutationAsync(new TaskActionRequest(
                     account.Id,
                     TaskSynchronizerOperation.CreateList,
-                    List: localList)).ConfigureAwait(false);
+                    List: localList)).ConfigureAwait(false))
+                {
+                    lists.Remove(localList);
+                }
             }
 
             var allTasks = await _taskService.GetTasksAsync().ConfigureAwait(false) ?? [];
@@ -1499,10 +1503,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             MyDayDateUtc = IsMyDaySelected ? DateTime.UtcNow.Date : null
         };
 
-        await QueueMutationAsync(new TaskActionRequest(
+        if (!await QueueMutationAsync(new TaskActionRequest(
             task.MailAccountId,
             TaskSynchronizerOperation.CreateTask,
-            Task: task)).ConfigureAwait(false);
+            Task: task)).ConfigureAwait(false))
+        {
+            return;
+        }
 
         if (_preferencesService is not null)
             _preferencesService.LastUsedTaskListId = destination.Id;
@@ -1526,11 +1533,14 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         desired.CompletedAtUtc = desired.IsCompleted ? DateTime.UtcNow : null;
         TrackCompletionInView(desired.Id, desired.IsCompleted);
 
-        await QueueMutationAsync(new TaskActionRequest(
+        if (!await QueueMutationAsync(new TaskActionRequest(
             desired.MailAccountId,
             TaskSynchronizerOperation.UpdateTask,
             Task: desired,
-            OriginalTask: original)).ConfigureAwait(false);
+            OriginalTask: original)).ConfigureAwait(false))
+        {
+            return;
+        }
 
         if (desired.IsCompleted && _preferencesService?.IsTaskCompletionSoundEnabled == true)
             _taskCompletionSound?.Play();
@@ -1894,11 +1904,14 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
         foreach (var item in selected)
         {
-            await QueueMutationAsync(new TaskActionRequest(
+            if (!await QueueMutationAsync(new TaskActionRequest(
                 item.Task.MailAccountId,
                 TaskSynchronizerOperation.DeleteTask,
                 Task: item.Task,
-                OriginalTask: item.Task)).ConfigureAwait(false);
+                OriginalTask: item.Task)).ConfigureAwait(false))
+            {
+                return;
+            }
         }
     }
 
@@ -2142,7 +2155,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         var nextOrder = TaskLists.Count(list => list.MailAccountId == item.Parameter.MailAccountId && list.GroupId is null);
         foreach (var list in moved)
         {
-            await QueueListPlacementAsync(list, null, nextOrder++).ConfigureAwait(false);
+            if (!await QueueListPlacementAsync(list, null, nextOrder++).ConfigureAwait(false))
+                return;
         }
         await QueueMutationAsync(new TaskActionRequest(
             item.Parameter.MailAccountId,
@@ -2308,15 +2322,29 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 requests.Add(request);
         }
 
-        if (requests.Count > 0)
-            await _requestDelegator.ExecuteAsync(list.MailAccountId, requests).ConfigureAwait(false);
+        if (requests.Count == 0 || await QueueRequestsAsync(list.MailAccountId, requests).ConfigureAwait(false))
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            foreach (var candidate in TaskLists)
+            {
+                if (!originalPlacements.TryGetValue(candidate.Id, out var original))
+                    continue;
+
+                candidate.GroupId = original.GroupId;
+                candidate.SortOrder = original.SortOrder;
+                candidate.RemoteOrder = original.RemoteOrder;
+            }
+
+            SyncShellMenuItems();
+        }).ConfigureAwait(false);
     }
 
-    private async Task QueueListPlacementAsync(AccountTaskList list, Guid? groupId, int sortOrder)
+    private async Task<bool> QueueListPlacementAsync(AccountTaskList list, Guid? groupId, int sortOrder)
     {
         var request = await CreateListPlacementRequestAsync(list, groupId, sortOrder).ConfigureAwait(false);
-        if (request is not null)
-            await QueueMutationAsync(request).ConfigureAwait(false);
+        return request is null || await QueueMutationAsync(request).ConfigureAwait(false);
     }
 
     private async Task<TaskActionRequest> CreateListPlacementRequestAsync(AccountTaskList list, Guid? groupId, int sortOrder)
@@ -2343,6 +2371,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     {
         var groups = TaskListGroups.Where(group => group.MailAccountId == source.MailAccountId)
             .OrderBy(group => group.SortOrder).ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase).ToList();
+        var originalOrders = groups.ToDictionary(group => group.Id, group => (group.SortOrder, group.RemoteOrder));
         groups.Remove(source);
         groups.Insert(Math.Max(0, groups.IndexOf(target) + (insertAfter ? 1 : 0)), source);
         var sourceIndex = groups.IndexOf(source);
@@ -2367,11 +2396,20 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             groups[index].SortOrder = index;
             var desired = RequestEntityCloner.TaskListGroup(groups[index]);
             desired.PendingMutation = desired.SourceKind == TaskSourceKind.Outlook ? TaskPendingMutation.Update : TaskPendingMutation.None;
-            await QueueMutationAsync(new TaskActionRequest(
+            if (!await QueueMutationAsync(new TaskActionRequest(
                 desired.MailAccountId,
                 TaskSynchronizerOperation.UpdateGroup,
                 Group: desired,
-                OriginalGroup: originalGroup)).ConfigureAwait(false);
+                OriginalGroup: originalGroup)).ConfigureAwait(false))
+            {
+                foreach (var group in groups)
+                {
+                    if (originalOrders.TryGetValue(group.Id, out var order))
+                        (group.SortOrder, group.RemoteOrder) = order;
+                }
+
+                return;
+            }
         }
         await ExecuteUIThread(() =>
         {
@@ -2560,13 +2598,31 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         }).ConfigureAwait(false);
     }
 
-    private async Task QueueMutationAsync(TaskActionRequest request)
-        => await _requestDelegator.ExecuteAsync(request.MailAccountId, (IRequestBase[])[request]).ConfigureAwait(false);
+    /// <summary>Queues the request; false when the app lock refused it, after telling the user.</summary>
+    private Task<bool> QueueMutationAsync(TaskActionRequest request)
+        => QueueRequestsAsync(request.MailAccountId, (IRequestBase[])[request]);
 
     private async Task QueueMutationsAsync(IReadOnlyList<TaskActionRequest> requests)
     {
         foreach (var accountRequests in requests.GroupBy(request => request.MailAccountId))
-            await _requestDelegator.ExecuteAsync(accountRequests.Key, accountRequests.Cast<IRequestBase>().ToArray()).ConfigureAwait(false);
+        {
+            if (!await QueueRequestsAsync(accountRequests.Key, accountRequests.Cast<IRequestBase>().ToArray()).ConfigureAwait(false))
+                return;
+        }
+    }
+
+    private async Task<bool> QueueRequestsAsync(Guid accountId, IReadOnlyList<IRequestBase> requests)
+    {
+        try
+        {
+            await _requestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+            return true;
+        }
+        catch (AppLockedException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
+            return false;
+        }
     }
 
     private static TaskSourceKind ResolveTaskSource(MailAccount account)

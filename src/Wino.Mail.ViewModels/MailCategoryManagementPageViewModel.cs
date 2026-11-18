@@ -42,13 +42,14 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         IAccountService accountService,
         IMailDialogService dialogService,
         IWinoRequestDelegator winoRequestDelegator,
-        IContactQueryService contactService) : base(messenger)
+        IContactQueryService contactService,
+        IAppLockService appLockService) : base(messenger)
     {
         _synchronizationManager = synchronizationManager;
         _mailCategoryService = mailCategoryService;
         _accountService = accountService;
         _dialogService = dialogService;
-        _categoryEditor = new CategoryEditor(mailCategoryService, contactService, dialogService, winoRequestDelegator);
+        _categoryEditor = new CategoryEditor(mailCategoryService, contactService, dialogService, winoRequestDelegator, appLockService);
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)

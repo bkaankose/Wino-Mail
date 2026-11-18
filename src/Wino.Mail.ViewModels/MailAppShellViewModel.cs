@@ -19,6 +19,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
@@ -951,9 +952,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             MailAccountId = account.Id
         };
 
-        await _winoRequestDelegator.ExecuteAsync(
-            account.Id,
-            new IRequestBase[] { new CreateRootFolderRequest(placeholderFolder, folderName.Trim()) });
+        try
+        {
+            await _winoRequestDelegator.ExecuteAsync(
+                account.Id,
+                new IRequestBase[] { new CreateRootFolderRequest(placeholderFolder, folderName.Trim()) });
+        }
+        catch (AppLockedException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
+        }
     }
 
     public Task HandleAccountAttentionAsync(MailAccount account)
@@ -1488,6 +1496,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
                 var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
                 await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
+            }
+            catch (AppLockedException ex)
+            {
+                _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
             }
             catch (MimePersistenceException ex)
             {

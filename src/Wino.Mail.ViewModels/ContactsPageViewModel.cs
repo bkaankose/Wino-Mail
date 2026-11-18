@@ -14,6 +14,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
@@ -164,7 +165,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         IPreferencesService preferencesService = null,
         IAppModeReadinessService appModeReadinessService = null,
         IMailShellClient mailShell = null,
-        IMailCategoryService mailCategoryService = null) : base(messenger)
+        IMailCategoryService mailCategoryService = null,
+        IAppLockService appLockService = null) : base(messenger)
     {
         Readiness = new ModeReadinessViewModel(
             WinoApplicationMode.Contacts,
@@ -191,7 +193,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         _mailCategoryService = mailCategoryService;
         _categoryEditor = mailCategoryService is null
             ? null
-            : new CategoryEditor(mailCategoryService, contactService, dialogService, requestDelegator);
+            : new CategoryEditor(mailCategoryService, contactService, dialogService, requestDelegator, appLockService);
         _categoriesExpander.NewCategoryRequested = () => CreateCategoryAsync(GetActiveAccountId());
         Contacts.CollectionChanged += ContactsCollectionChanged;
     }
@@ -1454,10 +1456,10 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             desired.DisplayName = remoteName.Trim();
             desired.IsPendingRemoteOperation = true;
 
-            await _requestDelegator.ExecuteAsync(desired.MailAccountId, (IRequestBase[])[new AddressBookActionRequest(
+            await ExecuteAddressBookRequestAsync(new AddressBookActionRequest(
                 ContactSynchronizerOperation.RenameAddressBook,
                 desired,
-                original)]).ConfigureAwait(false);
+                original)).ConfigureAwait(false);
             return;
         }
 
@@ -1504,10 +1506,10 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                 Translator.ContactsPage_DeleteAddressBookTitle,
                 Translator.ContactConfirmDialog_DeleteButton);
             if (!remoteConfirmed) return;
-            await _requestDelegator.ExecuteAsync(filter.AddressBook.MailAccountId, (IRequestBase[])[new AddressBookActionRequest(
+            await ExecuteAddressBookRequestAsync(new AddressBookActionRequest(
                 ContactSynchronizerOperation.DeleteAddressBook,
                 filter.AddressBook,
-                filter.AddressBook)]).ConfigureAwait(false);
+                filter.AddressBook)).ConfigureAwait(false);
             return;
         }
 
@@ -1712,6 +1714,18 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         catch (Exception ex)
         {
             _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task ExecuteAddressBookRequestAsync(AddressBookActionRequest request)
+    {
+        try
+        {
+            await _requestDelegator.ExecuteAsync(request.MailAccountId, (IRequestBase[])[request]).ConfigureAwait(false);
+        }
+        catch (AppLockedException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
         }
     }
 

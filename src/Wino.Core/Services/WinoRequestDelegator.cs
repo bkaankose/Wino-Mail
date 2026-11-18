@@ -23,7 +23,6 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Messaging.Server;
 using Wino.Services.Interfaces;
 using Wino.Services.Models.MailItem;
@@ -41,6 +40,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IApplicationLocalRequestExecutor _applicationLocalRequestExecutor;
     private readonly IAppLockService _appLockService;
+    private readonly IMailService _mailService;
 
     private readonly IMessenger _messenger;
 
@@ -53,8 +53,10 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                 IApplicationLocalRequestExecutor applicationLocalRequestExecutor,
                                 IMessenger messenger,
                                 IMailProviderRegistry providers,
-                                IAppLockService appLockService)
+                                IAppLockService appLockService,
+                                IMailService mailService)
     {
+        _mailService = mailService ?? throw new ArgumentNullException(nameof(mailService));
         _providers = providers;
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         _winoRequestProcessor = winoRequestProcessor;
@@ -67,13 +69,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         _appLockService = appLockService ?? throw new ArgumentNullException(nameof(appLockService));
     }
 
-    // The overloads that return no result cannot hand the refusal to a request coordinator, so they say it as a notice.
-    private bool IsRefusedWhileLocked()
+    // The overloads that return no result throw the refusal, so their callers revert and report it like any other failure.
+    private void ThrowIfRefusedWhileLocked()
     {
-        if (!_appLockService.AreActionsRefused) return false;
-
-        _messenger.Send(new InfoBarMessageRequested(InfoBarMessageType.Warning, Translator.AppLock_LockedTitle, Translator.AppLock_ActionDenied));
-        return true;
+        if (_appLockService.AreActionsRefused)
+            throw new AppLockedException();
     }
 
     public async Task<WinoRequestDelegationResult> ExecuteWithResultAsync(MailOperationPreperationRequest request)
@@ -167,18 +167,27 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
     {
-        if (IsRefusedWhileLocked()) return;
-
         var request = new CreateDraftRequest(draftPreperationRequest);
         var accountId = draftPreperationRequest.Account.Id;
 
-        await QueueRequestAsync(request, accountId);
+        try
+        {
+            ThrowIfRefusedWhileLocked();
+            await QueueRequestAsync(request, accountId);
+        }
+        catch (AppLockedException)
+        {
+            // The caller stored this draft only for this request; kept without it, it would never reach the server.
+            await _mailService.DeleteMailAsync(accountId, draftPreperationRequest.CreatedLocalDraftCopy.Id).ConfigureAwait(false);
+            throw;
+        }
+
         await QueueSynchronizationAsync(accountId);
     }
 
     public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
     {
-        if (IsRefusedWhileLocked()) return;
+        ThrowIfRefusedWhileLocked();
 
         var request = new SendDraftRequest(sendDraftPreperationRequest);
         var account = sendDraftPreperationRequest.MailItem.AssignedAccount;
@@ -310,7 +319,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (valid.Count == 0)
             return;
 
-        if (IsRefusedWhileLocked()) return;
+        ThrowIfRefusedWhileLocked();
 
         var preparedRequests = new List<IContactActionRequest>();
 
@@ -338,7 +347,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests)
     {
-        if (IsRefusedWhileLocked()) return;
+        ThrowIfRefusedWhileLocked();
 
         var requestList = new List<IRequestBase>();
 

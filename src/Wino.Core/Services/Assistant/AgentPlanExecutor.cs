@@ -129,6 +129,10 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
                     cancelled = true;
                     outcome = new StepOutcome(step.N, StepStatus.Cancelled, [], null);
                 }
+                catch (AppLockedException)
+                {
+                    outcome = Failed(step, Translator.AppLock_ActionDenied);
+                }
                 catch (Exception ex)
                 {
                     Log.Error(ex, "An assistant step failed: {Action}.", step.Action);

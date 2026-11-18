@@ -21,6 +21,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Attachments;
@@ -564,7 +565,15 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             IsDraftBusy = true;
         });
 
-        await _worker.ExecuteAsync(draftSendPreparationRequest);
+        try
+        {
+            await _worker.ExecuteAsync(draftSendPreparationRequest);
+        }
+        catch (AppLockedException ex)
+        {
+            await ExecuteUIThread(() => IsDraftBusy = false);
+            _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(canSendLocalDraftToServer))]

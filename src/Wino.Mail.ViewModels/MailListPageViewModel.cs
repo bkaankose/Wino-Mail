@@ -20,6 +20,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
@@ -114,6 +115,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IContextMenuItemService _contextMenuItemService;
     private readonly ILogger _logger = Log.ForContext<MailListPageViewModel>();
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly IAppLockService _appLockService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly IWinoLogger _winoLogger;
@@ -382,9 +384,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
                                  IMailShellClient shellMenuProvider = null,
-                                 IWinoAccountIntelligenceSnapshotService entitlementService = null) : base(messenger)
+                                 IWinoAccountIntelligenceSnapshotService entitlementService = null,
+                                 IAppLockService appLockService = null) : base(messenger)
     {
         ShellMenuProvider = shellMenuProvider;
+        _appLockService = appLockService;
 
         _winoLogger = winoLogger;
         _accountService = accountService;
@@ -1501,6 +1505,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             var draftPreparationRequest = new DraftPreparationRequest(targetMail.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, targetMail.MailCopy);
             await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
         }
+        catch (AppLockedException ex)
+        {
+            ShowLockedMessage(ex.Message);
+        }
         catch (MimePersistenceException ex)
         {
             _mailDialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
@@ -1629,6 +1637,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         var accountId = accountIds[0];
         var uniqueIds = targetList.Select(a => a.MailCopy.UniqueId).Distinct().ToList();
 
+        // The assignment is stored before its request is queued, so the lock is checked before anything is stored.
+        if (_appLockService?.AreActionsRefused == true)
+        {
+            ShowLockedMessage(Translator.AppLock_ActionDenied);
+            return;
+        }
+
         if (isAssignedToAll)
         {
             await _mailCategoryService.UnassignCategoryAsync(category.Id, uniqueIds).ConfigureAwait(false);
@@ -1650,8 +1665,18 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             requests.Add(new MailCategoryAssignmentRequest(mailItem, category.Id, category.Name, categoryNames, !isAssignedToAll));
         }
 
-        await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+        try
+        {
+            await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+        }
+        catch (AppLockedException ex)
+        {
+            ShowLockedMessage(ex.Message);
+        }
     }
+
+    private void ShowLockedMessage(string message)
+        => _mailDialogService.InfoBarMessage(Translator.AppLock_LockedTitle, message, InfoBarMessageType.Warning);
 
     private async Task ApplyCategoryAssignmentToVisibleItemsAsync(
         MailCategory category,
