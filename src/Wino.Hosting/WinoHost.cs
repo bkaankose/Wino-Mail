@@ -172,6 +172,7 @@ public sealed partial class WinoHost : IAsyncDisposable
     private static void AddHostHead(IServiceCollection services)
     {
         services.AddSingleton<INavigationService, HostNavigationService>();
+        services.AddSingleton<HostDialogAnswers>();
         services.AddSingleton<HostDialogService>();
         services.AddSingleton<IMailDialogService>(provider => provider.GetRequiredService<HostDialogService>());
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<HostDialogService>());

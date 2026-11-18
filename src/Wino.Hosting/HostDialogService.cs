@@ -17,14 +17,21 @@ namespace Wino.Hosting;
 
 /// <summary>
 /// Dialogs for a host with no screen. Every dialog is recorded and answered as the user dismissing it: confirmations
-/// are declined, pickers return nothing, text input returns empty. Info bars are recorded.
+/// are declined, pickers return nothing, text input returns empty, unless a script queued an answer for that dialog
+/// with <see cref="WinoHost.AnswerNextDialog{T}"/>. Info bars are recorded.
 /// </summary>
-internal sealed class HostDialogService(HostInteractionLog log) : IMailDialogService
+internal sealed class HostDialogService(HostInteractionLog log, HostDialogAnswers answers) : IMailDialogService
 {
     private const string Dismissed = "dismissed";
 
     private T Dismiss<T>(string name, string? detail, T answer)
     {
+        if (answers.TryTake(name, out T scripted))
+        {
+            log.Record(HostInteractionKind.Dialog, name, detail, $"answered {scripted?.ToString() ?? "null"}");
+            return scripted;
+        }
+
         log.Record(HostInteractionKind.Dialog, name, detail, Dismissed);
         return answer;
     }
