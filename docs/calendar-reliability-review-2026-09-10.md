@@ -1,5 +1,7 @@
 # Calendar reliability review — 2026-09-10
 
+The evidence paths and line numbers below are from September 2026. The Outlook and Gmail synchronizers and change processors have since moved to `src/Wino.Providers.Outlook` and `src/Wino.Providers.Gmail` (same subfolders), and `Wino.Calendar.ViewModels` was merged into `src/Wino.Mail.ViewModels/Calendar`.
+
 ## Changes in this patch
 
 - Calendar menus display global shortcuts, including the configured Delete binding.

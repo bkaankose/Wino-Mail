@@ -6,6 +6,8 @@ Rejected: backup-dialog return signature; donor snapshot/CardDAV regression; unr
 
 ## Selected sources
 
+Paths show where each file lives today. The shared-backend restructure moved provider code into the `Wino.Providers.*` projects, MIME-typed contracts under `src/Wino.Services/Domain`, and UI models into `Wino.Mail.ViewModels`; moved files kept their namespaces. The `tests/` project and the intelligence console were removed later; their entries and the verification below are a record of the import, not current files.
+
 - `src/Wino.Core.Domain/Enums/ApplicationRuntimeState.cs`
 - `src/Wino.Core.Domain/Enums/AttachmentFileOperationStatus.cs`
 - `src/Wino.Core.Domain/Enums/ModifierKeys.cs`
@@ -27,9 +29,9 @@ Rejected: backup-dialog return signature; donor snapshot/CardDAV regression; unr
 - `src/Wino.Core.Domain/Interfaces/IPlatformCapabilities.cs`
 - `src/Wino.Core.Domain/Interfaces/IReaderRuntimeService.cs`
 - `src/Wino.Core.Domain/Interfaces/ISecretProtector.cs`
-- `src/Wino.Core.Domain/Interfaces/IShellMenuProviderResolver.cs`
+- `src/Wino.Mail.ViewModels/Shell/Contracts/IShellMenuProviderResolver.cs`
 - `src/Wino.Core.Domain/Interfaces/IShortcutPlatformService.cs`
-- `src/Wino.Core.Domain/Interfaces/ISmimeCertificateService.cs`
+- `src/Wino.Services/Domain/Interfaces/ISmimeCertificateService.cs`
 - `src/Wino.Core.Domain/Interfaces/IStartupIntegrationService.cs`
 - `src/Wino.Core.Domain/Interfaces/ISubstrateTaskTokenProvider.cs`
 - `src/Wino.Core.Domain/Interfaces/ITaskCompletionSound.cs`
@@ -39,15 +41,15 @@ Rejected: backup-dialog return signature; donor snapshot/CardDAV regression; unr
 - `src/Wino.Core.Domain/Models/Calendar/CalendarEventComposeNavigationArgs.cs`
 - `src/Wino.Core.Domain/Models/Platform/PlatformCapabilities.cs`
 - `src/Wino.Core.Domain/Models/Platform/PlatformOperationResult.cs`
-- `src/Wino.Core.Domain/Models/Printing/MailPrintOptions.cs`
+- `src/Wino.Mail.ViewModels/Models/Printing/MailPrintOptions.cs`
 - `src/Wino.Core.Domain/Models/Printing/MailPrintRequest.cs`
 - `src/Wino.Core.Domain/Entities/Shared/CustomServerInformation.cs`
 - `src/Wino.Core.Domain/Entities/Shared/KeyboardShortcut.cs`
 - `src/Wino.Core.Domain/Entities/Shared/WinoAccount.cs`
 - `src/Wino.Core/CoreContainerSetup.cs`
-- `src/Wino.Core/Http/GmailClientMessageHandler.cs`
-- `src/Wino.Core/Http/GraphAuthenticationRetryHandler.cs`
-- `src/Wino.Core/Http/MicrosoftTokenProvider.cs`
+- `src/Wino.Providers.Gmail/Http/GmailClientMessageHandler.cs`
+- `src/Wino.Providers.Outlook/Http/GraphAuthenticationRetryHandler.cs`
+- `src/Wino.Providers.Outlook/Http/MicrosoftTokenProvider.cs`
 - `src/Wino.Core/Services/ApplicationRuntime.cs`
 - `src/Wino.Core/Services/ApplicationRuntimeInitialization.cs`
 - `src/Wino.Core/Services/AuthenticationProvider.cs`
@@ -73,12 +75,12 @@ Rejected: backup-dialog return signature; donor snapshot/CardDAV regression; unr
 - `src/Wino.Authentication/GmailAuthenticator.cs`
 - `src/Wino.Authentication/IGoogleTokenStore.cs`
 - `src/Wino.Authentication/IOutlookAuthenticationHost.cs`
-- `src/Wino.Authentication/OutlookAuthenticator.cs`
+- `src/Wino.Providers.Outlook/Authentication/OutlookAuthenticator.cs`
 - `src/Wino.Authentication/WinoGmailCodeReceiver.cs`
 - `src/Wino.SourceGenerators/Preferences/PreferencesPropertyGenerator.cs`
 - `src/Wino.Platform.Windows/DpapiSecretProtector.cs`
 - `src/Wino.Platform.Windows/IWindowsAttachmentPolicyService.cs`
-- `src/Wino.Platform.Windows/WindowsAccountCredentialPersistence.cs`
+- `src/Wino.Platform.Windows/WindowsAccountCredentialPersistence.cs` (removed later; Windows credentials now go through `SecureItemAccountCredentialPersistence` in `Wino.Services`)
 - `src/Wino.Platform.Windows/WindowsAttachmentPolicyService.cs`
 - `src/Wino.Platform.Windows/WindowsGoogleTokenStore.cs`
 - `src/Wino.Platform.Windows/WindowsOutlookAuthenticationHost.cs`
@@ -116,7 +118,7 @@ Rejected: backup-dialog return signature; donor snapshot/CardDAV regression; unr
 - `tests/Wino.Core.Tests/Services/WinoPurchaseReconciliationServiceTests.cs`
 - `tests/Wino.Core.Tests/Telemetry/WinoTelemetryPolicyTests.cs`
 
-- `src/Wino.Core.Domain/Models/MailItem/HtmlPreviewVisitor.cs` — host-supplied S/MIME context.
+- `src/Wino.Services/Domain/Models/MailItem/HtmlPreviewVisitor.cs` — host-supplied S/MIME context.
 - `tests/Wino.Core.Tests/Models/HtmlPreviewVisitorTests.cs`
 
 ## Compatibility and lifecycle

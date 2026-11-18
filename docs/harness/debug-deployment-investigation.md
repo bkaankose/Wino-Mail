@@ -263,7 +263,7 @@ Final evidence:
 - [App build targets](../../src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj)
 - [Current development commands](development.md)
 - [Notification host runtime](../../src/Wino.NotificationHost/Program.cs)
-- [Notification host client](../../src/Wino.Mail.WinUI/Services/NotificationHostClient.cs)
+- [Notification host client](../../src/Wino.Platform.Windows/Services/NotificationHostClient.cs)
 - [WinApp 0.7.0 recipe materialization source](https://github.com/microsoft/winappCli/blob/v0.7.0/src/winapp-CLI/WinApp.Cli/Services/MsixService.Identity.cs)
 - [Packaged dotnet run support](https://github.com/microsoft/winappCli/blob/main/docs/dotnet-run-support.md)
 - [Sandbox execution](https://github.com/microsoft/winappCli/blob/main/docs/sandbox-execution.md)

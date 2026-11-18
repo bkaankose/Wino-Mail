@@ -7,12 +7,21 @@ Build and runtime commands are in the [Windows](development-windows.md), [macOS]
 ## Architecture
 
 ```text
-src/Wino.Core.Domain       Contracts, entities, translations, enums
-src/Wino.Core              Synchronization, authentication, request processing
-src/Wino.Services          Database, mail, folder, account, preference services
-src/Wino.Mail.ViewModels   Active Mail, Calendar, Contacts, To Do, Settings, and Shell ViewModels
-src/Wino.Core.ViewModels   Frozen legacy ViewModels for the deprecated UWP host
-src/Wino.Messages          Messenger contracts (Wino.Messaging)
+src/Wino.Core.Domain       Contracts, entities, enums, translations, messenger records (Messaging/, Wino.Messaging.*); no MVVM or MIME dependency
+src/Wino.Services          Database and schema, MIME store, mail, folder, account, preference and logging services, portable platform services
+src/Wino.Core              Synchronizer base, request pipeline, provider registry, application runtime, account setup, autodiscovery
+src/Wino.Authentication    Sign-in contracts that hosts implement, shared Google and MSAL helpers
+src/Wino.Providers.Outlook Microsoft Graph synchronizer and MSAL authenticator
+src/Wino.Providers.Gmail   Gmail synchronizer and hand-written Google REST clients
+src/Wino.Providers.Imap    IMAP and POP3 synchronizers
+src/Wino.Providers.Exchange  EWS and MAPI over HTTP synchronizers, MAPI protocol layer
+src/Wino.Providers.Dav     CalDAV and CardDAV engines
+src/Wino.Core.ML           On-device ONNX content-type model
+src/Wino.Agent.Runtime     Wino Assistant runtime
+src/Wino.PushRelay.Socket  Push relay socket client
+src/Wino.SourceGenerators  Translator generator and repository analyzers
+src/Wino.Mail.ViewModels   ViewModels for every mode and the shell, menu items, shell contracts, request coordinator, lifecycle
+src/Wino.Hosting           Runs the backend and ViewModels without an app, for single-file scripts
 src/Wino.Platform.Windows  Windows platform services
 src/Wino.Platform.Apple    Apple platform services shared by macOS and iOS (Foundation, Keychain, StoreKit, notifications)
 src/Wino.Platform.MacOS    macOS (AppKit-only) platform services
@@ -20,6 +29,8 @@ src/Wino.Platform.iOS      iOS (UIKit-only) platform services
 src/Wino.Platform.Android  Android platform services
 src/Wino.Core.Apple.Bindings  StoreKit 2 (macOS and iOS) and Sparkle (macOS only) native bindings
 src/Wino.Mail.WinUI        Windows application (WinUI 3)
+src/Wino.NotificationHost  Windows toast activation host (contracts in Wino.NotificationHost.Contracts)
+src/Wino.WidgetHost        Windows widget provider host
 src/Wino.Mail.MacOS        macOS application (AppKit)
 src/Wino.Mail.UIKit        Idiom-neutral UIKit infrastructure and pages for iPhone and iPad
 src/Wino.Mail.UIKit.Phone  Shell and pages for iPhone and iPad
@@ -28,9 +39,11 @@ src/Wino.Mail.Android      Android application head (Views, XML layouts, Android
 controls                   Shared control contracts and presentation helpers, editor engine, WinUI, AppKit, UIKit, WebKit and Android controls, playground
 ```
 
-Mail requests flow through `WinoRequestDelegator`, `WinoRequestProcessor`, provider synchronizers, change processors, the local SQLite database, and messenger events. Initial synchronization queues identifiers and downloads MIME content on demand.
+Mail requests flow from the ViewModel through `WinoRequestCoordinator` (`Wino.Mail.ViewModels`, which asks the user's questions), `WinoRequestDelegator`, `WinoRequestProcessor`, `SynchronizationManager`, the provider synchronizers, change processors, the local SQLite database, and messenger events. The database changes only after the server confirms; [src/Wino.Core/AGENTS.md](../../src/Wino.Core/AGENTS.md) describes the pipeline. Initial synchronization queues identifiers and downloads MIME content on demand.
 
-Register core services in `CoreContainerSetup` (`RegisterCoreServices`) and shared services in `ServicesContainerSetup` (`RegisterSharedServices`). Each application registers its platform services and views in its own composition root: `App.xaml.cs` on Windows, `src/Wino.Mail.MacOS/Composition.cs` on macOS, `src/Wino.Mail.iOS/Composition.cs` on iOS, and `src/Wino.Mail.Android/AndroidComposition.cs` on Android. All four call `RegisterWinoViewModels()` (`Wino.Mail.ViewModels`), the single list of shared ViewModels and their lifetimes. Add a shared ViewModel there, not in a head; a head registers only its platform-only ViewModels and its views.
+Shared code never switches on the provider type: it asks `IMailProviderRegistry` for the provider's `IMailProviderModule` and `MailProviderTraits`. No project below `Wino.Mail.ViewModels` uses a dialog, navigation, theme, or dispatcher contract (`WINOUI001`).
+
+Register core services in `CoreContainerSetup` (`RegisterCoreServices`) and shared services in `ServicesContainerSetup` (`RegisterSharedServices`). A service only one provider needs is registered in that provider's `Add...Provider` method; every host calls all five (`AddGmailProvider`, `AddOutlookProvider`, `AddImapProvider`, `AddExchangeProvider`, `AddDavProvider`) after `RegisterCoreServices()`. Portable implementations of operating-system contracts that macOS, iOS, Android, and `Wino.Hosting` share are registered in `AddPortablePlatformServices` (`src/Wino.Services/Platform/PortablePlatformRegistration.cs`); Windows registers its own in `AddWindowsPlatformServices` (`Wino.Platform.Windows`). Each application registers its platform services and views in its own composition root: `App.xaml.cs` on Windows, `src/Wino.Mail.MacOS/Composition.cs` on macOS, `src/Wino.Mail.iOS/Composition.cs` on iOS, and `src/Wino.Mail.Android/AndroidComposition.cs` on Android; `WinoHost` does the same for `Wino.Hosting`. All of them call `RegisterWinoViewModels()` (`Wino.Mail.ViewModels`), the single list of shared ViewModels and their lifetimes. Add a shared ViewModel there, not in a head; a head registers only its platform-only ViewModels and its views.
 
 Published cross-repository dependencies must use unconditional `PackageReference` items. A sibling checkout must never change the dependency graph.
 

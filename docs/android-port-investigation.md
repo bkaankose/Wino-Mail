@@ -15,7 +15,8 @@ logic instead of using shared code).
 ## 1. Summary
 
 - **Shared backend reuse is the strong part.** The portable graph the Mac head already consumes
-  (`Wino.Core.Domain`, `Wino.Services`, `Wino.Core`, `Wino.Authentication`, `Wino.Messaging`, the ViewModel
+  (`Wino.Core.Domain`, `Wino.Services`, `Wino.Core`, `Wino.Authentication`, `Wino.Messaging` (since folded
+  into `Wino.Core.Domain`; the provider code has since moved to the `Wino.Providers.*` projects), the ViewModel
   projects, `controls/Wino.Editor.Core`, `controls/Wino.Mail.Controls.Core`) is plain `net10.0`, trimmable and
   Native AOT-clean because Windows ships it under Native AOT today. Every NuGet dependency in that graph has an
   Android asset or is pure managed code (table in section 3). The contracts the Mac port extracted
@@ -51,7 +52,7 @@ logic instead of using shared code).
 | `controls/Wino.Mail.Controls.AppKit` (46 views, 8.7k lines) | | `controls/Wino.Mail.Controls.Android` | Same `Controls.Core` projections (`MailListCollection`, hover actions, context flyout models) |
 | `controls/Wino.Editor.WebKit` (3 files, 519 lines: WKWebView session, reader/editor sessions) | | `controls/Wino.Editor.Android` | Android `WebView`; same `Editor.Core` sessions, assets and `SessionOperationQueue` |
 | `src/Wino.Core.Apple.Bindings` (StoreKit 2 Swift bridge, Sparkle) | | Probably none | Play Billing and AndroidX ship as Microsoft-maintained NuGet bindings; no hand-written binding project unless a Java library lacks one |
-| `WinoTargetPlatform=MacOS` property (collapses multi-TFM projects to `net10.0`) | in `Directory.Build.props`, `Wino.Mail.ViewModels`, `Wino.Mail.Controls.Core` | `WinoTargetPlatform=Android` | Same mechanism; `Wino.Core.ViewModels` and `Wino.Calendar.ViewModels` still declare both TFMs unconditionally and rely on `EnableWindowsTargeting`, as the Mac head does |
+| `WinoTargetPlatform=MacOS` property (collapses multi-TFM projects to `net10.0`) | in `Directory.Build.props`, `Wino.Mail.ViewModels`, `Wino.Mail.Controls.Core` | `WinoTargetPlatform=Android` | Same mechanism; `Wino.Core.ViewModels` and `Wino.Calendar.ViewModels` still declare both TFMs unconditionally and rely on `EnableWindowsTargeting`, as the Mac head does. Since then both projects were removed, and `Wino.Mail.ViewModels` and `Wino.Mail.Controls.Core` have one `net10.0` target |
 
 The alignment review found 59 places where the Mac head re-implemented shared behaviour (route table, flyout
 builders, special-folder glyph map, theme catalogue, operation glyphs, date formatting, dialog rules, settings
@@ -68,7 +69,7 @@ Verified against the restored packages in `Directory.Packages.props` and public 
 | sqlite-net-pcl 1.11 → SQLitePCLRaw.bundle_green 2.1.11 | Android asset (`net6.0-android31.0`, bundled `e_sqlite3`) | Native `.so`; verify 16 KB page alignment (section 8) |
 | SkiaSharp 4.153 | Android asset | Native `.so`; verify 16 KB alignment |
 | Microsoft.ML.OnnxRuntime 1.30/1.31 | `net9.0-android35.0` asset, XNNPACK provider | Optional. `Wino.Core.ML` already has a `WINO_ML_UNSUPPORTED` build (used for x86 and Intel Mac); Android can start without Magika and add it later |
-| Microsoft.Identity.Client 4.90 | `net-android` asset, broker via Microsoft Authenticator built in | `Microsoft.Identity.Client.Broker` (Windows WAM) is referenced unconditionally by `Wino.Core`; harmless on Mac, must be checked under Android trimming or made Windows-only |
+| Microsoft.Identity.Client 4.90 | `net-android` asset, broker via Microsoft Authenticator built in | `Microsoft.Identity.Client.Broker` (Windows WAM) was referenced unconditionally by `Wino.Core`; it is now referenced only by `Wino.Platform.Windows` and, for Windows builds only, by `Wino.Providers.Outlook` |
 | Microsoft.Identity.Client.Extensions.Msal | Used by `Wino.Platform.Windows/MacOS` for the file cache | Not needed on Android; serialize the MSAL cache through `ISecretProtector` instead |
 | Microsoft.Graph.Core 4 | Managed | |
 | Sentry.Serilog 6.12 | `Sentry` supports .NET for Android directly and embeds the native Android SDK | Init in `Application.OnCreate`; `WinoLogger` already calls `SentrySdk.Init` |
