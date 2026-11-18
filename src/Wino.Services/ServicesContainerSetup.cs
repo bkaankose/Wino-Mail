@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Core.Domain.Interfaces;
@@ -21,6 +22,10 @@ public static class ServicesContainerSetup
 {
     public static void RegisterSharedServices(this IServiceCollection services)
     {
+        // MimeKit's net8+ build does not register legacy code pages itself. Without them it decodes iso-8859-2,
+        // windows-1250 and similar charsets as Latin-1, so every head needs the provider before parsing mail.
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
         services.AddSingleton<Wino.Core.Domain.Models.MailItem.DraftUpdateRegistry>();
         // The apps share the process-wide messenger with their heads; Wino.Hosting replaces it with one per host.
         services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
