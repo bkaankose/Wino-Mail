@@ -39,6 +39,12 @@ foreach (var interaction in wino.Interactions)   // what ViewModels asked of a s
 
 Point `#:project` at the checkout you are working in. The data root must be empty or one a host created before.
 
+**Options.** `WinoHostOptions` has three settings; leave the last two alone and the host composes exactly what it always does.
+
+- `DataRoot` (required): the folder above.
+- `ConfigureServices`: an `Action<IServiceCollection>` that runs after every host registration and before the container is built. Register a contract there to replace the host's implementation, for example a real `INotificationBuilder` you want to watch. Replace only what a screen or an operating system supplies; the hard stops above still apply.
+- `Providers`: the provider projects to register, `WinoHostProviders.All` by default. Shared services resolve services from Outlook, IMAP, Exchange and DAV, so `WinoHostProviders.Required` must be included and only `Gmail` can be left out (`Required` alone). An IMAP account with CalDAV or CardDAV runs on `Imap` and `Dav`, which `Required` contains. `Imap` covers POP3 too. A selection that lacks part of `Required` fails `StartAsync` with an `ArgumentException` that names it.
+
 **A lab account, a sync and a ViewModel.** Lease the account first; the lab rules are in the [root guidance](../../AGENTS.md).
 
 ```csharp
