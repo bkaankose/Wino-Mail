@@ -75,6 +75,20 @@ public static class MacDebugBridge
     {
         Register("sleep", async args => { await Task.Delay(args.Length > 0 ? int.Parse(args[0]) : 500); return "ok"; });
         Register("snap", args => Task.FromResult(Snap(args.Length > 0 ? args[0] : "snap")));
+        Register("expander", args =>
+        {
+            var expanders = new List<Wino.Mail.Controls.AppKit.Settings.WinoSettingsExpander>();
+            void Collect(NSView view)
+            {
+                if (view is Wino.Mail.Controls.AppKit.Settings.WinoSettingsExpander expander) expanders.Add(expander);
+                foreach (var child in view.Subviews) Collect(child);
+            }
+            foreach (var window in AllWindows().Where(item => item.IsVisible && item.ContentView is not null)) Collect(window.ContentView!);
+            if (args.Length == 0) return Task.FromResult(string.Join(", ", expanders.Select((item, index) => $"{index}:{item.HeaderCard.Header}={item.IsExpanded}")));
+            var target = expanders[int.Parse(args[0])];
+            target.IsExpanded = args.Length > 1 ? bool.Parse(args[1]) : !target.IsExpanded;
+            return Task.FromResult($"{target.HeaderCard.Header}={target.IsExpanded}");
+        });
         Register("mode", args =>
         {
             var mode = Enum.Parse<WinoApplicationMode>(args[0], true);

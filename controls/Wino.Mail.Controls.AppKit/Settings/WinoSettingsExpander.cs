@@ -9,13 +9,19 @@ namespace Wino.Mail.Controls.AppKit.Settings;
 /// macOS counterpart of the Windows SettingsExpander: a header card with a chevron, and nested
 /// rows on a recessed fill under it, indented to the header text column and separated by hairlines.
 /// Header and rows cast one shadow together.
-/// Expansion toggles visibility only; nested rows keep their bindings.
+/// Expansion animates the rows open and closed; nested rows keep their bindings.
 /// </summary>
 public sealed class WinoSettingsExpander : NSView
 {
     private readonly WinoSettingsCard _header;
+    private const double AnimationDuration = 0.22;
+
     private readonly WinoSurfaceView _itemsSurface;
+    private readonly NSView _itemsClip;
+    private readonly NSLayoutConstraint _clipHeight;
+    private readonly NSLayoutConstraint _clipFollowsItems;
     private readonly NSStackView _items;
+    private int _animationGeneration;
     private bool _isExpanded;
     private bool _isEnabled = true;
 
@@ -43,6 +49,17 @@ public sealed class WinoSettingsExpander : NSView
         };
         WinoLayout.Fill(_items, _itemsSurface);
 
+        // The clip animates its height between 0 and the rows' height; at rest when expanded it follows the rows,
+        // so rows that change size later still resize the expander.
+        _itemsClip = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, WantsLayer = true };
+        _itemsClip.Layer!.MasksToBounds = true;
+        _itemsClip.AddSubview(_itemsSurface);
+        _itemsSurface.TopAnchor.ConstraintEqualTo(_itemsClip.TopAnchor).Active = true;
+        _itemsSurface.LeadingAnchor.ConstraintEqualTo(_itemsClip.LeadingAnchor).Active = true;
+        _itemsSurface.TrailingAnchor.ConstraintEqualTo(_itemsClip.TrailingAnchor).Active = true;
+        _clipHeight = _itemsClip.HeightAnchor.ConstraintEqualTo(0);
+        _clipFollowsItems = _itemsClip.BottomAnchor.ConstraintEqualTo(_itemsSurface.BottomAnchor);
+
         var stack = new NSStackView
         {
             Orientation = NSUserInterfaceLayoutOrientation.Vertical,
@@ -52,12 +69,12 @@ public sealed class WinoSettingsExpander : NSView
             TranslatesAutoresizingMaskIntoConstraints = false
         };
         stack.AddArrangedSubview(_header);
-        stack.AddArrangedSubview(_itemsSurface);
+        stack.AddArrangedSubview(_itemsClip);
         _header.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-        _itemsSurface.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
+        _itemsClip.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
         WinoLayout.Fill(stack, this);
 
-        IsExpanded = isExpanded;
+        SetExpanded(isExpanded, animated: false);
         AccessibilityElement = false;
     }
 
@@ -84,13 +101,59 @@ public sealed class WinoSettingsExpander : NSView
     public bool IsExpanded
     {
         get => _isExpanded;
-        set
+        set => SetExpanded(value, animated: Window is not null);
+    }
+
+    private static bool CanAnimate => !NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
+
+    private void SetExpanded(bool expanded, bool animated)
+    {
+        _isExpanded = expanded;
+        _header.IsExpanded = expanded;
+        int generation = ++_animationGeneration;
+
+        if (!animated || !CanAnimate)
         {
-            _isExpanded = value;
-            _itemsSurface.Hidden = !value;
-            _header.IsExpanded = value;
-            IsExpandedChanged?.Invoke(this, value);
+            ApplyRestingState(expanded);
+            IsExpandedChanged?.Invoke(this, expanded);
+            return;
         }
+
+        var root = Window?.ContentView ?? this;
+        root.LayoutSubtreeIfNeeded();
+        double from = _itemsClip.Hidden ? 0 : _itemsClip.Frame.Height;
+
+        _itemsClip.Hidden = false;
+        _clipFollowsItems.Active = false;
+        _clipHeight.Constant = (nfloat)from;
+        _clipHeight.Active = true;
+        root.LayoutSubtreeIfNeeded();
+        double to = expanded ? _itemsSurface.Frame.Height : 0;
+
+        _itemsSurface.AlphaValue = expanded ? 0 : 1;
+        NSAnimationContext.RunAnimation(context =>
+        {
+            context.Duration = AnimationDuration;
+            context.TimingFunction = CAMediaTimingFunction.FromName(CAMediaTimingFunction.EaseInEaseOut);
+            context.AllowsImplicitAnimation = true;
+            _clipHeight.Constant = (nfloat)to;
+            _itemsSurface.AlphaValue = expanded ? 1 : 0;
+            root.LayoutSubtreeIfNeeded();
+        }, () =>
+        {
+            if (generation != _animationGeneration) return;
+            ApplyRestingState(expanded);
+        });
+        IsExpandedChanged?.Invoke(this, expanded);
+    }
+
+    private void ApplyRestingState(bool expanded)
+    {
+        _itemsSurface.AlphaValue = 1;
+        _itemsClip.Hidden = !expanded;
+        _clipHeight.Active = !expanded;
+        _clipHeight.Constant = 0;
+        _clipFollowsItems.Active = expanded;
     }
 
     public event EventHandler<bool>? IsExpandedChanged;
