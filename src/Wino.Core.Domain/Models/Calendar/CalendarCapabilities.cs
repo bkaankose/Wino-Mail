@@ -46,6 +46,9 @@ public sealed record CalendarCapabilities
     public bool SupportsOnlineMeeting { get; init; }
     public bool SupportsReminders { get; init; }
 
+    /// <summary>Most reminders one event may keep on the server; null when the server sets no limit.</summary>
+    public int? MaxReminders { get; init; }
+
     /// <summary>The server stores default alarms for new events (CalDAV: calendar-default-alarms).</summary>
     public bool SupportsDefaultAlarms { get; init; }
 
@@ -75,7 +78,8 @@ public sealed record CalendarCapabilities
         SupportsAttendees = true,
         SendsInvitations = true,
         SupportsOnlineMeeting = true,
-        SupportsReminders = true
+        SupportsReminders = true,
+        MaxReminders = 1
     };
 
     public static CalendarCapabilities Gmail { get; } = new()
@@ -85,7 +89,8 @@ public sealed record CalendarCapabilities
         SupportsAttendees = true,
         SendsInvitations = true,
         SupportsOnlineMeeting = true,
-        SupportsReminders = true
+        SupportsReminders = true,
+        MaxReminders = 5
     };
 
     /// <summary>On-premises Exchange over EWS or MAPI over HTTP. Event attachments are not written to the server.</summary>
@@ -94,7 +99,8 @@ public sealed record CalendarCapabilities
         Source = CalendarCapabilitySource.Exchange,
         SupportsAttendees = true,
         SendsInvitations = true,
-        SupportsReminders = true
+        SupportsReminders = true,
+        MaxReminders = 1
     };
 
     /// <summary>What every CalDAV server can do, used until the server has been discovered.</summary>

@@ -95,7 +95,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         _showAs = Popup(Translator.CalendarEventDetails_ShowAs);
         _showAs.Activated += (_, _) => Select(ViewModel.ShowAsOptions, _showAs, option => ViewModel.SelectedShowAsOption = option);
         _reminder = Popup(Translator.CalendarEventDetails_Reminder);
-        _reminder.Activated += (_, _) => Select(ViewModel.ReminderOptions, _reminder, option => ViewModel.SelectedReminderOption = option);
+        _reminder.PullsDown = true;
         _private = Checkbox(Translator.CalendarEventCompose_Private, () => ViewModel.IsPrivate = _private.State == NSCellStateValue.On);
         _private.ToolTip = Translator.CalendarEventCompose_PrivateTooltip;
         _onlineMeeting = Checkbox(string.Empty, () => ViewModel.IsOnlineMeeting = _onlineMeeting.State == NSCellStateValue.On);
@@ -284,7 +284,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         Bind(nameof(ViewModel.RecurrenceSummary), vm => vm.RecurrenceSummary, value => _recurrenceSummary.StringValue = value ?? string.Empty);
         Bind(nameof(ViewModel.SelectedRepeatOption), vm => vm.SelectedRepeatOption, option => { if (option is not null) _repeat.SelectItem(option.DisplayText); });
         Bind(nameof(ViewModel.SelectedShowAsOption), vm => vm.SelectedShowAsOption, option => { if (option is not null) _showAs.SelectItem(option.DisplayText); });
-        Bind(nameof(ViewModel.SelectedReminderOption), vm => vm.SelectedReminderOption, option => { if (option is not null) _reminder.SelectItem(option.DisplayText); });
+        Bind(nameof(ViewModel.ReminderSummary), vm => vm.ReminderSummary, _ => RebuildReminderMenu());
         Bind(nameof(ViewModel.SelectedCalendar), vm => vm.SelectedCalendar, _ => ApplyCalendar());
         Bind(nameof(ViewModel.SaveButtonText), vm => vm.SaveButtonText, text => _save.Title = text ?? Translator.Buttons_Save);
         Bind(nameof(ViewModel.AttendeeCount), vm => vm.AttendeeCount, _ => ApplyAttendees());
@@ -426,12 +426,10 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
     {
         _showAs.RemoveAllItems();
         foreach (var option in ViewModel.ShowAsOptions) _showAs.AddItem(option.DisplayText);
-        _reminder.RemoveAllItems();
-        foreach (var option in ViewModel.ReminderOptions) _reminder.AddItem(option.DisplayText);
+        RebuildReminderMenu();
         _repeat.RemoveAllItems();
         foreach (var option in ViewModel.RepeatOptions) _repeat.AddItem(option.DisplayText);
         if (ViewModel.SelectedShowAsOption is { } showAs) _showAs.SelectItem(showAs.DisplayText);
-        if (ViewModel.SelectedReminderOption is { } reminder) _reminder.SelectItem(reminder.DisplayText);
         if (ViewModel.SelectedRepeatOption is { } repeat) _repeat.SelectItem(repeat.DisplayText);
         FillTimeZones();
         FillFrequencies();
@@ -595,6 +593,21 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         var text = System.Text.RegularExpressions.Regex.Replace(html, "<br\\s*/?>|</p>|</div>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         text = System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", string.Empty);
         return System.Net.WebUtility.HtmlDecode(text).Trim();
+    }
+
+    /// <summary>Pull-down: the first item shows the chosen reminders; each option toggles its checkmark.</summary>
+    private void RebuildReminderMenu()
+    {
+        var menu = _reminder.Menu!;
+        menu.RemoveAllItems();
+        menu.AddItem(new NSMenuItem(ViewModel.ReminderSummary));
+        foreach (var option in ViewModel.ReminderOptions)
+        {
+            var captured = option;
+            var item = new NSMenuItem(option.DisplayText) { State = option.IsSelected ? NSCellStateValue.On : NSCellStateValue.Off };
+            item.Activated += (_, _) => captured.IsSelected = !captured.IsSelected;
+            menu.AddItem(item);
+        }
     }
 
     private static void Select<T>(IList<T> options, NSPopUpButton popup, Action<T> apply)

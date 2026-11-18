@@ -51,6 +51,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     private Guid _capabilityCalendarId;
     private int _capabilityRequestVersion;
     private CalendarCapabilities _calendarCapabilities = CalendarCapabilities.None;
+    private bool _isLoadingReminderOptions;
 
     private CalendarSettings _currentSettings;
 
@@ -618,6 +619,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 
     private void InitializeReminderOptions()
     {
+        _isLoadingReminderOptions = true;
         ReminderOptions.Clear();
 
         var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
@@ -633,11 +635,20 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         {
             ReminderOptions.Add(new ReminderOption(
                 minutes,
-                isCustom: !predefinedMinutes.Contains(minutes))
+                isCustom: !predefinedMinutes.Contains(minutes),
+                selectionChanged: OnReminderOptionSelectionChanged)
             {
                 IsSelected = selectedMinutes.Contains(minutes)
             });
         }
+
+        _isLoadingReminderOptions = false;
+    }
+
+    private void OnReminderOptionSelectionChanged(ReminderOption option)
+    {
+        if (!_isLoadingReminderOptions)
+            ReminderOption.EnforceLimit(ReminderOptions, option, CalendarCapabilities.MaxReminders);
     }
 
 
@@ -1182,10 +1193,53 @@ public partial class ReminderOption : ObservableObject
         }
     }
 
-    public ReminderOption(int minutes, bool isCustom = false)
+    private readonly Action<ReminderOption> _selectionChanged;
+
+    public ReminderOption(int minutes, bool isCustom = false, Action<ReminderOption> selectionChanged = null)
     {
         Minutes = minutes;
         IsCustom = isCustom;
+        _selectionChanged = selectionChanged;
+    }
+
+    partial void OnIsSelectedChanged(bool value) => _selectionChanged?.Invoke(this);
+
+    /// <summary>The selected options as one line, or the None text when nothing is selected.</summary>
+    public static string Summarize(IEnumerable<ReminderOption> options)
+    {
+        var selected = options.Where(option => option.IsSelected).Select(option => option.DisplayText).ToList();
+        return selected.Count == 0 ? Translator.CalendarReminder_None : string.Join(", ", selected);
+    }
+
+    /// <summary>
+    /// Keeps a selection within what the calendar stores. With room for one reminder a new choice replaces the
+    /// previous one; with a larger limit a choice beyond it is undone.
+    /// </summary>
+    public static void EnforceLimit(IList<ReminderOption> options, ReminderOption changed, int? maxReminders)
+    {
+        if (maxReminders is not > 0 || changed is not { IsSelected: true })
+            return;
+
+        if (maxReminders == 1)
+        {
+            foreach (var option in options.Where(option => option.IsSelected && !ReferenceEquals(option, changed)).ToList())
+                option.IsSelected = false;
+
+            return;
+        }
+
+        if (options.Count(option => option.IsSelected) > maxReminders.Value)
+            changed.IsSelected = false;
+    }
+
+    /// <summary>Clears all but the shortest selected reminders when a calendar keeps fewer than are selected.</summary>
+    public static void TrimToLimit(IList<ReminderOption> options, int? maxReminders)
+    {
+        if (maxReminders is not > 0)
+            return;
+
+        foreach (var option in options.Where(option => option.IsSelected).OrderBy(option => option.Minutes).Skip(maxReminders.Value).ToList())
+            option.IsSelected = false;
     }
 }
 

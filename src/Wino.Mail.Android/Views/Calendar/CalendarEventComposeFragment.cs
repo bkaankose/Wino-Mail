@@ -330,10 +330,9 @@ public sealed class CalendarEventComposeFragment : WinoFragment<CalendarEventCom
     private void BuildDetails(Context context, CalendarEventComposePageViewModel viewModel, IDispatcher dispatcher)
     {
         var reminder = new CalendarFormRow(context, WinoIconGlyph.Reminder);
-        reminder.OnTap(() => Pick(context, Translator.CalendarEventDetails_Reminder, viewModel.ReminderOptions.ToList(), option => option.DisplayText,
-            viewModel.SelectedReminderOption, option => viewModel.SelectedReminderOption = option));
+        reminder.OnTap(() => PickReminder(context, viewModel));
         _column!.AddView(reminder);
-        Bind(viewModel, dispatcher, nameof(viewModel.SelectedReminderOption), vm => vm.SelectedReminderOption?.DisplayText, text => reminder.Text = text ?? Translator.CalendarReminder_None);
+        Bind(viewModel, dispatcher, nameof(viewModel.ReminderSummary), vm => vm.ReminderSummary, text => reminder.Text = text ?? Translator.CalendarReminder_None);
 
         var calendar = new CalendarFormRow(context, WinoIconGlyph.Calendar);
         calendar.OnTap(() => Pick(context, Translator.CalendarEventCompose_PickCalendarTitle, viewModel.AvailableCalendars.ToList(),
@@ -426,6 +425,17 @@ public sealed class CalendarEventComposeFragment : WinoFragment<CalendarEventCom
         MarginStart = WinoTokens.Px(context, Resource.Dimension.wino_calendar_editor_row_indent),
         MarginEnd = WinoTokens.Px(context, Resource.Dimension.wino_space_l)
     };
+
+    /// <summary>Several reminders can be on: each pick toggles one option, as on the event details page.</summary>
+    private static void PickReminder(Context context, CalendarEventComposePageViewModel viewModel)
+    {
+        var options = viewModel.ReminderOptions.ToList();
+        WinoChoiceSheet.Show(context, Translator.CalendarEventDetails_Reminder,
+            options.Select(option => option.IsSelected ? $"✓ {option.DisplayText}" : option.DisplayText).ToList(), -1, index =>
+            {
+                if (index >= 0 && index < options.Count) options[index].IsSelected = !options[index].IsSelected;
+            });
+    }
 
     private static void Pick<T>(Context context, string title, List<T> options, Func<T, string> text, T? selected, Action<T> chosen) where T : class
     {

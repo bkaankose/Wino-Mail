@@ -410,7 +410,11 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     private void ToggleReminder(ReminderOption option, NSMenuItem item)
     {
         option.IsSelected = !option.IsSelected;
-        item.State = option.IsSelected ? NSCellStateValue.On : NSCellStateValue.Off;
+        foreach (var candidate in _reminder.Menu!.Items)
+        {
+            var match = ViewModel.ReminderOptions.FirstOrDefault(reminder => reminder.DisplayText == candidate.Title);
+            if (match is not null) candidate.State = match.IsSelected ? NSCellStateValue.On : NSCellStateValue.Off;
+        }
         UpdateReminderRow();
         RequestSave();
     }
