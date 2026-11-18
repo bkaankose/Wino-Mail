@@ -72,6 +72,8 @@ public partial class WinoNavigationView : NavigationView
 
         if (args.Element is WinoNavigationViewItem { RemembersExpansion: true } groupItem)
             ApplyRememberedExpansion(groupItem, isPrepared: true);
+        else if (args.Element is WinoNavigationViewItem { IsExpanded: true } expandedItem && IsPaneOpen)
+            expandedItem.ShowChildrenOfPreparedContainer();
     }
 
     private void OnIsPaneOpenChanged(DependencyObject sender, DependencyProperty property)
