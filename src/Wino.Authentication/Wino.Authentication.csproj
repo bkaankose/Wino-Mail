@@ -18,7 +18,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="Assets\AuthorizationResult.html" LogicalName="Wino.Authentication.Assets.AuthorizationResult.html" />
-		<EmbeddedResource Include="..\Wino.Mail.WinUI\Assets\AppEntries\Wino.svg" Link="Assets\WinoLogo.svg" LogicalName="Wino.Authentication.Assets.WinoLogo.svg" />
+		<EmbeddedResource Include="Assets\WinoLogo.svg" LogicalName="Wino.Authentication.Assets.WinoLogo.svg" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
