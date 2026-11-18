@@ -359,6 +359,44 @@ public static class OutlookIntegratorExtensions
         return DateTime.SpecifyKind(parsedDateTime, DateTimeKind.Unspecified);
     }
 
+    /// <summary>
+    /// To Do keeps a due date as a time, and Graph returns it in UTC. A date-only due date is
+    /// midnight where it was set (Apple Reminders, Microsoft To Do), so its UTC date can be the
+    /// day before. The date is taken in the given zone, the user's own by default.
+    /// </summary>
+    public static DateTime? GetTaskDueDate(DateTimeTimeZone dueDateTime, TimeZoneInfo userTimeZone = null)
+    {
+        if (string.IsNullOrEmpty(dueDateTime?.DateTime) ||
+            !DateTime.TryParse(dueDateTime.DateTime, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
+        {
+            return null;
+        }
+
+        var sourceZone = FindTimeZone(dueDateTime.TimeZone) ?? TimeZoneInfo.Utc;
+        var instant = new DateTimeOffset(DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified), sourceZone.GetUtcOffset(parsed));
+        return TimeZoneInfo.ConvertTime(instant, userTimeZone ?? TimeZoneInfo.Local).Date;
+    }
+
+    public static DateTimeTimeZone ToTaskDueDateTime(DateTime dueDate, TimeZoneInfo userTimeZone = null)
+    {
+        var zone = userTimeZone ?? TimeZoneInfo.Local;
+        var zoneId = zone.HasIanaId && TimeZoneInfo.TryConvertIanaIdToWindowsId(zone.Id, out var windowsId) ? windowsId : zone.Id;
+
+        return new DateTimeTimeZone
+        {
+            DateTime = dueDate.Date.ToString("yyyy-MM-ddT00:00:00", System.Globalization.CultureInfo.InvariantCulture),
+            TimeZone = zoneId
+        };
+    }
+
+    private static TimeZoneInfo FindTimeZone(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        return TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone) ? zone : null;
+    }
+
     private static AttendeeStatus GetAttendeeStatus(ResponseType? responseType)
     {
         return responseType switch

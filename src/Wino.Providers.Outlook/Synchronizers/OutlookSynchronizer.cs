@@ -1102,7 +1102,7 @@ IAuthenticator authenticator,
 
     private static AccountTask MapRemoteTask(TodoTask remote, AccountTaskList list)
     {
-        var due = ParseGraphDate(remote?.DueDateTime?.DateTime);
+        var due = OutlookIntegratorExtensions.GetTaskDueDate(remote?.DueDateTime);
         var completed = remote?.Status == GraphTaskStatus.Completed;
         var task = new AccountTask
         {
@@ -1147,7 +1147,7 @@ IAuthenticator authenticator,
             Body = string.IsNullOrWhiteSpace(task.Notes) ? null : new ItemBody { ContentType = BodyType.Text, Content = task.Notes },
             Status = task.IsCompleted ? GraphTaskStatus.Completed : GraphTaskStatus.NotStarted,
             Importance = task.IsImportant ? Microsoft.Graph.Models.Importance.High : Microsoft.Graph.Models.Importance.Normal,
-            DueDateTime = task.DueDate is DateTime due ? new DateTimeTimeZone { DateTime = due.ToString("yyyy-MM-ddT00:00:00", GlobalizationCultureInfo.InvariantCulture), TimeZone = "UTC" } : null,
+            DueDateTime = task.DueDate is DateTime due ? OutlookIntegratorExtensions.ToTaskDueDateTime(due) : null,
             ChecklistItems = includeChecklistItems
                 ? task.Steps?.OrderBy(step => step.Order).Select(step => new ChecklistItem
                 {
@@ -1190,11 +1190,6 @@ IAuthenticator authenticator,
 
         return null;
     }
-
-    private static DateTime? ParseGraphDate(string value)
-        => DateTime.TryParse(value, GlobalizationCultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var parsed)
-            ? parsed.Date
-            : null;
 
     private static DateTime? ParseGraphDateTime(string value)
         => DateTime.TryParse(value, GlobalizationCultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var parsed)
