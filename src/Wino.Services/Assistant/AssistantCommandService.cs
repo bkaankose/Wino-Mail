@@ -63,7 +63,8 @@ internal sealed class AssistantCommandSession(WebSocket socket) : IAssistantComm
 
     public void Start(AssistantReadRequest request)
     {
-        Enqueue(new AssistantClientFrame(AssistantFrameTypes.Start, request));
+        // Ask for replaceable live transcripts; a server that predates them ignores this and sends deltas.
+        Enqueue(new AssistantClientFrame(AssistantFrameTypes.Start, request) { PartialTranscripts = true });
         _sendLoop = Task.Run(SendLoopAsync);
         _receiveLoop = Task.Run(ReceiveLoopAsync);
     }
