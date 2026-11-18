@@ -165,6 +165,14 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
 
             if (isRateWinoApproved)
             {
+                // The Store's in-app review fails natively (access violation in Windows.ApplicationModel.Store.dll)
+                // for a package the Store did not install, which no catch can handle, so those packages open the Store page.
+                if (_nativeAppService.Distribution is WindowsAppDistribution.Sideload or WindowsAppDistribution.Beta)
+                {
+                    await _nativeAppService.LaunchUriAsync(new Uri(StoreReviewUri));
+                    return;
+                }
+
                 // In case of failure of this call, we will navigate users to Store page directly.
 
                 try
