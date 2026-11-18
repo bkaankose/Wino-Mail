@@ -108,6 +108,8 @@ public sealed class WinoSyncBar : NSView
         WithoutActions(() => _fill.BackgroundColor = WinoStyle.Accent.CGColor);
     }
 
+    public void ForgetProgress() => _hasValue = false;
+
     /// <summary>Sets the bar; <paramref name="value"/> is 0 to 100.</summary>
     public void Update(bool indeterminate, double value)
     {
