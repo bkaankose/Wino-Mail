@@ -15,6 +15,8 @@ Every user action that changes server data takes this path. Know it before you c
 5. **On success** the provider's change processor writes the database, and the storage service sends a message with `EntityUpdateSource.Server`.
 6. **On failure** `RequestUiChangeCoordinator.RevertBundle` reverts the in-memory change with `EntityUpdateSource.ClientReverted`. The database is untouched.
 
+While the app lock is on and the window is locked, `SynchronizationManager.QueueRequestPackAsync` and `WinoRequestDelegator` refuse user requests with `AppLockedException`. Synchronization keeps running. A notification action the user kept runs inside `IAppLockService.AllowActionsWhileLocked()`.
+
 ## The provider registry
 
 Shared code never names a provider's classes and never switches on the provider type. It asks `IMailProviderRegistry`:

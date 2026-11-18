@@ -69,6 +69,7 @@ await wino.IdleAsync();                                               // nothing
 - Read ViewModel state and invoke commands inside `wino.Dispatcher.InvokeAsync(...)`.
 - A dialog resolves as dismissed unless the script queued an answer with `AnswerNextDialog<T>(dialogName, answer)`. The type must match what the dialog returns: `bool` for a confirmation, `string` for text input, `IMailItemFolder` for the folder picker. Each answer is used once.
 - `IdleAsync` counts work started by a sync request, not the runtime's periodic loops.
+- The host's app lock is PIN-only and off. A script turns it on through `IAppLockService`, and answers its prompt with `AnswerNextDialog("PromptVerificationAsync", "<pin>")`; the real lock service checks the PIN.
 - To show the write rule, read the item in the ViewModel right after the command, the database row at that moment, then both the database and the server after `IdleAsync`. Read the server through your own connection, not through the app.
 - Exchange and the providers that sign in through a browser have no helper: build the `AccountSetupPlan` and run it through `IAccountSetupRunner` inside `wino.Dispatcher.InvokeAsync(...)`.
 
