@@ -9,7 +9,7 @@ The host that runs the shared backend, up to the ViewModels, without an app. A s
 - **The dispatcher is real.** `HostDispatcher` is one dedicated thread with an ordered queue and a synchronization context. Keep it that way: never make `ExecuteOnUIThread` a no-op and never run queued work on the caller's thread.
 - **The key file is for this host only.** `FileProtectionKeyProvider` keeps the protection key inside the data root because a host holds throwaway lab data. No app may use it; apps never fall back to an unprotected store.
 - **Telemetry stays off.** `HostApplicationConfiguration` leaves the Sentry address empty so runs send nothing. Do not swap in `ApplicationConfiguration`.
-- **One host per process for now.** Each host has its own messenger, but the Serilog logger, `SettingsCatalog` and the sqlite-net pool are still process-wide, and two hosts in one process has not been run.
+- **One host per process, unless you only need separate data.** Two hosts in one process keep separate messengers, sync managers, databases, accounts and preferences, and a message sent in one does not reach the other. Logging is still shared: the second host takes over the log file, and disposing one host closes the logger for both. `SettingsCatalog` is also process-wide.
 
 ## Always
 
@@ -42,19 +42,35 @@ Point `#:project` at the checkout you are working in. The data root must be empt
 **A lab account, a sync and a ViewModel.** Lease the account first; the lab rules are in the [root guidance](../../AGENTS.md).
 
 ```csharp
-var lease = LabLease.Load(args[1]);                              // the lease file from lab.ps1 lease
-var account = await wino.AddImapAccountAsync(lease.Account("dovecot"));   // the app's own setup path
-await wino.SynchronizeAsync(account);                            // full sync of every granted mode
+var lease = LabLease.Load(args[1]);                                   // the lease file from lab.ps1 lease
+var account = await wino.AddImapAccountAsync(lease.Account("stalwart"), LabAccountModes.AllThroughDav);
+await wino.SynchronizeAsync(account);                                 // full sync of every granted mode
+
+var inbox = await wino.Get<IFolderService>().GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Inbox);
+var folderLoad = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+var parameter = new NavigateMailFolderEventArgs(new FolderMenuItem(inbox, account, null), folderLoad);
 
 var list = await wino.OpenAsync<MailListPageViewModel>(parameter);   // what a page does, on the dispatcher thread
-// read state and invoke commands inside wino.Dispatcher.InvokeAsync(...)
-await wino.IdleAsync();                                          // nothing queued, nothing running, dispatcher empty
+await wino.Dispatcher.InvokeAsync(async () =>
+{
+    wino.Get<IMessenger>().Send(new ActiveMailFolderChangedEvent(parameter.BaseFolderMenuItem, parameter.FolderInitLoadAwaitTask));
+    await folderLoad.Task;
+    await list.WaitForCurrentFolderInitializationAsync();           // the list is loaded now
+});
+
+wino.AnswerNextDialog(nameof(IMailDialogService.ShowHardDeleteConfirmationAsync), true);   // the script is the user
+await wino.Dispatcher.InvokeAsync(() => list.ExecuteMailOperationAsync(
+    new MailOperationPreperationRequest(MailOperation.HardDelete, list.MailCollection.Items[0].MailCopy)));
+await wino.IdleAsync();                                               // nothing queued, nothing running, dispatcher empty
 ```
 
-- `AddImapAccountAsync` builds the plan the setup page builds and runs `IAccountSetupRunner` on the dispatcher.
-- `OpenAsync` resolves the ViewModel, assigns its `Dispatcher`, and calls `OnNavigatedTo` and `OnPageLoaded`.
+- `AddImapAccountAsync` builds the plan the setup page builds, runs `IAccountSetupRunner` on the dispatcher, and sends `AccountCreatedMessage` as the setup page does. `LabAccountModes` chooses what the account gets: `MailOnly` (the default), `AllThroughDav`, `AllLocal`, or single switches for calendar, contacts and tasks. `lease.Account("pop3")` gives a POP3 account.
+- `OpenAsync` resolves the ViewModel, assigns its `Dispatcher`, and calls `OnNavigatedTo` and `OnPageLoaded`. The mail list loads a folder only after `ActiveMailFolderChangedEvent`, which the shell sends in the app.
+- Read ViewModel state and invoke commands inside `wino.Dispatcher.InvokeAsync(...)`.
+- A dialog resolves as dismissed unless the script queued an answer with `AnswerNextDialog<T>(dialogName, answer)`. The type must match what the dialog returns: `bool` for a confirmation, `string` for text input, `IMailItemFolder` for the folder picker. Each answer is used once.
 - `IdleAsync` counts work started by a sync request, not the runtime's periodic loops.
-- For another account type, do by hand what `AddImapAccountAsync` does: build the `AccountSetupPlan` and run it through `IAccountSetupRunner` inside `wino.Dispatcher.InvokeAsync(...)`.
+- To show the write rule, read the item in the ViewModel right after the command, the database row at that moment, then both the database and the server after `IdleAsync`. Read the server through your own connection, not through the app.
+- Exchange and the providers that sign in through a browser have no helper: build the `AccountSetupPlan` and run it through `IAccountSetupRunner` inside `wino.Dispatcher.InvokeAsync(...)`.
 
 Never print or store the lab password or the control token.
 
