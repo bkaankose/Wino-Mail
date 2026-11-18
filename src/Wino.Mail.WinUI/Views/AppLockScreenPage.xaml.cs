@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -20,7 +19,6 @@ namespace Wino.Mail.WinUI.Views;
 /// </summary>
 public sealed partial class AppLockScreenPage : Page
 {
-    private readonly IAppLockService _appLockService = WinoApplication.Current.Services.GetRequiredService<IAppLockService>();
     private bool _isLoadedOnce;
     private bool _isVerifying;
     private DateTimeOffset _retryNotBefore = DateTimeOffset.MinValue;
@@ -30,14 +28,17 @@ public sealed partial class AppLockScreenPage : Page
         InitializeComponent();
     }
 
+    /// <summary>Set by the shell window right after it navigates here.</summary>
+    public IAppLockService? AppLockService { get; set; }
+
     private void PageLoaded(object sender, RoutedEventArgs e)
     {
-        if (_isLoadedOnce)
+        if (_isLoadedOnce || AppLockService is not { } appLockService)
             return;
 
         _isLoadedOnce = true;
 
-        if (!_appLockService.IsBiometricEnabled)
+        if (!appLockService.IsBiometricEnabled)
         {
             DescriptionTextBlock.Text = Translator.AppLock_LockedDescription;
             PinPanel.Visibility = Visibility.Visible;
@@ -85,7 +86,7 @@ public sealed partial class AppLockScreenPage : Page
 
     private async Task VerifyPinAsync()
     {
-        if (_isVerifying || IsThrottled || !AppLockPinInput.CanSubmit(PinBox))
+        if (_isVerifying || IsThrottled || !AppLockPinInput.CanSubmit(PinBox) || AppLockService is not { } appLockService)
             return;
 
         _isVerifying = true;
@@ -93,11 +94,11 @@ public sealed partial class AppLockScreenPage : Page
 
         try
         {
-            var verification = await AppLockPinInput.VerifyAsync(_appLockService, PinBox.Password);
+            var verification = await AppLockPinInput.VerifyAsync(appLockService, PinBox.Password);
 
             if (verification.IsSuccess)
             {
-                _appLockService.UnlockSession();
+                appLockService.UnlockSession();
                 return;
             }
 
@@ -132,7 +133,7 @@ public sealed partial class AppLockScreenPage : Page
 
     private async Task VerifyWithHelloAsync()
     {
-        if (_isVerifying)
+        if (_isVerifying || AppLockService is not { } appLockService)
             return;
 
         _isVerifying = true;
@@ -141,13 +142,13 @@ public sealed partial class AppLockScreenPage : Page
         try
         {
             // Checked on every attempt: the user can set Windows Hello up again while this page is showing.
-            var isAvailable = await _appLockService.IsBiometricAvailableAsync();
+            var isAvailable = await appLockService.IsBiometricAvailableAsync();
             ErrorTextBlock.Text = Translator.AppLock_LockedHelloUnavailable;
             ErrorTextBlock.Visibility = isAvailable ? Visibility.Collapsed : Visibility.Visible;
             SignInOptionsButton.Visibility = ErrorTextBlock.Visibility;
 
-            if (isAvailable && await _appLockService.VerifyBiometricAsync())
-                _appLockService.UnlockSession();
+            if (isAvailable && await appLockService.VerifyBiometricAsync())
+                appLockService.UnlockSession();
         }
         finally
         {

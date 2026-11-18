@@ -1462,7 +1462,8 @@ public partial class App : WinoApplication,
         LogActivation("Creating main window.");
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-        MainWindow = windowManager.CreateWindow(WinoWindowKind.Shell, () => new ShellWindow());
+        var appLockService = Services.GetRequiredService<IAppLockService>();
+        MainWindow = windowManager.CreateWindow(WinoWindowKind.Shell, () => new ShellWindow(appLockService));
         InitializeNavigationDispatcher();
 
         if (MainWindow is not IWinoShellWindow shellWindow)

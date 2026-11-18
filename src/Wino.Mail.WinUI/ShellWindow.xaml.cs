@@ -66,7 +66,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private IWhatsNewService WhatsNewService { get; } = WinoApplication.Current.Services.GetRequiredService<IWhatsNewService>();
     private IWinoWindowManager WindowManager { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoWindowManager>();
     private IRelayHealth? RelayHealth { get; } = WinoApplication.Current.Services.GetService<IRelayHealth>();
-    private IAppLockService AppLockService { get; } = WinoApplication.Current.Services.GetRequiredService<IAppLockService>();
+    private IAppLockService AppLockService { get; }
 
     private bool _isAppLocked;
     private Action? _pendingUnlockContinuation;
@@ -87,8 +87,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private bool _isCloseRequestInProgress;
     private readonly Microsoft.UI.Xaml.Input.PointerEventHandler _pointerPressedHandler;
 
-    public ShellWindow()
+    public ShellWindow(IAppLockService appLockService)
     {
+        AppLockService = appLockService;
         InitializeComponent();
 
         // Use the same root as NewThemeService. A local theme on ShellRoot would override
@@ -261,6 +262,10 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ApplyAppLockChrome();
         WindowCleanupHelper.ClearNavigationStack(MainShellFrame);
         MainShellFrame.Navigate(typeof(AppLockScreenPage), null, new Microsoft.UI.Xaml.Media.Animation.SuppressNavigationTransitionInfo());
+
+        // The frame creates the page; it is handed the service before its first layout pass loads it.
+        if (MainShellFrame.Content is AppLockScreenPage lockScreen)
+            lockScreen.AppLockService = AppLockService;
     }
 
     /// <summary>
