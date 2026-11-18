@@ -3,7 +3,6 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Globalization;
 using Wino.Mail.Controls.Core;
-using Wino.Helpers;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -11,6 +10,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Models.MailItem;
 using global::Wino.Mail.Controls.MailListView;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Helpers;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Controls.ListView;

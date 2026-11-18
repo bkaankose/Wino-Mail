@@ -1,25 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <abstract:EventDetailsPageAbstract
-    x:Class="Wino.Calendar.Views.EventDetailsPage"
+    x:Class="Wino.Mail.WinUI.Views.Calendar.EventDetailsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:calendar="using:Wino.Core.Domain.Entities.Calendar"
-    xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
-    xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
-    xmlns:controls="using:Wino.Controls"
+    xmlns:calendarData="using:Wino.Mail.ViewModels.Calendar.Data"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:ctControls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:editor="using:Wino.Editor"
     xmlns:enums="using:Wino.Core.Domain.Enums"
-    xmlns:helpers="using:Wino.Helpers"
-    xmlns:local="using:Wino.Calendar.Views"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:selectors="using:Wino.Mail.WinUI.Selectors"
+    xmlns:viewmodelsCalendar="using:Wino.Mail.ViewModels.Calendar"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     Style="{StaticResource PageStyle}"
     mc:Ignorable="d">
 
@@ -142,7 +139,7 @@
                         AutomationProperties.AutomationId="EventDetailsPageButton3"
                         AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventDetails_JoinOnline, Mode=OneTime}"
                         Command="{x:Bind ViewModel.JoinOnlineCommand}"
-                        IsEnabled="{x:Bind calendarHelpers:CalendarXamlHelpers.HasOnlineMeetingLink(ViewModel.CurrentEvent), Mode=OneWay}"
+                        IsEnabled="{x:Bind winuiHelpers:CalendarXamlHelpers.HasOnlineMeetingLink(ViewModel.CurrentEvent), Mode=OneWay}"
                         Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="EventJoinOnline" />
@@ -160,7 +157,7 @@
                     <!--  RSVP Button  -->
                     <Button
                         AutomationProperties.AutomationId="EventDetailsPageButton4"
-                        AutomationProperties.Name="{x:Bind helpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_EventResponse, ViewModel.CurrentRsvpText), Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_EventResponse, ViewModel.CurrentRsvpText), Mode=OneWay}"
                         Background="{ThemeResource CardBackgroundFillColorDefault}"
                         Command="{x:Bind ViewModel.ToggleRsvpPanelCommand}"
                         Style="{StaticResource TransparentActionButtonStyle}">
@@ -192,7 +189,7 @@
                             ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
                             SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="calendarViewModels:ShowAsOption">
+                                <DataTemplate x:DataType="viewmodelsCalendar:ShowAsOption">
                                     <TextBlock Text="{x:Bind DisplayText}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
@@ -217,7 +214,7 @@
                                     ItemsSource="{x:Bind ViewModel.ReminderOptions}"
                                     SelectionMode="None">
                                     <ListView.ItemTemplate>
-                                        <DataTemplate x:DataType="calendarViewModels:ReminderOption">
+                                        <DataTemplate x:DataType="viewmodelsCalendar:ReminderOption">
                                             <CheckBox
                                                 AutomationProperties.AutomationId="{x:Bind AutomationId}"
                                                 AutomationProperties.Name="{x:Bind DisplayText}"
@@ -422,8 +419,8 @@
                         <!--  Date and Duration  -->
                         <TextBlock
                             Grid.Row="1"
-                            AutomationProperties.Name="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventDateAutomationName(ViewModel.CurrentEvent.StartDate, ViewModel.CurrentEvent.EndDate, ViewModel.CurrentEvent.IsAllDayEvent, ViewModel.CurrentSettings), Mode=OneWay}"
-                            Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventDetailsDateString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}"
+                            AutomationProperties.Name="{x:Bind winuiHelpers:CalendarXamlHelpers.GetEventDateAutomationName(ViewModel.CurrentEvent.StartDate, ViewModel.CurrentEvent.EndDate, ViewModel.CurrentEvent.IsAllDayEvent, ViewModel.CurrentSettings), Mode=OneWay}"
+                            Text="{x:Bind winuiHelpers:CalendarXamlHelpers.GetEventDetailsDateString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}"
                             TextWrapping="Wrap" />
 
                         <!--  Recurrence Info  -->
@@ -440,7 +437,7 @@
                             <TextBlock
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
-                                Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetRecurrenceString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}"
+                                Text="{x:Bind winuiHelpers:CalendarXamlHelpers.GetRecurrenceString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}"
                                 TextWrapping="Wrap" />
                         </Grid>
 
@@ -491,7 +488,7 @@
                                 <DataTemplate x:DataType="calendar:CalendarEventAttendee">
                                     <Grid
                                         Margin="0,6"
-                                        helpers:Accessibility.ContainerName="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeAutomationName(Name, Email, AttendenceStatus, IsOrganizer, IsOptionalAttendee)}"
+                                        winuiHelpers:Accessibility.ContainerName="{x:Bind winuiHelpers:CalendarXamlHelpers.GetAttendeeAutomationName(Name, Email, AttendenceStatus, IsOrganizer, IsOptionalAttendee)}"
                                         ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -502,9 +499,9 @@
                                         <mailControls:WinoContactPicture
                                             Width="40"
                                             Height="40"
-                                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, Name, Email), Mode=OneTime}"
-                                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                            ContactPicture="{x:Bind winuiHelpers:XamlHelpers.GetContactPicture(ResolvedContact, Name, Email), Mode=OneTime}"
+                                            IsFaviconEnabled="{x:Bind winuiHelpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                            IsGravatarEnabled="{x:Bind winuiHelpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
                                         <Grid Grid.Column="1" RowSpacing="4">
                                             <Grid.RowDefinitions>
@@ -544,11 +541,11 @@
                                             VerticalAlignment="Center"
                                             Background="{ThemeResource CardStrokeColorDefaultBrush}"
                                             CornerRadius="4"
-                                            Visibility="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeStatusVisibility(AttendenceStatus)}">
+                                            Visibility="{x:Bind winuiHelpers:CalendarXamlHelpers.GetAttendeeStatusVisibility(AttendenceStatus)}">
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeStatusText(AttendenceStatus)}" />
+                                                Text="{x:Bind winuiHelpers:CalendarXamlHelpers.GetAttendeeStatusText(AttendenceStatus)}" />
                                         </Border>
                                     </Grid>
                                 </DataTemplate>
@@ -579,7 +576,7 @@
                         ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
                         SelectionMode="None">
                         <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="data:CalendarAttachmentViewModel">
+                            <DataTemplate x:DataType="calendarData:CalendarAttachmentViewModel">
                                 <Grid
                                     Padding="2,6,6,6"
                                     Background="Transparent"

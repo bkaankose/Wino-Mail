@@ -1,4 +1,3 @@
-using Wino.Mail.WinUI.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,13 +7,14 @@ using Windows.ApplicationModel;
 using Windows.Services.Store;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Mail.WinUI.Models;
 using Wino.Platform.Windows;
+using Wino.Platform.Windows.Interfaces;
+using Wino.Platform.Windows.Models;
 using WinRT.Interop;
 using WinoAddOnProductType = Wino.Core.Domain.Enums.WinoAddOnProductType;
 using WinoStorePurchaseResult = Wino.Core.Domain.Enums.StorePurchaseResult;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 /// <summary>
 /// One <see cref="StoreContext"/>, one main-window HWND initialization path, for licenses,

@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class SingleCalendarPickerDialog : ContentDialog
 {

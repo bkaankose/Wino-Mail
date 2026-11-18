@@ -1,17 +1,16 @@
-﻿<abstract:NotificationSettingsPageAbstract
-    x:Class="Wino.Views.Settings.NotificationSettingsPage"
+﻿<viewsAbstract:NotificationSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.NotificationSettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
-    xmlns:appControls="using:Wino.Controls"
     xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Common.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:viewModels="using:Wino.Core.ViewModels.Data"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="PageRoot"
     Loaded="Page_Loaded"
     Unloaded="Page_Unloaded"
@@ -65,10 +64,10 @@
             <InfoBar
                 AutomationProperties.AutomationId="NotificationSettingsInstantPushProblemInfoBar"
                 IsClosable="False"
-                IsOpen="{x:Bind helpers:XamlHelpers.HasText(ViewModel.PushRelayProblemText), Mode=OneWay}"
+                IsOpen="{x:Bind winuiHelpers:XamlHelpers.HasText(ViewModel.PushRelayProblemText), Mode=OneWay}"
                 Message="{x:Bind ViewModel.PushRelayProblemText, Mode=OneWay}"
                 Severity="Warning"
-                Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.PushRelayProblemText), Mode=OneWay}" />
+                Visibility="{x:Bind winuiHelpers:XamlHelpers.TextToVisibility(ViewModel.PushRelayProblemText), Mode=OneWay}" />
             <controls:SettingsCard
                 AutomationProperties.AutomationId="NotificationSettingsRelayReconnectCard"
                 Description="{x:Bind domain:Translator.NotificationSettings_PushRelay_ReconnectDescription, Mode=OneTime}"
@@ -82,10 +81,10 @@
             <InfoBar
                 AutomationProperties.AutomationId="NotificationSettingsInstantPushMailboxWarningInfoBar"
                 IsClosable="False"
-                IsOpen="{x:Bind helpers:XamlHelpers.HasText(ViewModel.PushRelayMailboxWarningText), Mode=OneWay}"
+                IsOpen="{x:Bind winuiHelpers:XamlHelpers.HasText(ViewModel.PushRelayMailboxWarningText), Mode=OneWay}"
                 Message="{x:Bind ViewModel.PushRelayMailboxWarningText, Mode=OneWay}"
                 Severity="Warning"
-                Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.PushRelayMailboxWarningText), Mode=OneWay}" />
+                Visibility="{x:Bind winuiHelpers:XamlHelpers.TextToVisibility(ViewModel.PushRelayMailboxWarningText), Mode=OneWay}" />
         </StackPanel>
 
         <!--  Snooze: a regular card. While notifications are held, the status shows at the top of the page instead.  -->
@@ -197,7 +196,7 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:QuietHoursDayViewModel">
+                            <DataTemplate x:DataType="data:QuietHoursDayViewModel">
                                 <ToggleButton
                                     MinWidth="44"
                                     AutomationProperties.AutomationId="NotificationSettingsPageToggleButton"
@@ -248,7 +247,7 @@
                         ItemsSource="{x:Bind ViewModel.ScopeOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedMailScope, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:MailNotificationScopeOption">
+                            <DataTemplate x:DataType="data:MailNotificationScopeOption">
                                 <TextBlock Text="{x:Bind DisplayText}" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
@@ -265,7 +264,7 @@
                         ItemsSource="{x:Bind ViewModel.ContentOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedMailContent, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:MailNotificationContentOption">
+                            <DataTemplate x:DataType="data:MailNotificationContentOption">
                                 <TextBlock Text="{x:Bind DisplayText}" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
@@ -282,7 +281,7 @@
                         ItemsSource="{x:Bind ViewModel.MailActionOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedFirstAction, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:MailNotificationActionOption">
+                            <DataTemplate x:DataType="data:MailNotificationActionOption">
                                 <TextBlock Text="{x:Bind DisplayText}" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
@@ -299,7 +298,7 @@
                         ItemsSource="{x:Bind ViewModel.MailActionOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedSecondAction, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:MailNotificationActionOption">
+                            <DataTemplate x:DataType="data:MailNotificationActionOption">
                                 <TextBlock Text="{x:Bind DisplayText}" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
@@ -313,11 +312,11 @@
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <ComboBox
                             AutomationProperties.AutomationId="NotificationSettingsMailSoundComboBox"
-                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Mail_Title), Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Mail_Title), Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.SoundOptions, Mode=OneTime}"
                             SelectedItem="{x:Bind ViewModel.SelectedMailSound, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="viewModels:NotificationSoundOption">
+                                <DataTemplate x:DataType="data:NotificationSoundOption">
                                     <TextBlock Text="{x:Bind DisplayText}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
@@ -380,11 +379,11 @@
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <ComboBox
                             AutomationProperties.AutomationId="NotificationSettingsCalendarSoundComboBox"
-                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Calendar_Title), Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Calendar_Title), Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.SoundOptions, Mode=OneTime}"
                             SelectedItem="{x:Bind ViewModel.SelectedCalendarSound, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="viewModels:NotificationSoundOption">
+                                <DataTemplate x:DataType="data:NotificationSoundOption">
                                     <TextBlock Text="{x:Bind DisplayText}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
@@ -428,7 +427,7 @@
                         ItemsSource="{x:Bind ViewModel.TaskReminderTimingOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedTaskReminderTiming, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:TaskReminderTimingOption">
+                            <DataTemplate x:DataType="data:TaskReminderTimingOption">
                                 <TextBlock Text="{x:Bind DisplayText}" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
@@ -453,11 +452,11 @@
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <ComboBox
                             AutomationProperties.AutomationId="NotificationSettingsTaskSoundComboBox"
-                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Tasks_Title), Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Tasks_Title), Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.SoundOptions, Mode=OneTime}"
                             SelectedItem="{x:Bind ViewModel.SelectedTaskSound, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="viewModels:NotificationSoundOption">
+                                <DataTemplate x:DataType="data:NotificationSoundOption">
                                     <TextBlock Text="{x:Bind DisplayText}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
@@ -497,10 +496,10 @@
                 <TransitionCollection />
             </ItemsControl.ItemContainerTransitions>
             <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="viewModels:AccountNotificationSettingsViewModel">
-                    <controls:SettingsExpander AutomationProperties.AutomationId="NotificationSettingsPageSettingsExpander" AutomationProperties.Name="{x:Bind helpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AccountNotifications, AccountAddress), Mode=OneWay}">
+                <DataTemplate x:DataType="data:AccountNotificationSettingsViewModel">
+                    <controls:SettingsExpander AutomationProperties.AutomationId="NotificationSettingsPageSettingsExpander" AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AccountNotifications, AccountAddress), Mode=OneWay}">
                         <controls:SettingsExpander.Header>
-                            <appControls:AccountIdentityRowControl Account="{x:Bind Account}" Description="{x:Bind AccountAddress}" />
+                            <coreControls:AccountIdentityRowControl Account="{x:Bind Account}" Description="{x:Bind AccountAddress}" />
                         </controls:SettingsExpander.Header>
 
                         <StackPanel
@@ -513,7 +512,7 @@
                                 Text="{x:Bind StatusText, Mode=OneWay}" />
                             <ToggleSwitch
                                 AutomationProperties.AutomationId="NotificationSettingsPageToggleSwitch"
-                                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AccountNotifications, AccountAddress), Mode=OneWay}"
+                                AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AccountNotifications, AccountAddress), Mode=OneWay}"
                                 IsOn="{x:Bind AreNotificationsEnabled, Mode=TwoWay}" />
                         </StackPanel>
 
@@ -559,7 +558,7 @@
                                     ItemsSource="{x:Bind ScopeOptions}"
                                     SelectedItem="{x:Bind SelectedScope, Mode=TwoWay}">
                                     <ComboBox.ItemTemplate>
-                                        <DataTemplate x:DataType="viewModels:MailNotificationScopeOption">
+                                        <DataTemplate x:DataType="data:MailNotificationScopeOption">
                                             <TextBlock Text="{x:Bind DisplayText}" />
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
@@ -577,7 +576,7 @@
                                     ItemsSource="{x:Bind ContentOptions}"
                                     SelectedItem="{x:Bind SelectedContent, Mode=TwoWay}">
                                     <ComboBox.ItemTemplate>
-                                        <DataTemplate x:DataType="viewModels:MailNotificationContentOption">
+                                        <DataTemplate x:DataType="data:MailNotificationContentOption">
                                             <TextBlock Text="{x:Bind DisplayText}" />
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
@@ -596,7 +595,7 @@
                                         ItemsSource="{x:Bind SoundOptions}"
                                         SelectedItem="{x:Bind SelectedSound, Mode=TwoWay}">
                                         <ComboBox.ItemTemplate>
-                                            <DataTemplate x:DataType="viewModels:NotificationSoundOption">
+                                            <DataTemplate x:DataType="data:NotificationSoundOption">
                                                 <TextBlock Text="{x:Bind DisplayText}" />
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
@@ -637,7 +636,7 @@
                                     ItemsSource="{x:Bind QuietHoursOptions}"
                                     SelectedItem="{x:Bind SelectedQuietHoursStance, Mode=TwoWay}">
                                     <ComboBox.ItemTemplate>
-                                        <DataTemplate x:DataType="viewModels:AccountQuietHoursStanceOption">
+                                        <DataTemplate x:DataType="data:AccountQuietHoursStanceOption">
                                             <TextBlock Text="{x:Bind DisplayText}" />
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
@@ -662,4 +661,4 @@
                 Content="{x:Bind domain:Translator.NotificationSettings_Reset_Title, Mode=OneTime}" />
         </controls:SettingsCard>
     </StackPanel>
-</abstract:NotificationSettingsPageAbstract>
+</viewsAbstract:NotificationSettingsPageAbstract>

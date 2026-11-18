@@ -1,13 +1,13 @@
-﻿<abstract:WhatsNewPageAbstract
-    x:Class="Wino.Views.Misc.WhatsNewPage"
+﻿<viewsAbstract:WhatsNewPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Misc.WhatsNewPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:Wino.Core.Domain.Models.WhatsNew"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     mc:Ignorable="d">
 
     <Grid Padding="24,8,24,24" RowSpacing="12">
@@ -146,6 +146,6 @@
             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
             Style="{StaticResource BodyTextBlockStyle}"
             Text="{x:Bind domain:Translator.WhatsNew_EmptyMessage, Mode=OneTime}"
-            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasReleases), Mode=OneWay}" />
+            Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasReleases), Mode=OneWay}" />
     </Grid>
-</abstract:WhatsNewPageAbstract>
+</viewsAbstract:WhatsNewPageAbstract>

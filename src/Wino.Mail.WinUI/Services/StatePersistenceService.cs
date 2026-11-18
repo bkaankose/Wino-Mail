@@ -5,7 +5,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 
-namespace Wino.Services;
+namespace Wino.Mail.WinUI.Services;
 
 public partial class StatePersistenceService : ObservableObject, IStatePersistanceService
 {

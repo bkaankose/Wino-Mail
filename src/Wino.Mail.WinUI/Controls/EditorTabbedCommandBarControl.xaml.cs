@@ -18,7 +18,7 @@ using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
 using WinRT;
 
-namespace Wino.Mail.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditorCommandControl
 {

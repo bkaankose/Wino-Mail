@@ -1,6 +1,7 @@
-using Wino.Views.Abstract;
 
-namespace Wino.Views.Mail;
+using Wino.Mail.WinUI.Views.Abstract;
+
+namespace Wino.Mail.WinUI.Views.Mail;
 
 public sealed partial class IdlePage : IdlePageAbstract
 {

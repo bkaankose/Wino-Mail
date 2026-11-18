@@ -11,14 +11,14 @@ using Wino.Mail.WinUI.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Helpers;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Helpers;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public partial class WinoSwipeControl : SwipeControl
 {

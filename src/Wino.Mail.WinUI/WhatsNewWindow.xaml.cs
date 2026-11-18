@@ -6,8 +6,8 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
-using Wino.Messaging.Client.Shell;
-using Wino.Views.Misc;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.WinUI.Views.Misc;
 using WinRT;
 using WinUIEx;
 

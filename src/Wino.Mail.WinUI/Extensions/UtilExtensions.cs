@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
 using WinRT;
 
-namespace Wino.Extensions;
+namespace Wino.Mail.WinUI.Extensions;
 
 public static class UtilExtensions
 {

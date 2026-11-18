@@ -7,6 +7,7 @@ using System.Runtime.Versioning;
 using MimeKit.Cryptography;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services.Interfaces;
 
 namespace Wino.Platform.Windows.Services;
 

@@ -7,7 +7,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Services;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 public class FileService : IFileService
 {

@@ -11,6 +11,7 @@ using Wino.Mail.Controls.Core.VoiceBubble;
 using Wino.Mail.ViewModels.Voice;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Platform.Windows.Interfaces;
 
 namespace Wino.Mail.WinUI.Services.Voice;
 

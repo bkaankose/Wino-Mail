@@ -1,20 +1,21 @@
 ﻿<abstract:AccountSetupPageAbstract
-    x:Class="Wino.Views.AccountSetupPage"
+    x:Class="Wino.Mail.WinUI.Views.Account.AccountSetupPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:account="using:Wino.Mail.WinUI.Views.Account"
     xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:connectivity="using:Wino.Core.Domain.Models.Connectivity"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
-    xmlns:local="using:Wino.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:modelsAccounts="using:Wino.Mail.ViewModels.Models.Accounts"
     xmlns:primitives="using:Wino.Mail.Controls.Primitives"
-    xmlns:selectors="using:Wino.Selectors"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    xmlns:winuiSelectors="using:Wino.Mail.WinUI.Selectors"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -56,7 +57,7 @@
                 <primitives:WinoWrapPanel HorizontalSpacing="6" VerticalSpacing="2" />
             </ItemsPanelTemplate>
 
-            <DataTemplate x:Key="AccountSetupKnownChipTemplate" x:DataType="local:AccountSetupKnownChip">
+            <DataTemplate x:Key="AccountSetupKnownChipTemplate" x:DataType="account:AccountSetupKnownChip">
                 <StackPanel
                     VerticalAlignment="Center"
                     AutomationProperties.AccessibilityView="Raw"
@@ -136,7 +137,7 @@
                 <StackPanel Spacing="4">
                     <toolkit:SettingsCard Header="{x:Bind Title}">
                         <toolkit:SettingsCard.HeaderIcon>
-                            <ImageIcon Source="{x:Bind local:AccountSetupPage.GetAppIcon(Kind)}" />
+                            <ImageIcon Source="{x:Bind account:AccountSetupPage.GetAppIcon(Kind)}" />
                         </toolkit:SettingsCard.HeaderIcon>
                         <toolkit:SettingsCard.Resources>
                             <x:Double x:Key="SettingsCardHeaderIconMaxSize">30</x:Double>
@@ -151,7 +152,7 @@
                             <ComboBox
                                 Width="230"
                                 VerticalAlignment="Center"
-                                AutomationProperties.Name="{x:Bind local:AccountSetupPage.GetSourceName(Kind, Title)}"
+                                AutomationProperties.Name="{x:Bind account:AccountSetupPage.GetSourceName(Kind, Title)}"
                                 ItemsSource="{x:Bind Options}"
                                 SelectedItem="{x:Bind SelectedOption, Mode=TwoWay}"
                                 Visibility="{x:Bind IsSourceVisible, Mode=OneWay}">
@@ -168,7 +169,7 @@
                             <Grid Width="40" VerticalAlignment="Center">
                                 <ToggleSwitch
                                     MinWidth="0"
-                                    AutomationProperties.Name="{x:Bind local:AccountSetupPage.GetUseAppName(Title)}"
+                                    AutomationProperties.Name="{x:Bind account:AccountSetupPage.GetUseAppName(Title)}"
                                     IsOn="{x:Bind IsOn, Mode=TwoWay}"
                                     OffContent=""
                                     OnContent=""
@@ -230,7 +231,7 @@
             </DataTemplate>
 
             <!--  ============ Address: the email, or a local account's name with its colour  ============  -->
-            <DataTemplate x:Key="AddressStepTemplate" x:DataType="local:AccountSetupStepContent">
+            <DataTemplate x:Key="AddressStepTemplate" x:DataType="account:AccountSetupStepContent">
                 <StackPanel Spacing="16">
                     <!--  The providers Wino connects to. They are not buttons: the typed domain lights its provider.  -->
                     <ItemsControl
@@ -250,7 +251,7 @@
                                 <Grid
                                     Height="36"
                                     AutomationProperties.Name="{x:Bind Title}"
-                                    Opacity="{x:Bind helpers:XamlHelpers.GetShelfItemOpacity(IsDimmed)}"
+                                    Opacity="{x:Bind winuiHelpers:XamlHelpers.GetShelfItemOpacity(IsDimmed)}"
                                     ToolTipService.ToolTip="{x:Bind Title}">
                                     <Grid Width="36" Visibility="{x:Bind HasGlyph}">
                                         <Ellipse Fill="{ThemeResource SubtleFillColorSecondaryBrush}" />
@@ -269,7 +270,7 @@
                                         Padding="12,0"
                                         Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                         BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                                        BorderThickness="{x:Bind helpers:XamlHelpers.GetShelfItemBorderThickness(IsMatched)}"
+                                        BorderThickness="{x:Bind winuiHelpers:XamlHelpers.GetShelfItemBorderThickness(IsMatched)}"
                                         CornerRadius="18"
                                         Visibility="{x:Bind HasLabel}">
                                         <TextBlock
@@ -288,7 +289,7 @@
                         <!--  A recognised address shows its provider's mark inside the field.  -->
                         <Grid>
                             <TextBox
-                                Padding="{x:Bind local:AccountSetupPage.GetEmailPadding(ViewModel.HasMatchedProvider), Mode=OneWay}"
+                                Padding="{x:Bind account:AccountSetupPage.GetEmailPadding(ViewModel.HasMatchedProvider), Mode=OneWay}"
                                 AutomationProperties.AutomationId="AccountSetupEmailAddress"
                                 AutomationProperties.Name="{x:Bind domain:Translator.AccountSetup_EmailHeader}"
                                 InputScope="EmailSmtpAddress"
@@ -312,7 +313,7 @@
                             AutomationProperties.LiveSetting="Polite"
                             Style="{StaticResource AccountSetupCaptionStyle}"
                             Text="{x:Bind ViewModel.ProviderShelfCaption, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasIdentityError), Mode=OneWay}" />
+                            Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasIdentityError), Mode=OneWay}" />
                         <TextBlock
                             AutomationProperties.LiveSetting="Assertive"
                             Style="{StaticResource AccountSetupErrorStyle}"
@@ -348,11 +349,11 @@
                                         FontFamily="{StaticResource WinoIconFontFamily}"
                                         FontSize="16"
                                         Icon="PaintBrush"
-                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
                                     <Ellipse
                                         Width="16"
                                         Height="16"
-                                        Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
+                                        Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
                                         Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
                                 </Grid>
                                 <Button.Flyout>
@@ -387,7 +388,7 @@
             </DataTemplate>
 
             <!--  ============ Discovery ============  -->
-            <DataTemplate x:Key="DiscoveryStepTemplate" x:DataType="local:AccountSetupStepContent">
+            <DataTemplate x:Key="DiscoveryStepTemplate" x:DataType="account:AccountSetupStepContent">
                 <StackPanel Spacing="12">
                     <TextBlock
                         Style="{StaticResource AccountSetupCaptionStyle}"
@@ -430,7 +431,7 @@
                 ============ Review: every app in one place ============
                 The IMAP route arrives here signed in; Gmail, Outlook and Exchange sign in from the footer.
             -->
-            <DataTemplate x:Key="ReviewStepTemplate" x:DataType="local:AccountSetupStepContent">
+            <DataTemplate x:Key="ReviewStepTemplate" x:DataType="account:AccountSetupStepContent">
                 <StackPanel Spacing="12">
                     <InfoBar
                         AutomationProperties.AutomationId="AccountSetupSignedInInfoBar"
@@ -474,11 +475,11 @@
                                         FontFamily="{StaticResource WinoIconFontFamily}"
                                         FontSize="16"
                                         Icon="PaintBrush"
-                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
                                     <Ellipse
                                         Width="16"
                                         Height="16"
-                                        Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
+                                        Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
                                         Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
                                 </Grid>
                                 <Button.Flyout>
@@ -519,7 +520,7 @@
 
                     <ItemsControl
                         AutomationProperties.AutomationId="AccountSetupAppRows"
-                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsReviewStatusVisible), Mode=OneWay}"
+                        IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsReviewStatusVisible), Mode=OneWay}"
                         IsTabStop="False"
                         ItemTemplate="{StaticResource AccountSetupAppRowTemplate}"
                         ItemsSource="{x:Bind ViewModel.AppRows, Mode=OneWay}"
@@ -661,7 +662,7 @@
                         IsClosable="True"
                         IsOpen="{x:Bind ViewModel.IsFailureOpen, Mode=OneWay}"
                         Message="{x:Bind ViewModel.FailureMessage, Mode=OneWay}"
-                        Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.FailureSeverity), Mode=OneWay}">
+                        Severity="{x:Bind winuiHelpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.FailureSeverity), Mode=OneWay}">
                         <InfoBar.Content>
                             <primitives:WinoWrapPanel
                                 Margin="0,0,0,12"
@@ -688,7 +689,7 @@
             </DataTemplate>
 
             <!--  ============ Sign-in method (IMAP with more than one option) ============  -->
-            <DataTemplate x:Key="SignInMethodStepTemplate" x:DataType="local:AccountSetupStepContent">
+            <DataTemplate x:Key="SignInMethodStepTemplate" x:DataType="account:AccountSetupStepContent">
                 <StackPanel Spacing="8">
                     <!--  The selected option's description sits between the question and the choices.  -->
                     <TextBlock
@@ -718,7 +719,7 @@
                 Sign in and the mail checks. IMAP signs in here and goes on to the review; an Exchange account that
                 uses a password signs in here after its review. Gmail and Outlook never show this step.
             -->
-            <DataTemplate x:Key="SignInStepTemplate" x:DataType="local:AccountSetupStepContent">
+            <DataTemplate x:Key="SignInStepTemplate" x:DataType="account:AccountSetupStepContent">
                 <StackPanel Spacing="12">
                     <CheckBox
                         AutomationProperties.AutomationId="AccountSetupIssuerConfirmation"
@@ -742,7 +743,7 @@
                                 VerticalAlignment="Center"
                                 FontFamily="{StaticResource WinoIconFontFamily}"
                                 FontSize="16"
-                                Icon="{x:Bind local:AccountSetupPage.GetBrowserSignInMark(ViewModel.RouteSpecialImapProvider), Mode=OneWay}" />
+                                Icon="{x:Bind account:AccountSetupPage.GetBrowserSignInMark(ViewModel.RouteSpecialImapProvider), Mode=OneWay}" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.BrowserSignInButtonText, Mode=OneWay}" />
                         </StackPanel>
                     </Button>
@@ -800,7 +801,7 @@
                         <PasswordBox
                             AutomationProperties.AutomationId="AccountSetupPassword"
                             Header="{x:Bind ViewModel.PasswordHeader, Mode=OneWay}"
-                            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConnectionStatusBusy), Mode=OneWay}"
+                            IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConnectionStatusBusy), Mode=OneWay}"
                             KeyDown="StepTextBoxKeyDown"
                             Loaded="FocusTargetLoaded"
                             Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
@@ -820,7 +821,7 @@
                             <TextBox
                                 AutomationProperties.AutomationId="AccountSetupExchangeUserName"
                                 Header="{x:Bind domain:Translator.ExchangeSetup_UserNameHeader}"
-                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConnectionStatusBusy), Mode=OneWay}"
+                                IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConnectionStatusBusy), Mode=OneWay}"
                                 IsSpellCheckEnabled="False"
                                 KeyDown="StepTextBoxKeyDown"
                                 PlaceholderText="{x:Bind ViewModel.ExchangeUserNamePlaceholder, Mode=OneWay}"
@@ -830,7 +831,7 @@
                         <PasswordBox
                             AutomationProperties.AutomationId="AccountSetupExchangePassword"
                             Header="{x:Bind domain:Translator.ProviderSelection_PasswordHeader_Account}"
-                            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConnectionStatusBusy), Mode=OneWay}"
+                            IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConnectionStatusBusy), Mode=OneWay}"
                             KeyDown="StepTextBoxKeyDown"
                             Loaded="FocusTargetLoaded"
                             Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
@@ -888,7 +889,7 @@
                         IsClosable="True"
                         IsOpen="{x:Bind ViewModel.IsFailureOpen, Mode=OneWay}"
                         Message="{x:Bind ViewModel.FailureMessage, Mode=OneWay}"
-                        Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.FailureSeverity), Mode=OneWay}">
+                        Severity="{x:Bind winuiHelpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.FailureSeverity), Mode=OneWay}">
                         <InfoBar.Content>
                             <primitives:WinoWrapPanel
                                 Margin="0,0,0,12"
@@ -925,7 +926,7 @@
             </DataTemplate>
 
             <!--  ============ Adding, Added, Failed ============  -->
-            <DataTemplate x:Key="ProgressStepTemplate" x:DataType="local:AccountSetupStepContent">
+            <DataTemplate x:Key="ProgressStepTemplate" x:DataType="account:AccountSetupStepContent">
                 <StackPanel Spacing="12">
                     <ItemsControl
                         HorizontalAlignment="Center"
@@ -933,7 +934,7 @@
                         AutomationProperties.LiveSetting="Polite"
                         ItemsSource="{x:Bind ViewModel.Steps}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="accounts:AccountSetupStepModel">
+                            <DataTemplate x:DataType="modelsAccounts:AccountSetupStepModel">
                                 <Grid
                                     Padding="0,6"
                                     AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}"
@@ -1031,7 +1032,7 @@
                 </StackPanel>
             </DataTemplate>
 
-            <selectors:AccountSetupStepTemplateSelector
+            <winuiSelectors:AccountSetupStepTemplateSelector
                 x:Key="AccountSetupStepTemplateSelector"
                 AddressTemplate="{StaticResource AddressStepTemplate}"
                 DiscoveryTemplate="{StaticResource DiscoveryStepTemplate}"
@@ -1099,7 +1100,7 @@
                                 VerticalAlignment="Center"
                                 AutomationProperties.AccessibilityView="Raw">
                                 <Ellipse Fill="{ThemeResource SubtleFillColorSecondaryBrush}" />
-                                <Ellipse Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}" Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
+                                <Ellipse Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}" Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
                                 <coreControls:WinoFontIcon
                                     x:Name="KnownProviderIcon"
                                     HorizontalAlignment="Center"
@@ -1286,7 +1287,7 @@
                                 VerticalAlignment="Center"
                                 FontFamily="{StaticResource WinoIconFontFamily}"
                                 FontSize="16"
-                                Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ViewModel.RouteProviderType, ViewModel.RouteSpecialImapProvider), Mode=OneWay}" />
+                                Icon="{x:Bind winuiHelpers:XamlHelpers.GetProviderIcon(ViewModel.RouteProviderType, ViewModel.RouteSpecialImapProvider), Mode=OneWay}" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.NativeSignInButtonText, Mode=OneWay}" />
                         </StackPanel>
                     </Button>

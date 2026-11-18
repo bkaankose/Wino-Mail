@@ -10,7 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using WinRT;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public sealed partial class CalendarPeriodControl
 {

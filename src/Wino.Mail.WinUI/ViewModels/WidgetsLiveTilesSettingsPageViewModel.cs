@@ -2,10 +2,10 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Services.WidgetsAndTiles;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.WinUI.ViewModels;
 

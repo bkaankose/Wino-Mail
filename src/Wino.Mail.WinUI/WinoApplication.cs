@@ -21,8 +21,9 @@ using Wino.Core.Services;
 using Wino.Mail.Controls.ContactPicture;
 using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Mail.WinUI.Interfaces;
-using Wino.Messaging.Client.Shell;
 using Wino.Services;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.WinUI.Services;
 using WinRT;
 using WinUIEx;
 

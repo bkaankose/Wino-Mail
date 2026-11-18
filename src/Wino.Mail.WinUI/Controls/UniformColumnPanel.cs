@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Foundation;
 
-namespace Wino.Mail.WinUI.Controls.CustomControls;
+namespace Wino.Mail.WinUI.Controls;
 
 /// <summary>
 /// Lays children out in equal-width columns that fill the available width.

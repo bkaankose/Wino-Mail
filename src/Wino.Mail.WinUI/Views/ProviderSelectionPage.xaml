@@ -1,5 +1,5 @@
 ﻿<abstract:ProviderSelectionPageAbstract
-    x:Class="Wino.Views.ProviderSelectionPage"
+    x:Class="Wino.Mail.WinUI.Views.ProviderSelectionPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
@@ -8,10 +8,9 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:winoControls="using:Wino.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="root"
     mc:Ignorable="d">
 
@@ -98,7 +97,7 @@
                                             <coreControls:WinoFontIcon
                                                 VerticalAlignment="Center"
                                                 FontSize="32"
-                                                Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Type, SpecialImapProvider)}" />
+                                                Icon="{x:Bind winuiHelpers:XamlHelpers.GetProviderIcon(Type, SpecialImapProvider)}" />
 
                                             <StackPanel
                                                 Grid.Column="1"
@@ -227,7 +226,7 @@
                                         <coreControls:WinoFontIcon
                                             VerticalAlignment="Center"
                                             FontSize="32"
-                                            Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Type, SpecialImapProvider)}" />
+                                            Icon="{x:Bind winuiHelpers:XamlHelpers.GetProviderIcon(Type, SpecialImapProvider)}" />
 
                                         <StackPanel
                                             Grid.Column="1"
@@ -329,7 +328,7 @@
                                         <coreControls:WinoFontIcon
                                             VerticalAlignment="Center"
                                             FontSize="28"
-                                            Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Type, SpecialImapProvider)}" />
+                                            Icon="{x:Bind winuiHelpers:XamlHelpers.GetProviderIcon(Type, SpecialImapProvider)}" />
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                             <TextBlock
@@ -364,7 +363,7 @@
             Grid.Row="1"
             HorizontalScrollBarVisibility="Disabled"
             VerticalScrollBarVisibility="Auto"
-            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsProviderStepVisible), Mode=OneWay}">
+            Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsProviderStepVisible), Mode=OneWay}">
             <StackPanel Spacing="20">
                 <!--  Chosen provider, kept in view on every step after the provider step  -->
                 <Border
@@ -386,13 +385,13 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}" CornerRadius="2" />
+                        <Border Background="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}" CornerRadius="2" />
 
                         <coreControls:WinoFontIcon
                             Grid.Column="1"
                             VerticalAlignment="Center"
                             FontSize="28"
-                            Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ViewModel.SelectedProvider.Type, ViewModel.SelectedProvider.SpecialImapProvider), Mode=OneWay}" />
+                            Icon="{x:Bind winuiHelpers:XamlHelpers.GetProviderIcon(ViewModel.SelectedProvider.Type, ViewModel.SelectedProvider.SpecialImapProvider), Mode=OneWay}" />
 
                         <StackPanel
                             Grid.Column="2"
@@ -418,11 +417,11 @@
                                 <coreControls:WinoFontIcon
                                     FontSize="16"
                                     Icon="PaintBrush"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
                                 <Ellipse
                                     Width="16"
                                     Height="16"
-                                    Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
+                                    Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
                                     Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
                             </Grid>
                             <Button.Flyout>
@@ -484,11 +483,11 @@
                         </StackPanel>
 
                         <!--  The same picker edits an existing IMAP account's capabilities in its server settings.  -->
-                        <winoControls:AccountCapabilityPicker
+                        <coreControls:AccountCapabilityPicker
                             AutomationProperties.AutomationId="ProviderSelectionCapabilityPicker"
                             Selection="{x:Bind ViewModel.Capabilities}"
                             ShowMailOptions="True">
-                            <winoControls:AccountCapabilityPicker.MailOptionsContent>
+                            <coreControls:AccountCapabilityPicker.MailOptionsContent>
                                 <StackPanel Spacing="12">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -527,8 +526,8 @@
                                         Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning, Mode=OneTime}"
                                         Severity="Warning" />
                                 </StackPanel>
-                            </winoControls:AccountCapabilityPicker.MailOptionsContent>
-                        </winoControls:AccountCapabilityPicker>
+                            </coreControls:AccountCapabilityPicker.MailOptionsContent>
+                        </coreControls:AccountCapabilityPicker>
                     </StackPanel>
 
                     <StackPanel Spacing="12">

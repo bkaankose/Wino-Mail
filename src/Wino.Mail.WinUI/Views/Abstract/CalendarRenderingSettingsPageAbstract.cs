@@ -1,4 +1,5 @@
-using Wino.Calendar.ViewModels;
+
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.WinUI.Views.Abstract;
 

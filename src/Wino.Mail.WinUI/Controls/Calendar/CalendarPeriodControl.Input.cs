@@ -6,7 +6,7 @@ using Windows.Foundation;
 using Windows.System;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 /// <summary>
 /// Pointer panning with mouse, pen or touch. A press anywhere on the surface, except on an event

@@ -6,7 +6,7 @@ using Windows.Foundation.Collections;
 using Windows.Storage;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 public class ConfigurationService : IConfigurationService
 {

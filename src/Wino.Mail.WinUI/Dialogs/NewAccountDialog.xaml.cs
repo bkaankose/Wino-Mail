@@ -10,8 +10,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Validation;
-using Wino.Core.ViewModels.Data;
-using Wino.Helpers;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.WinUI.Helpers;
 
 namespace Wino.Mail.WinUI.Dialogs;
 

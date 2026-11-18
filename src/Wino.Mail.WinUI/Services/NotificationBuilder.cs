@@ -22,11 +22,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Badges;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Notifications;
-using Wino.Helpers;
 using Wino.Mail.Controls.ContactPicture;
 using Wino.Mail.WinUI.Activation;
-using Wino.Messaging.UI;
 using Wino.NotificationHost.Contracts;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Platform.Windows.Services;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.WinUI.Services;
 

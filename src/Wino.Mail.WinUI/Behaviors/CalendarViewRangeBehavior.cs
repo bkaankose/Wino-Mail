@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.ViewModels.Shell.Contracts;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Behaviors;

@@ -14,8 +14,6 @@ using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Calendar.Controls;
-using Wino.Calendar.Views.Abstract;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Interfaces;
@@ -23,10 +21,13 @@ using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.Controls.Core.SearchBar;
-using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Mail.WinUI.Controls.Calendar;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Calendar.Views;
+namespace Wino.Mail.WinUI.Views.Calendar;
 
 public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearchHost
 {
@@ -209,7 +210,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     private void QuickEventAccountSelectorItemClicked(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is not Wino.Calendar.ViewModels.Data.AccountCalendarViewModel accountCalendar)
+        if (e.ClickedItem is not Wino.Mail.ViewModels.Calendar.Data.AccountCalendarViewModel accountCalendar)
             return;
 
         ViewModel.SelectedQuickEventAccountCalendar = accountCalendar;

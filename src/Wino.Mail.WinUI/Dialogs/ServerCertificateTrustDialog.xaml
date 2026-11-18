@@ -1,5 +1,5 @@
 ﻿<ContentDialog
-    x:Class="Wino.Mail.Dialogs.ServerCertificateTrustDialog"
+    x:Class="Wino.Mail.WinUI.Dialogs.ServerCertificateTrustDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:connectivity="using:Wino.Core.Domain.Models.Connectivity"

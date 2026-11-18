@@ -6,7 +6,7 @@ using Windows.Foundation;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
 
-namespace Wino.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 internal static class WinoContextFlyoutHelper
 {

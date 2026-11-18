@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
-namespace Wino.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 public static class WinoVisualTreeHelper
 {

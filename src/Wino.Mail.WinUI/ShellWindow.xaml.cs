@@ -19,7 +19,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Extensions;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Extensions;
@@ -28,10 +27,12 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
-using Wino.Views.Mail;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Mail.WinUI.Views.Mail;
+using Wino.Platform.Windows.Services;
 using WinUIEx;
 using WinRT;
 
@@ -1334,7 +1335,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         DispatcherQueue.TryEnqueue(() =>
         {
             if (version != _accountPresentationVersion) return;
-            var image = Wino.Helpers.XamlHelpers.AccountAvatarToBitmapImage(path);
+            var image = Wino.Mail.WinUI.Helpers.XamlHelpers.AccountAvatarToBitmapImage(path);
             WinoAccountButtonPicture.ProfilePicture = image;
             WinoAccountFlyoutPicture.ProfilePicture = image;
         });

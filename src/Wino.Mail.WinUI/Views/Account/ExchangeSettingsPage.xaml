@@ -1,13 +1,13 @@
-﻿<abstract:ExchangeSettingsPageAbstract
-    x:Class="Wino.Views.ExchangeSettingsPage"
+﻿<viewsAbstract:ExchangeSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Account.ExchangeSettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModels="using:Wino.Mail.ViewModels"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     mc:Ignorable="d">
 
     <!--  Advanced setup for on-premises Exchange: the server first, then the sign-in the server asks for.  -->
@@ -189,4 +189,4 @@
                 Visibility="{x:Bind ViewModel.IsPrimaryVisible, Mode=OneWay}" />
         </Grid>
     </StackPanel>
-</abstract:ExchangeSettingsPageAbstract>
+</viewsAbstract:ExchangeSettingsPageAbstract>

@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models;
 using Wino.Mail.Controls.VoiceBubble;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.ThirdParty.DesktopFlyouts;
+using Wino.Platform.Windows.Models;
 
 namespace Wino.Mail.WinUI.Services.Voice;
 

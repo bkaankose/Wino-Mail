@@ -4,6 +4,7 @@ using Windows.Storage;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Services;
+using Wino.Mail.WinUI.Services;
 
 namespace Wino.Mail.WinUI.Models.Personalization;
 

@@ -1,5 +1,5 @@
 ﻿<ResourceDictionary
-    x:Class="Wino.Mail.Controls.WinoItemTemplates"
+    x:Class="Wino.Mail.Controls.Themes.WinoItemTemplates"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"

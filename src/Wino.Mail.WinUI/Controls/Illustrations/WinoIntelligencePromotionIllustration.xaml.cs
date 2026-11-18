@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
 
-namespace Wino.Controls.Illustrations;
+namespace Wino.Mail.WinUI.Controls.Illustrations;
 
 public sealed partial class WinoIntelligencePromotionIllustration : UserControl
 {

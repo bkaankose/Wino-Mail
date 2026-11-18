@@ -1,10 +1,10 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.WinUI.Selectors;
+using Wino.Mail.ViewModels.Common.Data;
 
-namespace Wino.Selectors;
+namespace Wino.Mail.WinUI.Selectors;
 
 public partial class AccountProviderViewModelTemplateSelector : DataTemplateSelector, IReleasableTemplateSelector
 {

@@ -6,18 +6,18 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
-using Wino.MenuFlyouts;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.WinUI.Controls;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Calendar.Messages;
+using Wino.Mail.WinUI.MenuFlyouts;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public partial class CalendarItemCommandBarFlyout : WinoContextFlyout
 {
@@ -89,7 +89,7 @@ public partial class CalendarItemCommandBarFlyout : WinoContextFlyout
         {
             Text = Translator.VoiceBubble_DebugOpenForSelection,
             AutomationId = "CalendarEventOpenAssistant",
-            Command = new RelayCommand(() => WeakReferenceMessenger.Default.Send(new Wino.Messaging.UI.VoiceSelectionRequested(
+            Command = new RelayCommand(() => WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.UI.VoiceSelectionRequested(
                 Wino.Core.Domain.Models.Voice.VoiceLocalSelection.ForEvents(new List<Wino.Core.Domain.Entities.Calendar.CalendarItem> { calendarItem }))))
         }];
     }

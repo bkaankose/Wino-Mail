@@ -1,6 +1,7 @@
-using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings;
+using Wino.Mail.WinUI.Views.Abstract;
+
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class VoiceBrainPage : VoiceBrainPageAbstract
 {

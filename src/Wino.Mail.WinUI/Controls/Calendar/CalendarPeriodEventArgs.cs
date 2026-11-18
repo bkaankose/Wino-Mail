@@ -1,7 +1,7 @@
 using System;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 /// <summary>
 /// A period on the rail: raised when the rail settles on one the view model has not loaded, and

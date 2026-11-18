@@ -10,11 +10,11 @@ using Microsoft.UI.Xaml.Hosting;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Extensions;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public sealed partial class MailItemDisplayInformationControl : UserControl
 {

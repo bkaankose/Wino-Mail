@@ -1,5 +1,5 @@
-<UserControl
-    x:Class="Wino.Controls.Illustrations.WinoNoContactsIllustration"
+﻿<UserControl
+    x:Class="Wino.Mail.WinUI.Controls.Illustrations.WinoNoContactsIllustration"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -9,7 +9,7 @@
 
     <!--
         "Fanned blank cards." The address book has nothing in it yet.
-
+        
         Two constraints shaped this one. It shares the screen with WinoNoContactSelectedIllustration
         in the detail pane whenever the list is empty, so it deliberately avoids that control's
         row-of-circles silhouette. And an accent "Add your first contact" button sits directly
@@ -35,10 +35,7 @@
                 RadiusX="10"
                 RadiusY="10">
                 <Rectangle.RenderTransform>
-                    <RotateTransform
-                        Angle="-13"
-                        CenterX="30"
-                        CenterY="34" />
+                    <RotateTransform Angle="-13" CenterX="30" CenterY="34" />
                 </Rectangle.RenderTransform>
             </Rectangle>
             <Rectangle
@@ -51,10 +48,7 @@
                 RadiusX="10"
                 RadiusY="10">
                 <Rectangle.RenderTransform>
-                    <RotateTransform
-                        Angle="11"
-                        CenterX="30"
-                        CenterY="34" />
+                    <RotateTransform Angle="11" CenterX="30" CenterY="34" />
                 </Rectangle.RenderTransform>
             </Rectangle>
 

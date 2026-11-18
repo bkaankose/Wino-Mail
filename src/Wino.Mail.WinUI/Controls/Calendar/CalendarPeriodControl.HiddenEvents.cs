@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml.Input;
 using Windows.System;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public sealed partial class CalendarPeriodControl
 {

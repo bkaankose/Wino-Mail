@@ -1,6 +1,7 @@
 using Wino.Mail.WinUI.Models;
 using System;
 using Wino.Core.Domain.Enums;
+using Wino.Platform.Windows.Models;
 
 namespace Wino.Mail.WinUI.ThirdParty.DesktopFlyouts;
 

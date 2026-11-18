@@ -1,5 +1,3 @@
-using Wino.Mail.WinUI.Models;
-using Wino.Mail.WinUI.Interfaces;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -16,9 +14,11 @@ using Windows.UI.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Telemetry;
-using Wino.Helpers;
-using Wino.Mail.WinUI.Extensions;
 using Wino.Platform.Windows;
+using Wino.Platform.Windows.Extensions;
+using Wino.Platform.Windows.Helpers;
+using Wino.Platform.Windows.Interfaces;
+using Wino.Platform.Windows.Models;
 
 
 
@@ -27,7 +27,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 #endif
 
-namespace Wino.Services;
+namespace Wino.Platform.Windows.Services;
 
 /// <summary>
 /// Single owner of the stateless Windows platform capabilities the app needs: launching, clipboard,

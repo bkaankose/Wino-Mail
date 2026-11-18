@@ -4,12 +4,14 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain.Enums;
-using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Views.Abstract;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Views.Account;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views;
 
 public sealed partial class WelcomeHostPage : WelcomeHostPageAbstract,
     IRecipient<BreadcrumbNavigationRequested>,

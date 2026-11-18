@@ -7,7 +7,7 @@ using Windows.System;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Helpers;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>Asks for the app lock PIN before a sensitive step such as turning the lock off.</summary>
 public sealed partial class AppLockVerificationDialog : ContentDialog

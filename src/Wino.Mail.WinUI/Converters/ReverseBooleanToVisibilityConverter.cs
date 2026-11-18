@@ -2,7 +2,7 @@ using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 
-namespace Wino.Converters;
+namespace Wino.Mail.WinUI.Converters;
 
 public partial class ReverseBooleanToVisibilityConverter : IValueConverter
 {

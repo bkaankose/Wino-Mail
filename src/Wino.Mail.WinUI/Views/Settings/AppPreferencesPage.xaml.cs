@@ -1,9 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Services;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class AppPreferencesPage : AppPreferencesPageAbstract
 {

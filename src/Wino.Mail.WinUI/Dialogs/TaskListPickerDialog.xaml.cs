@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Shared;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed record TaskListPickerItem(AccountTaskList List, MailAccount? Account)
 {

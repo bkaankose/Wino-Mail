@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views.Account;
 
 public sealed partial class ExchangeSettingsPage : ExchangeSettingsPageAbstract
 {

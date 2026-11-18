@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 /// <summary>
 /// Asks Windows to relaunch Wino after a package update closes it. Packaged desktop apps are not

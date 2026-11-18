@@ -12,14 +12,14 @@ using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.UI;
 using WinRT;
-using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Core.ViewModels.Data;
-using Wino.Views.Abstract;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.WinUI.Controls;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 // The color-option template reads the page's preview dependency properties through ElementName
 // bindings. The attribute stays so the page keeps the binding surface those bindings shipped with;
@@ -381,7 +381,7 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
         }
 
         // Decoded from memory so the editor never holds the theme's wallpaper file open while Save replaces it.
-        var image = await Wino.Services.NewThemeService.CreateBitmapAsync(data);
+        var image = await Wino.Mail.WinUI.Services.NewThemeService.CreateBitmapAsync(data);
         if (revision != _wallpaperLoadRevision)
             return;
 

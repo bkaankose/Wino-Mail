@@ -4,14 +4,13 @@ using System.Text.RegularExpressions;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Helpers;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 public static class CalendarXamlHelpers
 {

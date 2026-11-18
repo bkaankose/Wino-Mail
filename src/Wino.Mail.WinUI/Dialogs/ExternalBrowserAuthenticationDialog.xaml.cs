@@ -6,8 +6,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
+using Wino.Platform.Windows.Interfaces;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>
 /// Waiting surface for an OAuth sign-in that runs in the external browser. It offers the

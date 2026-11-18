@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
-using Wino.Mail.WinUI.Models;
+using Wino.Platform.Windows.Models;
 
-namespace Wino.Mail.WinUI.Interfaces;
+namespace Wino.Platform.Windows.Interfaces;
 
 public interface INativeAppService
 {

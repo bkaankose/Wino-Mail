@@ -4,8 +4,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Services.WidgetsAndTiles;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.WinUI;
 

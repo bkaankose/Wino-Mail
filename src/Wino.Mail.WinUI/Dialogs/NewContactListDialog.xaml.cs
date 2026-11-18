@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Contacts;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>Asks for the name of a new contact list and the account that will own it.</summary>
 public sealed partial class NewContactListDialog : ContentDialog

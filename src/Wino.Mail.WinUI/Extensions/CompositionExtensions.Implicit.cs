@@ -4,7 +4,7 @@ using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Hosting;
 
-namespace Wino.Extensions;
+namespace Wino.Mail.WinUI.Extensions;
 
 public static partial class CompositionExtensions
 {

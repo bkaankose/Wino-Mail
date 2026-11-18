@@ -13,6 +13,7 @@ using Wino.Mail.WinUI.Controls.Companion;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.ThirdParty.DesktopFlyouts;
 using Wino.Mail.ViewModels.Companion;
+using Wino.Platform.Windows.Interfaces;
 
 namespace Wino.Mail.WinUI.Services.Companion;
 

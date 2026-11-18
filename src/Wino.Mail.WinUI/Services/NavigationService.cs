@@ -16,10 +16,10 @@ using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Navigation;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
-using Wino.Views;
-using Wino.Views.Mail;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Mail.WinUI.Views.Mail;
 
-namespace Wino.Services;
+namespace Wino.Mail.WinUI.Services;
 
 public class NavigationService : INavigationService
 {

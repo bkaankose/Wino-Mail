@@ -7,7 +7,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.UI.ViewManagement;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 /// <summary>
 /// Rail motion: the frame-driven glide, settling on a period, wheel panning and the reaction to

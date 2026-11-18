@@ -9,19 +9,19 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Serilog;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
-using Wino.Helpers;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Views.Abstract;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Shell;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.WinUI.Helpers;
 
-namespace Wino.Calendar.Views;
+namespace Wino.Mail.WinUI.Views.Calendar;
 
 public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     IRecipient<ApplicationThemeChanged>,

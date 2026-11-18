@@ -15,6 +15,7 @@ using Wino.Mail.WinUI.Services.Companion;
 using Wino.Mail.WinUI.Services.Voice;
 using Wino.Mail.ViewModels.Companion;
 using Wino.Mail.ViewModels.Voice;
+using Wino.Platform.Windows.Interfaces;
 
 namespace Wino.Mail.WinUI.Services;
 

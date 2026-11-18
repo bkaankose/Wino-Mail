@@ -1,7 +1,7 @@
 using Windows.ApplicationModel;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Mail.WinUI.Extensions;
+namespace Wino.Platform.Windows.Extensions;
 
 public static class StartupTaskStateExtensions
 {

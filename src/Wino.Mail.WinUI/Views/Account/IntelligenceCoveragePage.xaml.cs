@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views.Account;
 
 public sealed partial class IntelligenceCoveragePage : IntelligenceCoveragePageAbstract
 {

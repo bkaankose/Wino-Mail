@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Models.Connectivity;
 
-namespace Wino.Mail.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class ServerCertificateTrustDialog : ContentDialog
 {

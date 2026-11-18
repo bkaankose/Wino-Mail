@@ -1,5 +1,5 @@
-<ContentDialog
-    x:Class="Wino.Dialogs.TextInputDialog"
+﻿<ContentDialog
+    x:Class="Wino.Mail.WinUI.Dialogs.TextInputDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -27,7 +27,8 @@
             Style="{ThemeResource BodyTextBlockStyle}"
             TextWrapping="Wrap" />
         <TextBox
-
-            AutomationProperties.AutomationId="FolderTextBox" x:Name="FolderTextBox" Text="{x:Bind CurrentInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            x:Name="FolderTextBox"
+            AutomationProperties.AutomationId="FolderTextBox"
+            Text="{x:Bind CurrentInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
     </StackPanel>
 </ContentDialog>

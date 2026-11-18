@@ -1,7 +1,7 @@
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public sealed partial class AccountNicknameIndicatorControl : UserControl
 {

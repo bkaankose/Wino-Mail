@@ -14,7 +14,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.WinUI.Services;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class WinoAccountLoginDialog : ContentDialog
 {

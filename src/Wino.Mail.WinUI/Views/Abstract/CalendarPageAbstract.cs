@@ -1,7 +1,7 @@
-using Wino.Calendar.ViewModels;
 using Wino.Mail.WinUI;
+using Wino.Mail.ViewModels.Calendar;
 
-namespace Wino.Calendar.Views.Abstract;
+namespace Wino.Mail.WinUI.Views.Abstract;
 
 public abstract class CalendarPageAbstract : BasePage<CalendarPageViewModel>
 {

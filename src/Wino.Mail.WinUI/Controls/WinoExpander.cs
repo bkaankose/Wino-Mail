@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Markup;
 using WinRT;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 [ContentProperty(Name = nameof(Content))]
 public partial class WinoExpander : Control

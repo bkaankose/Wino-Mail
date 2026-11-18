@@ -27,7 +27,6 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Printing;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Editor;
-using Wino.Helpers;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
@@ -41,13 +40,14 @@ using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
-using Wino.Views.Abstract;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Models.Printing;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views.Mail;
+namespace Wino.Mail.WinUI.Views.Mail;
 
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IPopoutClient,

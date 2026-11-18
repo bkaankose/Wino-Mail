@@ -9,14 +9,13 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.ViewManagement;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Helpers;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Helpers;
-namespace Wino.Calendar.Controls;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Calendar.Messages;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public sealed partial class CalendarItemControl : UserControl
 {

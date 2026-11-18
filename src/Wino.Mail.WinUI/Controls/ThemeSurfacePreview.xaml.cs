@@ -7,7 +7,7 @@ using Windows.UI;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 /// <summary>
 /// Draws a miniature of the single Wino surface a custom theme color paints, composited over

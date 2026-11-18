@@ -1,11 +1,11 @@
 ﻿<UserControl
-    x:Class="Wino.Controls.ContactSectionHeader"
+    x:Class="Wino.Mail.WinUI.Controls.ContactSectionHeader"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="root"
     HorizontalAlignment="Stretch"
     HorizontalContentAlignment="Stretch"
@@ -53,14 +53,14 @@
             VerticalAlignment="Center"
             Background="{ThemeResource SubtleFillColorSecondaryBrush}"
             CornerRadius="10"
-            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ItemCount)}">
+            Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(ItemCount)}">
             <TextBlock
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 FontWeight="SemiBold"
                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}"
-                Text="{x:Bind helpers:XamlHelpers.CountToText(ItemCount)}" />
+                Text="{x:Bind winuiHelpers:XamlHelpers.CountToText(ItemCount)}" />
         </Border>
     </Grid>
 </UserControl>

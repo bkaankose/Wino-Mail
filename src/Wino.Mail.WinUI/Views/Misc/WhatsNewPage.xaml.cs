@@ -6,9 +6,9 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.WhatsNew;
 using Wino.Mail.WinUI.Controls;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Misc;
+namespace Wino.Mail.WinUI.Views.Misc;
 
 public sealed partial class WhatsNewPage : WhatsNewPageAbstract
 {

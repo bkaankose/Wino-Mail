@@ -1,13 +1,13 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Core.ViewModels.Data;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Mail.ViewModels;
-using Wino.Views.Abstract;
-using Wino.Helpers;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views.Account;
 
 public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
 {

@@ -32,8 +32,6 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Editor;
-using Wino.Helpers;
-using Wino.Mail.Controls;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels;
@@ -44,12 +42,12 @@ using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
-using Wino.Views.Abstract;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Mail;
+namespace Wino.Mail.WinUI.Views.Mail;
 
 public sealed partial class ComposePage : ComposePageAbstract,
     IPopoutClient,

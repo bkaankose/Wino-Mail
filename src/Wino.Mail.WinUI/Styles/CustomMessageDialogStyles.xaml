@@ -3,11 +3,10 @@
     x:Class="Wino.Mail.WinUI.Styles.CustomMessageDialogStyles"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:dialogs="using:Wino.Dialogs"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:local="using:Wino.Styles"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:selectors="using:Wino.Mail.WinUI.Selectors">
+    xmlns:selectors="using:Wino.Mail.WinUI.Selectors"
+    xmlns:winuiDialogs="using:Wino.Mail.WinUI.Dialogs">
 
     <!--  Icon templates  -->
     <DataTemplate x:Key="WinoCustomMessageDialogInformationIconTemplate">
@@ -46,11 +45,11 @@
         QuestionIconTemplate="{StaticResource WinoCustomMessageDialogQuestionIconTemplate}"
         WarningIconTemplate="{StaticResource WinoCustomMessageDialogWarningIconTemplate}" />
 
-    <DataTemplate x:Key="CustomWinoContentDialogTitleTemplate" x:DataType="dialogs:CustomMessageDialogInformationContainer">
+    <DataTemplate x:Key="CustomWinoContentDialogTitleTemplate" x:DataType="winuiDialogs:CustomMessageDialogInformationContainer">
         <Grid />
     </DataTemplate>
 
-    <DataTemplate x:Key="CustomWinoContentDialogContentTemplate" x:DataType="dialogs:CustomMessageDialogInformationContainer">
+    <DataTemplate x:Key="CustomWinoContentDialogContentTemplate" x:DataType="winuiDialogs:CustomMessageDialogInformationContainer">
         <Grid RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />

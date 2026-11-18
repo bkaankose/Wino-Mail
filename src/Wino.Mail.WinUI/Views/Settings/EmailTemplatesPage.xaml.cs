@@ -1,10 +1,10 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain.Entities.Mail;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class EmailTemplatesPage : EmailTemplatesPageAbstract
 {

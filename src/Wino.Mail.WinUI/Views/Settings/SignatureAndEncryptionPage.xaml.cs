@@ -1,9 +1,9 @@
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class SignatureAndEncryptionPage : SignatureAndEncryptionPageAbstract
 {

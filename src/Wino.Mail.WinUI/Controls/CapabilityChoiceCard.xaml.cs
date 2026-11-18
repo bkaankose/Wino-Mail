@@ -2,7 +2,7 @@ using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 /// <summary>
 /// One answer on a capability screen of the account setup wizard.

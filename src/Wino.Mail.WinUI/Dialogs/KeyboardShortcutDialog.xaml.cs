@@ -8,12 +8,12 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models;
-using Wino.Core.ViewModels.Data;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 using Wino.Mail.Controls.HotKeyInput;
+using Wino.Mail.ViewModels.Common.Data;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class KeyboardShortcutDialog : ContentDialog
 {

@@ -5,7 +5,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Folders;
 using WinRT;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class MoveMailDialog : ContentDialog
 {

@@ -1,11 +1,11 @@
 ﻿<ContentDialog
-    x:Class="Wino.Dialogs.TaskListPickerDialog"
+    x:Class="Wino.Mail.WinUI.Dialogs.TaskListPickerDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:dialogs="using:Wino.Mail.WinUI.Dialogs"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
-    xmlns:local="using:Wino.Dialogs"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     Title="{x:Bind domain:Translator.ToDoSettings_ListPicker_Title}"
     CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
     Style="{StaticResource WinoDialogStyle}">
@@ -22,7 +22,7 @@
             </Style>
         </ListView.ItemContainerStyle>
         <ListView.ItemTemplate>
-            <DataTemplate x:DataType="local:TaskListPickerItem">
+            <DataTemplate x:DataType="dialogs:TaskListPickerItem">
                 <Grid
                     MinHeight="52"
                     Padding="8,6"
@@ -35,7 +35,7 @@
 
                     <accountIcon:WinoAccountIcon
                         VerticalAlignment="Center"
-                        Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}"
+                        Account="{x:Bind winuiHelpers:XamlHelpers.GetAccountIconInfo(Account)}"
                         IconSize="28" />
 
                     <StackPanel

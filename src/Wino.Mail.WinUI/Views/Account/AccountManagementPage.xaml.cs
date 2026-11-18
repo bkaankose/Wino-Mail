@@ -1,10 +1,10 @@
 using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Views.Abstract;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views.Account;
 
 public sealed partial class AccountManagementPage : AccountManagementPageAbstract
 {

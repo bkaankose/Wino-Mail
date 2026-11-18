@@ -1,5 +1,5 @@
 ﻿<abstract:MailPreferencesPageAbstract
-    x:Class="Wino.Views.Settings.MailPreferencesPage"
+    x:Class="Wino.Mail.WinUI.Views.Settings.MailPreferencesPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
@@ -34,9 +34,9 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="MailPreferencesEmailSyncIntervalCard"
-            Visibility="{x:Bind ViewModel.IsSyncIntervalAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Description}"
-            Header="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Title}">
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Title}"
+            Visibility="{x:Bind ViewModel.IsSyncIntervalAvailable, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="Sync" />
             </controls:SettingsCard.HeaderIcon>

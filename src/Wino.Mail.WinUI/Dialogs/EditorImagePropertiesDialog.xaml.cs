@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Wino.Editor;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class EditorImagePropertiesDialog : ContentDialog
 {

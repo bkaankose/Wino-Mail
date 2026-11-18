@@ -10,7 +10,7 @@ using Windows.UI.ViewManagement;
 using Wino.Core.Domain;
 using Wino.Mail.ViewModels;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public sealed partial class MailInvitationCard : UserControl
 {

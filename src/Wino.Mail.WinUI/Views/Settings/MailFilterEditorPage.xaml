@@ -1,15 +1,15 @@
-﻿<abstract:MailFilterEditorPageAbstract
-    x:Class="Wino.Views.Settings.MailFilterEditorPage"
+﻿<viewsAbstract:MailFilterEditorPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.MailFilterEditorPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:vm="using:Wino.Mail.ViewModels"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     mc:Ignorable="d">
 
     <StackPanel MaxWidth="900" Spacing="{StaticResource SettingsCardSpacing}">
@@ -40,8 +40,8 @@
             <!--  Wino managed card  -->
             <Border
                 Grid.Column="0"
-                Grid.ColumnSpan="{x:Bind helpers:XamlHelpers.GetManagementCardSpan(ViewModel.IsProviderAvailable), Mode=OneWay}"
-                BorderBrush="{x:Bind helpers:XamlHelpers.GetSelectionBorderBrush(ViewModel.IsWinoManaged), Mode=OneWay}"
+                Grid.ColumnSpan="{x:Bind winuiHelpers:XamlHelpers.GetManagementCardSpan(ViewModel.IsProviderAvailable), Mode=OneWay}"
+                BorderBrush="{x:Bind winuiHelpers:XamlHelpers.GetSelectionBorderBrush(ViewModel.IsWinoManaged), Mode=OneWay}"
                 BorderThickness="2"
                 CornerRadius="{StaticResource ControlCornerRadius}">
                 <Button
@@ -95,7 +95,7 @@
             <!--  Provider managed card  -->
             <Border
                 Grid.Column="1"
-                BorderBrush="{x:Bind helpers:XamlHelpers.GetSelectionBorderBrush(ViewModel.IsProviderSelected), Mode=OneWay}"
+                BorderBrush="{x:Bind winuiHelpers:XamlHelpers.GetSelectionBorderBrush(ViewModel.IsProviderSelected), Mode=OneWay}"
                 BorderThickness="2"
                 CornerRadius="{StaticResource ControlCornerRadius}"
                 Visibility="{x:Bind ViewModel.IsProviderAvailable, Mode=OneWay}">
@@ -247,7 +247,7 @@
                                                 FontFamily="{ThemeResource WinoIconFontFamily}"
                                                 FontSize="14"
                                                 Foreground="{ThemeResource SystemFillColorAttentionBrush}"
-                                                Icon="{x:Bind helpers:XamlHelpers.GetFilterFieldGlyph(SelectedField.Value), Mode=OneWay}" />
+                                                Icon="{x:Bind winuiHelpers:XamlHelpers.GetFilterFieldGlyph(SelectedField.Value), Mode=OneWay}" />
                                         </Border>
                                         <ComboBox
                                             Grid.Column="1"
@@ -261,7 +261,7 @@
                                                         <coreControls:WinoFontIcon
                                                             FontFamily="{ThemeResource WinoIconFontFamily}"
                                                             FontSize="14"
-                                                            Icon="{x:Bind helpers:XamlHelpers.GetFilterFieldGlyph(Value), Mode=OneTime}" />
+                                                            Icon="{x:Bind winuiHelpers:XamlHelpers.GetFilterFieldGlyph(Value), Mode=OneTime}" />
                                                         <TextBlock Text="{x:Bind DisplayName}" />
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -382,13 +382,13 @@
                                             Width="32"
                                             Height="32"
                                             VerticalAlignment="Center"
-                                            Background="{x:Bind helpers:XamlHelpers.GetFilterActionIconBackground(SelectedAction.Value), Mode=OneWay}"
+                                            Background="{x:Bind winuiHelpers:XamlHelpers.GetFilterActionIconBackground(SelectedAction.Value), Mode=OneWay}"
                                             CornerRadius="{StaticResource ControlCornerRadius}">
                                             <coreControls:WinoFontIcon
                                                 FontFamily="{ThemeResource WinoIconFontFamily}"
                                                 FontSize="14"
-                                                Foreground="{x:Bind helpers:XamlHelpers.GetFilterActionIconForeground(SelectedAction.Value), Mode=OneWay}"
-                                                Icon="{x:Bind helpers:XamlHelpers.GetFilterActionGlyph(SelectedAction.Value), Mode=OneWay}" />
+                                                Foreground="{x:Bind winuiHelpers:XamlHelpers.GetFilterActionIconForeground(SelectedAction.Value), Mode=OneWay}"
+                                                Icon="{x:Bind winuiHelpers:XamlHelpers.GetFilterActionGlyph(SelectedAction.Value), Mode=OneWay}" />
                                         </Border>
                                         <ComboBox
                                             Grid.Column="1"
@@ -402,7 +402,7 @@
                                                         <coreControls:WinoFontIcon
                                                             FontFamily="{ThemeResource WinoIconFontFamily}"
                                                             FontSize="14"
-                                                            Icon="{x:Bind helpers:XamlHelpers.GetFilterActionGlyph(Value), Mode=OneTime}" />
+                                                            Icon="{x:Bind winuiHelpers:XamlHelpers.GetFilterActionGlyph(Value), Mode=OneTime}" />
                                                         <TextBlock Text="{x:Bind DisplayName}" />
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -540,4 +540,4 @@
             </Button>
         </StackPanel>
     </StackPanel>
-</abstract:MailFilterEditorPageAbstract>
+</viewsAbstract:MailFilterEditorPageAbstract>

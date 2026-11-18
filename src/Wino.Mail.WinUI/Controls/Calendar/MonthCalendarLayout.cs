@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 /// <summary>
 /// The placement of one calendar item inside a month week row. Bounds are relative to the row.

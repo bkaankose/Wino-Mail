@@ -2,9 +2,9 @@ using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
-using Wino.Views;
+using Wino.Mail.WinUI.Views.Account;
 
-namespace Wino.Selectors;
+namespace Wino.Mail.WinUI.Selectors;
 
 public partial class AccountSetupStepTemplateSelector : DataTemplateSelector
 {

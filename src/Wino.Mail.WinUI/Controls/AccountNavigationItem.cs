@@ -5,10 +5,11 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Controls;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 using WinRT;
 using Microsoft.UI.Xaml.Shapes;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public partial class AccountNavigationItem : WinoNavigationViewItem
 {

@@ -16,6 +16,7 @@ using Wino.PushRelay.Socket.KeyStores;
 using Wino.Authentication;
 using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Models.Platform;
+using Wino.Platform.Windows.Services;
 
 namespace Wino.Mail.WinUI;
 
@@ -75,7 +76,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
-        global::Wino.Core.Providers.GmailProviderRegistration.AddLoopbackGoogleAuthorizationCodeReceiver(services);
+        global::Wino.Providers.Gmail.Providers.GmailProviderRegistration.AddLoopbackGoogleAuthorizationCodeReceiver(services);
         // Lazy edges break the two constructor cycles in the shell: the Store service reaches the
         // dialog service (dialog -> profile -> intelligence -> billing -> store), and the window
         // manager reaches the theme service (theme -> window manager).

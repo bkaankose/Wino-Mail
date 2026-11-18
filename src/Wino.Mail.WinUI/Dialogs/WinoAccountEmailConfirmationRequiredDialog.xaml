@@ -1,5 +1,5 @@
-<ContentDialog
-    x:Class="Wino.Dialogs.WinoAccountEmailConfirmationRequiredDialog"
+﻿<ContentDialog
+    x:Class="Wino.Mail.WinUI.Dialogs.WinoAccountEmailConfirmationRequiredDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -24,9 +24,7 @@
             Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
             CornerRadius="12">
             <StackPanel Spacing="8">
-                <TextBlock
-                    x:Name="MessageTextBlock"
-                    TextWrapping="WrapWholeWords" />
+                <TextBlock x:Name="MessageTextBlock" TextWrapping="WrapWholeWords" />
                 <TextBlock
                     x:Name="CountdownTextBlock"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"

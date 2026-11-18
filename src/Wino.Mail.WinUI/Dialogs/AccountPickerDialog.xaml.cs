@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Shared;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class AccountPickerDialog : ContentDialog
 {

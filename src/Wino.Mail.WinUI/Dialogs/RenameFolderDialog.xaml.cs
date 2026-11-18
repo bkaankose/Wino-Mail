@@ -2,7 +2,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Folders;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>Asks for a folder's server name and its local-only display name.</summary>
 public sealed partial class RenameFolderDialog : ContentDialog

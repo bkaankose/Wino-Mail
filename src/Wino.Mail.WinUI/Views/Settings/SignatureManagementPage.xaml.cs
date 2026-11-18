@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Mail;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class SignatureManagementPage : SignatureManagementPageAbstract
 {

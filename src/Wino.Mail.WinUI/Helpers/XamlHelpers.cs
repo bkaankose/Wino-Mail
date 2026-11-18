@@ -31,9 +31,10 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 using Wino.Services;
+using Wino.Mail.ViewModels.Models.Accounts;
 using WinRT;
 
-namespace Wino.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 public static class XamlHelpers
 {
@@ -608,8 +609,8 @@ public static class XamlHelpers
         Translator.HoverActionOption_MoveJunk);
 
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
-    public static System.Collections.ObjectModel.ObservableCollection<Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel>? ItemsWhen(
-        bool condition, System.Collections.ObjectModel.ObservableCollection<Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel> items)
+    public static System.Collections.ObjectModel.ObservableCollection<Wino.Mail.ViewModels.Common.Data.WinoIntelligenceMailboxItemViewModel>? ItemsWhen(
+        bool condition, System.Collections.ObjectModel.ObservableCollection<Wino.Mail.ViewModels.Common.Data.WinoIntelligenceMailboxItemViewModel> items)
         => condition ? items : null;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
     public static bool IsAccountNicknameVisible(string accountNickname, AccountNicknamePosition position, AccountNicknamePosition targetPosition)

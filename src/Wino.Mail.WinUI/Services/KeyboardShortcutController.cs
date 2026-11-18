@@ -11,7 +11,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Mail.ViewModels;
-using Wino.Views.Mail;
+using Wino.Mail.WinUI.Views.Mail;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Services;

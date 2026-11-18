@@ -9,7 +9,7 @@ using Wino.Core.Domain.Models.Attachments;
 using Wino.Platform.Windows;
 using Wino.Services;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 /// <summary>Keeps native policy prompts and their live window owner in the Windows head.</summary>
 public sealed class WindowsAttachmentPlatformService(

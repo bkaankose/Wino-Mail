@@ -3,8 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
-using Wino.Dialogs;
 using Wino.Editor;
+using Wino.Mail.WinUI.Dialogs;
 
 namespace Wino.Mail.WinUI.Interfaces;
 

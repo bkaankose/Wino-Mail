@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Mail.Controls.ContextFlyout;
 
-namespace Wino.MenuFlyouts;
+namespace Wino.Mail.WinUI.MenuFlyouts;
 
 public partial class WinoOperationFlyout<TActionType> : WinoContextFlyout, IDisposable where TActionType : class
 {

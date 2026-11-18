@@ -1,16 +1,16 @@
-﻿<abstract:StoragePageAbstract
-    x:Class="Wino.Views.Settings.StoragePage"
+﻿<viewsAbstract:StoragePageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.StoragePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mailData="using:Wino.Mail.ViewModels.Data"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="root"
     mc:Ignorable="d">
 
@@ -55,7 +55,7 @@
                     AutomationProperties.AutomationId="StoragePageButton"
                     Command="{x:Bind ViewModel.RefreshStorageCommand}"
                     Content="{x:Bind domain:Translator.SettingsStorage_ScanFolder}"
-                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsBusy), Mode=OneWay}"
+                    IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsBusy), Mode=OneWay}"
                     Style="{StaticResource AccentButtonStyle}" />
             </Grid>
         </Grid>
@@ -71,7 +71,7 @@
                             <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
                         </controls:SettingsExpander.Resources>
                         <controls:SettingsExpander.HeaderIcon>
-                            <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}" IconSize="28" />
+                            <accountIcon:WinoAccountIcon Account="{x:Bind winuiHelpers:XamlHelpers.GetAccountIconInfo(Account)}" IconSize="28" />
                         </controls:SettingsExpander.HeaderIcon>
 
                         <controls:SettingsExpander.Items>
@@ -84,7 +84,7 @@
                                     Command="{x:Bind DeleteAllCommand}"
                                     CommandParameter="{x:Bind}"
                                     Content="{x:Bind domain:Translator.SettingsStorage_DeleteAll_Button}"
-                                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
+                                    IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                             </controls:SettingsCard>
 
                             <controls:SettingsCard
@@ -97,25 +97,25 @@
                                         Command="{x:Bind DeleteOneMonthCommand}"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_1Month}"
-                                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
+                                        IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                     <Button
                                         AutomationProperties.AutomationId="StoragePageButton4"
                                         Command="{x:Bind DeleteThreeMonthsCommand}"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_3Months}"
-                                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
+                                        IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                     <Button
                                         AutomationProperties.AutomationId="StoragePageButton5"
                                         Command="{x:Bind DeleteSixMonthsCommand}"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_6Months}"
-                                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
+                                        IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                     <Button
                                         AutomationProperties.AutomationId="StoragePageButton6"
                                         Command="{x:Bind DeleteYearCommand}"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind domain:Translator.SettingsStorage_DeleteOld_1Year}"
-                                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
+                                        IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}" />
                                 </StackPanel>
                             </controls:SettingsCard>
                         </controls:SettingsExpander.Items>
@@ -124,4 +124,4 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
     </StackPanel>
-</abstract:StoragePageAbstract>
+</viewsAbstract:StoragePageAbstract>

@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using WinRT;
 
-namespace Wino.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 /// <summary>
 /// Gives native list containers the typed summary supplied by their data template.

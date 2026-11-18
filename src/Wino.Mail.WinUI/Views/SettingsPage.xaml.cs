@@ -12,18 +12,18 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.Controls.Core.SearchBar;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
-using Wino.Views.Abstract;
-using Wino.Views.Settings;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views;
 
 public sealed partial class SettingsPage : SettingsPageAbstract, 
     IRecipient<BreadcrumbNavigationRequested>,

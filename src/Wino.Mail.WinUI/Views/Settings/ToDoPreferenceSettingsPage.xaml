@@ -1,5 +1,5 @@
 ﻿<abstract:ToDoPreferenceSettingsPageAbstract
-    x:Class="Wino.Views.Settings.ToDoPreferenceSettingsPage"
+    x:Class="Wino.Mail.WinUI.Views.Settings.ToDoPreferenceSettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"

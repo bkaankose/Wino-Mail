@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Wino.Mail.Controls.Core;
-using Wino.Views.Mail;
+using Wino.Mail.WinUI.Views.Mail;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Styles.Mail;
@@ -21,7 +21,7 @@ public sealed partial class MailListItemTemplates
 
     [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private void ThreadSenderTextLoaded(object sender, RoutedEventArgs e)
-        => Wino.Helpers.MailRowSender.ApplyFrom((DependencyObject)sender);
+        => Wino.Mail.WinUI.Helpers.MailRowSender.ApplyFrom((DependencyObject)sender);
 
     [DynamicWindowsRuntimeCast(typeof(ContentPresenter))]
     private void ThreadChevronLoaded(object sender, RoutedEventArgs e)

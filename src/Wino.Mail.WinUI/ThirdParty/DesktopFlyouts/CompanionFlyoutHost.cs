@@ -15,6 +15,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Windows.Foundation;
 using Windows.Graphics;
 using Wino.Core.Domain.Enums;
+using Wino.Platform.Windows.Models;
 
 namespace Wino.Mail.WinUI.ThirdParty.DesktopFlyouts;
 

@@ -27,11 +27,12 @@ using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models.Personalization;
 using Wino.Mail.WinUI.Services;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Platform.Windows.Services;
 using WinRT;
 using WinUIEx;
 
-namespace Wino.Services;
+namespace Wino.Mail.WinUI.Services;
 
 /// <summary>
 /// Next-generation theme service with enhanced WinUI support including backdrop management

@@ -1,8 +1,7 @@
-﻿<abstract:AboutPageAbstract
-    x:Class="Wino.Views.Settings.AboutPage"
+﻿<viewsAbstract:AboutPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.AboutPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
@@ -10,6 +9,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:release="using:Wino.NotificationHost.Contracts"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     mc:Ignorable="d">
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
@@ -244,5 +244,5 @@
             </TextBlock>
         </controls:SettingsCard>
     </StackPanel>
-</abstract:AboutPageAbstract>
+</viewsAbstract:AboutPageAbstract>
 

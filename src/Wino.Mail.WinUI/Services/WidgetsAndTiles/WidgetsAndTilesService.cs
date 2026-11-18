@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Notifications;
 using Wino.Mail.ViewModels.Companion;
 using Wino.NotificationHost.Contracts;
 using Wino.Services.Logging;
+using Wino.Platform.Windows.Services.WidgetsAndTiles;
 
 namespace Wino.Mail.WinUI.Services.WidgetsAndTiles;
 
@@ -268,7 +269,7 @@ public sealed partial class WidgetsAndTilesService(
                                 item.StartDate.ToString("t", CultureInfo.CurrentCulture),
                                 item.EndDate.ToString("t", CultureInfo.CurrentCulture)),
                         Location = hidden ? string.Empty : item.Location ?? string.Empty,
-                        ColorHex = Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(item) ?? string.Empty,
+                        ColorHex = Wino.Mail.ViewModels.Calendar.CalendarAgenda.ColorHex(item) ?? string.Empty,
                         IsOnline = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(item.CalendarItem, out _),
                         IsTomorrow = CompanionContentService.DisplayDay(item, now) >= tomorrow,
                         IsAllDay = isAllDay,

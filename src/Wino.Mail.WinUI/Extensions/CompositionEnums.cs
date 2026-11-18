@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Wino.Extensions;
+namespace Wino.Mail.WinUI.Extensions;
 
 public enum TransitionDirection
 {

@@ -1,15 +1,14 @@
 ﻿<UserControl
-    x:Class="Wino.Mail.Controls.EditorTabbedCommandBarControl"
+    x:Class="Wino.Mail.WinUI.Controls.EditorTabbedCommandBarControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:editor="using:Wino.Editor"
-    xmlns:helpers="using:Wino.Helpers"
-    xmlns:mail="using:Wino.Mail.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="Root"
     mc:Ignorable="d">
 
@@ -65,7 +64,7 @@
                     Data="M 4,24 L 24,4"
                     Stroke="{ThemeResource SystemFillColorCriticalBrush}"
                     StrokeThickness="1.5"
-                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(HasColor)}" />
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(HasColor)}" />
             </Grid>
         </DataTemplate>
 

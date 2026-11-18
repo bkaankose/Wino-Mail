@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Helpers;
+namespace Wino.Platform.Windows.Helpers;
 
 public static class NotificationSoundPlayer
 {
