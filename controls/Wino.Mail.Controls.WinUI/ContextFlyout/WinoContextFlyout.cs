@@ -268,7 +268,7 @@ public partial class WinoContextFlyout : CommandBarFlyout
                 button.Icon = CreateIcon(subMenu.Icon);
                 button.IsEnabled = subMenu.IsEnabled && subMenu.Items.Count > 0;
                 button.KeyboardAcceleratorTextOverride = string.Empty;
-                ApplyDestructiveForeground(button, isDestructive: false);
+                ApplyDestructiveForeground(button, isDestructive: false, DestructiveAppBarButtonStyleKey);
                 button.Flyout = CreateMenuFlyout(subMenu);
                 AutomationProperties.SetAutomationId(button, subMenu.AutomationId);
                 return;
@@ -294,18 +294,21 @@ public partial class WinoContextFlyout : CommandBarFlyout
                 button.IsEnabled = command.CanExecute();
                 button.KeyboardAcceleratorTextOverride = command.Shortcut?.DisplayText ?? string.Empty;
                 button.Flyout = null;
-                ApplyDestructiveForeground(button, command.IsDestructive);
+                ApplyDestructiveForeground(button, command.IsDestructive, DestructiveAppBarButtonStyleKey);
                 AutomationProperties.SetAutomationId(button, command.AutomationId);
                 return;
             }
         }
     }
 
-    private static void ApplyDestructiveForeground(Control control, bool isDestructive)
+    private const string DestructiveAppBarButtonStyleKey = "WinoDestructiveAppBarButtonStyle";
+    private const string DestructiveMenuFlyoutItemStyleKey = "WinoDestructiveMenuFlyoutItemStyle";
+
+    private static void ApplyDestructiveForeground(Control control, bool isDestructive, string styleKey)
     {
         control.ClearValue(Control.ForegroundProperty);
 
-        if (isDestructive && DestructiveStyle(control) is { } style)
+        if (isDestructive && DestructiveStyle(styleKey) is { } style)
         {
             control.Style = style;
         }
@@ -318,14 +321,13 @@ public partial class WinoContextFlyout : CommandBarFlyout
     private static ResourceDictionary? _destructiveStyles;
 
     [DynamicWindowsRuntimeCast(typeof(Style))]
-    private static Style? DestructiveStyle(Control control)
+    private static Style? DestructiveStyle(string key)
     {
         _destructiveStyles ??= new ResourceDictionary
         {
             Source = new System.Uri("ms-appx:///Wino.Mail.Controls.WinUI/ContextFlyout/WinoContextFlyoutStyles.xaml")
         };
 
-        var key = control is AppBarButton ? "WinoDestructiveAppBarButtonStyle" : "WinoDestructiveMenuFlyoutItemStyle";
         return _destructiveStyles.TryGetValue(key, out var resource) && resource is Style style ? style : null;
     }
 
@@ -485,7 +487,7 @@ public partial class WinoContextFlyout : CommandBarFlyout
             KeyboardAcceleratorTextOverride = command.Shortcut?.DisplayText ?? string.Empty,
             MinHeight = RowHeight,
         };
-        ApplyDestructiveForeground(item, command.IsDestructive);
+        ApplyDestructiveForeground(item, command.IsDestructive, DestructiveMenuFlyoutItemStyleKey);
         AutomationProperties.SetAutomationId(item, command.AutomationId);
         item.Click += (_, _) => InvokeMenuCommand(command);
 
