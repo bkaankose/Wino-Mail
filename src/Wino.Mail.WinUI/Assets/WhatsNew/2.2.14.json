@@ -1,5 +1,5 @@
 {
-  "version": "2.2.13",
+  "version": "2.2.14",
   "isStarred": false,
   "features": [
     {
@@ -15,7 +15,12 @@
     {
       "image": "privacy-and-security.png",
       "title": "Privacy & security settings",
-      "description": "Keep senders from knowing when you read their mail. Block trackers or all remote content, set rules for senders and domains, clean tracking from links, and get a warning before risky attachments open. Find it in Settings > Privacy & security."
+      "description": "Keep senders from knowing when you read their mail. Block trackers or all remote content, set rules for senders and domains, clean tracking from links, and get a warning before risky attachments open. Find it in Settings > Mail > Privacy & security."
+    },
+    {
+      "image": "app-lock.png",
+      "title": "App lock",
+      "description": "Keep Wino Mail private on a shared PC. Lock it with Windows Hello or a PIN of its own, and it asks each time you open the window. Mail keeps syncing while it's locked, and notifications can stay read-only. Turn it on in Settings > General > App lock."
     },
     {
       "image": "account-groups.png",
