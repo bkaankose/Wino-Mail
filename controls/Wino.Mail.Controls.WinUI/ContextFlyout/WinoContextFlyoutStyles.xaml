@@ -1,0 +1,22 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Destructive rows read the critical color through ThemeResource so it follows the flyout's own theme.
+        A brush taken from Application.Resources follows the app-wide theme instead: with Windows in dark mode and
+        Wino in light mode it painted the dark theme's pale red on a light menu, which looked disabled.
+    -->
+    <Style
+        x:Key="WinoDestructiveMenuFlyoutItemStyle"
+        BasedOn="{StaticResource DefaultMenuFlyoutItemStyle}"
+        TargetType="MenuFlyoutItem">
+        <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+    </Style>
+
+    <!--  Based on the style CommandBarFlyout gives its buttons implicitly, so a destructive row keeps the flyout layout.  -->
+    <Style
+        x:Key="WinoDestructiveAppBarButtonStyle"
+        BasedOn="{StaticResource CommandBarFlyoutAppBarButtonStyle}"
+        TargetType="AppBarButton">
+        <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+    </Style>
+</ResourceDictionary>
