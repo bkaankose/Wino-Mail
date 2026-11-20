@@ -36,6 +36,8 @@ Before you edit under one of these folders, read its `AGENTS.md`. It is binding 
 | `src/Wino.Mail.Android`, `src/Wino.Platform.Android` | [src/Wino.Mail.Android/AGENTS.md](src/Wino.Mail.Android/AGENTS.md) |
 | `src/Wino.Mail.Linux` | [src/Wino.Mail.Linux/AGENTS.md](src/Wino.Mail.Linux/AGENTS.md) |
 | `src/Wino.Platform.Linux` | [src/Wino.Platform.Linux/AGENTS.md](src/Wino.Platform.Linux/AGENTS.md) |
+| `controls/Wino.Presentation.Linux` | [controls/Wino.Presentation.Linux/AGENTS.md](controls/Wino.Presentation.Linux/AGENTS.md) |
+| `controls/Wino.Mail.Controls.Linux` | [controls/Wino.Mail.Controls.Linux/AGENTS.md](controls/Wino.Mail.Controls.Linux/AGENTS.md) |
 | `src/Wino.Platform.Apple` | [src/Wino.Platform.Apple/AGENTS.md](src/Wino.Platform.Apple/AGENTS.md) |
 | `controls/` | [controls/AGENTS.md](controls/AGENTS.md) |
 
@@ -49,7 +51,7 @@ Each platform has a project file in the guidance map and a development guide. Re
 - **macOS change** (AppKit head, Mac platform services, AppKit controls, entitlements, `build/Wino.MacOS.*`, Mac scripts): read the [macOS guide](docs/harness/development-macos.md).
 - **iOS change** (iOS head, `Wino.Mail.UIKit*`, iOS platform services, UIKit controls, `Info.plist`, entitlements, `build/Wino.iOS.*`): read the [iOS guide](docs/harness/development-ios.md).
 - **Android change** (Android head, `Wino.Platform.Android`, `controls/*.Android`, `AndroidManifest.xml`, Android resources and layouts, `build/Wino.Android.*`): read the [Android guide](docs/harness/development-android.md).
-- **Linux change** (Linux head, `Wino.Platform.Linux`, `controls/Wino.Editor.WebKitGtk`, the `.desktop` file, `build/Wino.Linux.*`, `scripts/development/linux`): read the [Linux guide](docs/harness/development-linux.md).
+- **Linux change** (Linux head, `Wino.Platform.Linux`, `controls/Wino.Editor.WebKitGtk`, `controls/Wino.Presentation.Linux`, `controls/Wino.Mail.Controls.Linux`, the `.desktop` file, `build/Wino.Linux.*`, `scripts/development/linux`): read the [Linux guide](docs/harness/development-linux.md).
 - **Apple shared change** (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`): it affects the macOS and iOS applications. Read both Apple guides.
 - **Shared change** (shared projects above, translations, `Directory.Build.*`, `Directory.Packages.props`, `global.json`): it affects all four applications. Read every guide's verification section, and keep shared code free of platform UI references.
 

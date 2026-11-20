@@ -47,6 +47,7 @@ internal static class LinuxComposition
     private static void RegisterLinuxHead(this IServiceCollection services, Func<MainWindow?> window, LaunchOptions options)
     {
         services.AddSingleton(options);
+        services.AddSingleton<WinoViewServices>();
         services.AddSingleton(provider => new GtkNavigationService(provider, provider.GetRequiredService<IDispatcher>(), window));
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<GtkNavigationService>());
 

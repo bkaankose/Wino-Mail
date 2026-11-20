@@ -99,8 +99,12 @@ public static class LinuxPlatformRegistration
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
 
         // No relay device info, push token or attestation is registered, so live notifications report an unsupported platform.
+        // One capability per line, in alphabetical order, so that parallel changes merge.
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
-            Notifications: true, GeneralActivation: true, PointerHover: true, OAuthLoopbackRedirect: false));
+            GeneralActivation: true,
+            Notifications: true,
+            OAuthLoopbackRedirect: false,
+            PointerHover: true));
         return services;
     }
 

@@ -20,7 +20,7 @@ Last verified combination (2026-11-20, Ubuntu 26.04 under WSL2): .NET SDK 10.0.4
 
 ## Platform selection
 
-The three Linux projects set `WinoTargetPlatform=Linux` in their project files, so no command passes it. The host never selects `Linux`: a plain `dotnet build` of a shared project on Linux still resolves no platform, as before.
+The five Linux projects set `WinoTargetPlatform=Linux` in their project files, so no command passes it. The host never selects `Linux`: a plain `dotnet build` of a shared project on Linux still resolves no platform, as before.
 `Directory.Build.targets` imports [build/Wino.Linux.targets](../../build/Wino.Linux.targets) for them. It sets the runtime identifiers (`linux-x64`, `linux-arm64`) and marks the assemblies as Linux-only, because the WebKitGTK bindings are annotated as unsupported on Windows and macOS.
 The projects are plain `net10.0`, so the shared Release gate applies to them unchanged: the Native AOT, trimming and single-file analyzers with warnings as errors.
 
@@ -31,6 +31,8 @@ The projects are plain `net10.0`, so the shared Release gate applies to them unc
 | `src/Wino.Mail.Linux` | The head: composition, navigation host, dialogs, and the shell, mail list and reader views |
 | `src/Wino.Platform.Linux` | XDG paths, the Secret Service store, dispatcher, launcher, clipboard, notifications, registration |
 | `controls/Wino.Editor.WebKitGtk` | The WebKitGTK reader session over `Wino.Editor.Core` |
+| `controls/Wino.Presentation.Linux` | GTK presentation helpers: binding glue, main-loop scheduling, accessibility, weak events, live objects |
+| `controls/Wino.Mail.Controls.Linux` | GTK controls, the twin of `Wino.Mail.Controls.AppKit` |
 
 ## Build and run
 
@@ -70,7 +72,7 @@ scripts/lab/linux/lab.sh release <lease id>          # when done
 
 The lab rules are in the [root guidance](../../AGENTS.md); the manifest `~/.wino-lab/fixtures.json` must exist. A Release build ignores `--lab-lease`, but it opens data that a Debug build created in the same folders.
 
-`--debug-actions` adds application actions for checks without screen access (`Infrastructure/Debug/DebugActions.cs`, Debug builds only). Call them on the bus the app runs on; in the private session below that is the session's own bus, so take its address from the app's environment:
+`--debug-actions` adds application actions for checks without screen access (`Infrastructure/Diagnostics/DebugActions.cs`, one file per package, Debug builds only). Call them on the bus the app runs on; in the private session below that is the session's own bus, so take its address from the app's environment:
 
 ```sh
 export DBUS_SESSION_BUS_ADDRESS=$(tr '\0' '\n' < /proc/$(pgrep -x wino-mail)/environ | sed -n 's/^DBUS_SESSION_BUS_ADDRESS=//p')

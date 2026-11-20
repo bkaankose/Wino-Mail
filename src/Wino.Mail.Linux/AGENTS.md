@@ -24,7 +24,7 @@ The Linux app, as a proof of concept for issue #1216: GTK 4 and libadwaita throu
 
 A view is a plain class that builds its widgets in the constructor and exposes `Root`. There is no XML, no Blueprint and no GObject subclass.
 
-- The view resolves its ViewModel from the container and assigns `Dispatcher`, then calls `OnNavigatedTo`, `OnPageLoaded` and, when released, `OnNavigatedFrom`.
+- A routed view derives from `WinoView<TViewModel>` (`Infrastructure/WinoView.cs`) and is created with `PageScopes.Create<T>(services)`: the view and its transient ViewModel live in a DI scope of their own, which `ReleaseAsync` disposes. Views are not registered in the container. The view binds through `Bind` (a `GtkBinder` from `Wino.Presentation.Linux`) and `Bindings`, subscribes to messages with `Subscribe`, and overrides `InitializeAsync` and `DeactivateAsync`. `MailReaderView` is the example. `MailListView` and `ShellView` still resolve their ViewModels themselves until they are ported.
 - `GtkNavigationService` is the host of the shared `NavigationCoordinator`. It routes `MailListPage` to the shell's content and `MailRenderingPage` and `IdlePage` to the reading pane. A page without a route is refused; add the route in `TryGetRoute` together with its view.
 - The mail list sends `ActiveMailFolderChangedEvent` after `OnNavigatedTo` and awaits `WaitForCurrentFolderInitializationAsync`. Without it the shell never shows its menu.
 - Rows come from shared presentation code: `ShellMenuRowPresentation` for the sidebar, `MailListProjection`, `MailRowPresentation` and `MailListSelectionSnapshotBuilder` for the list. A cell only renders.

@@ -1,14 +1,12 @@
-using System.Collections.Specialized;
-using System.ComponentModel;
-using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
 using Wino.Editor.WebKitGtk;
+using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
+using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Views.Mail;
 
@@ -16,10 +14,10 @@ namespace Wino.Mail.Linux.Views.Mail;
 /// The reading pane: one <see cref="MailRenderingPageViewModel"/> and one WebKitGTK reader session, reused for every
 /// message as on the Mac. The ViewModel pushes the prepared HTML through its render delegates.
 /// </summary>
-internal sealed class MailReaderView
+internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRenavigableView
 {
-    private readonly IServiceProvider _services;
-    private readonly IDispatcher _dispatcher;
+    private readonly record struct HeaderState(string Subject, string Avatar, string Sender, string Date, bool Loading);
+
     private readonly Gtk.Stack _stack = Gtk.Stack.New();
     private readonly Gtk.Label _subject = Label("title-2", wrap: true);
     private readonly Gtk.Label _sender = Label("heading", wrap: false);
@@ -29,16 +27,11 @@ internal sealed class MailReaderView
     private readonly Adw.Spinner _loading = Adw.Spinner.New();
     private readonly Adw.Avatar _avatar = Adw.Avatar.New(40, string.Empty, true);
     private readonly Adw.Bin _webHost = Adw.Bin.New();
-    private MailRenderingPageViewModel? _viewModel;
     private WebKitGtkHtmlMailReaderSession? _reader;
     private bool _dark;
-    private bool _released;
 
-    public MailReaderView(IServiceProvider services, IDispatcher dispatcher)
+    public MailReaderView(MailRenderingPageViewModel viewModel, WinoViewServices services) : base(viewModel, services)
     {
-        _services = services;
-        _dispatcher = dispatcher;
-
         var idle = Adw.StatusPage.New();
         idle.SetIconName("mail-read-symbolic");
         idle.SetTitle(Translator.NoMailSelected);
@@ -87,70 +80,64 @@ internal sealed class MailReaderView
         Root = view;
     }
 
-    public Gtk.Widget Root { get; }
+    public override Gtk.Widget Root { get; }
 
     public void ShowIdle()
     {
-        if (!_released) _stack.SetVisibleChildName("idle");
+        if (!IsReleased) _stack.SetVisibleChildName("idle");
     }
 
-    public async Task ShowAsync(object parameter)
+    public Task ShowAsync(object parameter)
     {
-        if (_released) return;
+        if (IsReleased) return Task.CompletedTask;
         _stack.SetVisibleChildName("message");
-        if (_viewModel is { } existing)
-        {
-            await existing.InitializeNavigationAsync(NavigationMode.New, parameter);
-            return;
-        }
+        return IsActive ? RenavigateAsync(parameter) : ActivateAsync(NavigationMode.New, parameter);
+    }
 
-        var viewModel = _viewModel = _services.GetRequiredService<MailRenderingPageViewModel>();
-        viewModel.Dispatcher = _dispatcher;
-        var reader = _reader = new WebKitGtkHtmlMailReaderSession(_dispatcher);
+    public Task RenavigateAsync(object? parameter)
+        => IsReleased ? Task.CompletedTask : ViewModel.InitializeNavigationAsync(NavigationMode.New, parameter);
+
+    // OnNavigatedTo is not called: on this ViewModel it wraps InitializeNavigationAsync and would navigate a second time.
+    protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
+    {
+        var viewModel = ViewModel;
+        var reader = _reader = new WebKitGtkHtmlMailReaderSession(Dispatcher);
         reader.Configure(viewModel.ExternalLauncher);
-        reader.OperationFailed += (_, exception) => Serilog.Log.Error(exception, "The reader could not complete an operation.");
+        reader.OperationFailed += (_, exception) => ReportError(exception);
         // Links go through the ViewModel: tracking parameters are stripped and the link is confirmed when asked.
         reader.LinkOpener = (uri, text) => viewModel.OpenLinkAsync(uri, text);
         reader.View.SetVexpand(true);
         _webHost.SetChild(reader.View);
 
-        var style = Adw.StyleManager.GetDefault();
-        _dark = style.Dark;
-        style.OnNotify += StyleChanged;
+        _dark = Adw.StyleManager.GetDefault().Dark;
+        Bindings.Own(GtkSignals.OnNotify(Adw.StyleManager.GetDefault(), "dark", StyleChanged));
         viewModel.IsDarkWebviewRenderer = _dark;
         viewModel.RenderHtmlAsyncFunc = RenderAsync;
-        viewModel.ClearRenderedHtmlAsyncFunc = () => _reader is { } session && !_released ? session.ClearAsync() : Task.CompletedTask;
-        viewModel.PropertyChanged += ViewModelChanged;
-        viewModel.ToItems.CollectionChanged += RecipientsChanged;
-        viewModel.CcItems.CollectionChanged += RecipientsChanged;
-        viewModel.Attachments.CollectionChanged += AttachmentsChanged;
-        UpdateHeader();
-        UpdateAttachments();
+        viewModel.ClearRenderedHtmlAsyncFunc = () => _reader is { } session && !IsReleased ? session.ClearAsync() : Task.CompletedTask;
+
+        Bind.BindAny(ReadHeader, ApplyHeader);
+        Bind.BindCollection(viewModel.ToItems, UpdateRecipients);
+        Bind.BindCollection(viewModel.CcItems, UpdateRecipients);
+        Bind.BindCollection(viewModel.Attachments, UpdateAttachments);
+        Bind.Bind(nameof(MailRenderingPageViewModel.CurrentRenderModel), static vm => vm.CurrentRenderModel, _ => UpdateAttachments());
 
         await reader.InitializeAsync();
+        if (IsReleased) return;
         await reader.SetThemeAsync(_dark);
-        await viewModel.InitializeNavigationAsync(NavigationMode.New, parameter);
+        if (IsReleased) return;
+        await viewModel.InitializeNavigationAsync(mode, parameter);
     }
 
-    public async Task ReleaseAsync()
+    protected override async Task DeactivateAsync()
     {
-        if (_released) return;
-        _released = true;
-        Adw.StyleManager.GetDefault().OnNotify -= StyleChanged;
-        if (_viewModel is { } viewModel)
-        {
-            viewModel.PropertyChanged -= ViewModelChanged;
-            viewModel.ToItems.CollectionChanged -= RecipientsChanged;
-            viewModel.CcItems.CollectionChanged -= RecipientsChanged;
-            viewModel.Attachments.CollectionChanged -= AttachmentsChanged;
-            viewModel.OnNavigatedFrom(NavigationMode.Back, null);
-        }
+        ViewModel.OnNavigatedFrom(NavigationMode.Back, null);
         if (_reader is { } reader) await reader.DisposeAsync();
     }
 
     private async Task RenderAsync(string html)
     {
-        if (_reader is not { } reader || _viewModel is not { } viewModel || _released) return;
+        if (_reader is not { } reader || IsReleased) return;
+        var viewModel = ViewModel;
         var preferences = viewModel.PreferencesService;
         await reader.SetThemeAsync(_dark);
         await reader.SetReaderTypographyAsync($"{preferences.ReaderFont}, sans-serif", preferences.ReaderFontSize);
@@ -167,48 +154,46 @@ internal sealed class MailReaderView
             viewModel.CurrentRenderModel?.AccessibleText ?? string.Empty));
     }
 
-    private void StyleChanged(GObject.Object sender, GObject.Object.NotifySignalArgs args)
+    private void StyleChanged()
     {
         var dark = Adw.StyleManager.GetDefault().Dark;
-        if (dark == _dark || _released || _reader is not { } reader || _viewModel is not { } viewModel) return;
+        if (dark == _dark || IsReleased || _reader is not { } reader) return;
         _dark = dark;
-        viewModel.IsDarkWebviewRenderer = dark;
-        _ = reader.SetThemeAsync(dark);
+        ViewModel.IsDarkWebviewRenderer = dark;
+        Observe(reader.SetThemeAsync(dark));
     }
 
-    private void ViewModelChanged(object? sender, PropertyChangedEventArgs args)
-        => _ = _dispatcher.ExecuteOnUIThread(() =>
-        {
-            if (_released) return;
-            if (args.PropertyName == nameof(MailRenderingPageViewModel.CurrentRenderModel)) UpdateAttachments();
-            UpdateHeader();
-        });
-
-    private void RecipientsChanged(object? sender, NotifyCollectionChangedEventArgs args)
-        => _ = _dispatcher.ExecuteOnUIThread(() => { if (!_released) UpdateHeader(); });
-
-    private void AttachmentsChanged(object? sender, NotifyCollectionChangedEventArgs args)
-        => _ = _dispatcher.ExecuteOnUIThread(() => { if (!_released) UpdateAttachments(); });
-
-    private void UpdateHeader()
+    private static HeaderState ReadHeader(MailRenderingPageViewModel viewModel)
     {
-        if (_viewModel is not { } viewModel) return;
-        _subject.SetText(string.IsNullOrWhiteSpace(viewModel.Subject) ? Translator.MailItemNoSubject : viewModel.Subject);
         var name = string.IsNullOrWhiteSpace(viewModel.FromName) ? viewModel.FromAddress ?? string.Empty : viewModel.FromName;
-        _avatar.SetText(name);
-        _sender.SetText(string.IsNullOrWhiteSpace(viewModel.FromAddress) || name == viewModel.FromAddress ? name : $"{name}  <{viewModel.FromAddress}>");
-        var recipients = viewModel.ToItems.Concat(viewModel.CcItems).Select(static contact => contact.DisplayName).Where(static text => !string.IsNullOrWhiteSpace(text)).ToArray();
+        return new HeaderState(
+            string.IsNullOrWhiteSpace(viewModel.Subject) ? Translator.MailItemNoSubject : viewModel.Subject,
+            name,
+            string.IsNullOrWhiteSpace(viewModel.FromAddress) || name == viewModel.FromAddress ? name : $"{name}  <{viewModel.FromAddress}>",
+            MailRowPresentation.FormatReaderDate(viewModel.CreationDate, viewModel.PreferencesService.MailTimeFormatPreference),
+            !viewModel.IsMailContentReady);
+    }
+
+    private void ApplyHeader(HeaderState header)
+    {
+        _subject.SetText(header.Subject);
+        _avatar.SetText(header.Avatar);
+        _sender.SetText(header.Sender);
+        _date.SetText(header.Date);
+        _loading.SetVisible(header.Loading);
+    }
+
+    private void UpdateRecipients()
+    {
+        var recipients = ViewModel.ToItems.Concat(ViewModel.CcItems).Select(static contact => contact.DisplayName).Where(static text => !string.IsNullOrWhiteSpace(text)).ToArray();
         _recipients.SetText(string.Join(", ", recipients));
         _recipients.SetTooltipText(string.Join("\n", recipients));
-        _date.SetText(MailRowPresentation.FormatReaderDate(viewModel.CreationDate, viewModel.PreferencesService.MailTimeFormatPreference));
-        _loading.SetVisible(!viewModel.IsMailContentReady);
     }
 
     private void UpdateAttachments()
     {
-        if (_viewModel is not { } viewModel) return;
         _attachments.RemoveAll();
-        foreach (var attachment in viewModel.Attachments)
+        foreach (var attachment in ViewModel.Attachments)
         {
             var chip = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
             chip.AddCssClass("wino-attachment");
@@ -216,7 +201,7 @@ internal sealed class MailReaderView
             chip.Append(Gtk.Label.New($"{attachment.FileName}  ({attachment.ReadableSize})"));
             _attachments.Append(chip);
         }
-        _attachments.SetVisible(viewModel.Attachments.Count > 0);
+        _attachments.SetVisible(ViewModel.Attachments.Count > 0);
     }
 
     private static Gtk.Label Label(string cssClass, bool wrap)

@@ -37,7 +37,11 @@ internal sealed class LinuxApplication
             _ = RouteActivationsAsync();
         };
 #if DEBUG
-        if (options.DebugActions) Infrastructure.Debug.DebugActions.Register(application, () => _window?.Window);
+        if (options.DebugActions)
+        {
+            Infrastructure.Diagnostics.DebugActions.Register(application, () => _window?.Window);
+            Infrastructure.Diagnostics.FoundationDebugActions.Register(application);
+        }
 #endif
     }
 

@@ -3,6 +3,8 @@
     <Project Path="src/Wino.Mail.Linux/Wino.Mail.Linux.csproj" />
     <Project Path="src/Wino.Platform.Linux/Wino.Platform.Linux.csproj" />
     <Project Path="controls/Wino.Editor.WebKitGtk/Wino.Editor.WebKitGtk.csproj" />
+    <Project Path="controls/Wino.Presentation.Linux/Wino.Presentation.Linux.csproj" />
+    <Project Path="controls/Wino.Mail.Controls.Linux/Wino.Mail.Controls.Linux.csproj" />
   </Folder>
   <Folder Name="/Shared/">
     <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />

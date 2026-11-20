@@ -47,6 +47,8 @@
     <ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
     <ProjectReference Include="..\..\controls\Wino.Editor.Core\Wino.Editor.Core.csproj" />
     <ProjectReference Include="..\..\controls\Wino.Editor.WebKitGtk\Wino.Editor.WebKitGtk.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Presentation.Linux\Wino.Presentation.Linux.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Mail.Controls.Linux\Wino.Mail.Controls.Linux.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\app.winomail.Mail.desktop" CopyToOutputDirectory="PreserveNewest" />

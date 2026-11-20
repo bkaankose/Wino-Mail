@@ -1,7 +1,7 @@
 #if DEBUG
 using System.Text;
 
-namespace Wino.Mail.Linux.Infrastructure.Debug;
+namespace Wino.Mail.Linux.Infrastructure.Diagnostics;
 
 /// <summary>
 /// Debug-only application actions for checks without screen access, registered only when the app starts with

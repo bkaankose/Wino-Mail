@@ -36,7 +36,7 @@ internal sealed class ShellView
         ViewModel = services.GetRequiredService<WinoAppShellViewModel>();
         ViewModel.Dispatcher = dispatcher;
         _modes = new ShellModeActivator(ViewModel, ViewModel.StatePersistenceService, exception => Serilog.Log.Error(exception, "Shell mode activation failed."));
-        Reader = new MailReaderView(services, dispatcher);
+        Reader = PageScopes.Create<MailReaderView>(services);
 
         _menu.AddCssClass("navigation-sidebar");
         _menu.SetSelectionMode(Gtk.SelectionMode.Single);
