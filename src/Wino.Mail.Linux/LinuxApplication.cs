@@ -41,6 +41,7 @@ internal sealed class LinuxApplication
         {
             Infrastructure.Diagnostics.DebugActions.Register(application, () => _window?.Window);
             Infrastructure.Diagnostics.FoundationDebugActions.Register(application);
+            Infrastructure.Diagnostics.MenuDebugActions.Register(application);
         }
 #endif
     }
