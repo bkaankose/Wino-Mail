@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -20,7 +21,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.Controls.ContextFlyout;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Core.Domain.Messaging.Client.Calendar;
 using Wino.Mail.ViewModels.Shell.Contracts;
 using Wino.Mail.WinUI.Controls.Calendar;
@@ -284,6 +288,29 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private void CalendarSurfaceViewportPeriodChanged(object? sender, CalendarPeriodEventArgs e)
         => CalendarToolbar.VisibleDateRangeText = ViewModel.FormatRangeText(e.DisplayType, e.AnchorDate);
 
+    private void CalendarSurfaceEmptyAreaContextRequested(object? sender, CalendarEmptyAreaContextRequestedEventArgs e)
+    {
+        CloseQuickEventPopup(clearSelection: true);
+
+        var canPaste = ViewModel.HasCopiedCalendarItem && ViewModel.Readiness.IsReady;
+        var target = e.Target;
+        var hasTime = e.HasTime;
+
+        new WinoContextFlyout
+        {
+            ItemsSource = new ContextFlyoutMenuEntry[]
+            {
+                new ContextFlyoutCommandEntry
+                {
+                    Text = Translator.CalendarContextMenu_Paste,
+                    IsEnabled = canPaste,
+                    AutomationId = "CalendarContextPaste",
+                    Command = new AsyncRelayCommand(() => ViewModel.PasteCalendarItemAsync(target, hasTime), () => canPaste)
+                }
+            }
+        }.ShowAt(CalendarSurface, WinoContextFlyoutHelper.CreatePointerAlignedOptions(e.Position));
+    }
+
     private void CalendarSurfaceMonthDayDoubleTapped(object? sender, CalendarPeriodEventArgs e)
     {
         CloseQuickEventPopup(clearSelection: true);
@@ -354,6 +381,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarSurface.PeriodSettled += CalendarSurfacePeriodSettled;
         CalendarSurface.TodayRequested += CalendarSurfaceTodayRequested;
         CalendarSurface.MonthDayDoubleTapped += CalendarSurfaceMonthDayDoubleTapped;
+        CalendarSurface.EmptyAreaContextRequested += CalendarSurfaceEmptyAreaContextRequested;
         CalendarSurface.ViewportPeriodChanged += CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged += CalendarShellClientPropertyChanged;
@@ -376,6 +404,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarSurface.PeriodSettled -= CalendarSurfacePeriodSettled;
         CalendarSurface.TodayRequested -= CalendarSurfaceTodayRequested;
         CalendarSurface.MonthDayDoubleTapped -= CalendarSurfaceMonthDayDoubleTapped;
+        CalendarSurface.EmptyAreaContextRequested -= CalendarSurfaceEmptyAreaContextRequested;
         CalendarSurface.ViewportPeriodChanged -= CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged -= CalendarShellClientPropertyChanged;

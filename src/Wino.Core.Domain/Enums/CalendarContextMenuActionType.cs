@@ -6,5 +6,6 @@ public enum CalendarContextMenuActionType
     JoinOnline,
     Delete,
     ShowAs,
-    Respond
+    Respond,
+    Copy
 }

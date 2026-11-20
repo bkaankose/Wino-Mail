@@ -449,6 +449,7 @@
   "CalendarReadOnly_Message": "You can't update this calendar or its events. This calendar is read-only.",
   "CalendarPicker_ReadOnly": "Read-only",
   "CalendarContextMenu_Respond": "Respond",
+  "CalendarContextMenu_Paste": "Paste",
   "CalendarEventDetails_Reminder": "Reminder",
   "CalendarReminder_StartedHoursAgo": "Started {0} hours ago",
   "CalendarReminder_StartedMinutesAgo": "Started {0} minutes ago",

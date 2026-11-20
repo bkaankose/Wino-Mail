@@ -117,6 +117,42 @@ public sealed partial class CalendarPeriodControl
         }
     }
 
+    private void TimedInteractionLayerRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (ResolveTimedDropTarget(e.GetPosition(TimedViewport), null) is CalendarDropTargetInfo target)
+        {
+            RaiseEmptyAreaContextRequested(e, target.TargetStart, hasTime: true);
+        }
+    }
+
+    private void TimedDayAreaRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (sender is UIElement element && TryResolveTimedColumn(e.GetPosition(element).X, out _, out var date))
+        {
+            RaiseEmptyAreaContextRequested(e, date.ToDateTime(TimeOnly.MinValue), hasTime: false);
+        }
+    }
+
+    private void MonthInteractionLayerRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (TryResolveMonthCell(e.GetPosition(MonthViewport), out _, out var date))
+        {
+            RaiseEmptyAreaContextRequested(e, date.ToDateTime(TimeOnly.MinValue), hasTime: false);
+        }
+    }
+
+    private void RaiseEmptyAreaContextRequested(RightTappedRoutedEventArgs e, DateTime target, bool hasTime)
+    {
+        if (e.Handled || IsCalendarItemSource(e.OriginalSource))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        CancelPendingMonthTap();
+        EmptyAreaContextRequested?.Invoke(this, new CalendarEmptyAreaContextRequestedEventArgs(target, hasTime, e.GetPosition(this)));
+    }
+
     private void TimedViewportPointerMoved(object sender, PointerRoutedEventArgs e)
         => UpdateHoverTargetForActiveDrag(() => ResolveTimedDropTarget(e.GetCurrentPoint(TimedViewport).Position, _activeDragPackage?.CalendarItemViewModel));
 

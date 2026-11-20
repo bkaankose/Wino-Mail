@@ -715,6 +715,104 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         await ChangeCalendarItemTimesAsync(calendarItemViewModel, normalizedTargetStart, calendarItem.DurationInSeconds).ConfigureAwait(false);
     }
 
+    [ObservableProperty]
+    public partial bool HasCopiedCalendarItem { get; private set; }
+
+    private CalendarItem _copiedCalendarItem;
+    private List<Reminder> _copiedReminders = [];
+
+    public async Task CopyCalendarItemAsync(CalendarItemViewModel calendarItemViewModel)
+    {
+        if (calendarItemViewModel?.CalendarItem is not CalendarItem calendarItem)
+            return;
+
+        var snapshot = CloneCalendarItem(calendarItem);
+        snapshot.AssignedCalendar = calendarItem.AssignedCalendar;
+
+        var reminders = await _calendarService.GetRemindersAsync(calendarItem.EventTrackingId).ConfigureAwait(false) ?? [];
+
+        await ExecuteUIThread(() =>
+        {
+            _copiedCalendarItem = snapshot;
+            _copiedReminders = reminders;
+            HasCopiedCalendarItem = true;
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Creates a copy of the copied event at <paramref name="target"/>. A target with a time (an hour slot)
+    /// moves a timed event's start there; a day target keeps its time of day. All-day events stay all-day
+    /// and keep their length in days.
+    /// </summary>
+    public async Task PasteCalendarItemAsync(DateTime target, bool targetHasTime)
+    {
+        var source = _copiedCalendarItem;
+
+        if (source == null || !Readiness.IsReady)
+            return;
+
+        var calendar = ResolvePasteCalendar(source.CalendarId);
+
+        if (calendar == null)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
+
+        DateTime startDate;
+        DateTime endDate;
+
+        if (source.IsAllDayEvent)
+        {
+            var dayCount = Math.Max(1, (int)Math.Round(source.DurationInSeconds / TimeSpan.FromDays(1).TotalSeconds));
+            startDate = target.Date;
+            endDate = startDate.AddDays(dayCount);
+        }
+        else
+        {
+            startDate = targetHasTime ? target : target.Date.Add(source.LocalStartDate.TimeOfDay);
+            endDate = startDate.AddSeconds(Math.Max(0d, source.DurationInSeconds));
+        }
+
+        var composeResult = new CalendarEventComposeResult
+        {
+            CalendarId = calendar.Id,
+            AccountId = calendar.Account.Id,
+            Title = source.Title ?? string.Empty,
+            Location = source.Location ?? string.Empty,
+            HtmlNotes = source.Description ?? string.Empty,
+            StartDate = startDate,
+            EndDate = endDate,
+            IsAllDay = source.IsAllDayEvent,
+            TimeZoneId = TimeZoneInfo.Local.Id,
+            ShowAs = source.ShowAs,
+            Visibility = source.Visibility,
+            SelectedReminders = _copiedReminders
+                .Select(reminder => new Reminder { DurationInSeconds = reminder.DurationInSeconds, ReminderType = reminder.ReminderType })
+                .ToList(),
+            Attendees = [],
+            Attachments = [],
+            Recurrence = string.Empty,
+            RecurrenceSummary = string.Empty
+        };
+
+        var preparationRequest = new CalendarOperationPreparationRequest(
+            CalendarSynchronizerOperation.CreateEvent,
+            ComposeResult: composeResult);
+
+        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
+    }
+
+    private AccountCalendarViewModel ResolvePasteCalendar(Guid sourceCalendarId)
+    {
+        var calendars = AccountCalendarStateService.AllCalendars.ToList();
+
+        return calendars.FirstOrDefault(calendar => calendar.Id == sourceCalendarId && !calendar.IsReadOnly)
+               ?? (SelectedQuickEventAccountCalendar is { IsReadOnly: false } selected ? selected : null)
+               ?? calendars.FirstOrDefault(calendar => calendar.IsPrimary && !calendar.IsReadOnly && IsCalendarActive(calendar.Id))
+               ?? calendars.FirstOrDefault(calendar => !calendar.IsReadOnly && IsCalendarActive(calendar.Id));
+    }
+
     /// <summary>
     /// Changes a timed event's end while keeping its start (bottom-edge resize on macOS).
     /// Uses the same validation and ChangeStartAndEndDate persistence path as <see cref="MoveCalendarItemAsync"/>.
@@ -1619,6 +1717,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         switch (action.ActionType)
         {
+            case CalendarContextMenuActionType.Copy:
+                await CopyCalendarItemAsync(calendarItemViewModel).ConfigureAwait(false);
+                break;
             case CalendarContextMenuActionType.JoinOnline:
                 await JoinOnlineAsync(calendarItemViewModel).ConfigureAwait(false);
                 break;

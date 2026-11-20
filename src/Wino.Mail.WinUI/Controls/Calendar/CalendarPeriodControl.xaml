@@ -101,6 +101,7 @@
                 Grid.Column="1"
                 Height="44"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
+                RightTapped="TimedDayAreaRightTapped"
                 SizeChanged="RailHostSizeChanged">
                 <Grid.Clip>
                     <RectangleGeometry x:Name="TimedHeaderClip" />
@@ -142,6 +143,7 @@
                 Drop="TimedAllDayHostDrop"
                 PointerExited="CalendarDropTargetPointerExited"
                 PointerMoved="TimedAllDayHostPointerMoved"
+                RightTapped="TimedDayAreaRightTapped"
                 SizeChanged="RailHostSizeChanged"
                 Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
                 <Grid.Clip>
@@ -199,6 +201,7 @@
                             <Border
                                 x:Name="TimedInteractionLayer"
                                 Background="Transparent"
+                                RightTapped="TimedInteractionLayerRightTapped"
                                 Tapped="TimedInteractionLayerTapped" />
                             <Canvas x:Name="TimedBodyRail">
                                 <Grid x:Name="TimedStructureCanvasHost" IsHitTestVisible="False">
@@ -296,6 +299,7 @@
                     x:Name="MonthInteractionLayer"
                     Background="Transparent"
                     DoubleTapped="MonthInteractionLayerDoubleTapped"
+                    RightTapped="MonthInteractionLayerRightTapped"
                     Tapped="MonthInteractionLayerTapped" />
                 <Canvas x:Name="MonthRail">
                     <Grid x:Name="MonthStructureCanvasHost" IsHitTestVisible="False">

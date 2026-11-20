@@ -146,6 +146,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     /// </summary>
     public event EventHandler<CalendarPeriodEventArgs>? MonthDayDoubleTapped;
 
+    /// <summary>
+    /// Raised when an empty hour slot, day header, all-day strip day or month day is right-clicked.
+    /// </summary>
+    public event EventHandler<CalendarEmptyAreaContextRequestedEventArgs>? EmptyAreaContextRequested;
+
     private ObservableCollection<HeaderTextLayout> MonthHeaderTextsCollection { get; } = [];
 
     public ObservableCollection<HeaderTextLayout> MonthHeaderTexts => MonthHeaderTextsCollection;
