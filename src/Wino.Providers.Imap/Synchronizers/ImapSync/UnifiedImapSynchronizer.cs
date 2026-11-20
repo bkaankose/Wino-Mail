@@ -473,7 +473,7 @@ public class UnifiedImapSynchronizer
                     .FetchAsync(new UniqueIdSet(newBatch.ToList(), SortOrder.Ascending),
                         new FetchRequest(_mailSynchronizationFlags, new[]
                         {
-                            "References", "Subject", "From", "Sender", Wino.Core.Domain.Constants.WinoLocalDraftHeader, Wino.Core.Domain.Constants.LegacyWinoLocalDraftHeader, Wino.Core.Domain.Constants.DispositionNotificationToHeader
+                            "References", "Subject", "From", "Sender", "Reply-To", "To", "Cc", "Bcc", Wino.Core.Domain.Constants.WinoLocalDraftHeader, Wino.Core.Domain.Constants.LegacyWinoLocalDraftHeader, Wino.Core.Domain.Constants.DispositionNotificationToHeader
                         }), cancellationToken)
                     .ConfigureAwait(false);
 
@@ -494,6 +494,7 @@ public class UnifiedImapSynchronizer
                 }
 
                 var calendarMimeByUid = await DownloadCalendarHintedMimeAsync(remoteFolder, newSummaryBatch, cancellationToken).ConfigureAwait(false);
+                var rawHeadersByUid = await DownloadRawHeadersForDowngradedTextAsync(remoteFolder, newSummaryBatch, calendarMimeByUid, cancellationToken).ConfigureAwait(false);
 
                 downloadedMessageIds.AddRange(await ProcessSummariesCoreAsync(
                     synchronizer,
@@ -502,7 +503,8 @@ public class UnifiedImapSynchronizer
                     existingByUid,
                     cancellationToken,
                     suppressMatchingLocalFilters,
-                    calendarMimeByUid).ConfigureAwait(false));
+                    calendarMimeByUid,
+                    rawHeadersByUid).ConfigureAwait(false));
             }
         }
 
@@ -846,7 +848,8 @@ public class UnifiedImapSynchronizer
         IReadOnlyDictionary<uint, MailCopy> existingByUid,
         CancellationToken cancellationToken,
         bool suppressMatchingLocalFilters,
-        IReadOnlyDictionary<uint, MimeMessage> mimeByUid = null)
+        IReadOnlyDictionary<uint, MimeMessage> mimeByUid = null,
+        IReadOnlyDictionary<uint, HeaderList> rawHeadersByUid = null)
     {
         var downloadedMessageIds = new List<string>();
 
@@ -885,7 +888,9 @@ public class UnifiedImapSynchronizer
                 continue;
             }
 
-            var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage: mimeByUid?.GetValueOrDefault(summary.UniqueId.Id));
+            var creationPackage = new ImapMessageCreationPackage(summary,
+                mimeMessage: mimeByUid?.GetValueOrDefault(summary.UniqueId.Id),
+                rawHeaders: rawHeadersByUid?.GetValueOrDefault(summary.UniqueId.Id));
             var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, localFolder, cancellationToken).ConfigureAwait(false);
 
             if (mailPackages == null)
@@ -947,7 +952,7 @@ public class UnifiedImapSynchronizer
 
             try
             {
-                mimeByUid[summary.UniqueId.Id] = await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
+                mimeByUid[summary.UniqueId.Id] = (await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false)).RecoverHeaderCharsets();
             }
             catch (Exception ex) when (ex is MessageNotFoundException or ImapCommandException or FormatException)
             {
@@ -956,6 +961,45 @@ public class UnifiedImapSynchronizer
         }
 
         return mimeByUid;
+    }
+
+    /// <summary>
+    /// Re-reads the whole header section (BODY.PEEK[HEADER]) of messages whose subject or display names came back
+    /// with '?' or U+FFFD. Servers may downgrade non-ASCII header text in ENVELOPE and HEADER.FIELDS for clients
+    /// that did not enable UTF8=ACCEPT (RFC 6855), but BODY[HEADER] is the stored octets (RFC 3501 6.4.5).
+    /// A message whose header section can't be read keeps the values from the summary.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<uint, HeaderList>> DownloadRawHeadersForDowngradedTextAsync(
+        IMailFolder remoteFolder,
+        IEnumerable<IMessageSummary> summaries,
+        IReadOnlyDictionary<uint, MimeMessage> mimeByUid,
+        CancellationToken cancellationToken)
+    {
+        var suspects = summaries
+            .Where(summary => !mimeByUid.ContainsKey(summary.UniqueId.Id) && summary.MayHaveDowngradedHeaderText())
+            .Select(summary => summary.UniqueId)
+            .ToList();
+
+        if (suspects.Count == 0)
+            return null;
+
+        try
+        {
+            var requested = suspects.ToHashSet();
+            var fetched = await remoteFolder
+                .FetchAsync(new UniqueIdSet(suspects, SortOrder.Ascending), new FetchRequest(MessageSummaryItems.UniqueId) { Headers = HeaderSet.All }, cancellationToken)
+                .ConfigureAwait(false);
+
+            return fetched
+                .Where(summary => summary.Headers != null && requested.Contains(summary.UniqueId))
+                .GroupBy(summary => summary.UniqueId.Id)
+                .ToDictionary(group => group.Key, group => group.First().Headers);
+        }
+        catch (Exception ex) when (ex is ImapCommandException or FormatException)
+        {
+            _logger.Warning(ex, "Could not read the header section of {Count} messages in {FolderName}; their summary values are kept.", suspects.Count, remoteFolder.FullName);
+            return null;
+        }
     }
 
     private async Task<int> ApplySummaryFlagUpdatesAsync(

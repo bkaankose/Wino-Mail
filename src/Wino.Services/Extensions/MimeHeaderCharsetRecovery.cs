@@ -24,6 +24,7 @@ public static class MimeHeaderCharsetRecovery
     private const int Utf8CodePage = 65001;
     private const int Latin1CodePage = 28591;
     private const int AsciiCodePage = 20127;
+    private static readonly char[] DowngradeMarks = ['?', '\uFFFD'];
 
     /// <summary>
     /// Returns the message with its headers decoded through the body charset when any header
@@ -91,6 +92,14 @@ public static class MimeHeaderCharsetRecovery
 
         return InternetAddressList.TryParse(header.GetValue(fallbackEncoding), out addresses);
     }
+
+    /// <summary>
+    /// Returns true when display text contains '?' or U+FFFD, the marks a server leaves when it downgrades
+    /// characters it could not send to a client that did not enable UTF8=ACCEPT. A real question mark also
+    /// matches; callers only use this to decide whether re-reading the raw header section is worth it.
+    /// </summary>
+    public static bool MayBeDowngraded(string value)
+        => !string.IsNullOrEmpty(value) && value.IndexOfAny(DowngradeMarks) >= 0;
 
     /// <summary>
     /// Returns true when any header of the message or its parts carries 8-bit bytes that are not valid UTF-8.

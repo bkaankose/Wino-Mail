@@ -740,6 +740,15 @@ IImapChangeProcessor imapChangeProcessor,
             await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id, mailItem.Id).ConfigureAwait(false);
             await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
             faulted = false;
+
+            try
+            {
+                await _imapChangeProcessor.RepairDowngradedHeaderTextAsync(mailItem.UniqueId, message).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Downloaded MIME for {MailId}, but repairing its stored subject or sender name failed.", mailItem.Id);
+            }
         }
         finally
         {
@@ -933,7 +942,7 @@ IImapChangeProcessor imapChangeProcessor,
 
     public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(ImapMessageCreationPackage message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
     {
-        var mailCopy = message.MessageSummary.GetMailDetails(assignedFolder, message.MimeMessage);
+        var mailCopy = message.MessageSummary.GetMailDetails(assignedFolder, message.MimeMessage, message.RawHeaders);
 
         // Draft folder message updates must be updated as IsDraft.
         // I couldn't find it in MimeMesssage...
@@ -968,7 +977,7 @@ IImapChangeProcessor imapChangeProcessor,
 
         var contacts = message.MimeMessage != null
             ? ExtractContactsFromMimeMessage(message.MimeMessage)
-            : ExtractContactsFromMessageSummary(message.MessageSummary);
+            : ExtractContactsFromMessageSummary(message.MessageSummary, message.RawHeaders);
 
         var package = new NewMailItemPackage(mailCopy, message.MimeMessage, assignedFolder.RemoteFolderId, contacts);
 
@@ -1022,19 +1031,20 @@ IImapChangeProcessor imapChangeProcessor,
         }
     }
 
-    private static IReadOnlyList<AccountContact> ExtractContactsFromMessageSummary(IMessageSummary summary)
+    private static IReadOnlyList<AccountContact> ExtractContactsFromMessageSummary(IMessageSummary summary, HeaderList rawHeaders)
     {
         if (summary?.Envelope == null) return [];
 
         var contacts = new Dictionary<string, AccountContact>(StringComparer.OrdinalIgnoreCase);
 
-        AddFromInternetAddressList(summary.Envelope.From);
-        AddFromInternetAddressList(summary.Envelope.To);
-        AddFromInternetAddressList(summary.Envelope.Cc);
-        AddFromInternetAddressList(summary.Envelope.Bcc);
-        AddFromInternetAddressList(summary.Envelope.ReplyTo);
+        // Names come from the fetched headers like the message's sender name; ENVELOPE names can be downgraded.
+        AddFromInternetAddressList(summary.GetDisplayAddresses(HeaderId.From, rawHeaders));
+        AddFromInternetAddressList(summary.GetDisplayAddresses(HeaderId.To, rawHeaders));
+        AddFromInternetAddressList(summary.GetDisplayAddresses(HeaderId.Cc, rawHeaders));
+        AddFromInternetAddressList(summary.GetDisplayAddresses(HeaderId.Bcc, rawHeaders));
+        AddFromInternetAddressList(summary.GetDisplayAddresses(HeaderId.ReplyTo, rawHeaders));
 
-        var senderMailbox = summary.Envelope.Sender?.Mailboxes?.FirstOrDefault();
+        var senderMailbox = summary.GetDisplayAddresses(HeaderId.Sender, rawHeaders).Mailboxes.FirstOrDefault();
         if (senderMailbox != null)
         {
             AddContact(senderMailbox.Address, senderMailbox.Name);

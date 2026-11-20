@@ -115,16 +115,21 @@ public static class MailkitClientExtensions
             return HtmlAgilityPackExtensions.GetPreviewText(message.HtmlBody);
     }
 
-    public static MailCopy GetMailDetails(this IMessageSummary messageSummary, MailItemFolder folder, MimeMessage mime = null)
+    /// <param name="rawHeaders">
+    /// The message's whole header section (BODY[HEADER]) when it was fetched; it takes precedence over the
+    /// summary's HEADER.FIELDS and ENVELOPE, which some servers return with downgraded characters.
+    /// </param>
+    public static MailCopy GetMailDetails(this IMessageSummary messageSummary, MailItemFolder folder, MimeMessage mime = null, HeaderList rawHeaders = null)
     {
         // IMAP UIDs are unique only within a folder.
         // MailCopy.Id maps to {FolderId}_{UID} for deterministic folder-local identity.
 
         var envelope = messageSummary.Envelope;
+        var headers = rawHeaders ?? messageSummary.Headers;
         var fallbackEncoding = mime == null ? MimeHeaderCharsetRecovery.GetBodyFallbackEncoding(messageSummary.Body) : null;
 
         var messageUid = CreateUid(folder.Id, messageSummary.UniqueId.Id);
-        var subject = mime?.Subject ?? GetEnvelopeSubject(messageSummary, fallbackEncoding);
+        var subject = mime?.Subject ?? GetSummarySubject(messageSummary, headers, fallbackEncoding);
         var previewText = mime != null ? mime.GetPreviewText() : GetPreviewText(messageSummary, subject);
 
         // Prefer InternalDate (server received time). Fall back to envelope date and finally UTC now.
@@ -133,8 +138,8 @@ public static class MailkitClientExtensions
                            ?? DateTime.UtcNow;
 
         var messageId = MailHeaderExtensions.NormalizeMessageId(mime?.GetMessageId() ?? envelope?.MessageId);
-        var fromName = mime != null ? GetActualSenderName(mime) : GetEnvelopeSenderName(messageSummary, fallbackEncoding);
-        var fromAddress = mime != null ? GetActualSenderAddress(mime) : GetEnvelopeSenderAddress(envelope);
+        var fromName = mime != null ? GetActualSenderName(mime) : GetSummarySenderName(messageSummary, headers, fallbackEncoding);
+        var fromAddress = mime != null ? GetActualSenderAddress(mime) : GetSummarySenderAddress(messageSummary, headers, fallbackEncoding);
         var references = mime?.References?.GetReferences() ?? messageSummary.References?.GetReferences();
         var inReplyTo = MailHeaderExtensions.NormalizeMessageId(mime != null ? mime.GetInReplyTo() : envelope?.InReplyTo);
         var threadId = ResolveThreadId(messageSummary, messageId, references, inReplyTo);
@@ -220,11 +225,61 @@ public static class MailkitClientExtensions
         return subjectFallback ?? string.Empty;
     }
 
-    private static string GetEnvelopeSubject(IMessageSummary messageSummary, Encoding fallbackEncoding)
+    /// <summary>
+    /// The addresses of an address header as the list and contacts show them: parsed from the fetched header
+    /// when there is one, otherwise from the ENVELOPE. Returns an empty list when neither has the header.
+    /// </summary>
+    public static InternetAddressList GetDisplayAddresses(this IMessageSummary messageSummary, HeaderId headerId, HeaderList rawHeaders = null)
+    {
+        var fallbackEncoding = MimeHeaderCharsetRecovery.GetBodyFallbackEncoding(messageSummary.Body);
+        var parsed = GetHeaderAddresses(rawHeaders ?? messageSummary.Headers, headerId, fallbackEncoding);
+
+        if (parsed != null)
+            return parsed;
+
+        var envelope = messageSummary.Envelope;
+        var fromEnvelope = headerId switch
+        {
+            HeaderId.From => envelope?.From,
+            HeaderId.Sender => envelope?.Sender,
+            HeaderId.ReplyTo => envelope?.ReplyTo,
+            HeaderId.To => envelope?.To,
+            HeaderId.Cc => envelope?.Cc,
+            HeaderId.Bcc => envelope?.Bcc,
+            _ => null,
+        };
+
+        return fromEnvelope ?? new InternetAddressList();
+    }
+
+    /// <summary>
+    /// Returns true when the subject or a display name that the summary yields may carry characters a server
+    /// downgraded to '?' or U+FFFD in HEADER.FIELDS or ENVELOPE. The whole header section (BODY[HEADER]) is the
+    /// stored octets and is not downgraded, so such messages are worth re-reading from it.
+    /// </summary>
+    public static bool MayHaveDowngradedHeaderText(this IMessageSummary messageSummary)
+    {
+        var fallbackEncoding = MimeHeaderCharsetRecovery.GetBodyFallbackEncoding(messageSummary.Body);
+
+        if (MimeHeaderCharsetRecovery.MayBeDowngraded(GetSummarySubject(messageSummary, messageSummary.Headers, fallbackEncoding)))
+            return true;
+
+        foreach (var headerId in DisplayAddressHeaders)
+        {
+            if (messageSummary.GetDisplayAddresses(headerId).Mailboxes.Any(mailbox => MimeHeaderCharsetRecovery.MayBeDowngraded(mailbox.Name)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static readonly HeaderId[] DisplayAddressHeaders = [HeaderId.From, HeaderId.Sender, HeaderId.ReplyTo, HeaderId.To, HeaderId.Cc, HeaderId.Bcc];
+
+    private static string GetSummarySubject(IMessageSummary messageSummary, HeaderList headers, Encoding fallbackEncoding)
     {
         // Some servers replace non-ASCII characters of unencoded UTF-8 headers with '?' in ENVELOPE for clients
         // that did not enable UTF8=ACCEPT. The fetched header carries the original bytes.
-        var header = FindRawHeader(messageSummary, HeaderId.Subject);
+        var header = FindRawHeader(headers, HeaderId.Subject);
 
         if (header != null)
             return MimeHeaderCharsetRecovery.GetRecoveredValue(header, fallbackEncoding) ?? string.Empty;
@@ -232,10 +287,9 @@ public static class MailkitClientExtensions
         return messageSummary.Envelope?.Subject ?? string.Empty;
     }
 
-    private static string GetEnvelopeSenderName(IMessageSummary messageSummary, Encoding fallbackEncoding)
+    private static string GetSummarySenderName(IMessageSummary messageSummary, HeaderList headers, Encoding fallbackEncoding)
     {
-        var mailbox = GetHeaderMailbox(messageSummary, HeaderId.From, fallbackEncoding)
-                      ?? GetHeaderMailbox(messageSummary, HeaderId.Sender, fallbackEncoding);
+        var mailbox = GetHeaderSender(headers, fallbackEncoding);
 
         if (mailbox != null)
             return string.IsNullOrWhiteSpace(mailbox.Name) ? mailbox.Address : mailbox.Name;
@@ -243,23 +297,34 @@ public static class MailkitClientExtensions
         return GetEnvelopeSenderName(messageSummary.Envelope);
     }
 
-    private static MailboxAddress GetHeaderMailbox(IMessageSummary messageSummary, HeaderId headerId, Encoding fallbackEncoding)
+    private static string GetSummarySenderAddress(IMessageSummary messageSummary, HeaderList headers, Encoding fallbackEncoding)
     {
-        var header = FindRawHeader(messageSummary, headerId);
+        var address = GetHeaderSender(headers, fallbackEncoding)?.Address;
+
+        return string.IsNullOrWhiteSpace(address) ? GetEnvelopeSenderAddress(messageSummary.Envelope) : address;
+    }
+
+    private static MailboxAddress GetHeaderSender(HeaderList headers, Encoding fallbackEncoding)
+        => GetHeaderAddresses(headers, HeaderId.From, fallbackEncoding)?.Mailboxes.FirstOrDefault()
+           ?? GetHeaderAddresses(headers, HeaderId.Sender, fallbackEncoding)?.Mailboxes.FirstOrDefault();
+
+    private static InternetAddressList GetHeaderAddresses(HeaderList headers, HeaderId headerId, Encoding fallbackEncoding)
+    {
+        var header = FindRawHeader(headers, headerId);
 
         if (header == null)
             return null;
 
         if (MimeHeaderCharsetRecovery.TryGetRecoveredAddresses(header, fallbackEncoding, out var recovered))
-            return recovered.Mailboxes.FirstOrDefault();
+            return recovered;
 
         return InternetAddressList.TryParse(ParserOptions.Default, header.RawValue, out var addresses)
-            ? addresses.Mailboxes.FirstOrDefault()
+            ? addresses
             : null;
     }
 
-    private static Header FindRawHeader(IMessageSummary messageSummary, HeaderId headerId)
-        => messageSummary.Headers?.FirstOrDefault(header => header.Id == headerId);
+    private static Header FindRawHeader(HeaderList headers, HeaderId headerId)
+        => headers?.FirstOrDefault(header => header.Id == headerId);
 
     private static string GetEnvelopeSenderName(Envelope envelope)
     {
