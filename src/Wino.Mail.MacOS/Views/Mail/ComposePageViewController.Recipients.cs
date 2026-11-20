@@ -91,14 +91,29 @@ public sealed partial class ComposePageViewController
         return result;
     }
 
-    private async Task SyncAllRecipientsAsync()
+    private static string[] ReadTokens(NSTokenField field, bool includeTyped)
+    {
+        var tokens = ReadTokens(field).ToList();
+        if (!includeTyped && field.CurrentEditor is NSTextView editor && TypedText(editor).Query is { Length: > 0 } typed)
+        {
+            var index = tokens.FindLastIndex(token => string.Equals(token, typed, StringComparison.Ordinal));
+            if (index >= 0) tokens.RemoveAt(index);
+        }
+        return tokens.ToArray();
+    }
+
+    /// <param name="includeTyped">
+    /// False for autosave: the address still being typed is not a recipient yet, so it is neither validated nor
+    /// cleared from the field. Send and closing the page pass true and take it as typed.
+    /// </param>
+    private async Task SyncAllRecipientsAsync(bool includeTyped = true)
     {
         string[] to = [], cc = [], bcc = [];
         await Dispatcher.ExecuteOnUIThread(() =>
         {
-            to = ReadTokens(_toField).ToArray();
-            cc = ReadTokens(_ccField).ToArray();
-            bcc = ReadTokens(_bccField).ToArray();
+            to = ReadTokens(_toField, includeTyped);
+            cc = ReadTokens(_ccField, includeTyped);
+            bcc = ReadTokens(_bccField, includeTyped);
         });
         await SyncRecipientsAsync(_toField, to);
         await SyncRecipientsAsync(_ccField, cc);

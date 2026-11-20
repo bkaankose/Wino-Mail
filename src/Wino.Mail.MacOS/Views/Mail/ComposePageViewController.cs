@@ -522,7 +522,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
     private async Task<bool> BeforeAutosaveAsync()
     {
         if (_editorDisposed || Bindings.IsDisposed) return false;
-        await SyncAllRecipientsAsync();
+        await SyncAllRecipientsAsync(includeTyped: false);
         return true;
     }
 
