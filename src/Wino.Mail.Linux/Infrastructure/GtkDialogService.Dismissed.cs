@@ -16,11 +16,10 @@ using Wino.Core.Domain.Models.MailItem;
 namespace Wino.Mail.Linux.Infrastructure;
 
 /// <summary>
-/// Dialogs for the Linux proof of concept. Info bars are toasts, and the certificate trust and open-link questions
-/// are real dialogs. Every other dialog is answered as the user dismissing it (confirmations declined, pickers
-/// empty) and logged, because its screen does not exist yet.
+/// Dialogs whose package has not landed: each is answered as the user dismissing it (confirmations declined, pickers
+/// empty) and logged.
 /// </summary>
-internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<Views.MainWindow?> window) : IMailDialogService
+internal sealed partial class GtkDialogService
 {
     private static T Dismiss<T>(string name, string? detail, T answer)
     {
@@ -36,27 +35,6 @@ internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<View
         return Task.CompletedTask;
     }
 
-    public Task<string> PickWindowsFolderAsync() => DismissAsync(nameof(PickWindowsFolderAsync), null, string.Empty);
-
-    public Task<byte[]> PickWindowsFileContentAsync(params object[] typeFilters) => DismissAsync(nameof(PickWindowsFileContentAsync), null, Array.Empty<byte>());
-
-    public Task<bool> ShowConfirmationDialogAsync(string question, string title, string confirmationButtonTitle)
-        => DismissAsync(nameof(ShowConfirmationDialogAsync), $"{title}: {question}", false);
-
-    public Task ShowMessageAsync(string message, string title, WinoCustomMessageDialogIcon icon)
-        => DismissAsync(nameof(ShowMessageAsync), $"{icon} {title}: {message}");
-
-
-
-    public void ShowNotSupportedMessage() => Dismiss(nameof(ShowNotSupportedMessage), null, true);
-
-    public Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription, string primaryButtonText)
-        => DismissAsync(nameof(ShowTextInputDialogAsync), dialogTitle, string.Empty);
-
-    public Task<bool> ShowWinoCustomMessageDialogAsync(string title, string description, string approveButtonText, WinoCustomMessageDialogIcon? icon,
-        string cancelButtonText = "", string dontAskAgainConfigurationKey = "")
-        => DismissAsync(nameof(ShowWinoCustomMessageDialogAsync), $"{title}: {description}", false);
-
     public Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders)
         => Task.FromException<AccountCreationDialogResult>(new NotSupportedException(
             Dismiss(nameof(ShowAccountProviderSelectionDialogAsync), null, "Account provider selection has no screen on Linux yet.")));
@@ -64,26 +42,8 @@ internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<View
     public IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
         => new GtkAccountCreationDialog();
 
-    public Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters) => DismissAsync(nameof(PickFilesAsync), null, new List<SharedFile>());
-
-    public Task<List<PickedFileMetadata>> PickFilesMetadataAsync(params object[] typeFilters)
-        => DismissAsync(nameof(PickFilesMetadataAsync), null, new List<PickedFileMetadata>());
-
-    public Task<string> PickFilePathAsync(string saveFileName) => DismissAsync(nameof(PickFilePathAsync), saveFileName, string.Empty);
-
     public Task<MailAccount?> PickAccountAsync(IReadOnlyList<MailAccount> accounts, string title)
         => DismissAsync<MailAccount?>(nameof(PickAccountAsync), title, null);
-
-    public void ShowReadOnlyCalendarMessage() => Dismiss(nameof(ShowReadOnlyCalendarMessage), null, true);
-
-    public Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync()
-        => DismissAsync<CalendarEventTargetType?>(nameof(ShowRecurringEventDeleteDialogAsync), null, null);
-
-    public Task<bool> ShowHardDeleteConfirmationAsync() => DismissAsync(nameof(ShowHardDeleteConfirmationAsync), null, false);
-
-    public Task<ThreeButtonDialogResult> ShowThreeButtonDialogAsync(string title, string description, string primaryButtonText, string secondaryButtonText,
-        string cancelButtonText, WinoCustomMessageDialogIcon? icon = null)
-        => DismissAsync(nameof(ShowThreeButtonDialogAsync), $"{title}: {description}", ThreeButtonDialogResult.Cancel);
 
     public Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService)
         => DismissAsync(nameof(HandleSystemFolderConfigurationDialogAsync), accountId.ToString());
