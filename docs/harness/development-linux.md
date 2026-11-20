@@ -77,6 +77,7 @@ gio open wino://anything        # reaches the running instance; the log records 
 scripts/development/linux/install-desktop-entry.sh --remove
 ```
 
+The script also writes the scheme default to `$XDG_CONFIG_HOME/mimeapps.list`. Set both `XDG_DATA_HOME` and `XDG_CONFIG_HOME` to try it without touching your profile.
 The file is installed as `app.winomail.Mail.desktop`, the application id. GNOME Shell shows notifications under the app's name and icon only when that file exists.
 
 ## System services
@@ -138,4 +139,5 @@ Do not add such a script to the repository; each check is run ad hoc and reporte
 | `NETSDK1124` on publish | `PublishTrimmed` or `PublishAot` was passed on the command line. Use `-p:WinoLinuxPublish=…`. |
 | Squares instead of Chinese, Japanese or Korean text | No CJK font is installed (`fonts-noto-cjk` on Ubuntu). |
 | An error appears in the log file only after a while | The log file is buffered. Wait a few seconds or close the app. |
+| Dozens of `gvfsd`, `goa-daemon` or `evolution-*` processes after headless runs | A private session was killed instead of ended, so the helpers its bus started live on. Let the session's last command exit, or stop the processes whose `DBUS_SESSION_BUS_ADDRESS` points at `/tmp/dbus-*`. |
 | `libEGL` and `MESA` warnings under WSL or headless | No GPU; GTK falls back to software rendering. Harmless. |

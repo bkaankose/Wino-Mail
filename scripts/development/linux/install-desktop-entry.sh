@@ -3,7 +3,9 @@
 # id (GNOME shows notifications and the window icon under it) and the wino:// scheme handler.
 #   install-desktop-entry.sh <path to the wino-mail executable>
 #   install-desktop-entry.sh --remove
-# Files go to $XDG_DATA_HOME/applications (~/.local/share/applications); nothing needs root.
+# The file goes to $XDG_DATA_HOME/applications (~/.local/share/applications) and the scheme default to
+# $XDG_CONFIG_HOME/mimeapps.list; nothing needs root. --remove deletes the file only: gio cannot unset a default, and
+# an entry that names a missing .desktop file is ignored.
 set -euo pipefail
 
 id="app.winomail.Mail"
