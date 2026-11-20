@@ -295,6 +295,7 @@
                 <Border
                     x:Name="MonthInteractionLayer"
                     Background="Transparent"
+                    DoubleTapped="MonthInteractionLayerDoubleTapped"
                     Tapped="MonthInteractionLayerTapped" />
                 <Canvas x:Name="MonthRail">
                     <Grid x:Name="MonthStructureCanvasHost" IsHitTestVisible="False">

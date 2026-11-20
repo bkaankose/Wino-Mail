@@ -491,6 +491,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         return Task.CompletedTask;
     }
 
+    public void OpenDayView(DateOnly date)
+    {
+        SetDisplayTypeWithoutNavigation(CalendarDisplayType.Day);
+        NavigateCalendarDate(date.ToDateTime(TimeOnly.MinValue));
+    }
+
     private DateTime GetDisplayTypeSwitchDate()
     {
         var today = _dateContextProvider.GetToday();

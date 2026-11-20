@@ -57,6 +57,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private DayOfWeek _lastFirstDayOfWeek = DayOfWeek.Monday;
     private readonly DispatcherQueueTimer _sizeRefreshTimer;
     private readonly DispatcherQueueTimer _wheelSettleTimer;
+    private readonly DispatcherQueueTimer _monthTapTimer;
+    private CalendarEmptySlotTappedEventArgs? _pendingMonthTap;
 
     [GeneratedDependencyProperty]
     public partial VisibleDateRange? VisibleRange { get; set; }
@@ -112,6 +114,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         _wheelSettleTimer.IsRepeating = false;
         _wheelSettleTimer.Tick += WheelSettleTimerTick;
 
+        _monthTapTimer = DispatcherQueue.CreateTimer();
+        _monthTapTimer.IsRepeating = false;
+        _monthTapTimer.Tick += MonthTapTimerTick;
+
         StartCurrentTimeTimer();
     }
 
@@ -134,6 +140,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     /// Raised when the user asks for today with the keyboard (Home).
     /// </summary>
     public event EventHandler? TodayRequested;
+
+    /// <summary>
+    /// Raised when a month day is double-clicked; its anchor is that day.
+    /// </summary>
+    public event EventHandler<CalendarPeriodEventArgs>? MonthDayDoubleTapped;
 
     private ObservableCollection<HeaderTextLayout> MonthHeaderTextsCollection { get; } = [];
 
@@ -161,6 +172,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     partial void OnVisibleRangeChanged(VisibleDateRange? newValue)
     {
+        CancelPendingMonthTap();
         CancelRangeSelection();
         _rangeRefreshPending = true;
         QueueRefresh();
@@ -422,6 +434,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         _sizeRefreshTimer.Stop();
         _sizeRefreshTimer.Tick -= SizeRefreshTimerTick;
         _wheelSettleTimer.Tick -= WheelSettleTimerTick;
+        CancelPendingMonthTap();
+        _monthTapTimer.Tick -= MonthTapTimerTick;
         StopCurrentTimeTimer();
         ReleaseCanvases();
         ReleaseRail();

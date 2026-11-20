@@ -284,6 +284,12 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private void CalendarSurfaceViewportPeriodChanged(object? sender, CalendarPeriodEventArgs e)
         => CalendarToolbar.VisibleDateRangeText = ViewModel.FormatRangeText(e.DisplayType, e.AnchorDate);
 
+    private void CalendarSurfaceMonthDayDoubleTapped(object? sender, CalendarPeriodEventArgs e)
+    {
+        CloseQuickEventPopup(clearSelection: true);
+        CalendarShellClient.OpenDayView(e.AnchorDate);
+    }
+
     private void CalendarSurfaceTodayRequested(object? sender, EventArgs e)
     {
         var command = CalendarShellClient.TodayClickedCommand;
@@ -347,6 +353,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarToolbar.NextDateRequested += CalendarToolbarNextDateRequested;
         CalendarSurface.PeriodSettled += CalendarSurfacePeriodSettled;
         CalendarSurface.TodayRequested += CalendarSurfaceTodayRequested;
+        CalendarSurface.MonthDayDoubleTapped += CalendarSurfaceMonthDayDoubleTapped;
         CalendarSurface.ViewportPeriodChanged += CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged += CalendarShellClientPropertyChanged;
@@ -368,6 +375,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarToolbar.NextDateRequested -= CalendarToolbarNextDateRequested;
         CalendarSurface.PeriodSettled -= CalendarSurfacePeriodSettled;
         CalendarSurface.TodayRequested -= CalendarSurfaceTodayRequested;
+        CalendarSurface.MonthDayDoubleTapped -= CalendarSurfaceMonthDayDoubleTapped;
         CalendarSurface.ViewportPeriodChanged -= CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged -= CalendarShellClientPropertyChanged;

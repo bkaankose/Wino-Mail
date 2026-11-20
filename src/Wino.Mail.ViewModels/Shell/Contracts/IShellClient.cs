@@ -61,6 +61,7 @@ public interface ICalendarShellClient : IShellMenuProvider
     ICommand PreviousDateRangeCommand { get; }
     ICommand NextDateRangeCommand { get; }
     IEnumerable GroupedAccountCalendars { get; }
+    void OpenDayView(System.DateOnly date);
 }
 
 /// <summary>

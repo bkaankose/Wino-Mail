@@ -1,9 +1,11 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Windows.UI.ViewManagement;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.ViewModels.Calendar.Data;
@@ -60,12 +62,59 @@ public sealed partial class CalendarPeriodControl
 
         var anchorPoint = MonthViewport.TransformToVisual(Root).TransformPoint(position);
 
-        EmptySlotTapped?.Invoke(
-            this,
-            new CalendarEmptySlotTappedEventArgs(
-                date.ToDateTime(TimeOnly.MinValue),
-                anchorPoint,
-                new Size(_monthCellWidth, _unitSize)));
+        // The quick event popup dismisses on the next press outside it, so opening it on the first
+        // click of a double-click would close it again on the second. The tap waits until a
+        // double-click can no longer follow.
+        _pendingMonthTap = new CalendarEmptySlotTappedEventArgs(
+            date.ToDateTime(TimeOnly.MinValue),
+            anchorPoint,
+            new Size(_monthCellWidth, _unitSize));
+        _monthTapTimer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickMilliseconds());
+        _monthTapTimer.Start();
+    }
+
+    private void MonthInteractionLayerDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        CancelPendingMonthTap();
+
+        if (_suppressRangeTap || !TryResolveMonthCell(e.GetPosition(MonthViewport), out _, out var date))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        MonthDayDoubleTapped?.Invoke(this, new CalendarPeriodEventArgs(CalendarDisplayType.Day, date));
+    }
+
+    private void MonthTapTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+
+        var pending = _pendingMonthTap;
+        _pendingMonthTap = null;
+
+        if (pending != null)
+        {
+            EmptySlotTapped?.Invoke(this, pending);
+        }
+    }
+
+    private void CancelPendingMonthTap()
+    {
+        _monthTapTimer.Stop();
+        _pendingMonthTap = null;
+    }
+
+    private static double GetDoubleClickMilliseconds()
+    {
+        try
+        {
+            return Math.Clamp(new UISettings().DoubleClickTime, 200u, 900u);
+        }
+        catch (Exception)
+        {
+            return 500d;
+        }
     }
 
     private void TimedViewportPointerMoved(object sender, PointerRoutedEventArgs e)
