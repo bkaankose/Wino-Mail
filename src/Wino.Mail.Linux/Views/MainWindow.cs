@@ -1,4 +1,5 @@
 using Serilog;
+using Wino.Presentation.Linux;
 using Wino.Presentation.Linux.Style;
 
 namespace Wino.Mail.Linux.Views;
@@ -50,7 +51,13 @@ internal sealed class MainWindow
         if (!string.IsNullOrEmpty(actionText) && action is not null)
         {
             toast.SetButtonLabel(actionText);
-            toast.OnButtonClicked += (_, _) => action();
+            var clicked = GtkSignals.Connect<Adw.Toast>(h => toast.OnButtonClicked += h, h => toast.OnButtonClicked -= h, (_, _) => action());
+            IDisposable? dismissed = null;
+            dismissed = GtkSignals.Connect<Adw.Toast>(h => toast.OnDismissed += h, h => toast.OnDismissed -= h, (_, _) =>
+            {
+                clicked.Dispose();
+                dismissed?.Dispose();
+            });
         }
         _toasts.AddToast(toast);
     }

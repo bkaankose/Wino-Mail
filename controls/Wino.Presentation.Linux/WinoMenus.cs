@@ -43,15 +43,16 @@ public sealed class WinoMenuBuilder
     internal sealed class Shared
     {
         public readonly Gio.SimpleActionGroup Group = Gio.SimpleActionGroup.New();
-        public readonly List<(Gio.SimpleAction Action, GObject.SignalHandler<Gio.SimpleAction, Gio.SimpleAction.ActivateSignalArgs> Handler)> Handlers = [];
+        public readonly List<(Gio.SimpleAction Action, IDisposable Subscription)> Handlers = [];
         public readonly Dictionary<string, RadioGroup> Radios = new(StringComparer.Ordinal);
         public int Next;
 
         public string Add(Gio.SimpleAction action, GObject.SignalHandler<Gio.SimpleAction, Gio.SimpleAction.ActivateSignalArgs> handler)
         {
-            action.OnActivate += handler;
+            var subscription = GtkSignals.Connect<Gio.SimpleAction, Gio.SimpleAction.ActivateSignalArgs>(
+                h => action.OnActivate += h, h => action.OnActivate -= h, handler);
             Group.AddAction(action);
-            Handlers.Add((action, handler));
+            Handlers.Add((action, subscription));
             return action.GetName();
         }
     }
@@ -194,9 +195,9 @@ public sealed class WinoMenu : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        foreach (var (action, handler) in _shared.Handlers)
+        foreach (var (action, subscription) in _shared.Handlers)
         {
-            action.OnActivate -= handler;
+            subscription.Dispose();
             _shared.Group.RemoveAction(action.GetName());
         }
         _shared.Handlers.Clear();

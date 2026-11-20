@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -43,42 +42,29 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>
         _selection = Gtk.SingleSelection.New(_keys);
         _selection.SetAutoselect(false);
         _selection.SetCanUnselect(true);
-        // Gir.Core 0.8.1 keeps a disconnected handler in the object's closure table, so a handler that captured the view
-        // would root it while GTK holds the object. The handlers reach the view through this box, emptied on release.
-        var self = new StrongBox<MailListView?>(this);
-        GObject.SignalHandler<Gtk.SelectionModel, Gtk.SelectionModel.SelectionChangedSignalArgs> selectionChanged = (_, _) => self.Value?.SelectionChanged();
+        // Handlers go through GtkSignals: Gir.Core 0.8.1 keeps a disconnected handler alive, so a raw capture of the
+        // view would root it while GTK holds the object.
         var selection = _selection;
-        selection.OnSelectionChanged += selectionChanged;
+        Bindings.Own(GtkSignals.Connect<Gtk.SelectionModel, Gtk.SelectionModel.SelectionChangedSignalArgs>(
+            h => selection.OnSelectionChanged += h, h => selection.OnSelectionChanged -= h, (_, _) => SelectionChanged()));
 
         // The model holds row keys only; a cell looks its row up by position, so no GObject subclass is needed.
         var factory = Gtk.SignalListItemFactory.New();
-        GObject.SignalHandler<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.SetupSignalArgs> setup = (_, args) => self.Value?.SetupCell((Gtk.ListItem)args.Object);
-        GObject.SignalHandler<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.BindSignalArgs> bind = (_, args) => self.Value?.BindCell((Gtk.ListItem)args.Object);
-        GObject.SignalHandler<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.UnbindSignalArgs> unbind = (_, args) => self.Value?.CellOf((Gtk.ListItem)args.Object)?.Unbind();
-        GObject.SignalHandler<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.TeardownSignalArgs> teardown = (_, args) => self.Value?.TeardownCell((Gtk.ListItem)args.Object);
-        factory.OnSetup += setup;
-        factory.OnBind += bind;
-        factory.OnUnbind += unbind;
-        factory.OnTeardown += teardown;
+        Bindings.Own(GtkSignals.Connect<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.SetupSignalArgs>(
+            h => factory.OnSetup += h, h => factory.OnSetup -= h, (_, args) => SetupCell((Gtk.ListItem)args.Object)));
+        Bindings.Own(GtkSignals.Connect<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.BindSignalArgs>(
+            h => factory.OnBind += h, h => factory.OnBind -= h, (_, args) => BindCell((Gtk.ListItem)args.Object)));
+        Bindings.Own(GtkSignals.Connect<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.UnbindSignalArgs>(
+            h => factory.OnUnbind += h, h => factory.OnUnbind -= h, (_, args) => CellOf((Gtk.ListItem)args.Object)?.Unbind()));
+        Bindings.Own(GtkSignals.Connect<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.TeardownSignalArgs>(
+            h => factory.OnTeardown += h, h => factory.OnTeardown -= h, (_, args) => TeardownCell((Gtk.ListItem)args.Object)));
 
         var list = Gtk.ListView.New(selection, factory);
         list.SetSingleClickActivate(false);
         _scroll.SetPolicy(Gtk.PolicyType.Never, Gtk.PolicyType.Automatic);
         _scroll.SetChild(list);
         var adjustment = _scroll.GetVadjustment();
-        GObject.SignalHandler<Gtk.Adjustment> scrolled = (_, _) => self.Value?.LoadMoreIfNeeded();
-        adjustment.OnValueChanged += scrolled;
-
-        Bindings.Own(new ActionDisposable(() =>
-        {
-            self.Value = null;
-            selection.OnSelectionChanged -= selectionChanged;
-            factory.OnSetup -= setup;
-            factory.OnBind -= bind;
-            factory.OnUnbind -= unbind;
-            factory.OnTeardown -= teardown;
-            adjustment.OnValueChanged -= scrolled;
-        }));
+        Bindings.Own(GtkSignals.Connect<Gtk.Adjustment>(h => adjustment.OnValueChanged += h, h => adjustment.OnValueChanged -= h, (_, _) => LoadMoreIfNeeded()));
 
         var loading = Adw.Spinner.New();
         loading.SetHalign(Gtk.Align.Center);

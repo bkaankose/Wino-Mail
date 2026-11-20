@@ -21,6 +21,12 @@ internal static class LabAccountBootstrap
     public static async Task AddAsync(IServiceProvider services, IDispatcher dispatcher, string leasePath, string serverKey)
     {
         var plan = ReadPlan(leasePath, serverKey);
+        if (await services.GetRequiredService<IAccountService>().AccountAddressExistsAsync(plan.EmailAddress))
+        {
+            Serilog.Log.Information("The lab account {Address} exists already; the lease adds nothing.", plan.EmailAddress);
+            return;
+        }
+
         var runner = services.GetRequiredService<IAccountSetupRunner>();
         var dialogs = services.GetRequiredService<IMailDialogService>();
 

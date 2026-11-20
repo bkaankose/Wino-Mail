@@ -50,20 +50,19 @@ public static class ContextMenu
         private readonly Gtk.PopoverMenu _popover;
         private readonly WinoMenu _menu;
         private readonly Action? _onClosed;
-        private readonly GObject.SignalHandler<Gtk.Popover> _closed;
+        private readonly IDisposable _closed;
 
         public Session(Gtk.PopoverMenu popover, WinoMenu menu, Action? onClosed)
         {
             _popover = popover;
             _menu = menu;
             _onClosed = onClosed;
-            _closed = OnClosed;
-            popover.OnClosed += _closed;
+            _closed = GtkSignals.Connect<Gtk.Popover>(h => popover.OnClosed += h, h => popover.OnClosed -= h, (_, _) => OnClosed());
         }
 
-        private void OnClosed(Gtk.Popover sender, EventArgs args)
+        private void OnClosed()
         {
-            _popover.OnClosed -= _closed;
+            _closed.Dispose();
             _onClosed?.Invoke();
             // GtkModelButton pops the menu down before it activates the item's action, so the actions must outlive
             // the closed signal; teardown waits for the next main-loop turn.
@@ -87,9 +86,9 @@ public sealed class ContextMenuAttachment : IDisposable
     private readonly Gtk.ShortcutController _keys = Gtk.ShortcutController.New();
     private readonly Gio.SimpleActionGroup _actions = Gio.SimpleActionGroup.New();
     private readonly Gio.SimpleAction _popup = Gio.SimpleAction.New("popup", null);
-    private readonly GObject.SignalHandler<Gtk.GestureClick, Gtk.GestureClick.PressedSignalArgs> _onClick;
-    private readonly GObject.SignalHandler<Gtk.GestureLongPress, Gtk.GestureLongPress.PressedSignalArgs> _onLongPress;
-    private readonly GObject.SignalHandler<Gio.SimpleAction, Gio.SimpleAction.ActivateSignalArgs> _onPopup;
+    private readonly IDisposable _onClick;
+    private readonly IDisposable _onLongPress;
+    private readonly IDisposable _onPopup;
     private Gtk.PopoverMenu? _open;
     private bool _disposed;
 
@@ -98,27 +97,24 @@ public sealed class ContextMenuAttachment : IDisposable
         _widget = widget;
         _populate = populate;
 
-        _onClick = (gesture, args) =>
+        _onClick = GtkSignals.Connect<Gtk.GestureClick, Gtk.GestureClick.PressedSignalArgs>(h => _click.OnPressed += h, h => _click.OnPressed -= h, (gesture, args) =>
         {
             if (args.NPress != 1) return;
             gesture.SetState(Gtk.EventSequenceState.Claimed);
             Open(args.X, args.Y);
-        };
+        });
         _click.SetButton((uint)Gdk.Constants.BUTTON_SECONDARY);
-        _click.OnPressed += _onClick;
         widget.AddController(_click);
 
-        _onLongPress = (gesture, args) =>
+        _onLongPress = GtkSignals.Connect<Gtk.GestureLongPress, Gtk.GestureLongPress.PressedSignalArgs>(h => _longPress.OnPressed += h, h => _longPress.OnPressed -= h, (gesture, args) =>
         {
             gesture.SetState(Gtk.EventSequenceState.Claimed);
             Open(args.X, args.Y);
-        };
+        });
         _longPress.SetTouchOnly(true);
-        _longPress.OnPressed += _onLongPress;
         widget.AddController(_longPress);
 
-        _onPopup = (_, _) => Open(null, null);
-        _popup.OnActivate += _onPopup;
+        _onPopup = GtkSignals.OnActivate(_popup, _ => Open(null, null));
         _actions.AddAction(_popup);
         widget.InsertActionGroup("wino-context", _actions);
         _keys.AddShortcut(Gtk.Shortcut.New(Gtk.ShortcutTrigger.ParseString("Menu|<Shift>F10"), Gtk.NamedAction.New(ContextMenu.PopupAction)));
@@ -155,9 +151,9 @@ public sealed class ContextMenuAttachment : IDisposable
         if (_disposed) return;
         _disposed = true;
         _open?.Popdown();
-        _click.OnPressed -= _onClick;
-        _longPress.OnPressed -= _onLongPress;
-        _popup.OnActivate -= _onPopup;
+        _onClick.Dispose();
+        _onLongPress.Dispose();
+        _onPopup.Dispose();
         _widget.RemoveController(_click);
         _widget.RemoveController(_longPress);
         _widget.RemoveController(_keys);

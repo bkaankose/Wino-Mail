@@ -7,6 +7,7 @@ using Wino.Mail.Linux.Views.Mail;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.MenuItems.Contracts;
 using Wino.Mail.ViewModels.Shell;
+using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Views.Shell;
 
@@ -36,7 +37,8 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
 
         _menu.AddCssClass("navigation-sidebar");
         _menu.SetSelectionMode(Gtk.SelectionMode.Single);
-        _menu.OnRowActivated += (_, args) => Invoke(args.Row.GetIndex());
+        Bindings.Own(GtkSignals.Connect<Gtk.ListBox, Gtk.ListBox.RowActivatedSignalArgs>(
+            h => _menu.OnRowActivated += h, h => _menu.OnRowActivated -= h, (_, args) => Invoke(args.Row.GetIndex())));
 
         var menuScroll = Gtk.ScrolledWindow.New();
         menuScroll.SetPolicy(Gtk.PolicyType.Never, Gtk.PolicyType.Automatic);

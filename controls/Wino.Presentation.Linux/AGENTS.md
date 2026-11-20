@@ -15,7 +15,7 @@ GTK 4 and libadwaita presentation helpers for the [Linux head](../../src/Wino.Ma
 - References: `Wino.Core.Domain` and `Wino.Presentation.Core` only. No service, provider or ViewModel project.
 - Every member runs on the GTK main thread.
 - `Gtk.Internal` is used in `WinoA11y` only. It is the single accessibility entry point: Gir.Core 0.8.1 has no public `Gtk.Accessible.UpdateProperty`.
-- Every signal subscription has a matching disconnect with the same delegate instance, owned by a `BindingScope` or returned as an `IDisposable`.
+- Every signal subscription goes through `GtkSignals` and is owned by a `BindingScope` or returned as an `IDisposable`. Gir.Core 0.8.1 does not drop a handler on `-=`; `GtkSignals` connects a forwarder that reaches the handler through a box, which disposing empties.
 - CSS uses libadwaita named colours only (`@accent_bg_color`, `@view_bg_color`, ...); the one fixed palette is the avatar palette from `WinoTokens`. Lengths come from the `--wino-*` variables `WinoStyle` generates. The static stylesheet loads at priority 600 (`WinoStyle.ApplicationPriority`); theme CSS uses 601 (`WinoStyle.ThemePriority`).
 - Menus are `Gio.Menu` models built with `WinoMenus.Create()`; each popover gets its own `wino-menu` action group, released one main-loop turn after the popover closes (GTK activates the item after the closed signal). Context menus are attached with `ContextMenu.Attach`, never with a hand-made `Gtk.GestureClick`, so right click, long press, the Menu key and Shift+F10 behave the same everywhere.
 - The Release gate (Native AOT, trimming, warnings as errors) applies. No reflection.
