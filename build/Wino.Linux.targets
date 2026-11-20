@@ -1,0 +1,15 @@
+<Project>
+  <!-- Linux build policy, imported by Directory.Build.targets when WinoTargetPlatform is Linux.
+       The GTK projects are plain net10.0 projects, so the shared Release gate (Native AOT, trimming and
+       warnings as errors) applies to them unchanged. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == '' and '$(RuntimeIdentifiers)' == ''">
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!-- The WebKitGTK bindings are marked unsupported on Windows and macOS; these assemblies run on Linux only. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+      <_Parameter1>linux</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

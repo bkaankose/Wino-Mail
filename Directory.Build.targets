@@ -24,9 +24,10 @@
   <Import Project="build/Wino.MacOS.targets" Condition="'$(WinoTargetPlatform)' == 'MacOS' or $(TargetFramework.Contains('-macos'))" />
   <Import Project="build/Wino.iOS.targets" Condition="'$(WinoTargetPlatform)' == 'iOS' or $(TargetFramework.Contains('-ios'))" />
   <Import Project="build/Wino.Android.targets" Condition="'$(WinoTargetPlatform)' == 'Android' or $(TargetFramework.Contains('-android'))" />
+  <Import Project="build/Wino.Linux.targets" Condition="'$(WinoTargetPlatform)' == 'Linux'" />
 
   <Target Name="WinoValidateTargetPlatform">
-    <Error Condition="'$(WinoTargetPlatform)' != '' and '$(WinoTargetPlatform)' != 'Windows' and '$(WinoTargetPlatform)' != 'MacOS' and '$(WinoTargetPlatform)' != 'iOS' and '$(WinoTargetPlatform)' != 'Android'"
-           Text="WinoTargetPlatform must be Windows, MacOS, iOS, or Android, not '$(WinoTargetPlatform)'." />
+    <Error Condition="'$(WinoTargetPlatform)' != '' and '$(WinoTargetPlatform)' != 'Windows' and '$(WinoTargetPlatform)' != 'MacOS' and '$(WinoTargetPlatform)' != 'iOS' and '$(WinoTargetPlatform)' != 'Android' and '$(WinoTargetPlatform)' != 'Linux'"
+           Text="WinoTargetPlatform must be Windows, MacOS, iOS, Android, or Linux, not '$(WinoTargetPlatform)'." />
   </Target>
 </Project>
