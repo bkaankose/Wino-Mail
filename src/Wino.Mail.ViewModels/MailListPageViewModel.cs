@@ -1899,6 +1899,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         => SelectedFilterOption?.Type == FilterOptionType.Unread ||
            ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread;
 
+    // A removed row hands the selection to the next one. When selecting marks mail as read, that row
+    // would be read and removed too and the whole Unread list would cascade away (#1232).
+    private bool RemovesReadMailsFromUnreadList()
+        => PreferencesService.MarkAsPreference == MailMarkAsOption.DontMark;
+
     private bool ShouldRetainAfterActiveFilterMutation(MailItemViewModel item, MailCopyChangeFlags changedProperties)
     {
         var mail = item.MailCopy;
@@ -1906,33 +1911,40 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (!MatchesActiveListScope(mail))
             return false;
 
-        if (changedProperties.HasFlag(MailCopyChangeFlags.IsRead) &&
-            mail.IsRead &&
-            IsUnreadOnlyList() &&
-            (item.IsSelected || ReferenceEquals(item, _activeMailItem)))
-        {
-            readWhileSelectedUniqueIds.Add(item.UniqueId);
-        }
+        var removesReadMails = RemovesReadMailsFromUnreadList();
 
-        if (readWhileSelectedUniqueIds.Contains(item.UniqueId))
-            return true;
+        if (!removesReadMails)
+        {
+            if (changedProperties.HasFlag(MailCopyChangeFlags.IsRead) &&
+                mail.IsRead &&
+                IsUnreadOnlyList() &&
+                (item.IsSelected || ReferenceEquals(item, _activeMailItem)))
+            {
+                readWhileSelectedUniqueIds.Add(item.UniqueId);
+            }
+
+            if (readWhileSelectedUniqueIds.Contains(item.UniqueId))
+                return true;
+        }
 
         return ShouldRetainFilterMutation(
             SelectedFilterOption?.Type ?? FilterOptionType.All,
             changedProperties,
             mail.IsRead,
-            mail.IsFlagged);
+            mail.IsFlagged,
+            removesReadMails);
     }
 
     internal static bool ShouldRetainFilterMutation(
         FilterOptionType filterType,
         MailCopyChangeFlags changedProperties,
         bool isRead,
-        bool isFlagged)
+        bool isFlagged,
+        bool removesReadMails)
         => filterType switch
         {
             FilterOptionType.Unread =>
-                changedProperties.HasFlag(MailCopyChangeFlags.IsRead) && isRead,
+                !removesReadMails && changedProperties.HasFlag(MailCopyChangeFlags.IsRead) && isRead,
             FilterOptionType.Flagged =>
                 changedProperties.HasFlag(MailCopyChangeFlags.IsFlagged) && !isFlagged,
             _ => false
@@ -2171,7 +2183,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             acquired = true;
 
             if (!MailCollection.ContainsMailUniqueId(updatedState.UniqueId))
+            {
+                await AddMailsMarkedUnreadAsync([updatedState], source);
                 return;
+            }
 
             await MailCollection.UpdateMailStateAsync(updatedState, source);
             var listedItem = MailCollection.Find(updatedState.UniqueId);
@@ -2236,6 +2251,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             var listedStates = targetStates
                 .Where(state => MailCollection.ContainsMailUniqueId(state.UniqueId))
                 .ToList();
+
+            await AddMailsMarkedUnreadAsync(
+                targetStates.Where(state => !MailCollection.ContainsMailUniqueId(state.UniqueId)),
+                source);
 
             if (listedStates.Count == 0)
                 return;
@@ -2376,6 +2395,65 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             await MailCollection.RemoveRangeByIdAsync(idsToRemove);
         }
+    }
+
+    // A mail removed from an Unread list after it was read comes back when the read is reverted
+    // or the mail is marked unread elsewhere. The database row is unchanged until the server confirms.
+    private async Task AddMailsMarkedUnreadAsync(IEnumerable<MailStateChange> unlistedStates, EntityUpdateSource source)
+    {
+        if (!IsUnreadOnlyList() || !RemovesReadMailsFromUnreadList())
+            return;
+
+        var markedUnread = unlistedStates.Where(state => state.IsRead == false).ToList();
+        if (markedUnread.Count == 0)
+            return;
+
+        var candidates = new List<MailCopy>();
+        foreach (var state in markedUnread)
+        {
+            var mail = await _mailService.GetSingleMailItemAsync(state.UniqueId).ConfigureAwait(false);
+            if (mail?.AssignedAccount == null || mail.AssignedFolder == null)
+                continue;
+
+            mail.IsRead = false;
+            if (state.IsFlagged is bool isFlagged)
+                mail.IsFlagged = isFlagged;
+
+            candidates.Add(mail);
+        }
+
+        if (candidates.Count == 0)
+            return;
+
+        if (IsCategoryView)
+        {
+            var handlingFolders = ActiveFolder?.HandlingFolders?.ToList() ?? [];
+            await PopulateMailCategoriesAsync(candidates, handlingFolders, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        var additions = candidates
+            .Where(mail => !MailCollection.ContainsMailUniqueId(mail.UniqueId) &&
+                           !ShouldSuppressDraftAdd(mail) &&
+                           ShouldIncludeLiveMail(mail))
+            .ToList();
+
+        if (additions.Count == 0)
+            return;
+
+        await MailCollection.AddLiveRangeAsync(additions, source, MatchesActiveListSeed);
+        await ExecuteUIThread(() =>
+        {
+            if (source == EntityUpdateSource.ClientUpdated)
+            {
+                foreach (var mail in additions)
+                {
+                    if (MailCollection.Find(mail.UniqueId) is { } addedItem)
+                        addedItem.IsBusy = true;
+                }
+            }
+
+            NotifyItemFoundState();
+        });
     }
 
     private async Task<List<MailCopy>> GetSurvivingLabelCopiesAsync(IEnumerable<MailCopy> removedMails)
