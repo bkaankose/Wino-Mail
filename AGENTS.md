@@ -134,6 +134,7 @@ Read only references that apply to the task:
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
 | Calendar period navigation, the rail model, or the loaded event window | [calendar rail navigation](docs/calendar-rail-navigation.md) |
 | Push relay, live notifications, sync method, or relay privacy acceptance | [push relay design](docs/push-relay-design.md) |
+| Linux port scope, packages and order | [Linux port plan](docs/linux-port-plan.md) |
 | Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md) |
 | Release notes, GitHub releases, or marking issues for a release | [release skill](.claude/skills/release/SKILL.md) and [release notes format](release-notes/README.md) |
 | What's New notes and illustrations | [whatsnew skill](.claude/skills/whatsnew/SKILL.md) |

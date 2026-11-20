@@ -5,6 +5,7 @@ The app is a native GTK 4 and libadwaita application written in C# through Gir.C
 It targets GNOME on Wayland on Fedora and Ubuntu. It shows the shell, the folder list, the mail list and the reader for an IMAP account; everything else is missing, and it is not released.
 
 Shared rules for every platform are in [AGENTS.md](../../AGENTS.md) and the [implementation rules](implementation-rules.md). The project rules are in [src/Wino.Mail.Linux/AGENTS.md](../../src/Wino.Mail.Linux/AGENTS.md) and [src/Wino.Platform.Linux/AGENTS.md](../../src/Wino.Platform.Linux/AGENTS.md).
+The scope of the port, its work packages and their order are in the [Linux port plan](../linux-port-plan.md).
 
 ## Requirements
 
