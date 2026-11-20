@@ -423,6 +423,7 @@ docs/design-prototypes/*
 !/docs/harness/development-macos.md
 !/docs/harness/development-ios.md
 !/docs/harness/development-android.md
+!/docs/harness/development-linux.md
 !/docs/releases-windows.md
 !/docs/releases-macos.md
 !/docs/releases-android.md

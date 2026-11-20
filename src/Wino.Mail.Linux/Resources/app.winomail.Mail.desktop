@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Wino Mail
+Comment=Mail, calendar and contacts
+Exec=@WINO_EXEC@ %u
+Icon=mail-unread
+Terminal=false
+Categories=Network;Email;
+MimeType=x-scheme-handler/wino;
+StartupNotify=true
+DBusActivatable=false

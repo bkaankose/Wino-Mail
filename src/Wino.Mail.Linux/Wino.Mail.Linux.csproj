@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Linux app: GTK 4 and libadwaita through Gir.Core over the shared services and ViewModels. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Platforms>x64;arm64</Platforms>
+    <WinoTargetPlatform>Linux</WinoTargetPlatform>
+    <RootNamespace>Wino.Mail.Linux</RootNamespace>
+    <AssemblyName>wino-mail</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+  <!-- Publish experiments. PublishTrimmed and PublishAot given on the command line would flow into every referenced
+       project, including the netstandard2.0 source generators, so the head maps one property of its own to them:
+       -p:WinoLinuxPublish=Trimmed or -p:WinoLinuxPublish=Aot. -->
+  <PropertyGroup Condition="'$(WinoLinuxPublish)' == 'Trimmed'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(WinoLinuxPublish)' == 'Aot'">
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="GirCore.Adw-1" />
+    <PackageReference Include="GirCore.Gtk-4.0" />
+    <PackageReference Include="GirCore.WebKit-6.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <!-- SkiaSharp ships no Linux native library by default. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+    <ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
+    <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Outlook\Wino.Providers.Outlook.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Gmail\Wino.Providers.Gmail.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Imap\Wino.Providers.Imap.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Exchange\Wino.Providers.Exchange.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Dav\Wino.Providers.Dav.csproj" />
+    <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+    <ProjectReference Include="..\Wino.Platform.Linux\Wino.Platform.Linux.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Presentation.Core\Wino.Presentation.Core.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Editor.Core\Wino.Editor.Core.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Editor.WebKitGtk\Wino.Editor.WebKitGtk.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\app.winomail.Mail.desktop" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
