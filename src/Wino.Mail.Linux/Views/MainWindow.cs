@@ -1,3 +1,6 @@
+using Serilog;
+using Wino.Presentation.Linux.Style;
+
 namespace Wino.Mail.Linux.Views;
 
 /// <summary>The one window: a toast overlay over either a status page (startup, errors) or the shell.</summary>
@@ -7,7 +10,7 @@ internal sealed class MainWindow
 
     public MainWindow(Adw.Application application)
     {
-        Styles.Install();
+        WinoStyle.Install(message => Log.Warning("Wino stylesheet: {Message}", message));
         Window = Adw.ApplicationWindow.New(application);
         Window.Title = "Wino Mail";
         Window.SetDefaultSize(1360, 860);

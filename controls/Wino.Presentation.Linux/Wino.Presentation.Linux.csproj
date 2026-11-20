@@ -16,6 +16,9 @@
     <PackageReference Include="GirCore.Gtk-4.0" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Style/wino.css" LogicalName="Wino.Presentation.Linux.Style.wino.css" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
     <ProjectReference Include="../Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
   </ItemGroup>

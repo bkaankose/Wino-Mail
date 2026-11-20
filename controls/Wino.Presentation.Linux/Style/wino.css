@@ -1,0 +1,86 @@
+/* Lengths come from the --wino-* variables WinoStyle generates from WinoTokens. Colours are libadwaita named colours
+   only, so light, dark, high contrast and the accent (system or a theme provider at a higher priority) follow. */
+
+.wino-zone {
+  background-color: @view_bg_color;
+  color: @view_fg_color;
+}
+
+.wino-has-backdrop .wino-zone {
+  margin: var(--wino-zone-gutter);
+  border-radius: var(--wino-zone-radius);
+  box-shadow: 0 0 0 1px @card_shade_color, 0 2px 10px @shade_color;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wino-has-backdrop .wino-zone {
+    background-color: alpha(@view_bg_color, 0.82);
+  }
+}
+
+.wino-has-backdrop .sidebar-pane {
+  background-color: transparent;
+}
+
+.wino-mail-row {
+  padding: var(--wino-row-padding) var(--wino-space-3);
+}
+
+.wino-mail-row .wino-unread {
+  font-weight: 700;
+}
+
+.wino-unread-dot {
+  color: @accent_color;
+}
+
+.wino-group-header {
+  padding: 14px var(--wino-space-3) var(--wino-space-1) var(--wino-space-3);
+  font-weight: 700;
+  font-size: 0.85em;
+  opacity: 0.65;
+}
+
+.wino-has-backdrop .wino-group-header {
+  background-color: alpha(currentColor, 0.05);
+  opacity: 1;
+}
+
+.wino-selection-pipe {
+  min-width: 3px;
+  min-height: var(--wino-space-4);
+  border-radius: 999px;
+  background-color: @accent_bg_color;
+}
+
+.wino-unread-badge {
+  font-size: 0.8em;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.wino-unread-pill {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+  font-size: 0.8em;
+  font-weight: 700;
+}
+
+.wino-chip,
+.wino-attachment {
+  padding: var(--wino-space-1) 10px;
+  border-radius: var(--wino-control-radius);
+  background-color: alpha(currentColor, 0.08);
+}
+
+.wino-avatar {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.wino-reader-header {
+  padding: var(--wino-space-4) 20px var(--wino-space-3) 20px;
+}
