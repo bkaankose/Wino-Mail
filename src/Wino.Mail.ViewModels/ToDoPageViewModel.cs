@@ -236,7 +236,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         OnPropertyChanged(nameof(IsNamedListSelected));
         OnPropertyChanged(nameof(CanReorderTasks));
         OnPropertyChanged(nameof(IsSmartViewSelected));
-        OnPropertyChanged(nameof(IsCompletedScopeAvailable));
         OnPropertyChanged(nameof(IsMyDaySelected));
         OnPropertyChanged(nameof(CanEditSelectedList));
         OnPropertyChanged(nameof(CanDeleteSelectedList));
@@ -309,8 +308,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         => IsEmptyAccountSelected ? Accounts.FirstOrDefault(account => account.Id == _emptyAccountId)?.Name : null;
     public bool IsNamedListSelected => SelectedList is not null;
 
-    /// <summary>Manual order is kept per list, so a smart view that mixes lists has none to edit.</summary>
-    public bool CanReorderTasks => SelectedList is not null && SelectedSort == TaskSortKind.Manual && _taskMutationService is not null;
+    public bool CanReorderTasks => SelectedSort == TaskSortKind.Manual && _taskMutationService is not null;
     public bool IsSmartViewSelected => SelectedList is null;
     public bool IsMyDaySelected => SelectedList is null && SelectedView == TaskViewKind.MyDay;
     public bool CanEditSelectedList => SelectedList is { IsReadOnly: false };
@@ -418,9 +416,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         TaskCompletionScope.All => Translator.ToDoPage_All,
         _ => Translator.ToDoPage_ScopeActive
     };
-
-    /// <summary>Smart views never load completed tasks, so that scope has nothing to show there.</summary>
-    public bool IsCompletedScopeAvailable => IsNamedListSelected;
 
     public string ComposerPlaceholder
         => IsMyDaySelected ? Translator.ToDoPage_AddTaskToMyDayPlaceholder : Translator.ToDoPage_AddTaskPlaceholder;
@@ -1622,26 +1617,40 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             "myday" => TaskSortKind.MyDay,
             "alphabetical" => TaskSortKind.Alphabetical,
             "created" => TaskSortKind.CreationDate,
-            "manual" when SelectedList is not null => TaskSortKind.Manual,
+            "manual" => TaskSortKind.Manual,
             _ => TaskSortKind.DueDate
         };
 
     /// <summary>
-    /// Moves <paramref name="moved"/> next to <paramref name="target"/> in the selected list's manual order.
-    /// The whole list is renumbered, including tasks the current filter hides, so positions stay unique.
+    /// Moves <paramref name="moved"/> next to <paramref name="target"/> in the manual order. All tasks share one
+    /// order, so a list and a smart view that mixes lists show the same sequence. Every task is renumbered,
+    /// including tasks this surface does not show, so positions stay unique.
     /// </summary>
     public async Task ReorderTasksAsync(IReadOnlyList<TaskItemViewModel> moved, TaskItemViewModel target, bool insertAfter)
     {
-        if (!CanReorderTasks || moved is null || moved.Count == 0 || target is null || moved.Contains(target))
+        if (!CanReorderTasks || _taskMutationService is null || moved is null || moved.Count == 0 || target is null || moved.Contains(target))
             return;
 
-        var sequence = OrderManually(_taskItems.Values).ToList();
-        var block = sequence.Where(moved.Contains).ToList();
+        // Smart views group tasks by account, so a drop next to another account's task could not move the row.
+        if (moved.Any(item => item.Task.MailAccountId != target.Task.MailAccountId))
+            return;
+
+        var tasks = new Dictionary<Guid, AccountTask>(_menuCountTasks);
+        foreach (var item in _taskItems.Values)
+            tasks[item.Id] = item.Task;
+
+        var movedIds = moved.Select(item => item.Id).ToHashSet();
+        var sequence = tasks.Values
+            .OrderBy(task => task.ManualOrder ?? int.MaxValue)
+            .ThenBy(task => task.CreatedAtUtc)
+            .ThenBy(task => task.Id)
+            .ToList();
+        var block = sequence.Where(task => movedIds.Contains(task.Id)).ToList();
         if (block.Count == 0)
             return;
 
-        sequence.RemoveAll(moved.Contains);
-        var targetIndex = sequence.IndexOf(target);
+        sequence.RemoveAll(task => movedIds.Contains(task.Id));
+        var targetIndex = sequence.FindIndex(task => task.Id == target.Id);
         if (targetIndex < 0)
             return;
 
@@ -1650,15 +1659,20 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         var changed = new Dictionary<Guid, int>();
         for (var index = 0; index < sequence.Count; index++)
         {
-            if (sequence[index].Task.ManualOrder == index)
-                continue;
-
-            sequence[index].SetManualOrder(index);
-            changed[sequence[index].Id] = index;
+            if (sequence[index].ManualOrder != index)
+                changed[sequence[index].Id] = index;
         }
 
         if (changed.Count == 0)
             return;
+
+        foreach (var (taskId, order) in changed)
+        {
+            if (_taskItems.TryGetValue(taskId, out var item))
+                item.SetManualOrder(order);
+            if (_menuCountTasks.TryGetValue(taskId, out var stored))
+                stored.ManualOrder = order;
+        }
 
         ReconcileTaskGroups();
         await _taskMutationService.UpdateTaskManualOrderAsync(changed).ConfigureAwait(false);
@@ -2757,14 +2771,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             // Without one, the current choice carries over as before.
             if (list?.SortKind is { } listSort)
                 SelectedSort = listSort;
-            else if (list is null && SelectedSort == TaskSortKind.Manual)
-                SelectedSort = TaskSortKind.DueDate;
 
+            SelectedCompletionScope = TaskCompletionScope.Active;
             if (list is not null)
-            {
-                SelectedCompletionScope = TaskCompletionScope.Active;
                 IsImportantTasksFilterSelected = false;
-            }
         }
         finally
         {
@@ -2955,10 +2965,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         OnPropertyChanged(nameof(HasSurfaceSubtitle));
     }
 
-    /// <summary>
-    /// Applies to every surface, not just named lists. A smart view holds no completed tasks,
-    /// so the completion scope simply never excludes anything there.
-    /// </summary>
     private bool IsTaskVisible(TaskItemViewModel item)
     {
         if (!MatchesFilter(item.Task))

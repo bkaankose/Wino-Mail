@@ -226,10 +226,7 @@ public sealed partial class ToDoPageViewController
     private void UpdateSortItems()
     {
         foreach (var (kind, item) in _sortItems)
-        {
             item.State = kind == ViewModel.SelectedSort ? NSCellStateValue.On : NSCellStateValue.Off;
-            if (kind == TaskSortKind.Manual) item.Hidden = !ViewModel.IsNamedListSelected;
-        }
     }
 
     private void BindList()
@@ -242,7 +239,7 @@ public sealed partial class ToDoPageViewController
         Bind(nameof(ViewModel.HasSurfaceSubtitle), static vm => vm.HasSurfaceSubtitle, value => _subtitle.Hidden = !value);
         Bind(nameof(ViewModel.CanEditSelectedList), static vm => vm.CanEditSelectedList, value => _renameButton.Hidden = !value);
         Bind(nameof(ViewModel.IsMyDaySelected), static vm => vm.IsMyDaySelected, value => _suggestionsButton.Hidden = !value);
-        Bind(nameof(ViewModel.IsNamedListSelected), static vm => vm.IsNamedListSelected, value => { _moreButton.Hidden = !value; UpdateSortItems(); });
+        Bind(nameof(ViewModel.IsNamedListSelected), static vm => vm.IsNamedListSelected, value => _moreButton.Hidden = !value);
         Bind(nameof(ViewModel.SelectedSort), static vm => vm.SelectedSort, _ => UpdateSortItems());
         Bind(nameof(ViewModel.FilterText), static vm => vm.FilterText, value => { if (_search.StringValue != (value ?? string.Empty)) _search.StringValue = value ?? string.Empty; });
         Bind(nameof(ViewModel.CompletionScopeDisplayText), static vm => vm.CompletionScopeDisplayText, value => _scopeChip.Title = value);
@@ -254,11 +251,6 @@ public sealed partial class ToDoPageViewController
             _compactImportantItem.State = value ? NSCellStateValue.On : NSCellStateValue.Off;
         });
         Bind(nameof(ViewModel.IsFiltered), static vm => vm.IsFiltered, value => { _clearChip.Enabled = value; _compactClearItem.Enabled = value; });
-        Bind(nameof(ViewModel.IsCompletedScopeAvailable), static vm => vm.IsCompletedScopeAvailable, value =>
-        {
-            _scopeCompletedItem.Hidden = !value; _scopeAllItem.Hidden = !value;
-            _compactScopeCompletedItem.Hidden = !value; _compactScopeAllItem.Hidden = !value;
-        });
         Bind(nameof(ViewModel.IsCompactLayout), static vm => vm.IsCompactLayout, value => { _expandedFilters.Hidden = value; _compactFilterChip.Hidden = !value; });
         Bind(nameof(ViewModel.IsEmpty), static vm => vm.IsEmpty, value =>
         {

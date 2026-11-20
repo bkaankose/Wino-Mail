@@ -426,14 +426,12 @@
                                             AutomationProperties.AutomationId="ToDoScopeCompleted"
                                             Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
                                             CommandParameter="completed"
-                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}" />
                                         <MenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoScopeAll"
                                             Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
                                             CommandParameter="all"
-                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}" />
                                     </MenuFlyout>
                                 </DropDownButton.Flyout>
                             </DropDownButton>
@@ -492,8 +490,7 @@
                                             AutomationProperties.AutomationId="ToDoSortManual"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="manual"
-                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsNamedListSelected), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}" />
                                     </MenuFlyout>
                                 </DropDownButton.Flyout>
                             </DropDownButton>
@@ -537,14 +534,12 @@
                                             AutomationProperties.AutomationId="ToDoCompactScopeCompleted"
                                             Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
                                             CommandParameter="completed"
-                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}" />
                                         <MenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactScopeAll"
                                             Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
                                             CommandParameter="all"
-                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}" />
                                     </MenuFlyoutSubItem>
 
                                     <ToggleMenuFlyoutItem
@@ -582,8 +577,7 @@
                                             AutomationProperties.AutomationId="ToDoCompactSortManual"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="manual"
-                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsNamedListSelected), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}" />
                                     </MenuFlyoutSubItem>
 
                                     <MenuFlyoutSeparator />

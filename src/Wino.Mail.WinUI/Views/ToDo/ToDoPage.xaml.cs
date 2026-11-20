@@ -256,7 +256,8 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         TaskDropTarget? nearest = null;
         var nearestDistance = double.MaxValue;
 
-        foreach (var item in ViewModel.TaskGroups.SelectMany(group => group))
+        var accountId = _draggedTasks[0].Task.MailAccountId;
+        foreach (var item in ViewModel.TaskGroups.SelectMany(group => group).Where(item => item.Task.MailAccountId == accountId))
         {
             if (TaskListView.ContainerFromItem(item) is not ListViewItem container || container.ActualHeight <= 0)
                 continue;
