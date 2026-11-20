@@ -17,19 +17,21 @@ internal static class Program
 }
 
 /// <summary>Options of this head. GApplication rejects options it does not know, so they are taken out before it runs.</summary>
-internal sealed record LaunchOptions(string? LabLeasePath, string? LabServer)
+internal sealed record LaunchOptions(string? LabLeasePath, string? LabServer, bool DebugActions)
 {
     public static LaunchOptions Parse(string[] args, out string[] forwarded)
     {
         string? lease = null, server = null;
+        var debugActions = false;
         var rest = new List<string>();
         for (var index = 0; index < args.Length; index++)
         {
             if (args[index] == "--lab-lease" && index + 1 < args.Length) lease = args[++index];
             else if (args[index] == "--lab-server" && index + 1 < args.Length) server = args[++index];
+            else if (args[index] == "--debug-actions") debugActions = true;
             else rest.Add(args[index]);
         }
         forwarded = [.. rest];
-        return new LaunchOptions(lease, server);
+        return new LaunchOptions(lease, server, debugActions);
     }
 }

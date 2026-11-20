@@ -70,6 +70,20 @@ scripts/lab/linux/lab.sh release <lease id>          # when done
 
 The lab rules are in the [root guidance](../../AGENTS.md); the manifest `~/.wino-lab/fixtures.json` must exist. A Release build ignores `--lab-lease`, but it opens data that a Debug build created in the same folders.
 
+`--debug-actions` adds application actions for checks without screen access (`Infrastructure/Debug/DebugActions.cs`, Debug builds only). Call them on the bus the app runs on; in the private session below that is the session's own bus, so take its address from the app's environment:
+
+```sh
+export DBUS_SESSION_BUS_ADDRESS=$(tr '\0' '\n' < /proc/$(pgrep -x wino-mail)/environ | sed -n 's/^DBUS_SESSION_BUS_ADDRESS=//p')
+act() { gdbus call --session --dest app.winomail.Mail --object-path /app/winomail/Mail --method org.freedesktop.Application.ActivateAction "$1" "${2:-[]}" "{}"; }
+act debug-screenshot "[<['/tmp/w.png']>]"                 # the window's client area; add a second item to capture the widget with that accessible label
+act debug-resize "[<(1008, 700)>]"                        # the compositor still limits it to the work area
+act debug-theme "[<'dark'>]"                              # light, dark or system
+act debug-dump-tree "[<'/tmp/tree.txt'>]"                 # type, role, label, CSS classes, bounds and state of every widget
+act debug-quit
+```
+
+Results and failures go to the app log. Never take pictures through the xdg-desktop-portal Screenshot method or `org.gnome.Shell.Screenshot` on a desktop session: the portal call blocks and leaves `xdg-desktop-portal-gnome` hung, so every GTK app started afterwards hangs too (recover with `kill $(pgrep -f xdg-desktop-portal-gnome)`). AT-SPI (`python3` with `gi.repository.Atspi`) reads the tree and clicks buttons, but cannot resize a window or type keys on Wayland, and a sidebar `Gtk.ListBoxRow` has no AT-SPI action: selecting it through `Atspi.Selection` does not emit `row-activated`.
+
 ### Desktop entry and the `wino://` scheme
 
 ```sh

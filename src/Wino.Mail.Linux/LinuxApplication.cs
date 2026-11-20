@@ -36,6 +36,9 @@ internal sealed class LinuxApplication
             ShowWindow();
             _ = RouteActivationsAsync();
         };
+#if DEBUG
+        if (options.DebugActions) Infrastructure.Debug.DebugActions.Register(application, () => _window?.Window);
+#endif
     }
 
     private void ShowWindow()
