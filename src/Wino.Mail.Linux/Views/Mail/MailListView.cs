@@ -1,11 +1,11 @@
-using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Linux.Infrastructure;
+using Wino.Presentation.Linux;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
@@ -18,12 +18,10 @@ namespace Wino.Mail.Linux.Views.Mail;
 /// <see cref="MailRowPresentation"/> (texts); the selection goes back to <see cref="MailListPageViewModel"/> as a
 /// snapshot, and the ViewModel decides what opens.
 /// </summary>
-internal sealed class MailListView : IRecipient<ActiveMailItemChangedEvent>
+internal sealed class MailListView : WinoView<MailListPageViewModel>
 {
     private sealed record Entry(string Key, string? Header, MailListRow? Row);
 
-    private readonly IDispatcher _dispatcher;
-    private readonly IMessenger _messenger;
     private readonly MailListProjection _projection;
     private readonly Gtk.StringList _keys = Gtk.StringList.New([]);
     private readonly Gtk.SingleSelection _selection;
@@ -35,49 +33,52 @@ internal sealed class MailListView : IRecipient<ActiveMailItemChangedEvent>
     private string _publishedSelection = string.Empty;
     private bool _applying;
     private bool _rebuildQueued;
-    private bool _released;
 
-    public MailListView(IServiceProvider services, IDispatcher dispatcher)
+    public MailListView(MailListPageViewModel viewModel, WinoViewServices services) : base(viewModel, services)
     {
-        _dispatcher = dispatcher;
-        _messenger = services.GetRequiredService<IMessenger>();
-        ViewModel = services.GetRequiredService<MailListPageViewModel>();
-        ViewModel.Dispatcher = dispatcher;
-        ViewModel.MailCollection.CoreDispatcher = dispatcher;
+        ViewModel.MailCollection.CoreDispatcher = Dispatcher;
         _projection = new MailListProjection(ViewModel.MailCollection.Items, ViewModel.MailListOptions ?? new MailListProjectionOptions());
         _projection.ProjectionChanged += (_, _) => QueueRebuild();
-        ViewModel.PropertyChanged += ViewModelChanged;
 
         _selection = Gtk.SingleSelection.New(_keys);
         _selection.SetAutoselect(false);
         _selection.SetCanUnselect(true);
-        _selection.OnSelectionChanged += (_, _) => SelectionChanged();
+        // Gir.Core 0.8.1 keeps a disconnected handler in the object's closure table, so a handler that captured the view
+        // would root it while GTK holds the object. The handlers reach the view through this box, emptied on release.
+        var self = new StrongBox<MailListView?>(this);
+        GObject.SignalHandler<Gtk.SelectionModel, Gtk.SelectionModel.SelectionChangedSignalArgs> selectionChanged = (_, _) => self.Value?.SelectionChanged();
+        var selection = _selection;
+        selection.OnSelectionChanged += selectionChanged;
 
         // The model holds row keys only; a cell looks its row up by position, so no GObject subclass is needed.
         var factory = Gtk.SignalListItemFactory.New();
-        factory.OnSetup += (_, args) =>
-        {
-            var item = (Gtk.ListItem)args.Object;
-            var cell = new MailRowCell();
-            _cells[cell.Root.Handle.DangerousGetHandle()] = cell;
-            item.SetChild(cell.Root);
-        };
-        factory.OnBind += (_, args) =>
-        {
-            var item = (Gtk.ListItem)args.Object;
-            if (CellOf(item) is not { } cell || item.GetPosition() >= _entries.Count) return;
-            var entry = _entries[(int)item.GetPosition()];
-            item.SetSelectable(entry.Row is not null);
-            item.SetActivatable(entry.Row is not null);
-            cell.Bind(entry.Header, entry.Row, ViewModel.PreferencesService.MailTimeFormatPreference);
-        };
-        factory.OnUnbind += (_, args) => CellOf((Gtk.ListItem)args.Object)?.Unbind();
+        GObject.SignalHandler<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.SetupSignalArgs> setup = (_, args) => self.Value?.SetupCell((Gtk.ListItem)args.Object);
+        GObject.SignalHandler<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.BindSignalArgs> bind = (_, args) => self.Value?.BindCell((Gtk.ListItem)args.Object);
+        GObject.SignalHandler<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.UnbindSignalArgs> unbind = (_, args) => self.Value?.CellOf((Gtk.ListItem)args.Object)?.Unbind();
+        GObject.SignalHandler<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.TeardownSignalArgs> teardown = (_, args) => self.Value?.TeardownCell((Gtk.ListItem)args.Object);
+        factory.OnSetup += setup;
+        factory.OnBind += bind;
+        factory.OnUnbind += unbind;
+        factory.OnTeardown += teardown;
 
-        var list = Gtk.ListView.New(_selection, factory);
+        var list = Gtk.ListView.New(selection, factory);
         list.SetSingleClickActivate(false);
         _scroll.SetPolicy(Gtk.PolicyType.Never, Gtk.PolicyType.Automatic);
         _scroll.SetChild(list);
-        _scroll.GetVadjustment().OnValueChanged += (_, _) => LoadMoreIfNeeded();
+        var adjustment = _scroll.GetVadjustment();
+        GObject.SignalHandler<Gtk.Adjustment> scrolled = (_, _) => self.Value?.LoadMoreIfNeeded();
+        adjustment.OnValueChanged += scrolled;
+
+        Bindings.Own(new ActionDisposable(() =>
+        {
+            self.Value = null;
+            selection.OnSelectionChanged -= selectionChanged;
+            factory.OnSetup -= setup;
+            factory.OnBind -= bind;
+            factory.OnUnbind -= unbind;
+            factory.OnTeardown -= teardown;
+            adjustment.OnValueChanged -= scrolled;
+        }));
 
         var loading = Adw.Spinner.New();
         loading.SetHalign(Gtk.Align.Center);
@@ -99,74 +100,82 @@ internal sealed class MailListView : IRecipient<ActiveMailItemChangedEvent>
         view.AddTopBar(header);
         view.SetContent(_stack);
         Root = view;
-        UpdateState();
+
+        Bind.Bind(nameof(MailListPageViewModel.MailListOptions), static vm => vm.MailListOptions, options =>
+        {
+            if (!IsReleased) _projection.SetOptions(options ?? new MailListProjectionOptions());
+        });
+        Bind.BindAny(static vm => (vm.IsInitializingFolder, vm.IsEmpty, vm.IsFolderEmpty), _ => UpdateState());
     }
 
-    public Gtk.Widget Root { get; }
-    public MailListPageViewModel ViewModel { get; }
+    public override Gtk.Widget Root { get; }
 
     /// <summary>What a page does on every head: navigate the ViewModel, announce the folder, then wait for its first load.</summary>
-    public async Task ActivateAsync(object? parameter)
+    protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
-        ViewModel.OnNavigatedTo(NavigationMode.New, parameter);
-        _messenger.Register(this);
+        ViewModel.OnNavigatedTo(mode, parameter);
+        Subscribe<ActiveMailItemChangedEvent>(OnActiveMailItemChanged);
         if (parameter is NavigateMailFolderEventArgs folder)
         {
             _title.SetTitle(folder.BaseFolderMenuItem?.FolderName ?? string.Empty);
-            _messenger.Send(new ActiveMailFolderChangedEvent(folder.BaseFolderMenuItem, folder.FolderInitLoadAwaitTask));
+            Messenger.Send(new ActiveMailFolderChangedEvent(folder.BaseFolderMenuItem, folder.FolderInitLoadAwaitTask));
             await ViewModel.WaitForCurrentFolderInitializationAsync();
         }
-        if (!_released) ViewModel.OnPageLoaded();
     }
 
-    public void Release()
+    protected override Task DeactivateAsync()
     {
-        if (_released) return;
-        _released = true;
-        _messenger.UnregisterAll(this);
-        ViewModel.PropertyChanged -= ViewModelChanged;
         foreach (var cell in _cells.Values) cell.Unbind();
         _cells.Clear();
         _projection.Dispose();
         ViewModel.OnNavigatedFrom(NavigationMode.Back, null);
+        return Task.CompletedTask;
     }
 
-    public void Receive(ActiveMailItemChangedEvent message)
+    private void OnActiveMailItemChanged(ActiveMailItemChangedEvent message)
     {
-        var item = message.SelectedMailItemViewModel;
-        _ = _dispatcher.ExecuteOnUIThread(() =>
-        {
-            if (_released) return;
-            if (item is null) ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame);
-            else ViewModel.OpenItem(item);
-        });
+        if (message.SelectedMailItemViewModel is not { } item) ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame);
+        else ViewModel.OpenItem(item);
+    }
+
+    private void SetupCell(Gtk.ListItem item)
+    {
+        var cell = new MailRowCell();
+        _cells[cell.Root.Handle.DangerousGetHandle()] = cell;
+        item.SetChild(cell.Root);
+    }
+
+    private void BindCell(Gtk.ListItem item)
+    {
+        if (CellOf(item) is not { } cell || item.GetPosition() >= _entries.Count) return;
+        var entry = _entries[(int)item.GetPosition()];
+        item.SetSelectable(entry.Row is not null);
+        item.SetActivatable(entry.Row is not null);
+        cell.Bind(entry.Header, entry.Row, ViewModel.PreferencesService.MailTimeFormatPreference);
+    }
+
+    private void TeardownCell(Gtk.ListItem item)
+    {
+        if (item.GetChild() is { } child) _cells.Remove(child.Handle.DangerousGetHandle());
     }
 
     private MailRowCell? CellOf(Gtk.ListItem item)
         => item.GetChild() is { } child && _cells.TryGetValue(child.Handle.DangerousGetHandle(), out var cell) ? cell : null;
 
-    private void ViewModelChanged(object? sender, PropertyChangedEventArgs args)
-    {
-        if (args.PropertyName == nameof(MailListPageViewModel.MailListOptions))
-            _ = _dispatcher.ExecuteOnUIThread(() => { if (!_released) _projection.SetOptions(ViewModel.MailListOptions ?? new MailListProjectionOptions()); });
-        else if (args.PropertyName is nameof(MailListPageViewModel.IsInitializingFolder) or nameof(MailListPageViewModel.IsEmpty) or nameof(MailListPageViewModel.IsFolderEmpty))
-            _ = _dispatcher.ExecuteOnUIThread(UpdateState);
-    }
-
     private void UpdateState()
     {
-        if (_released) return;
+        if (IsReleased) return;
         _stack.SetVisibleChildName(_entries.Count > 0 ? "list" : ViewModel.IsInitializingFolder ? "loading" : "empty");
     }
 
     private void QueueRebuild()
     {
-        if (_rebuildQueued || _released) return;
+        if (_rebuildQueued || IsReleased) return;
         _rebuildQueued = true;
         GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
         {
             _rebuildQueued = false;
-            if (!_released) Rebuild();
+            if (!IsReleased) Rebuild();
             return false;
         });
     }
@@ -199,7 +208,7 @@ internal sealed class MailListView : IRecipient<ActiveMailItemChangedEvent>
 
     private void SelectionChanged()
     {
-        if (_applying || _released) return;
+        if (_applying || IsReleased) return;
         var position = _selection.GetSelected();
         var row = position < _entries.Count ? _entries[(int)position].Row : null;
         MailListRow[] selected = row is null ? [] : [row];
@@ -211,7 +220,7 @@ internal sealed class MailListView : IRecipient<ActiveMailItemChangedEvent>
 
     private void LoadMoreIfNeeded()
     {
-        if (_released) return;
+        if (IsReleased) return;
         var adjustment = _scroll.GetVadjustment();
         if (adjustment.GetValue() + adjustment.GetPageSize() < adjustment.GetUpper() - 600) return;
         if (ViewModel.LoadMoreItemsCommand.CanExecute(null)) ViewModel.LoadMoreItemsCommand.Execute(null);

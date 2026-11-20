@@ -18,7 +18,6 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
 {
     private readonly record struct HeaderState(string Subject, string Avatar, string Sender, string Date, bool Loading);
 
-    private readonly Gtk.Stack _stack = Gtk.Stack.New();
     private readonly Gtk.Label _subject = Label("title-2", wrap: true);
     private readonly Gtk.Label _sender = Label("heading", wrap: false);
     private readonly Gtk.Label _recipients = Label("dim-label", wrap: false);
@@ -32,10 +31,6 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
 
     public MailReaderView(MailRenderingPageViewModel viewModel, WinoViewServices services) : base(viewModel, services)
     {
-        var idle = Adw.StatusPage.New();
-        idle.SetIconName("mail-read-symbolic");
-        idle.SetTitle(Translator.NoMailSelected);
-
         var names = Gtk.Box.New(Gtk.Orientation.Vertical, 2);
         names.SetHexpand(true);
         names.Append(_sender);
@@ -71,28 +66,13 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
         message.Append(Gtk.Separator.New(Gtk.Orientation.Horizontal));
         message.Append(body);
 
-        _stack.AddNamed(idle, "idle");
-        _stack.AddNamed(message, "message");
-
         var view = Adw.ToolbarView.New();
         view.AddTopBar(Adw.HeaderBar.New());
-        view.SetContent(_stack);
+        view.SetContent(message);
         Root = view;
     }
 
     public override Gtk.Widget Root { get; }
-
-    public void ShowIdle()
-    {
-        if (!IsReleased) _stack.SetVisibleChildName("idle");
-    }
-
-    public Task ShowAsync(object parameter)
-    {
-        if (IsReleased) return Task.CompletedTask;
-        _stack.SetVisibleChildName("message");
-        return IsActive ? RenavigateAsync(parameter) : ActivateAsync(NavigationMode.New, parameter);
-    }
 
     public Task RenavigateAsync(object? parameter)
         => IsReleased ? Task.CompletedTask : ViewModel.InitializeNavigationAsync(NavigationMode.New, parameter);

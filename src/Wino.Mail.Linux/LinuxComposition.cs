@@ -2,13 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Wino.Core;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Providers;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.Linux.Views;
-using Wino.Mail.ViewModels;
-using Wino.Mail.ViewModels.Activation;
-using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Platform.Linux;
 using Wino.Providers.Dav.Providers;
 using Wino.Providers.Exchange.Providers;
@@ -21,7 +17,9 @@ namespace Wino.Mail.Linux;
 
 /// <summary>
 /// The composition root, in the order of the other heads: shared and core services, providers, the Linux platform,
-/// ViewModels, then this head's navigation, dialogs, theme and lifecycle. Call it on the GTK main thread.
+/// then the head (<see cref="LinuxViewModelRegistration"/>). Nothing else is registered here: a head service goes to
+/// a <c>LinuxViewModelRegistration.&lt;Area&gt;.cs</c> hook, a platform service to Wino.Platform.Linux. Call it on the
+/// GTK main thread.
 /// </summary>
 internal static class LinuxComposition
 {
@@ -38,28 +36,8 @@ internal static class LinuxComposition
         services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
         services.AddLinuxPlatformServices(bootstrap, () => window()?.Window);
 
-        services.RegisterWinoViewModels();
         services.RegisterLinuxHead(window, options);
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
-    }
-
-    private static void RegisterLinuxHead(this IServiceCollection services, Func<MainWindow?> window, LaunchOptions options)
-    {
-        services.AddSingleton(options);
-        services.AddSingleton<WinoViewServices>();
-        services.AddSingleton(provider => new GtkNavigationService(provider, provider.GetRequiredService<IDispatcher>(), window));
-        services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<GtkNavigationService>());
-
-        services.AddSingleton<IApplicationShellHost, GtkApplicationShellHost>();
-        services.AddSingleton<ActivationRouter>();
-        services.AddSingleton<INotificationResponseNavigator, NotificationResponseNavigator>();
-        services.AddSingleton<ApplicationLifecycleCoordinator>();
-        services.AddSingleton(provider => new GtkApplicationLifecycleHost(provider, provider.GetRequiredService<IDispatcher>(), window, options));
-
-        services.AddSingleton(provider => new GtkDialogService(provider.GetRequiredService<IDispatcher>(), window));
-        services.AddSingleton<IMailDialogService>(provider => provider.GetRequiredService<GtkDialogService>());
-        services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<GtkDialogService>());
-        services.AddSingleton<INewThemeService, GtkThemeService>();
     }
 }
