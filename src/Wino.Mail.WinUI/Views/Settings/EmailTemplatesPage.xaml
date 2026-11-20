@@ -1,8 +1,7 @@
-﻿<abstract:EmailTemplatesPageAbstract
-    x:Class="Wino.Views.Settings.EmailTemplatesPage"
+﻿<viewsAbstract:EmailTemplatesPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.EmailTemplatesPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
@@ -10,6 +9,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Mail"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     mc:Ignorable="d">
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
@@ -45,4 +45,4 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
     </StackPanel>
-</abstract:EmailTemplatesPageAbstract>
+</viewsAbstract:EmailTemplatesPageAbstract>

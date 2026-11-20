@@ -1,4 +1,4 @@
-﻿namespace Wino.Messaging.Client.Mails;
+﻿namespace Wino.Core.Domain.Messaging.Client.Mails;
 
 /// <summary>
 /// When rendering frame should be disposed.

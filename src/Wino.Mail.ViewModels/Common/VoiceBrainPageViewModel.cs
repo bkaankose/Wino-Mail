@@ -20,7 +20,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Services.Assistant;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 /// <summary>
 /// Settings › Voice Control › What Wino remembers: the brain on this device (stated facts, answers to questions and

@@ -8,9 +8,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.MAPI;
+using Wino.Core.Interfaces;
+using Wino.Providers.Exchange.MAPI;
 
-namespace Wino.Core.Synchronizers.Errors.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Errors.Exchange;
 
 /// <summary>Flags Exchange authentication failures (EWS and MAPI over HTTP) for account repair.</summary>
 public partial class ExchangeAuthenticationFailedHandler : ISynchronizerErrorHandler

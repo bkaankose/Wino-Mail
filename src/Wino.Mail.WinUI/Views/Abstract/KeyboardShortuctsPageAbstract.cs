@@ -1,5 +1,5 @@
-using Wino.Core.ViewModels;
-using Wino.Views.Abstract;
+
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.WinUI.Views.Abstract;
 

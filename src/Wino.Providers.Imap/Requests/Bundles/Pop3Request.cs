@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Requests.Bundles;
+namespace Wino.Providers.Imap.Requests.Bundles;
 
 public sealed record Pop3Request(Func<CancellationToken, Task> ExecuteAsync);
 

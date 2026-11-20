@@ -17,11 +17,11 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Common;
-using Wino.Dialogs;
 using Wino.Mail.WinUI.Dialogs;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Platform.Windows.Services;
 using WinRT;
 using WinRT.Interop;
 

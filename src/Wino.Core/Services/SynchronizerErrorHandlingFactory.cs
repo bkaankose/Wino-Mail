@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Interfaces;
 
 namespace Wino.Core.Services;
 

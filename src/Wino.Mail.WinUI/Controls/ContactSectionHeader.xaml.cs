@@ -2,7 +2,7 @@ using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 /// <summary>
 /// Header row of a contact editor section: icon tile, title, one-line description and an optional entry count.

@@ -4,12 +4,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.MAPI;
-using Wino.Core.MAPI.AddressBook;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Transport;
+using Wino.Providers.Exchange.MAPI.AddressBook;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Transport;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 // The Global Address List read over the MAPI/HTTP address book endpoint (NSPI QueryRows), with EWS as the fallback
 // when Autodiscover advertised no address book URL.

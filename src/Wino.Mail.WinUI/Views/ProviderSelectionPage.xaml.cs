@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.ViewModels;
 using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views;
 
 /// <summary>
 /// Sizes to its content: the Back and Continue buttons sit directly beneath the active step,

@@ -2,12 +2,11 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.Messaging;
 using CoreGraphics;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.UIKit.Calendar;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 

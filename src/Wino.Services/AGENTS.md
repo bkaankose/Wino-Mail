@@ -7,16 +7,16 @@ Storage and everything around it: the SQLite database and its schema, the MIME f
 - **The database changes only after the server confirms.** A service here writes what a synchronizer's change processor reports after a successful network call. It never writes a guessed result, and there is no offline queue and no retry queue. The pipeline is described in [Wino.Core](../Wino.Core/AGENTS.md).
 - **Existing installs keep their data.** The schema version is in `DatabaseService.cs` (`CurrentSchemaVersion`, file `Wino210.db`). Upgrades are inline steps in `EnsureSchemaUpgradesAsync`. Ask the owner before a change that renames, drops or rewrites existing data, or that changes a token, credential or settings format.
 - **One log file.** Add no log file and no Serilog sink. Log when state changes, never on every timer tick or skipped item. A line that can repeat goes through `Logging/ThrottledLog.cs`.
-- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project. A service that needs a decision returns it to its caller; a notice goes out as `InfoBarMessageRequested` through `IMessenger`.
+- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project, including through `GetService<T>()`, a local, a return type, a cast or `typeof`. A service that needs a decision returns it to its caller; a notice goes out as `InfoBarMessageRequested` through `IMessenger`.
 - **Paths come from `IApplicationConfiguration`.** The database and EML files live under `ApplicationDataFolderPath`; resolve them with `MainDatabasePaths` and `MimeFileService.GetMimeMessagePath()`. The host fills the configuration before it resolves any service.
 
 ## Always
 
 - Derive a database service from `BaseDatabaseService`, pass it `IDatabaseService` and `IMessenger`, and send UI messages with `ReportUIChange<TMessage>()`.
-- Take dependencies through the constructor, including `IMessenger`, and hold no `static` mutable state. `WINOMSG001` fails the build on `WeakReferenceMessenger.Default`; the one allowed use is the registration line in `ServicesContainerSetup.cs`, which the apps need because their views use the global instance.
+- Take dependencies through the constructor, including `IMessenger`, and hold no `static` mutable state. `WINOMSG002` fails the build on a static field that is not `readonly` or `const`, a static auto-property with a setter, and a static that holds a service; a lock or lookup table keyed by a file or a constant stays `static readonly`. `WINOMSG001` fails the build on `WeakReferenceMessenger.Default`; the one allowed use is the registration line in `ServicesContainerSetup.cs`, which the apps need because their views use the global instance.
 - Register the service in `RegisterSharedServices` (`ServicesContainerSetup.cs`). A portable implementation of an operating-system contract that `Wino.Hosting`, macOS, iOS and Android all use is registered in `AddPortablePlatformServices` (`Platform/PortablePlatformRegistration.cs`) instead, so the four hosts cannot drift apart. A class that implements several interfaces is registered once, and each interface forwards to that instance.
 - Log errors with `IWinoLogger`, and wrap async external operations in try/catch.
-- Keep the namespace of the files under `Domain/`. They are the contracts and models that need MimeKit or MailKit (`IMailService`, `IMimeFileService`, `HtmlPreviewVisitor`, the synchronizer contracts and others). They moved out of the Domain project and kept their `Wino.Core.Domain.*` names so every head compiles unchanged. A new MIME-typed contract goes there too.
+- The contracts and models that need MimeKit or MailKit (`IMailService`, `IMimeFileService`, `HtmlPreviewVisitor`, the synchronizer contracts and others) live in `Interfaces/`, `Models/` and `Extensions/`, in the `Wino.Services.*` namespaces. A new MIME-typed contract goes there too.
 - Keep JSON source-generated. Reflection-based serialization fails the Windows Release gate.
 
 ## Running a change
@@ -25,6 +25,7 @@ A storage service runs against a real database in a scratch folder. This script 
 
 ```csharp
 #:project D:/Wino-Mail/src/Wino.Services/Wino.Services.csproj
+#:property TargetFramework=net10.0
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Services;
 

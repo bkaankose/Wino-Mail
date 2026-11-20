@@ -4,7 +4,7 @@ using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 
-namespace Wino.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 /// <summary>
 /// Opens a link the user chose in a composer, through the app's launcher.

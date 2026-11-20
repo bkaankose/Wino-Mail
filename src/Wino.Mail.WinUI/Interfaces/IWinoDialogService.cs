@@ -3,14 +3,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
-using Wino.Dialogs;
 using Wino.Editor;
+using Wino.Mail.WinUI.Dialogs;
 
 namespace Wino.Mail.WinUI.Interfaces;
 
 /// <summary>
 /// Windows-only dialogs. Every ContentDialog in the WinUI head is created and presented by
-/// <see cref="Wino.Services.DialogService"/>; this interface exposes the ones whose inputs or
+/// <see cref="Wino.Mail.WinUI.Services.DialogService"/>; this interface exposes the ones whose inputs or
 /// results are WinUI or editor types that the shared <c>IMailDialogService</c> cannot carry.
 /// </summary>
 public interface IWinoDialogService

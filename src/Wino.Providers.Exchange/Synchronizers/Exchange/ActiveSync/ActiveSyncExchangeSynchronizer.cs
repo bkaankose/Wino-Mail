@@ -14,12 +14,14 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Providers.Exchange.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
@@ -27,8 +29,11 @@ using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Core.Services;
 using Wino.Services;
+using Wino.Core.Synchronizers;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
-namespace Wino.Core.Synchronizers.Exchange.ActiveSync;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsRequest, MimeMessage, CalendarItem, AccountContact>
 {
@@ -59,6 +64,9 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         _localContacts = new LocalContactSynchronizer(contacts, pictures); _localTasks = new LocalTaskSynchronizer(tasks);
         _localCalendar = new LocalCalendarOperationHandler(account, changeProcessor, calendars, applicationDataFolder, "local");
     }
+
+    // Exchange advertises profile sync for every transport; ActiveSync reads no profile, and a null Task from the base would throw.
+    public override Task<ProfileInformation> GetProfileInformationAsync() => Task.FromResult<ProfileInformation>(null);
 
     protected override bool SerializeMailOperations => true;
     public override uint BatchModificationSize => 100;

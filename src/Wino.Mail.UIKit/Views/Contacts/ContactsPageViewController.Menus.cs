@@ -4,11 +4,11 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.MenuItems;
 
 namespace Wino.Mail.UIKit.Views.Contacts;
 

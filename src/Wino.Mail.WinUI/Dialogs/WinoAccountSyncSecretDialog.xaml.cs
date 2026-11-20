@@ -5,7 +5,7 @@ using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Accounts;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>
 /// Asks for the password that unlocks a sync snapshot, or has the user choose and confirm one for

@@ -13,10 +13,13 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Extensions;
 using Wino.Services;
-using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Integration.Processors;
+using Wino.Providers.Outlook.Extensions;
+using Wino.Services.Interfaces;
 using Reminder = Wino.Core.Domain.Entities.Calendar.Reminder;
 
-namespace Wino.Core.Integration.Processors;
+namespace Wino.Providers.Outlook.Integration.Processors;
 
 public class OutlookChangeProcessor(IDatabaseService databaseService, IMessenger messenger,
                                     IFolderService folderService,

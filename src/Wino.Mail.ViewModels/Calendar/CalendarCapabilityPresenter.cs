@@ -7,7 +7,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 /// <summary>
 /// Turns <see cref="CalendarCapabilities"/> into the values and translated texts the calendar

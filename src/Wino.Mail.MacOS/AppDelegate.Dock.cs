@@ -6,9 +6,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Mail.MacOS.Infrastructure;
-using Wino.Calendar.ViewModels;
-using Wino.Messaging.UI;
 using Wino.Platform.Apple.Services;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.MacOS;
 

@@ -5,7 +5,7 @@ using Windows.ApplicationModel;
 using Windows.Management.Deployment;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 /// <summary>
 /// Updates the stable sideload package through the App Installer feed it was installed from,

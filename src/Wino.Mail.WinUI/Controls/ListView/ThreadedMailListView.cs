@@ -3,7 +3,6 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Globalization;
 using Wino.Mail.Controls.Core;
-using Wino.Helpers;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -11,6 +10,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Models.MailItem;
 using global::Wino.Mail.Controls.MailListView;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Helpers;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Controls.ListView;
@@ -57,7 +57,7 @@ public sealed partial class ThreadedMailListView : WinoMailListView
         var source = row.IsThreadHead ? row.Thread?.RepresentativeItem ?? row.SourceItem : row.SourceItem;
         if (source is not MailItemViewModel mail) return base.GetRowAutomationName(row);
 
-        var culture = CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+        var culture = CultureInfo.CurrentCulture;
         var mails = row.LeafItems.OfType<MailItemViewModel>().ToList();
         var details = new List<string>
         {

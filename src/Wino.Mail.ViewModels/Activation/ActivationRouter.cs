@@ -17,7 +17,7 @@ using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
 
 namespace Wino.Mail.ViewModels.Activation;
 

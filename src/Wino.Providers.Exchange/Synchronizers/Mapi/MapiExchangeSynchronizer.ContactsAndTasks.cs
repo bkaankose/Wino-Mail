@@ -8,11 +8,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.MAPI;
-using Wino.Core.MAPI.Rops;
 using Wino.Core.Requests;
+using Wino.Providers.Exchange.MAPI;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 // The default Contacts folder and the task folders read over MAPI, landing in the same address book and task lists the
 // EWS path fills. Rows are keyed "mapi:" plus the message id; the book and the lists are keyed "mapi:" plus the folder id.

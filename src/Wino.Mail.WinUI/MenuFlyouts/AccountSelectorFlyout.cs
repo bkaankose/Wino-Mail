@@ -9,7 +9,7 @@ using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.MenuFlyouts;
+namespace Wino.Mail.WinUI.MenuFlyouts;
 
 public partial class AccountSelectorFlyout : WinoContextFlyout, IDisposable
 {

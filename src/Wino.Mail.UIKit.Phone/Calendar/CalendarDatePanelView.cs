@@ -251,10 +251,10 @@ internal sealed class CalendarDatePanelView : UIView
     {
         var culture = CultureInfo.CurrentCulture;
         var month = _month.DisplayMonth;
-        _monthTitle.Text = month.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", culture);
+        _monthTitle.Text = month.ToDateTime(TimeOnly.MinValue).ToString("Y", culture);
         // The chevrons announce the month they open.
-        _previous.AccessibilityLabel = month.AddMonths(-1).ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", culture);
-        _next.AccessibilityLabel = month.AddMonths(1).ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", culture);
+        _previous.AccessibilityLabel = month.AddMonths(-1).ToDateTime(TimeOnly.MinValue).ToString("Y", culture);
+        _next.AccessibilityLabel = month.AddMonths(1).ToDateTime(TimeOnly.MinValue).ToString("Y", culture);
     }
 
 #if DEBUG

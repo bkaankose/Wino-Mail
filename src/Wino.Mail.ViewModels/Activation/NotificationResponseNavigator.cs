@@ -9,8 +9,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Accounts;
+using Wino.Core.Domain.Messaging.Client.Mails;
 
 namespace Wino.Mail.ViewModels.Activation;
 
@@ -26,6 +26,9 @@ public sealed class NotificationResponseNavigator(
     IDispatcher dispatcher,
     IMessenger messenger) : INotificationResponseNavigator
 {
+    private static readonly TimeSpan LaunchNavigationTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan FolderLoadTimeout = TimeSpan.FromSeconds(5);
+
     private readonly ILogger _logger = Log.ForContext<NotificationResponseNavigator>();
 
     private MailAppShellViewModel MailShell => services.GetRequiredService<MailAppShellViewModel>();
@@ -66,15 +69,29 @@ public sealed class NotificationResponseNavigator(
 
     public async Task<bool> ShowDraftsAsync(Guid accountId)
     {
+        var mailWasActive = host.IsShellActive(WinoApplicationMode.Mail);
         if (!await host.EnsureShellAsync(WinoApplicationMode.Mail)) return false;
 
         var shell = MailShell;
+
+        // A new or switching shell rebuilds its menu and runs its launch navigation (the startup Inbox) after it is
+        // shown. Drafts and the composer opened before that would be replaced, so they wait for it.
+        if (!mailWasActive)
+        {
+            await dispatcher.ExecuteOnUIThread(static () => { });
+            await Task.WhenAny(shell.NavigationInitialization, Task.Delay(LaunchNavigationTimeout));
+        }
+
         await RunOnUIAsync(async () =>
         {
             if (shell.MenuItems.TryGetAccountMenuItem(accountId, out var accountMenuItem))
                 await shell.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
             if (shell.MenuItems.TryGetSpecialFolderMenuItem(accountId, SpecialFolderType.Draft, out var draftFolderMenuItem))
-                await shell.NavigateFolderAsync(draftFolderMenuItem);
+            {
+                var loaded = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                await shell.NavigateFolderAsync(draftFolderMenuItem, loaded);
+                await Task.WhenAny(loaded.Task, Task.Delay(FolderLoadTimeout));
+            }
         });
 
         return true;

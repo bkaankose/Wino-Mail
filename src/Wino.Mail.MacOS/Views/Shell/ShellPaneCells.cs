@@ -2,12 +2,10 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using AppKit;
 using CoreGraphics;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Shell;
@@ -15,6 +13,10 @@ using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
 using Wino.Core.Domain.Presentation;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 
@@ -49,6 +51,9 @@ internal sealed class ShellPaneCell : NSTableCellView
     private readonly NSLayoutConstraint[] _chipInsets;
     private readonly NSTextField _subtitle;
     private readonly WinoSyncBar _sync = new();
+    private bool _syncVisible;
+    private bool _syncIndeterminate;
+    private double _syncValue;
     private readonly NSButton _attention;
     private readonly WinoUnreadPill _pill = new();
     private readonly NSButton _action;
@@ -172,6 +177,7 @@ internal sealed class ShellPaneCell : NSTableCellView
     /// <param name="subtleActiveAccount">True when the active account row only scopes the pane and must not read as a second selection.</param>
     public void Configure(IMenuItem item, bool selected, bool hasChildren, bool subtleActiveAccount = false)
     {
+        if (!ReferenceEquals(_item, item)) _sync.ForgetProgress();
         _item = item;
         ObserveParameter(null);
         Reset();
@@ -333,6 +339,7 @@ internal sealed class ShellPaneCell : NSTableCellView
                 SetTitle(item.ToString() ?? string.Empty, WinoStyle.Body);
                 break;
         }
+        ApplySync();
 
         // Source-list selection: the label keeps its own colour on the tinted fill (accent text measured 2.96:1);
         // the selected row is semibold and the active account above a selected folder is medium. The active
@@ -368,7 +375,7 @@ internal sealed class ShellPaneCell : NSTableCellView
         _dotSize.Constant = 20;
         _dot.CornerRadius = 10;
         _subtitle.Hidden = true;
-        _sync.Hidden = true;
+        _syncVisible = false;
         _attention.Hidden = true;
         _action.Hidden = true;
         _pill.Count = 0;
@@ -453,8 +460,21 @@ internal sealed class ShellPaneCell : NSTableCellView
 
     private void SetSync(bool visible, bool indeterminate, double value)
     {
-        _sync.Hidden = !visible;
-        if (visible) _sync.Update(indeterminate, value);
+        _syncVisible = visible;
+        _syncIndeterminate = indeterminate;
+        _syncValue = value;
+    }
+
+    private void ApplySync()
+    {
+        if (!_syncVisible)
+        {
+            if (!_sync.Hidden) _sync.Hidden = true;
+            return;
+        }
+        // Update while still hidden: a bar that is coming back starts at its new fill, and only a visible bar eases.
+        _sync.Update(_syncIndeterminate, _syncValue);
+        if (_sync.Hidden) _sync.Hidden = false;
     }
 
     private void CheckActivated(object? sender, EventArgs args)

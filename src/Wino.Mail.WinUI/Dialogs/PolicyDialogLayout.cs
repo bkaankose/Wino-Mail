@@ -1,7 +1,7 @@
 using System;
 using Microsoft.UI.Xaml;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>
 /// Fits a policy dialog's content to the window. The policy WebView2 takes the mouse wheel, so content taller than the

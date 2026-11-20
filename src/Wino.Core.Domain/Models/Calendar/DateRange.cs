@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 
 namespace Wino.Core.Domain.Models.Calendar;
@@ -16,7 +17,7 @@ public class DateRange
 
     public int TotalDays => (EndDate - StartDate).Days;
 
-    public override string ToString() => $"{StartDate.ToString("dd MMMM")} - {EndDate.ToString("dd MMMM")}";
+    public override string ToString() => $"{StartDate.ToString(DateTimeDisplayFormatter.GetMonthDayPattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture)} - {EndDate.ToString(DateTimeDisplayFormatter.GetMonthDayPattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture)}";
 
     public bool IsInRange(DateTime date)
     {

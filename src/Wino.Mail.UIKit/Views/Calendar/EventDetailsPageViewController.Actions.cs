@@ -1,12 +1,12 @@
 using System.Collections.Specialized;
 using System.Windows.Input;
 using UIKit;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 

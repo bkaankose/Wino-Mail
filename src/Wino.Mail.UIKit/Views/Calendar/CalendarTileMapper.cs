@@ -1,12 +1,12 @@
 using Itenso.TimePeriod;
 using UIKit;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.UIKit.Calendar;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 
@@ -35,7 +35,7 @@ public static class CalendarTileMapper
 
     /// <summary>"10:00 – 10:30" in the user's time format.</summary>
     public static string TimeRangeText(ICalendarItem item, CalendarSettings? settings)
-        => Wino.Calendar.ViewModels.CalendarAgenda.TimeRangeText(item.StartDate, item.EndDate, settings);
+        => Wino.Mail.ViewModels.Calendar.CalendarAgenda.TimeRangeText(item.StartDate, item.EndDate, settings);
 
     /// <summary>True when the item belongs to a read-only calendar (shared <see cref="CalendarEventDisplay.IsReadOnly"/>).</summary>
     public static bool IsReadOnly(ICalendarItem? item) => CalendarEventDisplay.IsReadOnly(item);
@@ -49,10 +49,10 @@ public static class CalendarTileMapper
             ? CalendarEventDisplay.GetDragRefusal(viewModel.CalendarItem, viewModel.IsBusy)
             : CalendarDragRefusal.Busy;
 
-    /// <summary>The shared event colour (<see cref="Wino.Calendar.ViewModels.CalendarAgenda.ColorHex"/>), falling back to the accent.</summary>
+    /// <summary>The shared event colour (<see cref="Wino.Mail.ViewModels.Calendar.CalendarAgenda.ColorHex"/>), falling back to the accent.</summary>
     public static UIColor Fill(ICalendarItem item)
     {
-        var hex = item is CalendarItemViewModel viewModel ? Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(viewModel) : item.AssignedCalendar?.BackgroundColorHex;
+        var hex = item is CalendarItemViewModel viewModel ? Wino.Mail.ViewModels.Calendar.CalendarAgenda.ColorHex(viewModel) : item.AssignedCalendar?.BackgroundColorHex;
         return WinoStyle.FromHexString(hex) ?? WinoStyle.Accent;
     }
 

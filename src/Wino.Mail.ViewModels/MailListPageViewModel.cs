@@ -20,6 +20,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
@@ -36,12 +37,16 @@ using Wino.Mail.ViewModels.Search;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.Core.SearchBar;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.Client.Accounts;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Mail.ViewModels;
 
@@ -110,11 +115,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IContextMenuItemService _contextMenuItemService;
     private readonly ILogger _logger = Log.ForContext<MailListPageViewModel>();
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly IAppLockService _appLockService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
+    private readonly IMailProviderRegistry _providers;
     private MailItemViewModel _activeMailItem;
     private CancellationTokenSource markAsReadDelayCancellationTokenSource;
     private CancellationTokenSource? _dayChangeWatchCancellationTokenSource;
@@ -377,10 +384,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IWinoLogger winoLogger,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
+                                 IMailProviderRegistry providers,
                                  IMailShellClient shellMenuProvider = null,
-                                 IWinoAccountIntelligenceSnapshotService entitlementService = null) : base(messenger)
+                                 IWinoAccountIntelligenceSnapshotService entitlementService = null,
+                                 IAppLockService appLockService = null) : base(messenger)
     {
         ShellMenuProvider = shellMenuProvider;
+        _appLockService = appLockService;
 
         _winoLogger = winoLogger;
         _accountService = accountService;
@@ -394,6 +404,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _requestCoordinator = requestCoordinator;
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
+        _providers = providers;
         _entitlementService = entitlementService;
 
         PreferencesService = preferencesService;
@@ -1497,6 +1508,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             var draftPreparationRequest = new DraftPreparationRequest(targetMail.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, targetMail.MailCopy);
             await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
         }
+        catch (AppLockedException ex)
+        {
+            ShowLockedMessage(ex.Message);
+        }
         catch (MimePersistenceException ex)
         {
             _mailDialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
@@ -1625,6 +1640,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         var accountId = accountIds[0];
         var uniqueIds = targetList.Select(a => a.MailCopy.UniqueId).Distinct().ToList();
 
+        // The assignment is stored before its request is queued, so the lock is checked before anything is stored.
+        if (_appLockService?.AreActionsRefused == true)
+        {
+            ShowLockedMessage(Translator.AppLock_ActionDenied);
+            return;
+        }
+
         if (isAssignedToAll)
         {
             await _mailCategoryService.UnassignCategoryAsync(category.Id, uniqueIds).ConfigureAwait(false);
@@ -1636,7 +1658,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         await ApplyCategoryAssignmentToVisibleItemsAsync(category, targetList, isAssignedToAll).ConfigureAwait(false);
 
-        if (targetList.First().MailCopy.AssignedAccount.ProviderType != MailProviderType.Outlook)
+        if (!_providers.GetTraits(targetList.First().MailCopy.AssignedAccount.ProviderType).SupportsCategorySync)
             return;
 
         var requests = new List<IRequestBase>();
@@ -1646,8 +1668,18 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             requests.Add(new MailCategoryAssignmentRequest(mailItem, category.Id, category.Name, categoryNames, !isAssignedToAll));
         }
 
-        await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+        try
+        {
+            await _winoRequestDelegator.ExecuteAsync(accountId, requests).ConfigureAwait(false);
+        }
+        catch (AppLockedException ex)
+        {
+            ShowLockedMessage(ex.Message);
+        }
     }
+
+    private void ShowLockedMessage(string message)
+        => _mailDialogService.InfoBarMessage(Translator.AppLock_LockedTitle, message, InfoBarMessageType.Warning);
 
     private async Task ApplyCategoryAssignmentToVisibleItemsAsync(
         MailCategory category,
@@ -2348,7 +2380,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private async Task<List<MailCopy>> GetSurvivingLabelCopiesAsync(IEnumerable<MailCopy> removedMails)
     {
-        var removed = removedMails.Where(mail => mail.AssignedAccount?.ProviderType == MailProviderType.Gmail).ToArray();
+        var removed = removedMails.Where(mail => mail.AssignedAccount is { } account && _providers.GetTraits(account.ProviderType).StoresMessageInSeveralFolders).ToArray();
         var ids = removed.Select(mail => mail.Id).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToArray();
         if (ids.Length == 0)
             return new List<MailCopy>();

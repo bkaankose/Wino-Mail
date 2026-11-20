@@ -590,7 +590,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         await Dispatcher.ExecuteOnUIThread(() =>
         {
             if (IsSheetRoot && NavigationController is { } sheet && _shellHost is { } host) dismissal = host.DismissSheetAsync(sheet);
-            else WeakReferenceMessenger.Default.Send(new Wino.Messaging.Client.Mails.DisposeRenderingFrameRequested());
+            else WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.Client.Mails.DisposeRenderingFrameRequested());
         });
         await dismissal;
     }

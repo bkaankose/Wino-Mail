@@ -7,8 +7,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Core.Domain.Models.Printing;
-using Wino.Messaging.UI;
 using Wino.Platform.iOS.Services;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.UIKit.Infrastructure;
 

@@ -1,7 +1,9 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 /// <summary>
 /// A settings section in the pane. Entries inside a collapsible group carry that group as
@@ -15,22 +17,14 @@ public partial class SettingsShellPageMenuItem(
     WinoIconGlyph icon,
     IMenuItem parentMenuItem = null) : MenuItemBase(entityId: null, parentMenuItem)
 {
-    private string _title = title;
-    private string _description = description;
-
     public WinoPage PageType { get; } = pageType;
 
-    public string Title
-    {
-        get => _title;
-        set => SetProperty(ref _title, value);
-    }
+    [ObservableProperty]
+    public partial string Title { get; set; } = title;
 
-    public string Description
-    {
-        get => _description;
-        set => SetProperty(ref _description, value);
-    }
+    [ObservableProperty]
+    public partial string Description { get; set; } = description;
 
+    // WinoIconGlyph is source-generated in this assembly, so [ObservableProperty] cannot resolve it.
     public WinoIconGlyph Icon { get; } = icon;
 }

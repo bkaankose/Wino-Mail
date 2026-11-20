@@ -17,8 +17,12 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Core.Services.Assistant;
 
@@ -124,6 +128,10 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
                 {
                     cancelled = true;
                     outcome = new StepOutcome(step.N, StepStatus.Cancelled, [], null);
+                }
+                catch (AppLockedException)
+                {
+                    outcome = Failed(step, Translator.AppLock_ActionDenied);
                 }
                 catch (Exception ex)
                 {
@@ -382,6 +390,15 @@ public sealed partial class AgentPlanExecutor : IAgentPlanExecutor
         => new(step.N, StepStatus.Failed, [], string.IsNullOrWhiteSpace(step.Gloss)
             ? reason
             : string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_Failed, Gloss(step), reason));
+
+    /// <summary>Why the delegator queued nothing, in the user's words; null when the request was queued.</summary>
+    private static string? RefusalReason(WinoRequestDelegationResult result) => result.Error switch
+    {
+        null => null,
+        AppLockedException => Translator.AppLock_ActionDenied,
+        ReadOnlyCalendarException => Translator.CalendarReadOnly_Message,
+        var error => error.Message
+    };
 
     private static StepOutcome NothingMatched(ResolvedStep step, string template)
         => new(step.N, StepStatus.NothingMatched, [], string.Format(CultureInfo.CurrentCulture, template, Gloss(step)));

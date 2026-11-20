@@ -8,7 +8,7 @@ using Windows.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 
-namespace Wino.Extensions;
+namespace Wino.Mail.WinUI.Extensions;
 
 public static class AnimationExtensions
 {

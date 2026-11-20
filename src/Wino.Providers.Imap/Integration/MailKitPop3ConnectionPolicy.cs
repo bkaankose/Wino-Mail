@@ -10,7 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Integration;
+namespace Wino.Providers.Imap.Integration;
 
 internal static class MailKitPop3ConnectionPolicy
 {

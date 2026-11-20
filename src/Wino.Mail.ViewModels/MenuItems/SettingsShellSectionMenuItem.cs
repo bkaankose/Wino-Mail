@@ -1,16 +1,12 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 public partial class SettingsShellSectionMenuItem(string title, WinoIconGlyph icon) : MenuItemBase
 {
-    private string _title = title;
-
-    public string Title
-    {
-        get => _title;
-        set => SetProperty(ref _title, value);
-    }
+    [ObservableProperty]
+    public partial string Title { get; set; } = title;
 
     public WinoIconGlyph Icon { get; } = icon;
 }

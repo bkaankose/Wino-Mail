@@ -1,15 +1,15 @@
-﻿<abstract:ReaderActionsPageAbstract
-    x:Class="Wino.Views.Settings.ReaderActionsPage"
+﻿<viewsAbstract:ReaderActionsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.ReaderActionsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -41,7 +41,7 @@
                     Grid.Row="1"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Opacity="{x:Bind helpers:XamlHelpers.GetHiddenItemOpacity(IsVisible), Mode=OneWay}"
+                    Opacity="{x:Bind winuiHelpers:XamlHelpers.GetHiddenItemOpacity(IsVisible), Mode=OneWay}"
                     Orientation="Horizontal"
                     Spacing="8">
                     <Viewbox Width="20" Height="20">
@@ -59,7 +59,7 @@
                     Grid.Row="2"
                     HorizontalAlignment="Center"
                     MaxLines="2"
-                    Opacity="{x:Bind helpers:XamlHelpers.GetHiddenItemOpacity(IsVisible), Mode=OneWay}"
+                    Opacity="{x:Bind winuiHelpers:XamlHelpers.GetHiddenItemOpacity(IsVisible), Mode=OneWay}"
                     Style="{StaticResource CaptionTextBlockStyle}"
                     Text="{x:Bind Title}"
                     TextAlignment="Center"
@@ -213,4 +213,4 @@
                 Style="{ThemeResource AccentButtonStyle}" />
         </Grid>
     </StackPanel>
-</abstract:ReaderActionsPageAbstract>
+</viewsAbstract:ReaderActionsPageAbstract>

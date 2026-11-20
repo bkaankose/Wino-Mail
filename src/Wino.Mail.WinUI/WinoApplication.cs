@@ -21,8 +21,9 @@ using Wino.Core.Services;
 using Wino.Mail.Controls.ContactPicture;
 using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Mail.WinUI.Interfaces;
-using Wino.Messaging.Client.Shell;
 using Wino.Services;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.WinUI.Services;
 using WinRT;
 using WinUIEx;
 
@@ -128,8 +129,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
         ApplicationLanguages.PrimaryLanguageOverride = languageModel.Code;
 
-        CultureInfo.DefaultThreadCurrentCulture = newCulture;
-        CultureInfo.DefaultThreadCurrentUICulture = newCulture;
+        DisplayCulture.Apply(languageModel.Code);
 
         var flowDirection = newCulture.TextInfo.IsRightToLeft
             ? FlowDirection.RightToLeft

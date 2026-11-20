@@ -7,9 +7,9 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
-using Wino.Core.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Rops;
 
-namespace Wino.Core.MAPI.Autocomplete;
+namespace Wino.Providers.Exchange.MAPI.Autocomplete;
 
 /// <summary>
 /// One property on one autocomplete row: a MAPI tag, four reserved bytes, an eight-byte union, and

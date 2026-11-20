@@ -1,4 +1,4 @@
-namespace Wino.Messaging.Client.Shell;
+namespace Wino.Core.Domain.Messaging.Client.Shell;
 
 /// <summary>
 /// Raised by the preferences service whenever a stored preference value changes.

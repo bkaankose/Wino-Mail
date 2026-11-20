@@ -8,6 +8,7 @@ using AppKit;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Services.Interfaces;
 #endif
 
 namespace Wino.Mail.MacOS;

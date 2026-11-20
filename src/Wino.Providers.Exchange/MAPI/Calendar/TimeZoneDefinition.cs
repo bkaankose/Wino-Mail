@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
 
-namespace Wino.Core.MAPI.Calendar;
+namespace Wino.Providers.Exchange.MAPI.Calendar;
 
 /// <summary>
 /// The time-zone blobs an appointment carries (MS-OXOCAL 2.2.1.39 TZREG and 2.2.1.41 TZDEFINITION),

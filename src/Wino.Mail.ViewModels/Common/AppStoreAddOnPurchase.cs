@@ -5,7 +5,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 /// <summary>
 /// The Mac App Store channel for Wino add-ons, the counterpart of <see cref="UnlimitedAccountsStorePurchase"/>.

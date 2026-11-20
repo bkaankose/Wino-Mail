@@ -4,6 +4,7 @@ using Microsoft.Windows.Storage.Pickers;
 using Wino.Mail.Controls.AccountIcon;
 using Wino.Mail.Controls.Playground.Lifetime;
 using Wino.Mail.Controls.Playground.ViewModels;
+using WinRT;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
@@ -25,6 +26,7 @@ public sealed partial class AccountIconPage : Page, IDisposable, IPlaygroundLife
         UpdateInfoBarIconSource();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private async void BrowseProfilePictureClick(object sender, RoutedEventArgs args)
     {
         var element = (FrameworkElement)sender;
@@ -48,6 +50,8 @@ public sealed partial class AccountIconPage : Page, IDisposable, IPlaygroundLife
     private void ClearProfilePictureClick(object sender, RoutedEventArgs args) =>
         ViewModel.SetProfilePicture(null);
 
+    [DynamicWindowsRuntimeCast(typeof(ComboBoxItem))]
+    [DynamicWindowsRuntimeCast(typeof(ComboBox))]
     private void ThemeSelectionChanged(object sender, SelectionChangedEventArgs args)
     {
         RequestedTheme = ((sender as ComboBox)?.SelectedItem as ComboBoxItem)?.Tag switch

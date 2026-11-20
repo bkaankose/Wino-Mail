@@ -12,10 +12,10 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
-using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Mail.ViewModels.Common;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 /// <summary>
 /// ViewModel for managing calendar account settings.

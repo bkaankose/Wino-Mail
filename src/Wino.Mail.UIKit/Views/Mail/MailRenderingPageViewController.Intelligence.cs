@@ -6,8 +6,8 @@ using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.UIKit.Intelligence;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Intelligence;
-using Wino.Messaging.Client.Shell;
 using Wino.Presentation.UIKit;
+using Wino.Core.Domain.Messaging.Client.Shell;
 
 namespace Wino.Mail.UIKit.Views.Mail;
 

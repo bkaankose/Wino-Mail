@@ -2,21 +2,15 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Security.Cryptography.X509Certificates;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Calendar.ViewModels.Services;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
@@ -24,6 +18,13 @@ using Wino.Mail.ViewModels.Companion;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.ViewModels.Search;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Calendar.Services;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 using WinRT;
 
 // Wino.Mail.ViewModels is a portable net10.0 library without CsWinRT, so the CCW vtables for its
@@ -52,6 +53,23 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailItemViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ThreadMailItemViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailListCollection<MailItemViewModel>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountProviderDetailViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MergedAccountProviderDetailViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<IAccountProviderDetailViewModel>))]
+
+// Mail pane menu items. They moved here from Wino.Core.Domain, which never generated marshalling data.
+
+[assembly: GeneratedWinRTExposedExternalType(typeof(MenuItemCollection))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(NewMailMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(SeperatorItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MergedAccountMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountGroupMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(FixAccountIssuesMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(FolderMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MergedAccountFolderMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MailCategoryMenuItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MergedMailCategoryMenuItem))]
 
 // Types the Release build of Wino.Mail.ViewModels generated for itself while it still carried
 // CsWinRT. They are listed to keep the marshalling data the app shipped with.

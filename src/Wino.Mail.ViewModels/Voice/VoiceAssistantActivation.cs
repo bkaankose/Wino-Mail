@@ -5,8 +5,8 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.UI;
 using Wino.Services.Assistant;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Voice;
 

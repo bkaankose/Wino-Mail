@@ -9,11 +9,17 @@ using Wino.Core.Helpers;
 using Wino.Core.Integration;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Services;
-using Wino.Core.Synchronizers.Errors.Imap;
-using Wino.Core.Synchronizers.ImapSync;
-using Wino.Core.Synchronizers.Mail;
+using Wino.Core.Interfaces;
+using Wino.Providers.Imap.Integration;
+using Wino.Providers.Imap.Integration.Processors;
+using Wino.Providers.Imap.Interfaces;
+using Wino.Providers.Imap.Services;
+using Wino.Providers.Imap.Synchronizers;
+using Wino.Providers.Imap.Synchronizers.Errors.Imap;
+using Wino.Providers.Imap.Synchronizers.ImapSync;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Providers;
+namespace Wino.Providers.Imap.Providers;
 
 public sealed class ImapProviderModule(
     IMessenger messenger,
@@ -37,6 +43,8 @@ public sealed class ImapProviderModule(
 
     public MailProviderTraits Traits { get; } = new()
     {
+        ManagesProviderContactCollections = true,
+        ManagesProviderTaskSteps = true,
         SupportsDavIntegration = true,
         ArchiveRequiresArchiveFolder = true,
         MovesJunkAsFolderMove = true,
@@ -86,6 +94,8 @@ public sealed class Pop3ProviderModule(
 
     public MailProviderTraits Traits { get; } = new()
     {
+        ManagesProviderContactCollections = true,
+        ManagesProviderTaskSteps = true,
         ArchiveRequiresArchiveFolder = true
     };
 

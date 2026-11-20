@@ -22,11 +22,16 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Services;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Core.Synchronizers;
+using Wino.Providers.Exchange.Integration.Processors;
+using Wino.Providers.Exchange.Interfaces;
+using Wino.Providers.Exchange.Requests.Bundles;
+using Wino.Services.Models.MailItem;
 using EwsMimeContent = Microsoft.Exchange.WebServices.Data.MimeContent;
 using Task = System.Threading.Tasks.Task;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 /// <summary>
 /// Synchronizes on-premises Exchange accounts over Exchange Web Services: the transport for servers that do not offer
@@ -1001,7 +1006,7 @@ IExchangeAuthenticator exchangeAuthenticator,
             OperationType = "ExchangeExecuteRequest"
         };
 
-        var handled = await ErrorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+        var handled = await HandleRequestErrorAsync(ErrorHandlerFactory, errorContext).ConfigureAwait(false);
 
         // Handlers own the non-transient errors they handled.
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
@@ -1024,7 +1029,7 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         for (Exception? current = exception; current != null; current = current.InnerException)
         {
-            if (current is Domain.Exceptions.SynchronizerEntityNotFoundException)
+            if (current is Wino.Core.Domain.Exceptions.SynchronizerEntityNotFoundException)
                 return true;
 
             if (current is ServiceResponseException serviceResponse &&

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Windows.UI;
 using Wino.Core.Domain.Presentation;
 
-namespace Wino.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 /// <summary>The calendar-colour derived colours of a tinted event tile for one theme.</summary>
 /// <param name="Accent">The calendar colour: bar, hover and selection tint.</param>

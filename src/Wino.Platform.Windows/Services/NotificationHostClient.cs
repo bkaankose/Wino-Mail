@@ -7,7 +7,7 @@ using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 using Wino.NotificationHost.Contracts;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 /// <summary>
 /// Shows and removes toasts under the per-mode notification identities without leaving this process.

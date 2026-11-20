@@ -16,6 +16,7 @@ namespace Wino.WidgetHost;
 internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
 {
     private static readonly TimeSpan IdleExitDelay = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan OrphanExitDelay = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan SnapshotSettleDelay = TimeSpan.FromMilliseconds(300);
     private static readonly TimeSpan MinuteRefresh = TimeSpan.FromMinutes(1);
 
@@ -28,6 +29,7 @@ internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
     private readonly Timer _snapshotTimer;
     private readonly Timer _minuteTimer;
     private DateTimeOffset _idleSince = DateTimeOffset.UtcNow;
+    private DateTimeOffset _lastBoardCall = DateTimeOffset.UtcNow;
     private WidgetSnapshot? _lastSnapshot;
     private volatile bool _disposed;
     private readonly Dictionary<string, WidgetCard> _sentCards = new(StringComparer.Ordinal);
@@ -71,13 +73,25 @@ internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
     /// <summary>
     /// Returns once no Wino widget has been active for a minute. The Board activates the provider again through COM
     /// when it next shows a Wino widget, and it keeps showing the last card meanwhile.
+    /// Without the main application nothing changes the snapshot, so active widgets do not keep the host then: it
+    /// returns once the Board has made no call for a short while, and never outlives an application that was ended.
     /// </summary>
     public void WaitUntilIdle()
     {
         while (!_exitSignal.Wait(TimeSpan.FromSeconds(5)))
         {
+            var isApplicationRunning = IsMainApplicationRunning();
+
             lock (_gate)
             {
+                if (!isApplicationRunning)
+                {
+                    if (DateTimeOffset.UtcNow - _lastBoardCall >= OrphanExitDelay)
+                        return;
+
+                    continue;
+                }
+
                 if (_widgets.Values.Any(static widget => widget.IsActive))
                 {
                     _idleSince = DateTimeOffset.UtcNow;
@@ -186,7 +200,7 @@ internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
         lock (_gate)
         {
             _widgets[context.Id] = new WidgetState(context.DefinitionId, context.Size, isActive ?? context.IsActive);
-            _idleSince = DateTimeOffset.UtcNow;
+            _idleSince = _lastBoardCall = DateTimeOffset.UtcNow;
         }
     }
 
@@ -273,7 +287,27 @@ internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
     private void MarkActivity()
     {
         lock (_gate)
-            _idleSince = DateTimeOffset.UtcNow;
+            _idleSince = _lastBoardCall = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// The primary application process, with or without a window, holds this mutex until it ends, however it ends.
+    /// A failed check counts as running, so it can never close a host the Board uses.
+    /// </summary>
+    private static bool IsMainApplicationRunning()
+    {
+        try
+        {
+            if (!Mutex.TryOpenExisting(ReleaseIdentity.Current.MailHostMutexName, out var mutex))
+                return false;
+
+            mutex.Dispose();
+            return true;
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     private void Update(string widgetId, WidgetSnapshot? snapshot)

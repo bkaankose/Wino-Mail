@@ -7,7 +7,7 @@ using Wino.Mail.Controls.AccountIcon;
 
 namespace Wino.Mail.Controls.Playground.ViewModels;
 
-public sealed class MailListPageViewModel : INotifyPropertyChanged
+public sealed partial class MailListPageViewModel : INotifyPropertyChanged
 {
     private string _selectedHeaderButtonTitle = "Current folder";
     public string SelectedHeaderButtonTitle { get => _selectedHeaderButtonTitle; set => Set(ref _selectedHeaderButtonTitle, value); }

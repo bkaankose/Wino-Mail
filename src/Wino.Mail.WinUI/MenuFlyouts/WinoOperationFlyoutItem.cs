@@ -4,10 +4,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
-using Wino.Helpers;
 using Wino.Mail.WinUI.Controls;
+using Wino.Mail.WinUI.Helpers;
 
-namespace Wino.MenuFlyouts;
+namespace Wino.Mail.WinUI.MenuFlyouts;
 
 public partial class WinoOperationFlyoutItem<TOperationMenuItem> : MenuFlyoutItem, IDisposable where TOperationMenuItem : IMenuOperation
 {

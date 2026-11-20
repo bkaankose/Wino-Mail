@@ -1,7 +1,7 @@
 #nullable enable
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Messaging.Client.Calendar;
+namespace Wino.Core.Domain.Messaging.Client.Calendar;
 
 /// <summary>
 /// Raised when a new calendar display range is requested.

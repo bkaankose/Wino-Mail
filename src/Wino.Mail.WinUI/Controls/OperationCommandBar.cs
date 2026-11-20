@@ -15,8 +15,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
-using Wino.Helpers;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.WinUI.Helpers;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;

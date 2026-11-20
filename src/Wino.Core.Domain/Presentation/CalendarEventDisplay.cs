@@ -167,20 +167,20 @@ public static class CalendarEventDisplay
         if (settings is null) return string.Empty;
 
         var culture = settings.CultureInfo;
-        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType);
+        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType, settings.CultureInfo);
 
         if (isAllDay)
         {
             var lastDay = end.AddDays(-1);
             return lastDay.Date <= start.Date
-                ? $"{start.ToString("dddd, dd MMMM", culture)} · {Translator.CalendarItemAllDay}"
-                : $"{start.ToString("dd MMMM", culture)} – {lastDay.ToString("dd MMMM", culture)} · {Translator.CalendarItemAllDay}";
+                ? $"{start.ToString(DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(culture), culture)} · {Translator.CalendarItemAllDay}"
+                : $"{start.ToString(DateTimeDisplayFormatter.GetMonthDayPattern(culture), culture)} – {lastDay.ToString(DateTimeDisplayFormatter.GetMonthDayPattern(culture), culture)} · {Translator.CalendarItemAllDay}";
         }
 
         if (isMultiDay)
-            return $"{start.ToString($"dd MMMM ddd {timeFormat}", culture)} - {end.ToString($"dd MMMM ddd {timeFormat}", culture)}";
+            return $"{start.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(culture, abbreviatedWeekday: true)} {timeFormat}", culture)} - {end.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(culture, abbreviatedWeekday: true)} {timeFormat}", culture)}";
 
-        return $"{start.ToString($"dddd, dd MMMM {timeFormat}", culture)} - {end.ToString(timeFormat, culture)}";
+        return $"{start.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(culture)} {timeFormat}", culture)} - {end.ToString(timeFormat, culture)}";
     }
 
     /// <summary>

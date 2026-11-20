@@ -1,15 +1,14 @@
 ﻿<ContentDialog
-    x:Class="Wino.Dialogs.MoveMailDialog"
+    x:Class="Wino.Mail.WinUI.Dialogs.MoveMailDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:folders="using:Wino.Core.Domain.Models.Folders"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     Title="{x:Bind domain:Translator.MoveMailDialog_Title}"
     DefaultButton="Primary"
     PrimaryButtonClick="CancelClicked"
@@ -32,7 +31,7 @@
                     <coreControls:WinoFontIcon
                         FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="20"
-                        Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
+                        Icon="{x:Bind winuiHelpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
                     <TextBlock
                         VerticalAlignment="Center"
                         Style="{ThemeResource BodyTextBlockStyle}"

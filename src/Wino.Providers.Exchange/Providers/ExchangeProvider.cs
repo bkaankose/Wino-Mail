@@ -1,7 +1,6 @@
 using System;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Authentication.Exchange;
 using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -10,13 +9,18 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Services;
-using Wino.Core.Synchronizers.Errors.Exchange;
-using Wino.Core.Synchronizers.Exchange;
-using Wino.Core.Synchronizers.Exchange.ActiveSync;
-using Wino.Core.Synchronizers.Mapi;
+using Wino.Providers.Exchange.Authentication.Exchange;
+using Wino.Providers.Exchange.Integration.Processors;
+using Wino.Providers.Exchange.Interfaces;
+using Wino.Providers.Exchange.Services;
+using Wino.Providers.Exchange.Synchronizers.Errors.Exchange;
+using Wino.Providers.Exchange.Synchronizers.Exchange;
+using Wino.Providers.Exchange.Synchronizers.Mapi;
 using Wino.Services;
+using Wino.Services.Interfaces;
+using Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
-namespace Wino.Core.Providers;
+namespace Wino.Providers.Exchange.Providers;
 
 /// <summary>On-premises Exchange Server, over MAPI over HTTP or Exchange Web Services.</summary>
 public sealed class ExchangeProviderModule(
@@ -42,6 +46,7 @@ public sealed class ExchangeProviderModule(
         ManagesProviderContactCollections = false,
         ManagesProviderTaskSteps = false,
         ArchiveRequiresArchiveFolder = true,
+        SupportsProfileInfoSync = true,
         LiveCoverage = LiveCoverageKind.ExchangeNotifications
     };
 

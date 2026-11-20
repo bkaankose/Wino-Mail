@@ -24,8 +24,10 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Contracts.Intelligence;
-using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Services;
 

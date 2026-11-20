@@ -4,15 +4,15 @@ using CommunityToolkit.Mvvm.Messaging;
 using UIKit;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.ViewModels;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Views.Contacts;
-using Wino.Messaging.Client.Navigation;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 

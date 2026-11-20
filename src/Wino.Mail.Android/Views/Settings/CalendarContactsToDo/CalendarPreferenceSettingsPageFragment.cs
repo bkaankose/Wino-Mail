@@ -1,8 +1,6 @@
 using Android.Content;
 using Android.Graphics;
 using Android.Views;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -10,6 +8,8 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 using View = Android.Views.View;
 
 namespace Wino.Mail.Android.Views.Settings.CalendarContactsToDo;

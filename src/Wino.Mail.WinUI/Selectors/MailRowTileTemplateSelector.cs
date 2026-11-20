@@ -2,7 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 
-namespace Wino.Selectors;
+namespace Wino.Mail.WinUI.Selectors;
 
 /// <summary>
 /// Picks the tile visual for a mail row's mixed tile strip, where intelligence metadata and

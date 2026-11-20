@@ -1,8 +1,8 @@
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Android.Views.Settings.Pages;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Settings;
 
@@ -11,7 +11,7 @@ namespace Wino.Mail.Android.Views.Settings;
 /// <see cref="AndroidPageHost.Settings"/> page, shown by <see cref="SettingsHostFragment"/>. Settings is never a mode:
 /// the account avatar and <c>ChangeApplicationMode(Settings)</c> open the <see cref="WinoPage.SettingsPage"/> root list.
 /// Pages without an Android meaning (Companion, Backup and restore, Keyboard shortcuts, S/MIME) are not routed and the
-/// shared <c>SettingsCatalog</c> does not list them (IPlatformCapabilities).
+/// shared <c>ISettingsCatalog</c> does not list them (IPlatformCapabilities).
 /// </summary>
 public static partial class SettingsPageRoutes
 {

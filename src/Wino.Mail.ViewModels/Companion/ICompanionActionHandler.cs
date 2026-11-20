@@ -2,9 +2,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.ViewModels.Companion;
 

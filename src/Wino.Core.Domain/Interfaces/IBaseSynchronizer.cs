@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
@@ -67,6 +68,12 @@ public interface IBaseSynchronizer
     /// Returns calendar item ids that currently have queued or executing operations.
     /// </summary>
     IReadOnlyCollection<Guid> GetPendingCalendarOperationIds();
+
+    /// <summary>
+    /// Returns the wanted state of events whose edit is queued or executing. The database keeps the previous state
+    /// until the server accepts the edit, so a view that reloads from storage shows these instead.
+    /// </summary>
+    IReadOnlyCollection<CalendarItem> GetPendingCalendarEdits();
 
     bool HasPendingContactOperation(Guid contactId);
 

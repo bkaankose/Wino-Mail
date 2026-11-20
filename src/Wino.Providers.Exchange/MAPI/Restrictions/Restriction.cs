@@ -6,10 +6,10 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Restrictions;
+namespace Wino.Providers.Exchange.MAPI.Restrictions;
 
 /// <summary>
 /// Codec for serialized restrictions (MS-OXCDATA 2.12): a rule's condition in a rules-table row

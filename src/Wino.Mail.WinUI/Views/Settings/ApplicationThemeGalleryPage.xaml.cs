@@ -8,17 +8,17 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Helpers;
 using Wino.Mail.Controls.Core.ContextFlyout;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class ApplicationThemeGalleryPage : ApplicationThemeGalleryPageAbstract
 {
     public ApplicationThemeGalleryPage() => InitializeComponent();
 
-    private const string CustomThemeAssetUriPrefix = "ms-appdata:///local/" + Wino.Services.NewThemeService.CustomThemeFolderName + "/";
+    private const string CustomThemeAssetUriPrefix = "ms-appdata:///local/" + Wino.Mail.WinUI.Services.NewThemeService.CustomThemeFolderName + "/";
 
     // Custom theme thumbnails keep their file name across saves, so they are read into memory:
     // a URI source would show the cached old thumbnail and keep the file open while it is replaced.
@@ -32,7 +32,7 @@ public sealed partial class ApplicationThemeGalleryPage : ApplicationThemeGaller
 
         try
         {
-            var path = Wino.Services.NewThemeService.GetCustomThemeAssetPath(previewImage[CustomThemeAssetUriPrefix.Length..]);
+            var path = Wino.Mail.WinUI.Services.NewThemeService.GetCustomThemeAssetPath(previewImage[CustomThemeAssetUriPrefix.Length..]);
             if (!File.Exists(path))
                 return null;
 

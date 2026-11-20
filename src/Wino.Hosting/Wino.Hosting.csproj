@@ -8,6 +8,15 @@
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 	</PropertyGroup>
 	<ItemGroup>
+		<!-- SkiaSharp ships no Linux native library by default; without this a host on Linux fails wherever a picture is decoded. -->
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+		<!-- Transitive pins of Directory.Packages.props do not reach a script outside the repository. Referencing every
+		     package that is pinned only transitively in this graph carries the app's versions to the script. -->
+		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+		<PackageReference Include="System.Security.Cryptography.ProtectedData" />
+		<PackageReference Include="System.Security.Cryptography.Xml" />
+	</ItemGroup>
+	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />

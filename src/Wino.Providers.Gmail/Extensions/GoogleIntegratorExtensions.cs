@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Google.Apis.Calendar.v3.Data;
-using Google.Apis.Gmail.v1.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Misc;
 using Wino.Services;
+using Wino.Providers.Gmail.Google.Apis.Calendar.v3.Data;
+using Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data;
 
-namespace Wino.Core.Extensions;
+namespace Wino.Providers.Gmail.Extensions;
 
 public static class GoogleIntegratorExtensions
 {

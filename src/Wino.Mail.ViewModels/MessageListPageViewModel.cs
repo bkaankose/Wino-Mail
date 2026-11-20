@@ -16,9 +16,9 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 

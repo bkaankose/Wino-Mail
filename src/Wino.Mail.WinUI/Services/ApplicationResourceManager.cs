@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 
-namespace Wino.Services;
+namespace Wino.Mail.WinUI.Services;
 
 public class ApplicationResourceManager : IApplicationResourceManager<ResourceDictionary>
 {

@@ -5,10 +5,10 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Restrictions;
-using Wino.Core.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Restrictions;
+using Wino.Providers.Exchange.MAPI.Rops;
 
-namespace Wino.Core.MAPI.Rules;
+namespace Wino.Providers.Exchange.MAPI.Rules;
 
 /// <summary>
 /// Edits the junk rule's condition the way Exchange's own junk settings do, so OWA reads it back

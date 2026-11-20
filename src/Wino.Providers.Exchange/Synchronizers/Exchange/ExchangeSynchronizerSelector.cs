@@ -5,9 +5,12 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Synchronizers.Mapi;
+using Wino.Providers.Exchange.Integration.Processors;
+using Wino.Providers.Exchange.Interfaces;
+using Wino.Providers.Exchange.Synchronizers.Mapi;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 /// <summary>
 /// Picks the synchronizer for an on-premises Exchange account. The account's transport choice wins; under Automatic,

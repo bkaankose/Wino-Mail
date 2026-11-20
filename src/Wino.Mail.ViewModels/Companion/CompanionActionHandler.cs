@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -15,6 +14,8 @@ using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels.Companion;
 

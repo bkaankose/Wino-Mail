@@ -16,15 +16,14 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Messaging.Client.Shell;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Views.Abstract;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Calendar.Data;
 using WinRT;
-using Wino.Helpers;
 
-namespace Wino.Calendar.Views;
+namespace Wino.Mail.WinUI.Views.Calendar;
 
 public sealed partial class CalendarEventComposePage : CalendarEventComposePageAbstract,
     IRecipient<ApplicationThemeChanged>

@@ -2,15 +2,13 @@
 
 using System;
 using System.Collections.Generic;
-using Wino.Calendar.Views;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.WinUI.Views;
 using Wino.Mail.WinUI.Views.Calendar;
-using Wino.Views;
-using Wino.Views.Account;
-using Wino.Views.Mail;
-using Wino.Views.Settings;
-using Wino.Views.ToDo;
+using Wino.Mail.WinUI.Views.Account;
+using Wino.Mail.WinUI.Views.Mail;
+using Wino.Mail.WinUI.Views.Settings;
+using Wino.Mail.WinUI.Views.ToDo;
 
 namespace Wino.Mail.WinUI.Navigation;
 

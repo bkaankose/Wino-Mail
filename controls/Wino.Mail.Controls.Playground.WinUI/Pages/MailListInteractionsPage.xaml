@@ -26,19 +26,14 @@
                     IsGravatarEnabled="False" />
                 <StackPanel Grid.Column="1" Spacing="1">
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         FontWeight="SemiBold"
-                        Text="{Binding SourceItem.Sender, Mode=OneWay}"
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).Sender, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{x:Bind ((models:MailListLabItem)SourceItem).Subject, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
-                        Text="{Binding SourceItem.Subject, Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis" />
-                    <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.Preview, Mode=OneWay}"
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).Preview, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <StackPanel
@@ -49,19 +44,16 @@
                         Width="8"
                         Height="8"
                         HorizontalAlignment="Right"
-                        x:SuppressXamlTrimWarnings="True"
                         Fill="{ThemeResource SystemAccentColor}"
-                        Opacity="{Binding SourceItem.UnreadOpacity, Mode=OneWay}" />
+                        Opacity="{x:Bind ((models:MailListLabItem)SourceItem).UnreadOpacity, Mode=OneWay}" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.DateText, Mode=OneWay}" />
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).DateText, Mode=OneWay}" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource SystemAccentColor}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.RevisionText, Mode=OneWay}" />
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).RevisionText, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -88,9 +80,8 @@
                             FontSize="10"
                             Glyph="{x:Bind models:MailListLabFormat.ChevronGlyph(IsExpanded), Mode=OneWay}" />
                         <TextBlock
-                            x:SuppressXamlTrimWarnings="True"
                             FontWeight="SemiBold"
-                            Text="{Binding SourceItem.Sender, Mode=OneWay}"
+                            Text="{x:Bind ((models:MailListLabItem)SourceItem).Sender, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
                         <Border
                             Padding="6,0"
@@ -103,15 +94,11 @@
                                 Text="{x:Bind models:MailListLabFormat.ThreadCount(Thread), Mode=OneWay}" />
                         </Border>
                     </StackPanel>
+                    <TextBlock Text="{x:Bind ((models:MailListLabItem)SourceItem).Subject, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
-                        Text="{Binding SourceItem.Subject, Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis" />
-                    <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.Preview, Mode=OneWay}"
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).Preview, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <StackPanel
@@ -122,19 +109,16 @@
                         Width="8"
                         Height="8"
                         HorizontalAlignment="Right"
-                        x:SuppressXamlTrimWarnings="True"
                         Fill="{ThemeResource SystemAccentColor}"
-                        Opacity="{Binding SourceItem.UnreadOpacity, Mode=OneWay}" />
+                        Opacity="{x:Bind ((models:MailListLabItem)SourceItem).UnreadOpacity, Mode=OneWay}" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.DateText, Mode=OneWay}" />
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).DateText, Mode=OneWay}" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource SystemAccentColor}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.RevisionText, Mode=OneWay}" />
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).RevisionText, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -156,15 +140,13 @@
                     IsGravatarEnabled="False" />
                 <StackPanel Grid.Column="1" Spacing="1">
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         FontWeight="SemiBold"
-                        Text="{Binding SourceItem.Sender, Mode=OneWay}"
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).Sender, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.Subject, Mode=OneWay}"
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).Subject, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <StackPanel
@@ -175,19 +157,16 @@
                         Width="8"
                         Height="8"
                         HorizontalAlignment="Right"
-                        x:SuppressXamlTrimWarnings="True"
                         Fill="{ThemeResource SystemAccentColor}"
-                        Opacity="{Binding SourceItem.UnreadOpacity, Mode=OneWay}" />
+                        Opacity="{x:Bind ((models:MailListLabItem)SourceItem).UnreadOpacity, Mode=OneWay}" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.DateText, Mode=OneWay}" />
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).DateText, Mode=OneWay}" />
                     <TextBlock
-                        x:SuppressXamlTrimWarnings="True"
                         Foreground="{ThemeResource SystemAccentColor}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{Binding SourceItem.RevisionText, Mode=OneWay}" />
+                        Text="{x:Bind ((models:MailListLabItem)SourceItem).RevisionText, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>

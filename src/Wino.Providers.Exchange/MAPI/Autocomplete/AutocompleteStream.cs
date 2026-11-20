@@ -7,7 +7,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Wino.Core.MAPI.Autocomplete;
+namespace Wino.Providers.Exchange.MAPI.Autocomplete;
 
 /// <summary>
 /// Outlook's autocomplete list - the names that appear under the To box as you type - as it is

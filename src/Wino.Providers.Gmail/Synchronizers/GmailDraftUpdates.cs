@@ -2,11 +2,12 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Google.Apis.Gmail.v1.Data;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data;
+using Wino.Services.Models.MailItem;
 
-namespace Wino.Core.Synchronizers.Mail;
+namespace Wino.Providers.Gmail.Synchronizers;
 
 public partial class GmailSynchronizer
 {

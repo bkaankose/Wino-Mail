@@ -15,6 +15,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.Android.Views.Extras;
 

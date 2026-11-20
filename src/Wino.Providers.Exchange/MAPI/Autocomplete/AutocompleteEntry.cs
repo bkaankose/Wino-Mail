@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Wino.Core.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Rops;
 
-namespace Wino.Core.MAPI.Autocomplete;
+namespace Wino.Providers.Exchange.MAPI.Autocomplete;
 
 /// <summary>
 /// One name in the autocomplete list. A row of MAPI properties, of which a handful mean something

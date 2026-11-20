@@ -3,8 +3,8 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
-using Wino.Dialogs;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Dialogs;
 using WinRT.Interop;
 using WinUIEx;
 

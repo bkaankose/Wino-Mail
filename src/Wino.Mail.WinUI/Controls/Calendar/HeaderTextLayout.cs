@@ -1,4 +1,4 @@
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public sealed class HeaderTextLayout
 {

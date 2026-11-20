@@ -21,11 +21,12 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
-using Wino.MenuFlyouts;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
-using Wino.Shell.ViewModels;
-using Wino.Views.Mail;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Mail.WinUI.MenuFlyouts;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Views;

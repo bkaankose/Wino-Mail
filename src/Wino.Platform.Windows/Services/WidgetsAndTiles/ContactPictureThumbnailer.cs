@@ -8,7 +8,7 @@ using Windows.Storage.Streams;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.WinUI.Services.WidgetsAndTiles;
+namespace Wino.Platform.Windows.Services.WidgetsAndTiles;
 
 /// <summary>
 /// Turns stored contact pictures into small square JPEG data URIs for the People widget. The Board renders only
@@ -59,7 +59,7 @@ public sealed class ContactPictureThumbnailer(IPictureStorageService pictureStor
             using var output = new InMemoryRandomAccessStream();
             var encoderOptions = new BitmapPropertySet
             {
-                ["ImageQuality"] = new BitmapTypedValue(JpegQuality, Windows.Foundation.PropertyType.Single)
+                ["ImageQuality"] = new BitmapTypedValue(JpegQuality, global::Windows.Foundation.PropertyType.Single)
             };
             var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, output, encoderOptions);
             var pixels = await decoder.GetSoftwareBitmapAsync(

@@ -15,6 +15,8 @@ Every user action that changes server data takes this path. Know it before you c
 5. **On success** the provider's change processor writes the database, and the storage service sends a message with `EntityUpdateSource.Server`.
 6. **On failure** `RequestUiChangeCoordinator.RevertBundle` reverts the in-memory change with `EntityUpdateSource.ClientReverted`. The database is untouched.
 
+A calendar edit (`UpdateCalendarEventRequest`, `ChangeStartAndEndDateRequest`) carries the wanted item, attendees and reminders; the caller stores nothing. Each provider calls `IDefaultChangeProcessor.PersistUpdatedCalendarEventAsync` where its server call succeeded. A page that reloads from storage before then shows `IBaseSynchronizer.GetPendingCalendarEdits` instead of the stored rows. Calendars without a server (`LocalCalendarOperationHandler`) store the edit directly, because there is nothing to confirm.
+
 While the app lock is on and the window is locked, `SynchronizationManager.QueueRequestPackAsync` and `WinoRequestDelegator` refuse user requests with `AppLockedException`. Synchronization keeps running. A notification action the user kept runs inside `IAppLockService.AllowActionsWhileLocked()`.
 
 ## The provider registry
@@ -35,14 +37,14 @@ Keep the module contract small. Add a member only when shared code would otherwi
 - **A fix must not break data that existing users have already synced.**
 - **`SyncCoordinator` owns the schedule.** No other code keeps an interval constant. Never show a quota or a rate limit to the user.
 - **OAuth clients, token storage and sign-in:** read "Accounts, OAuth clients and signing" in the [root guidance](../../AGENTS.md) first.
-- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project or a provider project. Code that needs a decision takes the answer as data on the request, or returns a typed result such as `MailOperationDecisionRequiredException` to the ViewModel. A notice goes out as `InfoBarMessageRequested` through `IMessenger`.
+- **No UI contract below the ViewModels.** `WINOUI001` fails the build when a dialog, navigation, theme or dispatcher contract is used in this project or a provider project, in any form, `GetService<T>()` included. `IAgentPlanHost` counts as one; its use in `AgentPlanExecutor` is a known exemption in `AnalyzerAllowList.cs` in `Wino.SourceGenerators`. Code that needs a decision takes the answer as data on the request, or returns a typed result such as `MailOperationDecisionRequiredException` to the ViewModel. A notice goes out as `InfoBarMessageRequested` through `IMessenger`.
 
 ## Always
 
-- Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager, and `WINOMSG001` fails the build on `WeakReferenceMessenger.Default` in a shared project.
+- Take `ISynchronizationManager`, `IMessenger` and `RequestUiChangeCoordinator` through the constructor. There is no static sync manager: `WINOMSG002` fails the build on an assignable static or a static that holds a service, and `WINOMSG001` on `WeakReferenceMessenger.Default`, in every shared project.
 - Give every synchronizer, error handler and request executor the one `RequestUiChangeCoordinator` singleton from the container. A second instance does not know which changes were applied, so a revert would be skipped.
 - Register shared services in `RegisterCoreServices` (`CoreContainerSetup.cs`). A service only one provider needs is registered in that provider's `Add...Provider` method.
-- Keep the namespace of the files under `Domain/`. They moved out of the Domain project and kept their `Wino.Core.Domain.*` names.
+- The contracts that need MimeKit or MailKit live in `Interfaces/`, in the `Wino.Core.Interfaces` namespace.
 - Treat code after `ConfigureAwait(false)` and every messenger recipient as background-thread code.
 
 Shared code that looks provider-specific but stays here, because more than one provider uses it:
@@ -58,6 +60,7 @@ A service that needs only the network runs from a single-file script. This one r
 
 ```csharp
 #:project D:/Wino-Mail/src/Wino.Core/Wino.Core.csproj
+#:property TargetFramework=net10.0
 #:property JsonSerializerIsReflectionEnabledByDefault=true
 using System.Text.Json;
 using Wino.Core.Domain.Models.AutoDiscovery;

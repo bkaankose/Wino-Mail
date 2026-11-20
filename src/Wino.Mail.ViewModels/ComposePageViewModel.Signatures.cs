@@ -115,6 +115,17 @@ public partial class ComposePageViewModel
             SignaturePickerItems.Add(signature);
     }
 
+    /// <summary>
+    /// Fills the subject from an applied template only while the draft has none, so a reply, a forward or a subject
+    /// the user typed keeps its own.
+    /// </summary>
+    public void ApplyTemplateSubject(EmailTemplate template)
+    {
+        if (template == null || string.IsNullOrWhiteSpace(template.Subject) || !string.IsNullOrWhiteSpace(Subject)) return;
+
+        Subject = template.Subject;
+    }
+
     /// <summary>Reloads <see cref="AvailableEmailTemplates"/>, for example before showing the picker.</summary>
     public Task RefreshEmailTemplatesAsync() => LoadEmailTemplatesAsync();
 

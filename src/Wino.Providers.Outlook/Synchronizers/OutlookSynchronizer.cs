@@ -6,9 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,11 +38,9 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Extensions;
-using Wino.Core.Http;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
-using Wino.Core.Outlook;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Requests;
@@ -53,20 +49,22 @@ using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
-using Wino.Messaging.UI;
 using Wino.Mail.AI.Abstractions;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Core.Synchronizers;
+using Wino.Providers.Outlook.Extensions;
+using Wino.Providers.Outlook.Helpers;
+using Wino.Providers.Outlook.Http;
+using Wino.Providers.Outlook.Integration.Processors;
+using Wino.Providers.Outlook.Interfaces;
+using Wino.Providers.Outlook.Outlook;
+using Wino.Services.Extensions;
+using Wino.Services.Models.MailItem;
 using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 using GlobalizationCultureInfo = System.Globalization.CultureInfo;
 using GraphTaskStatus = Microsoft.Graph.Models.TaskStatus;
 
-namespace Wino.Core.Synchronizers.Mail;
-
-// The move body keeps the exact shape the generated MovePostRequestBody serialized to. The official model also
-// exposes its BackingStore, which System.Text.Json would write into the request.
-internal sealed record OutlookMovePostBody(Dictionary<string, string> AdditionalData, string DestinationId);
-
-[JsonSerializable(typeof(OutlookMovePostBody))]
-internal partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
+namespace Wino.Providers.Outlook.Synchronizers;
 
 /// <summary>
 /// Outlook synchronizer implementation with delta token synchronization.
@@ -1104,7 +1102,7 @@ IAuthenticator authenticator,
 
     private static AccountTask MapRemoteTask(TodoTask remote, AccountTaskList list)
     {
-        var due = ParseGraphDate(remote?.DueDateTime?.DateTime);
+        var due = OutlookIntegratorExtensions.GetTaskDueDate(remote?.DueDateTime);
         var completed = remote?.Status == GraphTaskStatus.Completed;
         var task = new AccountTask
         {
@@ -1149,7 +1147,7 @@ IAuthenticator authenticator,
             Body = string.IsNullOrWhiteSpace(task.Notes) ? null : new ItemBody { ContentType = BodyType.Text, Content = task.Notes },
             Status = task.IsCompleted ? GraphTaskStatus.Completed : GraphTaskStatus.NotStarted,
             Importance = task.IsImportant ? Microsoft.Graph.Models.Importance.High : Microsoft.Graph.Models.Importance.Normal,
-            DueDateTime = task.DueDate is DateTime due ? new DateTimeTimeZone { DateTime = due.ToString("yyyy-MM-ddT00:00:00", GlobalizationCultureInfo.InvariantCulture), TimeZone = "UTC" } : null,
+            DueDateTime = task.DueDate is DateTime due ? OutlookIntegratorExtensions.ToTaskDueDateTime(due) : null,
             ChecklistItems = includeChecklistItems
                 ? task.Steps?.OrderBy(step => step.Order).Select(step => new ChecklistItem
                 {
@@ -1192,11 +1190,6 @@ IAuthenticator authenticator,
 
         return null;
     }
-
-    private static DateTime? ParseGraphDate(string value)
-        => DateTime.TryParse(value, GlobalizationCultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var parsed)
-            ? parsed.Date
-            : null;
 
     private static DateTime? ParseGraphDateTime(string value)
         => DateTime.TryParse(value, GlobalizationCultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var parsed)
@@ -2445,7 +2438,7 @@ IAuthenticator authenticator,
         if (message.IsDraft.GetValueOrDefault() && message.InternetMessageHeaders != null)
         {
             var winoDraftHeader = message.InternetMessageHeaders
-                .FirstOrDefault(h => Domain.Constants.IsLocalDraftHeader(h.Name));
+                .FirstOrDefault(h => Wino.Core.Domain.Constants.IsLocalDraftHeader(h.Name));
 
             if (winoDraftHeader != null && Guid.TryParse(winoDraftHeader.Value, out Guid localDraftCopyUniqueId))
             {
@@ -3427,9 +3420,6 @@ IAuthenticator authenticator,
         return requestInformation;
     }
 
-    private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody content)
-        => PreparePostRequestInformation(requestInformation, JsonSerializer.Serialize(new OutlookMovePostBody([], content.DestinationId), OutlookSynchronizerJsonContext.Default.OutlookMovePostBody));
-
     private RequestInformation PrepareReportMessageRequestInformation(ChangeJunkStateRequest request)
     {
         var reportAction = request.IsJunk ? "junk" : "notJunk";
@@ -3460,8 +3450,7 @@ IAuthenticator authenticator,
                 DestinationId = item.ToFolder.RemoteFolderId
             };
 
-            return PreparePostRequestInformation(_graphClient.Me.Messages[item.Item.Id].Move.ToPostRequestInformation(requestBody),
-                                                                 requestBody);
+            return _graphClient.Me.Messages[item.Item.Id].Move.ToPostRequestInformation(requestBody);
         });
     }
 
@@ -4183,7 +4172,7 @@ IAuthenticator authenticator,
         };
 
         // Try to handle the error with registered handlers
-        var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext);
+        var handled = await HandleRequestErrorAsync(_errorHandlingFactory, errorContext).ConfigureAwait(false);
 
         // Transient errors still need to bubble so the request can be retried or surfaced to the caller.
         if (!handled || errorContext.Severity == SynchronizerErrorSeverity.Transient)
@@ -4291,6 +4280,15 @@ IAuthenticator authenticator,
             if (bundle?.UIChangeRequest is DeleteCalendarEventRequest deleteCalendarEventRequest)
             {
                 await _outlookChangeProcessor.DeleteCalendarItemAsync(deleteCalendarEventRequest.Item.Id).ConfigureAwait(false);
+                return;
+            }
+
+            if (bundle?.UIChangeRequest is UpdateCalendarEventRequest updateCalendarEventRequest)
+            {
+                await _outlookChangeProcessor.PersistUpdatedCalendarEventAsync(
+                    updateCalendarEventRequest.Item,
+                    updateCalendarEventRequest.Attendees,
+                    updateCalendarEventRequest.Reminders).ConfigureAwait(false);
                 return;
             }
 

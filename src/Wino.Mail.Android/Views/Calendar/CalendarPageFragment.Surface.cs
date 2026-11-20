@@ -3,15 +3,15 @@ using Android.Views;
 using Android.Widget;
 using CommunityToolkit.Mvvm.Messaging;
 using Google.Android.Material.Button;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Messaging.Client.Calendar;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Calendar;
 using Wino.Presentation.Android;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.Android.Views.Calendar;
 

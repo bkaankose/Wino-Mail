@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Outlook;
+namespace Wino.Providers.Outlook.Outlook;
 
 /// <summary>
 /// Translates the substrate API's presentation fields into Wino's own vocabulary.

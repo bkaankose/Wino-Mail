@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Automation.Provider;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 internal sealed partial class CalendarItemControlAutomationPeer(CalendarItemControl owner)
     : FrameworkElementAutomationPeer(owner), IInvokeProvider

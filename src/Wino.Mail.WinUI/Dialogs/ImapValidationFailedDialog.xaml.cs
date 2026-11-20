@@ -4,8 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
+using Wino.Platform.Windows.Interfaces;
 
-namespace Wino.Mail.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class ImapValidationFailedDialog : ContentDialog
 {

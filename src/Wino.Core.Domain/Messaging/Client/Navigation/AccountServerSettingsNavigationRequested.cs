@@ -1,6 +1,6 @@
 using System;
 
-namespace Wino.Messaging.Client.Navigation;
+namespace Wino.Core.Domain.Messaging.Client.Navigation;
 
 /// <summary>
 /// Opens Settings > Accounts > the account > server settings, for example from a calendar or contacts certificate notice.

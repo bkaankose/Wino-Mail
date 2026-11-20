@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.MacOS.Views.Extras;
 

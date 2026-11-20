@@ -4,7 +4,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 
-namespace Wino.Mail.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 public partial class AccountProviderDetailViewModel : ObservableObject, IAccountProviderDetailViewModel
 {

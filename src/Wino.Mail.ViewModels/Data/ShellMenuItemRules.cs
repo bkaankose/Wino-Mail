@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
 namespace Wino.Mail.ViewModels.Data;
 

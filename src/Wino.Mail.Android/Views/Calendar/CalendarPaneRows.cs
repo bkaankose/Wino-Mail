@@ -4,16 +4,18 @@ using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
 using Android.Widget;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.Android.Calendar;
 using Wino.Presentation.Android;
 using Wino.Presentation.Controls;
 using Wino.Core.Domain.Enums;
-using IMenuItem = Wino.Core.Domain.Interfaces.IMenuItem;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using IMenuItem = Wino.Mail.ViewModels.MenuItems.Contracts.IMenuItem;
 
 namespace Wino.Mail.Android.Views.Calendar;
 
@@ -141,7 +143,7 @@ internal static class CalendarPaneRows
             UpdateTitle();
         }
 
-        private void UpdateTitle() => _title.Text = Wino.Calendar.ViewModels.CalendarAgenda.MonthTitle(_grid.DisplayMonth, null);
+        private void UpdateTitle() => _title.Text = Wino.Mail.ViewModels.Calendar.CalendarAgenda.MonthTitle(_grid.DisplayMonth, null);
     }
 
     /// <summary>One calendar: a check box in the calendar colour and the name (Windows calendar check box template).</summary>

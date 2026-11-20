@@ -4,7 +4,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class CreateAccountAliasDialog : ContentDialog, ICreateAccountAliasDialog
 {

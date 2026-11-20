@@ -5,12 +5,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Calendar;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Rules;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Calendar;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Rules;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI;
+namespace Wino.Providers.Exchange.MAPI;
 
 /// <summary>
 /// One occurrence of a series (MS-OXOCAL 3.1.4.2 / 3.1.4.3): deleting it lists its date in the

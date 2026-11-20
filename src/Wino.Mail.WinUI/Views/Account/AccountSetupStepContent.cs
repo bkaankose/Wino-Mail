@@ -1,7 +1,7 @@
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views.Account;
 
 /// <summary>
 /// The content of the setup page's step host. A new instance per step makes the host apply the step's template again

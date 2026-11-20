@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 /// <summary>
 /// The result of a server connection test: not tested, testing, connected, or failed.

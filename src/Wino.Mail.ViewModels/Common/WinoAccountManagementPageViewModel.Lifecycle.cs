@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class WinoAccountManagementPageViewModel
 {

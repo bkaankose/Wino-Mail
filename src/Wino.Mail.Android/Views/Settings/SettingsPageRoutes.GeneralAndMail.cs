@@ -1,9 +1,9 @@
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Android.Views.Settings.GeneralAndMail;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Settings;
 

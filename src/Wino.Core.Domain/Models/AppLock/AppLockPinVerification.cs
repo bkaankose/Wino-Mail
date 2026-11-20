@@ -40,5 +40,8 @@ public static class AppLockPinRules
     }
 }
 
-/// <summary>Thrown when a request is queued while the application lock has not been unlocked.</summary>
-public sealed class AppLockedException() : InvalidOperationException("The application is locked.");
+/// <summary>
+/// Thrown when a request is queued while the application lock has not been unlocked. The message is the notice the
+/// user sees, so a caller that shows its failures as text shows the refusal without knowing this type.
+/// </summary>
+public sealed class AppLockedException() : InvalidOperationException(Translator.AppLock_ActionDenied);

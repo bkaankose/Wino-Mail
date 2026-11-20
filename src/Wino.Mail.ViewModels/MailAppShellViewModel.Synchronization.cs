@@ -7,7 +7,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
-using Wino.Messaging.Server;
+using Wino.Core.Domain.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 

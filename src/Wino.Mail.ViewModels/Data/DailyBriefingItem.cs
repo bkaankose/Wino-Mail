@@ -8,7 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
 
-namespace Wino.Mail.ViewModels;
+namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// One briefing card. It shows only what Classification and Enrichment produce: sender and date, smart

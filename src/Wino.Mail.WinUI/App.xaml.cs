@@ -19,8 +19,6 @@ using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -35,7 +33,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Providers;
-using Wino.Core.ViewModels;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Activation;
 using Wino.Mail.ViewModels.Data;
@@ -49,18 +46,24 @@ using Wino.Mail.WinUI.Navigation;
 using Wino.Mail.WinUI.Navigation.Rules;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.ViewModels;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Client.Shell;
 using Wino.Mail.WinUI.Services.Companion;
 using Wino.Mail.ViewModels.Companion;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.NotificationHost.Contracts;
 using Wino.Services;
-using Wino.Shell.ViewModels;
-using Wino.Views;
+using Wino.Authentication;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.WinUI.Views;
+using Wino.Platform.Windows.Interfaces;
+using Wino.Platform.Windows.Services;
+using Wino.Providers.Dav.Providers;
+using Wino.Providers.Exchange.Providers;
+using Wino.Providers.Gmail.Providers;
+using Wino.Providers.Imap.Providers;
+using Wino.Providers.Outlook.Providers;
+using Wino.Services.Interfaces;
 using WinUIEx;
 using PendingBootstrapActivation = Wino.Core.Activation.PendingBootstrapActivation;
 using PendingBootstrapActivationKind = Wino.Core.Activation.PendingBootstrapActivationKind;
@@ -850,7 +853,7 @@ public partial class App : WinoApplication,
         // Toast, tray and notification activations can create a shell window before any path
         // awaits NewThemeService.InitializeAsync. Make sure the theme brushes pages read with
         // {ThemeResource} resolve from the first frame, including in High Contrast.
-        if (NewThemeService is Wino.Services.NewThemeService themeService)
+        if (NewThemeService is Wino.Mail.WinUI.Services.NewThemeService themeService)
             themeService.EnsureThemeResources();
 
         _preferencesService ??= Services.GetRequiredService<IPreferencesService>();
@@ -1459,7 +1462,8 @@ public partial class App : WinoApplication,
         LogActivation("Creating main window.");
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-        MainWindow = windowManager.CreateWindow(WinoWindowKind.Shell, () => new ShellWindow());
+        var appLockService = Services.GetRequiredService<IAppLockService>();
+        MainWindow = windowManager.CreateWindow(WinoWindowKind.Shell, () => new ShellWindow(appLockService));
         InitializeNavigationDispatcher();
 
         if (MainWindow is not IWinoShellWindow shellWindow)

@@ -7,7 +7,7 @@ using Microsoft.Kiota.Abstractions;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 
-namespace Wino.Core.Helpers;
+namespace Wino.Providers.Outlook.Helpers;
 
 public static class CalendarRecurrenceMapper
 {
@@ -17,7 +17,7 @@ public static class CalendarRecurrenceMapper
             return null;
 
         var ruleLine = calendarItem.Recurrence
-            .Split(Domain.Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
+            .Split(Wino.Core.Domain.Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Trim())
             .FirstOrDefault(line => line.StartsWith("RRULE:", StringComparison.OrdinalIgnoreCase));
 

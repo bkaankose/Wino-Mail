@@ -13,13 +13,16 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
 {
     private readonly IAccountService _accountService;
     private readonly IWinoAccountIntelligenceSnapshotService _entitlementService;
+    private readonly IMailProviderRegistry _providers;
     private IReadOnlyList<SettingsNavigationItemInfo> _accountSearchItems = [];
     private bool _isAccountSearchIndexInitialized;
     private int _activePageGeneration;
@@ -32,8 +35,10 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
         IStatePersistanceService statePersistenceService,
         IAccountService accountService,
         IWinoAccountIntelligenceSnapshotService entitlementService,
-        SettingsMenuProvider settingsMenuProvider) : base(messenger)
+        SettingsMenuProvider settingsMenuProvider,
+        IMailProviderRegistry providers) : base(messenger)
     {
+        _providers = providers;
         NavigationService = navigationService;
         StatePersistenceService = statePersistenceService;
         _accountService = accountService;
@@ -161,7 +166,9 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
             AccountDetailsTab.Mail,
             "folders folder list");
 
-        if (account.IsAliasSyncSupported)
+        var traits = _providers.GetTraits(account.ProviderType);
+
+        if (traits.SupportsAliasSync)
         {
             yield return CreateAccountSearchItem(
                 account,
@@ -172,7 +179,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 "aliases sender addresses");
         }
 
-        if (account.IsCategorySyncSupported)
+        if (traits.SupportsCategorySync)
         {
             yield return CreateAccountSearchItem(
                 account,

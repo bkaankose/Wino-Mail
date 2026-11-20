@@ -6,9 +6,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.ViewModels.Companion;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.UIKit.Infrastructure;
 
@@ -117,7 +117,7 @@ public sealed class UIKitQuickActionItems(
             var candidates = upcoming.Where(static item => !item.IsCancelled).ToList();
             if ((candidates.FirstOrDefault(item => !CompanionContentService.IsAllDayUpcoming(item, now)) ?? candidates.FirstOrDefault()) is { } next)
             {
-                var culture = CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+                var culture = CultureInfo.CurrentCulture;
                 var display = DateTimeDisplayFormatter.GetTimeDisplayType(preferences.CalendarTimeFormatPreference, culture);
                 string subtitle;
                 if (CompanionContentService.IsAllDayUpcoming(next, now))

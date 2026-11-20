@@ -14,8 +14,8 @@ using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Intelligence;
-using Wino.Messaging.Client.Shell;
 using Wino.Presentation.Android;
+using Wino.Core.Domain.Messaging.Client.Shell;
 using PopupMenu = AndroidX.AppCompat.Widget.PopupMenu;
 
 namespace Wino.Mail.Android.Views.Mail;

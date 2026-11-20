@@ -1,10 +1,10 @@
 using System.Globalization;
 using UIKit;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Mail.UIKit.Views.Mail.Compose;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 

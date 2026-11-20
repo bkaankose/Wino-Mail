@@ -1,18 +1,18 @@
 ﻿<UserControl
-    x:Class="Wino.Calendar.Controls.CalendarItemControl"
+    x:Class="Wino.Mail.WinUI.Controls.Calendar.CalendarItemControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
+    xmlns:calendar="using:Wino.Mail.WinUI.Controls.Calendar"
     xmlns:controls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="using:Wino.Calendar.Controls"
+    xmlns:helpers="using:Wino.Mail.WinUI.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     d:DesignHeight="300"
     d:DesignWidth="400"
     ActualThemeChanged="OnControlActualThemeChanged"
-    AutomationProperties.Name="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventAutomationName(CalendarItem.Title, CalendarItem.StartDate, CalendarItem.EndDate, CalendarItem.IsAllDayEvent, CalendarItem.IsRecurringEvent, CalendarItem.Location, CalendarItem.AssignedCalendar.Name, CalendarItem.StateDescription, CalendarItem.CalendarSettings), Mode=OneWay}"
-    CanDrag="{x:Bind local:CalendarItemControl.CanDragItem(CalendarItem.CanDragDrop, IsDragDisabled), Mode=OneWay, FallbackValue=False}"
+    AutomationProperties.Name="{x:Bind helpers:CalendarXamlHelpers.GetEventAutomationName(CalendarItem.Title, CalendarItem.StartDate, CalendarItem.EndDate, CalendarItem.IsAllDayEvent, CalendarItem.IsRecurringEvent, CalendarItem.Location, CalendarItem.AssignedCalendar.Name, CalendarItem.StateDescription, CalendarItem.CalendarSettings), Mode=OneWay}"
+    CanDrag="{x:Bind calendar:CalendarItemControl.CanDragItem(CalendarItem.CanDragDrop, IsDragDisabled), Mode=OneWay, FallbackValue=False}"
     DragStarting="ControlDragStarting"
     DropCompleted="ControlDropped"
     Loaded="OnControlLoaded"
@@ -43,14 +43,14 @@
         </Grid.ColumnDefinitions>
 
         <Grid.ContextFlyout>
-            <local:CalendarItemCommandBarFlyout
+            <calendar:CalendarItemCommandBarFlyout
                 Closed="CalendarItemCommandBarFlyout_Closed"
                 Opening="CalendarItemCommandBarFlyout_Opening"
                 Placement="BottomEdgeAlignedLeft"
                 ShowMode="Auto" />
         </Grid.ContextFlyout>
         <ToolTipService.ToolTip>
-            <ToolTip Content="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventToolTip(CalendarItem.DisplayTitle, CalendarItem.StateDescription), Mode=OneWay}" />
+            <ToolTip Content="{x:Bind helpers:CalendarXamlHelpers.GetEventToolTip(CalendarItem.DisplayTitle, CalendarItem.StateDescription), Mode=OneWay}" />
         </ToolTipService.ToolTip>
 
         <Border

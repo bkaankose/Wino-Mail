@@ -6,8 +6,8 @@ using Google.Android.Material.SideSheet;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.ViewModels;
-using Wino.Messaging.UI;
 using Wino.Presentation.Android;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.Android.Views.Extras;
 

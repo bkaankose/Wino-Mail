@@ -5,8 +5,10 @@ using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Interfaces;
+using Wino.Providers.Outlook.Integration.Processors;
 
-namespace Wino.Core.Synchronizers.Errors.Outlook;
+namespace Wino.Providers.Outlook.Synchronizers.Errors.Outlook;
 
 /// <summary>
 /// Handles 410 Gone errors for Outlook synchronization, which indicates that delta tokens have expired.

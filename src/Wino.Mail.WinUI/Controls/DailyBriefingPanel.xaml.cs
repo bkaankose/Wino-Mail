@@ -12,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.WinUI.Controls;
 

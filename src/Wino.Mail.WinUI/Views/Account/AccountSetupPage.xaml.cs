@@ -10,12 +10,12 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Views.Abstract;
+using Wino.Mail.WinUI.Helpers;
 using WinRT;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views.Account;
 
 /// <summary>
 /// Account setup as one column: the account pill, the step's title and description, the step, then Back and the primary button.

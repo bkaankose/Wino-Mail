@@ -1,9 +1,9 @@
 #if DEBUG
 using System.Globalization;
 using UIKit;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 

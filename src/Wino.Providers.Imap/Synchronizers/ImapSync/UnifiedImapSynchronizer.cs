@@ -23,9 +23,14 @@ using Wino.Core.Extensions;
 using Wino.Core.Integration;
 using Wino.Services;
 using Wino.Services.Extensions;
-using IMailService = Wino.Core.Domain.Interfaces.IMailService;
+using Wino.Providers.Imap.Extensions;
+using Wino.Providers.Imap.Integration;
+using Wino.Providers.Imap.Interfaces;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
+using IMailService = Wino.Services.Interfaces.IMailService;
 
-namespace Wino.Core.Synchronizers.ImapSync;
+namespace Wino.Providers.Imap.Synchronizers.ImapSync;
 
 /// <summary>
 /// Unified IMAP synchronization strategy that automatically selects the best available method:
@@ -468,7 +473,7 @@ public class UnifiedImapSynchronizer
                     .FetchAsync(new UniqueIdSet(newBatch.ToList(), SortOrder.Ascending),
                         new FetchRequest(_mailSynchronizationFlags, new[]
                         {
-                            "References", "Subject", "From", "Sender", Domain.Constants.WinoLocalDraftHeader, Domain.Constants.LegacyWinoLocalDraftHeader, Domain.Constants.DispositionNotificationToHeader
+                            "References", "Subject", "From", "Sender", Wino.Core.Domain.Constants.WinoLocalDraftHeader, Wino.Core.Domain.Constants.LegacyWinoLocalDraftHeader, Wino.Core.Domain.Constants.DispositionNotificationToHeader
                         }), cancellationToken)
                     .ConfigureAwait(false);
 

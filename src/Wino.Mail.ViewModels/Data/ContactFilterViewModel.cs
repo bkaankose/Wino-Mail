@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -8,9 +9,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -45,25 +47,10 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     internal Func<ContactFilterViewModel, Task> NewCategoryRequested { get; set; }
     internal Func<Guid, Task> SynchronizeAccountRequested { get; set; }
 
-    // MenuItemBase is not an ObservableObject, so the toolkit cannot generate these properties.
-    private string _name;
-    private int _count;
-    private bool _isDraggingItemOver;
-
     public ContactFilterKind Kind { get; }
-
-    public string Name
-    {
-        get => _name;
-        set
-        {
-            if (!SetProperty(ref _name, value))
-                return;
-
-            OnPropertyChanged(nameof(AccountName));
-        }
-    }
-
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AccountName))]
+    public partial string Name { get; set; }
     public string Glyph { get; init; }
     public Guid? AddressBookId { get; init; }
     public Guid? AccountId { get; init; }
@@ -72,23 +59,10 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public ContactAddressBook AddressBook { get; init; }
     public MailCategory Category { get; private set; }
 
-    public int Count
-    {
-        get => _count;
-        set
-        {
-            if (!SetProperty(ref _count, value))
-                return;
-
-            OnPropertyChanged(nameof(UnreadItemCount));
-        }
-    }
-
-    public bool IsDraggingItemOver
-    {
-        get => _isDraggingItemOver;
-        set => SetProperty(ref _isDraggingItemOver, value);
-    }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UnreadItemCount))]
+    public partial int Count { get; set; }
+    [ObservableProperty] public partial bool IsDraggingItemOver { get; set; }
 
     #region Account navigation presentation
 

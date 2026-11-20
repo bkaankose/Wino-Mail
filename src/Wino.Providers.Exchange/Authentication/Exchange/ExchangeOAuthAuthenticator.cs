@@ -8,7 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Authentication.Exchange;
+namespace Wino.Providers.Exchange.Authentication.Exchange;
 
 /// <summary>
 /// Bearer access tokens for modern-auth Exchange accounts (ADFS, Hybrid Modern Auth), minted from the refresh token in

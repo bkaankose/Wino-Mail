@@ -4,11 +4,11 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.ViewModels.Lifecycle;
-using Wino.Messaging.UI;
 using Wino.Presentation.Android;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Extras;
 

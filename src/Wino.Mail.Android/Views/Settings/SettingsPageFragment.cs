@@ -8,13 +8,13 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Core.ViewModels;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Android.Settings;
-using Wino.Messaging.Client.Navigation;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Settings;
 
@@ -51,6 +51,9 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
     /// <summary>The scroll view around the column (pages that scroll to a card).</summary>
     protected AndroidX.Core.Widget.NestedScrollView? ScrollView { get; private set; }
 
+    /// <summary>The Windows page description, from the entry the navigation service created.</summary>
+    protected string PageDescription => Entry?.Description() ?? string.Empty;
+
     /// <summary>The Windows page this fragment shows.</summary>
     protected WinoPage SettingsPage => Entry?.Page ?? WinoPage.None;
 
@@ -74,7 +77,7 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
             _page = null;
         }));
 
-        if (ShowsPageDescription && SettingsCatalog.Description(SettingsPage) is { Length: > 0 } description)
+        if (ShowsPageDescription && PageDescription is { Length: > 0 } description)
         {
             var intro = AddIntro(description);
             ((LinearLayout.LayoutParams)intro.LayoutParameters!).BottomMargin = WinoTokens.Px(view.RequireContext(), Resource.Dimension.wino_space_s);

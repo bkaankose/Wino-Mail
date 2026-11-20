@@ -7,7 +7,7 @@ using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PushRelay;
 using Wino.Mail.Api.Contracts.Users;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services.PushRelay;
 

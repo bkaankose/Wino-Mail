@@ -1,9 +1,9 @@
 using AppKit;
-using Wino.Core.ViewModels;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 

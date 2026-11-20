@@ -4,11 +4,11 @@ using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Helpers;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.WinUI.Controls;
+using Wino.Mail.WinUI.Helpers;
 
-namespace Wino.MenuFlyouts.Context;
+namespace Wino.Mail.WinUI.MenuFlyouts;
 
 public partial class FolderOperationFlyout : WinoOperationFlyout<FolderOperationMenuItem>
 {

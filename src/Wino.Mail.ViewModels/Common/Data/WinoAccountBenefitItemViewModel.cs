@@ -4,7 +4,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 /// <summary>
 /// One selectable offer on the signed-out Wino Account page. Everything the tile and the

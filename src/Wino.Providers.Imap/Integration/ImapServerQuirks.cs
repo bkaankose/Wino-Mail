@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Wino.Core.Integration;
+namespace Wino.Providers.Imap.Integration;
 
 internal sealed class ImapServerQuirkProfile
 {

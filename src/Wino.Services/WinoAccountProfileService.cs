@@ -20,7 +20,7 @@ using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Users;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services;
 
@@ -40,10 +40,10 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     public WinoAccountProfileService(IDatabaseService databaseService, IMessenger messenger,
                                      IWinoAccountApiClient apiClient,
                                      IAccountCredentialPersistence credentialPersistence,
+                                     IWinoAccountSessionService sessionService,
                                      ITranslationService? translationService = null,
                                      IMailIntelligenceCoordinator? semanticIndexCoordinator = null,
                                      IMailIntelligenceStore? localIntelligenceStore = null,
-                                     IWinoAccountSessionService? sessionService = null,
                                      IWinoPendingCheckoutStore? pendingCheckouts = null,
                                      ISyncSnapshotKeyService? snapshotKeys = null,
                                      Func<IPushRelayRegistrationService>? pushRelay = null) : base(databaseService, messenger)
@@ -55,7 +55,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         _translationService = translationService;
         _semanticIndexCoordinator = semanticIndexCoordinator;
         _localIntelligenceStore = localIntelligenceStore;
-        _sessions = sessionService ?? WinoAccountSessionService.For(databaseService, credentialPersistence);
+        _sessions = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
         _pendingCheckouts = pendingCheckouts;
     }
 

@@ -77,7 +77,7 @@ public sealed class SettingsDebugActivity : Activity
                     SettingsDebugDialogs.Open(services, argument);
                     break;
                 case "intel":
-                    if (navigation.SettingsEntries.LastOrDefault()?.ViewModel is not Wino.Core.ViewModels.WinoAccountManagementPageViewModel intelligence) break;
+                    if (navigation.SettingsEntries.LastOrDefault()?.ViewModel is not Wino.Mail.ViewModels.Common.WinoAccountManagementPageViewModel intelligence) break;
                     await services.GetRequiredService<IDispatcher>().ExecuteOnUIThread(() => ApplyIntelligenceSample(intelligence, argument));
                     break;
                 default:
@@ -89,7 +89,7 @@ public sealed class SettingsDebugActivity : Activity
         catch (Exception exception) { Serilog.Log.Error(exception, "Settings debug command {Command} failed.", command); }
     }
 
-    private static void ApplyIntelligenceSample(Wino.Core.ViewModels.WinoAccountManagementPageViewModel vm, string state)
+    private static void ApplyIntelligenceSample(Wino.Mail.ViewModels.Common.WinoAccountManagementPageViewModel vm, string state)
     {
         bool subscribed = state is "sub" or "";
         vm.IsSignedIn = state != "signedout";
@@ -112,9 +112,9 @@ public sealed class SettingsDebugActivity : Activity
         vm.IntelligenceUsageItems.Add(new Wino.Core.Domain.Models.Intelligence.IntelligenceUsageItem("summarize", Wino.Core.Domain.Translator.WinoIntelligence_UsageBucketSummarize, 36, 200));
         vm.IntelligenceUsageItems.Add(new Wino.Core.Domain.Models.Intelligence.IntelligenceUsageItem("translate", Wino.Core.Domain.Translator.WinoIntelligence_UsageBucketTranslate, 300, 300));
         vm.IntelligenceMailboxes.Clear();
-        vm.IntelligenceMailboxes.Add(new Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel { MailboxId = Guid.NewGuid(), Address = "name@outlook.com", IntelligenceSummary = "8,412 indexed messages", ProviderType = MailProviderType.Outlook, LocalAccountId = Guid.NewGuid(), HasServerIntelligence = true, CanToggle = true, IsEnabled = true, IsInDailyBriefing = true });
-        vm.IntelligenceMailboxes.Add(new Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel { MailboxId = Guid.NewGuid(), Address = "team@example.com", IntelligenceSummary = string.Empty, ProviderType = MailProviderType.Gmail, LocalAccountId = Guid.NewGuid(), CanToggle = true });
-        vm.IntelligenceMailboxes.Add(new Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel { MailboxId = Guid.NewGuid(), Address = "name@icloud.com", IntelligenceSummary = string.Empty, ProviderType = MailProviderType.IMAP4, SpecialProvider = SpecialImapProvider.iCloud });
+        vm.IntelligenceMailboxes.Add(new Wino.Mail.ViewModels.Common.Data.WinoIntelligenceMailboxItemViewModel { MailboxId = Guid.NewGuid(), Address = "name@outlook.com", IntelligenceSummary = "8,412 indexed messages", ProviderType = MailProviderType.Outlook, LocalAccountId = Guid.NewGuid(), HasServerIntelligence = true, CanToggle = true, IsEnabled = true, IsInDailyBriefing = true });
+        vm.IntelligenceMailboxes.Add(new Wino.Mail.ViewModels.Common.Data.WinoIntelligenceMailboxItemViewModel { MailboxId = Guid.NewGuid(), Address = "team@example.com", IntelligenceSummary = string.Empty, ProviderType = MailProviderType.Gmail, LocalAccountId = Guid.NewGuid(), CanToggle = true });
+        vm.IntelligenceMailboxes.Add(new Wino.Mail.ViewModels.Common.Data.WinoIntelligenceMailboxItemViewModel { MailboxId = Guid.NewGuid(), Address = "name@icloud.com", IntelligenceSummary = string.Empty, ProviderType = MailProviderType.IMAP4, SpecialProvider = SpecialImapProvider.iCloud });
     }
 }
 #endif

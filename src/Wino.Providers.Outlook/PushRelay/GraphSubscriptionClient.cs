@@ -12,7 +12,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.PushRelay;
+namespace Wino.Providers.Outlook.PushRelay;
 
 /// <summary>Body of <c>POST /subscriptions</c>.</summary>
 public sealed record GraphSubscriptionCreateRequest(

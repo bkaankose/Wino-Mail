@@ -6,11 +6,10 @@ using Ical.Net.DataTypes;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.MAPI;
-using Wino.Core.MAPI.Calendar;
-using Wino.Core.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI;
+using Wino.Providers.Exchange.MAPI.Rops;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 /// <summary>
 /// Turns Calendar-folder rows into the flat occurrences the app stores. A single appointment is one

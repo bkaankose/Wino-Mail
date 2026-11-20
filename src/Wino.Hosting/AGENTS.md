@@ -9,7 +9,7 @@ The host that runs the shared backend, up to the ViewModels, without an app. A s
 - **The dispatcher is real.** `HostDispatcher` is one dedicated thread with an ordered queue and a synchronization context. Keep it that way: never make `ExecuteOnUIThread` a no-op and never run queued work on the caller's thread.
 - **The key file is for this host only.** `FileProtectionKeyProvider` keeps the protection key inside the data root because a host holds throwaway lab data. No app may use it; apps never fall back to an unprotected store.
 - **Telemetry stays off.** `HostApplicationConfiguration` leaves the Sentry address empty so runs send nothing. Do not swap in `ApplicationConfiguration`.
-- **One host per process, unless you only need separate data.** Two hosts in one process keep separate messengers, sync managers, databases, accounts and preferences, and a message sent in one does not reach the other. Logging is still shared: the second host takes over the log file, and disposing one host closes the logger for both. `SettingsCatalog` is also process-wide.
+- **One host per process, unless you only need separate data.** Two hosts in one process keep separate messengers, sync managers, databases, accounts and preferences, and a message sent in one does not reach the other. Logging is still shared: the second host takes over the log file, and disposing one host closes the logger for both.
 
 ## Always
 
@@ -17,11 +17,13 @@ The host that runs the shared backend, up to the ViewModels, without an app. A s
 - Reuse a portable implementation from `Wino.Services` or `Wino.Authentication` before writing one here. The ones every non-Windows host shares come from `AddPortablePlatformServices`.
 - A screen contract answers as dismissed or cancelled and records the call in `WinoHost.Interactions`. An interactive sign-in surface throws `NotSupportedException` with a clear message and records the attempt.
 - Start through `ApplicationLifecycleCoordinator`, the same entry the apps use. Do not copy a startup order by hand.
+- Transitive pins in `Directory.Packages.props` do not reach a script outside the repository. Every package that this project's graph gets only transitively and that has a `PackageVersion` entry is referenced directly in `Wino.Hosting.csproj`; when a new pin like that appears, add it there too, then compare the `libraries` of the script's `project.assets.json` (under `%LOCALAPPDATA%\Temp\dotnet\runfile\<name>-<hash>\obj`) with this project's. Only the SDK's ILCompiler packages may differ.
 
 ## Using the host from a script
 
 ```csharp
 #:project D:/Wino-Mail/src/Wino.Hosting/Wino.Hosting.csproj
+#:property TargetFramework=net10.0
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Hosting;
@@ -37,11 +39,25 @@ foreach (var interaction in wino.Interactions)   // what ViewModels asked of a s
     Console.WriteLine(interaction);
 ```
 
-Point `#:project` at the checkout you are working in. The data root must be empty or one a host created before.
+Point `#:project` at the checkout you are working in. The data root must be empty or one a host created before. Keep `#:property TargetFramework=net10.0`: outside the repository `global.json` does not apply, so the newest installed SDK would otherwise build the script for a newer .NET than the apps run on.
+
+**Options.** `WinoHostOptions` has three settings; leave the last two alone and the host composes exactly what it always does.
+
+- `DataRoot` (required): the folder above.
+- `ConfigureServices`: an `Action<IServiceCollection>` that runs after every host registration and before the container is built. Register a contract there to replace the host's implementation, for example a real `INotificationBuilder` you want to watch. Replace only what a screen or an operating system supplies; the hard stops above still apply.
+- `Providers`: the provider projects to register, `WinoHostProviders.All` by default. Shared services resolve services from Outlook, IMAP, Exchange and DAV, so `WinoHostProviders.Required` must be included and only `Gmail` can be left out (`Required` alone). An IMAP account with CalDAV or CardDAV runs on `Imap` and `Dav`, which `Required` contains. `Imap` covers POP3 too. A selection that lacks part of `Required` fails `StartAsync` with an `ArgumentException` that names it.
 
 **A lab account, a sync and a ViewModel.** Lease the account first; the lab rules are in the [root guidance](../../AGENTS.md).
 
 ```csharp
+// Add these usings to the script above.
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.Messages;
+
 var lease = LabLease.Load(args[1]);                                   // the lease file from lab.ps1 lease
 var account = await wino.AddImapAccountAsync(lease.Account("stalwart"), LabAccountModes.AllThroughDav);
 await wino.SynchronizeAsync(account);                                 // full sync of every granted mode

@@ -7,6 +7,7 @@ using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Android.Views.Extras;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.Android.Views.Debug;
 

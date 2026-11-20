@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.Windows.AppNotifications;
 using Wino.NotificationHost.Contracts;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 public interface INotificationHostClient
 {

@@ -8,7 +8,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 /// <summary>
 /// Calendar's half of the shell title bar synchronization button. Scoped to every account

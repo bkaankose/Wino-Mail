@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml.Controls;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.WinUI.Views.Abstract;
+using Wino.Mail.ViewModels.Common.Data;
 using WinRT;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class KeyboardShortcutsPage : KeyboardShortcutsPageAbstract
 {

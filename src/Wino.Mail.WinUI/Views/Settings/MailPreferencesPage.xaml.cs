@@ -1,4 +1,4 @@
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class MailPreferencesPage : Wino.Mail.WinUI.Views.Abstract.MailPreferencesPageAbstract
 {

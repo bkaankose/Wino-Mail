@@ -8,9 +8,9 @@ using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.ViewModels;
-using Wino.Messaging.Client.Navigation;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
 namespace Wino.Mail.UIKit.Views.Onboarding;
 

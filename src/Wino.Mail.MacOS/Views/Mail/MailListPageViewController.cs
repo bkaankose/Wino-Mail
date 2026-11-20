@@ -5,10 +5,10 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Messages;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 

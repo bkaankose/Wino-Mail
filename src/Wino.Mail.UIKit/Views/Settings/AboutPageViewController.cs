@@ -3,9 +3,9 @@ using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.ViewModels;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 

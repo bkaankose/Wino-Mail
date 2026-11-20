@@ -1,6 +1,6 @@
 using Microsoft.Exchange.WebServices.Data;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 internal static class ExchangeCalendarSchema
 {

@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views;
 
 public sealed partial class SpecialImapCredentialsPage : SpecialImapCredentialsPageAbstract
 {

@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class MessageListPage : MessageListPageAbstract
 {

@@ -6,7 +6,7 @@ using Windows.UI.ViewManagement;
 using Wino.Core.Domain;
 using Wino.Mail.Controls.Core.VoiceBubble;
 
-namespace Wino.Controls.Illustrations;
+namespace Wino.Mail.WinUI.Controls.Illustrations;
 
 /// <summary>
 /// Plays the voice bubble through one command in a loop: the shortcut, listening, the step list, Yes and the

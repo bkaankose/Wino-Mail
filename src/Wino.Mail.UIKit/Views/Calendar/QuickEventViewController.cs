@@ -1,12 +1,12 @@
 using CoreGraphics;
 using UIKit;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.UIKit.Calendar;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 

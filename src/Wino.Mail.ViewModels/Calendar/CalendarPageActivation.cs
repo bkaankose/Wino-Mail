@@ -3,9 +3,9 @@ using System;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Calendar;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 /// <summary>
 /// How a calendar page turns its navigation parameter into a range load (Windows CalendarPage.OnNavigatedTo), shared by

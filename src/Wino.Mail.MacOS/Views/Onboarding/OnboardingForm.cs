@@ -309,8 +309,8 @@ internal sealed class OnboardingPageView : NSView
         set
         {
             _columnTop.Constant = value ? 12 : 40;
-            _preferredWidth.Constant = value ? -2 * (nfloat)Settings.SettingsPageViewController<Wino.Core.ViewModels.CoreBaseViewModel>.SidePadding : -96;
-            _columnMaxWidth.Constant = (nfloat)(value ? Settings.SettingsPageViewController<Wino.Core.ViewModels.CoreBaseViewModel>.ContentMaxWidth : _maxContentWidth);
+            _preferredWidth.Constant = value ? -2 * (nfloat)Settings.SettingsPageViewController<Wino.Mail.ViewModels.Common.CoreBaseViewModel>.SidePadding : -96;
+            _columnMaxWidth.Constant = (nfloat)(value ? Settings.SettingsPageViewController<Wino.Mail.ViewModels.Common.CoreBaseViewModel>.ContentMaxWidth : _maxContentWidth);
         }
     }
 

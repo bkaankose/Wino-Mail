@@ -6,8 +6,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.UIKit.Views.Settings;
 using Wino.Mail.ViewModels.Navigation;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.UIKit.Infrastructure;
 

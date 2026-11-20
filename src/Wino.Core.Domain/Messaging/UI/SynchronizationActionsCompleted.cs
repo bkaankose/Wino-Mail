@@ -1,6 +1,6 @@
 using System;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>
 /// Sent when all queued synchronization requests for an account have been executed.

@@ -7,7 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.CardDav;
 
-namespace Wino.Core.Synchronizers.CardDav;
+namespace Wino.Providers.Dav.Synchronizers.CardDav;
 
 /// <summary>
 /// What every CardDAV operation of an account shares: how to reach the server, and the
@@ -55,7 +55,7 @@ internal static class CardDavConnection
             {
                 Kind = DavAuthenticationKind.Basic,
                 Username = string.IsNullOrWhiteSpace(server.CalDavUsername) ? account.Address : server.CalDavUsername,
-                Password = CalDav.CalDavConnection.ResolvePassword(server),
+                Password = Wino.Providers.Dav.Synchronizers.CalDav.CalDavConnection.ResolvePassword(server),
                 EndpointTrust = new DavEndpointTrust { AccountId = account.Id, Protocol = MailServerProtocol.CardDav }
             }
         };

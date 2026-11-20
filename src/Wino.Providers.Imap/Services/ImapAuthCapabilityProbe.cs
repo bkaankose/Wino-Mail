@@ -14,7 +14,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Integration;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Imap.Services;
 
 /// <summary>
 /// Reads the IMAP server's advertised SASL mechanisms during setup. Every failure means "unknown",

@@ -4,11 +4,11 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 /// <summary>
 /// Converts viewport points to rail points, then to a unit, a date and a slot. Taps, range

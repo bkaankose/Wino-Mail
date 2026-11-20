@@ -18,9 +18,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Misc;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
 
 namespace Wino.Services;
 
@@ -31,6 +31,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly ISignatureService _signatureService;
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly IMailProviderRegistry _providers;
+    private readonly ITaskService _taskService;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
     private readonly IPictureStorageService _pictureStorageService;
@@ -53,6 +54,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                           IPictureStorageService pictureStorageService,
                           IAccountCredentialPersistence credentialPersistence,
                           IMailProviderRegistry providers,
+                          ITaskService taskService,
                           IServerCertificateTrustService serverCertificateTrustService = null,
                           ISemanticIndexJobRegistry semanticIndexJobRegistry = null,
                           IMailIntelligenceStore localIntelligenceStore = null,
@@ -64,6 +66,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
         _providers = providers;
+        _taskService = taskService;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
         _pictureStorageService = pictureStorageService;
@@ -445,15 +448,20 @@ public class AccountService : BaseDatabaseService, IAccountService
 
             transaction.Execute("DELETE FROM ContactListMember WHERE ListId IN (SELECT Id FROM ContactList WHERE MailAccountId = ?)", account.Id);
             transaction.Execute("DELETE FROM ContactList WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM ContactCategoryAssignment WHERE ContactId IN (SELECT Id FROM ContactCard WHERE MailAccountId = ?)", account.Id);
+            transaction.Execute("DELETE FROM ContactCategoryAssignment WHERE ContactId IN (SELECT Id FROM ContactCard WHERE MailAccountId = ?) OR MailCategoryId IN (SELECT Id FROM MailCategory WHERE MailAccountId = ?)", account.Id, account.Id);
+            transaction.Execute("DELETE FROM MailCategoryAssignment WHERE MailCategoryId IN (SELECT Id FROM MailCategory WHERE MailAccountId = ?)", account.Id);
+            transaction.Execute("DELETE FROM MailCategory WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM ContactCard WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM ContactAddressBook WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM RecipientHistory WHERE AccountId = ?", account.Id);
             transaction.Execute("DELETE FROM DirectoryPhotoLookup WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM TaskStep WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM TaskCard WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM TaskList WHERE MailAccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM SentMailReceiptState WHERE AccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM MailInvitationCalendarMapping WHERE AccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM MailAccountPreferences WHERE AccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM EasItemShadow WHERE AccountId = ?", account.Id);
         }).ConfigureAwait(false);
+
+        await _taskService.DeleteAccountTasksAsync(account.Id).ConfigureAwait(false);
 
         AccountOAuthProfile oauthProfileToSignOut = null;
         var signOutOAuth = false;
@@ -464,8 +472,9 @@ public class AccountService : BaseDatabaseService, IAccountService
             {
                 signOutOAuth = true;
                 oauthProfileToSignOut = await Connection.FindAsync<AccountOAuthProfile>(account.Id).ConfigureAwait(false);
-                await Connection.DeleteAsync<AccountOAuthProfile>(account.Id).ConfigureAwait(false);
             }
+
+            await Connection.DeleteAsync<AccountOAuthProfile>(account.Id).ConfigureAwait(false);
 
             await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
             await Connection.Table<Pop3PendingServerDeletion>().DeleteAsync(a => a.AccountId == account.Id);
@@ -473,10 +482,6 @@ public class AccountService : BaseDatabaseService, IAccountService
             await _serverCertificateTrustService.DeleteAccountTrustsAsync(account.Id).ConfigureAwait(false);
         }
 
-        if (account.Preferences != null)
-            await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences.Id);
-
-        await Connection.ExecuteAsync("DELETE FROM EasItemShadow WHERE AccountId = ?", account.Id).ConfigureAwait(false);
         await Connection.DeleteAsync<MailAccount>(account.Id);
         var isLayoutStructureChanged = await NormalizeAccountLayoutAsync().ConfigureAwait(false);
         await _credentialPersistence.DeleteMailAccountSecretsAsync(account.Id).ConfigureAwait(false);
@@ -723,7 +728,8 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (account == null)
         {
-            _logger.Error("Could not find account with id {AccountId}", accountId);
+            // A removed account is an expected answer: work that was already queued for it asks once more and stops.
+            _logger.Debug("Account {AccountId} does not exist", accountId);
         }
         else
         {
@@ -1337,9 +1343,9 @@ public class AccountService : BaseDatabaseService, IAccountService
             await EnsurePop3LocalFoldersAsync(account.Id).ConfigureAwait(false);
         }
 
-        // Exchange serves calendars like Outlook: a local calendar stands in only while calendar access is wanted but
-        // not granted, which is also how the request delegator routes its events locally.
-        var shouldCreateLocalCalendar = account.ProviderType.IsCustomMailProvider() && account.ProviderType != MailProviderType.Exchange
+        // For a provider that serves calendars from its own API, a local calendar stands in only while calendar access
+        // is wanted but not granted, which is also how the request delegator routes its events locally.
+        var shouldCreateLocalCalendar = !_providers.GetTraits(account.ProviderType).ServesModesFromProvider
             ? customServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.LocalOnly
             : account.IsCalendarAccessEnabled && !account.IsCalendarAccessGranted;
 

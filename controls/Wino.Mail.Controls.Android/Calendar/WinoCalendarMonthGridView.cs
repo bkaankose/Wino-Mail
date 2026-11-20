@@ -239,7 +239,7 @@ public sealed class WinoCalendarMonthGridView : View
     }
 
     private void UpdateDescription()
-        => ContentDescription = _displayMonth.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", _culture);
+        => ContentDescription = _displayMonth.ToDateTime(TimeOnly.MinValue).ToString("Y", _culture);
 
     public override bool OnTouchEvent(MotionEvent? e)
     {

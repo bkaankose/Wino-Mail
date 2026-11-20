@@ -24,12 +24,12 @@ How each framework binds to this is in the head's file: [WinUI](../Wino.Mail.Win
 
 ## Always
 
-- Declare state as a public partial property with `[ObservableProperty]`. Do not annotate a private field. A class derived from `MenuItemBase` cannot use the attribute, because its base is Domain's `ObservableModel`; it calls `SetProperty` by hand.
-- Keep the namespace of a file that has a `Wino.Core.Domain.*` namespace here (`MenuItems/`, `Models/Accounts`, `Models/Printing`). Those types moved out of Domain and kept their full names so every head compiles unchanged.
+- Declare state as a public partial property with `[ObservableProperty]`. Do not annotate a private field.
+- The types that moved out of Domain (`MenuItems/`, `Shell/Contracts`, `Messages/NavigateMailFolderEvent*`, `Models/Accounts`, `Models/Printing`) are in the `Wino.Mail.ViewModels.*` namespace of their folder, like every other file here.
 - Register messenger handlers in `RegisterRecipients()` and remove them in `UnregisterRecipients()`.
 - Recipients run on background threads. Change UI state, collections and navigation inside `ExecuteUIThread(...)` or `ExecuteUIThreadAsync(...)`. Code after `ConfigureAwait(false)` is background-thread code too.
 - Give a collection that reaches an items source a concrete static type (`List<T>`, `ObservableCollection<T>`, an array). `WINOAOT001` fails the build otherwise.
-- Take services through the constructor as interfaces. A ViewModel takes `IMessenger` as its first constructor parameter and passes it to its base class. Never use the parameterless `ObservableRecipient` constructor: it binds the global messenger without any warning. `WINOMSG001` fails the build on `WeakReferenceMessenger.Default`.
+- Take services through the constructor as interfaces. A ViewModel takes `IMessenger` as its first constructor parameter and passes it to its base class. Never use the parameterless `ObservableRecipient` constructor: it binds the global messenger without any warning. `WINOMSG001` fails the build on `WeakReferenceMessenger.Default`, and `WINOMSG002` on an assignable static or a static that holds a service: a host runs these ViewModels from a script, and state that one host instance writes must not reach another.
 - Take every user-visible string from `Translator`.
 - Tie a command's availability to state with `CanExecute` and `[NotifyCanExecuteChangedFor]`.
 

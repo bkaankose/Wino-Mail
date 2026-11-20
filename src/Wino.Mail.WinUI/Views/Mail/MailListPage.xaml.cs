@@ -28,7 +28,6 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Helpers;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.Controls.SearchBar;
@@ -43,13 +42,13 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
-using Wino.MenuFlyouts;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.UI;
-using Wino.Views.Abstract;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.WinUI.MenuFlyouts;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views.Mail;
+namespace Wino.Mail.WinUI.Views.Mail;
 
 public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<ClearMailSelectionsRequested>,
@@ -364,7 +363,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             if (clickedAction.OpenAssistant)
             {
-                WeakReferenceMessenger.Default.Send(new Wino.Messaging.UI.VoiceSelectionRequested(
+                WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.UI.VoiceSelectionRequested(
                     Wino.Core.Domain.Models.Voice.VoiceLocalSelection.ForMails(targetItems.Select(static item => item.MailCopy).ToList())));
                 return;
             }

@@ -12,7 +12,6 @@ public sealed class ApplicationRuntimeInitialization(
     Func<IDatabaseService> database,
     Func<IMailIntelligenceStore> intelligenceStore,
     Func<ITranslationService> translations,
-    Func<SynchronizationManagerInitializer> synchronizationInitializer,
     Func<IKeyboardShortcutService> shortcuts,
     Func<AccountProfilePictureMaintenance> pictures,
     Func<AccountSenderPictureDirectory> senderPictures,
@@ -35,7 +34,7 @@ public sealed class ApplicationRuntimeInitialization(
         await RunStartupInitializersAsync(cancellationToken);
         await StepAsync(1, () => translations().InitializeAsync(), cancellationToken);
         await StepAsync(2, () => Task.WhenAll(database().InitializeAsync(), intelligenceStore().InitializeAsync(),
-            translations().InitializeAsync(), synchronizationInitializer().InitializeAsync()), cancellationToken);
+            translations().InitializeAsync()), cancellationToken);
 
         // Moves credentials an earlier release kept in plaintext into the secure store before any synchronizer reads them.
         if (credentialMigration?.Invoke() is { } migration)

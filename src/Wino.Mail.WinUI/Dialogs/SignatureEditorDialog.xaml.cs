@@ -6,10 +6,10 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
-using Wino.Helpers;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Helpers;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class SignatureEditorDialog : ContentDialog
 {

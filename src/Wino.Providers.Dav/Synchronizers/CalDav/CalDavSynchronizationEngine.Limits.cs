@@ -9,7 +9,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// Server limits checked before a PUT, so a write the server would refuse fails with a clear

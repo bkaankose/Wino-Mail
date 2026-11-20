@@ -1,9 +1,9 @@
 using UIKit;
-using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain;
 using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.UIKit.Views.Calendar;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar.Interfaces;
 
 namespace Wino.Mail.UIKit.Phone.Calendar;
 

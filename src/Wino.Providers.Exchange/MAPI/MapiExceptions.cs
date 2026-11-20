@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net;
 
-namespace Wino.Core.MAPI;
+namespace Wino.Providers.Exchange.MAPI;
 
 /// <summary>Base for everything this library throws on purpose.</summary>
 public class MapiException(string message, Exception? inner = null) : Exception(message, inner);

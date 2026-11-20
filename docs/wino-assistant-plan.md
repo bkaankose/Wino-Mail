@@ -15,7 +15,7 @@ The same request must plan, ask, resolve and run the same way on every client. T
 
   Each is an adapter that forwards to shared code. A platform never filters a plan, matches a name, words a step or decides a fallback.
 - When a platform needs behaviour that isn't in the shared layer, it is added to the shared layer for every platform, not written in the head.
-- The voice runner (`tools/Wino.Intelligence.Console`) exercises the shared pipeline only, so its accuracy results hold for every client. A platform-only bug is by definition in one of the four adapters above.
+- The voice runner (`tools/Wino.Intelligence.Console`, since removed from the repository) exercised the shared pipeline only, so its accuracy results hold for every client. A platform-only bug is by definition in one of the four adapters above.
 
 ## 1. Product rules
 
@@ -51,7 +51,7 @@ A spoken request uses one of each. A higher Intelligence tier (for example 10 US
 
 ### Measured cost (8 Nov 2026)
 
-Prices: `claude-haiku-5-5` input 0.10, output 0.50, cache read 0.01, 5-minute cache write 0.125, 1-hour cache write 0.20 USD per million tokens (Anthropic model table cached 6 Oct 2026); `gpt-live-transcribe` 0.017 USD per audio minute (OpenAI pricing). Tokens from 2410 evaluation requests per mode (`tools/Wino.Intelligence.Console` voice runner):
+Prices: `claude-haiku-5-5` input 0.10, output 0.50, cache read 0.01, 5-minute cache write 0.125, 1-hour cache write 0.20 USD per million tokens (Anthropic model table cached 6 Oct 2026); `gpt-live-transcribe` 0.017 USD per audio minute (OpenAI pricing). Tokens from 2410 evaluation requests per mode (`tools/Wino.Intelligence.Console` voice runner, since removed):
 
 | | Cached prompt | Uncached input | Output |
 |---|---|---|---|
@@ -153,4 +153,4 @@ Commands chain across kinds (`usesResultOf` and `usesContext`), up to **5 comman
 
 ## 8. Verification
 
-The voice runner (`tools/Wino.Intelligence.Console`, `voice` mode) runs every prompt through the app's real pipeline with nothing executed. Each feature above gets corpus cases (both modes, context and no context, chains, other languages) before it ships; the API test suite needs `WINO_TEST_POSTGRES` set.
+The voice runner (`tools/Wino.Intelligence.Console`, `voice` mode) ran every prompt through the app's real pipeline with nothing executed; the console has since been removed from the repository, and the results recorded here are history. Shared pipeline changes now run from a single-file script through [`Wino.Hosting`](../src/Wino.Hosting/AGENTS.md). Each feature above gets corpus cases (both modes, context and no context, chains, other languages) before it ships; the API test suite needs `WINO_TEST_POSTGRES` set.

@@ -1,7 +1,6 @@
 using System;
 using System.Net;
 using CommunityToolkit.Mvvm.Messaging;
-using Google;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Authentication;
@@ -13,10 +12,17 @@ using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.PushRelay;
 using Wino.Core.Services;
-using Wino.Core.Synchronizers.Errors.Gmail;
-using Wino.Core.Synchronizers.Mail;
+using Wino.Providers.Gmail.Authentication;
+using Wino.Providers.Gmail.Google;
+using Wino.Providers.Gmail.Integration.Processors;
+using Wino.Providers.Gmail.Interfaces;
+using Wino.Providers.Gmail.PushRelay;
+using Wino.Providers.Gmail.Services;
+using Wino.Providers.Gmail.Synchronizers;
+using Wino.Providers.Gmail.Synchronizers.Errors.Gmail;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Providers;
+namespace Wino.Providers.Gmail.Providers;
 
 public sealed class GmailProviderModule(
     IMessenger messenger,
@@ -38,7 +44,11 @@ public sealed class GmailProviderModule(
         ServesModesFromProvider = true,
         ProviderContactSource = ContactSourceKind.Gmail,
         ProviderTaskSource = TaskSourceKind.Gmail,
+        ManagesProviderContactCollections = true,
+        ManagesProviderTaskSteps = true,
         AnswersInvitationsThroughProvider = true,
+        SupportsAliasSync = true,
+        SupportsProfileInfoSync = true,
         StoresMessageInSeveralFolders = true,
         UsesQuotaWindowForTasksAndContacts = true,
         LiveCoverage = LiveCoverageKind.RelayMailbox

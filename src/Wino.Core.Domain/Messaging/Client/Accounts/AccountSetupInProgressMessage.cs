@@ -1,6 +1,6 @@
 using System;
 
-namespace Wino.Messaging.Client.Accounts;
+namespace Wino.Core.Domain.Messaging.Client.Accounts;
 
 /// <summary>
 /// Sent as soon as account setup has saved a new account. Automatic synchronization leaves the account alone until

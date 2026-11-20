@@ -15,6 +15,7 @@ using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 

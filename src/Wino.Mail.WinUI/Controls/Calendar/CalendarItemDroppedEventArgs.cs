@@ -1,7 +1,7 @@
 using System;
-using Wino.Calendar.ViewModels.Data;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public enum CalendarDropTargetKind
 {

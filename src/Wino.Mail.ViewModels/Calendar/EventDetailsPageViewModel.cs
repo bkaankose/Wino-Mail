@@ -9,7 +9,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Extensions;
@@ -21,12 +20,14 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Services;
-using Wino.Core.ViewModels;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Shell;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Calendar.Data;
+using Wino.Mail.ViewModels.Common;
+using Wino.Services.Interfaces;
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     IRecipient<PreferenceChangedMessage>
@@ -50,6 +51,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     private Guid _capabilityCalendarId;
     private int _capabilityRequestVersion;
     private CalendarCapabilities _calendarCapabilities = CalendarCapabilities.None;
+    private bool _isLoadingReminderOptions;
 
     private CalendarSettings _currentSettings;
 
@@ -387,6 +389,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                     CurrentEvent.Attendees.Add(attendee);
                 }
 
+                if (source == EntityUpdateSource.ClientReverted)
+                    await RestoreStoredEditStateAsync(calendarItem);
+
                 return;
             }
 
@@ -452,6 +457,21 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         {
             CurrentEvent.IsBusy = false;
         }
+    }
+
+    /// <summary>A refused edit leaves the stored event untouched, so the selections go back to what is stored.</summary>
+    private async Task RestoreStoredEditStateAsync(CalendarItem revertedItem)
+    {
+        var storedReminders = await _calendarService.GetRemindersAsync(revertedItem.Id);
+
+        await LoadAttendeesAsync(revertedItem.Id, revertedItem);
+
+        await ExecuteUIThread(() =>
+        {
+            Reminders = storedReminders;
+            InitializeReminderOptions();
+            SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == revertedItem.ShowAs) ?? SelectedShowAsOption;
+        });
     }
 
     private bool IsCurrentEventMatch(CalendarItem calendarItem)
@@ -599,6 +619,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 
     private void InitializeReminderOptions()
     {
+        _isLoadingReminderOptions = true;
         ReminderOptions.Clear();
 
         var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
@@ -614,11 +635,20 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         {
             ReminderOptions.Add(new ReminderOption(
                 minutes,
-                isCustom: !predefinedMinutes.Contains(minutes))
+                isCustom: !predefinedMinutes.Contains(minutes),
+                selectionChanged: OnReminderOptionSelectionChanged)
             {
                 IsSelected = selectedMinutes.Contains(minutes)
             });
         }
+
+        _isLoadingReminderOptions = false;
+    }
+
+    private void OnReminderOptionSelectionChanged(ReminderOption option)
+    {
+        if (!_isLoadingReminderOptions)
+            ReminderOption.EnforceLimit(ReminderOptions, option, CalendarCapabilities.MaxReminders);
     }
 
 
@@ -661,20 +691,13 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                 });
             }
 
-            // Save reminders to database
-            await _calendarService.SaveRemindersAsync(CurrentEvent.CalendarItem.Id, newReminders);
             Reminders = newReminders;
 
-            // Update ShowAs if changed
             if (SelectedShowAsOption != null)
             {
                 CurrentEvent.CalendarItem.ShowAs = SelectedShowAsOption.ShowAs;
             }
 
-            // Update the calendar item and attendees in database
-            await _calendarService.UpdateCalendarItemAsync(CurrentEvent.CalendarItem, CurrentEvent.Attendees.ToList());
-
-            // Queue the update request to synchronizer with original state for revert capability
             var preparationRequest = new CalendarOperationPreparationRequest(
                 CalendarSynchronizerOperation.UpdateEvent,
                 CurrentEvent.CalendarItem,
@@ -685,7 +708,13 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                 Reminders: newReminders,
                 OriginalReminders: originalReminders);
 
-            await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
+            var result = await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest);
+            if (result.Error != null)
+            {
+                Reminders = originalReminders;
+                if (originalItem != null)
+                    CurrentEvent.CalendarItem.ShowAs = originalItem.ShowAs;
+            }
 
             LastMutationSucceeded = true;
             if (NavigatesBackAfterSave)
@@ -1164,10 +1193,53 @@ public partial class ReminderOption : ObservableObject
         }
     }
 
-    public ReminderOption(int minutes, bool isCustom = false)
+    private readonly Action<ReminderOption> _selectionChanged;
+
+    public ReminderOption(int minutes, bool isCustom = false, Action<ReminderOption> selectionChanged = null)
     {
         Minutes = minutes;
         IsCustom = isCustom;
+        _selectionChanged = selectionChanged;
+    }
+
+    partial void OnIsSelectedChanged(bool value) => _selectionChanged?.Invoke(this);
+
+    /// <summary>The selected options as one line, or the None text when nothing is selected.</summary>
+    public static string Summarize(IEnumerable<ReminderOption> options)
+    {
+        var selected = options.Where(option => option.IsSelected).Select(option => option.DisplayText).ToList();
+        return selected.Count == 0 ? Translator.CalendarReminder_None : string.Join(", ", selected);
+    }
+
+    /// <summary>
+    /// Keeps a selection within what the calendar stores. With room for one reminder a new choice replaces the
+    /// previous one; with a larger limit a choice beyond it is undone.
+    /// </summary>
+    public static void EnforceLimit(IList<ReminderOption> options, ReminderOption changed, int? maxReminders)
+    {
+        if (maxReminders is not > 0 || changed is not { IsSelected: true })
+            return;
+
+        if (maxReminders == 1)
+        {
+            foreach (var option in options.Where(option => option.IsSelected && !ReferenceEquals(option, changed)).ToList())
+                option.IsSelected = false;
+
+            return;
+        }
+
+        if (options.Count(option => option.IsSelected) > maxReminders.Value)
+            changed.IsSelected = false;
+    }
+
+    /// <summary>Clears all but the shortest selected reminders when a calendar keeps fewer than are selected.</summary>
+    public static void TrimToLimit(IList<ReminderOption> options, int? maxReminders)
+    {
+        if (maxReminders is not > 0)
+            return;
+
+        foreach (var option in options.Where(option => option.IsSelected).OrderBy(option => option.Minutes).Skip(maxReminders.Value).ToList())
+            option.IsSelected = false;
     }
 }
 

@@ -2,6 +2,7 @@ using UIKit;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Core;
 using Wino.Presentation.UIKit;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.Controls.UIKit.MailList;
 

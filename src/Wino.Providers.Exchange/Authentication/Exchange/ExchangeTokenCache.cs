@@ -4,7 +4,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 
-namespace Wino.Authentication.Exchange;
+namespace Wino.Providers.Exchange.Authentication.Exchange;
 
 public sealed record ExchangeAccessToken(string AccessToken, DateTimeOffset ExpiresAtUtc)
 {

@@ -1,8 +1,10 @@
 ﻿using Wino.Core.Domain.Interfaces;
 using Wino.Core.Synchronizers.Errors;
-using Wino.Core.Synchronizers.Errors.Outlook;
+using Wino.Core.Services;
+using Wino.Providers.Outlook.Interfaces;
+using Wino.Providers.Outlook.Synchronizers.Errors.Outlook;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Outlook.Services;
 
 public class OutlookSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFactory, IOutlookSynchronizerErrorHandlerFactory
 {

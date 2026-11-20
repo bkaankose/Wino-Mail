@@ -10,8 +10,9 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Services;
+using Wino.Core.Interfaces;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// Answers to iMIP invitations that Wino sends itself (RFC 6047). The calendar write and the local

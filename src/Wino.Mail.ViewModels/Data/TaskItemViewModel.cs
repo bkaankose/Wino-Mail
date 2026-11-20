@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
@@ -233,13 +234,13 @@ public partial class TaskItemViewModel : ObservableObject
             var days = (due.Date - DateTime.Now.Date).Days;
             return days switch
             {
-                < -1 when Task.IsCompleted => string.Format(Translator.ToDoPage_DueOn, due.ToString(due.Year == DateTime.Now.Year ? "MMM d" : "MMM d, yyyy")),
+                < -1 when Task.IsCompleted => string.Format(Translator.ToDoPage_DueOn, due.ToString(due.Year == DateTime.Now.Year ? DateTimeDisplayFormatter.GetMonthDayPattern(CultureInfo.CurrentCulture, abbreviatedMonth: true) : DateTimeDisplayFormatter.GetDatePattern(CultureInfo.CurrentCulture, abbreviatedMonth: true), CultureInfo.CurrentCulture)),
                 < -1 => string.Format(Translator.ToDoPage_DueOverdue, Math.Abs(days)),
                 -1 => Translator.ToDoPage_DueYesterday,
                 0 => Translator.ToDoPage_DueToday,
                 1 => Translator.ToDoPage_DueTomorrow,
-                < 7 => string.Format(Translator.ToDoPage_DueOn, due.ToString("dddd")),
-                _ => string.Format(Translator.ToDoPage_DueOn, due.ToString("MMM d"))
+                < 7 => string.Format(Translator.ToDoPage_DueOn, due.ToString("dddd", CultureInfo.CurrentCulture)),
+                _ => string.Format(Translator.ToDoPage_DueOn, due.ToString(DateTimeDisplayFormatter.GetMonthDayPattern(CultureInfo.CurrentCulture, abbreviatedMonth: true), CultureInfo.CurrentCulture))
             };
         }
     }
@@ -281,7 +282,7 @@ public partial class TaskItemViewModel : ObservableObject
     public bool ShowListSummarySeparator => (HasDueDate || IsInMyDay) && ShowSummaryListName;
 
     public string CreatedOnText
-        => string.Format(Translator.ToDoPage_CreatedOn, Task.CreatedAtUtc.ToLocalTime().ToString("ddd, MMMM d"));
+        => string.Format(Translator.ToDoPage_CreatedOn, Task.CreatedAtUtc.ToLocalTime().ToString(DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(CultureInfo.CurrentCulture, abbreviatedWeekday: true), CultureInfo.CurrentCulture));
 
     /// <summary>Metadata line label for the owning list. Hidden when the surface is a single list.</summary>
     [ObservableProperty]

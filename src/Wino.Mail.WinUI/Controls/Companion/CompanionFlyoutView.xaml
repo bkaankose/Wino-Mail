@@ -5,9 +5,9 @@
     xmlns:companion="using:Wino.Mail.ViewModels.Companion"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Mail.ViewModels.Data"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="Root"
     Width="400"
     MinHeight="460"
@@ -47,7 +47,7 @@
                             Width="3"
                             Height="18"
                             VerticalAlignment="Center"
-                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CalendarColorHex)}"
+                            Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(CalendarColorHex)}"
                             RadiusX="1.5"
                             RadiusY="1.5" />
                         <Border
@@ -57,7 +57,7 @@
                             VerticalAlignment="Center"
                             Background="{ThemeResource AccentFillColorDefaultBrush}"
                             CornerRadius="10"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsImminent)}">
+                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(IsImminent)}">
                             <TextBlock
                                 FontSize="12"
                                 FontWeight="SemiBold"
@@ -70,7 +70,7 @@
                             FontSize="12"
                             Foreground="{ThemeResource CompanionSecondaryTextBrush}"
                             Text="{x:Bind LeadText}"
-                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsImminent)}" />
+                            Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsImminent)}" />
                         <TextBlock
                             Grid.Column="2"
                             VerticalAlignment="Center"
@@ -88,11 +88,11 @@
                                 FontSize="12"
                                 Foreground="{ThemeResource CompanionSecondaryTextBrush}"
                                 Icon="Link"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsOnline)}" />
+                                Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(IsOnline)}" />
                             <StackPanel
                                 Orientation="Horizontal"
                                 Spacing="3"
-                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAttendees)}">
+                                Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(HasAttendees)}">
                                 <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
                                     FontSize="12"
@@ -393,10 +393,10 @@
                                     <mailControls:WinoContactPicture
                                         Width="34"
                                         Height="34"
-                                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                                        ContactPicture="{x:Bind winuiHelpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
                                         FontSize="13"
-                                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
+                                        IsFaviconEnabled="{x:Bind winuiHelpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                        IsGravatarEnabled="{x:Bind winuiHelpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
                                         IsHitTestVisible="False" />
                                     <Border
                                         Margin="0,-2,-2,0"
@@ -405,7 +405,7 @@
                                         VerticalAlignment="Top"
                                         Background="{ThemeResource AccentFillColorDefaultBrush}"
                                         CornerRadius="8"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasUnread), Mode=OneWay}">
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(HasUnread), Mode=OneWay}">
                                         <TextBlock
                                             MinWidth="9"
                                             FontSize="10"
@@ -631,11 +631,11 @@
                                                 FontWeight="SemiBold"
                                                 Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                 Text="{x:Bind domain:Translator.Companion_TaskOverdue, Mode=OneTime}"
-                                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsOverdue), Mode=OneWay}" />
+                                                Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(IsOverdue), Mode=OneWay}" />
                                             <StackPanel
                                                 Orientation="Horizontal"
                                                 Spacing="4"
-                                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsOverdue), Mode=OneWay}">
+                                                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsOverdue), Mode=OneWay}">
                                                 <TextBlock
                                                     FontSize="11.5"
                                                     Foreground="{ThemeResource CompanionTertiaryTextBrush}"
@@ -645,7 +645,7 @@
                                                     FontSize="11.5"
                                                     Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                                     Text="{x:Bind DueDisplayText}"
-                                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasDueDate), Mode=OneWay}" />
+                                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(HasDueDate), Mode=OneWay}" />
                                             </StackPanel>
                                         </StackPanel>
                                     </CheckBox>

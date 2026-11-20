@@ -1,6 +1,6 @@
 using System;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>
 /// A synchronization changed more of an account's task cache than per-item messages can carry

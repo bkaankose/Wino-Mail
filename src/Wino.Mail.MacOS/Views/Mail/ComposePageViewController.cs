@@ -522,7 +522,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
     private async Task<bool> BeforeAutosaveAsync()
     {
         if (_editorDisposed || Bindings.IsDisposed) return false;
-        await SyncAllRecipientsAsync();
+        await SyncAllRecipientsAsync(includeTyped: false);
         return true;
     }
 
@@ -540,7 +540,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
                 _window.Close();
                 return;
             }
-            WeakReferenceMessenger.Default.Send(new Wino.Messaging.Client.Mails.DisposeRenderingFrameRequested());
+            WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.Client.Mails.DisposeRenderingFrameRequested());
         });
 
     // ---- Initial focus (Windows ApplyInitialFocusAsync) ----

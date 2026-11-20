@@ -8,7 +8,7 @@ using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Serialization;
 
-namespace Wino.Core.Outlook;
+namespace Wino.Providers.Outlook.Outlook;
 
 /// <summary>
 /// Small Graph v1 adapter for To Do. Keeping the URLs here makes delta-link

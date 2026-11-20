@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public sealed partial class CalendarHiddenEventsIndicator : UserControl
 {

@@ -1,7 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
-namespace Wino.Mail.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 public partial class BreadcrumbNavigationItemViewModel : ObservableObject
 {

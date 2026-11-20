@@ -368,7 +368,10 @@ public sealed partial class AgentPlanExecutor
 
             case AgentAction.DeleteEvent:
                 foreach (var target in targets)
-                    await requestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(CalendarSynchronizerOperation.DeleteEvent, target.Event)).ConfigureAwait(false);
+                {
+                    if (RefusalReason(await requestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(CalendarSynchronizerOperation.DeleteEvent, target.Event)).ConfigureAwait(false)) is { } deleteRefusal)
+                        return Failed(step, deleteRefusal);
+                }
 
                 return Done(step, Refs(targets), targets.Count == 1
                     ? string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_EventDeleted, EventTitle(targets[0].Event))
@@ -383,7 +386,10 @@ public sealed partial class AgentPlanExecutor
                     return Failed(step, Translator.VoiceIssue_Missing_Change);
 
                 foreach (var target in targets)
-                    await SaveEventAsync(target, CalendarSynchronizerOperation.UpdateEvent, item => item.ShowAs = showAs).ConfigureAwait(false);
+                {
+                    if (await SaveEventAsync(target, CalendarSynchronizerOperation.UpdateEvent, item => item.ShowAs = showAs).ConfigureAwait(false) is { } showAsRefusal)
+                        return Failed(step, showAsRefusal);
+                }
 
                 return Done(step, Refs(targets), string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_EventShowAs, EventName(targets), ShowAsName(showAs)));
             }
@@ -404,7 +410,8 @@ public sealed partial class AgentPlanExecutor
                     var request = string.IsNullOrEmpty(message)
                         ? new CalendarOperationPreparationRequest(operation, target.Event)
                         : new CalendarOperationPreparationRequest(operation, target.Event, ResponseMessage: message);
-                    await requestDelegator.ExecuteAsync(request).ConfigureAwait(false);
+                    if (RefusalReason(await requestDelegator.ExecuteAsync(request).ConfigureAwait(false)) is { } responseRefusal)
+                        return Failed(step, responseRefusal);
                 }
 
                 var template = operation switch
@@ -427,7 +434,8 @@ public sealed partial class AgentPlanExecutor
                     {
                         new() { Id = Guid.NewGuid(), CalendarItemId = target.Event.Id, DurationInSeconds = minutes * 60L, ReminderType = CalendarItemReminderType.Popup }
                     };
-                    await SaveEventAsync(target, CalendarSynchronizerOperation.UpdateEvent, static _ => { }, reminders).ConfigureAwait(false);
+                    if (await SaveEventAsync(target, CalendarSynchronizerOperation.UpdateEvent, static _ => { }, reminders).ConfigureAwait(false) is { } reminderRefusal)
+                        return Failed(step, reminderRefusal);
                 }
 
                 return Done(step, Refs(targets), string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_ReminderSet, EventName(targets), MinutesText(minutes)));
@@ -515,7 +523,7 @@ public sealed partial class AgentPlanExecutor
             var newStart = start;
             var newLength = isAllDay ? TimeSpan.FromDays(Math.Max(1, Math.Round(length.TotalDays))) : length;
             var showAs = ParseShowAs(change.ShowAs);
-            await SaveEventAsync(target, timeChanged && !detailsChanged ? CalendarSynchronizerOperation.ChangeStartAndEndDate : CalendarSynchronizerOperation.UpdateEvent, item =>
+            var refusal = await SaveEventAsync(target, timeChanged && !detailsChanged ? CalendarSynchronizerOperation.ChangeStartAndEndDate : CalendarSynchronizerOperation.UpdateEvent, item =>
             {
                 item.StartDate = isAllDay ? newStart.Date : newStart.ToTimeZoneFromLocal(item.StartTimeZone);
                 item.DurationInSeconds = newLength.TotalSeconds;
@@ -527,6 +535,9 @@ public sealed partial class AgentPlanExecutor
                     item.ShowAs = value;
             }).ConfigureAwait(false);
 
+            if (refusal is not null)
+                return Failed(step, refusal);
+
             lastStart = newStart;
         }
 
@@ -536,10 +547,11 @@ public sealed partial class AgentPlanExecutor
     }
 
     /// <summary>
-    /// Changes an event the way the calendar page does: the stored copy is updated first, then the request carries the
-    /// original so the synchronizer can send only what changed and roll back on failure.
+    /// Changes an event the way the calendar page does: the request carries the wanted state and the original, and
+    /// the stored copy changes only after the server accepts the edit. Returns why the change was refused, or null
+    /// when it was queued.
     /// </summary>
-    private async Task SaveEventAsync(EventTarget target, CalendarSynchronizerOperation operation, Action<CalendarItem> change, List<Reminder>? newReminders = null)
+    private async Task<string?> SaveEventAsync(EventTarget target, CalendarSynchronizerOperation operation, Action<CalendarItem> change, List<Reminder>? newReminders = null)
     {
         var item = await calendarService.GetCalendarItemAsync(target.Event.Id).ConfigureAwait(false) ?? target.Event;
         var original = await calendarService.GetCalendarItemAsync(target.Event.Id).ConfigureAwait(false) ?? target.Event;
@@ -551,18 +563,15 @@ public sealed partial class AgentPlanExecutor
         var reminders = await calendarService.GetRemindersAsync(item.Id).ConfigureAwait(false) ?? [];
 
         change(item);
-        await calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
-        if (newReminders is not null)
-            await calendarService.SaveRemindersAsync(item.Id, newReminders).ConfigureAwait(false);
 
-        await requestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
+        return RefusalReason(await requestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
             operation,
             item,
             attendees,
             OriginalItem: original,
             OriginalAttendees: originalAttendees,
             Reminders: newReminders ?? reminders,
-            OriginalReminders: reminders)).ConfigureAwait(false);
+            OriginalReminders: reminders)).ConfigureAwait(false));
     }
 
     // ---- creation ------------------------------------------------------------------------------------------------

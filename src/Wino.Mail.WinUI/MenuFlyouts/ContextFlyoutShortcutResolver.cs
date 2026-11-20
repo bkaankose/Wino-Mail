@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Mail.Controls.Core.ContextFlyout;
 
-namespace Wino.MenuFlyouts;
+namespace Wino.Mail.WinUI.MenuFlyouts;
 
 internal sealed class ContextFlyoutShortcutResolver(IKeyboardShortcutService shortcutService)
 {

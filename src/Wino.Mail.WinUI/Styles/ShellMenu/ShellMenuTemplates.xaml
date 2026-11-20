@@ -5,16 +5,16 @@
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:behaviors="using:Wino.Mail.WinUI.Behaviors"
+    xmlns:calendarData="using:Wino.Mail.ViewModels.Calendar.Data"
     xmlns:contactData="using:Wino.Mail.ViewModels.Data"
-    xmlns:controls="using:Wino.Controls"
+    xmlns:contracts="using:Wino.Mail.ViewModels.MenuItems.Contracts"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
-    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
-    xmlns:menu="using:Wino.Core.Domain.MenuItems"
-    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
+    xmlns:menuitems="using:Wino.Mail.ViewModels.MenuItems"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers">
 
     <!--
         Chrome-free navigation item used by pane entries that host a control or a caption
@@ -43,7 +43,7 @@
     </Style>
 
     <!--  Section caption between groups of navigation items.  -->
-    <DataTemplate x:Key="ShellSectionHeaderTemplate" x:DataType="menu:ShellSectionHeaderMenuItem">
+    <DataTemplate x:Key="ShellSectionHeaderTemplate" x:DataType="menuitems:ShellSectionHeaderMenuItem">
         <muxc:NavigationViewItem AutomationProperties.AutomationId="ShellMenuSectionHeader" Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
             <TextBlock
                 Margin="14,12,12,2"
@@ -53,8 +53,8 @@
         </muxc:NavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="SharedAccountMenuTemplate" x:DataType="interfaces:IAccountNavigationMenuItem">
-        <controls:AccountNavigationItem
+    <DataTemplate x:Key="SharedAccountMenuTemplate" x:DataType="contracts:IAccountNavigationMenuItem">
+        <coreControls:AccountNavigationItem
             Height="50"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
@@ -70,7 +70,7 @@
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
             <muxc:NavigationViewItem.Icon>
                 <accountIcon:WinoAccountIcon
-                    Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account), Mode=OneWay}"
+                    Account="{x:Bind winuiHelpers:XamlHelpers.GetAccountIconInfo(Account), Mode=OneWay}"
                     IconSize="22"
                     ProviderIconSize="16" />
             </muxc:NavigationViewItem.Icon>
@@ -78,7 +78,7 @@
                 <muxc:InfoBadge
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                     Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
             <Grid ColumnSpacing="8">
@@ -88,7 +88,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+                        FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                         MaxLines="1"
                         Style="{StaticResource BodyTextBlockStyle}"
                         Text="{x:Bind AccountName, Mode=OneWay}"
@@ -121,18 +121,18 @@
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                     Style="{ThemeResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
                     <coreControls:WinoFontIcon
                         FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="18"
                         Icon="Warning" />
                 </Button>
             </Grid>
-        </controls:AccountNavigationItem>
+        </coreControls:AccountNavigationItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="SharedCompactAccountMenuTemplate" x:DataType="interfaces:IAccountNavigationMenuItem">
-        <controls:AccountNavigationItem
+    <DataTemplate x:Key="SharedCompactAccountMenuTemplate" x:DataType="contracts:IAccountNavigationMenuItem">
+        <coreControls:AccountNavigationItem
             Height="40"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
@@ -148,7 +148,7 @@
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
             <muxc:NavigationViewItem.Icon>
                 <accountIcon:WinoAccountIcon
-                    Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account), Mode=OneWay}"
+                    Account="{x:Bind winuiHelpers:XamlHelpers.GetAccountIconInfo(Account), Mode=OneWay}"
                     IconSize="28"
                     ProviderIconSize="22" />
             </muxc:NavigationViewItem.Icon>
@@ -156,7 +156,7 @@
                 <muxc:InfoBadge
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                     Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
             <Grid ColumnSpacing="8">
@@ -167,7 +167,7 @@
                 <Grid VerticalAlignment="Stretch">
                     <TextBlock
                         VerticalAlignment="Center"
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+                        FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                         MaxLines="1"
                         Style="{StaticResource BodyTextBlockStyle}"
                         Text="{x:Bind AccountName, Mode=OneWay}"
@@ -194,19 +194,19 @@
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                     Style="{ThemeResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
                     <coreControls:WinoFontIcon
                         FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="18"
                         Icon="Warning" />
                 </Button>
             </Grid>
-        </controls:AccountNavigationItem>
+        </coreControls:AccountNavigationItem>
     </DataTemplate>
 
     <!--  Fix account issues.  -->
     <!--  Authentication  -->
-    <DataTemplate x:Key="FixAuthenticationIssueTemplate" x:DataType="menu:FixAccountIssuesMenuItem">
+    <DataTemplate x:Key="FixAuthenticationIssueTemplate" x:DataType="menuitems:FixAccountIssuesMenuItem">
         <coreControls:WinoNavigationViewItem AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem" SelectsOnInvoked="False">
             <coreControls:WinoNavigationViewItem.Content>
                 <TextBlock
@@ -221,7 +221,7 @@
     </DataTemplate>
 
     <!--  Missing system folder config.  -->
-    <DataTemplate x:Key="FixMissingFolderConfigTemplate" x:DataType="menu:FixAccountIssuesMenuItem">
+    <DataTemplate x:Key="FixMissingFolderConfigTemplate" x:DataType="menuitems:FixAccountIssuesMenuItem">
         <coreControls:WinoNavigationViewItem AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem2" SelectsOnInvoked="False">
             <coreControls:WinoNavigationViewItem.Content>
                 <TextBlock
@@ -236,7 +236,7 @@
     </DataTemplate>
 
     <!--  New Mail  -->
-    <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menu:NewMailMenuItem">
+    <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menuitems:NewMailMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="50"
             AutomationProperties.AutomationId="XBindDomainTranslatorMenuNewMailModeOneTime"
@@ -255,7 +255,7 @@
     </DataTemplate>
 
     <!--  Inbox or any other folders.  -->
-    <DataTemplate x:Key="FolderMenuTemplate" x:DataType="menu:FolderMenuItem">
+    <DataTemplate x:Key="FolderMenuTemplate" x:DataType="menuitems:FolderMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="40"
             AllowDrop="True"
@@ -268,7 +268,7 @@
             DragOver="ItemDragOverFolder"
             Drop="ItemDroppedOnFolder"
             FontSize="50"
-            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+            FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
             MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
@@ -278,14 +278,14 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind winuiHelpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
                     x:Name="FolderInfoBadge"
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                     Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
             <muxc:NavigationViewItem.Content>
@@ -297,14 +297,14 @@
                     <Grid
                         x:Name="BackgroundColorGrid"
                         x:Load="{x:Bind HasTextColor, Mode=OneWay}"
-                        Background="{x:Bind helpers:XamlHelpers.GetCategoryChipBackgroundBrush(Parameter.BackgroundColorHex), Mode=OneWay}"
+                        Background="{x:Bind winuiHelpers:XamlHelpers.GetCategoryChipBackgroundBrush(Parameter.BackgroundColorHex), Mode=OneWay}"
                         CornerRadius="3">
                         <TextBlock
                             x:Name="CustomColorTitle"
                             Margin="4,0,0,0"
                             VerticalAlignment="Center"
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetCategoryChipTextBrush(Parameter.TextColorHex, Parameter.BackgroundColorHex), Mode=OneWay}"
+                            FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
+                            Foreground="{x:Bind winuiHelpers:XamlHelpers.GetCategoryChipTextBrush(Parameter.TextColorHex, Parameter.BackgroundColorHex), Mode=OneWay}"
                             Style="{StaticResource BodyTextBlockStyle}"
                             Text="{x:Bind FolderName, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
@@ -313,8 +313,8 @@
                     <TextBlock
                         x:Name="NormalTitle"
                         VerticalAlignment="Center"
-                        x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(HasTextColor)}"
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
+                        x:Load="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(HasTextColor)}"
+                        FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
                         Style="{StaticResource BodyTextBlockStyle}"
                         Text="{x:Bind FolderName, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
@@ -323,34 +323,34 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="MailCategoryMenuTemplate" x:DataType="menu:MailCategoryMenuItem">
+    <DataTemplate x:Key="MailCategoryMenuTemplate" x:DataType="menuitems:MailCategoryMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="40"
             AutomationProperties.AutomationId="XBindFolderNameModeOneWay2"
             AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
             DataContext="{x:Bind}"
-            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+            FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
             IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
             SelectsOnInvoked="True"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon
                     FontFamily="{ThemeResource WinoIconFontFamily}"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                    Foreground="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
                     Icon="Tag" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                     Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
             <muxc:NavigationViewItem.Content>
                 <TextBlock
                     Grid.Column="1"
                     VerticalAlignment="Center"
-                    FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
+                    FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
                     Style="{StaticResource BodyTextBlockStyle}"
                     Text="{x:Bind FolderName, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis" />
@@ -358,27 +358,27 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="MergedMailCategoryMenuTemplate" x:DataType="menu:MergedMailCategoryMenuItem">
+    <DataTemplate x:Key="MergedMailCategoryMenuTemplate" x:DataType="menuitems:MergedMailCategoryMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="40"
             AutomationProperties.AutomationId="XBindFolderNameModeOneWay3"
             AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
             DataContext="{x:Bind}"
-            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+            FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
             IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
             SelectsOnInvoked="True"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon
                     FontFamily="{ThemeResource WinoIconFontFamily}"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                    Foreground="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
                     Icon="Tag" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                     Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
             <muxc:NavigationViewItem.Content>
@@ -396,16 +396,16 @@
                         Height="10"
                         Margin="0,0,8,0"
                         VerticalAlignment="Center"
-                        Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
-                        BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                        Background="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                        BorderBrush="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
                         BorderThickness="1"
                         CornerRadius="3" />
 
                     <TextBlock
                         Grid.Column="1"
                         VerticalAlignment="Center"
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetCustomTextBrush(TextColorHex), Mode=OneWay}"
+                        FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
+                        Foreground="{x:Bind winuiHelpers:XamlHelpers.GetCustomTextBrush(TextColorHex), Mode=OneWay}"
                         Style="{StaticResource BodyTextBlockStyle}"
                         Text="{x:Bind FolderName, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
@@ -415,8 +415,8 @@
     </DataTemplate>
 
     <!--  Account group that combines folders  -->
-    <DataTemplate x:Key="MergedAccountTemplate" x:DataType="menu:MergedAccountMenuItem">
-        <controls:AccountNavigationItem
+    <DataTemplate x:Key="MergedAccountTemplate" x:DataType="menuitems:MergedAccountMenuItem">
+        <coreControls:AccountNavigationItem
             x:Name="AccountItem"
             MinHeight="36"
             HorizontalContentAlignment="Stretch"
@@ -426,20 +426,20 @@
             ContextRequested="MergedAccountContextRequested"
             DataContext="{x:Bind}"
             IconBoxHeight="20"
-            IsActiveAccount="{x:Bind helpers:XamlHelpers.IsMergedAccountIndicatorVisible(IsSelected, IsChildSelected, IsExpanded), Mode=OneWay}"
+            IsActiveAccount="{x:Bind winuiHelpers:XamlHelpers.IsMergedAccountIndicatorVisible(IsSelected, IsChildSelected, IsExpanded), Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=OneWay}"
             MenuItemsSource="{x:Bind SubMenuItems}"
             RemembersExpansion="True"
             SelectsOnInvoked="False"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}"
-            ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetMergedAccountToolTip(MergedAccountName, HoldingAccounts), Mode=OneWay}">
+            ToolTipService.ToolTip="{x:Bind winuiHelpers:XamlHelpers.GetMergedAccountToolTip(MergedAccountName, HoldingAccounts), Mode=OneWay}">
 
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
                     x:Name="FolderInfoBadge"
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                     Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
             <coreControls:WinoNavigationViewItem.ContentTransitions>
@@ -463,7 +463,7 @@
                     x:Name="AccountNameTextblock"
                     VerticalAlignment="Center"
                     behaviors:AccountGroupTextColor.ColorKey="{x:Bind ColorKey}"
-                    FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsChildSelected), Mode=OneWay}"
+                    FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightByChildSelectedState(IsChildSelected), Mode=OneWay}"
                     MaxLines="1"
                     Style="{StaticResource BodyTextBlockStyle}"
                     Text="{x:Bind MergedAccountName, Mode=OneWay}"
@@ -481,7 +481,7 @@
                     IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
                     Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
             </Grid>
-        </controls:AccountNavigationItem>
+        </coreControls:AccountNavigationItem>
     </DataTemplate>
 
     <!--
@@ -489,7 +489,7 @@
         a click only expands or collapses it. A row collapsed on screen, including in the closed pane, shows the
         unread count its hidden account rows would show.
     -->
-    <DataTemplate x:Key="AccountGroupTemplate" x:DataType="menu:AccountGroupMenuItem">
+    <DataTemplate x:Key="AccountGroupTemplate" x:DataType="menuitems:AccountGroupMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="36"
             AutomationProperties.AutomationId="ShellAccountGroup"
@@ -531,7 +531,7 @@
     </DataTemplate>
 
     <!--  Merged Account Common Folder Item  -->
-    <DataTemplate x:Key="MergedAccountFolderMenuItemTemplate" x:DataType="menu:MergedAccountFolderMenuItem">
+    <DataTemplate x:Key="MergedAccountFolderMenuItemTemplate" x:DataType="menuitems:MergedAccountFolderMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="30"
             AllowDrop="True"
@@ -543,7 +543,7 @@
             DragOver="ItemDragOverFolder"
             Drop="ItemDroppedOnFolder"
             FontSize="50"
-            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+            FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
             SelectsOnInvoked="True"
@@ -552,14 +552,14 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind winuiHelpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
                     x:Name="FolderInfoBadge"
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                     Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
             <Grid
@@ -569,7 +569,7 @@
                 <TextBlock
                     x:Name="NormalTitle"
                     VerticalAlignment="Center"
-                    FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
+                    FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
                     Style="{StaticResource BodyTextBlockStyle}"
                     Text="{x:Bind FolderName, Mode=OneWay}"
                     TextWrapping="WrapWholeWords" />
@@ -578,12 +578,12 @@
     </DataTemplate>
 
     <!--  Merged Account More Expansion Item  -->
-    <DataTemplate x:Key="MergedAccountMoreFolderItemTemplate" x:DataType="menu:MergedAccountMoreFolderMenuItem">
+    <DataTemplate x:Key="MergedAccountMoreFolderItemTemplate" x:DataType="menuitems:MergedAccountMoreFolderMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="30"
             AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem4"
             Content="{x:Bind domain:Translator.More}"
-            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+            FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
             MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
@@ -592,13 +592,13 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind winuiHelpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
             </coreControls:WinoNavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
     <!--  New event  -->
-    <DataTemplate x:Key="CalendarNewEventTemplate" x:DataType="menu:NewCalendarEventMenuItem">
+    <DataTemplate x:Key="CalendarNewEventTemplate" x:DataType="menuitems:NewCalendarEventMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="50"
             AutomationProperties.AutomationId="NewCalendarEventNavigationItem"
@@ -617,7 +617,7 @@
     </DataTemplate>
 
     <!--  Visible date range picker  -->
-    <DataTemplate x:Key="CalendarDatePickerTemplate" x:DataType="menu:CalendarDatePickerMenuItem">
+    <DataTemplate x:Key="CalendarDatePickerTemplate" x:DataType="menuitems:CalendarDatePickerMenuItem">
         <muxc:NavigationViewItem
             AutomationProperties.AutomationId="CalendarPaneDatePickerHost"
             AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_CalendarDatePicker, Mode=OneTime}"
@@ -637,17 +637,17 @@
     </DataTemplate>
 
     <!--  One account's calendars  -->
-    <DataTemplate x:Key="AccountCalendarGroupTemplate" x:DataType="data:AccountCalendarGroupMenuItem">
+    <DataTemplate x:Key="AccountCalendarGroupTemplate" x:DataType="calendarData:AccountCalendarGroupMenuItem">
         <muxc:NavigationViewItem
             AutomationProperties.AutomationId="AccountCalendarGroupHost"
-            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
+            AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
             Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
             <muxc:Expander
                 Margin="8,2"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 AutomationProperties.AutomationId="AccountCalendarGroupExpander"
-                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
+                AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
                 IsExpanded="{x:Bind Parameter.IsExpanded, Mode=TwoWay}">
                 <muxc:Expander.Header>
                     <Grid ColumnSpacing="8">
@@ -661,7 +661,7 @@
                             Width="26"
                             MinWidth="0"
                             AutomationProperties.AutomationId="AccountCalendarGroupCheckBox"
-                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
+                            AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
                             IsChecked="{x:Bind Parameter.IsCheckedState, Mode=TwoWay}"
                             IsThreeState="True" />
 
@@ -670,7 +670,7 @@
                             Width="12"
                             Height="12"
                             VerticalAlignment="Center"
-                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.AccountColorHex), Mode=OneWay}" />
+                            Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.AccountColorHex), Mode=OneWay}" />
 
                         <StackPanel
                             Grid.Column="2"
@@ -700,14 +700,14 @@
                 <muxc:Expander.Content>
                     <ItemsControl ItemsSource="{x:Bind Parameter.AccountCalendars, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="data:AccountCalendarViewModel">
+                            <DataTemplate x:DataType="calendarData:AccountCalendarViewModel">
                                 <CheckBox
                                     HorizontalAlignment="Stretch"
                                     VerticalAlignment="Center"
                                     HorizontalContentAlignment="Stretch"
                                     VerticalContentAlignment="Stretch"
                                     AutomationProperties.AutomationId="AccountCalendarCheckBox"
-                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Name), Mode=OneWay}"
+                                    AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetCalendarToggleAutomationName(Name), Mode=OneWay}"
                                     IsChecked="{x:Bind IsChecked, Mode=TwoWay}">
                                     <Grid Margin="0,0,0,5" ColumnSpacing="6">
                                         <Grid.ColumnDefinitions>
@@ -718,7 +718,7 @@
                                         <Ellipse
                                             Width="20"
                                             Height="20"
-                                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+                                            Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
 
                                         <TextBlock
                                             Grid.Column="1"
@@ -736,13 +736,13 @@
     </DataTemplate>
 
     <!--  Calendars for the active account in the ungrouped account layout.  -->
-    <DataTemplate x:Key="UngroupedCalendarTemplate" x:DataType="data:UngroupedCalendarMenuItem">
+    <DataTemplate x:Key="UngroupedCalendarTemplate" x:DataType="calendarData:UngroupedCalendarMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="40"
-            Margin="{x:Bind helpers:XamlHelpers.GetCalendarPaneItemMargin(IsPaneCompact), Mode=OneWay}"
+            Margin="{x:Bind winuiHelpers:XamlHelpers.GetCalendarPaneItemMargin(IsPaneCompact), Mode=OneWay}"
             HorizontalContentAlignment="Stretch"
             AutomationProperties.AutomationId="UngroupedCalendarNavigationItem"
-            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
+            AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
             <Grid Margin="0,2" ColumnSpacing="8">
@@ -757,17 +757,17 @@
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
                     AutomationProperties.AutomationId="UngroupedCalendarCheckBox"
-                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
+                    AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
                     IsChecked="{x:Bind Parameter.IsChecked, Mode=TwoWay}"
                     Tapped="UngroupedCalendarCheckBoxTapped"
-                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsPaneCompact), Mode=OneWay}" />
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsPaneCompact), Mode=OneWay}" />
 
                 <Ellipse
                     Grid.Column="1"
                     Width="16"
                     Height="16"
                     VerticalAlignment="Center"
-                    Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.BackgroundColorHex), Mode=OneWay}" />
+                    Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.BackgroundColorHex), Mode=OneWay}" />
 
                 <TextBlock
                     Grid.Column="2"
@@ -779,14 +779,14 @@
     </DataTemplate>
 
     <!--  New contact  -->
-    <DataTemplate x:Key="NewContactTemplate" x:DataType="menu:NewContactMenuItem">
+    <DataTemplate x:Key="NewContactTemplate" x:DataType="menuitems:NewContactMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="50"
             AutomationProperties.AutomationId="NewContactNavigationItem"
             AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
             DataContext="{x:Bind}"
             SelectsOnInvoked="False"
-            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
+            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="NewMail" />
             </muxc:NavigationViewItem.Icon>
@@ -798,14 +798,14 @@
     </DataTemplate>
 
     <!--  New contact list  -->
-    <DataTemplate x:Key="NewAddressListTemplate" x:DataType="menu:NewAddressListMenuItem">
+    <DataTemplate x:Key="NewAddressListTemplate" x:DataType="menuitems:NewAddressListMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="44"
             AutomationProperties.AutomationId="ContactsPaneNewList"
             AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewAddressList, Mode=OneTime}"
             DataContext="{x:Bind}"
             SelectsOnInvoked="False"
-            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
+            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="PersonAdd" />
             </muxc:NavigationViewItem.Icon>
@@ -817,7 +817,7 @@
     </DataTemplate>
 
     <!--  New CardDAV address book  -->
-    <DataTemplate x:Key="NewAddressBookTemplate" x:DataType="menu:NewAddressBookMenuItem">
+    <DataTemplate x:Key="NewAddressBookTemplate" x:DataType="menuitems:NewAddressBookMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="44"
             AutomationProperties.AutomationId="ContactsPaneNewAddressBook"
@@ -849,7 +849,7 @@
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon
                     FontFamily="{ThemeResource WinoIconFontFamily}"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CategoryColorHex), Mode=OneWay}"
+                    Foreground="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(CategoryColorHex), Mode=OneWay}"
                     Icon="Tag" />
             </muxc:NavigationViewItem.Icon>
             <TextBlock
@@ -861,7 +861,7 @@
     </DataTemplate>
 
     <!--  Shows or hides the categories of the active account. It is never a selection.  -->
-    <DataTemplate x:Key="ContactCategoriesExpanderTemplate" x:DataType="menu:ContactCategoriesExpanderMenuItem">
+    <DataTemplate x:Key="ContactCategoriesExpanderTemplate" x:DataType="menuitems:ContactCategoriesExpanderMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="36"
             AutomationProperties.AutomationId="ContactsCategoriesExpander"
@@ -888,7 +888,7 @@
                     FontFamily="{ThemeResource SymbolThemeFontFamily}"
                     FontSize="12"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Glyph="{x:Bind helpers:XamlHelpers.GetExpanderGlyph(IsExpanded), Mode=OneWay}" />
+                    Glyph="{x:Bind winuiHelpers:XamlHelpers.GetExpanderGlyph(IsExpanded), Mode=OneWay}" />
             </Grid>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -905,7 +905,7 @@
             AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
             ContextRequested="ContactListContextRequested"
             DataContext="{x:Bind}"
-            Icon="{x:Bind helpers:XamlHelpers.GetAccountOrGlyphIcon(Account, Glyph), Mode=OneTime}"
+            Icon="{x:Bind winuiHelpers:XamlHelpers.GetAccountOrGlyphIcon(Account, Glyph), Mode=OneTime}"
             IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
             SelectsOnInvoked="True"
             ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}">
@@ -913,7 +913,7 @@
                 <muxc:InfoBadge
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
                     Value="{x:Bind Count, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
 
@@ -923,7 +923,7 @@
                     Background="{ThemeResource AccentFillColorTertiaryBrush}"
                     CornerRadius="4"
                     IsHitTestVisible="False"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraggingItemOver), Mode=OneWay}" />
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(IsDraggingItemOver), Mode=OneWay}" />
 
                 <TextBlock
                     VerticalAlignment="Center"
@@ -938,7 +938,7 @@
         as an icon button on the right, which is where Microsoft To Do puts it. The button handles
         its own click, so the two actions never collide.
     -->
-    <DataTemplate x:Key="NewTaskListTemplate" x:DataType="menu:NewTaskListMenuItem">
+    <DataTemplate x:Key="NewTaskListTemplate" x:DataType="menuitems:NewTaskListMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="50"
             AutomationProperties.AutomationId="ToDoNewList"
@@ -977,7 +977,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="MyDayTaskTemplate" x:DataType="menu:MyDayTaskMenuItem">
+    <DataTemplate x:Key="MyDayTaskTemplate" x:DataType="menuitems:MyDayTaskMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="38"
             AutomationProperties.AutomationId="ToDoMyDayView"
@@ -993,13 +993,13 @@
                     AutomationProperties.AutomationId="ToDoMyDayViewCount"
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
                     Value="{x:Bind Count, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="PlannedTaskTemplate" x:DataType="menu:PlannedTaskMenuItem">
+    <DataTemplate x:Key="PlannedTaskTemplate" x:DataType="menuitems:PlannedTaskMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="38"
             AutomationProperties.AutomationId="ToDoPlannedView"
@@ -1015,13 +1015,13 @@
                     AutomationProperties.AutomationId="ToDoPlannedViewCount"
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
                     Value="{x:Bind Count, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="ImportantTaskTemplate" x:DataType="menu:ImportantTaskMenuItem">
+    <DataTemplate x:Key="ImportantTaskTemplate" x:DataType="menuitems:ImportantTaskMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="38"
             AutomationProperties.AutomationId="ToDoImportantView"
@@ -1037,13 +1037,13 @@
                     AutomationProperties.AutomationId="ToDoImportantViewCount"
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
                     Value="{x:Bind Count, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="AccountTaskListGroupTemplate" x:DataType="menu:AccountTaskListGroupMenuItem">
+    <DataTemplate x:Key="AccountTaskListGroupTemplate" x:DataType="menuitems:AccountTaskListGroupMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="38"
             AllowDrop="True"
@@ -1074,7 +1074,7 @@
     </DataTemplate>
 
     <!--  Lists carry an icon so they align with the smart views above them, plus the same badge.  -->
-    <DataTemplate x:Key="AccountTaskListTemplate" x:DataType="menu:AccountTaskListMenuItem">
+    <DataTemplate x:Key="AccountTaskListTemplate" x:DataType="menuitems:AccountTaskListMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="38"
             AutomationProperties.AutomationId="ToDoListItem"
@@ -1092,7 +1092,7 @@
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon
                     FontFamily="{ThemeResource WinoIconFontFamily}"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ColorHex), Mode=OneWay}"
+                    Foreground="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ColorHex), Mode=OneWay}"
                     Icon="Dot" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
@@ -1100,7 +1100,7 @@
                     AutomationProperties.AutomationId="ToDoListItemCount"
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
                     Value="{x:Bind Count, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
         </coreControls:WinoNavigationViewItem>
@@ -1110,7 +1110,7 @@
         <muxc:NavigationViewItemSeparator Margin="-20,0" />
     </DataTemplate>
 
-    <DataTemplate x:Key="SettingsShellPageItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+    <DataTemplate x:Key="SettingsShellPageItemTemplate" x:DataType="menuitems:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem3"
             Content="{x:Bind Title}"
@@ -1122,7 +1122,7 @@
     </DataTemplate>
 
 
-    <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+    <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menuitems:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem4"
             Content="{x:Bind Title}"
@@ -1133,7 +1133,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="SettingsShellWinoIntelligenceItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+    <DataTemplate x:Key="SettingsShellWinoIntelligenceItemTemplate" x:DataType="menuitems:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem6"
             Content="{x:Bind Title}"
@@ -1147,7 +1147,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="SettingsShellGroupItemTemplate" x:DataType="menu:SettingsShellGroupMenuItem">
+    <DataTemplate x:Key="SettingsShellGroupItemTemplate" x:DataType="menuitems:SettingsShellGroupMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="SettingsShellGroupNavigationViewItem"
             AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
@@ -1162,7 +1162,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menu:SettingsShellSectionMenuItem">
+    <DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menuitems:SettingsShellSectionMenuItem">
         <coreControls:WinoNavigationViewItem
             Margin="0,12,0,4"
             HorizontalContentAlignment="Stretch"
@@ -1213,7 +1213,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="RatingItemTemplate" x:DataType="menu:RateMenuItem">
+    <DataTemplate x:Key="RatingItemTemplate" x:DataType="menuitems:RateMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem7"
             Content="{x:Bind domain:Translator.MenuRate}"

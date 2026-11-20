@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Shared;
 
-namespace Wino.Messaging.Client.Shell;
+namespace Wino.Core.Domain.Messaging.Client.Shell;
 
 /// <summary>
 /// When 

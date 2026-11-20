@@ -15,7 +15,7 @@ IMAP and POP3 mailboxes over MailKit: both synchronizers, the IMAP connection po
 - `ImapChangeProcessor` derives from `CalDavChangeProcessor` in `Wino.Core` and adds only what is IMAP-specific. Calendar storage belongs to the base class.
 - SMTP sending (`MailKitSmtpTransport`, its connection policy, `MailKitOAuthAuthenticator`) and `WinoProtocolLogger` stay in `Wino.Core`, because Exchange and a ViewModel use them.
 - Every IMAP command goes through a client from `ImapClientPool`. Return the client to the pool on every path, including failure.
-- Keep the namespaces of moved files. They came from `Wino.Core` unchanged.
+- Every file's namespace is `Wino.Providers.Imap` plus its folder path.
 
 ## Running a change
 

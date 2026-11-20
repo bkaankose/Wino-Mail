@@ -5,8 +5,9 @@ using System.ComponentModel;
 using System.Linq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
 namespace Wino.Mail.ViewModels.Data;
 

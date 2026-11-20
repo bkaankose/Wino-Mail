@@ -4,14 +4,13 @@ using System.Text.RegularExpressions;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Helpers;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 public static class CalendarXamlHelpers
 {
@@ -53,12 +52,12 @@ public static class CalendarXamlHelpers
         var start = calendarItemViewModel.Period.Start;
         var end = calendarItemViewModel.Period.End;
 
-        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType);
-        var dateFormat = $"dddd, dd MMMM {timeFormat}";
+        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType, settings.CultureInfo);
+        var dateFormat = $"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo)} {timeFormat}";
 
         if (calendarItemViewModel.IsMultiDayEvent)
         {
-            return $"{start.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)} - {end.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)}";
+            return $"{start.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo, abbreviatedWeekday: true)} {timeFormat}", settings.CultureInfo)} - {end.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo, abbreviatedWeekday: true)} {timeFormat}", settings.CultureInfo)}";
         }
 
         return $"{start.ToString(dateFormat, settings.CultureInfo)} - {end.ToString(timeFormat, settings.CultureInfo)}";

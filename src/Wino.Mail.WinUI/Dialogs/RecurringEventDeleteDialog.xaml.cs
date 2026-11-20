@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class RecurringEventDeleteDialog : ContentDialog
 {

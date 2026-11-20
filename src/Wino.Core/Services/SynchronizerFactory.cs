@@ -9,6 +9,8 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Synchronizers;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 
@@ -45,8 +47,15 @@ public class SynchronizerFactory : ISynchronizerFactory
             var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
             if (account == null)
             {
-                // The account was deleted; its queued actions have nothing left to run against.
+                // The account was deleted; its queued actions have nothing left to run against. A synchronizer
+                // created while the deletion was running would otherwise keep its live listener open.
                 _carriedOverRequests.TryRemove(accountId, out _);
+                _accountsWithRequeuedRequests.TryRemove(accountId, out _);
+                if (_synchronizers.TryRemove(accountId, out var orphaned))
+                {
+                    try { await orphaned.KillSynchronizerAsync().ConfigureAwait(false); }
+                    catch (Exception ex) { Log.Warning(ex, "Failed to stop the synchronizer of removed account {AccountId}.", accountId); }
+                }
                 return null;
             }
             if (_synchronizers.TryGetValue(accountId, out var existing))
@@ -71,7 +80,15 @@ public class SynchronizerFactory : ISynchronizerFactory
     }
 
     private IWinoSynchronizerBase CreateIntegratorWithDefaultProcessor(MailAccount mailAccount)
-        => _providers.Find(mailAccount.ProviderType)?.CreateSynchronizer(mailAccount);
+    {
+        var module = _providers.Find(mailAccount.ProviderType);
+        var synchronizer = module?.CreateSynchronizer(mailAccount);
+
+        if (module != null && synchronizer is IProviderTraitsReceiver receiver)
+            receiver.ProviderTraits = module.Traits;
+
+        return synchronizer;
+    }
 
     private bool CanReuse(IWinoSynchronizerBase existing, MailAccount account)
         => _providers.Find(account.ProviderType)?.CanReuseSynchronizer(existing, account) ?? true;

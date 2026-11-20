@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Google.Apis.Calendar.v3.Data;
 using Serilog;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
@@ -14,10 +13,14 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
 using Wino.Services;
+using Wino.Core.Integration.Processors;
+using Wino.Providers.Gmail.Extensions;
+using Wino.Providers.Gmail.Google.Apis.Calendar.v3.Data;
+using Wino.Services.Interfaces;
 using CalendarEventAttendee = Wino.Core.Domain.Entities.Calendar.CalendarEventAttendee;
 using CalendarItem = Wino.Core.Domain.Entities.Calendar.CalendarItem;
 
-namespace Wino.Core.Integration.Processors;
+namespace Wino.Providers.Gmail.Integration.Processors;
 
 public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcessor
 {

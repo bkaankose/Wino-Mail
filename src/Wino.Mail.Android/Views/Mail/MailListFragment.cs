@@ -21,10 +21,10 @@ using Wino.Mail.Controls.Android.MailList;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.UI;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.Android.Views.Mail;
 

@@ -3,8 +3,6 @@ using AppKit;
 #if DEBUG
 using Microsoft.Extensions.DependencyInjection;
 #endif
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -14,6 +12,8 @@ using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Shell;
 using Wino.Presentation.AppKit;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 

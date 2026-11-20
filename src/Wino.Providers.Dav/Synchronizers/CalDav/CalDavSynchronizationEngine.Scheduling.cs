@@ -11,7 +11,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Services;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// Implicit scheduling (RFC 6638): the server sends invitations and replies from what the client

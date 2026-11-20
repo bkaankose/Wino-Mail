@@ -12,8 +12,9 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Services.Models.MailItem;
 
-namespace Wino.Core.Synchronizers.Exchange.ActiveSync;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 internal static partial class EasDataMapper
 {

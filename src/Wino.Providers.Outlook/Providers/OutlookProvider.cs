@@ -13,10 +13,16 @@ using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.PushRelay;
 using Wino.Core.Services;
-using Wino.Core.Synchronizers.Errors.Outlook;
-using Wino.Core.Synchronizers.Mail;
+using Wino.Providers.Outlook.Authentication;
+using Wino.Providers.Outlook.Integration.Processors;
+using Wino.Providers.Outlook.Interfaces;
+using Wino.Providers.Outlook.PushRelay;
+using Wino.Providers.Outlook.Services;
+using Wino.Providers.Outlook.Synchronizers;
+using Wino.Providers.Outlook.Synchronizers.Errors.Outlook;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Providers;
+namespace Wino.Providers.Outlook.Providers;
 
 public sealed class OutlookProviderModule(
     IMessenger messenger,
@@ -39,9 +45,13 @@ public sealed class OutlookProviderModule(
         ServesModesFromProvider = true,
         ProviderContactSource = ContactSourceKind.Outlook,
         ProviderTaskSource = TaskSourceKind.Outlook,
+        ManagesProviderContactCollections = true,
+        ManagesProviderTaskSteps = true,
         AnswersInvitationsThroughProvider = true,
         ArchiveRequiresArchiveFolder = true,
         SupportsCategorySync = true,
+        SupportsAliasSync = true,
+        SupportsProfileInfoSync = true,
         SupportsFocusedInbox = true,
         SupportsProviderMailFilters = true,
         RemovesDeclinedEvents = true,

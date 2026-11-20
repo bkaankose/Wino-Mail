@@ -9,8 +9,10 @@ using Wino.Core.Diagnostics;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Providers.Imap.Interfaces;
+using Wino.Services.Extensions;
 
-namespace Wino.Core.Integration;
+namespace Wino.Providers.Imap.Integration;
 
 public sealed class MailKitPop3ClientFactory : IPop3ClientFactory
 {

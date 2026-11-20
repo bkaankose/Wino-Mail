@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 
-namespace Wino.Core.Synchronizers.Exchange.ActiveSync;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 internal static class EasWbxml
 {

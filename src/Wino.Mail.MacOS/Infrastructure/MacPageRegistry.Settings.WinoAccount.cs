@@ -1,5 +1,6 @@
 using Wino.Core.Domain.Enums;
 using Wino.Mail.MacOS.Views.Settings;
+using Wino.Mail.MacOS.Views.Settings.WinoAccountSettings;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 

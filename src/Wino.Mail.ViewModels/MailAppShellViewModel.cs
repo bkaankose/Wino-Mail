@@ -17,9 +17,9 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
@@ -28,13 +28,18 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Core.Domain.Messaging.Client.Accounts;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Mail.ViewModels;
 
@@ -189,7 +194,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More)
             return default;
 
-        return _contextMenuItemService.GetFolderContextMenuActions(folder);
+        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder);
     }
 
     private async Task CreateFooterItemsAsync(bool showNotification = false)
@@ -947,9 +952,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             MailAccountId = account.Id
         };
 
-        await _winoRequestDelegator.ExecuteAsync(
-            account.Id,
-            new IRequestBase[] { new CreateRootFolderRequest(placeholderFolder, folderName.Trim()) });
+        try
+        {
+            await _winoRequestDelegator.ExecuteAsync(
+                account.Id,
+                new IRequestBase[] { new CreateRootFolderRequest(placeholderFolder, folderName.Trim()) });
+        }
+        catch (AppLockedException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
+        }
     }
 
     public Task HandleAccountAttentionAsync(MailAccount account)
@@ -1114,8 +1126,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await ExecuteUIThread(() => MenuItems.SetAccountMenuItemEnabledStatus(false)).ConfigureAwait(false);
 
         // Load account folder structure and replace the visible folders.
-        var folders = await _folderService
-            .GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem)
+        var folders = await MailFolderMenuBuilder
+            .BuildAsync(_folderService, clickedBaseAccountMenuItem)
             .ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
@@ -1485,6 +1497,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
                 await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
             }
+            catch (AppLockedException ex)
+            {
+                _dialogService.InfoBarMessage(Translator.AppLock_LockedTitle, ex.Message, InfoBarMessageType.Warning);
+            }
             catch (MimePersistenceException ex)
             {
                 _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
@@ -1777,11 +1793,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (loadedAccountMenuItem == null)
             return;
 
-        var folders = await _folderService
-            .GetAccountFoldersForDisplayAsync(loadedAccountMenuItem)
+        var folders = await MailFolderMenuBuilder
+            .BuildAsync(_folderService, loadedAccountMenuItem)
             .ConfigureAwait(false);
 
-        await ExecuteUIThread(() => MenuItems.ReplaceFolders(folders)).ConfigureAwait(false);
+        await ExecuteUIThread(() => MenuItems.ReplaceFolders(folders, keepExpansion: latestSelectedAccountMenuItem == loadedAccountMenuItem)).ConfigureAwait(false);
         await UpdateUnreadItemCountAsync().ConfigureAwait(false);
 
         IBaseFolderMenuItem selectedFolderMenuItem = null;

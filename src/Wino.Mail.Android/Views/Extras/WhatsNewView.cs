@@ -11,10 +11,10 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.WhatsNew;
-using Wino.Core.ViewModels;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Platform.Android;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Extras;
 

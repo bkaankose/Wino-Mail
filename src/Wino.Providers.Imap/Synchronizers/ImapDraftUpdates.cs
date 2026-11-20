@@ -9,8 +9,9 @@ using MailKit.Search;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Services.Extensions;
+using Wino.Services.Models.MailItem;
 
-namespace Wino.Core.Synchronizers.Mail;
+namespace Wino.Providers.Imap.Synchronizers;
 
 public partial class ImapSynchronizer
 {

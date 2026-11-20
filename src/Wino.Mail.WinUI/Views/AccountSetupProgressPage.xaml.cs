@@ -1,6 +1,6 @@
 using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views;
 
 public sealed partial class AccountSetupProgressPage : AccountSetupProgressPageAbstract
 {

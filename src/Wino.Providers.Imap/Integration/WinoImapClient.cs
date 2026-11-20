@@ -4,7 +4,7 @@ using MailKit.Net.Imap;
 using Serilog;
 using Wino.Core.Diagnostics;
 
-namespace Wino.Core.Integration;
+namespace Wino.Providers.Imap.Integration;
 
 /// <summary>
 /// Extended class for ImapClient that is used in Wino.

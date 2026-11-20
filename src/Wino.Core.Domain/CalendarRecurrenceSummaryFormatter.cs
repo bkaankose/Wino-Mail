@@ -38,11 +38,11 @@ public static class CalendarRecurrenceSummaryFormatter
         {
             // All-day ends are exclusive, so the last visible day is the day before the end.
             var startText = isAllDay
-                ? effectiveStart.ToString("dddd yyyy-MM-dd", culture)
-                : $"{effectiveStart.ToString("dddd yyyy-MM-dd", culture)} {DateTimeDisplayFormatter.FormatTime(effectiveStart.DateTime, timeDisplayType, culture)}";
+                ? effectiveStart.ToString("D", culture)
+                : $"{effectiveStart.ToString("D", culture)} {DateTimeDisplayFormatter.FormatTime(effectiveStart.DateTime, timeDisplayType, culture)}";
             var endText = isAllDay
-                ? effectiveEnd.AddDays(-1).ToString("dddd yyyy-MM-dd", culture)
-                : $"{effectiveEnd.ToString("dddd yyyy-MM-dd", culture)} {DateTimeDisplayFormatter.FormatTime(effectiveEnd.DateTime, timeDisplayType, culture)}";
+                ? effectiveEnd.AddDays(-1).ToString("D", culture)
+                : $"{effectiveEnd.ToString("D", culture)} {DateTimeDisplayFormatter.FormatTime(effectiveEnd.DateTime, timeDisplayType, culture)}";
 
             return string.Format(culture, Translator.CalendarEventCompose_MultiDayOccurrenceSummary, startText, endText);
         }
@@ -60,7 +60,7 @@ public static class CalendarRecurrenceSummaryFormatter
             return string.Format(
                 culture,
                 Translator.CalendarEventCompose_SingleOccurrenceSummary,
-                effectiveStart.ToString("dddd yyyy-MM-dd", culture),
+                effectiveStart.ToString("D", culture),
                 timeSummary);
         }
 
@@ -87,7 +87,7 @@ public static class CalendarRecurrenceSummaryFormatter
             ? string.Format(
                 culture,
                 Translator.CalendarEventCompose_UntilSummary,
-                recurrenceEndDate.Value.ToString("ddd yyyy-MM-dd", culture))
+                recurrenceEndDate.Value.ToString("D", culture))
             : string.Empty;
 
         return string.Format(
@@ -96,7 +96,7 @@ public static class CalendarRecurrenceSummaryFormatter
             cadenceSummary,
             weekdaySummary,
             timeSummary,
-            effectiveStart.ToString("dddd yyyy-MM-dd", culture),
+            effectiveStart.ToString("D", culture),
             untilSummary).Trim();
     }
 

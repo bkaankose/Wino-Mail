@@ -1,6 +1,7 @@
-using Wino.Calendar.ViewModels.Data;
 
-namespace Wino.Calendar.Controls;
+using Wino.Mail.ViewModels.Calendar.Data;
+
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 internal sealed class CalendarDragPackage
 {

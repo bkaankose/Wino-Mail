@@ -5,7 +5,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Services;
+namespace Wino.Authentication;
 
 public class MailAuthenticatorConfiguration : IAuthenticatorConfig
 {

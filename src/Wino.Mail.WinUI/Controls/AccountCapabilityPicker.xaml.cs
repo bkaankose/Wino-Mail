@@ -2,7 +2,7 @@ using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 /// <summary>
 /// Chooses what an account is used for. Shared by the account wizard and the IMAP server

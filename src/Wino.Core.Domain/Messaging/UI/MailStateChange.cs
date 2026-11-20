@@ -1,7 +1,7 @@
 using System;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 public sealed record MailStateChange(Guid UniqueId, bool? IsRead = null, bool? IsFlagged = null)
 {

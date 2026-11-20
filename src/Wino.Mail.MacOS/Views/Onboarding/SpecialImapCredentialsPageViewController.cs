@@ -7,9 +7,9 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
-using Wino.Messaging.Client.Navigation;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
 namespace Wino.Mail.MacOS.Views.Onboarding;
 

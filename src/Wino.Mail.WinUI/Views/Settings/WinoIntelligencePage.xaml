@@ -1,17 +1,17 @@
-﻿<abstract:WinoIntelligencePageAbstract
-    x:Class="Wino.Views.Settings.WinoIntelligencePage"
+﻿<viewsAbstract:WinoIntelligencePageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.WinoIntelligencePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:controlsIllustrations="using:Wino.Mail.WinUI.Controls.Illustrations"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
-    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:intelligence="using:Wino.Core.Domain.Models.Intelligence"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:Wino.Core.Domain.Models.Ai"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="Root"
     Title="{x:Bind domain:Translator.WinoIntelligence_SettingsTitle, Mode=OneTime}"
     mc:Ignorable="d">
@@ -105,7 +105,7 @@
                     IsOpen="{x:Bind ViewModel.IsAiPackEnded, Mode=OneWay}"
                     Message="{x:Bind ViewModel.SubscriptionEndedText, Mode=OneWay}"
                     Severity="Warning"
-                    Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.SubscriptionEndedText), Mode=OneWay}" />
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.TextToVisibility(ViewModel.SubscriptionEndedText), Mode=OneWay}" />
                 <InfoBar
                     AutomationProperties.AutomationId="WinoIntelligenceConsentErrorInfoBar"
                     IsClosable="False"
@@ -145,7 +145,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <illustrations:WinoIntelligencePromotionIllustration
+                            <controlsIllustrations:WinoIntelligencePromotionIllustration
                                 Width="96"
                                 Height="96"
                                 VerticalAlignment="Center" />
@@ -402,7 +402,7 @@
                                 AutomationProperties.AutomationId="WinoIntelligenceUsageUnavailableCard"
                                 CornerRadius="0"
                                 Description="{x:Bind domain:Translator.WinoAccount_Management_IntelligenceUsageUnavailable, Mode=OneTime}"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsIntelligenceUsageAvailable), Mode=OneWay}" />
+                                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsIntelligenceUsageAvailable), Mode=OneWay}" />
                         </controls:SettingsExpander.ItemsFooter>
                     </controls:SettingsExpander>
 
@@ -521,7 +521,7 @@
                                     <TextBlock
                                         VerticalAlignment="Center"
                                         Text="{x:Bind ViewModel.ConsentAcceptedText, Mode=OneWay}"
-                                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.ConsentAcceptedText), Mode=OneWay}" />
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.StringToVisibilityConverter(ViewModel.ConsentAcceptedText), Mode=OneWay}" />
                                     <HyperlinkButton
                                         Padding="2,0"
                                         AutomationProperties.AutomationId="WinoIntelligencePolicyReviewButton"
@@ -540,7 +540,7 @@
                                 x:Name="IntelligenceConsentToggle"
                                 AutomationProperties.AutomationId="WinoIntelligenceConsentToggle"
                                 AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_Privacy_Title, Mode=OneTime}"
-                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentBusy), Mode=OneWay}"
+                                IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentBusy), Mode=OneWay}"
                                 IsOn="{x:Bind ViewModel.IsConsentGranted, Mode=OneWay}"
                                 OffContent="{x:Bind domain:Translator.WinoAccount_NotAllowed, Mode=OneTime}"
                                 OnContent="{x:Bind domain:Translator.WinoAccount_Allowed, Mode=OneTime}"
@@ -551,4 +551,4 @@
             </StackPanel>
         </ScrollViewer>
     </Grid>
-</abstract:WinoIntelligencePageAbstract>
+</viewsAbstract:WinoIntelligencePageAbstract>

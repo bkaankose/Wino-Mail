@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Authentication;
+namespace Wino.Providers.Outlook.Authentication;
 
 /// <summary>
 /// The Outlook access tokens issued in this container, per account, client and scope set, with one refresh gate per key.

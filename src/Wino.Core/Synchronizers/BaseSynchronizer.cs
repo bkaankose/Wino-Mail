@@ -7,15 +7,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Helpers;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Bundles;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Core.Synchronizers;
 
@@ -44,6 +46,7 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     private readonly object requestQueueLock = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingMailOperationIds = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingCalendarOperationIds = new();
+    private readonly ConcurrentDictionary<Guid, CalendarItem> _pendingCalendarEdits = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingContactOperationIds = new();
 
     // Modes of one account synchronize concurrently, so each top-level synchronization call keeps
@@ -224,6 +227,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
 
     public IReadOnlyCollection<Guid> GetPendingCalendarOperationIds() => _pendingCalendarOperationIds.Keys.ToArray();
 
+    public IReadOnlyCollection<CalendarItem> GetPendingCalendarEdits() => _pendingCalendarEdits.Values.ToArray();
+
     public bool HasPendingContactOperation(Guid contactId) => _pendingContactOperationIds.ContainsKey(contactId);
 
     public IReadOnlyCollection<Guid> GetPendingContactOperationIds() => _pendingContactOperationIds.Keys.ToArray();
@@ -242,6 +247,9 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
                 _pendingCalendarOperationIds.TryAdd(calendarActionRequest.LocalCalendarItemId.Value, 0);
             }
         }
+
+        if (request is UpdateCalendarEventRequest { Item: { } editedItem })
+            _pendingCalendarEdits[editedItem.Id] = editedItem;
 
         if (request is IContactActionRequest contactActionRequest)
             _pendingContactOperationIds.TryAdd(contactActionRequest.LocalContactId, 0);
@@ -262,6 +270,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
             }
         }
 
+        if (request is UpdateCalendarEventRequest { Item: { } editedItem })
+            _pendingCalendarEdits.TryRemove(new KeyValuePair<Guid, CalendarItem>(editedItem.Id, editedItem));
 
         if (request is IContactActionRequest contactActionRequest)
             _pendingContactOperationIds.TryRemove(contactActionRequest.LocalContactId, out _);
@@ -304,6 +314,20 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
 
     protected void CaptureSynchronizationIssue(SynchronizerErrorContext errorContext)
         => CaptureSynchronizationIssue(SynchronizationIssue.FromErrorContext(errorContext));
+
+    /// <summary>
+    /// Runs the error handlers for a failed request. A handled error that the handler marked for the user
+    /// is captured as an issue, so the synchronization result reports it like an unhandled failure.
+    /// </summary>
+    protected async Task<bool> HandleRequestErrorAsync(ISynchronizerErrorHandlerFactory errorHandlerFactory, SynchronizerErrorContext errorContext)
+    {
+        var handled = await errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+        if (handled && errorContext.NotifyUser)
+            CaptureSynchronizationIssue(errorContext);
+
+        return handled;
+    }
 
     protected IReadOnlyList<SynchronizationIssue> GetCapturedSynchronizationIssues()
         => CapturedSynchronizationIssues.ToArray();

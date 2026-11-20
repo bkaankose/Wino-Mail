@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Selectors;
+namespace Wino.Mail.WinUI.Selectors;
 
 public partial class AccountReorderTemplateSelector : DataTemplateSelector
 {

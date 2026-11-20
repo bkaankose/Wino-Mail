@@ -6,10 +6,10 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.WinUI.Controls;
-using Wino.Helpers;
+using Wino.Mail.WinUI.Helpers;
 using WinRT;
 
-namespace Wino.MenuFlyouts;
+namespace Wino.Mail.WinUI.MenuFlyouts;
 
 public partial class FilterMenuFlyout : WinoMenuFlyout
 {

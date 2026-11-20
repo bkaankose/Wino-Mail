@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.Collections;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.ViewModels.Interfaces;
+namespace Wino.Mail.ViewModels.Calendar.Interfaces;
 
 public interface IAccountCalendarStateService : INotifyPropertyChanged
 {

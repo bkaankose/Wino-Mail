@@ -9,10 +9,10 @@ using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Intelligence;
-using Wino.Core.ViewModels;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Common.Data;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 

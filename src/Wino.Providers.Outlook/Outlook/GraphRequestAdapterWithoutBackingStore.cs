@@ -6,7 +6,7 @@ using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions.Store;
 
-namespace Wino.Core.Outlook;
+namespace Wino.Providers.Outlook.Outlook;
 
 /// <summary>
 /// The official GraphServiceClient always calls EnableBackingStore on its adapter, which turns on change tracking:

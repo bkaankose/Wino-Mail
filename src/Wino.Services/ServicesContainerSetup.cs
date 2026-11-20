@@ -15,6 +15,8 @@ using Wino.Services.Dav;
 using Wino.Services.Exchange;
 using Wino.Services.Security;
 using Wino.Core.ML;
+using Wino.Services.Activation;
+using Wino.Services.Interfaces;
 
 namespace Wino.Services;
 
@@ -88,7 +90,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IKnownImapProviderCatalog, EmbeddedKnownImapProviderCatalog>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddSingleton<IKeyboardShortcutService, KeyboardShortcutService>();
-        services.AddSingleton<IWinoAccountSessionService>(provider => WinoAccountSessionService.For(provider.GetRequiredService<IDatabaseService>(), provider.GetRequiredService<IAccountCredentialPersistence>()));
+        services.AddSingleton<IWinoAccountSessionService, WinoAccountSessionService>();
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         RegisterAssistantServices(services);
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
@@ -100,6 +102,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoStorePurchaseRedeemService, WinoStorePurchaseRedeemService>();
         services.AddSingleton<IWinoAppStorePurchaseService, WinoAppStorePurchaseService>();
         services.AddSingleton<IWinoAccountIntelligenceSnapshotService, WinoAccountIntelligenceSnapshotService>();
+        services.AddSingleton<ISettingsCatalog, SettingsCatalogService>();
         services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();
         services.AddSingleton<IMailIntelligenceCoordinator, MailIntelligenceCoordinator>();
@@ -158,6 +161,9 @@ public static class ServicesContainerSetup
 
         // One owner for sync mode, per-account live coverage, intervals, catch-ups and relay retries. It is also the
         // IRelayHealth the shell binds; the socket coordinator stays the raw input underneath it.
+        services.AddSingleton(provider => new Synchronization.TaskQuotaGate(
+            provider.GetRequiredService<IMailProviderRegistry>(),
+            provider.GetRequiredService<ITaskService>()));
         services.AddSingleton<ISyncCoordinator>(provider => new Synchronization.SyncCoordinator(
             provider.GetRequiredService<IPreferencesService>(),
             provider.GetRequiredService<IPlatformCapabilities>(),
@@ -165,7 +171,7 @@ public static class ServicesContainerSetup
             provider.GetRequiredService<IPushRelayRegistrationService>(),
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IMessenger>(),
-            provider.GetRequiredService<ITaskService>(),
+            provider.GetRequiredService<Synchronization.TaskQuotaGate>(),
             provider.GetRequiredService<IMailProviderRegistry>(),
             provider.GetService<IRelayIntroductionService>(),
             provider.GetService<IRelaySocketCoordinator>()));

@@ -9,7 +9,8 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Server;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 
@@ -158,7 +159,9 @@ public sealed class AccountReauthenticationService(
 
     private async Task SynchronizeMailSetupDataAsync(MailAccount account, CancellationToken cancellationToken)
     {
-        if (account.IsProfileInfoSyncSupported)
+        var traits = providers.GetTraits(account.ProviderType);
+
+        if (traits.SupportsProfileInfoSync)
         {
             await RunStepAsync(account.Id, "ProfileSync", async () =>
             {
@@ -180,7 +183,7 @@ public sealed class AccountReauthenticationService(
         await RunStepAsync(account.Id, "FolderSync", () =>
             synchronizationManager.SynchronizeFoldersAsync(account.Id, cancellationToken)).ConfigureAwait(false);
 
-        if (account.IsCategorySyncSupported)
+        if (traits.SupportsCategorySync)
         {
             await RunStepAsync(account.Id, "CategorySync", () =>
                 synchronizationManager.SynchronizeCategoriesAsync(account.Id, cancellationToken)).ConfigureAwait(false);
@@ -194,7 +197,7 @@ public sealed class AccountReauthenticationService(
             if (!string.IsNullOrWhiteSpace(address) && aliases?.Any(alias => alias.IsRootAlias) != true)
                 await accountService.CreateRootAliasAsync(account.Id, address).ConfigureAwait(false);
 
-            if (account.IsAliasSyncSupported)
+            if (traits.SupportsAliasSync)
                 await synchronizationManager.SynchronizeAliasesAsync(account.Id, cancellationToken).ConfigureAwait(false);
         }).ConfigureAwait(false);
     }

@@ -1,5 +1,5 @@
 ﻿<ContentDialog
-    x:Class="Wino.Dialogs.AccountReorderDialog"
+    x:Class="Wino.Mail.WinUI.Dialogs.AccountReorderDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
@@ -8,9 +8,9 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:selectors="using:Wino.Selectors"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    xmlns:winuiSelectors="using:Wino.Mail.WinUI.Selectors"
     Title="{x:Bind domain:Translator.SettingsReorderAccounts_Title}"
     DefaultButton="Primary"
     PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save}"
@@ -50,7 +50,7 @@
                     <accountIcon:WinoAccountIcon
                         Grid.Column="1"
                         VerticalAlignment="Center"
-                        Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}"
+                        Account="{x:Bind winuiHelpers:XamlHelpers.GetAccountIconInfo(Account)}"
                         IconSize="28" />
                     <StackPanel
                         Grid.Column="2"
@@ -133,7 +133,7 @@
             </Border>
         </DataTemplate>
 
-        <selectors:AccountReorderTemplateSelector
+        <winuiSelectors:AccountReorderTemplateSelector
             x:Key="AccountReorderTemplateSelector"
             AccountGroupReorderTemplate="{StaticResource AccountGroupReorderTemplate}"
             RootAccountReorderTemplate="{StaticResource RootAccountReorderTemplate}" />

@@ -1,6 +1,6 @@
 using Wino.Core.Domain.Models.Synchronization;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>
 /// Reports back the account synchronization progress.

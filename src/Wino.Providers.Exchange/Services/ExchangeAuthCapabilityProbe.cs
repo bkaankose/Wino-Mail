@@ -11,7 +11,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Exchange.Services;
 
 /// <summary>Detects Exchange modern-auth support from the EWS authentication challenge.</summary>
 public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe

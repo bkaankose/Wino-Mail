@@ -1,20 +1,19 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <abstract:CalendarEventComposePageAbstract
-    x:Class="Wino.Calendar.Views.CalendarEventComposePage"
+    x:Class="Wino.Mail.WinUI.Views.Calendar.CalendarEventComposePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
-    xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
+    xmlns:calendar="using:Wino.Mail.ViewModels.Calendar"
+    xmlns:calendarData="using:Wino.Mail.ViewModels.Calendar.Data"
     xmlns:contactControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:editor="using:Wino.Editor"
-    xmlns:helpers="using:Wino.Helpers"
-    xmlns:mailControls="using:Wino.Mail.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     Style="{StaticResource PageStyle}"
     mc:Ignorable="d">
 
@@ -99,7 +98,7 @@
                                     <ScrollViewer MaxHeight="360">
                                         <ItemsControl ItemsSource="{x:Bind ViewModel.AvailableCalendarGroups, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="data:GroupedAccountCalendarViewModel">
+                                                <DataTemplate x:DataType="calendarData:GroupedAccountCalendarViewModel">
                                                     <StackPanel
                                                         MinWidth="320"
                                                         Padding="0,0,0,12"
@@ -118,7 +117,7 @@
                                                             ItemsSource="{x:Bind AccountCalendars}"
                                                             SelectionMode="None">
                                                             <ListView.ItemTemplate>
-                                                                <DataTemplate x:DataType="data:AccountCalendarViewModel">
+                                                                <DataTemplate x:DataType="calendarData:AccountCalendarViewModel">
                                                                     <Grid ColumnSpacing="10">
                                                                         <Grid.ColumnDefinitions>
                                                                             <ColumnDefinition Width="Auto" />
@@ -129,7 +128,7 @@
                                                                             Width="14"
                                                                             Height="14"
                                                                             VerticalAlignment="Center"
-                                                                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+                                                                            Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
 
                                                                         <TextBlock
                                                                             Grid.Column="1"
@@ -151,14 +150,14 @@
                                     Width="10"
                                     Height="10"
                                     VerticalAlignment="Center"
-                                    Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedCalendar.BackgroundColorHex), Mode=OneWay}" />
+                                    Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedCalendar.BackgroundColorHex), Mode=OneWay}" />
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{x:Bind ViewModel.SelectedCalendarDisplayText, Mode=OneWay}" />
                                     <TextBlock
                                         FontSize="11"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Text="{x:Bind ViewModel.SelectedCalendarAccountText, Mode=OneWay}"
-                                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.SelectedCalendarAccountText), Mode=OneWay}" />
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.StringToVisibilityConverter(ViewModel.SelectedCalendarAccountText), Mode=OneWay}" />
                                 </StackPanel>
                                 <coreControls:WinoFontIcon FontSize="12" Icon="ChevronDown" />
                             </StackPanel>
@@ -175,7 +174,7 @@
                             SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventDetails_ShowAs, Mode=OneTime}">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="calendarViewModels:ShowAsOption">
+                                <DataTemplate x:DataType="calendar:ShowAsOption">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <coreControls:WinoFontIcon
                                             FontFamily="{ThemeResource WinoIconFontFamily}"
@@ -187,26 +186,41 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
 
-                        <ComboBox
+                        <DropDownButton
                             MinWidth="160"
+                            MaxWidth="280"
                             VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="CalendarEventComposePageComboBox2"
+                            AutomationProperties.AutomationId="CalendarEventComposeReminderButton"
                             AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventDetails_Reminder, Mode=OneTime}"
-                            ItemsSource="{x:Bind ViewModel.ReminderOptions}"
-                            SelectedItem="{x:Bind ViewModel.SelectedReminderOption, Mode=TwoWay}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventDetails_Reminder, Mode=OneTime}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="calendarViewModels:ReminderOption">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <coreControls:WinoFontIcon
-                                            FontFamily="{ThemeResource WinoIconFontFamily}"
-                                            FontSize="14"
-                                            Icon="Reminder" />
-                                        <TextBlock Text="{x:Bind DisplayText}" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                            ToolTipService.ToolTip="{x:Bind ViewModel.ReminderSummary, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <coreControls:WinoFontIcon
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontSize="14"
+                                    Icon="Reminder" />
+                                <TextBlock Text="{x:Bind ViewModel.ReminderSummary, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <DropDownButton.Flyout>
+                                <Flyout Placement="Bottom">
+                                    <ListView
+                                        Width="200"
+                                        MaxHeight="300"
+                                        AutomationProperties.AutomationId="CalendarEventComposeReminderOptionsList"
+                                        ItemsSource="{x:Bind ViewModel.ReminderOptions}"
+                                        SelectionMode="None">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate x:DataType="calendar:ReminderOption">
+                                                <CheckBox
+                                                    AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                                                    AutomationProperties.Name="{x:Bind DisplayText}"
+                                                    Content="{x:Bind DisplayText}"
+                                                    IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Flyout>
+                            </DropDownButton.Flyout>
+                        </DropDownButton>
 
                         <ToggleButton
                             VerticalAlignment="Center"
@@ -313,7 +327,8 @@
                                     MinWidth="150"
                                     AutomationProperties.AutomationId="CalendarEventComposeStartDatePicker"
                                     AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_StartDate, Mode=OneTime}"
-                                    Date="{x:Bind ViewModel.StartDateValue, Mode=TwoWay}" />
+                                    Date="{x:Bind ViewModel.StartDateValue, Mode=TwoWay}"
+                                    DateFormat="{x:Bind winuiHelpers:RegionalDateFormat.ShortDate, Mode=OneTime}" />
                                 <TimePicker
                                     Grid.Column="2"
                                     MinWidth="0"
@@ -321,7 +336,7 @@
                                     AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_StartTime, Mode=OneTime}"
                                     ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
                                     SelectedTime="{x:Bind ViewModel.StartTime, Mode=TwoWay}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}" />
+                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}" />
 
                                 <TextBlock
                                     Grid.Row="1"
@@ -333,7 +348,8 @@
                                     MinWidth="150"
                                     AutomationProperties.AutomationId="CalendarEventComposeEndDatePicker"
                                     AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_EndDate, Mode=OneTime}"
-                                    Date="{x:Bind ViewModel.EndDateValue, Mode=TwoWay}" />
+                                    Date="{x:Bind ViewModel.EndDateValue, Mode=TwoWay}"
+                                    DateFormat="{x:Bind winuiHelpers:RegionalDateFormat.ShortDate, Mode=OneTime}" />
                                 <TimePicker
                                     Grid.Row="1"
                                     Grid.Column="2"
@@ -342,7 +358,7 @@
                                     AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_EndTime, Mode=OneTime}"
                                     ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
                                     SelectedTime="{x:Bind ViewModel.EndTime, Mode=TwoWay}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}" />
+                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}" />
                                 <Border
                                     Grid.Row="1"
                                     Grid.Column="3"
@@ -367,7 +383,7 @@
                                 AutomationProperties.LiveSetting="Assertive"
                                 Orientation="Horizontal"
                                 Spacing="6"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsDateRangeValid), Mode=OneWay}">
+                                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsDateRangeValid), Mode=OneWay}">
                                 <coreControls:WinoFontIcon
                                     FontSize="14"
                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
@@ -403,9 +419,9 @@
                                     ItemsSource="{x:Bind ViewModel.TimeZoneOptions}"
                                     SelectedItem="{x:Bind ViewModel.SelectedTimeZoneOption, Mode=TwoWay}"
                                     ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_TimeZone, Mode=OneTime}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}">
+                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}">
                                     <ComboBox.ItemTemplate>
-                                        <DataTemplate x:DataType="calendarViewModels:CalendarComposeTimeZoneOption">
+                                        <DataTemplate x:DataType="calendar:CalendarComposeTimeZoneOption">
                                             <TextBlock Text="{x:Bind DisplayText}" TextTrimming="CharacterEllipsis" />
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
@@ -455,7 +471,7 @@
                                 ItemsSource="{x:Bind ViewModel.RepeatOptions}"
                                 SelectedItem="{x:Bind ViewModel.SelectedRepeatOption, Mode=TwoWay}">
                                 <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="calendarViewModels:CalendarComposeRepeatOption">
+                                    <DataTemplate x:DataType="calendar:CalendarComposeRepeatOption">
                                         <TextBlock Text="{x:Bind DisplayText, Mode=OneWay}" />
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
@@ -490,7 +506,7 @@
                                             ItemsSource="{x:Bind ViewModel.RecurrenceFrequencyOptions}"
                                             SelectedItem="{x:Bind ViewModel.SelectedRecurrenceFrequencyOption, Mode=TwoWay}">
                                             <ComboBox.ItemTemplate>
-                                                <DataTemplate x:DataType="calendarViewModels:CalendarComposeFrequencyOption">
+                                                <DataTemplate x:DataType="calendar:CalendarComposeFrequencyOption">
                                                     <TextBlock Text="{x:Bind DisplayText}" />
                                                 </DataTemplate>
                                             </ComboBox.ItemTemplate>
@@ -512,7 +528,7 @@
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="calendarViewModels:CalendarComposeWeekdayOption">
+                                                <DataTemplate x:DataType="calendar:CalendarComposeWeekdayOption">
                                                     <ToggleButton
                                                         Width="36"
                                                         Height="36"
@@ -544,6 +560,7 @@
                                     AutomationProperties.AutomationId="CalendarEventComposeRecurrenceEndDatePicker"
                                     AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_RepeatEnds, Mode=OneTime}"
                                     Date="{x:Bind ViewModel.RecurrenceEndDate, Mode=TwoWay}"
+                                    DateFormat="{x:Bind winuiHelpers:RegionalDateFormat.ShortDate, Mode=OneTime}"
                                     PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_NoEndDate, Mode=OneTime}" />
                                 <Button
                                     AutomationProperties.AutomationId="CalendarEventComposePageButton2"
@@ -647,8 +664,8 @@
                             BorderThickness="1"
                             CornerRadius="{StaticResource ControlCornerRadius}">
                             <StackPanel>
-                                <mailControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor}">
-                                    <mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
+                                <coreControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor}">
+                                    <coreControls:EditorTabbedCommandBarControl.PaneCustomContent>
                                         <toolkit:TabbedCommandBarItem
                                             CommandAlignment="Right"
                                             IsDynamicOverflowEnabled="True"
@@ -662,8 +679,8 @@
                                                 </AppBarButton.Icon>
                                             </AppBarButton>
                                         </toolkit:TabbedCommandBarItem>
-                                    </mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
-                                </mailControls:EditorTabbedCommandBarControl>
+                                    </coreControls:EditorTabbedCommandBarControl.PaneCustomContent>
+                                </coreControls:EditorTabbedCommandBarControl>
                                 <editor:WinoMailEditor
                                     x:Name="NotesEditor"
                                     MinHeight="360"
@@ -718,9 +735,9 @@
                                 <contactControls:WinoContactPicture
                                     Width="32"
                                     Height="32"
-                                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(x:Null, ViewModel.OrganizerDisplayName, ViewModel.OrganizerAddress), Mode=OneWay}"
-                                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                    ContactPicture="{x:Bind winuiHelpers:XamlHelpers.GetContactPicture(x:Null, ViewModel.OrganizerDisplayName, ViewModel.OrganizerAddress), Mode=OneWay}"
+                                    IsFaviconEnabled="{x:Bind winuiHelpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                    IsGravatarEnabled="{x:Bind winuiHelpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock
                                         FontSize="13"
@@ -749,7 +766,7 @@
                                 SelectionMode="None"
                                 Visibility="{x:Bind ViewModel.HasAttendees, Mode=OneWay}">
                                 <ListView.ItemTemplate>
-                                    <DataTemplate x:DataType="data:CalendarComposeAttendeeViewModel">
+                                    <DataTemplate x:DataType="calendarData:CalendarComposeAttendeeViewModel">
                                         <Grid ColumnSpacing="10">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -761,9 +778,9 @@
                                             <contactControls:WinoContactPicture
                                                 Width="32"
                                                 Height="32"
-                                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, DisplayName, Email), Mode=OneTime}"
-                                                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                                ContactPicture="{x:Bind winuiHelpers:XamlHelpers.GetContactPicture(ResolvedContact, DisplayName, Email), Mode=OneTime}"
+                                                IsFaviconEnabled="{x:Bind winuiHelpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                                IsGravatarEnabled="{x:Bind winuiHelpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock
@@ -857,7 +874,7 @@
                                 SelectionMode="None"
                                 Visibility="{x:Bind ViewModel.HasAttachments, Mode=OneWay}">
                                 <ListView.ItemTemplate>
-                                    <DataTemplate x:DataType="data:CalendarComposeAttachmentViewModel">
+                                    <DataTemplate x:DataType="calendarData:CalendarComposeAttachmentViewModel">
                                         <Grid Height="44" ColumnSpacing="8">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="32" />

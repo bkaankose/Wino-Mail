@@ -1,4 +1,4 @@
-namespace Wino.Mail.WinUI.Models;
+namespace Wino.Platform.Windows.Models;
 
 public enum WindowsTaskbarPosition
 {

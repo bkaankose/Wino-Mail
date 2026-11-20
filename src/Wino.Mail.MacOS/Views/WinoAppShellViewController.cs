@@ -7,7 +7,6 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Controls.Core.AccountIcon;
@@ -15,11 +14,14 @@ using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
-using Wino.Shell.ViewModels;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.MenuItems;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.MacOS.Views;
 
@@ -351,7 +353,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     /// </summary>
     public async Task RouteKeyboardShortcutAsync(Wino.Core.Domain.Models.KeyboardShortcutTriggerDetails details)
     {
-        if (ContentViewModel is Wino.Core.ViewModels.CoreBaseViewModel page) await page.KeyboardShortcutHook(details);
+        if (ContentViewModel is Wino.Mail.ViewModels.Common.CoreBaseViewModel page) await page.KeyboardShortcutHook(details);
         if (!details.Handled) await ViewModel.KeyboardShortcutHookForMode(details);
     }
 

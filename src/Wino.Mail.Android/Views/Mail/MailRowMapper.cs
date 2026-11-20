@@ -6,6 +6,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.Android.Views.Mail;
 

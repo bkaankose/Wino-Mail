@@ -7,7 +7,7 @@ using Serilog;
 using Windows.Storage;
 using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>
 /// Hosts an identity provider's sign-in page in a WebView2 and captures the redirect before it loads. Presented only

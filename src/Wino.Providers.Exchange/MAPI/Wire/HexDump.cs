@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
 
-namespace Wino.Core.MAPI.Wire;
+namespace Wino.Providers.Exchange.MAPI.Wire;
 
 /// <summary>
 /// Hex rendering for diagnostics. In this protocol the bytes are the only reliable witness: a wrong

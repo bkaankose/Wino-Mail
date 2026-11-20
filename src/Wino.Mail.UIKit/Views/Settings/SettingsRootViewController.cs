@@ -4,14 +4,14 @@ using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.ViewModels;
 using Wino.Mail.UIKit.Infrastructure;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Presentation.UIKit;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 
@@ -22,11 +22,12 @@ namespace Wino.Mail.UIKit.Views.Settings;
 /// inset-grouped surfaces. Search sits in the bottom toolbar on iOS 26 and under the title before it. A row pushes its
 /// page inside the sheet through the shared router; Close dismisses Settings.
 /// </summary>
-public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
+public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, ISettingsCatalog catalog)
     : WinoViewController<SettingOptionsPageViewModel>(viewModel, dispatcher, logger), IRecipient<LanguageChanged>, IRecipient<WinoIntelligenceEntitlementChanged>
 {
     private readonly UITableView _table = new(default, UITableViewStyle.InsetGrouped) { TranslatesAutoresizingMaskIntoConstraints = false };
-    private readonly RootSource _source = new();
+    private readonly ISettingsCatalog _catalog = catalog;
+    private readonly RootSource _source = new(catalog);
     private UISearchController? _search;
     // The search controller keeps its results updater weakly.
     private SearchUpdater? _searchUpdater;
@@ -135,8 +136,8 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
 
     private void Reload()
     {
-        _source.Sections = SettingsCatalog.GetSections();
-        _lastCanAccessIntelligence = SettingsCatalog.CanAccessIntelligence;
+        _source.Sections = _catalog.GetSections();
+        _lastCanAccessIntelligence = _catalog.CanAccessIntelligence;
         _table.ReloadData();
     }
 
@@ -162,7 +163,7 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
         public void UpdateSearchResultsForSearchController(UISearchController searchController) => changed(searchController.SearchBar.Text);
     }
 
-    private sealed class RootSource : UITableViewSource
+    private sealed class RootSource(ISettingsCatalog catalog) : UITableViewSource
     {
         public const string CellId = "settings-root";
         public const double RowHeight = 44;
@@ -183,7 +184,7 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
         private bool IsSearching => !string.IsNullOrWhiteSpace(Query);
 
         private List<SettingsCatalogSection> Visible
-            => IsSearching ? [new SettingsCatalogSection(null, SettingsCatalog.Search(Query ?? string.Empty))] : Sections;
+            => IsSearching ? [new SettingsCatalogSection(null, catalog.Search(Query ?? string.Empty))] : Sections;
 
         public override nint NumberOfSections(UITableView tableView) => Visible.Count;
 

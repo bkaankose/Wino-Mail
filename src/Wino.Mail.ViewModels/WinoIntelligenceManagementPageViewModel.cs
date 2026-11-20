@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,8 +20,8 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
@@ -886,7 +887,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             : string.Format(
                 Translator.Intelligence_QuotaUsage,
                 headline.Used,
-                usage?.ResetsAtUtc is { } resetsAtUtc ? resetsAtUtc.LocalDateTime.ToString("d MMMM") : string.Empty,
+                usage?.ResetsAtUtc is { } resetsAtUtc ? resetsAtUtc.LocalDateTime.ToString("M", CultureInfo.CurrentCulture) : string.Empty,
                 headline.Limit);
     }
 

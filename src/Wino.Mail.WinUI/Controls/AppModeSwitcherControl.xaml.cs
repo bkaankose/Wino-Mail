@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -8,6 +9,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Controls.ModeSwitcher;
 
@@ -19,7 +21,7 @@ namespace Wino.Mail.WinUI.Controls;
 /// provides, mirrors the persisted application mode as the selection, and navigates when
 /// the user picks a mode.
 /// </summary>
-public sealed partial class AppModeSwitcherControl : UserControl
+public sealed partial class AppModeSwitcherControl : UserControl, IRecipient<LanguageChanged>
 {
     private readonly IStatePersistanceService _statePersistenceService;
     private readonly INavigationService _navigationService;
@@ -39,15 +41,25 @@ public sealed partial class AppModeSwitcherControl : UserControl
         _readinessService = WinoApplication.Current.Services.GetRequiredService<IAppModeReadinessService>();
 
         InitializeComponent();
+        ApplyLabels();
 
+        // Same order as AppModeVisibility.SwitchableModes.
+        _modeItems = [MailModeItem, CalendarModeItem, ContactsModeItem, ToDoModeItem];
+
+        // Registered for the control's lifetime, not on Loaded: a re-parented control can get its
+        // Unloaded after the new Loaded, which would leave it unregistered. The messenger holds it weakly.
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
+    }
+
+    public void Receive(LanguageChanged message) => DispatcherQueue.TryEnqueue(ApplyLabels);
+
+    private void ApplyLabels()
+    {
         MailModeItem.Label = Translator.KeyboardShortcuts_ModeMail;
         CalendarModeItem.Label = Translator.KeyboardShortcuts_ModeCalendar;
         ContactsModeItem.Label = Translator.ContactsPage_Title;
         ToDoModeItem.Label = Translator.ToDoPage_Title;
         SettingsModeItem.Label = Translator.MenuSettings;
-
-        // Same order as AppModeVisibility.SwitchableModes.
-        _modeItems = [MailModeItem, CalendarModeItem, ContactsModeItem, ToDoModeItem];
     }
 
     partial void OnOrientationPropertyChanged(DependencyPropertyChangedEventArgs e) => Switcher.Orientation = Orientation;

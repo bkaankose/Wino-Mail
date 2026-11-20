@@ -165,7 +165,7 @@ public sealed class WinoMiniCalendarView : NSView
         NSBezierPath.FromRoundedRect(Bounds.Inset(0.5f, 0.5f), (nfloat)WinoStyle.GroupRadius, (nfloat)WinoStyle.GroupRadius).Stroke();
 
         var culture = CultureInfo.CurrentCulture;
-        var title = _displayMonth.ToString("MMMM yyyy", culture);
+        var title = _displayMonth.ToString("Y", culture);
         DrawText(title, new CGRect(Pad, Pad, WinoMiniCalendarGrid.TitleWidth(Bounds.Width), HeaderHeight), NSFont.SystemFontOfSize(12, NSFontWeight.Semibold), text, NSTextAlignment.Left);
         WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.ChevronUp), PreviousRect.Inset(2, 2), secondary, EffectiveAppearance, false);
         WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.ChevronDown), NextRect.Inset(2, 2), secondary, EffectiveAppearance, false);
@@ -317,10 +317,10 @@ public sealed class WinoMiniCalendarView : NSView
     private void RebuildAccessibility()
     {
         var culture = CultureInfo.CurrentCulture;
-        AccessibilityLabel = _displayMonth.ToString("MMMM yyyy", culture);
+        AccessibilityLabel = _displayMonth.ToString("Y", culture);
         // No dedicated strings exist yet, so the paging buttons announce the month they open.
-        _previousElement.AccessibilityLabel = _displayMonth.AddMonths(-1).ToString("MMMM yyyy", culture);
-        _nextElement.AccessibilityLabel = _displayMonth.AddMonths(1).ToString("MMMM yyyy", culture);
+        _previousElement.AccessibilityLabel = _displayMonth.AddMonths(-1).ToString("Y", culture);
+        _nextElement.AccessibilityLabel = _displayMonth.AddMonths(1).ToString("Y", culture);
         var children = new List<NSObject>(3 + _dayElements.Length) { _previousElement, _nextElement, _toggleElement };
         if (!_collapsed)
         {

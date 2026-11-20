@@ -2,7 +2,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Mails;
 
 namespace Wino.Mail.Android.Views.Mail.Compose;
 

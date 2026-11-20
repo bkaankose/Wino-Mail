@@ -19,9 +19,10 @@ using Wino.Core.Misc;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
+using Wino.Providers.Exchange.Requests.Bundles;
 using Task = System.Threading.Tasks.Task;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 public partial class ExchangeSynchronizer
 {
@@ -477,6 +478,7 @@ public partial class ExchangeSynchronizer
                 ? SendInvitationsOrCancellationsMode.SendToAllAndSaveCopy
                 : SendInvitationsOrCancellationsMode.SendToNone;
             await appointment.Update(ConflictResolutionMode.AutoResolve, sendMode).ConfigureAwait(false);
+            await ExchangeChangeProcessor.PersistUpdatedCalendarEventAsync(item, attendees, request.Reminders).ConfigureAwait(false);
         }, request, request);
     }
 

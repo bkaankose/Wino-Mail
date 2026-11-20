@@ -1,7 +1,5 @@
 using AppKit;
 using Itenso.TimePeriod;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -9,6 +7,8 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.AppKit.Calendar;
 using Wino.Presentation.AppKit;
 using Wino.Core.Domain.Presentation;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
 

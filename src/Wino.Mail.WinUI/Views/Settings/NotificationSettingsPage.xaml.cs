@@ -7,14 +7,14 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels.Data;
-using Wino.Helpers;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
-using Wino.Views.Abstract;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.WinUI.Views.Abstract;
+using Wino.Platform.Windows.Helpers;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class NotificationSettingsPage : NotificationSettingsPageAbstract
 {

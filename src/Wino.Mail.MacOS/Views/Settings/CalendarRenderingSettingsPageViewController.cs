@@ -1,10 +1,10 @@
 using AppKit;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Presentation.AppKit;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 

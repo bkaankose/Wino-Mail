@@ -11,8 +11,9 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Services;
+using Wino.Core.Synchronizers.CalDav;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>
 /// Event attachments. Every server: ATTACH URIs and inline data are imported as rows and can be

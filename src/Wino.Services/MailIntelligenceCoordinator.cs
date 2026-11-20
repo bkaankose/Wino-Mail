@@ -17,10 +17,8 @@ using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Contracts.Intelligence;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services;
 

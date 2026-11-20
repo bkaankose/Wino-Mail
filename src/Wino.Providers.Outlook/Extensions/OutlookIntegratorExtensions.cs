@@ -11,8 +11,10 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Misc;
+using Wino.Core.Extensions;
+using Wino.Services.Extensions;
 
-namespace Wino.Core.Extensions;
+namespace Wino.Providers.Outlook.Extensions;
 
 public static class OutlookIntegratorExtensions
 {
@@ -45,7 +47,7 @@ public static class OutlookIntegratorExtensions
     public static bool GetIsReadReceiptRequested(this Message message)
         => message?.IsReadReceiptRequested.GetValueOrDefault() == true
            || message?.InternetMessageHeaders?.Any(h =>
-               string.Equals(h.Name, Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
+               string.Equals(h.Name, Wino.Core.Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
                && !string.IsNullOrWhiteSpace(h.Value)) == true;
 
     public static MailCopy AsMailCopy(this Message outlookMessage)
@@ -357,6 +359,44 @@ public static class OutlookIntegratorExtensions
         return DateTime.SpecifyKind(parsedDateTime, DateTimeKind.Unspecified);
     }
 
+    /// <summary>
+    /// To Do keeps a due date as a time, and Graph returns it in UTC. A date-only due date is
+    /// midnight where it was set (Apple Reminders, Microsoft To Do), so its UTC date can be the
+    /// day before. The date is taken in the given zone, the user's own by default.
+    /// </summary>
+    public static DateTime? GetTaskDueDate(DateTimeTimeZone dueDateTime, TimeZoneInfo userTimeZone = null)
+    {
+        if (string.IsNullOrEmpty(dueDateTime?.DateTime) ||
+            !DateTime.TryParse(dueDateTime.DateTime, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
+        {
+            return null;
+        }
+
+        var sourceZone = FindTimeZone(dueDateTime.TimeZone) ?? TimeZoneInfo.Utc;
+        var instant = new DateTimeOffset(DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified), sourceZone.GetUtcOffset(parsed));
+        return TimeZoneInfo.ConvertTime(instant, userTimeZone ?? TimeZoneInfo.Local).Date;
+    }
+
+    public static DateTimeTimeZone ToTaskDueDateTime(DateTime dueDate, TimeZoneInfo userTimeZone = null)
+    {
+        var zone = userTimeZone ?? TimeZoneInfo.Local;
+        var zoneId = zone.HasIanaId && TimeZoneInfo.TryConvertIanaIdToWindowsId(zone.Id, out var windowsId) ? windowsId : zone.Id;
+
+        return new DateTimeTimeZone
+        {
+            DateTime = dueDate.Date.ToString("yyyy-MM-ddT00:00:00", System.Globalization.CultureInfo.InvariantCulture),
+            TimeZone = zoneId
+        };
+    }
+
+    private static TimeZoneInfo FindTimeZone(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        return TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone) ? zone : null;
+    }
+
     private static AttendeeStatus GetAttendeeStatus(ResponseType? responseType)
     {
         return responseType switch
@@ -428,7 +468,7 @@ public static class OutlookIntegratorExtensions
             {
                 generatedNameCount++;
                 name = part.ContentType.IsMimeType("image", "*")
-                    ? $"image{generatedNameCount:000}.{MimeExtensions.GetImageFileExtension(part.ContentType.MediaSubtype)}"
+                    ? $"image{generatedNameCount:000}.{Wino.Core.Extensions.MimeExtensions.GetImageFileExtension(part.ContentType.MediaSubtype)}"
                     : $"attachment{generatedNameCount:000}.bin";
             }
 
@@ -498,7 +538,7 @@ public static class OutlookIntegratorExtensions
         }
 
         // PRIORITY: Always include WinoLocalDraftHeader first if it exists.
-        var winoDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Domain.Constants.WinoLocalDraftHeader);
+        var winoDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Wino.Core.Domain.Constants.WinoLocalDraftHeader);
         if (winoDraftHeader != null)
             AddHeader(winoDraftHeader.Field, winoDraftHeader.Value);
 
@@ -506,7 +546,7 @@ public static class OutlookIntegratorExtensions
         foreach (var header in mime.Headers)
         {
             if (headers.Count >= headerLimit) break;
-            if (Domain.Constants.IsLocalDraftHeader(header.Field)) continue;
+            if (Wino.Core.Domain.Constants.IsLocalDraftHeader(header.Field)) continue;
             if (headersToIgnore.Contains(header.Field)) continue;
 
             // Only include custom headers beyond the core threading ones.

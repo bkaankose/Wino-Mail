@@ -19,7 +19,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Contact;
 
-namespace Wino.Core.Synchronizers.CardDav;
+namespace Wino.Providers.Dav.Synchronizers.CardDav;
 
 /// <summary>
 /// Synchronizes CardDAV address books. The server is the source of truth: a pull replaces

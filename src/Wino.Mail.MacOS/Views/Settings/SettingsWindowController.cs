@@ -4,6 +4,7 @@ using Foundation;
 using ObjCRuntime;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Views.Shell;
 using Wino.Presentation.AppKit;
@@ -23,7 +24,8 @@ public sealed class SettingsWindowController : NSWindowController
     private const string NavigationItemIdentifier = "WinoSettingsNavigation";
     private const double SidebarWidth = 250;
 
-    private readonly SettingsSidebarViewController _sidebar = new();
+    private readonly ISettingsCatalog _catalog;
+    private readonly SettingsSidebarViewController _sidebar;
     private readonly NSSegmentedControl _navigation;
     private readonly WinoZoneView _zone = new();
     private readonly NSView _pageHost = new() { TranslatesAutoresizingMaskIntoConstraints = false };
@@ -33,8 +35,10 @@ public sealed class SettingsWindowController : NSWindowController
     private NSViewController? _page;
     private ToolbarDelegate? _toolbarDelegate;
 
-    public SettingsWindowController() : base(CreateWindow())
+    public SettingsWindowController(ISettingsCatalog catalog) : base(CreateWindow())
     {
+        _catalog = catalog;
+        _sidebar = new SettingsSidebarViewController(catalog);
         var window = Window!;
         _navigation = new NSSegmentedControl
         {
@@ -208,7 +212,7 @@ public sealed class SettingsWindowController : NSWindowController
         var nested = page != rootPage;
         _crumb.Hidden = !nested;
         _crumb.StringValue = nested ? SettingsPageCatalog.Title(rootPage) + "  ›" : string.Empty;
-        description ??= SettingsPageCatalog.Description(page);
+        description ??= SettingsPageCatalog.Description(_catalog, page);
         _description.StringValue = description;
         _description.Hidden = string.IsNullOrWhiteSpace(description);
     }

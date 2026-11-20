@@ -3,7 +3,7 @@ using System;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Launch;
 
-namespace Wino.Services;
+namespace Wino.Services.Activation;
 
 public class ActivationStateService : IActivationStateService
 {

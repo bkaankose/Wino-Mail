@@ -9,6 +9,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Models.Accounts;
 
 namespace Wino.Mail.UIKit.Views;
 

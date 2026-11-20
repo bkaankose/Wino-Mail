@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Authentication.OAuth;
 
-namespace Wino.Authentication.Exchange;
+namespace Wino.Providers.Exchange.Authentication.Exchange;
 
 internal sealed record ExchangeAuthorizationCodeTokens(string AccessToken, string? RefreshToken, string? IdToken, DateTimeOffset ExpiresAtUtc);
 

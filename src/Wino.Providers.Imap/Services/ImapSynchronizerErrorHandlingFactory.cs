@@ -1,8 +1,10 @@
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Synchronizers.Errors;
-using Wino.Core.Synchronizers.Errors.Imap;
+using Wino.Core.Services;
+using Wino.Providers.Imap.Interfaces;
+using Wino.Providers.Imap.Synchronizers.Errors.Imap;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Imap.Services;
 
 /// <summary>
 /// Factory for handling IMAP synchronizer errors.

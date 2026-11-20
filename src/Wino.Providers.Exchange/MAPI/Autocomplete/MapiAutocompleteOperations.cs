@@ -6,11 +6,11 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Rules;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Rules;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.Autocomplete;
+namespace Wino.Providers.Exchange.MAPI.Autocomplete;
 
 /// <summary>
 /// Reading and writing Outlook's autocomplete list where Outlook 2010 and later keep it: a hidden

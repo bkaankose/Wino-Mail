@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.ViewModels.Lifecycle;
 
-namespace Wino.Mail.UIKit.Phone.Mail;
+namespace Wino.Mail.UIKit.Phone.Mail.Diagnostics;
 
 /// <summary>
 /// Debug-only bridge commands for the phone Mail flow in the Simulator (the shared <c>seedmail</c> creates the demo

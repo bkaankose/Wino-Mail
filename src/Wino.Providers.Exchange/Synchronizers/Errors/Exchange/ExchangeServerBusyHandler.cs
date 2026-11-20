@@ -6,9 +6,10 @@ using Serilog;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Interfaces;
 using Task = System.Threading.Tasks.Task;
 
-namespace Wino.Core.Synchronizers.Errors.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Errors.Exchange;
 
 /// <summary>Handles EWS throttling and the backoff the server asks for.</summary>
 public class ExchangeServerBusyHandler : ISynchronizerErrorHandler

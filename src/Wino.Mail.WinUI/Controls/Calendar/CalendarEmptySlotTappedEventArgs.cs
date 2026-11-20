@@ -2,7 +2,7 @@ using System;
 using Microsoft.UI.Xaml;
 using Windows.Foundation;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public sealed class CalendarEmptySlotTappedEventArgs : EventArgs
 {

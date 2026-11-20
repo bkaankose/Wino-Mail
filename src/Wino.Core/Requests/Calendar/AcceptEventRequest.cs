@@ -2,13 +2,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
-using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Calendar;
 
 namespace Wino.Core.Requests.Calendar;
 
 /// <summary>
 /// Request to accept a calendar event invitation on the server.
-/// The calendar item status should be updated locally before queuing this request.
+/// The status changes in memory only; the stored status follows from the provider after the server accepts the answer.
 /// </summary>
 public record AcceptEventRequest(CalendarItem Item, string ResponseMessage = null) : CalendarRequestBase(Item)
 {

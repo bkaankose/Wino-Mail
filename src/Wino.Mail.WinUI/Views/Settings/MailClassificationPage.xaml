@@ -1,20 +1,20 @@
-﻿<abstract:MailClassificationPageAbstract
-    x:Class="Wino.Views.Settings.MailClassificationPage"
+﻿<viewsAbstract:MailClassificationPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.MailClassificationPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Common.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="SmartLabelsMailboxTemplate" x:DataType="viewModelData:WinoIntelligenceMailboxItemViewModel">
+        <DataTemplate x:Key="SmartLabelsMailboxTemplate" x:DataType="data:WinoIntelligenceMailboxItemViewModel">
             <controls:SettingsCard
                 AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
                 AutomationProperties.Name="{x:Bind Address}"
@@ -27,7 +27,7 @@
                     <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
                 </controls:SettingsCard.Resources>
                 <controls:SettingsCard.HeaderIcon>
-                    <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account, ProviderType, SpecialProvider)}" IconSize="28" />
+                    <accountIcon:WinoAccountIcon Account="{x:Bind winuiHelpers:XamlHelpers.GetAccountIconInfo(Account, ProviderType, SpecialProvider)}" IconSize="28" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     MinWidth="0"
@@ -54,10 +54,10 @@
         <InfoBar
             AutomationProperties.AutomationId="SmartLabelsConsentRequiredInfoBar"
             IsClosable="False"
-            IsOpen="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentGranted), Mode=OneWay}"
+            IsOpen="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentGranted), Mode=OneWay}"
             Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentNotGranted, Mode=OneTime}"
             Severity="Informational"
-            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsConsentGranted), Mode=OneWay}">
+            Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsConsentGranted), Mode=OneWay}">
             <InfoBar.ActionButton>
                 <Button
                     AutomationProperties.AutomationId="SmartLabelsOpenProviderAccessButton"
@@ -96,4 +96,4 @@
             </ItemsControl.ItemsPanel>
         </ItemsControl>
     </StackPanel>
-</abstract:MailClassificationPageAbstract>
+</viewsAbstract:MailClassificationPageAbstract>

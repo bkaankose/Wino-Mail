@@ -17,8 +17,9 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Services;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Synchronizers.Exchange.ActiveSync;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 internal sealed class EasSynchronizationEngine : IDisposable
 {

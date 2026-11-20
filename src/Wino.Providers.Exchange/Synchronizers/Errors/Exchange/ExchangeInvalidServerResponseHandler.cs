@@ -8,9 +8,10 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Interfaces;
 using Task = System.Threading.Tasks.Task;
 
-namespace Wino.Core.Synchronizers.Errors.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Errors.Exchange;
 
 /// <summary>Classifies non-SOAP EWS responses, usually an HTTP 5xx from the server or a proxy, as transient.</summary>
 public class ExchangeInvalidServerResponseHandler : ISynchronizerErrorHandler

@@ -10,13 +10,13 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Authentication;
-using Wino.Core.MAPI;
-using Wino.Core.MAPI.Transport;
-using Wino.Core.Synchronizers.Mapi;
-using Wino.Core.Synchronizers.Exchange.ActiveSync;
+using Wino.Providers.Exchange.MAPI;
+using Wino.Providers.Exchange.MAPI.Transport;
+using Wino.Providers.Exchange.Synchronizers.Mapi;
+using Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 using Task = System.Threading.Tasks.Task;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Exchange.Services;
 
 /// <summary>
 /// Signs in to Autodiscover first, which needs the credential and also reports whether MAPI over HTTP is offered, and

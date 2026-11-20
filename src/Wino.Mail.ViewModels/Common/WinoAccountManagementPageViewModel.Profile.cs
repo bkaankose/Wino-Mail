@@ -12,7 +12,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class WinoAccountManagementPageViewModel
 {

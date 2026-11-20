@@ -2,11 +2,11 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Wino.Mail.ViewModels.Data;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 using Windows.System;
 using WinRT;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class ReaderActionsPage : ReaderActionsPageAbstract
 {

@@ -180,6 +180,7 @@ public sealed class AppleNotificationSounds : INotificationSoundProvider
         NotificationSoundEvent.Reminder => "Ping",
         NotificationSoundEvent.IM => "Pop",
         NotificationSoundEvent.SMS => "Tink",
+        NotificationSoundEvent.None => NoSound,
         _ => DefaultSound
     };
 

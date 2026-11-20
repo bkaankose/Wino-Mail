@@ -15,8 +15,9 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.UI;
 using Wino.Services;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Models.Reader;
 
 namespace Wino.Mail.ViewModels;
 
@@ -236,7 +237,7 @@ public partial class MailRenderingPageViewModel
         RemoteContentSenderPolicy.Block => Translator.RemoteContentRules_PolicyBlock,
         RemoteContentSenderPolicy.ImagesOnly => Translator.RemoteContentRules_PolicyImagesOnly,
         _ => string.Format(Translator.Reader_Privacy_RuleAdded,
-            rule.CreatedUtc.ToLocalTime().ToString("d MMM", CultureInfo.CurrentCulture))
+            rule.CreatedUtc.ToLocalTime().ToString(DateTimeDisplayFormatter.GetMonthDayPattern(CultureInfo.CurrentCulture, abbreviatedMonth: true), CultureInfo.CurrentCulture))
     };
 
     private string GetDetailLine(RemoteContentDecision decision,

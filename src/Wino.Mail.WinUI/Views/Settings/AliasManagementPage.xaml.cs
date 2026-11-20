@@ -6,10 +6,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.WinUI;
 using Wino.Mail.ViewModels.Data;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class AliasManagementPage : AliasManagementPageAbstract
 {

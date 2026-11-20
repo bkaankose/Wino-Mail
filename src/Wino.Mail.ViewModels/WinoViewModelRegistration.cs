@@ -1,15 +1,16 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Interfaces;
-using Wino.Calendar.ViewModels.Services;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.ViewModels.Settings;
-using Wino.Shell.ViewModels;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Interfaces;
+using Wino.Mail.ViewModels.Calendar.Services;
+using Wino.Mail.ViewModels.Common;
+using Wino.Mail.ViewModels.Shell;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.ViewModels;
 
@@ -47,7 +48,6 @@ public static class WinoViewModelRegistration
         services.AddSingleton<MailAppShellViewModel>();
         services.AddSingleton<CalendarAppShellViewModel>();
         services.AddSingleton<SettingsMenuProvider>();
-        services.AddSingleton<IStartupInitializer, SettingsCatalogInitializer>();
         services.AddSingleton<ContactsPageViewModel>();
         services.AddSingleton<ToDoPageViewModel>();
         services.AddSingleton<CalendarPageViewModel>();

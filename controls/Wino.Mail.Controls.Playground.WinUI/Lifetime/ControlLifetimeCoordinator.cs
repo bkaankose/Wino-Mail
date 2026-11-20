@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using WinRT;
 
 namespace Wino.Mail.Controls.Playground.Lifetime;
 
@@ -21,6 +22,7 @@ internal sealed class ControlLifetimeCoordinator(Action<string> trace)
     private readonly Action<string> _trace = trace;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    [DynamicWindowsRuntimeCast(typeof(Page))]
     public async ValueTask<LifetimeSnapshot?> ReplacePageAsync(Frame frame, Type pageType)
     {
         if (frame.CurrentSourcePageType == pageType)
@@ -140,6 +142,7 @@ internal sealed class ControlLifetimeCoordinator(Action<string> trace)
         return discovered;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private static void DiscoverVisualTree(DependencyObject root, ICollection<object> discovered, ISet<object> seen)
     {
         if (IsTracked(root) && seen.Add(root))
@@ -170,6 +173,7 @@ internal sealed class ControlLifetimeCoordinator(Action<string> trace)
 
     private static bool IsTracked(object item) => TrackedAssemblies.Contains(item.GetType().Assembly.GetName().Name ?? string.Empty);
 
+    [DynamicWindowsRuntimeCast(typeof(FlyoutBase))]
     private async ValueTask ReleasePageAsync(Page? page, IReadOnlyList<object> trackedObjects)
     {
         if (page is IDisposable disposablePage)
@@ -198,6 +202,7 @@ internal sealed class ControlLifetimeCoordinator(Action<string> trace)
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private static string Describe(object item)
     {
         var typeName = item.GetType().Name;

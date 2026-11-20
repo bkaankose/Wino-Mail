@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Notifications;
 using Wino.Mail.ViewModels.Companion;
 using Wino.NotificationHost.Contracts;
 using Wino.Services.Logging;
+using Wino.Platform.Windows.Services.WidgetsAndTiles;
 
 namespace Wino.Mail.WinUI.Services.WidgetsAndTiles;
 
@@ -132,8 +133,7 @@ public sealed partial class WidgetsAndTilesService(
                 shellPreferences.ShowTasksOnLiveTiles);
             var tiles = UpdatesTiles && (tileModes.Mail || tileModes.Calendar || tileModes.Tasks);
             var widgets = UpdatesWidgets;
-            // Widgets and the tile stay on screen whatever the window's session, so the lock alone hides details.
-            var showDetails = shellPreferences.ShowDetailsInWidgetsAndTiles && !appLock.IsEnabled;
+            var showDetails = shellPreferences.ShowDetailsInWidgetsAndTiles;
 
             var snapshot = tiles || widgets
                 ? await LoadAsync(
@@ -141,7 +141,8 @@ public sealed partial class WidgetsAndTilesService(
                     calendar: widgets || tileModes.Calendar,
                     tasks: widgets || tileModes.Tasks,
                     people: widgets,
-                    showDetails).ConfigureAwait(false)
+                    showDetails,
+                    allowItemActions: !appLock.AreNotificationsReadOnly).ConfigureAwait(false)
                 : null;
 
             if (AreLiveTilesSupported)
@@ -184,7 +185,11 @@ public sealed partial class WidgetsAndTilesService(
     /// off, leaves only the placeholder text in an item, so neither surface can reveal it. Texts are formatted here,
     /// in the app's language and culture, so the widget host needs no translations or database.
     /// </summary>
-    private async Task<WidgetSnapshot> LoadAsync(bool mail, bool calendar, bool tasks, bool people, bool showDetails)
+    /// <param name="allowItemActions">
+    /// False when the app lock makes notifications read-only: widget items then offer no action of their own (Join),
+    /// while the opening and creating buttons stay.
+    /// </param>
+    private async Task<WidgetSnapshot> LoadAsync(bool mail, bool calendar, bool tasks, bool people, bool showDetails, bool allowItemActions)
     {
         var now = DateTime.Now;
         var accounts = await content.GetAccountsAsync().ConfigureAwait(false);
@@ -268,8 +273,8 @@ public sealed partial class WidgetsAndTilesService(
                                 item.StartDate.ToString("t", CultureInfo.CurrentCulture),
                                 item.EndDate.ToString("t", CultureInfo.CurrentCulture)),
                         Location = hidden ? string.Empty : item.Location ?? string.Empty,
-                        ColorHex = Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(item) ?? string.Empty,
-                        IsOnline = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(item.CalendarItem, out _),
+                        ColorHex = Wino.Mail.ViewModels.Calendar.CalendarAgenda.ColorHex(item) ?? string.Empty,
+                        IsOnline = allowItemActions && CalendarJoinLinkResolver.TryGetEffectiveJoinUri(item.CalendarItem, out _),
                         IsTomorrow = CompanionContentService.DisplayDay(item, now) >= tomorrow,
                         IsAllDay = isAllDay,
                         Start = new DateTimeOffset(item.StartDate),

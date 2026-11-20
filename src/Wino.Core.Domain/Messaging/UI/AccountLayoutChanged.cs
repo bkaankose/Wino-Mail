@@ -1,4 +1,4 @@
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 /// <summary>
 /// Account groups, their members or the account order changed. Every mode pane rebuilds its account area.

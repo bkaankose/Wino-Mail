@@ -6,7 +6,6 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -14,6 +13,7 @@
     xmlns:searchCore="using:Wino.Mail.Controls.Core.SearchBar"
     xmlns:searchModels="using:Wino.Mail.WinUI.Models"
     xmlns:syncButton="using:Wino.Mail.Controls.SynchronizationButton"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
     PersistenceId="WinoShellWindow"
@@ -38,8 +38,8 @@
                         Width="32"
                         Height="32"
                         ContactPicture="{x:Bind ContactPicture, Mode=OneTime}"
-                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        IsFaviconEnabled="{x:Bind winuiHelpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind winuiHelpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Center"
@@ -157,9 +157,9 @@
                                             Height="32"
                                             Margin="0,0,10,0"
                                             ContactPicture="{x:Bind ContactPicture, Mode=OneTime}"
-                                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
-                                            Visibility="{x:Bind helpers:XamlHelpers.NotNullToVisibility(ContactPicture), Mode=OneTime}" />
+                                            IsFaviconEnabled="{x:Bind winuiHelpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                            IsGravatarEnabled="{x:Bind winuiHelpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
+                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.NotNullToVisibility(ContactPicture), Mode=OneTime}" />
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                             <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock
@@ -256,7 +256,7 @@
                                 Background="Transparent"
                                 BorderBrush="Transparent"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneTime}">
+                                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneTime}">
                                 <Button.Flyout>
                                     <Flyout
                                         x:Name="WinoAccountFlyout"

@@ -6,7 +6,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.MailItem;
 using WinRT;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class EditMailCategoryDialog : ContentDialog
 {

@@ -19,7 +19,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Extensions;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Extensions;
@@ -28,10 +27,12 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
-using Wino.Views.Mail;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Shell.Contracts;
+using Wino.Mail.WinUI.Views.Mail;
+using Wino.Platform.Windows.Services;
 using WinUIEx;
 using WinRT;
 
@@ -51,7 +52,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoIntelligenceEntitlementChanged>,
     IRecipient<WhatsNewOpened>,
     IRecipient<WhatsNewOpenRequested>,
-    IRecipient<AccountSynchronizationProgressUpdatedMessage>
+    IRecipient<AccountSynchronizationProgressUpdatedMessage>,
+    IRecipient<LanguageChanged>
 {
     private bool _allowClose;
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
@@ -65,7 +67,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private IWhatsNewService WhatsNewService { get; } = WinoApplication.Current.Services.GetRequiredService<IWhatsNewService>();
     private IWinoWindowManager WindowManager { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoWindowManager>();
     private IRelayHealth? RelayHealth { get; } = WinoApplication.Current.Services.GetService<IRelayHealth>();
-    private IAppLockService AppLockService { get; } = WinoApplication.Current.Services.GetRequiredService<IAppLockService>();
+    private IAppLockService AppLockService { get; }
 
     private bool _isAppLocked;
     private Action? _pendingUnlockContinuation;
@@ -86,8 +88,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private bool _isCloseRequestInProgress;
     private readonly Microsoft.UI.Xaml.Input.PointerEventHandler _pointerPressedHandler;
 
-    public ShellWindow()
+    public ShellWindow(IAppLockService appLockService)
     {
+        AppLockService = appLockService;
         InitializeComponent();
 
         // Use the same root as NewThemeService. A local theme on ShellRoot would override
@@ -260,6 +263,10 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ApplyAppLockChrome();
         WindowCleanupHelper.ClearNavigationStack(MainShellFrame);
         MainShellFrame.Navigate(typeof(AppLockScreenPage), null, new Microsoft.UI.Xaml.Media.Animation.SuppressNavigationTransitionInfo());
+
+        // The frame creates the page; it is handed the service before its first layout pass loads it.
+        if (MainShellFrame.Content is AppLockScreenPage lockScreen)
+            lockScreen.AppLockService = AppLockService;
     }
 
     /// <summary>
@@ -438,6 +445,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public void Receive(ApplicationThemeChanged message)
     {
         DispatcherQueue.TryEnqueue(() => UpdateTitleBarColors(message.IsUnderlyingThemeDark));
+    }
+
+    // The title bar binds Translator strings once; re-read them in the new language.
+    public void Receive(LanguageChanged message)
+    {
+        DispatcherQueue.TryEnqueue(Bindings.Update);
     }
 
     public void Receive(InfoBarMessageRequested message)
@@ -1242,6 +1255,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<WhatsNewOpened>(this);
         WeakReferenceMessenger.Default.Register<WhatsNewOpenRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
     }
 
     private void UnregisterRecipients()
@@ -1259,6 +1273,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<WhatsNewOpened>(this);
         WeakReferenceMessenger.Default.Unregister<WhatsNewOpenRequested>(this);
         WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
     }
 
     private readonly Queue<InfoBarMessageRequested> _pendingInfoBarMessages = new();
@@ -1334,7 +1349,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         DispatcherQueue.TryEnqueue(() =>
         {
             if (version != _accountPresentationVersion) return;
-            var image = Wino.Helpers.XamlHelpers.AccountAvatarToBitmapImage(path);
+            var image = Wino.Mail.WinUI.Helpers.XamlHelpers.AccountAvatarToBitmapImage(path);
             WinoAccountButtonPicture.ProfilePicture = image;
             WinoAccountFlyoutPicture.ProfilePicture = image;
         });

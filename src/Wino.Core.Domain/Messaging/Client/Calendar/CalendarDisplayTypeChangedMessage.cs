@@ -1,6 +1,6 @@
 ﻿using Wino.Core.Domain.Enums;
 
-namespace Wino.Messaging.Client.Calendar;
+namespace Wino.Core.Domain.Messaging.Client.Calendar;
 
 /// <summary>
 /// Raised when calendar type is changed like Day,Week,Month etc.

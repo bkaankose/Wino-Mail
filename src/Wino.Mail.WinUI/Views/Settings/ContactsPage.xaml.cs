@@ -14,7 +14,6 @@ using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Contacts;
-using Wino.Helpers;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -22,10 +21,10 @@ using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearchHost
 {

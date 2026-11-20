@@ -1,8 +1,8 @@
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Core.ViewModels.Data;
+using Wino.Mail.ViewModels.Common.Data;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 /// <summary>
 /// Blocked state for a mode page: why the mode cannot be used yet and what to do about it.

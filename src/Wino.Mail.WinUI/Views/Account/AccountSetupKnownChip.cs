@@ -1,6 +1,6 @@
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Views;
+namespace Wino.Mail.WinUI.Views.Account;
 
 /// <summary>One item of the known-so-far card as the page draws it: the text, its mark and the separator before it.</summary>
 public sealed partial class AccountSetupKnownChip

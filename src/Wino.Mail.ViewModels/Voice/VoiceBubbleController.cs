@@ -26,8 +26,8 @@ using Wino.Services.Assistant;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.Controls.Core.VoiceBubble;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Voice;
 
@@ -683,8 +683,15 @@ public sealed partial class VoiceBubbleController : IDisposable
         var bubble = _host.Bubble;
         switch (frame.Type)
         {
+            // Older servers append deltas; newer ones honor PartialTranscripts and send the whole live text, which may
+            // revise earlier words, so it replaces what was heard.
             case AssistantFrameTypes.TranscriptDelta when State == VoiceBubbleState.Listening:
                 _heard += frame.Text;
+                _heardSpeech |= !string.IsNullOrWhiteSpace(frame.Text);
+                bubble.Transcript = JoinTyped(_typedPrefix, _heard);
+                break;
+            case AssistantFrameTypes.TranscriptPartial when State == VoiceBubbleState.Listening:
+                _heard = frame.Text ?? string.Empty;
                 _heardSpeech |= !string.IsNullOrWhiteSpace(frame.Text);
                 bubble.Transcript = JoinTyped(_typedPrefix, _heard);
                 break;

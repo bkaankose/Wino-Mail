@@ -1,7 +1,7 @@
 #nullable enable
 using System;
 
-namespace Wino.Mail.ViewModels;
+namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// One day in the briefing's date strip: Today, Yesterday, or the date itself.

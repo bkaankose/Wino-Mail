@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Editor;
 
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>
 /// Inserts or edits a link. For a selected image only the address applies, so the text box is hidden.

@@ -1,5 +1,5 @@
 ﻿<UserControl
-    x:Class="Wino.Controls.UnreadBadgeLocationIllustration"
+    x:Class="Wino.Mail.WinUI.Controls.UnreadBadgeLocationIllustration"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"

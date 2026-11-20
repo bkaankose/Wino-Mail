@@ -3,9 +3,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Models.AppLock;
 using Wino.Mail.ViewModels.Data;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class AppLockPage : AppLockPageAbstract
 {

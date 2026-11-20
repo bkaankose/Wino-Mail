@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Core.Integration.Processors;
 
-namespace Wino.Core.Integration.Processors;
+namespace Wino.Providers.Imap.Integration.Processors;
 
 public interface IImapChangeProcessor : ICalDavChangeProcessor
 {

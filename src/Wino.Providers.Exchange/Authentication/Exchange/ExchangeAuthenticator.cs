@@ -8,7 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Authentication.Exchange;
+namespace Wino.Providers.Exchange.Authentication.Exchange;
 
 /// <summary>Routes Exchange accounts to OAuth bearer tokens or their stored password.</summary>
 public sealed class ExchangeAuthenticator : IExchangeAuthenticator

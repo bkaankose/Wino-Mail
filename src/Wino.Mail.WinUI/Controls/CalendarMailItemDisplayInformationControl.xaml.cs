@@ -14,8 +14,9 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Helpers;
 using Wino.Mail.WinUI;
 using Wino.Services;
+using Wino.Services.Interfaces;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public sealed partial class CalendarMailItemDisplayInformationControl : UserControl
 {

@@ -2,7 +2,7 @@ using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Printing;
+namespace Wino.Mail.ViewModels.Models.Printing;
 
 /// <summary>
 /// Portable mail print options. Margins retain the existing inch units and defaults.

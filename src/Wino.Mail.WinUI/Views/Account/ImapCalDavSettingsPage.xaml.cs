@@ -1,6 +1,7 @@
-using Wino.Views.Abstract;
 
-namespace Wino.Views;
+using Wino.Mail.WinUI.Views.Abstract;
+
+namespace Wino.Mail.WinUI.Views.Account;
 
 public sealed partial class ImapCalDavSettingsPage : ImapCalDavSettingsPageAbstract
 {

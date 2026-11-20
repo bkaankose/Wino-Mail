@@ -2,7 +2,7 @@
 
 using Wino.Core.Domain.Models.Navigation;
 
-namespace Wino.Messaging.Client.Navigation;
+namespace Wino.Core.Domain.Messaging.Client.Navigation;
 
 /// <summary>
 /// When back navigation is requested for breadcrumb pages.

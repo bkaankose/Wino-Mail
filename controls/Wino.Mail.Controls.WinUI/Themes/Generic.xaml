@@ -3,7 +3,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
-    xmlns:controls="using:Wino.Mail.Controls"
     xmlns:intelligence="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:intelligenceTiles="using:Wino.Mail.Controls.IntelligenceTileBar"
@@ -11,10 +10,11 @@
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
     xmlns:shimmer="using:Wino.Mail.Controls.Shimmer"
     xmlns:syncButton="using:Wino.Mail.Controls.SynchronizationButton"
+    xmlns:themes="using:Wino.Mail.Controls.Themes"
     xmlns:winoPrimitives="using:Wino.Mail.Controls.Primitives">
 
     <ResourceDictionary.MergedDictionaries>
-        <controls:WinoItemTemplates />
+        <themes:WinoItemTemplates />
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls.WinUI/Themes/WinoIntelligenceBranding.xaml" />
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls.WinUI/IntelligenceProgressRing/WinoIntelligenceProgressRing.xaml" />
     </ResourceDictionary.MergedDictionaries>

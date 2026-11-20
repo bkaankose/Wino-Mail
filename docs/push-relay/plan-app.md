@@ -21,9 +21,13 @@ This plan covers the client repository only. Every file reference was verified o
 - Sync timers: `EmailSyncIntervalMinutes` (default 3) and `CalendarSyncIntervalMinutes` (default 5) drive
   `ApplicationRuntime` loops. Contacts and To Do run on a fixed 6 hour rare-mode loop.
 - IMAP IDLE is switched off for every account by
-  `SynchronizerFactory.IsImapIdleTemporarilyDisabled = true` (temporary flag from 14 Oct 2026).
+  `SynchronizerFactory.IsImapIdleTemporarilyDisabled = true` (temporary flag from 14 Oct 2026). Since then
+  the flag was removed (17 Oct 2026), and the `SynchronizerFactory` provider switch was replaced by the
+  provider registry (`IMailProviderRegistry`).
 - Gmail goes through the hand-written `GmailRestClient` (no `users.watch`). Graph uses a trimmed Kiota
-  client with `/me` routes only (no `/subscriptions`).
+  client with `/me` routes only (no `/subscriptions`). Since then `users.watch` was added to
+  `src/Wino.Providers.Gmail/Google/GmailRestClient.cs`, and the Kiota client was replaced by the official
+  `Microsoft.Graph` package, which includes `/subscriptions`.
 - What's New opens only from the shell button; nothing opens a window on launch. There is no stored
   "last launched version". `MailAccount.CreatedAt` is nullable and NULL for old accounts.
 - `IntelligenceConsentPolicyDialog` plus `IWinoDialogService.ShowIntelligenceConsentPolicyDialogAsync`
@@ -80,14 +84,15 @@ This plan covers the client repository only. Every file reference was verified o
 
 - `PushRelayCreateMailboxRequest` becomes a union: `Imap`, `Gmail { AccessToken, WatchExpiresAt }`,
   `Graph { SubscriptionId, ClientState, ExpiresAt, EmailAddress, Folder, Resource }`.
-- `GmailPushRelayMailboxRegistrationBuilder` (`Wino.Core`, because it needs `GmailRestClient` and
-  `IGmailAuthenticator`): add `users.watch` to `GmailRestClient` with `topicName` from
+- `GmailPushRelayMailboxRegistrationBuilder` (`Wino.Core` at the time, because it needs `GmailRestClient` and
+  `IGmailAuthenticator`; now in `src/Wino.Providers.Gmail/PushRelay`): add `users.watch` to `GmailRestClient` with `topicName` from
   `PushRelayWellKnown.GmailTopic` and `labelIds: ["INBOX"]`; store `historyId` and `expiration`; build
   the registration with the access token from `IAuthenticator.GetTokenInformationAsync`. Fingerprint:
   SHA-256 of `email\0historyId-bucket` so a renewed watch re-registers.
-- `GraphPushRelayMailboxRegistrationBuilder` (`Wino.Core`): add a minimal `/subscriptions` POST,
-  PATCH and DELETE to the Graph layer (hand-written request builder next to the Kiota client, or extend
-  `kiota-lock.json` to include `/subscriptions`). One subscription per account for
+- `GraphPushRelayMailboxRegistrationBuilder` (`Wino.Core` at the time; now in
+  `src/Wino.Providers.Outlook/PushRelay`): add a minimal `/subscriptions` POST,
+  PATCH and DELETE to the Graph layer (planned then as a hand-written request builder next to the Kiota
+  client; the official `Microsoft.Graph` package that replaced Kiota has these request builders). One subscription per account for
   `/me/mailFolders/inbox/messages`, `changeType: created,updated,deleted`, `notificationUrl` and
   `lifecycleNotificationUrl` from the well-known document, `clientState` random 128 chars stored per
   account in the secure store, `expirationDateTime` = now + 4230 minutes. Calendar and contacts

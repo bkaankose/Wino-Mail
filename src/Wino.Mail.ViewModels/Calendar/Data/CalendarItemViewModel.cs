@@ -10,7 +10,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Calendar.Data;
 
 public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, ICalendarItemViewModel
 {

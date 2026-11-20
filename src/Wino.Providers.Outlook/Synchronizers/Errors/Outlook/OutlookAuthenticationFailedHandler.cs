@@ -7,8 +7,9 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Interfaces;
 
-namespace Wino.Core.Synchronizers.Errors.Outlook;
+namespace Wino.Providers.Outlook.Synchronizers.Errors.Outlook;
 
 public class OutlookAuthenticationFailedHandler : ISynchronizerErrorHandler
 {

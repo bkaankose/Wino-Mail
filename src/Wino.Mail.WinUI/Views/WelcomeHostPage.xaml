@@ -1,13 +1,14 @@
-<abstract:WelcomeHostPageAbstract
-    x:Class="Wino.Views.WelcomeHostPage"
+﻿<abstract:WelcomeHostPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.WelcomeHostPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:helpers="using:Wino.Helpers"
+    xmlns:data="using:Wino.Mail.ViewModels.Common.Data"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:winuiControls="using:Microsoft.UI.Xaml.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     mc:Ignorable="d">
 
     <Grid RowSpacing="0">
@@ -28,18 +29,18 @@
                 ItemClicked="BreadItemClicked"
                 ItemsSource="{x:Bind PageHistory, Mode=OneWay}">
                 <winuiControls:BreadcrumbBar.ItemTemplate>
-                    <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
+                    <DataTemplate x:DataType="data:BreadcrumbNavigationItemViewModel">
                         <!--
                             TODO: This crashes.
-                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetBreadcrumbStepAutomationName(StepNumber, Title), Mode=OneWay}"
+                            AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetBreadcrumbStepAutomationName(StepNumber, Title), Mode=OneWay}"
                         -->
                         <winuiControls:BreadcrumbBarItem>
                             <winuiControls:BreadcrumbBarItem.ContentTemplate>
-                                <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
+                                <DataTemplate x:DataType="data:BreadcrumbNavigationItemViewModel">
                                     <TextBlock
                                         Margin="8,0"
                                         VerticalAlignment="Center"
-                                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsActive), Mode=OneWay}"
+                                        FontWeight="{x:Bind winuiHelpers:XamlHelpers.GetFontWeightBySyncState(IsActive), Mode=OneWay}"
                                         Style="{StaticResource BodyTextBlockStyle}"
                                         Text="{x:Bind Title, Mode=OneWay}" />
                                 </DataTemplate>

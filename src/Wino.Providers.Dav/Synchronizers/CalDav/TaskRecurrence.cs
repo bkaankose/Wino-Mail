@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 using Ical.Net;
 using Serilog;
 
-namespace Wino.Core.Synchronizers.CalDav;
+namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
 /// <summary>Finds the next occurrence of a recurring VTODO with the recurrence engine the calendar uses.</summary>
 internal static class TaskRecurrence

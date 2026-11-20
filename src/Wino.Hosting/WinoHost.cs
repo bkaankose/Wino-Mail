@@ -10,10 +10,16 @@ using Wino.Core.Domain.Models.Platform;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Activation;
 using Wino.Mail.ViewModels.Lifecycle;
-using Wino.Messaging.Client.Shell;
 using Wino.Services;
 using Wino.Services.Platform;
 using Wino.Services.Security;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Providers.Dav.Providers;
+using Wino.Providers.Exchange.Providers;
+using Wino.Providers.Gmail.Providers;
+using Wino.Providers.Imap.Providers;
+using Wino.Providers.Outlook.Providers;
+using Wino.Services.Interfaces;
 
 namespace Wino.Hosting;
 
@@ -69,6 +75,13 @@ public sealed partial class WinoHost : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(options.DataRoot))
             throw new ArgumentException("WinoHostOptions.DataRoot is required.", nameof(configure));
 
+        var missing = WinoHostProviders.Required & ~options.Providers;
+        if (missing != WinoHostProviders.None)
+            throw new ArgumentException(
+                $"WinoHostOptions.Providers lacks {missing}. Shared services resolve their services: the synchronization manager and mail invitations " +
+                "need Imap, account setup needs Outlook and Imap, reauthentication needs Exchange, and the IMAP module and mail invitations need Dav. Only Gmail can be left out.",
+                nameof(configure));
+
         var layout = HostLayout.Prepare(Path.GetFullPath(options.DataRoot));
         var dispatcher = new HostDispatcher();
         var log = new HostInteractionLog();
@@ -76,7 +89,7 @@ public sealed partial class WinoHost : IAsyncDisposable
 
         try
         {
-            services = Compose(layout, dispatcher, log);
+            services = Compose(layout, dispatcher, log, options);
             var host = new WinoHost(services, dispatcher, log, layout.Root);
             await host.StartCoreAsync(cancellationToken).ConfigureAwait(false);
             return host;
@@ -101,7 +114,7 @@ public sealed partial class WinoHost : IAsyncDisposable
         StartupTarget = await Get<ApplicationLifecycleCoordinator>().StartAsync(_lifecycle).ConfigureAwait(false);
     }
 
-    private static ServiceProvider Compose(HostLayout layout, HostDispatcher dispatcher, HostInteractionLog log)
+    private static ServiceProvider Compose(HostLayout layout, HostDispatcher dispatcher, HostInteractionLog log, WinoHostOptions options)
     {
         var protector = new AesGcmEnvelopeSecretProtector(new FileProtectionKeyProvider(layout.ProtectionKeyPath, ApplicationIdentity));
         if (layout.IsNewInstallation) protector.ProvisionNewInstallationKey(true);
@@ -112,12 +125,23 @@ public sealed partial class WinoHost : IAsyncDisposable
         // Each host gets its own messenger, so recipients and messages never cross hosts in one process.
         services.Replace(ServiceDescriptor.Singleton<IMessenger>(new WeakReferenceMessenger()));
         services.RegisterCoreServices();
-        services.AddGmailProvider().AddOutlookProvider().AddImapProvider().AddExchangeProvider().AddDavProvider();
+        AddProviders(services, options.Providers);
         AddHostPlatformServices(services, layout, dispatcher, log, protector, secureItems);
         services.RegisterWinoViewModels();
         AddHostHead(services);
+        options.ConfigureServices?.Invoke(services);
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    /// <summary>Gmail before Outlook, as in the apps: the push relay builders depend on that order.</summary>
+    private static void AddProviders(IServiceCollection services, WinoHostProviders providers)
+    {
+        if (providers.HasFlag(WinoHostProviders.Gmail)) services.AddGmailProvider();
+        if (providers.HasFlag(WinoHostProviders.Outlook)) services.AddOutlookProvider();
+        if (providers.HasFlag(WinoHostProviders.Imap)) services.AddImapProvider();
+        if (providers.HasFlag(WinoHostProviders.Exchange)) services.AddExchangeProvider();
+        if (providers.HasFlag(WinoHostProviders.Dav)) services.AddDavProvider();
     }
 
     /// <summary>The contracts a platform supplies, in the order and with the lifetimes of the Android registration.</summary>

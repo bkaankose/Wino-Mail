@@ -1,5 +1,5 @@
 ﻿<UserControl
-    x:Class="Wino.Controls.CalendarMailItemDisplayInformationControl"
+    x:Class="Wino.Mail.WinUI.Controls.CalendarMailItemDisplayInformationControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     HorizontalAlignment="Stretch"

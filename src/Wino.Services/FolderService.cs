@@ -10,14 +10,13 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Badges;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services;
 
@@ -558,50 +557,18 @@ public class FolderService : BaseDatabaseService, IFolderService
         }
     }
 
-    public Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem)
+    public async Task<AccountFolderLayout> GetAccountFolderLayoutAsync(MailAccount account)
     {
-        if (accountMenuItem is IMergedAccountMenuItem mergedAccountFolderMenuItem)
-        {
-            return GetMergedAccountFolderMenuItemsAsync(mergedAccountFolderMenuItem);
-        }
-        else
-        {
-            return GetSingleAccountFolderMenuItemsAsync(accountMenuItem);
-        }
-    }
-
-    private static FolderMenuItem CreateFolderMenuItem(FolderHierarchy hierarchy, MailAccount account, MailItemFolder folder, IMenuItem parentMenuItem)
-    {
-        // Localize category folder name.
-        LocalizeCategoryFolderName(folder);
-
-        var folderMenuItem = new FolderMenuItem(folder, account, parentMenuItem);
-
-        foreach (var childFolder in hierarchy.GetChildren(folder))
-        {
-            folderMenuItem.SubMenuItems.Add(CreateFolderMenuItem(hierarchy, account, childFolder, folderMenuItem));
-        }
-
-        return folderMenuItem;
-    }
-
-    private async Task<IEnumerable<IMenuItem>> GetSingleAccountFolderMenuItemsAsync(IAccountMenuItem accountMenuItem)
-    {
-        var accountId = accountMenuItem.EntityId.Value;
-        var preparedFolderMenuItems = new List<IMenuItem>();
+        ArgumentNullException.ThrowIfNull(account);
 
         // Visible folders only. Each one is listed once: at its placement, or under its parent.
-        var hierarchy = await GetDisplayHierarchyAsync(accountId).ConfigureAwait(false);
+        var hierarchy = await GetDisplayHierarchyAsync(account.Id).ConfigureAwait(false);
 
-        if (hierarchy.Roots.Count == 0) return new List<IMenuItem>();
+        if (hierarchy.Roots.Count == 0) return AccountFolderLayout.Empty(account);
 
-        var mailAccount = accountMenuItem.HoldingAccounts.First();
-
-        var moreFolder = MailItemFolder.CreateMoreFolder();
-        var categoryFolder = MailItemFolder.CreateCategoriesFolder();
-
-        var moreFolderMenuItem = new FolderMenuItem(moreFolder, mailAccount, accountMenuItem);
-        var categoryFolderMenuItem = new FolderMenuItem(categoryFolder, mailAccount, accountMenuItem);
+        var rootFolders = new List<FolderLayoutNode>();
+        var moreFolder = new FolderLayoutNode(MailItemFolder.CreateMoreFolder(), []);
+        var categoriesFolder = new FolderLayoutNode(MailItemFolder.CreateCategoriesFolder(), []);
 
         foreach (var item in hierarchy.Roots)
         {
@@ -609,54 +576,63 @@ public class FolderService : BaseDatabaseService, IFolderService
 
             if (placement == FolderDisplayPlacement.Nested) continue;
 
-            // Sticky items belong to account menu item directly. Rest goes to More folder.
-            IMenuItem parentFolderMenuItem = placement switch
-            {
-                FolderDisplayPlacement.Root => accountMenuItem,
-                FolderDisplayPlacement.Categories => categoryFolderMenuItem,
-                _ => moreFolderMenuItem
-            };
+            var node = CreateFolderLayoutNode(hierarchy, item);
 
-            var preparedItem = CreateFolderMenuItem(hierarchy, mailAccount, item, parentFolderMenuItem);
-
-            // Don't add menu items that are prepared for More folder. They've been included in More virtual folder already.
-            // We'll add More folder later on at the end of the list.
-
-            if (placement == FolderDisplayPlacement.Root)
+            switch (placement)
             {
-                preparedFolderMenuItems.Add(preparedItem);
-            }
-            else if (parentFolderMenuItem is FolderMenuItem baseParentFolderMenuItem)
-            {
-                baseParentFolderMenuItem.SubMenuItems.Add(preparedItem);
+                case FolderDisplayPlacement.Root:
+                    rootFolders.Add(node);
+                    break;
+                case FolderDisplayPlacement.Categories:
+                    categoriesFolder.Children.Add(node);
+                    break;
+                default:
+                    moreFolder.Children.Add(node);
+                    break;
             }
         }
 
-        var favoriteCategories = await GetFavoriteCategoryMenuItemsAsync(mailAccount, hierarchy.Folders, accountMenuItem).ConfigureAwait(false);
-        preparedFolderMenuItems.AddRange(favoriteCategories);
+        var favoriteCategories = await _mailCategoryService.GetFavoriteCategoriesAsync(account.Id).ConfigureAwait(false);
 
-        // An empty Categories item is a dead end after the user hides every Gmail category.
-        if (mailAccount.ProviderType == MailProviderType.Gmail && categoryFolderMenuItem.SubMenuItems.Any())
+        return new AccountFolderLayout
         {
-            preparedFolderMenuItems.Add(categoryFolderMenuItem);
-        }
+            Account = account,
+            RootFolders = rootFolders,
+            FavoriteCategories = favoriteCategories.ToList(),
+            CategoryFolders = favoriteCategories.Any()
+                ? hierarchy.Folders.Where(a => a.IsMoveTarget).Cast<IMailItemFolder>().ToList()
+                : [],
 
-        // Only add More folder if there are any items in it.
-        if (moreFolderMenuItem.SubMenuItems.Any()) preparedFolderMenuItems.Add(moreFolderMenuItem);
-
-        return preparedFolderMenuItems;
+            // An empty Categories item is a dead end after the user hides every Gmail category.
+            CategoriesFolder = account.ProviderType == MailProviderType.Gmail && categoriesFolder.Children.Count > 0 ? categoriesFolder : null,
+            MoreFolder = moreFolder.Children.Count > 0 ? moreFolder : null
+        };
     }
 
-    private async Task<IEnumerable<IMenuItem>> GetMergedAccountFolderMenuItemsAsync(IMergedAccountMenuItem mergedAccountFolderMenuItem)
+    private static FolderLayoutNode CreateFolderLayoutNode(FolderHierarchy hierarchy, MailItemFolder folder)
     {
-        var holdingAccounts = mergedAccountFolderMenuItem.HoldingAccounts;
+        LocalizeCategoryFolderName(folder);
 
-        if (holdingAccounts == null || !holdingAccounts.Any()) return [];
+        var children = hierarchy.GetChildren(folder)
+            .Select(childFolder => CreateFolderLayoutNode(hierarchy, childFolder))
+            .ToList();
 
-        var preparedFolderMenuItems = new List<IMenuItem>();
+        return new FolderLayoutNode(folder, children);
+    }
 
-        // First gather all account folders.
-        // Prepare single menu items for both of them.
+    public async Task<MergedAccountFolderLayout> GetMergedAccountFolderLayoutAsync(IEnumerable<MailAccount> accounts)
+    {
+        var holdingAccounts = accounts?.ToList() ?? [];
+
+        if (holdingAccounts.Count == 0)
+        {
+            return new MergedAccountFolderLayout
+            {
+                CommonFolders = [],
+                FavoriteCategoryGroups = [],
+                CategoryFolders = []
+            };
+        }
 
         var allAccountFolders = new List<List<MailItemFolder>>();
 
@@ -667,68 +643,35 @@ public class FolderService : BaseDatabaseService, IFolderService
             allAccountFolders.Add(accountFolders);
         }
 
-        var commonFolders = FindCommonFolders(allAccountFolders);
-
-        // Prepare menu items for common folders.
-        foreach (var commonFolderType in commonFolders)
-        {
-            var folderItems = allAccountFolders.SelectMany(a => a.Where(b => b.SpecialFolderType == commonFolderType)).Cast<IMailItemFolder>().ToList();
-            var menuItem = new MergedAccountFolderMenuItem(folderItems, null, mergedAccountFolderMenuItem.Parameter);
-
-            preparedFolderMenuItems.Add(menuItem);
-        }
-
-        var favoriteCategories = await GetMergedFavoriteCategoryMenuItemsAsync(holdingAccounts, allAccountFolders, mergedAccountFolderMenuItem.Parameter).ConfigureAwait(false);
-        preparedFolderMenuItems.AddRange(favoriteCategories);
-
-        return preparedFolderMenuItems;
-    }
-
-    private async Task<IEnumerable<IMenuItem>> GetFavoriteCategoryMenuItemsAsync(MailAccount account, IEnumerable<IMailItemFolder> handlingFolders, IMenuItem parentMenuItem)
-    {
-        var favoriteCategories = await _mailCategoryService.GetFavoriteCategoriesAsync(account.Id).ConfigureAwait(false);
-
-        if (!favoriteCategories.Any())
-            return [];
-
-        var availableFolders = handlingFolders
-            .Where(a => a.IsMoveTarget)
-            .Cast<IMailItemFolder>()
+        var commonFolders = FindCommonFolders(allAccountFolders)
+            .Select(commonFolderType => allAccountFolders
+                .SelectMany(a => a.Where(b => b.SpecialFolderType == commonFolderType))
+                .Cast<IMailItemFolder>()
+                .ToList())
             .ToList();
 
-        return favoriteCategories
-            .Select(category => (IMenuItem)new MailCategoryMenuItem(category, account, availableFolders, parentMenuItem))
-            .ToList();
-    }
-
-    private async Task<IEnumerable<IMenuItem>> GetMergedFavoriteCategoryMenuItemsAsync(IEnumerable<MailAccount> holdingAccounts, IEnumerable<IEnumerable<MailItemFolder>> allAccountFolders, MergedInbox mergedInbox)
-    {
-        var categoriesByAccount = new List<(MailAccount Account, List<MailCategory> Categories)>();
+        var favoriteCategories = new List<MailCategory>();
 
         foreach (var account in holdingAccounts)
         {
             var categories = await _mailCategoryService.GetFavoriteCategoriesAsync(account.Id).ConfigureAwait(false);
-            if (categories.Any())
-            {
-                categoriesByAccount.Add((account, categories));
-            }
+            favoriteCategories.AddRange(categories);
         }
 
-        if (!categoriesByAccount.Any())
-            return [];
-
-        var handlingFolders = allAccountFolders
-            .SelectMany(a => a)
-            .Where(a => a.IsMoveTarget)
-            .Cast<IMailItemFolder>()
-            .ToList();
-
-        return categoriesByAccount
-            .SelectMany(a => a.Categories)
+        var favoriteCategoryGroups = favoriteCategories
             .GroupBy(a => NormalizeCategoryName(a.Name), StringComparer.OrdinalIgnoreCase)
-            .Select(group => (IMenuItem)new MergedMailCategoryMenuItem(group.ToList(), handlingFolders, mergedInbox))
-            .OrderBy(item => ((MergedMailCategoryMenuItem)item).FolderName, StringComparer.CurrentCultureIgnoreCase)
+            .Select(group => group.ToList())
+            .OrderBy(group => group[0].Name ?? string.Empty, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+
+        return new MergedAccountFolderLayout
+        {
+            CommonFolders = commonFolders,
+            FavoriteCategoryGroups = favoriteCategoryGroups,
+            CategoryFolders = favoriteCategoryGroups.Count > 0
+                ? allAccountFolders.SelectMany(a => a).Where(a => a.IsMoveTarget).Cast<IMailItemFolder>().ToList()
+                : []
+        };
     }
 
     private static string NormalizeCategoryName(string name)

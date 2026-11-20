@@ -202,22 +202,6 @@ public class MailAccount
     public InitialSynchronizationRange InitialSynchronizationRange { get; set; } = InitialSynchronizationRange.SixMonths;
 
     /// <summary>
-    /// Gets whether the account can perform ProfileInformation sync type.
-    /// </summary>
-    public bool IsProfileInfoSyncSupported => ProviderType is MailProviderType.Outlook or MailProviderType.Gmail ||
-        (ProviderType == MailProviderType.Exchange && !UsesActiveSync);
-
-    /// <summary>
-    /// Gets whether the account can perform AliasInformation sync type.
-    /// </summary>
-    public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail || ProviderType == MailProviderType.Outlook;
-
-    /// <summary>
-    /// Gets whether the account can perform category definition sync type.
-    /// </summary>
-    public bool IsCategorySyncSupported => ProviderType == MailProviderType.Outlook;
-
-    /// <summary>
     /// Gets whether the account was created by the local account setup: Calendar, People and To Do on this device,
     /// with no mail, no server and no address.
     /// </summary>

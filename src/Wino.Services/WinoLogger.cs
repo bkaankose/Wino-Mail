@@ -37,7 +37,7 @@ public class WinoLogger : IWinoLogger
     private static readonly string[] ExpectedConditionTypeNames =
     [
         "Microsoft.Identity.Client.MsalServiceException",
-        "Google.GoogleApiException",
+        "Wino.Providers.Gmail.Google.GoogleApiException",
         "Google.Apis.Auth.OAuth2.Responses.TokenResponseException",
         "Microsoft.Kiota.Abstractions.ApiException"
     ];

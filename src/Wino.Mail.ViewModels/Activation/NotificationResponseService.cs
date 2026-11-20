@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Serilog;
@@ -11,11 +12,15 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Notifications;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.ViewModels.Requests;
+using Wino.Services.Extensions;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Mail.ViewModels.Activation;
 
@@ -320,8 +325,42 @@ public sealed class NotificationResponseService(
             return null;
         }
 
-        var mime = await mimeFileService.GetMimeMessageInformationAsync(mailItem.FileId, account.Id);
-        return mime?.MimeMessage is null ? null : new ComposeSource(account, mailItem, mime.MimeMessage);
+        if (!await EnsureMimeAsync(account.Id, mailItem)) return null;
+
+        try
+        {
+            var mime = await mimeFileService.GetMimeMessageInformationAsync(mailItem.FileId, account.Id);
+            return mime?.MimeMessage is null ? null : new ComposeSource(account, mailItem, mime.MimeMessage);
+        }
+        catch (IOException error)
+        {
+            _logger.Warning(error, "Notification compose: the message of mail {Id} could not be read.", mailUniqueId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Synchronization stores only the headers, and the reader downloads the message when it opens. A notification
+    /// can reply to a mail nobody opened, so the message is downloaded here the same way.
+    /// </summary>
+    private async Task<bool> EnsureMimeAsync(Guid accountId, MailCopy mailItem)
+    {
+        if (await mimeFileService.IsMimeExistAsync(accountId, mailItem.FileId)) return true;
+
+        try
+        {
+            await synchronizationManager.DownloadMimeMessageAsync(mailItem, accountId);
+        }
+        catch (Exception error)
+        {
+            _logger.Warning(error, "Notification compose: the message of mail {Id} could not be downloaded.", mailItem.UniqueId);
+            return false;
+        }
+
+        if (await mimeFileService.IsMimeExistAsync(accountId, mailItem.FileId)) return true;
+
+        _logger.Information("Notification compose: the message of mail {Id} is not available.", mailItem.UniqueId);
+        return false;
     }
 
     private async Task<(MailCopy Draft, string Base64)> CreateDraftAsync(ComposeSource source, MailOperation action, string? initialText = null)
@@ -356,7 +395,18 @@ public sealed class NotificationResponseService(
 
         if (!await navigator.ShowDraftsAsync(source.Account.Id)) return;
 
-        var (draft, _) = await CreateDraftAsync(source, action);
+        MailCopy draft;
+        try
+        {
+            (draft, _) = await CreateDraftAsync(source, action);
+        }
+        catch (AppLockedException error)
+        {
+            // The window was still locked when the shell finished opening; the delegator already deleted the local draft.
+            requestCoordinator.ShowMailOperationError(error);
+            return;
+        }
+
         await navigator.OpenComposerAsync(draft);
     }
 

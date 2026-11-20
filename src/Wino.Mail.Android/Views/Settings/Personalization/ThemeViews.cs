@@ -4,7 +4,6 @@ using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
 using Android.Widget;
-using Wino.Core.ViewModels;
 using Google.Android.Material.Dialog;
 using Google.Android.Material.Slider;
 using Google.Android.Material.TextField;
@@ -14,6 +13,7 @@ using Wino.Core.Domain.Models.Personalization;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Settings.Personalization;
 

@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Mail.WinUI;
-using Wino.Core.ViewModels;
+using Wino.Mail.ViewModels.Common;
 
-namespace Wino.Views.Abstract;
+namespace Wino.Mail.WinUI.Views.Abstract;
 
 public abstract class SettingsPageAbstract : BasePage<SettingsPageViewModel>
 {

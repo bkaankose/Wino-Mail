@@ -11,18 +11,17 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Core.ViewModels;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Settings;
-using Wino.Messaging.Client.Shell;
-using Wino.Messaging.UI;
 using Wino.Presentation.Android;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Views.Settings;
 
 /// <summary>
 /// The Settings root list (canvas boards Settings and SettingsDark; iOS SettingsRootViewController, the Mac sidebar and
-/// the Windows settings pane): the shared <see cref="SettingsCatalog"/> rows in the Windows groups, names and order with
+/// the Windows settings pane): the shared Settings catalog rows (<see cref="SettingOptionsPageViewModel.GetSettingsSections"/>) in the Windows groups, names and order with
 /// colourful glyphs, a trailing value where Windows shows one (theme, account count, version) and a chevron. Settings
 /// search (the app bar's search action) filters the rows with the shared ranking. A row opens its page over the list on
 /// compact widths and beside it on wider ones, where the open page's row stays highlighted.
@@ -97,13 +96,13 @@ public sealed class SettingsRootFragment : SettingsPageFragment<SettingOptionsPa
         var query = _search?.EditText?.Text?.Trim();
         if (!string.IsNullOrEmpty(query))
         {
-            var results = SettingsCatalog.Search(query);
+            var results = VM.SearchSettings(query);
             if (results.Count == 0) _list.AddView(Header(Translator.ContextFlyout_NoResults));
             foreach (var entry in results) _list.AddView(RowFor(entry, showDescription: true));
         }
         else
         {
-            foreach (var section in SettingsCatalog.GetSections())
+            foreach (var section in VM.GetSettingsSections())
             {
                 if (section.Title is { } title) _list.AddView(Header(title));
                 foreach (var entry in section.Entries) _list.AddView(RowFor(entry, showDescription: false));

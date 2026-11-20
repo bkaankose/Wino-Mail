@@ -22,11 +22,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Badges;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Notifications;
-using Wino.Helpers;
 using Wino.Mail.Controls.ContactPicture;
 using Wino.Mail.WinUI.Activation;
-using Wino.Messaging.UI;
 using Wino.NotificationHost.Contracts;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Platform.Windows.Services;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -150,7 +152,7 @@ public class NotificationBuilder : INotificationBuilder
                 builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
                 builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
                 builder.AddButton(CreateDismissButton());
-                builder.SetAudioEvent((AppNotificationSoundEvent)NotificationSettingsResolver.ResolveMail(_preferencesService, null).Sound);
+                SetSound(builder, NotificationSettingsResolver.ResolveMail(_preferencesService, null).Sound);
 
                 await ShowNotificationAsync(NotificationHostApplication.Mail, builder);
             }
@@ -194,7 +196,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddText(NotificationContentRules.ComposeHiddenMailText(mailCount));
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
         builder.AddButton(CreateDismissButton());
-        builder.SetAudioEvent((AppNotificationSoundEvent)settings.Sound);
+        SetSound(builder, settings.Sound);
 
         // Unique per batch so a later batch never rewrites an earlier count.
         await ShowNotificationAsync(NotificationHostApplication.Mail, builder, $"hidden-{Guid.NewGuid():N}", accountPreferences);
@@ -418,7 +420,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
         builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
-        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.CalendarNotificationSoundEvent);
+        SetSound(builder, _preferencesService.CalendarNotificationSoundEvent);
 
         var allowedSnoozeMinutes = CalendarReminderSnoozeOptions.GetAllowedSnoozeMinutes(
             reminderDurationInSeconds,
@@ -516,7 +518,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddButton(CreateOpenButton()
             .AddArgument(Constants.ToastModeKey, Constants.ToastModePeople));
         builder.AddButton(CreateDismissButton());
-        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.MailNotificationSoundEvent);
+        SetSound(builder, _preferencesService.MailNotificationSoundEvent);
 
         return ShowNotificationAsync(NotificationHostApplication.People, builder, $"people-test-{contact.Id:N}");
     }
@@ -540,7 +542,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddButton(CreateOpenButton()
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
         builder.AddButton(CreateDismissButton());
-        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.CalendarNotificationSoundEvent);
+        SetSound(builder, _preferencesService.TaskNotificationSoundEvent);
 
         return ShowNotificationAsync(NotificationHostApplication.Tasks, builder, $"task-test-{task.Id:N}");
     }
@@ -597,7 +599,7 @@ public class NotificationBuilder : INotificationBuilder
         }
 
         builder.AddButton(CreateDismissButton());
-        builder.SetAudioEvent((AppNotificationSoundEvent)settings.Sound);
+        SetSound(builder, settings.Sound);
 
         await ShowNotificationAsync(NotificationHostApplication.Mail, builder, mailItem.UniqueId.ToString(), accountPreferences);
     }
@@ -743,6 +745,14 @@ public class NotificationBuilder : INotificationBuilder
 
     private static AppNotificationButton CreateOpenButton()
         => CreateButton(Translator.Buttons_Open, "open");
+
+    private static void SetSound(AppNotificationBuilder builder, NotificationSoundEvent sound)
+    {
+        if (sound == NotificationSoundEvent.None)
+            builder.MuteAudio();
+        else
+            builder.SetAudioEvent((AppNotificationSoundEvent)sound);
+    }
 
     private static AppNotificationButton CreateDismissButton()
         => CreateButton(Translator.Buttons_Dismiss, "dismiss")

@@ -7,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Core.Domain.Models.Printing;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.ViewModels.Models.Printing;
 
 namespace Wino.Mail.WinUI.Services;
 

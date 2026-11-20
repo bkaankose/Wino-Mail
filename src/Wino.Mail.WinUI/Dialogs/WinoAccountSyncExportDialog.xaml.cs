@@ -1,4 +1,4 @@
-namespace Wino.Dialogs;
+namespace Wino.Mail.WinUI.Dialogs;
 
 /// <summary>
 /// Confirms a backup to the Wino Account. The caller asks for the backup password and runs the

@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml;
-using Wino.Core.ViewModels;
 using Wino.Mail.WinUI;
+using Wino.Mail.ViewModels.Common;
 
-namespace Wino.Views.Abstract;
+namespace Wino.Mail.WinUI.Views.Abstract;
 
 public partial class SettingsPageBase<T> : BasePage<T> where T : CoreBaseViewModel
 {

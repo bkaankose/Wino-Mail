@@ -1,13 +1,13 @@
-﻿<abstract:WidgetsLiveTilesSettingsPageAbstract
-    x:Class="Wino.Views.Settings.WidgetsLiveTilesSettingsPage"
+﻿<viewsAbstract:WidgetsLiveTilesSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.WidgetsLiveTilesSettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     mc:Ignorable="d">
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
@@ -171,4 +171,4 @@
             </controls:SettingsCard.HeaderIcon>
         </controls:SettingsCard>
     </StackPanel>
-</abstract:WidgetsLiveTilesSettingsPageAbstract>
+</viewsAbstract:WidgetsLiveTilesSettingsPageAbstract>

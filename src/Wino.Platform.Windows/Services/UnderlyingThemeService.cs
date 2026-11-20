@@ -2,7 +2,7 @@ using Windows.UI.ViewManagement;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 public class UnderlyingThemeService : IUnderlyingThemeService
 {

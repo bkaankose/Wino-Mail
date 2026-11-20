@@ -9,7 +9,7 @@ using Ical.Net.DataTypes;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Synchronizers.Exchange.ActiveSync;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 internal static partial class EasDataMapper
 {

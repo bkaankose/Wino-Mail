@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Helpers;
+namespace Wino.Platform.Windows.Helpers;
 
 public static class NotificationSoundPlayer
 {
@@ -12,6 +12,9 @@ public static class NotificationSoundPlayer
 
     public static void Play(NotificationSoundEvent soundEvent)
     {
+        if (soundEvent == NotificationSoundEvent.None)
+            return;
+
         var soundAlias = soundEvent switch
         {
             NotificationSoundEvent.IM => "Notification.IM",

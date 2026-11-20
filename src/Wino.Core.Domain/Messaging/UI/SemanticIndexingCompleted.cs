@@ -1,6 +1,6 @@
 using System;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 public record SemanticIndexingCompleted(
     Guid AccountId,

@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
@@ -29,10 +30,11 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
     public ObservableCollection<MailCategory> Categories { get; } = [];
 
-    public bool CanRefresh => Account?.ProviderType == MailProviderType.Outlook;
+    public bool CanRefresh => Account != null && _providers.GetTraits(Account.ProviderType).SupportsCategorySync;
     public bool HasCategories => Categories.Count > 0;
 
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IMailProviderRegistry _providers;
 
     public MailCategoryManagementPageViewModel(
         IMessenger messenger,
@@ -41,13 +43,16 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         IAccountService accountService,
         IMailDialogService dialogService,
         IWinoRequestDelegator winoRequestDelegator,
-        IContactQueryService contactService) : base(messenger)
+        IContactQueryService contactService,
+        IAppLockService appLockService,
+        IMailProviderRegistry providers) : base(messenger)
     {
         _synchronizationManager = synchronizationManager;
+        _providers = providers;
         _mailCategoryService = mailCategoryService;
         _accountService = accountService;
         _dialogService = dialogService;
-        _categoryEditor = new CategoryEditor(mailCategoryService, contactService, dialogService, winoRequestDelegator);
+        _categoryEditor = new CategoryEditor(mailCategoryService, contactService, dialogService, winoRequestDelegator, appLockService);
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)

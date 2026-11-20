@@ -1,7 +1,7 @@
 using UIKit;
 using Wino.Core.Domain.Enums;
-using Wino.Core.ViewModels.Attachments;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Common.Attachments;
 
 namespace Wino.Mail.UIKit.Infrastructure;
 

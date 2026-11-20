@@ -6,11 +6,11 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
-using Wino.Core.MAPI.Rops;
-using Wino.Core.MAPI.Transport;
-using Wino.Core.MAPI.Wire;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI.Transport;
+using Wino.Providers.Exchange.MAPI.Wire;
 
-namespace Wino.Core.MAPI.AddressBook;
+namespace Wino.Providers.Exchange.MAPI.AddressBook;
 
 /// <summary>
 /// The address book half of MAPI/HTTP (MS-OXCMAPIHTTP 2.2.5, the NSPI operations of MS-OXNSPI carried

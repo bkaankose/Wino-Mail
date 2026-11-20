@@ -12,7 +12,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Synchronization;
 using Task = System.Threading.Tasks.Task;
 
-namespace Wino.Core.Synchronizers.Exchange;
+namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
 // The organization's Active Directory as Exchange exposes it: the account's own photo, the photos of senders from the
 // same organization, and the Global Address List as a read-only address book. Photos are fetched over EWS

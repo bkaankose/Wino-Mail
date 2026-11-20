@@ -2,7 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 
-namespace Wino.Calendar.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Calendar.Data;
 
 public partial class CalendarComposeAttendeeViewModel : ObservableObject, IContactDisplayItem
 {

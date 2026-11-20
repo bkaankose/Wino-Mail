@@ -3,11 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain.Interfaces;
-using Wino.Views.Abstract;
-using Wino.Helpers;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class CreateEmailTemplatePage : CreateEmailTemplatePageAbstract
 {

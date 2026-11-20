@@ -3,8 +3,6 @@ using CoreGraphics;
 using Foundation;
 using ObjCRuntime;
 using UIKit;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -19,6 +17,8 @@ using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Views.Mail.Compose;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 
@@ -53,7 +53,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         nameof(CalendarEventComposePageViewModel.SelectedRecurrenceInterval),
         nameof(CalendarEventComposePageViewModel.SelectedRecurrenceFrequencyOption),
         nameof(CalendarEventComposePageViewModel.RecurrenceEndDate),
-        nameof(CalendarEventComposePageViewModel.SelectedReminderOption),
+        nameof(CalendarEventComposePageViewModel.ReminderSummary),
         nameof(CalendarEventComposePageViewModel.SelectedShowAsOption),
         nameof(CalendarEventComposePageViewModel.SelectedTimeZoneOption),
         nameof(CalendarEventComposePageViewModel.IsPrivate),
@@ -318,7 +318,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
     private void BuildDetailsCard()
     {
         _detailsCard.Title = Translator.CalendarEventDetails_Details;
-        _reminderButton.Menu = DeferredMenu(() => OptionMenu(ViewModel.ReminderOptions, ViewModel.SelectedReminderOption, option => option.DisplayText, option => ViewModel.SelectedReminderOption = option));
+        _reminderButton.Menu = DeferredMenu(ReminderMenu);
         _showAsButton.Menu = DeferredMenu(() => OptionMenu(ViewModel.ShowAsOptions, ViewModel.SelectedShowAsOption, option => option.DisplayText, option => ViewModel.SelectedShowAsOption = option));
         _detailsCard.AddRow(ValueRow(Translator.CalendarEventDetails_Reminder, _reminderButton));
         _detailsCard.AddRow(ValueRow(Translator.CalendarEventDetails_ShowAs, _showAsButton));
@@ -504,7 +504,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         });
         Bind(nameof(ViewModel.SelectedRepeatOption), vm => vm.SelectedRepeatOption, _ => { ApplyRepeatTitle(); ApplyWhenSummary(); });
         Bind(nameof(ViewModel.SelectedShowAsOption), vm => vm.SelectedShowAsOption, option => { SetMenuTitle(_showAsButton, option?.DisplayText); ApplyDetailsSummary(); });
-        Bind(nameof(ViewModel.SelectedReminderOption), vm => vm.SelectedReminderOption, option => { SetMenuTitle(_reminderButton, option?.DisplayText); ApplyDetailsSummary(); });
+        Bind(nameof(ViewModel.ReminderSummary), vm => vm.ReminderSummary, summary => { SetMenuTitle(_reminderButton, summary); ApplyDetailsSummary(); });
         Bind(nameof(ViewModel.SelectedCalendar), vm => vm.SelectedCalendar, _ => { ApplyCalendar(); ApplyAttendees(); ApplyAttachments(); });
         Bind(nameof(ViewModel.CanAddOnlineMeeting), vm => vm.CanAddOnlineMeeting, _ => ApplyCalendar());
         Bind(nameof(ViewModel.CanAddAttachments), vm => vm.CanAddAttachments, _ => ApplyCalendar());
@@ -801,6 +801,12 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         if (!ReferenceEquals(option, ViewModel.SelectedTimeZoneOption)) ViewModel.SelectedTimeZoneOption = option;
     }
 
+    /// <summary>Several reminders can be on: each item toggles its own check.</summary>
+    private UIMenuElement[] ReminderMenu()
+        => ViewModel.ReminderOptions
+            .Select(option => (UIMenuElement)EditorFormatToolbar.Action(option.DisplayText, () => option.IsSelected = !option.IsSelected, option.IsSelected))
+            .ToArray();
+
     private static UIMenuElement[] OptionMenu<T>(IList<T> options, T? selected, Func<T, string> text, Action<T> choose) where T : class
         => options.Select(option => (UIMenuElement)EditorFormatToolbar.Action(text(option) ?? string.Empty, () => choose(option), ReferenceEquals(option, selected))).ToArray();
 
@@ -841,7 +847,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
     /// <summary>The Details card's closed line: reminder, show as, then Private and the online meeting when they are on.</summary>
     private void ApplyDetailsSummary()
     {
-        var parts = new List<string?> { ViewModel.SelectedReminderOption?.DisplayText, ViewModel.SelectedShowAsOption?.DisplayText };
+        var parts = new List<string?> { ViewModel.ReminderSummary, ViewModel.SelectedShowAsOption?.DisplayText };
         if (ViewModel.IsPrivate) parts.Add(Translator.CalendarEventCompose_Private);
         if (ViewModel.IsOnlineMeeting && ViewModel.CanAddOnlineMeeting) parts.Add(_onlineLabel.Text);
         _detailsCard.Caption = Join(parts);

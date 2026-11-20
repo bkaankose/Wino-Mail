@@ -6,7 +6,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Helpers;
 using Wino.Core.Domain.Models.Attachments;
 
-namespace Wino.Core.ViewModels.Attachments;
+namespace Wino.Mail.ViewModels.Common.Attachments;
 
 public abstract partial class AttachmentViewModelBase : ObservableObject
 {

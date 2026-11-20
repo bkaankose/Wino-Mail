@@ -1,5 +1,5 @@
 ﻿<abstract:BackupRestorePageAbstract
-    x:Class="Wino.Views.Settings.BackupRestorePage"
+    x:Class="Wino.Mail.WinUI.Views.Settings.BackupRestorePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"

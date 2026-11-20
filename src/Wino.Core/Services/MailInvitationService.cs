@@ -15,10 +15,13 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Integration.Processors;
 using Wino.Services;
+using Wino.Core.Interfaces;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 
@@ -44,6 +47,7 @@ public sealed class MailInvitationService : IMailInvitationService
     private readonly ISmtpTransport _smtpTransport;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly IPreferencesService _preferencesService;
+    private readonly IAppLockService _appLockService;
 
     public MailInvitationService(
         IAccountService accountService,
@@ -55,8 +59,10 @@ public sealed class MailInvitationService : IMailInvitationService
         ISmtpTransport smtpTransport,
         IWinoRequestDelegator requestDelegator,
         IPreferencesService preferencesService,
-        IMailProviderRegistry providers)
+        IMailProviderRegistry providers,
+        IAppLockService appLockService)
     {
+        _appLockService = appLockService;
         _providers = providers;
         _accountService = accountService;
         _calendarService = calendarService;
@@ -103,6 +109,8 @@ public sealed class MailInvitationService : IMailInvitationService
         if (invitation == null || invitation.Method != MailInvitationMethod.Request)
             throw new MailInvitationException(Translator.MailInvitationService_CannotRespond);
 
+        ThrowIfLocked();
+
         await AnswerGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -148,6 +156,8 @@ public sealed class MailInvitationService : IMailInvitationService
         if (invitation == null)
             throw new MailInvitationException(Translator.MailInvitationService_CannotRemove);
 
+        ThrowIfLocked();
+
         await AnswerGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -188,6 +198,12 @@ public sealed class MailInvitationService : IMailInvitationService
         {
             AnswerGate.Release();
         }
+    }
+
+    private void ThrowIfLocked()
+    {
+        if (_appLockService.AreActionsRefused)
+            throw new MailInvitationException(Translator.AppLock_ActionDenied, new AppLockedException());
     }
 
     #region State
@@ -506,7 +522,16 @@ public sealed class MailInvitationService : IMailInvitationService
             ? new CalendarOperationPreparationRequest(operation, item)
             : new CalendarOperationPreparationRequest(operation, item, ResponseMessage: comment.Trim());
 
-        await _requestDelegator.ExecuteAsync(request).ConfigureAwait(false);
+        var result = await _requestDelegator.ExecuteAsync(request).ConfigureAwait(false);
+        if (result.Error is { } error)
+        {
+            throw new MailInvitationException(error switch
+            {
+                AppLockedException => Translator.AppLock_ActionDenied,
+                ReadOnlyCalendarException => Translator.CalendarReadOnly_Message,
+                _ => error.Message
+            }, error);
+        }
     }
 
     /// <summary>

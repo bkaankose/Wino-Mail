@@ -1,4 +1,4 @@
-namespace Wino.Mail.Controls.Core;
+namespace Wino.Mail.Controls.Core.MailRow;
 
 /// <summary>Mail list row density (the Windows MailListDisplayMode).</summary>
 public enum WinoMailRowDensity

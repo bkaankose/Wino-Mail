@@ -2,13 +2,13 @@ using System.Collections.Specialized;
 using CoreGraphics;
 using Foundation;
 using UIKit;
-using Wino.Calendar.ViewModels;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.UIKit.Views.Calendar;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.UIKit.Phone.Calendar;
 
@@ -178,7 +178,7 @@ public sealed partial class CalendarPageViewController
     {
         var culture = ViewModel.CurrentSettings?.CultureInfo ?? System.Globalization.CultureInfo.CurrentCulture;
         var today = DateContext.GetToday();
-        var text = date.ToDateTime(TimeOnly.MinValue).ToString("dddd, MMM d", culture);
+        var text = date.ToDateTime(TimeOnly.MinValue).ToString(DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(culture, abbreviatedMonth: true), culture);
         if (date == today) return string.Format(culture, Translator.IOS_Calendar_TodayPrefix, text);
         if (date == today.AddDays(1)) return string.Format(culture, Translator.IOS_Calendar_TomorrowPrefix, text);
         return text;

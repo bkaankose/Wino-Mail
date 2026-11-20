@@ -1,8 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 
-namespace Wino.Core.Domain.Models.Accounts;
+namespace Wino.Mail.ViewModels.Models.Accounts;
 
 public partial class AccountSetupStepModel : ObservableObject
 {

@@ -10,13 +10,12 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
-using Google;
-using Google.Apis.Calendar.v3.Data;
-using Google.Apis.Gmail.v1.Data;
-using Google.Apis.PeopleService.v1.Data;
-using DriveFile = Google.Apis.Drive.v3.Data.File;
+using Wino.Providers.Gmail.Google.Apis.Calendar.v3.Data;
+using Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data;
+using Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data;
+using DriveFile = Wino.Providers.Gmail.Google.Apis.Drive.v3.Data.File;
 
-namespace Wino.Core.Google;
+namespace Wino.Providers.Gmail.Google;
 
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,

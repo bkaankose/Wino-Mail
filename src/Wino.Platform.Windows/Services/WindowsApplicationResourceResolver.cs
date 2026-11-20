@@ -1,7 +1,7 @@
 using System;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Platform.Windows.Services;
 
 public sealed class WindowsApplicationResourceResolver : IApplicationResourceResolver
 {

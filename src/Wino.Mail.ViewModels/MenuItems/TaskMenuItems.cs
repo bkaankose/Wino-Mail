@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 
-namespace Wino.Core.Domain.MenuItems;
+namespace Wino.Mail.ViewModels.MenuItems;
 
 /// <summary>
 /// The pane's first row. It carries the "new group" action too, because that action is an
@@ -20,20 +22,10 @@ public sealed class NewTaskListMenuItem : MenuItemBase
 
 public abstract partial class TaskSmartViewMenuItem : MenuItemBase<TaskViewKind>
 {
-    private int _count;
-
     /// <summary>Remaining open tasks, shown as a trailing badge in the pane.</summary>
-    public int Count
-    {
-        get => _count;
-        set
-        {
-            if (!SetProperty(ref _count, value))
-                return;
-
-            OnPropertyChanged(nameof(HasCount));
-        }
-    }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCount))]
+    public partial int Count { get; set; }
 
     public bool HasCount => Count > 0;
 
@@ -162,20 +154,10 @@ public sealed partial class AccountTaskListMenuItem : MenuItemBase<AccountTaskLi
     public Func<AccountTaskListMenuItem, Task> DeleteRequested { get; init; }
     public Func<IMenuItem, IMenuItem, bool, Task> DropRequested { get; init; }
 
-    private int _count;
-
     /// <summary>Remaining open tasks, shown as a trailing badge in the pane.</summary>
-    public int Count
-    {
-        get => _count;
-        set
-        {
-            if (!SetProperty(ref _count, value))
-                return;
-
-            OnPropertyChanged(nameof(HasCount));
-        }
-    }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCount))]
+    public partial int Count { get; set; }
 
     public bool HasCount => Count > 0;
 

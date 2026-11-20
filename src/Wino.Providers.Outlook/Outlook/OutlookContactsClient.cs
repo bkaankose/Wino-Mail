@@ -9,7 +9,7 @@ using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Serialization;
 
-namespace Wino.Core.Outlook;
+namespace Wino.Providers.Outlook.Outlook;
 
 public sealed class OutlookContactsClient
 {

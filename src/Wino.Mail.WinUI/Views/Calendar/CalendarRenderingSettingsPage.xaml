@@ -8,6 +8,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     mc:Ignorable="d">
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
 
@@ -75,6 +76,7 @@
                                         Grid.Column="2"
                                         Margin="12,0"
                                         AutomationProperties.AutomationId="WorkHourStartPicker"
+                                        ClockIdentifier="{x:Bind winuiHelpers:XamlHelpers.GetTimePickerClockIdentifier(ViewModel.Is24HourHeaders), Mode=OneWay}"
                                         IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
                                         Time="{x:Bind ViewModel.WorkingHourStart, Mode=TwoWay}" />
                                 </Grid>
@@ -100,6 +102,7 @@
                                         Grid.Column="2"
                                         Margin="12,0"
                                         AutomationProperties.AutomationId="WorkHourEndPicker"
+                                        ClockIdentifier="{x:Bind winuiHelpers:XamlHelpers.GetTimePickerClockIdentifier(ViewModel.Is24HourHeaders), Mode=OneWay}"
                                         IsEnabled="{x:Bind ViewModel.IsWorkingHoursEnabled, Mode=OneWay}"
                                         Time="{x:Bind ViewModel.WorkingHourEnd, Mode=TwoWay}" />
                                 </Grid>
@@ -219,19 +222,4 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
     </StackPanel>
-
-    <VisualStateManager.VisualStateGroups>
-        <VisualStateGroup x:Name="ClockIdentifierStates">
-            <VisualState x:Name="TwelveHour" />
-            <VisualState x:Name="TwentyFourHour">
-                <VisualState.StateTriggers>
-                    <StateTrigger IsActive="{x:Bind ViewModel.Is24HourHeaders, Mode=OneWay}" />
-                </VisualState.StateTriggers>
-                <VisualState.Setters>
-                    <Setter Target="WorkHourStartPicker.ClockIdentifier" Value="24HourClock" />
-                    <Setter Target="WorkHourEndPicker.ClockIdentifier" Value="24HourClock" />
-                </VisualState.Setters>
-            </VisualState>
-        </VisualStateGroup>
-    </VisualStateManager.VisualStateGroups>
 </abstract:CalendarRenderingSettingsPageAbstract>

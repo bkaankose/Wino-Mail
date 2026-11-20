@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Exceptions;
+using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 

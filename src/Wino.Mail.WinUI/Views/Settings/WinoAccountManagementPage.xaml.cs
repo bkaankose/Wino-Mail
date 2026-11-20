@@ -1,10 +1,10 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Core.ViewModels.Data;
-using Wino.Views.Abstract;
 using WinRT;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Mail.WinUI.Views.Abstract;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class WinoAccountManagementPage : WinoAccountManagementPageAbstract
 {

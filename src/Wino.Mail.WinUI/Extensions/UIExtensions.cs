@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Extensions;
+namespace Wino.Mail.WinUI.Extensions;
 
 public static class UIExtensions
 {

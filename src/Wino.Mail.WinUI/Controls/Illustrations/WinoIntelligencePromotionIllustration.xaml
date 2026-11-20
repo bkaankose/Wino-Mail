@@ -1,5 +1,5 @@
-<UserControl
-    x:Class="Wino.Controls.Illustrations.WinoIntelligencePromotionIllustration"
+﻿<UserControl
+    x:Class="Wino.Mail.WinUI.Controls.Illustrations.WinoIntelligencePromotionIllustration"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -10,7 +10,7 @@
     <!--
         "Long thread, short summary." This is the only illustration in the app allowed to use the
         spark: it means Wino Intelligence and nothing else.
-
+        
         The brand gradient goes on the large spark alone. A LinearGradientBrush restarts per shape,
         so the small parts use the flat brand brush instead of repeating the gradient five times.
     -->

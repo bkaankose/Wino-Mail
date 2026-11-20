@@ -1,8 +1,10 @@
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Synchronizers.Errors;
-using Wino.Core.Synchronizers.Errors.Exchange;
+using Wino.Core.Services;
+using Wino.Providers.Exchange.Interfaces;
+using Wino.Providers.Exchange.Synchronizers.Errors.Exchange;
 
-namespace Wino.Core.Services;
+namespace Wino.Providers.Exchange.Services;
 
 /// <summary>Routes Exchange synchronizer errors (EWS and MAPI over HTTP) to their handlers.</summary>
 public class ExchangeSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFactory, IExchangeSynchronizerErrorHandlerFactory

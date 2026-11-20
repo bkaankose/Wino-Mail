@@ -10,10 +10,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Messaging.Client.Calendar;
 using Wino.Services;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Integration.Processors;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Integration.Processors;
+namespace Wino.Providers.Exchange.Integration.Processors;
 
 /// <summary>
 /// Change processor for on-premises Exchange accounts, shared by the EWS and MAPI over HTTP synchronizers. The mail

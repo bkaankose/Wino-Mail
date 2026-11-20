@@ -7,7 +7,7 @@ Scan date: 2026-09-24. Branch `feature/vNext`.
 Every `*Service.cs` under `src/`, plus the non-`Service`-suffixed collaborators
 registered in DI (`ApplicationResourceManager`, `PackagedAppEntryLauncher`,
 `NavigationServiceBase`, `TaskCompletionSoundPlayer`, the profile-picture jobs).
-Generated Outlook/Kiota models are excluded.
+Generated Outlook/Kiota models are excluded (they were removed later, when Outlook moved to the official `Microsoft.Graph` package).
 
 Counts today:
 
@@ -510,8 +510,8 @@ scan assumed:
   `CoreUWPContainerSetup` next to the store service.
 - **3, window manager takes `Lazy<INewThemeService>`.** `NewThemeService`
   already depends on `IWinoWindowManager`, so the mutual edge the section
-  anticipated exists today. `AboutPageViewModel` lives in `Wino.Core.ViewModels`
-  and cannot see the window manager; it sends `WhatsNewOpenRequested`, which the
+  anticipated exists today. `AboutPageViewModel` lived in `Wino.Core.ViewModels`
+  (now `Wino.Mail.ViewModels/Common`) and cannot see the window manager; it sends `WhatsNewOpenRequested`, which the
   shell window handles with the same two lines as its title-bar button.
 - **8, delete-older-than is reshaped.** `MailService` depends on
   `IMimeFileService`, so the file service cannot take `IMailService` back.

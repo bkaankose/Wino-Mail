@@ -3,13 +3,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Authentication;
 using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Interfaces;
-using Wino.Mail.WinUI.Interfaces;
-using Wino.Mail.WinUI.Services;
-using Wino.Mail.WinUI.Services.WidgetsAndTiles;
 using Wino.Platform.Windows.Authentication;
 using Wino.Platform.Windows.PushRelay;
 using Wino.Platform.Windows.Services;
 using Wino.Services;
+using Wino.Platform.Windows.Interfaces;
+using Wino.Platform.Windows.Services.WidgetsAndTiles;
+using Wino.Services.Interfaces;
 
 namespace Wino.Platform.Windows;
 

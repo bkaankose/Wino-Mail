@@ -4,8 +4,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Interfaces;
+using Wino.Services.Interfaces;
 
-namespace Wino.Core.Synchronizers.Errors.Outlook;
+namespace Wino.Providers.Outlook.Synchronizers.Errors.Outlook;
 
 public class ObjectCannotBeDeletedHandler : ISynchronizerErrorHandler
 {

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
-using Wino.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.Client.Calendar;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 public partial class CalendarBaseViewModel : CoreBaseViewModel,
     IRecipient<CalendarItemAdded>,

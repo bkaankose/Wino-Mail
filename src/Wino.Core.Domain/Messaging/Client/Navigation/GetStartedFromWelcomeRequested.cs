@@ -1,4 +1,4 @@
-﻿namespace Wino.Messaging.Client.Navigation;
+﻿namespace Wino.Core.Domain.Messaging.Client.Navigation;
 
 /// <summary>
 /// User clicked "Get Started" on the welcome page.

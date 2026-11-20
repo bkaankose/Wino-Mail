@@ -57,7 +57,8 @@ Each platform has a project file in the guidance map and a development guide. Re
 - Report the result, verification evidence, and remaining limits. A build alone does not prove runtime behavior.
 - Run checks on the available host. Report the other platform's exact pending checks as a handoff; do not claim cross-platform completion without that evidence.
 - Any machine may change any code, including a head it cannot build. Verify everything the machine allows, follow that project's `AGENTS.md` for the rest, and report its build and UI check as pending.
-- Never commit or push unless the user explicitly asks in the current request. Creating a local branch is fine; changes stay uncommitted on the local machine until the user asks for a commit or push.
+- Development runs on two machines that stay in sync through the remote. The Windows PC develops the Windows application and coordinates all work; the Mac (`burak-mac`) develops the macOS, iOS and Android applications, through a headless Claude Code that the Windows coordinator starts. Shared code can change on either machine.
+- Commit finished, verified work and push it to the working branch so the other machine can pull it, and pull before you start. When a pull on the Mac conflicts, the Mac resolves the conflict, commits the resolution as its own commit and pushes; the Windows PC then pulls it back. Never force-push a shared branch, and push to `main` only when `main` is the working branch.
 
 ## Commits and release notes
 
@@ -78,6 +79,7 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 - Give collection expressions that target read-only interfaces an explicit concrete backing type. Collections that reach an items source need a concrete static type, not an interface; `WINOAOT001` enforces it. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
 - Write no comments in source code unless one identifies a potential risk, explains an uncommon decision behind the code, or is needed for everyone to understand it. Do not restate member names, describe what the code plainly does, or narrate the feature.
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
+- A file's namespace is its project's `RootNamespace` plus its folder path; `IDE0130` is an error in `.editorconfig`, so the build fails on a mismatch. Move a file or rename a namespace together with every `using`, XAML `using:` prefix, `x:Class`, trimming root (`ILLink*.xml`) and type name written in a string.
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
 - The database changes only after the server confirms a change. The UI change is applied in memory and reverted on failure, through the request pipeline in [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md). Add no offline queue and no retry queue.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
@@ -89,6 +91,7 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 There are no test projects, written tests, mocks or fakes in this repository or in any other Wino repository, and none are added. Verify a change by running the real code and reporting what it printed.
 
 - Write one C# file in your scratchpad, outside the repository, and run it with `dotnet run <file>.cs`. A first line `#:project <absolute path to a .csproj>` references a repository project, so the script needs no project file.
+- Add `#:property TargetFramework=net10.0` below it. Outside the repository `global.json` does not apply, and the newest installed SDK would build the script for a newer .NET than the apps run on.
 - Use the real services, the real network and a real database in an empty scratch folder. Replace nothing with a stand-in.
 - A script disables reflection-based JSON. To print an object as JSON, add the line `#:property JsonSerializerIsReflectionEnabledByDefault=true`.
 - Keep scripts out of the repository, and never point one at the installed app's data folder.

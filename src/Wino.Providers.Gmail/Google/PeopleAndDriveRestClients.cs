@@ -7,10 +7,10 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Google.Apis.PeopleService.v1.Data;
-using DriveFile = Google.Apis.Drive.v3.Data.File;
+using Wino.Providers.Gmail.Google.Apis.PeopleService.v1.Data;
+using DriveFile = Wino.Providers.Gmail.Google.Apis.Drive.v3.Data.File;
 
-namespace Wino.Core.Google;
+namespace Wino.Providers.Gmail.Google;
 
 public sealed class PeopleServiceService : IDisposable
 {

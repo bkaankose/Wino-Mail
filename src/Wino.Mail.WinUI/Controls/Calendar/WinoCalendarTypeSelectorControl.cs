@@ -7,7 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.WinUI.Controls;
 using WinRT;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public partial class WinoCalendarTypeSelectorControl : Control
 {

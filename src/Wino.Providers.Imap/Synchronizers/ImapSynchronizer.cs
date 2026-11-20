@@ -34,17 +34,27 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
-using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Misc;
 using Wino.Core.Services;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 using Wino.Services;
 using Wino.Services.Extensions;
 using Wino.Mail.AI.Abstractions;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Core.Interfaces;
+using Wino.Core.Synchronizers;
+using Wino.Providers.Imap.Extensions;
+using Wino.Providers.Imap.Integration;
+using Wino.Providers.Imap.Integration.Processors;
+using Wino.Providers.Imap.Interfaces;
+using Wino.Providers.Imap.Models.Connectivity;
+using Wino.Providers.Imap.Requests.Bundles;
+using Wino.Providers.Imap.Synchronizers.ImapSync;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 
-namespace Wino.Core.Synchronizers.Mail;
+namespace Wino.Providers.Imap.Synchronizers;
 
 public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ILiveChangeListener, ISemanticMailBodySynchronizer
 {
@@ -186,7 +196,7 @@ IImapChangeProcessor imapChangeProcessor,
 
         _clientPool = new ImapClientPool(poolOptions);
         _localCalendarOperationHandler = new LocalCalendarOperationAdapter(new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local"));
-        _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(Account, _calDavSynchronizationEngine);
+        _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(Account, _calDavSynchronizationEngine, _imapChangeProcessor);
     }
 
     /// <summary>
@@ -933,8 +943,8 @@ IImapChangeProcessor imapChangeProcessor,
         // Check draft mapping.
         // This is the same implementation as in the OutlookSynchronizer.
 
-        var draftHeaderValue = message.MimeMessage?.Headers?.FirstOrDefault(h => Domain.Constants.IsLocalDraftHeader(h.Field))?.Value
-                               ?? message.MessageSummary?.Headers?.FirstOrDefault(h => Domain.Constants.IsLocalDraftHeader(h.Field))?.Value;
+        var draftHeaderValue = message.MimeMessage?.Headers?.FirstOrDefault(h => Wino.Core.Domain.Constants.IsLocalDraftHeader(h.Field))?.Value
+                               ?? message.MessageSummary?.Headers?.FirstOrDefault(h => Wino.Core.Domain.Constants.IsLocalDraftHeader(h.Field))?.Value;
 
         if (Guid.TryParse(draftHeaderValue, out Guid localDraftCopyUniqueId))
         {
@@ -1688,20 +1698,25 @@ IImapChangeProcessor imapChangeProcessor,
     {
         private readonly MailAccount _account;
         private readonly ICalDavSynchronizationEngine _engine;
+        private readonly IImapChangeProcessor _changeProcessor;
 
         public bool RequiresConnectedClient => false;
 
-        public CalDavCalendarOperationHandler(MailAccount account, ICalDavSynchronizationEngine engine)
+        public CalDavCalendarOperationHandler(MailAccount account, ICalDavSynchronizationEngine engine, IImapChangeProcessor changeProcessor)
         {
             _account = account;
             _engine = engine;
+            _changeProcessor = changeProcessor;
         }
 
         public Task CreateCalendarEventAsync(CreateCalendarEventRequest request)
             => _engine.CreateEventAsync(_account, request.PreparedItem, request.PreparedEvent.Attendees, request.PreparedEvent.Reminders, request.ComposeResult?.Attachments);
 
-        public Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
-            => _engine.UpdateEventAsync(_account, request.Item, request.Attendees, request.Attachments);
+        public async Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
+        {
+            await _engine.UpdateEventAsync(_account, request.Item, request.Attendees, request.Attachments).ConfigureAwait(false);
+            await _changeProcessor.PersistUpdatedCalendarEventAsync(request.Item, request.Attendees, request.Reminders).ConfigureAwait(false);
+        }
 
         public Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
             => _engine.DeleteEventAsync(_account, request.Item);

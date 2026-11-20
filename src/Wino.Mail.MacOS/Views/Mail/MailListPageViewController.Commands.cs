@@ -264,7 +264,7 @@ public sealed partial class MailListPageViewController
         });
         // Windows MailContextFlyoutBuilder: opens the assistant about the clicked mails.
         menu.AddItem(new NSMenuItem(Translator.VoiceBubble_DebugOpenForSelection, (_, _) =>
-            WeakReferenceMessenger.Default.Send(new Wino.Messaging.UI.VoiceSelectionRequested(
+            WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.UI.VoiceSelectionRequested(
                 Wino.Core.Domain.Models.Voice.VoiceLocalSelection.ForMails(targets.Select(static item => item.MailCopy).ToList())))));
 #endif
     }

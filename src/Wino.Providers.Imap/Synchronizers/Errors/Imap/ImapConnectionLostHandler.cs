@@ -7,8 +7,9 @@ using Serilog;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Interfaces;
 
-namespace Wino.Core.Synchronizers.Errors.Imap;
+namespace Wino.Providers.Imap.Synchronizers.Errors.Imap;
 
 /// <summary>
 /// Handles IMAP connection loss errors (IOException, SocketException, ServiceNotConnectedException).

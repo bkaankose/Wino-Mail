@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
 
-namespace Wino.Core.ViewModels;
+namespace Wino.Mail.ViewModels.Common;
 
 /// <summary>
 /// Runs a refresh once for a burst of requests. Saving a settings page or importing preferences

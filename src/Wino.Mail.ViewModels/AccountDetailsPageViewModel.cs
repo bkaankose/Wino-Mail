@@ -24,11 +24,12 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Misc;
 using Wino.Core.Services;
-using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Common.Data;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
@@ -49,6 +50,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IPictureStorageService _accountProfilePictureFileService;
     private readonly IWinoLogger _winoLogger;
     private readonly IAccountCapabilityService _accountCapabilityService;
+    private readonly IMailProviderRegistry _providers;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoAccountIntelligenceSnapshotService? _entitlementService;
     private readonly IExchangeConnectionTester? _exchangeConnectionTester;
@@ -73,7 +75,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public partial bool IsProfilePictureBusy { get; set; }
 
     public bool HasProfilePicture => Account?.ProfilePictureFileId.HasValue == true;
-    public bool CanRefreshProfilePicture => Account?.IsProfileInfoSyncSupported == true;
+    public bool CanRefreshProfilePicture => Account != null && _providers.GetTraits(Account.ProviderType).SupportsProfileInfoSync;
     public string ProfilePictureDescription => CanRefreshProfilePicture
         ? Translator.AccountDetailsPage_ProfilePictureDescription
         : Translator.AccountDetailsPage_ProfilePictureChooseDescription;
@@ -184,7 +186,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public bool HasTaskAccess => Account?.IsTaskAccessGranted == true;
     public bool IsTaskReauthorizationRequired => Account?.IsTaskReauthorizationRequired == true;
     public bool IsContactReauthorizationRequired => Account?.IsContactReauthorizationRequired == true;
-    public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+    public bool IsOAuthCapabilityEditable => Account != null && _providers.GetTraits(Account.ProviderType).UsesInteractiveOAuth;
     public bool IsCapabilitySelectionChanged => Account is not null &&
         (Account.IsMailAccessGranted != IsMailCapabilitySelected ||
          Account.IsCalendarAccessGranted != IsCalendarCapabilitySelected ||
@@ -269,6 +271,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IWinoLogger winoLogger,
         IAccountCapabilityService accountCapabilityService,
         ISynchronizationManager synchronizationManager,
+        IMailProviderRegistry providers,
         IWinoAccountIntelligenceSnapshotService? entitlementService = null,
         IExchangeConnectionTester? exchangeConnectionTester = null,
         IAccountReauthenticationService? reauthenticationService = null,
@@ -291,6 +294,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _winoLogger = winoLogger;
         _accountCapabilityService = accountCapabilityService;
         _synchronizationManager = synchronizationManager;
+        _providers = providers;
         _entitlementService = entitlementService;
         _exchangeConnectionTester = exchangeConnectionTester;
         _reauthenticationService = reauthenticationService;
@@ -1250,7 +1254,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 Type = MailSynchronizationType.FullFolders
             });
 
-            if (Account.ProviderType == MailProviderType.Outlook)
+            if (_providers.GetTraits(Account.ProviderType).SupportsCategorySync)
             {
                 await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
                 {

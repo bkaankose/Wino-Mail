@@ -1,7 +1,7 @@
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 public class KeyboardShortcutActionViewModel
 {

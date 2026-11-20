@@ -5,8 +5,8 @@ using Google.Android.Material.Button;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Presentation.Bindings;
+using Wino.Mail.ViewModels.Common;
 using Fragment = AndroidX.Fragment.App.Fragment;
 
 namespace Wino.Mail.Android.Infrastructure;
@@ -36,6 +36,9 @@ public sealed class PageEntry
 
     public WinoPage Page { get; }
     public object? Parameter { get; private set; }
+
+    /// <summary>The Windows page description of a Settings page, read in the current language; empty for other pages.</summary>
+    public Func<string> Description { get; init; } = static () => string.Empty;
 
     /// <summary>Where the page is shown (set from its route).</summary>
     public AndroidPageHost Host { get; init; } = AndroidPageHost.Root;

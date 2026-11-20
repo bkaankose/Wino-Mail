@@ -17,6 +17,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Contact;
 using Wino.Mail.ViewModels.Data;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 

@@ -6,9 +6,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Mail.WinUI.Selectors;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Mail.ViewModels.Common;
 using WinoNavigationMode = Wino.Core.Domain.Models.Navigation.NavigationMode;
 
 namespace Wino.Mail.WinUI;

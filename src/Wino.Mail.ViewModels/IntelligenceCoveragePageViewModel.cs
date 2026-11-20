@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,7 +14,7 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
+using Wino.Core.Domain.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
 
@@ -537,7 +538,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
             ? Translator.SemanticIndex_CoverageNothingSelected
             : string.Format(
                 Translator.SemanticIndex_CoverageReachesBackTo,
-                resolved.ReachDate.Value.ToString("d MMMM yyyy"));
+                resolved.ReachDate.Value.ToString(DateTimeDisplayFormatter.GetDatePattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture));
     }
 
     /// <summary>Recomputes the footer, which spans every included folder rather than one.</summary>

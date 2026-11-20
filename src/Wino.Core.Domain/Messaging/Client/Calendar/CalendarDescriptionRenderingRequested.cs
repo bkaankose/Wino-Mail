@@ -1,4 +1,4 @@
-namespace Wino.Messaging.Client.Calendar;
+namespace Wino.Core.Domain.Messaging.Client.Calendar;
 
 /// <summary>
 /// Message to trigger rendering of calendar event description in WebView2.

@@ -10,7 +10,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Xml.Linq;
 
-namespace Wino.Core.MAPI.Transport;
+namespace Wino.Providers.Exchange.MAPI.Transport;
 
 /// <summary>
 /// What the transport needs from Autodiscover to open a mailbox, plus the other mailboxes the

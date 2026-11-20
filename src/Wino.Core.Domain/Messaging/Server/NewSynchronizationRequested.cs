@@ -1,7 +1,7 @@
 ﻿using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
 
-namespace Wino.Messaging.Server;
+namespace Wino.Core.Domain.Messaging.Server;
 
 /// <summary>
 /// Triggers a new mail synchronization if possible.

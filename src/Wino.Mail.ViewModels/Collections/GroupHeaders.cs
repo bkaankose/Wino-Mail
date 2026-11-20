@@ -58,12 +58,12 @@ public partial class DateGroupHeader : GroupHeaderBase
             var d when d == today => Translator.Today,
             var d when d == yesterday => Translator.Yesterday,
             var d when d >= today.AddDays(-7) => date.ToString("dddd", AppDisplayCulture), // This week
-            var d when d.Year == today.Year => date.ToString("MMMM dd", AppDisplayCulture), // This year
-            _ => date.ToString("MMMM dd, yyyy", AppDisplayCulture) // Other years
+            var d when d.Year == today.Year => date.ToString("M", AppDisplayCulture), // This year
+            _ => date.ToString(DateTimeDisplayFormatter.GetDatePattern(AppDisplayCulture), AppDisplayCulture) // Other years
         };
     }
 
-    private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+    private static CultureInfo AppDisplayCulture => CultureInfo.CurrentCulture;
 }
 
 /// <summary>

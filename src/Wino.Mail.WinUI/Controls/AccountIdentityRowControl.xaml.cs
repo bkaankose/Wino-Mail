@@ -2,7 +2,7 @@ using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Shared;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public sealed partial class AccountIdentityRowControl : UserControl
 {

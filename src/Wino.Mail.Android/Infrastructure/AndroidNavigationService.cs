@@ -7,9 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Mail.Android.Views.Settings;
 using Wino.Mail.Android.Views.Shell;
-using Wino.Messaging.Client.Navigation;
 using Wino.Mail.ViewModels.Navigation;
-using Wino.Shell.ViewModels;
+using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.ViewModels.Shell;
 
 namespace Wino.Mail.Android.Infrastructure;
 
@@ -34,7 +35,7 @@ namespace Wino.Mail.Android.Infrastructure;
 /// while <see cref="CanHandleBack"/>, so the system's predictive back-to-home animation runs otherwise.
 /// </summary>
 public sealed class AndroidNavigationService : INavigationService, INavigationHost, IDisposable, IRecipient<SettingsRootNavigationRequested>,
-    IRecipient<Wino.Messaging.UI.WinoIntelligenceEntitlementChanged>
+    IRecipient<Wino.Core.Domain.Messaging.UI.WinoIntelligenceEntitlementChanged>
 {
     private readonly IServiceProvider _services;
     private readonly IDispatcher _dispatcher;
@@ -51,6 +52,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
     private WinoApplicationMode _mode = WinoApplicationMode.Mail;
     private MainActivity? _activity;
     private IWindowSizeClassService? _sizes;
+    private ISettingsCatalog? _catalog;
 
     public AndroidNavigationService(IServiceProvider services, IDispatcher dispatcher, AndroidPageRegistry registry)
     {
@@ -59,7 +61,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
         _registry = registry;
         _coordinator = new NavigationCoordinator(this, services, dispatcher);
         WeakReferenceMessenger.Default.Register<SettingsRootNavigationRequested>(this);
-        WeakReferenceMessenger.Default.Register<Wino.Messaging.UI.WinoIntelligenceEntitlementChanged>(this);
+        WeakReferenceMessenger.Default.Register<Wino.Core.Domain.Messaging.UI.WinoIntelligenceEntitlementChanged>(this);
     }
 
     /// <summary>Raised on the UI thread whenever the pages change, so the activity can update its back callback.</summary>
@@ -105,6 +107,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
     public bool ShowsReaderPane => Sizes.WidthClass != WindowWidthClass.Compact;
 
     private IWindowSizeClassService Sizes => _sizes ??= _services.GetRequiredService<IWindowSizeClassService>();
+    private ISettingsCatalog Catalog => _catalog ??= _services.GetRequiredService<ISettingsCatalog>();
 
     /// <summary>The application mode whose back stack receives pushed pages.</summary>
     public WinoApplicationMode ActiveMode => _mode;
@@ -612,7 +615,7 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
     }
 
     /// <summary>Losing access leaves the Wino Intelligence sub-pages for the page below them (Windows SettingsPage).</summary>
-    public void Receive(Wino.Messaging.UI.WinoIntelligenceEntitlementChanged message)
+    public void Receive(Wino.Core.Domain.Messaging.UI.WinoIntelligenceEntitlementChanged message)
     {
         if (message.Entitlement.CanAccessSurfaces) return;
         _ = ObserveSettingsAsync(LeaveIntelligenceSubPagesAsync());
@@ -760,7 +763,8 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
             Activated = route.Activated,
             Initialize = route.Initialize,
             Deactivate = route.Deactivate,
-            Renavigate = route.Renavigate
+            Renavigate = route.Renavigate,
+            Description = route.Host == AndroidPageHost.Settings ? () => Catalog.Description(page) : static () => string.Empty
         };
     }
 

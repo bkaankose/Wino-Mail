@@ -16,6 +16,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.ViewModels.Models.Printing;
 using DomainPrintCollation = Wino.Core.Domain.Enums.PrintCollation;
 using DomainPrintDuplex = Wino.Core.Domain.Enums.PrintDuplex;
 using DomainPrintMediaSize = Wino.Core.Domain.Enums.PrintMediaSize;

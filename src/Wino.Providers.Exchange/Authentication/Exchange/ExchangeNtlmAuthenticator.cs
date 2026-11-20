@@ -5,7 +5,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Authentication.Exchange;
+namespace Wino.Providers.Exchange.Authentication.Exchange;
 
 /// <summary>The stored password of an on-premises Exchange account as NTLM or Basic network credentials.</summary>
 public sealed class ExchangeNtlmAuthenticator

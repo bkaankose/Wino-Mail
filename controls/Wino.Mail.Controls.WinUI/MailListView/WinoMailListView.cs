@@ -742,9 +742,16 @@ public partial class WinoMailListView : ListView, IDisposable
     }
 
     /// <summary>
-    /// Detaches the items source for the duration of a wholesale group replacement so the
-    /// list performs one refresh instead of reacting to every group being added back.
+    /// Detaches the items source and the view source for the duration of a wholesale group
+    /// replacement, and builds a new view from the replaced groups afterwards. The list performs
+    /// one refresh instead of reacting to every group being added back.
     /// </summary>
+    /// <remarks>
+    /// A grouped XAML collection view that receives a group reset followed by group additions
+    /// ends up reporting one item fewer than its groups hold. The list then treats the last row
+    /// as out of range, and selecting it while keyboard focus belongs to the list fails fast
+    /// inside XAML. A view built from the final groups counts them correctly.
+    /// </remarks>
     private void OnProjectionGroupsResetting(object? sender, EventArgs args)
     {
         // A wholesale replacement is a new identity set, not a removal from the current one.
@@ -757,6 +764,7 @@ public partial class WinoMailListView : ListView, IDisposable
 
         _isReattachingItemsSource = true;
         ItemsSource = null;
+        GetViewSource().Source = null;
     }
 
     private void OnProjectionGroupsReset(object? sender, EventArgs args)
@@ -768,7 +776,14 @@ public partial class WinoMailListView : ListView, IDisposable
         }
 
         _isReattachingItemsSource = false;
-        ItemsSource = DetachCurrency(GetViewSource().View);
+        if (_projection is null)
+        {
+            return;
+        }
+
+        var viewSource = GetViewSource();
+        viewSource.Source = _projection.Groups;
+        ItemsSource = DetachCurrency(viewSource.View);
     }
 
     /// <summary>

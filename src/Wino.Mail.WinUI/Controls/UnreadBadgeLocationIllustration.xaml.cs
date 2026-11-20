@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
 public enum UnreadBadgeIllustrationKind
 {

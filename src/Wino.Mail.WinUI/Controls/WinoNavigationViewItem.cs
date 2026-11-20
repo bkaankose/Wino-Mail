@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
@@ -50,6 +51,7 @@ public partial class WinoNavigationViewItem : NavigationViewItem
     }
 
     [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    [DynamicWindowsRuntimeCast(typeof(ItemsRepeater))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
@@ -61,7 +63,48 @@ public partial class WinoNavigationViewItem : NavigationViewItem
             presenter.Loaded += PresenterLoadedForIndicator;
         }
 
+        if (_childItemsHost != null)
+            _childItemsHost.ElementPrepared -= ChildItemPrepared;
+
+        _childItemsHost = GetTemplateChild(ChildItemsHostName) as ItemsRepeater;
+
+        if (_childItemsHost != null)
+            _childItemsHost.ElementPrepared += ChildItemPrepared;
+
         HideSelectionIndicator();
+    }
+
+    private const string ChildItemsHostName = "NavigationViewItemMenuItemsHost";
+
+    private ItemsRepeater? _childItemsHost;
+
+    private void ChildItemPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+    {
+        if (args.Element is WinoNavigationViewItem { IsExpanded: true } child && IsInOpenPane())
+            child.ShowChildrenOfPreparedContainer();
+    }
+
+    /// <summary>
+    /// A rebuilt folder list keeps the expansion of the folders it replaced, so an item can arrive already expanded.
+    /// A recycled container then shows the expanded chevron without its children until it is toggled once.
+    /// </summary>
+    internal void ShowChildrenOfPreparedContainer()
+    {
+        IsExpanded = false;
+        IsExpanded = true;
+    }
+
+    /// <summary>Children of a closed pane's item are shown in a flyout, which is outside the NavigationView's tree.</summary>
+    [DynamicWindowsRuntimeCast(typeof(NavigationView))]
+    private bool IsInOpenPane()
+    {
+        for (var element = VisualTreeHelper.GetParent(this); element != null; element = VisualTreeHelper.GetParent(element))
+        {
+            if (element is NavigationView navigationView)
+                return navigationView.IsPaneOpen;
+        }
+
+        return false;
     }
 
     private void PresenterLoadedForIndicator(object sender, RoutedEventArgs e) => HideSelectionIndicator();

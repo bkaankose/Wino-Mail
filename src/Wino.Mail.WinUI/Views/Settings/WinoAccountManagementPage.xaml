@@ -1,16 +1,16 @@
-﻿<abstract:WinoAccountManagementPageAbstract
-    x:Class="Wino.Views.Settings.WinoAccountManagementPage"
+﻿<viewsAbstract:WinoAccountManagementPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Settings.WinoAccountManagementPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Common.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="Root"
     Title="{x:Bind domain:Translator.WinoAccount_SettingsSection_Title, Mode=OneTime}"
     mc:Ignorable="d">
@@ -27,7 +27,7 @@
             20x20 grid, rendered at one size in one container, which is what makes the four
             tile icons read as a set.
         -->
-        <DataTemplate x:Key="BenefitTileTemplate" x:DataType="viewModelData:WinoAccountBenefitItemViewModel">
+        <DataTemplate x:Key="BenefitTileTemplate" x:DataType="data:WinoAccountBenefitItemViewModel">
             <ItemContainer
                 HorizontalAlignment="Stretch"
                 AutomationProperties.AutomationId="{x:Bind AutomationId}"
@@ -79,7 +79,7 @@
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="10"
-                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsFreeBadge)}">
+                            Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsFreeBadge)}">
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -298,7 +298,7 @@
                                         x:Name="DeviceTransferIllustration"
                                         AutomationProperties.AccessibilityView="Raw"
                                         Stretch="Uniform"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsDeviceTransferBenefitSelected), Mode=OneWay}">
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsDeviceTransferBenefitSelected), Mode=OneWay}">
                                         <Canvas Width="240" Height="170">
                                             <Rectangle
                                                 Canvas.Left="6"
@@ -435,7 +435,7 @@
                                         x:Name="EntitlementsIllustration"
                                         AutomationProperties.AccessibilityView="Raw"
                                         Stretch="Uniform"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsEntitlementsBenefitSelected), Mode=OneWay}">
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsEntitlementsBenefitSelected), Mode=OneWay}">
                                         <Canvas Width="240" Height="170">
                                             <Path
                                                 Data="M43,92 V72 H120 V56 M120,72 H197 V92"
@@ -499,7 +499,7 @@
                                         x:Name="IntelligenceIllustration"
                                         AutomationProperties.AccessibilityView="Raw"
                                         Stretch="Uniform"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsIntelligenceBenefitSelected), Mode=OneWay}">
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsIntelligenceBenefitSelected), Mode=OneWay}">
                                         <Canvas Width="240" Height="170">
                                             <Rectangle
                                                 Canvas.Left="34"
@@ -578,7 +578,7 @@
                                         x:Name="UnlimitedAccountsIllustration"
                                         AutomationProperties.AccessibilityView="Raw"
                                         Stretch="Uniform"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsUnlimitedAccountsBenefitSelected), Mode=OneWay}">
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsUnlimitedAccountsBenefitSelected), Mode=OneWay}">
                                         <Canvas Width="240" Height="170">
                                             <Rectangle
                                                 Canvas.Left="26"
@@ -767,7 +767,7 @@
                                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                                     DisplayName="{x:Bind ViewModel.AccountDisplayName, Mode=OneWay}"
                                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                    ProfilePicture="{x:Bind helpers:XamlHelpers.GetContactEditorPreviewPicture(ViewModel.ProfilePhotoDraft, ViewModel.AccountAvatarPath), Mode=OneWay}" />
+                                    ProfilePicture="{x:Bind winuiHelpers:XamlHelpers.GetContactEditorPreviewPicture(ViewModel.ProfilePhotoDraft, ViewModel.AccountAvatarPath), Mode=OneWay}" />
                                 <Border
                                     Background="{ThemeResource SmokeFillColorDefaultBrush}"
                                     CornerRadius="36"
@@ -786,7 +786,7 @@
                                     VerticalAlignment="Bottom"
                                     AutomationProperties.AutomationId="WinoProfilePhotoOptions"
                                     CornerRadius="14"
-                                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsProfileBusy), Mode=OneWay}"
+                                    IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsProfileBusy), Mode=OneWay}"
                                     ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_PhotoOptions, Mode=OneTime}">
                                     <coreControls:WinoFontIcon FontSize="13" Icon="Edit" />
                                     <Button.Flyout>
@@ -855,26 +855,26 @@
                                     Margin="0,6,0,0"
                                     Orientation="Horizontal"
                                     Spacing="6"
-                                    Visibility="{x:Bind helpers:XamlHelpers.GetProfileStatusVisibility(ViewModel.IsProfileBusy, ViewModel.ProfileMessage), Mode=OneWay}">
+                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.GetProfileStatusVisibility(ViewModel.IsProfileBusy, ViewModel.ProfileMessage), Mode=OneWay}">
                                     <coreControls:WinoFontIcon
                                         VerticalAlignment="Center"
                                         FontSize="12"
                                         Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                         Icon="Checkmark"
-                                        Visibility="{x:Bind helpers:XamlHelpers.GetProfileSavedVisibility(ViewModel.ProfileMessage), Mode=OneWay}" />
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.GetProfileSavedVisibility(ViewModel.ProfileMessage), Mode=OneWay}" />
                                     <coreControls:WinoFontIcon
                                         VerticalAlignment="Center"
                                         FontSize="12"
                                         Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                         Icon="Warning"
-                                        Visibility="{x:Bind helpers:XamlHelpers.GetProfileFailedVisibility(ViewModel.ProfileMessage), Mode=OneWay}" />
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.GetProfileFailedVisibility(ViewModel.ProfileMessage), Mode=OneWay}" />
                                     <TextBlock
                                         VerticalAlignment="Center"
                                         AutomationProperties.AutomationId="WinoProfileStatus"
                                         AutomationProperties.LiveSetting="Polite"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind helpers:XamlHelpers.GetProfileStatusText(ViewModel.IsProfileBusy, ViewModel.ProfileMessage), Mode=OneWay}"
+                                        Text="{x:Bind winuiHelpers:XamlHelpers.GetProfileStatusText(ViewModel.IsProfileBusy, ViewModel.ProfileMessage), Mode=OneWay}"
                                         TextWrapping="Wrap" />
                                 </StackPanel>
                             </StackPanel>
@@ -1112,4 +1112,4 @@
         </ScrollViewer>
 
     </Grid>
-</abstract:WinoAccountManagementPageAbstract>
+</viewsAbstract:WinoAccountManagementPageAbstract>

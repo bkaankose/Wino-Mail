@@ -4,6 +4,7 @@ using UIKit;
 using Wino.Mail.Controls.Core;
 using Wino.Presentation;
 using Wino.Presentation.UIKit;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.Controls.UIKit.MailList;
 

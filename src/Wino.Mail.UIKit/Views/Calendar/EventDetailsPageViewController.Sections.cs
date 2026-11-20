@@ -3,7 +3,6 @@ using CoreGraphics;
 using Foundation;
 using UIKit;
 using WebKit;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
@@ -13,6 +12,7 @@ using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels.Calendar.Data;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 

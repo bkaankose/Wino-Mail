@@ -1,16 +1,16 @@
-﻿<abstract:WinoIntelligenceManagementPageAbstract
-    x:Class="Wino.Views.WinoIntelligenceManagementPage"
+﻿<viewsAbstract:WinoIntelligenceManagementPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Account.WinoIntelligenceManagementPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="PageRoot"
     mc:Ignorable="d">
 
@@ -51,7 +51,7 @@
                 <ToggleSwitch
                     AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneWay}"
                     AutomationProperties.Name="{x:Bind DisplayName, Mode=OneWay}"
-                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}"
+                    IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(IsBusy), Mode=OneWay}"
                     IsOn="{x:Bind IsVisible, Mode=OneWay}"
                     Tag="{x:Bind Mode=OneWay}"
                     Toggled="IntelligenceIndicatorToggle_Toggled" />
@@ -140,8 +140,8 @@
                                         Width="7"
                                         Height="7"
                                         VerticalAlignment="Center"
-                                        Fill="{x:Bind helpers:XamlHelpers.IntelligenceHeroStateBrush(ViewModel.HeroStateType), Mode=OneWay}"
-                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsHeroProgressVisible), Mode=OneWay}" />
+                                        Fill="{x:Bind winuiHelpers:XamlHelpers.IntelligenceHeroStateBrush(ViewModel.HeroStateType), Mode=OneWay}"
+                                        Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsHeroProgressVisible), Mode=OneWay}" />
                                     <ProgressRing
                                         Width="13"
                                         Height="13"
@@ -174,7 +174,7 @@
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{ThemeResource CaptionTextBlockStyle}"
                                     Text="{x:Bind ViewModel.IndexedMessageCountDetail, Mode=OneWay}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsJobActive), Mode=OneWay}" />
+                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsJobActive), Mode=OneWay}" />
 
                                 <!--  Index coverage, moved up from the group header below.  -->
                                 <Border
@@ -265,7 +265,7 @@
                     IsClosable="False"
                     IsOpen="{x:Bind ViewModel.IsStatusInfoBarVisible, Mode=OneWay}"
                     Message="{x:Bind ViewModel.StatusInfoBarMessage, Mode=OneWay}"
-                    Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.StatusInfoBarType), Mode=OneWay}"
+                    Severity="{x:Bind winuiHelpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.StatusInfoBarType), Mode=OneWay}"
                     Visibility="{x:Bind ViewModel.IsStatusInfoBarVisible, Mode=OneWay}">
                     <InfoBar.ActionButton>
                         <Button
@@ -398,7 +398,7 @@
                                 AutomationProperties.AutomationId="WinoIntelligenceStartCard"
                                 Description="{x:Bind ViewModel.PlanCardDescription, Mode=OneWay}"
                                 Header="{x:Bind ViewModel.PlanCardTitle, Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsJobActive), Mode=OneWay}">
+                                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsJobActive), Mode=OneWay}">
                                 <controls:SettingsCard.HeaderIcon>
                                     <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="Play" />
                                 </controls:SettingsCard.HeaderIcon>
@@ -531,4 +531,4 @@
             </StackPanel>
         </ScrollViewer>
     </Grid>
-</abstract:WinoIntelligenceManagementPageAbstract>
+</viewsAbstract:WinoIntelligenceManagementPageAbstract>

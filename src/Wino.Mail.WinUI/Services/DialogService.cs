@@ -23,32 +23,34 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Editor;
-using Wino.Dialogs;
-using Wino.Mail.Dialogs;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Services;
-using Wino.Messaging.Server;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.WinUI.Dialogs;
 
-namespace Wino.Services;
+namespace Wino.Mail.WinUI.Services;
 
 public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogService, IRecipient<SemanticIndexingCompleted>
 {
     private readonly IWinoAccountProfileService _winoAccountProfileService;
     private readonly IWinoAccountExternalSignInService _winoAccountExternalSignInService;
+    private readonly IAppLockService _appLockService;
 
     public DialogService(INewThemeService themeService,
                          IConfigurationService configurationService,
                          IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
                          IWinoAccountProfileService winoAccountProfileService,
-                         IWinoAccountExternalSignInService winoAccountExternalSignInService) : base(themeService, configurationService, applicationResourceManager)
+                         IWinoAccountExternalSignInService winoAccountExternalSignInService,
+                         IAppLockService appLockService) : base(themeService, configurationService, applicationResourceManager)
     {
         _winoAccountProfileService = winoAccountProfileService;
         _winoAccountExternalSignInService = winoAccountExternalSignInService;
+        _appLockService = appLockService;
         WeakReferenceMessenger.Default.Register(this);
     }
 
@@ -612,9 +614,7 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
 
     public async Task<bool> ShowAppLockVerificationDialogAsync()
     {
-        var appLockService = WinoApplication.Current.Services.GetRequiredService<IAppLockService>();
-
-        var dialog = new AppLockVerificationDialog(appLockService)
+        var dialog = new AppLockVerificationDialog(_appLockService)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };

@@ -10,7 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Core.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 public partial class MergedAccountProviderDetailViewModel : ObservableObject, IAccountProviderDetailViewModel
 {

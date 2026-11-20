@@ -37,7 +37,9 @@ public sealed class GlobalMessengerAnalyzer : DiagnosticAnalyzer
         "Wino.Providers.Exchange",
         "Wino.Providers.Dav",
         "Wino.Mail.ViewModels",
-        "Wino.Hosting");
+        "Wino.Hosting",
+        "Wino.Agent.Runtime",
+        "Wino.Core.ML");
 
     private const string RegistrationFileName = "ServicesContainerSetup.cs";
 

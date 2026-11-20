@@ -4,7 +4,7 @@ using Wino.Mail.Controls.Core.AccountIcon;
 
 namespace Wino.Mail.Controls.Playground.ViewModels;
 
-public sealed class AccountIconPageViewModel : INotifyPropertyChanged
+public sealed partial class AccountIconPageViewModel : INotifyPropertyChanged
 {
     private AccountIconProviderOption _selectedProvider;
     private string _accountColorHex = "#4F6BED";

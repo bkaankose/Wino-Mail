@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
 
-namespace Wino.Messaging.UI;
+namespace Wino.Core.Domain.Messaging.UI;
 
 public record BulkMailReadStatusChanged(IReadOnlyList<Guid> UniqueIds);

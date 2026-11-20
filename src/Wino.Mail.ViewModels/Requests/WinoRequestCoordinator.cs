@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels.Requests;
 

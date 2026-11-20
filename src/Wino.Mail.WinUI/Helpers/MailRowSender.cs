@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using WinRT;
 
-namespace Wino.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 /// <summary>
 /// Lets a thread head show another sender than the mail its body is bound to. The head and the first

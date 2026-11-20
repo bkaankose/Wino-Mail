@@ -3,7 +3,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
 
-namespace Wino.Core.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 /// <summary>
 /// One editable color of a custom theme palette, together with the miniature surface that

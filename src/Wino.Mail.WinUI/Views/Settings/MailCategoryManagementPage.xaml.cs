@@ -2,10 +2,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Wino.Core.Domain.Entities.Mail;
-using Wino.Views.Abstract;
+using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
 
-namespace Wino.Views.Settings;
+namespace Wino.Mail.WinUI.Views.Settings;
 
 public sealed partial class MailCategoryManagementPage : MailCategoryManagementPageAbstract
 {

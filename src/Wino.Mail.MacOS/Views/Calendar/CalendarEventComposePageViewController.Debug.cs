@@ -1,8 +1,8 @@
 #if DEBUG
 using System.Globalization;
-using Wino.Calendar.ViewModels;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.ViewModels.Calendar;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
 

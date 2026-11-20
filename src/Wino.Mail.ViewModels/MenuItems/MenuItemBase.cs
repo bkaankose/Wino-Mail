@@ -1,0 +1,77 @@
+﻿using System;
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.MenuItems.Contracts;
+
+namespace Wino.Mail.ViewModels.MenuItems;
+
+public partial class MenuItemBase : ObservableObject, IMenuItem
+{
+    [ObservableProperty]
+    public partial bool IsExpanded { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+
+    /// <summary>
+    /// Whether the pane entry can be invoked. A mode drills into a detail page while its
+    /// menu stays published, so its entries are disabled rather than left clickable and dead.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsEnabled { get; set; } = true;
+
+    public IMenuItem ParentMenuItem { get; }
+
+    public Guid? EntityId { get; }
+
+    public MenuItemBase(Guid? entityId = null, IMenuItem parentMenuItem = null)
+    {
+        EntityId = entityId;
+        ParentMenuItem = parentMenuItem;
+    }
+
+    public void Expand()
+    {
+        // Recursively expand all parent menu items if parent exists, starting from parent.
+        if (ParentMenuItem != null)
+        {
+            IMenuItem parentMenuItem = ParentMenuItem;
+
+            while (parentMenuItem != null)
+            {
+                if (!IsAccountGroup(parentMenuItem))
+                    parentMenuItem.IsExpanded = true;
+
+                parentMenuItem = parentMenuItem.ParentMenuItem;
+            }
+        }
+
+        // Finally expand itself.
+        if (!IsAccountGroup(this))
+            IsExpanded = true;
+    }
+
+    /// <summary>
+    /// An account group keeps the expansion its user chose; revealing an entry, such as the startup inbox, does not change it.
+    /// </summary>
+    private static bool IsAccountGroup(IMenuItem item) => item is MergedAccountMenuItem or AccountGroupMenuItem;
+}
+
+public partial class MenuItemBase<T> : MenuItemBase
+{
+    [ObservableProperty]
+    public partial T Parameter { get; set; }
+
+    public MenuItemBase(T parameter, Guid? entityId, IMenuItem parentMenuItem = null) : base(entityId, parentMenuItem) => Parameter = parameter;
+}
+
+public partial class MenuItemBase<TValue, TCollection> : MenuItemBase<TValue>
+{
+    [ObservableProperty]
+    public partial bool IsChildSelected { get; set; }
+
+    protected MenuItemBase(TValue parameter, Guid? entityId, IMenuItem parentMenuItem = null) : base(parameter, entityId, parentMenuItem) { }
+
+    public ObservableCollection<TCollection> SubMenuItems { get; set; } = [];
+}

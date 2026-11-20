@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.ViewModels.Calendar.Data;
 
-namespace Wino.Calendar.Controls;
+namespace Wino.Mail.WinUI.Controls.Calendar;
 
 public sealed class CalendarDayOverflow
 {

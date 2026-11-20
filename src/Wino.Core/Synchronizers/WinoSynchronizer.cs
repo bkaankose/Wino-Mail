@@ -24,12 +24,14 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.Client.Calendar;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Services.Interfaces;
+using Wino.Services.Models.MailItem;
 
 namespace Wino.Core.Synchronizers;
 
-public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType, TContactType> : BaseSynchronizer<TBaseRequest>, IWinoSynchronizerBase
+public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType, TContactType> : BaseSynchronizer<TBaseRequest>, IWinoSynchronizerBase, IProviderTraitsReceiver
 {
     protected virtual bool SerializeMailOperations => false;
     protected virtual bool DequeueMailRequestsBeforeExecution => true;
@@ -47,6 +49,10 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType, TContactType>>();
 
     protected WinoSynchronizer(MailAccount account, IMessenger messenger, RequestUiChangeCoordinator uiChanges) : base(account, messenger, uiChanges) { }
+
+    private MailProviderTraits _providerTraits = MailProviderTraits.None;
+
+    MailProviderTraits IProviderTraitsReceiver.ProviderTraits { set => _providerTraits = value ?? MailProviderTraits.None; }
 
     /// <summary>
     /// How many items per single HTTP call can be modified.
@@ -557,7 +563,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 if (DequeueMailRequestsBeforeExecution)
                     RemoveQueuedRequests(requestCopies);
 
-                Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
+                Logger.Debug("Prepared {NativeRequestCount} native mail requests for account {AccountId}", nativeRequests.Count, Account.Id);
 
                 try
                 {
@@ -588,7 +594,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 // Categories of this account live on the device only: nothing was sent, and
                 // there is nothing to pull afterwards.
-                if (!Account.IsCategorySyncSupported && requestCopies.All(a => a is ICategoryActionRequest))
+                if (!_providerTraits.SupportsCategorySync && requestCopies.All(a => a is ICategoryActionRequest))
                     return MailSynchronizationResult.Empty;
 
                 // Execute request sync options should be re-calculated after execution.
@@ -627,7 +633,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             // Profile information sync.
             if (options.Type == MailSynchronizationType.UpdateProfile)
             {
-                if (!Account.IsProfileInfoSyncSupported) return MailSynchronizationResult.Empty;
+                if (!_providerTraits.SupportsProfileInfoSync) return MailSynchronizationResult.Empty;
 
                 ProfileInformation newProfileInformation = null;
 
@@ -653,7 +659,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             // Alias sync.
             if (options.Type == MailSynchronizationType.Alias)
             {
-                if (!Account.IsAliasSyncSupported) return MailSynchronizationResult.Empty;
+                if (!_providerTraits.SupportsAliasSync) return MailSynchronizationResult.Empty;
 
                 try
                 {
@@ -677,7 +683,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             // Category definition sync.
             if (options.Type == MailSynchronizationType.Categories)
             {
-                if (!Account.IsCategorySyncSupported) return MailSynchronizationResult.Empty;
+                if (!_providerTraits.SupportsCategorySync) return MailSynchronizationResult.Empty;
 
                 try
                 {
@@ -824,7 +830,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 // Remove processed calendar requests from queue
                 RemoveQueuedRequests(requestCopies);
 
-                Console.WriteLine($"Prepared {nativeRequests.Count()} native calendar requests");
+                Logger.Debug("Prepared {NativeRequestCount} native calendar requests for account {AccountId}", nativeRequests.Count, Account.Id);
 
                 try
                 {

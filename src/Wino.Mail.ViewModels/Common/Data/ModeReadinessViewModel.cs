@@ -9,8 +9,9 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
-namespace Wino.Core.ViewModels.Data;
+namespace Wino.Mail.ViewModels.Common.Data;
 
 /// <summary>
 /// The blocked state a mode page shows while the mode cannot be used: no account, the mode

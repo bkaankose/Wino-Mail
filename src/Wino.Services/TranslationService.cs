@@ -10,7 +10,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
 
 namespace Wino.Services;
 
@@ -70,9 +70,7 @@ public class TranslationService : ITranslationService
 
         if (CurrentLanguageModel != null)
         {
-            var newCulture = new CultureInfo(CurrentLanguageModel.Code);
-            CultureInfo.DefaultThreadCurrentCulture = newCulture;
-            CultureInfo.DefaultThreadCurrentUICulture = newCulture;
+            DisplayCulture.Apply(CurrentLanguageModel.Code);
         }
 
         isInitialized = true;

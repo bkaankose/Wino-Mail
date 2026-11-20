@@ -2,7 +2,7 @@ using AppKit;
 using CommunityToolkit.Mvvm.Messaging;
 using Foundation;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 

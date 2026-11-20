@@ -3,10 +3,10 @@ using System;
 using System.IO;
 using System.Linq;
 using MimeKit;
-using Wino.Core.MAPI;
-using Wino.Core.MAPI.Rops;
+using Wino.Providers.Exchange.MAPI;
+using Wino.Providers.Exchange.MAPI.Rops;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 /// <summary>
 /// The compose window produces a MimeMessage; the server wants properties. This is the inverse of

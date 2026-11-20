@@ -7,7 +7,6 @@
     xmlns:coreStyles="using:Wino.Mail.WinUI.Styles"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:mailStyles="using:Wino.Mail.WinUI.Styles.Mail"
-    xmlns:styles="using:Wino.Styles"
     xmlns:uwp="using:Wino.Mail.WinUI">
     <uwp:WinoApplication.Resources>
         <ResourceDictionary>
@@ -137,7 +136,7 @@
 
                 <ResourceDictionary Source="/Styles/WinoCalendarTypeSelectorControl.xaml" />
 
-                <styles:WinoExpanderStyle />
+                <coreStyles:WinoExpanderStyle />
                 <ResourceDictionary Source="/Styles/WinoAppShellNavigationViewStyle.xaml" />
                 <ResourceDictionary Source="/Styles/CalendarViewStyles.xaml" />
                 <ResourceDictionary Source="AppThemes/Default.xaml" />

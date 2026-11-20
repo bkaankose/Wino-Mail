@@ -1,0 +1,43 @@
+﻿using System.Collections.Generic;
+using MimeKit;
+using MimeKit.Cryptography;
+using Wino.Core.Domain.Models.Reader;
+
+namespace Wino.Services.Models.Reader;
+
+/// <summary>
+/// Final model to be passed to renderer page.
+/// Data here are created based on rendering settings.
+/// </summary>
+public class MailRenderModel
+{
+    public string RenderHtml { get; }
+    public string AccessibleText { get; }
+    public MailRenderingOptions MailRenderingOptions { get; }
+    public List<MimePart> Attachments { get; set; } = [];
+
+    public UnsubscribeInfo UnsubscribeInfo { get; set; }
+
+    public Dictionary<IDigitalSignature, bool> Signatures = [];
+
+    // Indicates if the mail is S/MIME encrypted
+    public bool IsSmimeEncrypted { get; set; }
+
+    /// <summary>
+    /// Remote references the purifier removed, one entry per reference.
+    /// </summary>
+    public List<BlockedRemoteResource> BlockedResources { get; } = [];
+
+    /// <summary>
+    /// Remote image references in the message before purification, blocked or not.
+    /// Zero when the HTML was not parsed (Load everything with styles on).
+    /// </summary>
+    public int RemoteImageCount { get; set; }
+
+    public MailRenderModel(string renderHtml, MailRenderingOptions mailRenderingOptions = null, string accessibleText = "")
+    {
+        RenderHtml = renderHtml;
+        MailRenderingOptions = mailRenderingOptions;
+        AccessibleText = accessibleText ?? string.Empty;
+    }
+}

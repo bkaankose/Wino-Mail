@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
@@ -10,25 +9,11 @@ namespace Wino.Services;
 
 public sealed class WinoAccountSessionService(IDatabaseService databaseService, IAccountCredentialPersistence credentialPersistence) : IWinoAccountSessionService
 {
-    private static readonly ConditionalWeakTable<IDatabaseService, WinoAccountSessionService> Shared = new();
-    private static readonly object SharedLock = new();
     private readonly IAccountCredentialPersistence _credentialPersistence = credentialPersistence;
     private readonly SemaphoreSlim _stateLock = new(1, 1);
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private CancellationTokenSource _sessionCancellation = new();
     private long _generation;
-
-    // Keeps manually constructed clients and profile services on the same coordinator too.
-    internal static IWinoAccountSessionService For(IDatabaseService databaseService, IAccountCredentialPersistence credentialPersistence)
-    {
-        lock (SharedLock)
-        {
-            var service = Shared.GetValue(databaseService, database => new(database, credentialPersistence));
-            if (!ReferenceEquals(service._credentialPersistence, credentialPersistence))
-                throw new InvalidOperationException("A database cannot use multiple credential persistence policies.");
-            return service;
-        }
-    }
 
     public async Task<WinoAccountSession?> CaptureAsync(CancellationToken cancellationToken = default)
     {

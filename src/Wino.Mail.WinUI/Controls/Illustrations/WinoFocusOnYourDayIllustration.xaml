@@ -1,5 +1,5 @@
-<UserControl
-    x:Class="Wino.Controls.Illustrations.WinoFocusOnYourDayIllustration"
+﻿<UserControl
+    x:Class="Wino.Mail.WinUI.Controls.Illustrations.WinoFocusOnYourDayIllustration"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -57,9 +57,9 @@
             <Path
                 Data="M31.5,68 L34.2,70.7 L38.7,65.4"
                 Stroke="{ThemeResource WinoIllustrationSurfaceBrush}"
+                StrokeEndLineCap="Round"
                 StrokeLineJoin="Round"
                 StrokeStartLineCap="Round"
-                StrokeEndLineCap="Round"
                 StrokeThickness="3" />
             <Rectangle
                 Canvas.Left="49"

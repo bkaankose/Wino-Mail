@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -23,7 +24,7 @@
             Neither the subject nor the sender is among them - the headline says what the message
             is about, and the card is a briefing entry rather than a second message list.
         -->
-        <DataTemplate x:Key="BriefingItemTemplate" x:DataType="vm:DailyBriefingItem">
+        <DataTemplate x:Key="BriefingItemTemplate" x:DataType="data:DailyBriefingItem">
             <SwipeControl Tag="{x:Bind}">
                 <SwipeControl.RightItems>
                     <SwipeItems Mode="Reveal">
@@ -129,7 +130,7 @@
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:BriefingLabelChip">
+                                        <DataTemplate x:DataType="data:BriefingLabelChip">
                                             <Border
                                                 Padding="6,2"
                                                 Background="{ThemeResource SubtleFillColorSecondaryBrush}"
@@ -261,7 +262,7 @@
             ItemsSource="{x:Bind ViewModel.Dates, Mode=OneTime}"
             SelectedIndex="{x:Bind ViewModel.SelectedDateIndex, Mode=TwoWay}">
             <FlipView.ItemTemplate>
-                <DataTemplate x:DataType="vm:DailyBriefingDateItem">
+                <DataTemplate x:DataType="data:DailyBriefingDateItem">
                     <TextBlock
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"

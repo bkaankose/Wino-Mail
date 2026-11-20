@@ -17,6 +17,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Presentation.Android;
+using Wino.Mail.Controls.Core.MailRow;
 
 namespace Wino.Mail.Android.Views.Debug;
 

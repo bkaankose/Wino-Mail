@@ -4,7 +4,7 @@ using UIKit;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.UIKit.Infrastructure;
-using Wino.Messaging.UI;
+using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Mail.UIKit.Views.Extras;
 

@@ -9,7 +9,7 @@ using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 
-namespace Wino.Authentication;
+namespace Wino.Providers.Outlook.Authentication;
 
 /// <summary>
 /// Reads Microsoft's public user-realm document for an address. Managed and federated namespaces are Entra ID tenants,

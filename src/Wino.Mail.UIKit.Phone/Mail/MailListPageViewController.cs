@@ -7,9 +7,10 @@ using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Messages;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.UI;
 using Wino.Presentation.UIKit;
+using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.UIKit.Phone.Mail;
 

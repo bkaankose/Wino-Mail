@@ -1,13 +1,13 @@
 ﻿<ContentDialog
-    x:Class="Wino.Dialogs.SingleCalendarPickerDialog"
+    x:Class="Wino.Mail.WinUI.Dialogs.SingleCalendarPickerDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:calendar="using:Wino.Core.Domain.Models.Calendar"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:sharedCalendar="using:Wino.Core.Domain.Entities.Calendar"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     Title="{x:Bind domain:Translator.CalendarEventCompose_PickCalendarTitle}"
     PrimaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
     Style="{StaticResource WinoDialogStyle}"
@@ -69,7 +69,7 @@
                                                 Width="14"
                                                 Height="14"
                                                 VerticalAlignment="Center"
-                                                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex)}" />
+                                                Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex)}" />
 
                                             <TextBlock
                                                 Grid.Column="1"

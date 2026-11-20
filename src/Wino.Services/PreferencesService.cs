@@ -14,8 +14,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Domain.Translations;
-using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.Client.Shell;
 
 namespace Wino.Services;
 
@@ -1180,8 +1179,8 @@ public partial class PreferencesService(IConfigurationService configurationServi
                                     IsCalendarCurrentTimeLineEnabled);
     }
 
-    private CultureInfo GetCurrentLanguageCulture()
-        => new(WinoTranslationDictionary.GetLanguageFileNameRelativePath(CurrentLanguage));
+    private static CultureInfo GetCurrentLanguageCulture()
+        => CultureInfo.CurrentCulture;
 
     private List<DayOfWeek> GetDaysBetween(DayOfWeek startDay, DayOfWeek endDay)
     {

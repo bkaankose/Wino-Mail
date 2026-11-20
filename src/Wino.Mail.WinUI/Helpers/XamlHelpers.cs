@@ -31,13 +31,14 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 using Wino.Services;
+using Wino.Mail.ViewModels.Models.Accounts;
 using WinRT;
 
-namespace Wino.Helpers;
+namespace Wino.Mail.WinUI.Helpers;
 
 public static class XamlHelpers
 {
-    private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+    private static CultureInfo AppDisplayCulture => CultureInfo.CurrentCulture;
     private static IPreferencesService? PreferencesService => WinoApplication.Current.Services.GetService<IPreferencesService>();
     private static IPictureStorageService PictureStorageService => WinoApplication.Current.Services.GetRequiredService<IPictureStorageService>();
     private static AccountSenderPictureDirectory AccountSenderPictureDirectory => WinoApplication.Current.Services.GetRequiredService<AccountSenderPictureDirectory>();
@@ -608,8 +609,8 @@ public static class XamlHelpers
         Translator.HoverActionOption_MoveJunk);
 
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
-    public static System.Collections.ObjectModel.ObservableCollection<Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel>? ItemsWhen(
-        bool condition, System.Collections.ObjectModel.ObservableCollection<Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel> items)
+    public static System.Collections.ObjectModel.ObservableCollection<Wino.Mail.ViewModels.Common.Data.WinoIntelligenceMailboxItemViewModel>? ItemsWhen(
+        bool condition, System.Collections.ObjectModel.ObservableCollection<Wino.Mail.ViewModels.Common.Data.WinoIntelligenceMailboxItemViewModel> items)
         => condition ? items : null;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
     public static bool IsAccountNicknameVisible(string accountNickname, AccountNicknamePosition position, AccountNicknamePosition targetPosition)
@@ -618,6 +619,12 @@ public static class XamlHelpers
     public static string GetMailItemSubjectForListing(string? subject) => string.IsNullOrWhiteSpace(subject) ? $"({Translator.MailItemNoSubject})" : subject;
     public static TimeFormatPreference CurrentMailTimeFormatPreference
         => PreferencesService?.MailTimeFormatPreference ?? TimeFormatPreference.UseLanguageCulture;
+
+    // A TimePicker takes its clock from the app language, not the regional format or the clock setting.
+    public static string GetTimePickerClockIdentifier(TimeFormatPreference timeFormatPreference)
+        => GetTimePickerClockIdentifier(DateTimeDisplayFormatter.GetTimeDisplayType(timeFormatPreference, AppDisplayCulture) == DayHeaderDisplayType.TwentyFourHour);
+
+    public static string GetTimePickerClockIdentifier(bool twentyFourHour) => twentyFourHour ? "24HourClock" : "12HourClock";
 
     public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate, TimeFormatPreference timeFormatPreference)
     {

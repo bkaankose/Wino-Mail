@@ -10,6 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.AppKit.Extras;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.MacOS.Views.Extras;
 

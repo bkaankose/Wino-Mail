@@ -2,8 +2,9 @@ using System;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Integration.Processors;
 
-namespace Wino.Core.Integration.Processors;
+namespace Wino.Providers.Outlook.Integration.Processors;
 
 public interface IOutlookChangeProcessor : IDefaultChangeProcessor
 {

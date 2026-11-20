@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace Wino.Calendar.ViewModels;
+namespace Wino.Mail.ViewModels.Calendar;
 
 /// <summary>
 /// Decides which HTML an event composer saves as the event notes. Notes the user did not change

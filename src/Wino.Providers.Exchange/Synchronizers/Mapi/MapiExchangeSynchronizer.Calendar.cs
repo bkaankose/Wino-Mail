@@ -12,14 +12,15 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.MAPI;
-using Wino.Core.MAPI.Calendar;
-using Wino.Core.MAPI.Rops;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
-using Wino.Core.Synchronizers.Exchange;
+using Wino.Providers.Exchange.MAPI;
+using Wino.Providers.Exchange.MAPI.Calendar;
+using Wino.Providers.Exchange.MAPI.Rops;
+using Wino.Providers.Exchange.Requests.Bundles;
+using Wino.Providers.Exchange.Synchronizers.Exchange;
 
-namespace Wino.Core.Synchronizers.Mapi;
+namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 // Calendars are the IPF.Appointment folders of the mailbox, keyed "mapi:" plus the folder id. The server does not expand
 // a contents table the way an EWS calendar view does, so series are expanded here: the master is stored (never rendered)
@@ -433,6 +434,7 @@ public sealed partial class MapiExchangeSynchronizer
                 var change = ToAppointmentWrite(item, null, null);
                 await MapiOccurrenceOperations.ModifyOccurrenceAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, change, cancellationToken, Diagnostics).ConfigureAwait(false);
                 await NotifyOccurrenceChangeAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, change, item, cancel: false, cancellationToken).ConfigureAwait(false);
+                await ExchangeChangeProcessor.PersistUpdatedCalendarEventAsync(item, request.Attendees, request.Reminders).ConfigureAwait(false);
                 return;
             }
 
@@ -465,6 +467,8 @@ public sealed partial class MapiExchangeSynchronizer
             {
                 await MapiCalendarOperations.UpdateAppointmentAsync(session, folderId, messageId, tags, write, cancellationToken).ConfigureAwait(false);
             }
+
+            await ExchangeChangeProcessor.PersistUpdatedCalendarEventAsync(item, request.Attendees, request.Reminders).ConfigureAwait(false);
         }, request, request);
     }
 

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.ViewModels;
 using Wino.Mail.Android.Views.Calendar;
 using Wino.Mail.Android.Views.Mail;
 using Wino.Mail.Android.Views.Mail.Compose;
@@ -11,6 +10,7 @@ using Wino.Mail.Android.Views.Settings;
 using Wino.Mail.Android.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Navigation;
+using Wino.Mail.ViewModels.Common;
 
 namespace Wino.Mail.Android.Infrastructure;
 

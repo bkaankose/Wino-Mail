@@ -1,3 +1,3 @@
-﻿namespace Wino.Messaging.Client.Shell;
+﻿namespace Wino.Core.Domain.Messaging.Client.Shell;
 
 public class UnreadBadgeLaunchNavigationRequested { }
