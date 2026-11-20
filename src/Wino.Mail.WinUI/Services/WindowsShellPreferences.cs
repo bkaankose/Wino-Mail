@@ -1,5 +1,6 @@
 using System;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.WinUI.Services.WidgetsAndTiles;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -29,11 +30,14 @@ public sealed class WindowsShellPreferences(IConfigurationService configurationS
         set => SetWidgetsAndTilesPreference(nameof(IsWinoWidgetsEnabled), value);
     }
 
+    /// <summary>On by default only where the built-in Start menu shows tiles; elsewhere the user opts in.</summary>
     public bool IsLiveTilesEnabled
     {
-        get => configurationService.Get(nameof(IsLiveTilesEnabled), true);
-        set => SetWidgetsAndTilesPreference(nameof(IsLiveTilesEnabled), value);
+        get => configurationService.Get(nameof(IsLiveTilesEnabled), LiveTilesEnabledByDefault);
+        set => SetWidgetsAndTilesPreference(nameof(IsLiveTilesEnabled), value, LiveTilesEnabledByDefault);
     }
+
+    private static bool LiveTilesEnabledByDefault => WidgetsAndTilesService.HasLiveTileStartMenu;
 
     public bool ShowMailOnLiveTiles
     {
@@ -60,9 +64,9 @@ public sealed class WindowsShellPreferences(IConfigurationService configurationS
         set => SetWidgetsAndTilesPreference(nameof(ShowDetailsInWidgetsAndTiles), value);
     }
 
-    private void SetWidgetsAndTilesPreference(string key, bool value)
+    private void SetWidgetsAndTilesPreference(string key, bool value, bool defaultValue = true)
     {
-        if (configurationService.Get(key, true) == value)
+        if (configurationService.Get(key, defaultValue) == value)
             return;
 
         configurationService.Set(key, value);

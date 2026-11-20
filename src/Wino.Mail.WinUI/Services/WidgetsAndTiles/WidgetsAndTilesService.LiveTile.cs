@@ -22,8 +22,10 @@ public sealed partial class WidgetsAndTilesService
     private const string TasksTag = "tasks";
     private const string ClearedFingerprint = "cleared";
     private const int MaximumTileTextLength = 64;
+    private const int ElementNotFoundHResult = unchecked((int)0x80070490);
 
     private string? _tileFingerprint;
+    private bool _isTileHostMissing;
 
     /// <summary>Returns a one-line description of what changed, or null when the tile already shows this content.</summary>
     private string? UpdateLiveTile(WidgetSnapshot? snapshot, LiveTileModes modes, bool showDetails)
@@ -43,39 +45,62 @@ public sealed partial class WidgetsAndTilesService
         var frameDocuments = frames.Select(static frame => (Frame: frame, Document: LoadTileXml(frame.Xml))).ToList();
         var scheduledDocument = scheduled == null ? null : LoadTileXml(scheduled.Xml);
 
-        var updater = TileUpdateManager.CreateTileUpdaterForApplication(AppEntryConstants.MailApplicationId);
-        updater.Clear();
-        foreach (var pending in updater.GetScheduledTileNotifications())
-            updater.RemoveFromSchedule(pending);
-
-        if (fingerprint == ClearedFingerprint)
+        try
         {
+            var updater = TileUpdateManager.CreateTileUpdaterForApplication(AppEntryConstants.MailApplicationId);
+            updater.Clear();
+            foreach (var pending in updater.GetScheduledTileNotifications())
+                updater.RemoveFromSchedule(pending);
+
+            if (fingerprint == ClearedFingerprint)
+            {
+                _tileFingerprint = fingerprint;
+                return TileHostReturned("Live Tiles: cleared");
+            }
+
+            updater.EnableNotificationQueue(true);
+            foreach (var (frame, document) in frameDocuments)
+            {
+                updater.Update(new TileNotification(document)
+                {
+                    Tag = frame.Tag,
+                    ExpirationTime = frame.Expires
+                });
+            }
+
+            if (scheduled != null && scheduledDocument != null)
+            {
+                updater.AddToSchedule(new ScheduledTileNotification(scheduledDocument, scheduled.DeliveryTime)
+                {
+                    Tag = CalendarTag,
+                    Id = CalendarTag,
+                    ExpirationTime = scheduled.DeliveryTime.AddDays(1)
+                });
+            }
+        }
+        catch (Exception ex) when (ex.HResult == ElementNotFoundHResult)
+        {
+            // Windows reports no tile for the app. The content is kept as published, so the next attempt waits for
+            // a change instead of retrying, and only the change into this state is logged.
             _tileFingerprint = fingerprint;
-            return "Live Tiles: cleared";
-        }
+            if (_isTileHostMissing)
+                return null;
 
-        updater.EnableNotificationQueue(true);
-        foreach (var (frame, document) in frameDocuments)
-        {
-            updater.Update(new TileNotification(document)
-            {
-                Tag = frame.Tag,
-                ExpirationTime = frame.Expires
-            });
-        }
-
-        if (scheduled != null && scheduledDocument != null)
-        {
-            updater.AddToSchedule(new ScheduledTileNotification(scheduledDocument, scheduled.DeliveryTime)
-            {
-                Tag = CalendarTag,
-                Id = CalendarTag,
-                ExpirationTime = scheduled.DeliveryTime.AddDays(1)
-            });
+            _isTileHostMissing = true;
+            return $"Live Tiles: Windows has no tile for Wino Mail (0x{ex.HResult:X8}), updates are skipped until it has one";
         }
 
         _tileFingerprint = fingerprint;
-        return $"Live Tiles: {frames.Count} frames ({string.Join(", ", frames.Select(static frame => frame.Tag))})";
+        return TileHostReturned($"Live Tiles: {frames.Count} frames ({string.Join(", ", frames.Select(static frame => frame.Tag))})");
+    }
+
+    private string TileHostReturned(string change)
+    {
+        if (!_isTileHostMissing)
+            return change;
+
+        _isTileHostMissing = false;
+        return change + " (Windows has a tile for Wino Mail again)";
     }
 
     private static List<TileFrame> CreateTileFrames(WidgetSnapshot snapshot, LiveTileModes modes, bool showDetails, DateTime now)
