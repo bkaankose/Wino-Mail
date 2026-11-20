@@ -159,7 +159,6 @@ public sealed partial class CalendarItemControl : UserControl
         var item = CalendarItem;
         if (item is null) return;
 
-        var isGhost = item.IsMultiDayEvent && !IsCustomEventArea;
         var isFree = item.ShowAs == CalendarItemShowAs.Free;
         var isTentative = item.ShowAs == CalendarItemShowAs.Tentative;
         var hasNoWash = isFree || item.IsCancelled;
@@ -173,7 +172,7 @@ public sealed partial class CalendarItemControl : UserControl
             TileTextBrush = windowText;
             TileOutline = windowText;
             TileHover = null;
-            TileBackground = isGhost || hasNoWash ? null : new SolidColorBrush(ContrastThemeHelper.GetSystemColor(UIElementType.Window));
+            TileBackground = hasNoWash ? null : new SolidColorBrush(ContrastThemeHelper.GetSystemColor(UIElementType.Window));
         }
         else
         {
@@ -189,18 +188,16 @@ public sealed partial class CalendarItemControl : UserControl
                 : isFree ? new SolidColorBrush(colors.FreeOutline)
                 : isTentative ? new SolidColorBrush(colors.TentativeOutline)
                 : null;
-            TileBackground = isGhost ? new SolidColorBrush(colors.Ghost)
-                : hasNoWash ? null
+            TileBackground = hasNoWash ? null
                 : item.NeedsResponse || item.IsPast ? new SolidColorBrush(colors.PastWash)
                 : new SolidColorBrush(colors.Wash);
         }
 
-        var outlineState = isGhost ? "NoOutline"
-            : item.NeedsResponse ? "DashedOutline"
+        var outlineState = item.NeedsResponse ? "DashedOutline"
             : isContrastTheme || hasNoWash || isTentative ? "SolidOutline"
             : "NoOutline";
-        var barState = isGhost ? "SolidBarState" : isFree ? "HollowBarState" : isTentative ? "DashedBarState" : "SolidBarState";
-        var emphasisState = isGhost ? "NormalEmphasis" : item.IsCancelled ? "CancelledEmphasis" : item.IsPast ? "PastEmphasis" : "NormalEmphasis";
+        var barState = isFree ? "HollowBarState" : isTentative ? "DashedBarState" : "SolidBarState";
+        var emphasisState = item.IsCancelled ? "CancelledEmphasis" : item.IsPast ? "PastEmphasis" : "NormalEmphasis";
 
         VisualStateManager.GoToState(this, outlineState, false);
         VisualStateManager.GoToState(this, barState, false);
@@ -217,15 +214,7 @@ public sealed partial class CalendarItemControl : UserControl
         }
         else if (CalendarItem.IsMultiDayEvent)
         {
-            if (IsCustomEventArea)
-            {
-                VisualStateManager.GoToState(this, "CustomAreaMultiDayEvent", true);
-            }
-            else
-            {
-                // Hide it.
-                VisualStateManager.GoToState(this, "MultiDayEvent", true);
-            }
+            VisualStateManager.GoToState(this, IsCustomEventArea ? "CustomAreaMultiDayEvent" : "AllDayEvent", true);
         }
         else if (IsCustomEventArea)
         {
@@ -306,7 +295,7 @@ public sealed partial class CalendarItemControl : UserControl
 
     protected override AutomationPeer OnCreateAutomationPeer() => new CalendarItemControlAutomationPeer(this);
 
-    internal bool IsAccessibleEvent => CalendarItem is not null && (!CalendarItem.IsMultiDayEvent || IsCustomEventArea);
+    internal bool IsAccessibleEvent => CalendarItem is not null;
 
     internal void OpenAccessibleDetails()
     {

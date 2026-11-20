@@ -127,7 +127,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent.Title : calendarEvent.Summary,
                     UpdatedAt = DateTimeOffset.UtcNow,
                     Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent.Visibility : GetVisibility(calendarEvent.Visibility),
-                    ShowAs = string.IsNullOrEmpty(calendarEvent.Transparency) ? parentRecurringEvent.ShowAs : GetShowAs(calendarEvent.Transparency),
+                    ShowAs = calendarEvent.Status == "cancelled" ? parentRecurringEvent.ShowAs : MergeShowAs(parentRecurringEvent.ShowAs, calendarEvent.Transparency),
                     HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent.HtmlLink : calendarEvent.HtmlLink,
                     RemoteEventId = calendarEvent.Id,
                     IsLocked = calendarEvent.Locked.GetValueOrDefault(),
@@ -365,7 +365,9 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             existingCalendarItem.Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent?.Title ?? existingCalendarItem.Title : calendarEvent.Summary;
             existingCalendarItem.UpdatedAt = DateTimeOffset.UtcNow;
             existingCalendarItem.Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent?.Visibility ?? existingCalendarItem.Visibility : GetVisibility(calendarEvent.Visibility);
-            existingCalendarItem.ShowAs = string.IsNullOrEmpty(calendarEvent.Transparency) ? parentRecurringEvent?.ShowAs ?? existingCalendarItem.ShowAs : GetShowAs(calendarEvent.Transparency);
+            existingCalendarItem.ShowAs = calendarEvent.Status == "cancelled"
+                ? existingCalendarItem.ShowAs
+                : MergeShowAs(existingCalendarItem.ShowAs, calendarEvent.Transparency);
             existingCalendarItem.HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent?.HtmlLink ?? existingCalendarItem.HtmlLink : calendarEvent.HtmlLink;
             existingCalendarItem.DirectJoinLink = ResolveDirectJoinLink(calendarEvent, existingCalendarItem.Description, parentRecurringEvent);
             existingCalendarItem.IsLocked = calendarEvent.Locked.GetValueOrDefault(existingCalendarItem.IsLocked);
@@ -489,6 +491,18 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             "confidential" => CalendarItemVisibility.Confidential,
             _ => CalendarItemVisibility.Default
         };
+    }
+
+    /// <summary>
+    /// Google leaves out "transparency" when an event is opaque, so a missing value means busy, not
+    /// "unchanged". Google has no tentative, out-of-office or working-elsewhere availability, so an
+    /// opaque event keeps whichever of those Wino already holds.
+    /// </summary>
+    private CalendarItemShowAs MergeShowAs(CalendarItemShowAs current, string transparency)
+    {
+        var remote = GetShowAs(transparency);
+
+        return remote == CalendarItemShowAs.Busy && current != CalendarItemShowAs.Free ? current : remote;
     }
 
     private CalendarItemShowAs GetShowAs(string transparency)

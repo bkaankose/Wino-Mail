@@ -12,7 +12,12 @@ namespace Wino.Mail.WinUI.Controls.Calendar;
 /// </summary>
 internal readonly record struct TimedItemLayout(CalendarItemViewModel Item, DateOnly Date, LayoutRect Bounds);
 
-internal readonly record struct AllDayColumnLayout(List<TimedItemLayout> Items, CalendarOverflowLayout? Overflow);
+internal readonly record struct AllDayColumnLayout(List<TimedItemLayout> Items, int LaneCount, CalendarOverflowLayout? Overflow);
+
+/// <summary>
+/// An item drawn as a bar in the all-day strip: its days in the realized window and its lane.
+/// </summary>
+internal readonly record struct AllDaySpan(CalendarDaySpan Days, int Lane);
 
 internal static class TimedCalendarLayoutCalculator
 {
@@ -105,35 +110,89 @@ internal static class TimedCalendarLayoutCalculator
     }
 
     /// <summary>
-    /// Stacks the all-day items of one date inside a column of <paramref name="dayWidth"/>. The
-    /// number of returned items is the column's lane count.
+    /// Packs the bars of the all-day strip (all-day events and timed events of 24 hours or more) over
+    /// the realized window, so one bar keeps its lane on every day it covers.
     /// </summary>
-    public static AllDayColumnLayout CalculateAllDayItems(DateOnly date, IEnumerable<CalendarItemViewModel> items, double dayWidth)
+    public static Dictionary<CalendarItemViewModel, AllDaySpan> AssignAllDaySpans(IReadOnlyList<DateOnly> windowDates, IEnumerable<CalendarItemViewModel> items)
     {
-        var layouts = new List<TimedItemLayout>();
-        var dayItems = BuildAllDayItems(items, date)
-            .OrderBy(item => item.StartDate)
-            .ThenBy(item => item.EndDate)
-            .ThenBy(item => item.Title)
-            .ToList();
-        var laneCount = Math.Min(dayItems.Count, CalendarItemOverflow.MaxAllDayLanes);
-        var width = Math.Max(0d, dayWidth - 4d);
+        var spanItems = new List<CalendarItemViewModel>();
+        var spans = new List<CalendarDaySpan>();
 
-        for (var rowIndex = 0; rowIndex < laneCount; rowIndex++)
+        foreach (var item in items
+                     .Where(item => item.ShowsInAllDayArea)
+                     .OrderBy(item => item.StartDate)
+                     .ThenBy(item => item.Title, StringComparer.CurrentCulture))
         {
-            var y = AllDaySectionPadding + (rowIndex * (AllDayItemHeight + AllDayItemGap));
+            if (!CalendarItemAccessor.TryGetTimeRange(item, out var start, out var end) ||
+                CalendarSpanLanes.GetSpan(windowDates, start.LocalDateTime, end.LocalDateTime) is not CalendarDaySpan span)
+            {
+                continue;
+            }
 
-            layouts.Add(new TimedItemLayout(
-                dayItems[rowIndex],
-                date,
-                new LayoutRect(2d, y, width, AllDayItemHeight)));
+            spanItems.Add(item);
+            spans.Add(span);
         }
 
-        CalendarOverflowLayout? overflow = laneCount < dayItems.Count
-            ? new CalendarOverflowLayout(date, 0, dayItems.GetRange(laneCount, dayItems.Count - laneCount), GetAllDayMoreButtonBounds(dayWidth))
+        var lanes = CalendarSpanLanes.Assign(spans);
+        var result = new Dictionary<CalendarItemViewModel, AllDaySpan>(spanItems.Count);
+
+        for (var index = 0; index < spanItems.Count; index++)
+        {
+            result[spanItems[index]] = new AllDaySpan(spans[index], lanes[index]);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Lays out the all-day strip of the day at <paramref name="windowIndex"/>. A bar is placed by the
+    /// day it starts on and spans the following days; one that runs across <paramref name="breakIndex"/>
+    /// (the first day of the shown period) restarts there, so its title stays in view. Bars on lanes
+    /// past <see cref="CalendarItemOverflow.MaxAllDayLanes"/> go to the day's overflow link.
+    /// </summary>
+    public static AllDayColumnLayout CalculateAllDayColumn(int windowIndex, DateOnly date, IReadOnlyDictionary<CalendarItemViewModel, AllDaySpan> spans, int breakIndex, double dayWidth)
+    {
+        var layouts = new List<TimedItemLayout>();
+        var hiddenItems = new List<CalendarItemViewModel>();
+        var laneCount = 0;
+
+        foreach (var (item, span) in spans)
+        {
+            if (!span.Days.Covers(windowIndex))
+            {
+                continue;
+            }
+
+            if (span.Lane >= CalendarItemOverflow.MaxAllDayLanes)
+            {
+                hiddenItems.Add(item);
+                continue;
+            }
+
+            laneCount = Math.Max(laneCount, span.Lane + 1);
+
+            var isBroken = span.Days.FirstIndex < breakIndex && breakIndex <= span.Days.LastIndex;
+            var segmentStart = isBroken && windowIndex >= breakIndex ? breakIndex : span.Days.FirstIndex;
+            var segmentEnd = isBroken && windowIndex < breakIndex ? breakIndex - 1 : span.Days.LastIndex;
+
+            if (windowIndex != segmentStart)
+            {
+                continue;
+            }
+
+            var y = AllDaySectionPadding + (span.Lane * (AllDayItemHeight + AllDayItemGap));
+            var width = Math.Max(0d, ((segmentEnd - segmentStart + 1) * dayWidth) - 4d);
+
+            layouts.Add(new TimedItemLayout(item, date, new LayoutRect(2d, y, width, AllDayItemHeight)));
+        }
+
+        hiddenItems.Sort(static (left, right) => left.StartDate.CompareTo(right.StartDate));
+
+        CalendarOverflowLayout? overflow = hiddenItems.Count > 0
+            ? new CalendarOverflowLayout(date, 0, hiddenItems, GetAllDayMoreButtonBounds(dayWidth))
             : null;
 
-        return new AllDayColumnLayout(layouts, overflow);
+        return new AllDayColumnLayout(layouts, laneCount, overflow);
     }
 
     private static List<Segment> BuildDaySegments(IEnumerable<CalendarItemViewModel> items, DateOnly date, double hourHeight)
@@ -151,7 +210,7 @@ internal static class TimedCalendarLayoutCalculator
                 continue;
             }
 
-            if (item.IsAllDayEvent)
+            if (item.ShowsInAllDayArea)
             {
                 continue;
             }
@@ -208,41 +267,6 @@ internal static class TimedCalendarLayoutCalculator
         }
 
         yield return cluster;
-    }
-
-    private static List<CalendarItemViewModel> BuildAllDayItems(IEnumerable<CalendarItemViewModel> items, DateOnly date)
-    {
-        var dayStart = date.ToDateTime(TimeOnly.MinValue);
-        var dayEnd = dayStart.AddDays(1);
-        var allDayItems = new List<CalendarItemViewModel>();
-
-        foreach (var item in items)
-        {
-            if (!item.IsAllDayEvent)
-            {
-                continue;
-            }
-
-            if (!CalendarItemAccessor.TryGetTimeRange(item, out var start, out var end))
-            {
-                continue;
-            }
-
-            var localStart = start.LocalDateTime;
-            var localEnd = end.LocalDateTime;
-
-            if (localEnd <= localStart)
-            {
-                continue;
-            }
-
-            if (localStart < dayEnd && localEnd > dayStart)
-            {
-                allDayItems.Add(item);
-            }
-        }
-
-        return allDayItems;
     }
 
     private static void AssignColumns(List<Segment> segments)

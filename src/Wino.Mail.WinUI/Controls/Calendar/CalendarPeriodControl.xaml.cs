@@ -429,6 +429,21 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         });
     }
 
+    /// <summary>A bar shows the whole event, so its title carries the start and end times.</summary>
+    private void PrepareSpanDisplayMetadata(CalendarItemViewModel item)
+    {
+        if (CalendarSettings is null || item is not ICalendarItemViewModel calendarItemViewModel)
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            calendarItemViewModel.DisplayingPeriod = new TimeRange(item.StartDate, item.EndDate);
+            calendarItemViewModel.CalendarSettings = CalendarSettings;
+        });
+    }
+
     private void ControlUnloaded(object sender, RoutedEventArgs e)
     {
         CancelRangeSelection();

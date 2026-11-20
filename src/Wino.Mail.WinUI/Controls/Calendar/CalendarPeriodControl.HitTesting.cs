@@ -359,11 +359,19 @@ public sealed partial class CalendarPeriodControl
 
     private CalendarDropTargetInfo? ResolveTimedAllDayDropTarget(Point position, CalendarItemViewModel? draggedItem)
     {
-        if (draggedItem is { IsAllDayEvent: false } ||
+        if (draggedItem is { ShowsInAllDayArea: false } ||
             TimedAllDayHeight <= 0 ||
             !TryResolveTimedColumn(position.X, out var dayIndex, out var date))
         {
             return null;
+        }
+
+        // A multi-day timed bar keeps its time of day when it moves to another day.
+        var targetStart = date.ToDateTime(TimeOnly.MinValue);
+
+        if (draggedItem is { IsAllDayEvent: false })
+        {
+            targetStart = targetStart.Add(draggedItem.StartDate.TimeOfDay);
         }
 
         return new CalendarDropTargetInfo(
@@ -371,7 +379,7 @@ public sealed partial class CalendarPeriodControl
             date,
             dayIndex,
             -1,
-            date.ToDateTime(TimeOnly.MinValue));
+            targetStart);
     }
 
     private CalendarDropTargetInfo? ResolveMonthDropTarget(Point position, CalendarItemViewModel? draggedItem)

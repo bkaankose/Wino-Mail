@@ -78,6 +78,12 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
 
     public bool IsAllDayEvent => CalendarItem.IsAllDayEvent;
     public bool IsMultiDayEvent => CalendarItem.IsMultiDayEvent;
+
+    /// <summary>
+    /// All-day events and timed events of 24 hours or more are drawn as bars in the all-day area of the
+    /// day and week views and across the month cells, as Outlook and Google Calendar do.
+    /// </summary>
+    public bool ShowsInAllDayArea => IsAllDayEvent || IsMultiDayEvent;
     public bool IsRecurringEvent => CalendarItem.IsRecurringEvent;
     public bool IsRecurringChild => CalendarItem.IsRecurringChild;
     public bool IsRecurringParent => CalendarItem.IsRecurringParent;
@@ -207,6 +213,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
         OnPropertyChanged(nameof(Period));
         OnPropertyChanged(nameof(IsAllDayEvent));
         OnPropertyChanged(nameof(IsMultiDayEvent));
+        OnPropertyChanged(nameof(ShowsInAllDayArea));
         OnPropertyChanged(nameof(IsRecurringEvent));
         OnPropertyChanged(nameof(IsRecurringChild));
         OnPropertyChanged(nameof(IsRecurringParent));
@@ -233,6 +240,12 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
             return Title;
 
         var periodRelation = Period.GetRelation(displayingPeriod);
+
+        if (periodRelation is PeriodRelation.ExactMatch or PeriodRelation.Inside or PeriodRelation.InsideStartTouching or PeriodRelation.InsideEndTouching)
+        {
+            // The whole event is shown at once, as a bar: "HH:mm -> Title <- HH:mm"
+            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} -> {Title} <- {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
+        }
 
         if (periodRelation == PeriodRelation.StartInside || periodRelation == PeriodRelation.EnclosingStartTouching)
         {
