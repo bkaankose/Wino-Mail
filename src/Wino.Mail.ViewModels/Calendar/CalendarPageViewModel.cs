@@ -644,7 +644,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             IsAllDay = IsAllDay,
             TimeZoneId = TimeZoneInfo.Local.Id,
             ShowAs = SelectedQuickEventAccountCalendar.DefaultShowAs,
-            SelectedReminders = [],
+            SelectedReminders = SelectedQuickEventAccountCalendar.AccountCalendar.ResolveDefaultReminder(_preferencesService.DefaultReminderDurationInSeconds) is { } reminderSeconds
+                ? [new Reminder { Id = Guid.NewGuid(), DurationInSeconds = reminderSeconds, ReminderType = CalendarItemReminderType.Popup }]
+                : [],
             Attendees = [],
             Attachments = [],
             Recurrence = string.Empty,

@@ -46,6 +46,8 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<ReminderOption>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(CalendarReminderEditorRow))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<CalendarReminderEditorRow>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(CalendarDefaultReminderOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<CalendarDefaultReminderOption>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailNotificationActionOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(SnoozePresetOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(QuietHoursDayViewModel))]

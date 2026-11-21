@@ -82,6 +82,27 @@
                 </ComboBox>
             </controls:SettingsCard>
 
+            <!--  Default Reminder  -->
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="CalendarAccountSettingsPageDefaultReminderCard"
+                Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminderDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminder, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Reminder" />
+                </controls:SettingsCard.HeaderIcon>
+                <ComboBox
+                    MinWidth="150"
+                    AutomationProperties.AutomationId="CalendarAccountSettingsPageDefaultReminderComboBox"
+                    ItemsSource="{x:Bind ViewModel.DefaultReminderOptions, Mode=OneWay}"
+                    SelectedItem="{x:Bind ViewModel.SelectedDefaultReminderOption, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="calendar:CalendarDefaultReminderOption">
+                            <TextBlock Text="{x:Bind DisplayText}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </controls:SettingsCard>
+
         </StackPanel>
     </Grid>
 </abstract:CalendarAccountSettingsPageAbstract>
