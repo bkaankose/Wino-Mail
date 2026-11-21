@@ -87,5 +87,6 @@ A build does not prove UI behavior.
 - The reader theme comes from the ViewModel (`IsDarkWebviewRenderer`); the style manager only reports the app theme through `ApplyApplicationTheme`.
 - The reader's width state (Wide, Narrow, Compact) comes from its own probe, never from a breakpoint, and its minimum width stays at or under `ShellMetrics.ReaderMinimumWidth`.
 - The reader's command bar (`MailReaderCommandBar`) takes its width from the reader's probe; commands that do not fit move into More. Its commands come from `MailReaderCommandLayout` over the ViewModel's menu (Settings > Reader actions), with Move next to Delete through `MoveFolderPopover`.
+- Attachments are `AttachmentStrip` tiles with system file-type icons (`Infrastructure/AttachmentFileIcons`); in Debug builds `debug-next-folder` answers the next folder picker.
 - `IRenderingFrameHost.SetCover` covers the pane with a list page's widget while the reader stays alive underneath.
 - Sender pictures come from `LinuxSenderPictureProvider`; never decode an image in a cell bind.
