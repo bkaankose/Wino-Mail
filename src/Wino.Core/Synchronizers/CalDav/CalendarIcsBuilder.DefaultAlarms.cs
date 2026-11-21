@@ -1,11 +1,11 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Services;
 
 namespace Wino.Core.Synchronizers.CalDav;
 
@@ -126,79 +126,8 @@ public static partial class CalendarIcsBuilder
         return inserted ? builder.ToString() : icsContent;
     }
 
-    /// <summary>
-    /// Parses an iCalendar duration (RFC 5545 section 3.3.6), for example <c>-PT15M</c>,
-    /// <c>P1D</c>, <c>-P1DT9H</c> or <c>-P1W</c>.
-    /// </summary>
     internal static bool TryParseIcsDuration(string? value, out TimeSpan duration)
-    {
-        duration = TimeSpan.Zero;
-
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        var text = value.Trim().ToUpperInvariant();
-        var sign = 1;
-
-        if (text[0] is '+' or '-')
-        {
-            sign = text[0] == '-' ? -1 : 1;
-            text = text[1..];
-        }
-
-        if (text.Length < 2 || text[0] != 'P')
-            return false;
-
-        long seconds = 0;
-        var inTime = false;
-        var number = new StringBuilder();
-        var sawComponent = false;
-
-        foreach (var character in text[1..])
-        {
-            if (char.IsAsciiDigit(character))
-            {
-                number.Append(character);
-                continue;
-            }
-
-            if (character == 'T')
-            {
-                if (inTime || number.Length > 0)
-                    return false;
-
-                inTime = true;
-                continue;
-            }
-
-            if (number.Length == 0 || !long.TryParse(number.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var amount))
-                return false;
-
-            number.Clear();
-
-            long? unit = (character, inTime) switch
-            {
-                ('W', false) => 7 * 86400,
-                ('D', false) => 86400,
-                ('H', true) => 3600,
-                ('M', true) => 60,
-                ('S', true) => 1,
-                _ => null
-            };
-
-            if (unit == null)
-                return false;
-
-            seconds += amount * unit.Value;
-            sawComponent = true;
-        }
-
-        if (!sawComponent || number.Length > 0)
-            return false;
-
-        duration = TimeSpan.FromSeconds(sign * seconds);
-        return true;
-    }
+        => CalDavAlarms.TryParseDuration(value, out duration);
 
     private static CalDavDefaultAlarm? ParseAlarmBlock(List<string> block)
     {

@@ -26,6 +26,7 @@ public static class CalDavEventFields
     public const string Organizer = "ORGANIZER";
     public const string Attendees = "ATTENDEE";
     public const string Recurrence = "RRULE";
+    public const string Alarms = "VALARM";
 
     /// <summary>The properties each field is written as.</summary>
     internal static string[] PropertiesOf(string field)
@@ -65,14 +66,17 @@ public static partial class CalDavIcsMutator
     /// ones are dropped, new ones are added, and ATTENDEE values that are not mail addresses
     /// (RFC 5545 section 3.3.3 allows any URI) always stay. SEQUENCE is incremented only for a
     /// significant change made by the organizer (RFC 5545 section 3.8.7.4). With
-    /// <paramref name="onlyFields"/>, fields outside that set are left as stored.
+    /// <paramref name="onlyFields"/>, fields outside that set are left as stored. With
+    /// <paramref name="reminders"/>, the alarms Wino owns (<see cref="CalDavAlarms"/>) are changed to
+    /// the notification reminders; null leaves every alarm as stored.
     /// </summary>
     public static CalDavEventEdit EditEvent(
         string existingIcs,
         CalendarItem item,
         IReadOnlyCollection<CalendarEventAttendee>? attendees,
         CalDavUserIdentity? identity,
-        IReadOnlyCollection<string>? onlyFields = null)
+        IReadOnlyCollection<string>? onlyFields = null,
+        IReadOnlyCollection<Reminder>? reminders = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(existingIcs);
         ArgumentNullException.ThrowIfNull(item);
@@ -186,6 +190,20 @@ public static partial class CalDavIcsMutator
             fields.Add(CalDavEventFields.Recurrence);
         }
 
+        List<long>? alarmOffsets = null;
+        if (reminders != null && Allowed(CalDavEventFields.Alarms))
+        {
+            var wanted = CalDavAlarms.ToAlarmOffsets(reminders);
+            // A new occurrence exception starts as a copy of the master, alarms included.
+            var storedOffsets = CalDavAlarms.ReadOwnedOffsets(lines, baselineBlock.BeginIndex, baselineBlock.EndIndex);
+
+            if (!CalDavAlarms.SameOffsets(storedOffsets, wanted))
+            {
+                alarmOffsets = wanted;
+                fields.Add(CalDavEventFields.Alarms);
+            }
+        }
+
         if (fields.Count == 0)
             return new CalDavEventEdit { IcsContent = existingIcs, ChangedFields = Array.Empty<string>() };
 
@@ -202,6 +220,8 @@ public static partial class CalDavIcsMutator
                 changes["ORGANIZER"] = storedOrganizer == null ? null : [IcsOutputLine.Keep(storedOrganizer)];
 
             newBlock = ApplySerializedProperties(calendar, target, changes, recurrenceChanged, isNewException);
+            if (newBlock != null && alarmOffsets != null)
+                newBlock = CalDavAlarms.RewriteOwnedAlarms(newBlock, alarmOffsets, item.Title);
         }
 
         var timeZoneLines = BuildMissingTimeZones(lines, components, newTimeZones);
@@ -219,7 +239,8 @@ public static partial class CalDavIcsMutator
 
             if (!isNewException && index == baselineBlock.BeginIndex)
             {
-                output.AddRange(CalDavIcsLines.PatchBlock(lines, baselineBlock, changes));
+                var patched = CalDavIcsLines.PatchBlock(lines, baselineBlock, changes);
+                output.AddRange(alarmOffsets == null ? patched : CalDavAlarms.RewriteOwnedAlarms(patched, alarmOffsets, item.Title));
                 index = baselineBlock.EndIndex;
                 continue;
             }
@@ -253,6 +274,13 @@ public static partial class CalDavIcsMutator
         var blocks = CalDavIcsLines.TopLevelComponents(lines).Where(block => block.Name == "VEVENT").ToList();
         if (index < 0 || blocks.Count != events.Count)
             return Array.Empty<string>();
+
+        if (field == CalDavEventFields.Alarms)
+        {
+            return CalDavAlarms.ReadOwnedOffsets(lines, blocks[index].BeginIndex, blocks[index].EndIndex)
+                .Select(offset => CalDavAlarms.FormatTrigger(offset))
+                .ToList();
+        }
 
         var names = CalDavEventFields.PropertiesOf(field);
         return blocks[index].Properties(lines)

@@ -1876,7 +1876,7 @@ IImapChangeProcessor imapChangeProcessor,
 
         public async Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
         {
-            await _engine.UpdateEventAsync(_account, request.Item, request.Attendees, request.Attachments).ConfigureAwait(false);
+            await _engine.UpdateEventAsync(_account, request.Item, request.Attendees, request.Reminders, request.Attachments).ConfigureAwait(false);
             await _changeProcessor.PersistUpdatedCalendarEventAsync(request.Item, request.Attendees, request.Reminders).ConfigureAwait(false);
         }
 

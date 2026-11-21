@@ -29,13 +29,14 @@ public sealed partial class CalDavSynchronizationEngine
         MailAccount account,
         CalendarItem item,
         List<CalendarEventAttendee> attendees,
+        List<Reminder>? reminders,
         CalDavUserIdentity identity,
         CalDavConnectionSettings connection,
         CalDavCalendar calendar,
         CalDavResourceSnapshot snapshot,
         CancellationToken cancellationToken)
     {
-        var edit = CalDavIcsMutator.EditEvent(snapshot.IcsContent, item, attendees, identity);
+        var edit = CalDavIcsMutator.EditEvent(snapshot.IcsContent, item, attendees, identity, reminders: reminders);
         if (!edit.HasChanges)
             return snapshot.IcsContent;
 
@@ -46,7 +47,7 @@ public sealed partial class CalDavSynchronizationEngine
         {
             // Copies stored without a validator (a PUT answered without ETag before read-back existed)
             // are compared with the server copy first instead of being written blindly.
-            (writeBase, icsContent) = await RebaseEditAsync(account, item, attendees, identity, connection, snapshot, edit, cancellationToken).ConfigureAwait(false);
+            (writeBase, icsContent) = await RebaseEditAsync(account, item, attendees, reminders, identity, connection, snapshot, edit, cancellationToken).ConfigureAwait(false);
             if (icsContent == null)
                 return snapshot.IcsContent;
         }
@@ -61,7 +62,7 @@ public sealed partial class CalDavSynchronizationEngine
         catch (DavRequestException ex) when (ex.StatusCode == 412 && ReferenceEquals(writeBase, snapshot))
         {
             Logger.Information("CalDAV event {Href} changed on the server since it was stored; applying the edit to the current copy", snapshot.ExactHref);
-            (writeBase, icsContent) = await RebaseEditAsync(account, item, attendees, identity, connection, snapshot, edit, cancellationToken).ConfigureAwait(false);
+            (writeBase, icsContent) = await RebaseEditAsync(account, item, attendees, reminders, identity, connection, snapshot, edit, cancellationToken).ConfigureAwait(false);
             if (icsContent == null)
                 return snapshot.IcsContent;
 
@@ -86,6 +87,7 @@ public sealed partial class CalDavSynchronizationEngine
         MailAccount account,
         CalendarItem item,
         List<CalendarEventAttendee> attendees,
+        List<Reminder>? reminders,
         CalDavUserIdentity identity,
         CalDavConnectionSettings connection,
         CalDavResourceSnapshot snapshot,
@@ -118,7 +120,7 @@ public sealed partial class CalDavSynchronizationEngine
             throw new DavRequestException(412, Translator.DavError_Conflict);
         }
 
-        var rebased = CalDavIcsMutator.EditEvent(current.IcsContent, item, attendees, identity, edit.ChangedFields);
+        var rebased = CalDavIcsMutator.EditEvent(current.IcsContent, item, attendees, identity, edit.ChangedFields, reminders);
         if (rebased.HasChanges)
             return (currentSnapshot, rebased.IcsContent);
 

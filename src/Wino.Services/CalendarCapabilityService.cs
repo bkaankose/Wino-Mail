@@ -129,6 +129,7 @@ public sealed class CalendarCapabilityService : ICalendarCapabilityService
             SendsInvitations = state.HasDavCapability(AutoScheduleCapability),
             SupportsOnlineMeeting = false,
             SupportsReminders = true,
+            SupportsReminderAfterStart = true,
             SupportsDefaultAlarms = state.HasDavCapability(DefaultAlarmsCapability) || hasDefaultAlarmValues,
             MaxAttendees = calendars.Select(value => value.MaxAttendeesPerInstance).Where(value => value > 0).Min(),
             QuotaAvailableBytes = calendars.Select(value => value.QuotaAvailableBytes).Where(value => value >= 0).Min(),
