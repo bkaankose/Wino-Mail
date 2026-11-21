@@ -1,5 +1,8 @@
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Mail.Controls.Linux.Settings;
 using Wino.Mail.ViewModels.Data;
+using Wino.Presentation.Bindings;
 using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Views.Onboarding;
@@ -77,5 +80,133 @@ internal static class AccountSetupProviderChoiceRow
         button.AddCssClass("wino-setup-provider-choice");
         WinoA11y.Rename(button, choice.AutomationName);
         return button;
+    }
+}
+
+/// <summary>
+/// One sign-in method (Windows AccountSetupChoiceTemplate): a toggle button in one group, so pointer, keyboard and
+/// assistive technology all select it the same way; the accent outline marks the selected card.
+/// </summary>
+internal sealed class AccountSetupChoiceCard
+{
+    public AccountSetupChoiceCard(AccountSetupChoice choice, Gtk.ToggleButton? group)
+    {
+        Choice = choice;
+        var label = Gtk.Label.New(choice.Label);
+        label.SetXalign(0);
+        label.SetWrap(true);
+        var box = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
+        box.Append(label);
+        if (choice.HasCaption)
+        {
+            var caption = Gtk.Label.New(choice.Caption);
+            caption.AddCssClass("dim-label");
+            box.Append(caption);
+        }
+        Toggle = Gtk.ToggleButton.New();
+        Toggle.SetChild(box);
+        Toggle.AddCssClass("card");
+        Toggle.AddCssClass("wino-setup-choice");
+        if (group is not null) Toggle.SetGroup(group);
+        WinoA11y.Rename(Toggle, choice.AutomationName);
+    }
+
+    public AccountSetupChoice Choice { get; }
+    public Gtk.ToggleButton Toggle { get; }
+}
+
+/// <summary>
+/// One app on the review step (Windows AccountSetupAppRowTemplate): a row with the app's glyph, title and status, the
+/// source drop-down and the switch, then the server address, the note and the error under it. The rows live in the
+/// review's group; the owner disposes the row's scope before it rebuilds.
+/// </summary>
+internal sealed class AccountSetupAppRowView
+{
+    private readonly Adw.ActionRow _row;
+    private readonly Gtk.DropDown _source;
+    private readonly Gtk.Switch _switch;
+    private readonly Adw.EntryRow _server;
+    private readonly Gtk.Label _note;
+    private readonly Gtk.Label _error;
+    private readonly string _sourceName;
+    private bool _applying;
+
+    public AccountSetupAppRowView(AccountSetupAppRow row, BindingScope scope)
+    {
+        Row = row;
+        _row = WinoSettingsRows.Action(row.Title, null, row.Glyph);
+        _source = Gtk.DropDown.New(Gtk.StringList.New([.. row.Options.Select(option => option.Label)]), null);
+        _source.SetValign(Gtk.Align.Center);
+        _sourceName = row.Kind == AccountSetupAppKind.Mail
+            ? Translator.AccountSetup_Review_MailRange
+            : string.Format(Translator.AccountSetup_Review_SourceOf, row.Title);
+        _switch = Gtk.Switch.New();
+        _switch.SetValign(Gtk.Align.Center);
+        _switch.SetVisible(row.IsSwitchVisible);
+        WinoA11y.Label(_switch, string.Format(Translator.AccountSetup_Review_UseApp, row.Title));
+        _row.AddSuffix(_source);
+        _row.AddSuffix(_switch);
+
+        _server = WinoSettingsRows.Entry(Translator.AccountSetup_ServerAddressHeader);
+        _server.SetInputPurpose(Gtk.InputPurpose.Url);
+        WinoA11y.Description(_server, Translator.AccountSetup_ServerAddressDescription);
+        _note = OnboardingUi.Caption();
+        _error = OnboardingUi.Error();
+        var notes = OnboardingUi.Column(2, _note, _error);
+        Notes = WinoSettingsRows.Custom(notes);
+
+        scope.Own(GtkSignals.OnNotify(_source, "selected", () =>
+        {
+            var index = (int)_source.GetSelected();
+            if (!_applying && index >= 0 && index < Row.Options.Count) Row.SelectedOption = Row.Options[index];
+        }));
+        scope.Own(GtkSignals.OnNotify(_switch, "active", () =>
+        {
+            if (!_applying) Row.IsOn = _switch.GetActive();
+        }));
+        scope.Own(GtkSignals.OnChanged(_server, () =>
+        {
+            if (!_applying) Row.ServerUrl = _server.GetText();
+        }));
+        Apply();
+    }
+
+    public AccountSetupAppRow Row { get; }
+    public Gtk.Widget Main => _row;
+    public Gtk.Widget Server => _server;
+    public Adw.PreferencesRow Notes { get; }
+    public Adw.EntryRow ServerField => _server;
+
+    public void SetEnabled(bool enabled)
+    {
+        OnboardingUi.SetSensitive(_source, enabled);
+        OnboardingUi.SetSensitive(_switch, enabled);
+        OnboardingUi.SetSensitive(_server, enabled);
+    }
+
+    public void Apply()
+    {
+        _applying = true;
+        try
+        {
+            var row = Row;
+            var status = row.HasStatus ? row.StatusText : string.Empty;
+            if (_row.GetSubtitle() != status) _row.SetSubtitle(status);
+            if (_switch.GetActive() != row.IsOn) _switch.SetActive(row.IsOn);
+            OnboardingUi.SetVisible(_source, row.IsSourceVisible);
+            var index = row.SelectedOption is null ? -1 : row.Options.IndexOf(row.SelectedOption);
+            if (index >= 0 && _source.GetSelected() != index) _source.SetSelected((uint)index);
+            // A drop-down takes its name from the selected item again after every selection.
+            WinoA11y.Rename(_source, _sourceName);
+            WinoA11y.Description(_source, row.AutomationName);
+            OnboardingUi.SetVisible(_server, row.IsServerEntryShown);
+            if (_server.GetText() != row.ServerUrl) _server.SetText(row.ServerUrl);
+            OnboardingUi.SetText(_note, row.Note);
+            OnboardingUi.SetVisible(_note, row.IsNoteShown);
+            OnboardingUi.SetText(_error, row.Error);
+            OnboardingUi.SetVisible(_error, row.HasError);
+            OnboardingUi.SetVisible(Notes, row.IsNoteShown || row.HasError);
+        }
+        finally { _applying = false; }
     }
 }

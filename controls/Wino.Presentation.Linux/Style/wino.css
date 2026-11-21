@@ -246,3 +246,5 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-setup-known { padding: 6px 16px 6px 6px; border-radius: 22px; }
 .wino-setup-known-mark { border-radius: 999px; background-color: alpha(currentColor, 0.08); }
 .wino-setup-provider-choice { padding: 6px 8px; font-weight: normal; }
+.wino-setup-choice { padding: 10px 12px; font-weight: normal; }
+.wino-setup-choice:checked { box-shadow: inset 0 0 0 2px @accent_bg_color; background-color: alpha(@accent_bg_color, 0.08); color: inherit; }

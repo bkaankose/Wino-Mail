@@ -191,11 +191,11 @@ internal sealed class OnboardingForm<T> where T : class, INotifyPropertyChanged
     /// <summary>Runs after every refresh; the page uses it for state that is not a widget property (the shown step).</summary>
     public event Action? Refreshed;
 
-    public void Track(INotifyPropertyChanged other)
+    public void Track(INotifyPropertyChanged other, BindingScope? scope = null)
     {
         PropertyChangedEventHandler changed = (_, _) => Request();
         other.PropertyChanged += changed;
-        Scope.Own(new ActionDisposable(() => other.PropertyChanged -= changed));
+        (scope ?? Scope).Own(new ActionDisposable(() => other.PropertyChanged -= changed));
     }
 
     public void TrackCollection(INotifyCollectionChanged collection)
