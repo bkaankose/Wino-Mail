@@ -2820,7 +2820,7 @@
   "CalendarAccountSettings_PrimaryCalendarDescription": "Mark this calendar as the primary calendar for the account",
   "CalendarSettings_AccountGrouping_Header": "Group calendar accounts",
   "CalendarSettings_ShowTasks_Header": "Show tasks on the calendar",
-  "CalendarSettings_ShowTasks_Description": "Open tasks with a due date appear above the days they are due, with a box to complete them.",
+  "CalendarSettings_ShowTasks_Description": "Open tasks due in the days on screen appear in a row above the calendar, with a box to complete them.",
   "Calendar_DueTasks": "Tasks due in these days",
   "CalendarSettings_AccountGrouping_Description": "Show each account as an expandable group with its calendars.",
   "CalendarSettings_StartupAccount_Header": "Startup account",
