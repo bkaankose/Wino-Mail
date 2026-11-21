@@ -243,19 +243,19 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
 
         if (periodRelation is PeriodRelation.ExactMatch or PeriodRelation.Inside or PeriodRelation.InsideStartTouching or PeriodRelation.InsideEndTouching)
         {
-            // The whole event is shown at once, as a bar: "HH:mm -> Title <- HH:mm"
-            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} -> {Title} <- {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
+            // The whole event is shown at once, as a bar: "HH:mm → Title ← HH:mm"
+            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} → {Title} ← {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
         }
 
         if (periodRelation == PeriodRelation.StartInside || periodRelation == PeriodRelation.EnclosingStartTouching)
         {
-            // Event starts within this day: "HH:mm -> Title"
-            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} -> {Title}";
+            // Event starts within this day: "HH:mm → Title"
+            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} → {Title}";
         }
         else if (periodRelation == PeriodRelation.EndInside || periodRelation == PeriodRelation.EnclosingEndTouching)
         {
-            // Event ends within this day: "Title <- HH:mm"
-            return $"{Title} <- {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
+            // Event ends within this day: "Title ← HH:mm"
+            return $"{Title} ← {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
         }
         else if (periodRelation == PeriodRelation.Enclosing)
         {
