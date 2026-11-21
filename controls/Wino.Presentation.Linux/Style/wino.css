@@ -235,3 +235,6 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-hover-medium .wino-hover-button { min-width: 32px; min-height: 32px; }
 .wino-hover-large .wino-hover-button { min-width: 40px; min-height: 40px; }
 .wino-hover-button:hover { color: @accent_color; }
+
+/* ML-09 folder picker */
+.wino-folder-picker-row { min-height: 32px; padding: 0 8px; border-radius: var(--wino-control-radius); font-weight: normal; }

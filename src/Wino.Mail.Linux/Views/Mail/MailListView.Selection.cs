@@ -37,6 +37,7 @@ internal sealed partial class MailListView
     private PropertyChangedEventHandler? _selectedItemChanged;
     private MainLoop.Coalescer? _multiRefresh;
     private MailMultiSelectionView? _multi;
+    private MoveFolderPopover? _movePopover;
     private string _published = string.Empty;
     private bool _applying;
     private bool _allSelected;
@@ -187,6 +188,7 @@ internal sealed partial class MailListView
         {
             UnwatchSelection();
             _multi?.Dispose();
+            _movePopover?.Dispose();
         }));
     }
 
@@ -381,7 +383,7 @@ internal sealed partial class MailListView
         {
             var self = _self;
             _multi = new MailMultiSelectionView(_pictures);
-            _multi.OperationRequested += (operation, _) => self.Value?.ViewModel.ExecuteMailOperationCommand.Execute(operation);
+            _multi.OperationRequested += (operation, anchor) => self.Value?.MultiSelectionOperation(operation, anchor);
             _multi.UnselectAllRequested += () => self.Value?.ViewModel.UnselectAllCommand.Execute(null);
         }
         RefreshMultiSelection();
@@ -408,6 +410,25 @@ internal sealed partial class MailListView
             item.PropertyChanged += _selectedItemChanged;
             _watchedSelection.Add(item);
         }
+    }
+
+    /// <summary>Move opens the folder popover at its button (macOS); the other buttons run the shared command.</summary>
+    private async void MultiSelectionOperation(MailOperation operation, Gtk.Widget anchor)
+    {
+        if (operation != MailOperation.Move)
+        {
+            ViewModel.ExecuteMailOperationCommand.Execute(operation);
+            return;
+        }
+        try
+        {
+            _movePopover?.Dispose();
+            _movePopover = null;
+            var popover = await MoveFolderPopover.ShowForAsync(anchor, [.. ViewModel.SelectedItems], ViewModel, _folders, Dispatcher);
+            if (IsReleased) popover?.Dispose();
+            else _movePopover = popover;
+        }
+        catch (Exception exception) { if (!IsReleased) ReportError(exception); }
     }
 
     private void RefreshMultiSelection()

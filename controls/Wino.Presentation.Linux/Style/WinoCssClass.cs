@@ -84,4 +84,6 @@ public static class WinoCssClass
     public const string HoverSlide = "wino-hover-slide";
     public const string HoverNone = "wino-hover-none";
     public const string MailCell = "wino-mail-cell";
+    public const string FolderPicker = "wino-folder-picker";
+    public const string FolderPickerRow = "wino-folder-picker-row";
 }

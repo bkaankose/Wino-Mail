@@ -1,11 +1,16 @@
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Messaging.Server;
+using Wino.Core.Domain.Messaging.UI;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Mail.Linux.Views.Dialogs;
 using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Infrastructure;
 
-// Folder dialogs. ML-09 adds the folder pickers here.
 internal sealed partial class GtkDialogService
 {
     public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName, bool canRenameOnServer)
@@ -44,4 +49,32 @@ internal sealed partial class GtkDialogService
             var confirmed = await form.PresentAsync(owner);
             return confirmed ? new FolderRenameDialogResult(name.GetText().Trim(), display.GetText().Trim()) : null;
         }, null);
+
+    public Task<IMailItemFolder?> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
+        => PresentAsync<IMailItemFolder?>(owner => FolderPickerDialog.PresentAsync(owner, [.. availableFolders ?? []], null), null);
+
+    public async Task<IMailItemFolder?> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
+    {
+        var structure = await folderService.GetFolderStructureForAccountAsync(accountId, false);
+        return await ShowMoveMailFolderDialogAsync(structure?.Folders ?? []);
+    }
+
+    /// <summary>The Windows flow: pick, save, report, then synchronize the folders again.</summary>
+    public async Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService)
+    {
+        try
+        {
+            var folders = await folderService.GetFoldersAsync(accountId);
+            var configuration = await PresentAsync<SystemFolderConfiguration?>(owner => SystemFolderConfigurationDialog.PresentAsync(owner, folders ?? []), null);
+            if (configuration is null) return;
+            await folderService.UpdateSystemFolderConfigurationAsync(accountId, configuration);
+            InfoBarMessage(Translator.SystemFolderConfigSetupSuccess_Title, Translator.SystemFolderConfigSetupSuccess_Message, InfoBarMessageType.Success);
+            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(accountId));
+            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions { AccountId = accountId, Type = MailSynchronizationType.FullFolders }));
+        }
+        catch (Exception exception)
+        {
+            InfoBarMessage(Translator.Error_FailedToSetupSystemFolders_Title, exception.Message, InfoBarMessageType.Error);
+        }
+    }
 }

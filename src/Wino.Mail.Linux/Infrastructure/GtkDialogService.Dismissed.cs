@@ -37,15 +37,6 @@ internal sealed partial class GtkDialogService
     public IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
         => new GtkAccountCreationDialog();
 
-    public Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService)
-        => DismissAsync(nameof(HandleSystemFolderConfigurationDialogAsync), accountId.ToString());
-
-    public Task<IMailItemFolder?> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
-        => DismissAsync<IMailItemFolder?>(nameof(ShowMoveMailFolderDialogAsync), null, null);
-
-    public Task<IMailItemFolder?> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
-        => DismissAsync<IMailItemFolder?>(nameof(PickFolderAsync), reason.ToString(), null);
-
     public Task<AccountSignature?> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)
         => DismissAsync<AccountSignature?>(nameof(ShowSignatureEditorDialog), null, null);
 
