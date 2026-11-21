@@ -41,6 +41,7 @@ public static class WinoIcons
     private static string? _parsingError;
     private static Gtk.CssProvider? _provider;
     private static readonly List<IDisposable> StyleWatches = [];
+    private static readonly object Bridge = new();
 
     public static WinoIconStyle Style
     {
@@ -105,6 +106,8 @@ public static class WinoIcons
         provider.LoadFromString(BuildCss());
         Gtk.StyleContext.AddProviderForDisplay(display, provider, WinoStyle.ApplicationPriority);
         _provider = provider;
+        Style = WinoAppearance.IconStyle;
+        WinoAppearance.IconStyleChanged.Add(Bridge, static _ => Style = WinoAppearance.IconStyle);
 
         // The style manager is a process singleton, so these two subscriptions live as long as the process.
         var manager = Adw.StyleManager.GetDefault();

@@ -53,4 +53,8 @@
   <ItemGroup>
     <None Include="Resources\app.winomail.Mail.desktop" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- Predefined theme wallpapers and gallery previews, shared with Windows (BackgroundImages). -->
+  <ItemGroup>
+    <None Include="..\Wino.Mail.WinUI\BackgroundImages\*.jpg" Exclude="..\Wino.Mail.WinUI\BackgroundImages\Acrylic.jpg;..\Wino.Mail.WinUI\BackgroundImages\Mica.jpg" Link="Themes\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

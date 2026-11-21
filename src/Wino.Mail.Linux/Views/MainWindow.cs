@@ -4,10 +4,11 @@ using Wino.Presentation.Linux.Style;
 
 namespace Wino.Mail.Linux.Views;
 
-/// <summary>The one window: a toast overlay over either a status page (startup, errors) or the shell.</summary>
+/// <summary>The one window: a toast overlay over the theme backdrop, which holds either a status page (startup, errors) or the shell.</summary>
 internal sealed class MainWindow
 {
     private readonly Adw.ToastOverlay _toasts = Adw.ToastOverlay.New();
+    private readonly ThemeBackdrop _backdrop = new();
 
     public MainWindow(Adw.Application application)
     {
@@ -16,12 +17,13 @@ internal sealed class MainWindow
         Window.Title = "Wino Mail";
         Window.SetDefaultSize(1360, 860);
         Window.SetContent(_toasts);
+        _toasts.SetChild(_backdrop.Root);
         ShowStatus("mail-send-receive-symbolic", "Wino Mail", null, busy: true);
     }
 
     public Adw.ApplicationWindow Window { get; }
 
-    public void ShowContent(Gtk.Widget content) => _toasts.SetChild(content);
+    public void ShowContent(Gtk.Widget content) => _backdrop.Child = content;
 
     public void ShowStatus(string iconName, string title, string? description, bool busy = false)
     {
@@ -40,7 +42,7 @@ internal sealed class MainWindow
         var view = Adw.ToolbarView.New();
         view.AddTopBar(Adw.HeaderBar.New());
         view.SetContent(page);
-        _toasts.SetChild(view);
+        _backdrop.Child = view;
     }
 
     public void ShowToast(string? title, string? message, string? actionText, Action? action)

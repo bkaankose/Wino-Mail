@@ -45,6 +45,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.NavigationDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.DialogDebugActions.Register(application, () => _services, () => _window?.Window);
             Infrastructure.Diagnostics.IconDebugActions.Register(application);
+            Infrastructure.Diagnostics.ThemeDebugActions.Register(application, () => _services);
         }
 #endif
     }

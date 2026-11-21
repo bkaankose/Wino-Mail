@@ -5,6 +5,7 @@ public static class WinoCssClass
 {
     public const string Zone = "wino-zone";
     public const string HasBackdrop = "wino-has-backdrop";
+    public const string ThemeBackdrop = "wino-theme-backdrop";
 
     public const string DensitySpacious = "wino-density-spacious";
     public const string DensityMedium = "wino-density-medium";

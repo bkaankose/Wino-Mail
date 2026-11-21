@@ -104,7 +104,7 @@ The file is installed as `app.winomail.Mail.desktop`, the application id. GNOME 
 | Protection key | Secret Service through libsecret (`LibsecretSecureItemStore`) | One item, schema `app.winomail.Mail.SecureItem`. No file fallback. Credentials themselves are AES-GCM files below `$XDG_DATA_HOME/wino-mail/secure`. |
 | Notifications | `GNotification`, which GLib sends over org.freedesktop.Notifications, or the notification portal in a sandbox | New mail only |
 | Opening links and files | `Gtk.UriLauncher`, `Gtk.FileLauncher` | xdg-desktop-portal (OpenURI) in a sandbox |
-| Dark and light | `Adw.StyleManager` | Follows the Settings portal (`org.freedesktop.appearance color-scheme`), live |
+| Dark and light | `Adw.StyleManager` | Follows the Settings portal (`org.freedesktop.appearance color-scheme`), live. `GtkThemeService` applies the user's choice through `Adw.StyleManager.ColorScheme`, and the accent and the Wino theme backdrop through one CSS provider at priority 601; theme wallpapers are copied to `Themes/` next to the executable |
 | Activation | `GApplication` with `HANDLES_OPEN`, one instance per session | `x-scheme-handler/wino` in the `.desktop` file |
 
 ## Trimming and Native AOT
