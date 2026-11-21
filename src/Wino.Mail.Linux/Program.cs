@@ -8,6 +8,7 @@ internal static class Program
     public static int Main(string[] args)
     {
         var options = LaunchOptions.Parse(args, out var forwarded);
+        Infrastructure.LinuxLanguage.Prepare();
         Wino.Presentation.Linux.WinoIcons.Register(Path.Combine(AppContext.BaseDirectory, "Fonts"));
         Wino.Presentation.Linux.WinoPresentation.Initialize();
         var application = Adw.Application.New(ApplicationId, Gio.ApplicationFlags.HandlesOpen);

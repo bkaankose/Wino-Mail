@@ -192,10 +192,11 @@ internal sealed class ShellHeaderBar : IDisposable
             if (isSettings) _modesList.Append(Gtk.Separator.New(Gtk.Orientation.Horizontal));
 
             var button = Gtk.Button.New();
-            button.SetChild(WinoIcons.ButtonContent(segment.Regular, segment.Title));
+            var title = WinoModeSwitcher.Title(segment.Mode);
+            button.SetChild(WinoIcons.ButtonContent(segment.Regular, title));
             button.AddCssClass("flat");
             if (segment.Mode == current) button.AddCssClass("accent");
-            WinoA11y.Label(button, segment.Title);
+            WinoA11y.Label(button, title);
             var mode = segment.Mode;
             _modeSubscriptions.Add(GtkSignals.OnClicked(button, () =>
             {
@@ -204,6 +205,24 @@ internal sealed class ShellHeaderBar : IDisposable
             }));
             _modesList.Append(button);
         }
+    }
+
+    /// <summary>Re-reads every label, tooltip and menu text after a language change.</summary>
+    public void ApplyLanguage(string synchronizeLabel)
+    {
+        WinoA11y.LabelWithTooltip(_back, Translator.Buttons_Back);
+        WinoA11y.LabelWithTooltip(_sidebarToggle, Translator.MacOSMenu_ToggleSidebar);
+        WinoA11y.LabelWithTooltip(_modes, Translator.KeyboardShortcuts_Mode);
+        _search.SetPlaceholderText(_target?.SearchPlaceholder ?? Translator.SearchBarPlaceholder);
+        WinoA11y.Label(_search, Translator.SearchBarPlaceholder);
+        WinoA11y.LabelWithTooltip(_menu, Translator.More);
+        WinoA11y.LabelWithTooltip(_account, Translator.WinoAccount_Titlebar_SignedOutTitle);
+        WinoA11y.LabelWithTooltip(_whatsNew, Translator.WhatsNew_ShellButtonTooltip);
+        WinoA11y.LabelWithTooltip(_briefing, Translator.DailyBriefing_Menu);
+        _synchronize.SetDefaultLabel(synchronizeLabel);
+        _modesBuilt = false;
+        if (_currentMode is { } current) SetModes(current, _visibleModes);
+        RebuildMenu();
     }
 
     public void SetSynchronization(bool supported, bool enabled, bool isSynchronizing, string? toolTip)

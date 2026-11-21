@@ -16,6 +16,7 @@ public sealed class WinoModeSwitcher : IDisposable
     private readonly Gtk.Box _root = Gtk.Box.New(Gtk.Orientation.Horizontal, 2);
     private readonly List<Segment> _segments = [];
     private readonly List<IDisposable> _signals = [];
+    private Gtk.Button? _settings;
     private WinoApplicationMode _selected = WinoApplicationMode.Mail;
     private bool _applying;
     private bool _disposed;
@@ -33,7 +34,7 @@ public sealed class WinoModeSwitcher : IDisposable
         {
             var mode = segment.Mode;
             var icon = new WinoIcon(segment.Regular, 18, WinoIconMode.Mono);
-            var label = $"{segment.Title} ({ShortcutLabel(mode)})";
+            var label = Label(mode);
             if (mode == WinoApplicationMode.Settings)
             {
                 var separator = Gtk.Separator.New(Gtk.Orientation.Vertical);
@@ -45,6 +46,7 @@ public sealed class WinoModeSwitcher : IDisposable
                 settings.SetSizeRequest(40, 32);
                 settings.SetChild(icon.Root);
                 WinoA11y.LabelWithTooltip(settings, label);
+                _settings = settings;
                 _signals.Add(GtkSignals.OnClicked(settings, () => ModeSelected?.Invoke(WinoApplicationMode.Settings)));
                 _root.Append(settings);
                 continue;
@@ -84,6 +86,26 @@ public sealed class WinoModeSwitcher : IDisposable
     {
         foreach (var segment in _segments) segment.Button.SetVisible(visible is null || visible.Contains(segment.Info.Mode));
     }
+
+    /// <summary>The mode's title read now, so it follows a language change (the shared segment list keeps the titles of its first use).</summary>
+    public static string Title(WinoApplicationMode mode) => mode switch
+    {
+        WinoApplicationMode.Mail => Translator.KeyboardShortcuts_ModeMail,
+        WinoApplicationMode.Calendar => Translator.KeyboardShortcuts_ModeCalendar,
+        WinoApplicationMode.Contacts => Translator.ContactsPage_Title,
+        WinoApplicationMode.Tasks => Translator.ToDoPage_Title,
+        _ => Translator.MenuSettings
+    };
+
+    /// <summary>Re-reads every label and tooltip after a language change.</summary>
+    public void ApplyLanguage()
+    {
+        WinoA11y.Label(_root, Translator.KeyboardShortcuts_Mode);
+        foreach (var segment in _segments) WinoA11y.LabelWithTooltip(segment.Button, Label(segment.Info.Mode));
+        if (_settings is not null) WinoA11y.LabelWithTooltip(_settings, Label(WinoApplicationMode.Settings));
+    }
+
+    private static string Label(WinoApplicationMode mode) => $"{Title(mode)} ({ShortcutLabel(mode)})";
 
     public static string ShortcutLabel(WinoApplicationMode mode) => mode switch
     {

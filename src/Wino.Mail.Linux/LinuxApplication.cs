@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.Linux.Views;
@@ -65,6 +66,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.SidebarMenuDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.ShortcutDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.WindowDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.LanguageDebugActions.Register(application, () => _services);
         }
 #endif
     }
@@ -77,6 +79,7 @@ internal sealed class LinuxApplication
             return;
         }
 
+        LinuxLanguage.ApplyDirection(LinuxLanguage.Prepared);
         Wino.Presentation.Linux.WinoIcons.Install();
         _window = new MainWindow(_application, WindowStateStore.LoadPlacement(LinuxPaths.FromEnvironment().ApplicationDataRoot));
         _window.Window.OnCloseRequest += OnCloseRequest;
@@ -96,8 +99,8 @@ internal sealed class LinuxApplication
             catch (Exception exception) when (exception is SecretServiceException or DllNotFoundException)
             {
                 // There is no unprotected fallback: without the keyring the app holds no credentials at all.
-                window.ShowStatus("dialog-password-symbolic", "The system keyring is not available",
-                    "Wino Mail keeps its encryption key in the keyring (Secret Service). Unlock or install a keyring such as GNOME Keyring, then start Wino Mail again.\n\n" + exception.Message);
+                window.ShowStatus("dialog-password-symbolic", Translator.Linux_KeyringUnavailable_Title,
+                    Translator.Linux_KeyringUnavailable_Message + "\n\n" + exception.Message);
                 return;
             }
 
@@ -111,7 +114,7 @@ internal sealed class LinuxApplication
         catch (Exception exception)
         {
             Serilog.Log.Error(exception, "Startup failed.");
-            window.ShowStatus("dialog-error-symbolic", "Wino Mail could not start", exception.Message);
+            window.ShowStatus("dialog-error-symbolic", Translator.Linux_StartupFailed_Title, exception.Message);
         }
     }
 

@@ -1,4 +1,5 @@
 using Wino.Core.Domain;
+using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.ViewModels;
 
@@ -13,6 +14,7 @@ internal sealed class IdleView : WinoView<IdlePageViewModel>
         idle.SetIconName("mail-read-symbolic");
         idle.SetTitle(Translator.NoMailSelected);
         Root = idle;
+        Subscribe<LanguageChanged>(_ => idle.SetTitle(Translator.NoMailSelected));
     }
 
     public override Gtk.Widget Root { get; }

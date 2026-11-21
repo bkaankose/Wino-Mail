@@ -12,7 +12,7 @@ public sealed class WinoSynchronizationButton : IDisposable
     private const string IdlePage = "idle";
     private const string BusyPage = "busy";
 
-    private readonly string _defaultLabel;
+    private string _defaultLabel;
     private readonly Gtk.Button _button = Gtk.Button.New();
     private readonly Gtk.Stack _stack = Gtk.Stack.New();
     private readonly Gtk.Label _idle;
@@ -72,6 +72,13 @@ public sealed class WinoSynchronizationButton : IDisposable
         }
 
         _toolTip = toolTip;
+        ApplyLabel();
+    }
+
+    /// <summary>The label shown without a state tooltip; a language change sets it again.</summary>
+    public void SetDefaultLabel(string label)
+    {
+        _defaultLabel = label;
         ApplyLabel();
     }
 

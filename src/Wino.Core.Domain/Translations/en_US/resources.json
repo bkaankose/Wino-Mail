@@ -5728,5 +5728,8 @@
   "AppLock_TurnedOffMessage": "App lock is off.",
   "AppLock_PinChangedMessage": "Your Wino Mail PIN was changed.",
   "AppLock_ReadOnlyNotificationsHeader": "Read-only notifications",
-  "AppLock_ReadOnlyNotificationsDescription": "Notifications show their content as usual but have no action buttons, such as mark as read, delete or reply. Opening one asks you to unlock first."
+  "AppLock_ReadOnlyNotificationsDescription": "Notifications show their content as usual but have no action buttons, such as mark as read, delete or reply. Opening one asks you to unlock first.",
+  "Linux_KeyringUnavailable_Title": "The system keyring is not available",
+  "Linux_KeyringUnavailable_Message": "Wino Mail keeps its encryption key in the keyring (Secret Service). Unlock or install a keyring such as GNOME Keyring, then start Wino Mail again.",
+  "Linux_StartupFailed_Title": "Wino Mail could not start"
 }

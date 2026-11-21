@@ -5,6 +5,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Messaging.Client.Mails;
+using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.Controls.Linux.Shell;
@@ -75,6 +76,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         _layout.StateChanged += OnLayoutStateChanged;
         WireHeader();
         OnLayoutStateChanged();
+        Subscribe<LanguageChanged>(_ => ApplyLanguage());
     }
 
     public override Gtk.Widget Root => _layout.Root;
@@ -342,6 +344,19 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         if (args.PropertyName is not (null or "" or nameof(IShellMenuProvider.IsSynchronizationSupported) or nameof(IShellMenuProvider.CanSynchronize)
             or nameof(IShellMenuProvider.SynchronizationState) or nameof(IShellMenuProvider.SynchronizationDescription) or nameof(IShellMenuProvider.SynchronizationToolTip))) return;
         RunOnUI(ApplySynchronization);
+    }
+
+    /// <summary>Re-reads the shell's own texts after a language change; the ViewModel rebuilds the sidebar rows itself.</summary>
+    internal void ApplyLanguage()
+    {
+        if (IsReleased) return;
+        _header.ApplyLanguage(Translator.Buttons_Sync);
+        _switcher.ApplyLanguage();
+        _sidebar.SetTitle(ModeTitle(ViewModel.CurrentMode));
+        _header.SetSynchronizationAttention(ViewModel.IsRelayFallbackActive ? $"{Translator.Relay_FallbackFlyoutTitle}. {Translator.Relay_FallbackFlyoutMessage}" : null);
+        UpdateModes();
+        UpdateTitle();
+        ApplySynchronization();
     }
 
     private void ApplySynchronization()
