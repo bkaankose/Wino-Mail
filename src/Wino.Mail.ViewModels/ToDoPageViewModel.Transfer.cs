@@ -51,7 +51,7 @@ public partial class ToDoPageViewModel
         StartTransfer(Translator.ToDoPage_CopyListTo, destination, requests);
         ShowNotice(
             Translator.ToDoPage_CopyListTo,
-            string.Format(Translator.ToDoPage_CopyListStarted, tasks.Count, destination.Title),
+            tasks.Count == 1 ? string.Format(Translator.ToDoPage_CopyListStartedOne, destination.Title) : string.Format(Translator.ToDoPage_CopyListStarted, tasks.Count, destination.Title),
             InfoBarMessageType.Information,
             destination.Id);
 
@@ -85,7 +85,7 @@ public partial class ToDoPageViewModel
         try
         {
             await File.WriteAllTextAsync(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: isCsv)).ConfigureAwait(false);
-            ShowNotice(Translator.ToDoPage_ExportTasks, string.Format(Translator.ToDoPage_ExportDone, tasks.Count, path), InfoBarMessageType.Success);
+            ShowNotice(Translator.ToDoPage_ExportTasks, tasks.Count == 1 ? string.Format(Translator.ToDoPage_ExportDoneOne, path) : string.Format(Translator.ToDoPage_ExportDone, tasks.Count, path), InfoBarMessageType.Success);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -130,7 +130,7 @@ public partial class ToDoPageViewModel
         StartTransfer(Translator.ToDoPage_ImportTasks, destination, requests);
         ShowNotice(
             Translator.ToDoPage_ImportTasks,
-            string.Format(Translator.ToDoPage_ImportStarted, imported.Count, destination.Title),
+            imported.Count == 1 ? string.Format(Translator.ToDoPage_ImportStartedOne, destination.Title) : string.Format(Translator.ToDoPage_ImportStarted, imported.Count, destination.Title),
             InfoBarMessageType.Information,
             destination.Id);
 
@@ -190,9 +190,9 @@ public partial class ToDoPageViewModel
 
         _pendingTransfer = null;
         if (transfer.FailedIds.Count == 0)
-            ShowNotice(transfer.Title, string.Format(Translator.ToDoPage_TransferDone, added, transfer.ListTitle), InfoBarMessageType.Success, transfer.ListId);
+            ShowNotice(transfer.Title, added == 1 ? string.Format(Translator.ToDoPage_TransferDoneOne, transfer.ListTitle) : string.Format(Translator.ToDoPage_TransferDone, added, transfer.ListTitle), InfoBarMessageType.Success, transfer.ListId);
         else
-            ShowNotice(transfer.Title, string.Format(Translator.ToDoPage_TransferPartial, added, transfer.TaskIds.Count, transfer.ListTitle), InfoBarMessageType.Warning, transfer.ListId);
+            ShowNotice(transfer.Title, string.Format(transfer.TaskIds.Count == 1 ? Translator.ToDoPage_TransferPartialOne : Translator.ToDoPage_TransferPartial, added, transfer.TaskIds.Count, transfer.ListTitle), InfoBarMessageType.Warning, transfer.ListId);
     }
 
     /// <summary>A notice about a list that no longer exists is closed, and its transfer is no longer followed.</summary>
