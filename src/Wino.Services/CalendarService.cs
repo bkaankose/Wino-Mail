@@ -508,11 +508,18 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         });
     }
 
-    public Task SnoozeCalendarItemAsync(Guid calendarItemId, DateTime snoozedUntilLocal)
-        => Connection.ExecuteAsync(
+    public async Task SnoozeCalendarItemAsync(Guid calendarItemId, DateTime snoozedUntilLocal)
+    {
+        await Connection.ExecuteAsync(
             $"UPDATE {nameof(CalendarItem)} SET {nameof(CalendarItem.SnoozedUntil)} = ? WHERE {nameof(CalendarItem.Id)} = ?",
             snoozedUntilLocal,
-            calendarItemId);
+            calendarItemId).ConfigureAwait(false);
+
+        // Heads that hand reminders to the operating system plan the snoozed one again.
+        var calendarItem = await GetCalendarItemAsync(calendarItemId).ConfigureAwait(false);
+        if (calendarItem != null)
+            Messenger.Send(new CalendarItemUpdated(calendarItem, EntityUpdateSource.Server));
+    }
 
     public async Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default)
     {
@@ -544,7 +551,8 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             {
                 CalendarItem = calendarItem,
                 ReminderDurationInSeconds = candidate.ReminderDurationInSeconds,
-                ReminderKey = reminderKey
+                ReminderKey = reminderKey,
+                TriggerLocal = effectiveTriggerTimeLocal
             });
         }
 
@@ -567,6 +575,38 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         }
 
         return next;
+    }
+
+    public async Task<List<CalendarReminderNotificationRequest>> GetUpcomingReminderTriggersAsync(DateTime fromLocal, DateTime untilLocal, int maximum, CancellationToken cancellationToken = default)
+    {
+        var candidates = await GetReminderCandidatesAsync().ConfigureAwait(false);
+        var upcoming = candidates
+            .Select(candidate => (Candidate: candidate, Trigger: GetEffectiveReminderTriggerLocal(candidate)))
+            .Where(entry => entry.Trigger > fromLocal && entry.Trigger <= untilLocal)
+            .OrderBy(entry => entry.Trigger)
+            .Take(Math.Max(0, maximum))
+            .ToList();
+
+        var requests = new List<CalendarReminderNotificationRequest>(upcoming.Count);
+
+        foreach (var (candidate, trigger) in upcoming)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var calendarItem = await GetCalendarItemAsync(candidate.CalendarItemId).ConfigureAwait(false);
+            if (calendarItem == null)
+                continue;
+
+            requests.Add(new CalendarReminderNotificationRequest
+            {
+                CalendarItem = calendarItem,
+                ReminderDurationInSeconds = candidate.ReminderDurationInSeconds,
+                ReminderKey = $"{candidate.CalendarItemId:N}:{candidate.ReminderDurationInSeconds}:{trigger.Ticks}",
+                TriggerLocal = trigger
+            });
+        }
+
+        return requests;
     }
 
     private static DateTime GetEffectiveReminderTriggerLocal(CalendarReminderCandidate candidate)

@@ -69,6 +69,7 @@ public class NotificationBuilder : INotificationBuilder
     private readonly INotificationPolicyService _notificationPolicyService;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IAppLockService _appLockService;
+    private readonly CalendarReminderToastPlan _calendarReminderToastPlan;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
@@ -80,8 +81,10 @@ public class NotificationBuilder : INotificationBuilder
                                INotificationHostClient notificationHostClient,
                                INotificationPolicyService notificationPolicyService,
                                IApplicationConfiguration applicationConfiguration,
-                               IAppLockService appLockService)
+                               IAppLockService appLockService,
+                               CalendarReminderToastPlan calendarReminderToastPlan)
     {
+        _calendarReminderToastPlan = calendarReminderToastPlan;
         _accountService = accountService;
         _folderService = folderService;
         _unreadBadgeService = unreadBadgeService;
@@ -394,6 +397,39 @@ public class NotificationBuilder : INotificationBuilder
         if (calendarItem == null)
             return;
 
+        var tag = CalendarReminderTags.Create(calendarItem.Id, reminderDurationInSeconds);
+
+        // Windows shows a reminder it was handed as a scheduled toast on its own.
+        if (_calendarReminderToastPlan.IsDeliveredBySchedule(tag, DateTimeOffset.Now))
+            return;
+
+        var (builder, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, DateTime.Now).ConfigureAwait(false);
+
+        await ShowNotificationAsync(NotificationHostApplication.Calendar, builder, tag, accountPreferences).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The reminder toast for Windows to show at <paramref name="triggerLocal"/>, or null when the notification
+    /// settings or quiet hours keep it from showing then.
+    /// </summary>
+    internal async Task<AppNotification?> BuildScheduledCalendarReminderAsync(CalendarItem calendarItem, long reminderDurationInSeconds, DateTime triggerLocal)
+    {
+        var (builder, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, triggerLocal).ConfigureAwait(false);
+        var deliveryTime = new DateTimeOffset(DateTime.SpecifyKind(triggerLocal, DateTimeKind.Local));
+
+        if (!_notificationPolicyService.Evaluate(NotificationKind.CalendarReminder, accountPreferences, deliveryTime).ShouldDeliver)
+            return null;
+
+        var notification = builder.BuildNotification();
+        notification.Tag = CalendarReminderTags.Create(calendarItem.Id, reminderDurationInSeconds);
+        return notification;
+    }
+
+    private async Task<(AppNotificationBuilder Builder, MailAccountPreferences? AccountPreferences)> BuildCalendarReminderAsync(
+        CalendarItem calendarItem,
+        long reminderDurationInSeconds,
+        DateTime shownAtLocal)
+    {
         // Resolved so the account's own calendar-reminder switch and quiet hours stance apply,
         // not just the app-wide default.
         var accountPreferences = await GetCalendarAccountPreferencesAsync(calendarItem).ConfigureAwait(false);
@@ -408,7 +444,7 @@ public class NotificationBuilder : INotificationBuilder
         else
         {
             var localStart = calendarItem.GetLocalStartDate();
-            var reminderContext = GetCalendarReminderContext(localStart, DateTime.Now);
+            var reminderContext = GetCalendarReminderContext(localStart, shownAtLocal);
 
             builder.AddText(calendarItem.Title);
             builder.AddText($"{reminderContext} - {localStart:g}");
@@ -468,9 +504,7 @@ public class NotificationBuilder : INotificationBuilder
 
         builder.AddButton(CreateDismissButton());
 
-        var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
-
-        await ShowNotificationAsync(NotificationHostApplication.Calendar, builder, tag, accountPreferences).ConfigureAwait(false);
+        return (builder, accountPreferences);
     }
 
     private async Task<MailAccountPreferences?> GetCalendarAccountPreferencesAsync(CalendarItem calendarItem)

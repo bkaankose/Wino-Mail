@@ -90,5 +90,7 @@ public static class CoreUWPContainerSetup
             provider.GetRequiredService<WinUIDispatcher>(),
             () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
+        services.AddSingleton<CalendarReminderToastPlan>();
+        services.AddSingleton<CalendarReminderToastScheduler>();
     }
 }

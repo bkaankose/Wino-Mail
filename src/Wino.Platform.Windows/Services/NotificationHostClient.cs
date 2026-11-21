@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Windows.AppNotifications;
@@ -52,6 +53,49 @@ internal sealed class NotificationHostClient : INotificationHostClient
 
         ToastNotificationManager.History.Remove(tag, DefaultGroup, GetAppUserModelId(application));
         return Task.CompletedTask;
+    }
+
+    public void Schedule(NotificationHostApplication application, AppNotification notification, DateTimeOffset deliveryTime)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+
+        var document = new XmlDocument();
+        document.LoadXml(notification.Payload);
+
+        var toast = new ScheduledToastNotification(document, deliveryTime)
+        {
+            Group = string.IsNullOrWhiteSpace(notification.Group) ? DefaultGroup : notification.Group
+        };
+
+        if (!string.IsNullOrWhiteSpace(notification.Tag))
+            toast.Tag = notification.Tag;
+
+        ToastNotificationManager.CreateToastNotifier(GetAppUserModelId(application)).AddToSchedule(toast);
+    }
+
+    public IReadOnlyList<(string Tag, DateTimeOffset DeliveryTime)> GetScheduled(NotificationHostApplication application)
+    {
+        var scheduled = new List<(string, DateTimeOffset)>();
+
+        foreach (var toast in ToastNotificationManager.CreateToastNotifier(GetAppUserModelId(application)).GetScheduledToastNotifications())
+        {
+            if (string.Equals(toast.Group, DefaultGroup, StringComparison.Ordinal) && !string.IsNullOrEmpty(toast.Tag))
+                scheduled.Add((toast.Tag, toast.DeliveryTime));
+        }
+
+        return scheduled;
+    }
+
+    public void RemoveScheduled(NotificationHostApplication application, string tag)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tag);
+
+        var notifier = ToastNotificationManager.CreateToastNotifier(GetAppUserModelId(application));
+        foreach (var toast in notifier.GetScheduledToastNotifications())
+        {
+            if (string.Equals(toast.Tag, tag, StringComparison.Ordinal) && string.Equals(toast.Group, DefaultGroup, StringComparison.Ordinal))
+                notifier.RemoveFromSchedule(toast);
+        }
     }
 
     private static string GetAppUserModelId(NotificationHostApplication application)

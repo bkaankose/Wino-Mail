@@ -410,6 +410,13 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             {
                 await reminderServer.StartAsync();
             }
+
+            // Reminders of the coming days are handed to Windows so they also fire while Wino is closed.
+            var toastScheduler = WinoApplication.Current.Services.GetService<CalendarReminderToastScheduler>();
+            if (toastScheduler != null)
+            {
+                await toastScheduler.StartAsync();
+            }
         }
         catch (Exception ex)
         {
