@@ -140,6 +140,12 @@ internal sealed class FormDialog
         return _completion.Task;
     }
 
+#if DEBUG
+    internal void DebugConfirm() => _ = ConfirmAsync();
+
+    internal string ErrorText => _error.GetVisible() ? _error.GetText() : string.Empty;
+#endif
+
     public void Close(bool confirmed)
     {
         _confirmed = confirmed;

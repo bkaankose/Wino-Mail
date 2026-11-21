@@ -14,7 +14,7 @@ namespace Wino.Mail.Linux.Infrastructure;
 /// its own members out of <c>Dismissed.cs</c> into its own <c>GtkDialogService.&lt;Group&gt;.cs</c> and builds them on
 /// <see cref="AlertAsync"/>, <see cref="PresentAsync{T}"/>, <see cref="FormDialog"/> and <see cref="FilePickers"/>.
 /// </summary>
-internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<Views.MainWindow?> window, IConfigurationService configuration) : IMailDialogService
+internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<Views.MainWindow?> window, IConfigurationService configuration, IServiceProvider services) : IMailDialogService
 {
     private IDialogSurface? _surface;
 

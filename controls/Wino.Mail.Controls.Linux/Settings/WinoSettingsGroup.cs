@@ -46,7 +46,8 @@ public sealed class WinoSettingsGroup
         set
         {
             _hidesWhenEmpty = value;
-            UpdateVisibility();
+            if (value) UpdateVisibility();
+            else Root.SetVisible(true);
         }
     }
 

@@ -71,6 +71,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.BackupDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.SignatureDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailListDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.ShortcutSettingsDebugActions.Register(application, () => _services);
         }
 #endif
     }

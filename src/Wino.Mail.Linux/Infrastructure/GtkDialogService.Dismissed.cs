@@ -87,9 +87,6 @@ internal sealed partial class GtkDialogService
         => DismissAsync(nameof(ShowImapValidationFailedDialogAsync), errorMessage);
 
 
-    public Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut? existingShortcut = null)
-        => DismissAsync(nameof(ShowKeyboardShortcutDialogAsync), null, KeyboardShortcutDialogResult.Canceled());
-
     public Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync() => DismissAsync<WinoAccount?>(nameof(ShowWinoAccountRegistrationDialogAsync), null, null);
 
     public Task<WinoAccount?> ShowWinoAccountLoginDialogAsync() => DismissAsync<WinoAccount?>(nameof(ShowWinoAccountLoginDialogAsync), null, null);

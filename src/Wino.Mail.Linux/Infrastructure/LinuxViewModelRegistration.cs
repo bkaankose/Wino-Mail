@@ -30,7 +30,7 @@ internal static partial class LinuxViewModelRegistration
         services.AddSingleton<ApplicationLifecycleCoordinator>();
         services.AddSingleton(provider => new GtkApplicationLifecycleHost(provider, provider.GetRequiredService<IDispatcher>(), window, options));
 
-        services.AddSingleton(provider => new GtkDialogService(provider.GetRequiredService<IDispatcher>(), window, provider.GetRequiredService<IConfigurationService>()));
+        services.AddSingleton(provider => new GtkDialogService(provider.GetRequiredService<IDispatcher>(), window, provider.GetRequiredService<IConfigurationService>(), provider));
         services.AddSingleton<IMailDialogService>(provider => provider.GetRequiredService<GtkDialogService>());
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<GtkDialogService>());
         services.AddSingleton<INewThemeService, GtkThemeService>();
