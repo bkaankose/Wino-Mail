@@ -107,7 +107,8 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
             accountSearchText,
             includeDestination: false);
 
-        if (account.IsContactAccessGranted)
+        // People and To Do kept on this device have settings too, so the app being on is what counts.
+        if (account.IsContactAccessEnabled)
         {
             yield return CreateAccountSearchItem(
                 account,
@@ -119,7 +120,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 includeDestination: false);
         }
 
-        if (account.IsTaskAccessGranted)
+        if (account.IsTaskAccessEnabled)
         {
             yield return CreateAccountSearchItem(
                 account,

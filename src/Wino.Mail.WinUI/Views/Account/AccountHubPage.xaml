@@ -56,7 +56,7 @@
                     AutomationProperties.AutomationId="AccountHubName"
                     AutomationProperties.HeadingLevel="Level1"
                     Style="{StaticResource SubtitleTextBlockStyle}"
-                    Text="{x:Bind ViewModel.Account.Name, Mode=OneWay}"
+                    Text="{x:Bind ViewModel.AccountName, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis" />
                 <TextBlock
                     AutomationProperties.AutomationId="AccountHubAddress"
