@@ -138,6 +138,8 @@ public sealed partial class ToDoPageViewController
         _flaggedSurface = BuildFlaggedMailSurface();
         surface.AddSubview(_flaggedSurface);
         surface.AddSubview(_quickAdd);
+        var bars = BuildBars();
+        surface.AddSubview(bars);
         NSLayoutConstraint.ActivateConstraints(
         [
             header.TopAnchor.ConstraintEqualTo(surface.TopAnchor),
@@ -146,14 +148,17 @@ public sealed partial class ToDoPageViewController
             _scroll.TopAnchor.ConstraintEqualTo(header.BottomAnchor),
             _scroll.LeadingAnchor.ConstraintEqualTo(surface.LeadingAnchor),
             _scroll.TrailingAnchor.ConstraintEqualTo(surface.TrailingAnchor),
-            _scroll.BottomAnchor.ConstraintEqualTo(_quickAdd.TopAnchor, -4),
+            _scroll.BottomAnchor.ConstraintEqualTo(bars.TopAnchor, -4),
+            bars.LeadingAnchor.ConstraintEqualTo(surface.LeadingAnchor, 20),
+            bars.TrailingAnchor.ConstraintEqualTo(surface.TrailingAnchor, -20),
+            bars.BottomAnchor.ConstraintEqualTo(_quickAdd.TopAnchor, -8),
             _emptyState.CenterXAnchor.ConstraintEqualTo(_scroll.CenterXAnchor),
             _emptyState.CenterYAnchor.ConstraintEqualTo(_scroll.CenterYAnchor),
             _emptyState.WidthAnchor.ConstraintLessThanOrEqualTo(320),
             _flaggedSurface.TopAnchor.ConstraintEqualTo(header.BottomAnchor),
             _flaggedSurface.LeadingAnchor.ConstraintEqualTo(surface.LeadingAnchor),
             _flaggedSurface.TrailingAnchor.ConstraintEqualTo(surface.TrailingAnchor),
-            _flaggedSurface.BottomAnchor.ConstraintEqualTo(_quickAdd.TopAnchor, -4),
+            _flaggedSurface.BottomAnchor.ConstraintEqualTo(bars.TopAnchor, -4),
             _quickAdd.LeadingAnchor.ConstraintEqualTo(surface.LeadingAnchor, 20),
             _quickAdd.TrailingAnchor.ConstraintEqualTo(surface.TrailingAnchor, -20),
             _quickAdd.BottomAnchor.ConstraintEqualTo(surface.BottomAnchor, -20)
@@ -278,6 +283,7 @@ public sealed partial class ToDoPageViewController
         ViewModel.TaskComposerFocusRequested += ComposerFocusRequested;
         ViewModel.TaskSelectionRestored += SelectionRestored;
         BindFlaggedMail();
+        BindBars();
         ((INotifyCollectionChanged)ViewModel.TaskGroups).CollectionChanged += GroupsChanged;
         WinoStyle.AccentChanged += AccentChanged;
         ObserveGroups();
