@@ -491,5 +491,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
             layout.ShowDetail(false);
             return inner.ClearAsync();
         }
+
+        public void SetCover(Gtk.Widget? cover) => inner.SetCover(cover);
     }
 }

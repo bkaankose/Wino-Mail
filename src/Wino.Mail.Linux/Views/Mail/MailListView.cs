@@ -302,12 +302,14 @@ internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IU
 
     private void OnCellSetup(MailRowCell cell)
     {
+        _cellRoots[cell.Root.Handle.DangerousGetHandle()] = cell;
         SetupSelectionCell(cell);
         FeatureCellSetup(cell);
     }
 
     private void OnCellTeardown(MailRowCell cell)
     {
+        _cellRoots.Remove(cell.Root.Handle.DangerousGetHandle());
         TeardownSelectionCell(cell);
         FeatureCellTeardown(cell);
     }
@@ -370,7 +372,7 @@ internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IU
         var key = LinuxSenderPictureProvider.Normalize(address);
         Cells.ForEachBound((cell, _) =>
         {
-            if (key is null || LinuxSenderPictureProvider.Normalize(cell.Row.Model.SenderAddress) == key) cell.Refresh();
+            if (key is null || string.Equals(cell.Row.Model.SenderAddress.Trim(), key, StringComparison.OrdinalIgnoreCase)) cell.Refresh();
         });
     }
 
@@ -387,67 +389,4 @@ internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IU
 
         public MailListEntry? Entry { get; set; }
     }
-
-    #region Selection
-
-    private readonly HashSet<MailListEntry> _selected = new(ReferenceEqualityComparer.Instance);
-    private string _published = string.Empty;
-    private bool _applying;
-    private uint _lastChangedPosition = uint.MaxValue;
-    private bool _folderLoaded;
-
-    private void SelectionChanged(uint position, uint count)
-    {
-        if (_applying || _model.IsApplying || IsReleased) return;
-        _lastChangedPosition = count == 1 ? position : uint.MaxValue;
-        ReadSelection();
-        PublishSelection();
-    }
-
-    /// <summary>Rebuilds the selected entries from the selection model; positions index the view's own row array (store order is screen order).</summary>
-    private void ReadSelection()
-    {
-        _selected.Clear();
-        foreach (var position in ListViews.SelectedPositions(Selection))
-        {
-            if (position < _shown.Count) _selected.Add(_shown[(int)position]);
-        }
-    }
-
-    /// <summary>Selects again what was selected before an apply (and <paramref name="selectAfter"/>); GTK drops the selection of rows a splice moved.</summary>
-    private void RestoreSelection(MailListEntry? selectAfter)
-    {
-        var expected = new List<uint>(_selected.Count + 1);
-        foreach (var entry in _selected)
-        {
-            if (PositionOf(entry) is { } position) expected.Add(position);
-        }
-        if (selectAfter is not null && PositionOf(selectAfter) is { } after && !expected.Contains(after)) expected.Add(after);
-        expected.Sort();
-        if (ListViews.SelectedPositions(Selection).AsSpan().SequenceEqual(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(expected))) return;
-        if (expected.Count > 0 && expected.Count == _shown.Count)
-        {
-            using var all = Gtk.Bitset.NewRange(0, (uint)_shown.Count);
-            Selection.SetSelection(all, all);
-        }
-        else ListViews.Select(Selection, [.. expected]);
-    }
-
-    private void PublishSelection()
-    {
-        var rows = new List<MailListRow>(_selected.Count);
-        MailListRow? active = null;
-        foreach (var position in ListViews.SelectedPositions(Selection))
-        {
-            if (position >= _shown.Count) continue;
-            rows.Add(_shown[(int)position].Row);
-            if (position == _lastChangedPosition) active = _shown[(int)position].Row;
-        }
-        var result = MailListSelectionSnapshotBuilder.Build(rows, Projection, active);
-        if (result.Signature == _published) return;
-        _published = result.Signature;
-        ViewModel.ApplyMailSelectionSnapshot(result.Snapshot);
-    }
-
-    #endregion
 }

@@ -65,6 +65,8 @@ internal sealed class GtkNavigationService : INavigationService, INavigationHost
 
     public void AttachRenderingHost(IRenderingFrameHost host) => _renderingHost = host;
 
+    public void SetReadingPaneCover(Gtk.Widget? cover) => _renderingHost?.SetCover(cover);
+
     public void DetachRenderingHost(IRenderingFrameHost host)
     {
         if (ReferenceEquals(_renderingHost, host)) _renderingHost = null;

@@ -36,6 +36,7 @@ A view is a plain class that builds its widgets in the constructor and exposes `
 - Mail rows: `MailRowMapper` maps, `MailRowCell` binds, `WinoMailRow` renders.
 - New lists use `ObservableListModel<T>`, `WinoCellFactory` and `ListSections` from `Wino.Presentation.Linux.Lists`. A page disposes its factories, sections and model when it is released (`Bindings.Own`).
 - The mail list holds `MailListEntry` items (rows only); date groups are GTK sections, and store order equals screen order, so a position indexes the view's own row array (`EntryAt`, `PositionOf`). Projection changes apply at most every 120 ms as the smallest splices. A package extends `MailListView` through a partial file and the hooks (`MailListView.cs`, `MailListView.Features.cs`), never by editing `MailListView.cs`; every GTK handler of the view reaches it through `_self`.
+- The mail list's selection is read from the view's own row array, never item by item from GTK; select all is one range bitset. A list page covers the reading pane through `GtkNavigationService.SetReadingPaneCover` (`IRenderingFrameHost.SetCover`); the multi-selection summary is the only user.
 
 ```csharp
 public MailListView(MailListPageViewModel viewModel, WinoViewServices services, LinuxSenderPictureProvider pictures, GtkNavigationService navigation)

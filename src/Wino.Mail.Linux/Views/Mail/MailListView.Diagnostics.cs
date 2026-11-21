@@ -55,6 +55,12 @@ internal sealed partial class MailListView
         Line(string.Create(CultureInfo.InvariantCulture, $"entries_known={_byKey.Count}"));
         Line($"order_ok={orderOk.ToString().ToLowerInvariant()}");
         Line($"folder={DebugFolderName}");
+        var heads = new List<string>();
+        for (var index = 0; index < _shown.Count && heads.Count < 10; index++)
+        {
+            if (_shown[index].Row is { IsThreadHead: true, Thread: { } thread } row) heads.Add(string.Create(CultureInfo.InvariantCulture, $"{index}:{thread.Count}:{(row.IsExpanded ? "open" : "closed")}"));
+        }
+        Line($"threads={string.Join(',', heads)}");
         for (var index = 0; index < Math.Min(5, _shown.Count); index++) Line($"first {_shown[index].Key} | {_shown[index].GroupTitle}");
         for (var index = Math.Max(5, _shown.Count - 2); index < _shown.Count; index++) Line($"last {_shown[index].Key} | {_shown[index].GroupTitle}");
         return text.ToString();

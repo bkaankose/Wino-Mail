@@ -12,7 +12,9 @@ namespace Wino.Mail.Linux.Views.Mail;
 internal sealed class ReadingPaneHost : IRenderingFrameHost
 {
     private readonly Action<Exception> _error;
+    private readonly Gtk.Overlay _root = Gtk.Overlay.New();
     private readonly Gtk.Stack _stack = Gtk.Stack.New();
+    private readonly Adw.Bin _cover = Adw.Bin.New();
     private readonly Gtk.Widget _empty;
     private readonly Dictionary<WinoPage, IWinoView> _retained = [];
     private IWinoView? _transient;
@@ -26,9 +28,12 @@ internal sealed class ReadingPaneHost : IRenderingFrameHost
         _stack.SetTransitionType(Gtk.StackTransitionType.None);
         _empty = Adw.Bin.New();
         _stack.AddNamed(_empty, "empty");
+        _cover.SetVisible(false);
+        _root.SetChild(_stack);
+        _root.AddOverlay(_cover);
     }
 
-    public Gtk.Widget Root => _stack;
+    public Gtk.Widget Root => _root;
 
     public object? CurrentViewModel => _visible?.AssociatedViewModel;
 
@@ -80,9 +85,19 @@ internal sealed class ReadingPaneHost : IRenderingFrameHost
         if (replaced is not null) await DropAsync(null, replaced);
     }
 
+    /// <summary>Hiding the stack unmaps the shown page (the web view), so a covered reader costs nothing.</summary>
+    public void SetCover(Gtk.Widget? cover)
+    {
+        if (_released && cover is not null) return;
+        _cover.SetChild(cover);
+        _cover.SetVisible(cover is not null);
+        _stack.SetVisible(cover is null);
+    }
+
     public async Task ReleaseAsync()
     {
         if (_released) return;
+        SetCover(null);
         _released = true;
         ++_version;
         var views = new List<IWinoView>(_retained.Values);

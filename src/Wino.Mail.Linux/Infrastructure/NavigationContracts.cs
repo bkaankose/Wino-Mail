@@ -24,6 +24,9 @@ internal interface IRenderingFrameHost
 
     /// <summary>The ViewModel of the page the pane shows now; null while it is empty.</summary>
     object? CurrentViewModel { get; }
+
+    /// <summary>Covers the pane with a list page's own widget (the multi-selection summary) while the shown page stays alive underneath; null removes it.</summary>
+    void SetCover(Gtk.Widget? cover);
 }
 
 /// <summary>The Settings window (ST-02). Optional: <see cref="GtkNavigationService"/> refuses Settings while none is registered.</summary>

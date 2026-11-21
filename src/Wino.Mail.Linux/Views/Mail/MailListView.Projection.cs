@@ -32,6 +32,7 @@ internal sealed partial class MailListView
     private readonly Dictionary<string, MailListEntry> _byKey = new(StringComparer.Ordinal);
     private readonly Dictionary<MailListRow, MailListEntry> _byRow = new(ReferenceEqualityComparer.Instance);
     private readonly List<(int Start, int Count)> _runs = [];
+    private readonly Dictionary<nint, MailRowCell> _cellRoots = [];
     private List<MailListEntry> _shown = [];
     private List<MailListEntry> _next = [];
     private long _lastApply;
@@ -43,6 +44,7 @@ internal sealed partial class MailListView
     private bool _stickyShown;
     private bool _stickyPending;
     private bool _firstRowsReported;
+    private bool _folderLoaded;
     private int _pass;
 
     /// <summary>Applies a pending projection change now instead of waiting for the throttle.</summary>
@@ -145,9 +147,9 @@ internal sealed partial class MailListView
             // A group appeared or went away above unchanged rows: their sections change while the items stay.
             if (ordinalsChanged) _sections.Invalidate();
             (_shown, _next) = (_next, _shown);
+            RestoreSelection(context.SelectAfter, _next);
             _next.Clear();
             if (_byKey.Count > _shown.Count + 256) Prune();
-            RestoreSelection(context.SelectAfter);
             ReadSelection();
         }
         finally { _applying = false; }
@@ -335,12 +337,26 @@ internal sealed partial class MailListView
     {
         if (IsReleased) return;
         string? title = null;
-        if (_grouped && _scroll.GetVadjustment().GetValue() > 0.5 && Cells.TryGetTop(_scroll, out var top, out _) && top is { GroupTitle.Length: > 0 })
+        if (_grouped && _scroll.GetVadjustment().GetValue() > 0.5 && EntryAtTop() is { GroupTitle.Length: > 0 } top)
             title = top.GroupTitle;
         if (title is not null) _sticky.Title = title;
         if (_stickyShown == title is not null) return;
         _stickyShown = title is not null;
         _sticky.Root.SetVisible(_stickyShown);
+    }
+
+    /// <summary>
+    /// The row (or the section header) at the top edge, by one pick and a short walk up, instead of measuring every
+    /// bound cell on each scroll frame.
+    /// </summary>
+    private MailListEntry? EntryAtTop()
+    {
+        for (var widget = List.Pick(List.GetWidth() / 2.0, 1, Gtk.PickFlags.Default); widget is not null && !ReferenceEquals(widget, List); widget = widget.GetParent())
+        {
+            if (_cellRoots.TryGetValue(widget.Handle.DangerousGetHandle(), out var cell)) return Cells.ItemOf(cell);
+            if (_headerSlots.TryGetValue(widget, out var slot)) return slot.Entry;
+        }
+        return Cells.TryGetTop(_scroll, out var top, out _) ? top : null;
     }
 
     private void UpdateState()
