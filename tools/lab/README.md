@@ -64,7 +64,7 @@ The baseline accounts stay for older clients and `-Shared` installs. Other agent
 | `generate-db [-Lease id \| -Shared] [-Pop3]` | Runs [DatabaseGenerator](DatabaseGenerator) on a lease file (or the manifest's shared accounts) into `~/.wino-lab/generated`, laid out like the app's LocalState: `Wino210.db` and the passwords in the app's DPAPI secure item store. Windows only |
 | `install-app [-Shared] [-Servers ...] [-Pop3]` | Leases (or reuses this holder's lease), generates, replaces the registered Debug package's database and credentials, and launches Wino. The previous data moves to `~/.wino-lab/app-backups`. Wino must be closed. Windows only |
 | `inspect <address>` | The server's truth: folders with UIDVALIDITY, UIDNEXT, HIGHESTMODSEQ and counts; `-Folder X` lists messages with flags and MODSEQ; `-Folder X -Uid n [-Out file]` fetches the raw message; `-Calendars [-Calendar href]`, `-Contacts [-AddressBook href]`, `-Pop3`; `-Json` for raw output |
-| `act <address> <type>` | Acts as another device: `deliver`, `flag`, `move`, `copy`, `delete`, `create-folder`, `delete-folder`, `rename-folder`, `bump-uidvalidity`, `event-*`, `contact-*`, `send-invite`. Switches fill the body (`-Folder`, `-Uid 3,4`, `-MessageId`, `-To`, `-Add '\Seen'`, `-Remove`, `-Subject`, `-Text`, `-Html`, `-Count`, `-Attach`, `-Method`, `-Style`, `-Summary`, `-Start`, `-End`); `-Body '<json>'` or `-Body @file.json` passes anything else |
+| `act <address> <type>` | Acts as another device: `deliver`, `flag`, `move`, `copy`, `delete`, `create-folder`, `delete-folder`, `rename-folder`, `bump-uidvalidity`, `share-folder`, `unshare-folder`, `event-*`, `contact-*`, `send-invite`. Switches fill the body (`-Folder`, `-Uid 3,4`, `-MessageId`, `-To`, `-Add '\Seen'`, `-Remove`, `-Subject`, `-Text`, `-Html`, `-Count`, `-Attach`, `-Method`, `-Style`, `-Summary`, `-Start`, `-End`); `-Body '<json>'` or `-Body @file.json` passes anything else |
 | `import <address> <file.eml> [-Folder] [-Flags]` | Appends a raw message (IMAP APPEND) and prints its UID |
 | `reset <address> [-Force]` | Restores the baseline seed of a pool account (baseline accounts need `-Force`) |
 | `corpus [name] [-To address \| -Out file]` | Lists the pathological message collection, fetches one message, or delivers it to an account |
@@ -97,6 +97,15 @@ Trusting the lab CA changes the machine's certificate store, so it is a manual s
 ```
 
 The addresses come from the lease summary; the pool account you get depends on what is free.
+
+Shared folders (RFC 4314 ACL, on `dovecot`, `stalwart`, `cyrus` and `oauth`): a lease holds one account per server, so lease the owner with a second holder, then let it share a folder with your account. The owner's next reset removes the share.
+
+```powershell
+.\scripts\lab\windows\lab.ps1 lease -Servers dovecot -Holder 'PC/owner'
+.\scripts\lab\windows\lab.ps1 act alice3@dovecot.test share-folder -Folder Team -To alice2@dovecot.test   # -Body '{"rights":"lrs"}' for read-only
+```
+
+The grantee sees `shared.alice3.Team` on Dovecot, `Shared Folders/<owner address>/Team` on Stalwart and `user.<owner>.Team` on Cyrus; Cyrus also lists `shared.Team` in every account.
 
 ## Adding a leased account by hand
 
