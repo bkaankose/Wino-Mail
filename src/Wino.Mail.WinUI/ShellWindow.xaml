@@ -497,6 +497,8 @@
             Margin="0,60,25,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
+            AutomationProperties.AutomationId="ShellInfoBar"
+            AutomationProperties.LiveSetting="Polite"
             Closed="ShellInfoBar_Closed"
             IsClosable="False"
             IsOpen="False" />
