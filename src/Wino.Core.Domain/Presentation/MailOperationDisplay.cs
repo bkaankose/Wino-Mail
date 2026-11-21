@@ -72,6 +72,27 @@ public static class MailOperationDisplay
         MailOperation.CreateEvent => WinoIconGlyph.Calendar,
         _ => WinoIconGlyph.None
     };
+
+    /// <summary>The title inside a submenu, whose own title already names the action.</summary>
+    public static string GetSubmenuItemTitle(MailOperation operation) => operation switch
+    {
+        MailOperation.CreateTask => Translator.MailOperation_CreateSubmenuTask,
+        MailOperation.CreateEvent => Translator.MailOperation_CreateSubmenuEvent,
+        _ => GetTitle(operation)
+    };
+
+    /// <summary>The submenu title; empty for a placement that is not a submenu.</summary>
+    public static string GetSubmenuTitle(MailOperationMenuPlacement placement) => placement switch
+    {
+        MailOperationMenuPlacement.CreateSubmenu => Translator.MailOperation_CreateSubmenu,
+        _ => string.Empty
+    };
+
+    public static WinoIconGlyph GetSubmenuGlyph(MailOperationMenuPlacement placement) => placement switch
+    {
+        MailOperationMenuPlacement.CreateSubmenu => WinoIconGlyph.Add,
+        _ => WinoIconGlyph.None
+    };
 }
 
 /// <summary>Titles, glyphs and the destructive flag for folder context actions.</summary>

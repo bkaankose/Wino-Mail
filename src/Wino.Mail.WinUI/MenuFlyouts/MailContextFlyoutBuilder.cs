@@ -9,6 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
+using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
@@ -45,10 +46,26 @@ internal static class MailContextFlyoutBuilder
         var shortcutResolver = new ContextFlyoutShortcutResolver(shortcutService);
         var focusedInboxActions = actions.Where(action => IsFocusedInboxMoveOperation(action.Operation)).ToList();
 
-        foreach (var action in actions)
+        for (var index = 0; index < actions.Count; index++)
         {
+            var action = actions[index];
+
             if (HeaderOperations.Contains(action.Operation))
             {
+                continue;
+            }
+
+            if (action.Placement != MailOperationMenuPlacement.Menu)
+            {
+                var submenuActions = new List<MailOperationMenuItem>();
+                while (index < actions.Count && actions[index].Placement == action.Placement)
+                {
+                    submenuActions.Add(actions[index]);
+                    index++;
+                }
+
+                index--;
+                items.Add(CreateSubmenuItem(action.Placement, submenuActions, shortcutResolver, selected));
                 continue;
             }
 
@@ -140,13 +157,36 @@ internal static class MailContextFlyoutBuilder
         return headerItems;
     }
 
+    private static ContextFlyoutSubMenuEntry CreateSubmenuItem(
+        MailOperationMenuPlacement placement,
+        IReadOnlyList<MailOperationMenuItem> actions,
+        ContextFlyoutShortcutResolver shortcutResolver,
+        Action<MailContextFlyoutSelection> selected)
+    {
+        var children = new List<ContextFlyoutMenuEntry>(actions.Count);
+        foreach (var action in actions)
+        {
+            children.Add(CreateOperationItem(action, shortcutResolver, selected, MailOperationDisplay.GetSubmenuItemTitle(action.Operation)));
+        }
+
+        return new ContextFlyoutSubMenuEntry
+        {
+            Text = MailOperationDisplay.GetSubmenuTitle(placement),
+            Icon = CreateIcon(MailOperationDisplay.GetSubmenuGlyph(placement)),
+            IsEnabled = children.Any(CanActivate),
+            Items = children,
+            AutomationId = $"MailContext{placement}"
+        };
+    }
+
     private static ContextFlyoutCommandEntry CreateOperationItem(
         MailOperationMenuItem action,
         ContextFlyoutShortcutResolver shortcutResolver,
-        Action<MailContextFlyoutSelection> selected)
+        Action<MailContextFlyoutSelection> selected,
+        string? text = null)
         => new()
         {
-            Text = XamlHelpers.GetOperationString(action.Operation),
+            Text = text ?? XamlHelpers.GetOperationString(action.Operation),
             Icon = CreateIcon(XamlHelpers.GetWinoIconGlyph(action.Operation)),
             IsEnabled = action.IsEnabled,
             IsDestructive = action.Operation is MailOperation.SoftDelete or MailOperation.HardDelete or MailOperation.DiscardLocalDraft,

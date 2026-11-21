@@ -78,13 +78,6 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
-        if (isSingleItem && !singleItem.IsDraft)
-        {
-            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateTask));
-            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateEvent));
-            operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
-        }
-
         // Archive button.
 
         if (isArchiveFolder)
@@ -97,6 +90,12 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
 
         // Move button.
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Move, !isDraftOrSent));
+
+        if (isSingleItem && !singleItem.IsDraft)
+        {
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateTask, placement: MailOperationMenuPlacement.CreateSubmenu));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateEvent, placement: MailOperationMenuPlacement.CreateSubmenu));
+        }
 
         // Independent flag, read etc.
         if (isSingleItem)
