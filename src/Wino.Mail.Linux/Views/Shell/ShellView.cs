@@ -463,6 +463,8 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     /// <summary>Tells the layout whether the reading pane has a page, so the stacked layout shows the reader or the list.</summary>
     private sealed class ShellReadingPane(ReadingPaneHost inner, ShellLayout layout) : IRenderingFrameHost
     {
+        public object? CurrentViewModel => inner.CurrentViewModel;
+
         public Task ShowAsync(WinoPage page, object? parameter, Func<IWinoView> create)
         {
             layout.ShowDetail(page != WinoPage.IdlePage);

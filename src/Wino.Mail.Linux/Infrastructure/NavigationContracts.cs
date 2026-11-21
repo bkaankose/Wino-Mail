@@ -21,6 +21,9 @@ internal interface IRenderingFrameHost
     /// <summary>The host decides whether it reuses the view it already has for this page; it calls <paramref name="create"/> at most once.</summary>
     Task ShowAsync(WinoPage page, object? parameter, Func<IWinoView> create);
     Task ClearAsync();
+
+    /// <summary>The ViewModel of the page the pane shows now; null while it is empty.</summary>
+    object? CurrentViewModel { get; }
 }
 
 /// <summary>The Settings window (ST-02). Optional: <see cref="GtkNavigationService"/> refuses Settings while none is registered.</summary>

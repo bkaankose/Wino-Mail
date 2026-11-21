@@ -87,6 +87,9 @@ internal static class DebugActions
 
     internal static void WriteText(string path, string text) => WriteAtomically(path, temporary => File.WriteAllText(temporary, text));
 
+    /// <summary>The first mapped widget of any window with that accessible label, as <c>debug-screenshot</c> finds it.</summary>
+    internal static Gtk.Widget? FindWidget(string label) => FindByLabel(label);
+
     private static void Add(Adw.Application application, string name, string parameterType, Action<GLib.Variant> handler)
     {
         var action = Gio.SimpleAction.New(name, GLib.VariantType.New(parameterType));

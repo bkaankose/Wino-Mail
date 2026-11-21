@@ -16,6 +16,7 @@ internal sealed class ReadingPaneHost : IRenderingFrameHost
     private readonly Gtk.Widget _empty;
     private readonly Dictionary<WinoPage, IWinoView> _retained = [];
     private IWinoView? _transient;
+    private IWinoView? _visible;
     private int _version;
     private bool _released;
 
@@ -28,6 +29,8 @@ internal sealed class ReadingPaneHost : IRenderingFrameHost
     }
 
     public Gtk.Widget Root => _stack;
+
+    public object? CurrentViewModel => _visible?.AssociatedViewModel;
 
     public async Task ShowAsync(WinoPage page, object? parameter, Func<IWinoView> create)
     {
@@ -49,6 +52,7 @@ internal sealed class ReadingPaneHost : IRenderingFrameHost
         var replaced = ReferenceEquals(_transient, view) ? null : _transient;
         _transient = IsRetained(view) ? null : view;
         _stack.SetVisibleChild(view.Root);
+        _visible = view;
 
         try
         {
@@ -85,6 +89,7 @@ internal sealed class ReadingPaneHost : IRenderingFrameHost
         if (_transient is not null) views.Add(_transient);
         _retained.Clear();
         _transient = null;
+        _visible = null;
         foreach (var view in views) _stack.Remove(view.Root);
         _stack.Remove(_empty);
         foreach (var view in views)
@@ -99,13 +104,15 @@ internal sealed class ReadingPaneHost : IRenderingFrameHost
     private void ShowIdle()
     {
         if (_released) return;
-        _stack.SetVisibleChild(_retained.TryGetValue(WinoPage.IdlePage, out var idle) ? idle.Root : _empty);
+        _visible = _retained.TryGetValue(WinoPage.IdlePage, out var idle) ? idle : null;
+        _stack.SetVisibleChild(_visible?.Root ?? _empty);
     }
 
     private async Task DropAsync(WinoPage? page, IWinoView view)
     {
         if (page is { } key && _retained.TryGetValue(key, out var kept) && ReferenceEquals(kept, view)) _retained.Remove(key);
         if (ReferenceEquals(_transient, view)) _transient = null;
+        if (ReferenceEquals(_visible, view)) _visible = null;
         if (view.Root.GetParent() is not null) _stack.Remove(view.Root);
         try { await view.ReleaseAsync(); }
         catch (Exception exception) { _error(exception); }

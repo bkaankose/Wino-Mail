@@ -63,6 +63,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.ModeDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.SidebarDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.SidebarMenuDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.ShortcutDebugActions.Register(application, () => _services);
         }
 #endif
     }

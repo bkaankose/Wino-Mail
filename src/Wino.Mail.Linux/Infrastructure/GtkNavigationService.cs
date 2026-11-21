@@ -92,6 +92,7 @@ internal sealed class GtkNavigationService : INavigationService, INavigationHost
     public bool HasMainContent => _main is not null;
     public bool MainContentHasPendingWork => _main is { HasPendingWork: true };
     public object? ShellContentViewModel => _shell?.ContentViewModel;
+    public object? RenderingFrameViewModel => _renderingHost?.CurrentViewModel;
     public bool IsSecondaryWindowShown => SecondaryWindows is { IsShown: true };
     public bool IsSettingsAvailable => Settings is not null;
 

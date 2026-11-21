@@ -79,9 +79,14 @@ public sealed class LinuxUnderlyingThemeService : IUnderlyingThemeService
 
 public sealed class LinuxShortcutPlatformService : IShortcutPlatformService
 {
+    private volatile bool _shift;
+
     public ModifierKeys PrimaryCommandModifier => ModifierKeys.Control;
 
-    public bool IsShiftKeyPressed() => false;
+    public bool IsShiftKeyPressed() => _shift;
+
+    /// <summary>The head's key router reports the Shift state of the last key event; GDK has no thread-safe query.</summary>
+    public void SetShift(bool pressed) => _shift = pressed;
 }
 
 /// <summary>The reader needs WebKitGTK 6.0, which distributions package separately from GTK.</summary>

@@ -80,7 +80,8 @@ public static class LinuxPlatformRegistration
         services.AddSingleton<IExternalLauncher>(provider => new LinuxExternalLauncher(provider.GetRequiredService<IDispatcher>(), currentWindow));
         services.AddSingleton<IClipboardService, LinuxClipboardService>();
         services.AddSingleton<IReaderRuntimeService, LinuxReaderRuntimeService>();
-        services.AddSingleton<IShortcutPlatformService, LinuxShortcutPlatformService>();
+        services.AddSingleton<LinuxShortcutPlatformService>();
+        services.AddSingleton<IShortcutPlatformService>(provider => provider.GetRequiredService<LinuxShortcutPlatformService>());
         services.AddSingleton<IUserPresenceStateProvider, LinuxUserPresenceStateProvider>();
         services.AddSingleton<ITaskCompletionSound, LinuxTaskCompletionSound>();
         services.AddSingleton<IMicrosoftStoreService, LinuxStoreService>();
@@ -104,6 +105,7 @@ public static class LinuxPlatformRegistration
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             ConfigurableSyncIntervals: true,
             GeneralActivation: true,
+            KeyboardShortcuts: true,
             Notifications: true,
             OAuthLoopbackRedirect: false,
             PointerHover: true));
