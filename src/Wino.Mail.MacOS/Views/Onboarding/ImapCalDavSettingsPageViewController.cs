@@ -33,6 +33,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
     public override void LoadView()
     {
         var vm = ViewModel;
+        vm.IsFeaturesStepSupportedByHost = true;
         _form = new FormBinder<ImapCalDavSettingsPageViewModel>(vm, Bindings, Dispatcher, ReportError);
 
         var content = WinoLayout.VStack(WinoStyle.Space4);
@@ -75,6 +76,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         _form.Visible(pop3, nameof(vm.IsPop3), s => s.IsPop3);
         Add(pop3);
 
+        Add(BuildFeaturesStep());
         Add(BuildSignInStep());
         Add(BuildEditSignIn());
         Add(BuildServers());
@@ -361,6 +363,24 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         var row = WinoLayout.HStack(0, view, WinoLayout.Spacer());
         row.Alignment = NSLayoutAttribute.CenterY;
         return row;
+    }
+
+    /// <summary>
+    /// Adding an account before its apps were chosen (Windows ImapCalDavSettingsPage Features step): the capability
+    /// cards, shown only while the setup starts on Features.
+    /// </summary>
+    private NSView BuildFeaturesStep()
+    {
+        var vm = ViewModel;
+        var picker = new AccountCapabilityPicker(vm.Capabilities, () => Translator.ProviderSelection_ModeImap, null, Bindings, Dispatcher, ReportError);
+        var missing = WinoStyle.Label(Translator.ProviderSelection_CapabilityValidationMessage, WinoStyle.Caption, WinoStyle.Critical, 0);
+        var capabilities = new FormBinder<AccountCapabilitySelection>(vm.Capabilities, Bindings, Dispatcher, ReportError);
+        capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);
+        var column = WinoLayout.VStack(WinoStyle.Space3, picker, missing);
+        foreach (var view in column.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
+        var group = OnboardingPageView.Section(Translator.ImapSetup_FeaturesGroup, column);
+        _form.Visible(group, nameof(vm.IsFeaturesStepVisible), s => s.IsFeaturesStepVisible);
+        return group;
     }
 
     /// <summary>Editing an account: the sign-in shared by every server, a password or the secure sign-in.</summary>
@@ -717,7 +737,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         // discovering; imap-expand on|off opens every server section. Nothing is typed.
         MacDebugBridge.Register("imap-step", async args =>
         {
-            var step = args.Length > 0 && args[0].Equals("servers", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Servers : ImapSetupStep.SignIn;
+            var step = args.Length > 0 && args[0].Equals("features", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Features
+                : args.Length > 0 && args[0].Equals("servers", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Servers : ImapSetupStep.SignIn;
             await Dispatcher.ExecuteOnUIThread(() => ViewModel.CurrentSetupStep = step);
             return "ok " + step;
         });
