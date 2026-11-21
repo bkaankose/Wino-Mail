@@ -44,6 +44,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private bool _hasAttachedNavigationLifetimeEvents;
     private UIElement? _quickEventDismissRoot;
     private double _quickEventHorizontalShift;
+    private KeyEventHandler? _quickEventEscapeHandler;
     private PointerEventHandler? _quickEventDismissHandler;
 
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
@@ -54,6 +55,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     public CalendarPage()
     {
         InitializeComponent();
+        QuickEventPopupContent.AddHandler(KeyDownEvent, new KeyEventHandler(QuickEventPopupContentKeyDown), true);
         RefreshCalendarToolbar();
     }
 
@@ -260,6 +262,10 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
         _quickEventDismissRoot = XamlRoot?.Content;
         _quickEventDismissRoot?.AddHandler(PointerPressedEvent, _quickEventDismissHandler ??= new PointerEventHandler(QuickEventDismissPointerPressed), true);
+
+        // Without light dismiss the popup takes no focus and nothing closes it on Escape: Escape is
+        // caught wherever focus is, in the window or in the popup (a text box marks the key handled).
+        _quickEventDismissRoot?.AddHandler(KeyDownEvent, _quickEventEscapeHandler ??= new KeyEventHandler(QuickEventPopupContentKeyDown), true);
     }
 
     private void DetachQuickEventDismissWatch()
@@ -267,6 +273,11 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         if (_quickEventDismissRoot != null && _quickEventDismissHandler != null)
         {
             _quickEventDismissRoot.RemoveHandler(PointerPressedEvent, _quickEventDismissHandler);
+        }
+
+        if (_quickEventDismissRoot != null && _quickEventEscapeHandler != null)
+        {
+            _quickEventDismissRoot.RemoveHandler(KeyDownEvent, _quickEventEscapeHandler);
         }
 
         _quickEventDismissRoot = null;
