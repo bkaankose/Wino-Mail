@@ -14,7 +14,7 @@ namespace Wino.Services;
 
 public class ContextMenuItemService(IMailProviderRegistry providers) : IContextMenuItemService
 {
-    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder, bool canRenameAndDelete = true, bool canCreateSubFolder = true)
+    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder, bool canRenameAndDelete = true, bool canCreateSubFolder = true, bool canEmpty = true)
     {
         var list = new List<FolderOperationMenuItem>();
 
@@ -38,7 +38,8 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
         if (canRenameAndDelete || canCreateSubFolder)
             list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
 
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Empty));
+        if (canEmpty)
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.Empty));
 
         list.Add(FolderOperationMenuItem.Create(FolderOperation.MarkAllAsRead));
 

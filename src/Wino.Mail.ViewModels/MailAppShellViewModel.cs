@@ -198,8 +198,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         var sharedFolders = folder.HandlingFolders.Where(handlingFolder => handlingFolder.Scope != MailFolderScope.Personal).ToList();
         var canRenameAndDelete = sharedFolders.All(sharedFolder => sharedFolder.HasKnownRight('x'));
         var canCreateSubFolder = sharedFolders.All(sharedFolder => sharedFolder.HasKnownRight('k'));
+        var canEmpty = folder.HandlingFolders.All(handlingFolder => handlingFolder.MyRights == null || (handlingFolder.HasKnownRight('t') && handlingFolder.HasKnownRight('e')));
 
-        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder, canRenameAndDelete, canCreateSubFolder);
+        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder, canRenameAndDelete, canCreateSubFolder, canEmpty);
     }
 
     private async Task CreateFooterItemsAsync(bool showNotification = false)
