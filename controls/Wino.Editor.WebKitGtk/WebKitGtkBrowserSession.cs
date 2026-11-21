@@ -13,6 +13,7 @@ internal sealed class WebKitGtkBrowserSession
     private readonly GObject.SignalHandler<WebKit.UserContentManager, WebKit.UserContentManager.ScriptMessageReceivedSignalArgs> _messageHandler;
     private readonly GObject.ReturningSignalHandler<WebKit.WebView, WebKit.WebView.DecidePolicySignalArgs, bool> _decidePolicy;
     private readonly GObject.SignalHandler<WebKit.WebView, WebKit.WebView.WebProcessTerminatedSignalArgs> _terminated;
+    private readonly GObject.ReturningSignalHandler<WebKit.WebView, WebKit.WebView.ContextMenuSignalArgs, bool> _contextMenu;
     private readonly SignalTarget _signals;
     private readonly CancellationTokenSource _linkLifetime = new();
     private TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -41,6 +42,7 @@ internal sealed class WebKitGtkBrowserSession
             return true;
         };
         _terminated = (sender, args) => signals.Session?.OnWebProcessTerminated(sender, args);
+        _contextMenu = (sender, args) => signals.Session?.OnContextMenu(sender, args) ?? true;
         WebKit.UserContentManager.ScriptMessageReceivedSignal.Connect(_content, _messageHandler, false, BridgeName);
 
         // An ephemeral session keeps cookies, cache and storage in memory only, like the non-persistent store on Apple.
@@ -49,6 +51,9 @@ internal sealed class WebKitGtkBrowserSession
         Browser = WebKit.WebView.NewWithProperties([new GObject.ConstructArgument("network-session", session), new GObject.ConstructArgument("user-content-manager", content)]);
         var settings = Browser.GetSettings();
         settings.JavascriptCanOpenWindowsAutomatically = false;
+        settings.SetEnableDeveloperExtras(false);
+        settings.SetEnableBackForwardNavigationGestures(false);
+        Browser.OnContextMenu += _contextMenu;
         Browser.OnDecidePolicy += _decidePolicy;
         Browser.OnWebProcessTerminated += _terminated;
     }
@@ -60,6 +65,12 @@ internal sealed class WebKitGtkBrowserSession
 
     public WebKit.WebView Browser { get; }
     public SessionOperationQueue Queue { get; } = new();
+    /// <summary>The stock items the web view's context menu keeps (WebKitGTK also offers navigation, reload and download); null keeps the menu as WebKit built it.</summary>
+    public WebKit.ContextMenuAction[]? AllowedContextActions { get; set; }
+
+    /// <summary>The stock actions of the most recent context menu after pruning, comma separated.</summary>
+    public string LastContextMenu { get; private set; } = string.Empty;
+
     public bool IsReady => !_disposed && _sessionId is not null && _ready.Task.IsCompletedSuccessfully;
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
@@ -143,6 +154,37 @@ internal sealed class WebKitGtkBrowserSession
         return true;
     }
 
+    private bool OnContextMenu(WebKit.WebView sender, WebKit.WebView.ContextMenuSignalArgs args)
+    {
+        try
+        {
+            if (AllowedContextActions is not { } allowed) return false;
+            var menu = args.ContextMenu;
+            var items = new List<WebKit.ContextMenuItem>();
+            for (uint index = 0; index < menu.GetNItems(); index++) items.Add(menu.GetItemAtPosition(index));
+            var kept = items.Where(item => !item.IsSeparator() && item.GetSubmenu() is null && Array.IndexOf(allowed, item.GetStockAction()) >= 0).ToList();
+            menu.RemoveAll();
+            var clipboard = false;
+            foreach (var item in kept)
+            {
+                var action = item.GetStockAction();
+                var isClipboard = action is WebKit.ContextMenuAction.Copy or WebKit.ContextMenuAction.CopyLinkToClipboard or WebKit.ContextMenuAction.CopyImageToClipboard;
+                if (!isClipboard && clipboard) menu.Append(WebKit.ContextMenuItem.NewSeparator());
+                clipboard = isClipboard;
+                menu.Append(item);
+            }
+            LastContextMenu = string.Join(",", kept.Select(static item => item.GetStockAction().ToString()));
+            // An empty GTK menu would still open as a blank popover; suppressing it is the quiet answer.
+            return kept.Count == 0;
+        }
+        catch (Exception error)
+        {
+            LastContextMenu = string.Empty;
+            OperationFailed?.Invoke(this, error);
+            return true;
+        }
+    }
+
     private void OnWebProcessTerminated(WebKit.WebView sender, WebKit.WebView.WebProcessTerminatedSignalArgs args)
     {
         if (_disposed) return;
@@ -209,6 +251,7 @@ internal sealed class WebKitGtkBrowserSession
             _signals.Session = null;
             Browser.OnDecidePolicy -= _decidePolicy;
             Browser.OnWebProcessTerminated -= _terminated;
+            Browser.OnContextMenu -= _contextMenu;
             WebKit.UserContentManager.ScriptMessageReceivedSignal.Disconnect(_content, _messageHandler);
             _content.UnregisterScriptMessageHandler(BridgeName, null);
             NavigationRequested = null; OperationFailed = null; LinkHovered = null; ContentProcessTerminated = null; Message = null;

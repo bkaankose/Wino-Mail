@@ -13,6 +13,7 @@ public sealed class WebKitGtkHtmlMailReaderSession : IHtmlMailReaderSession
 {
     private readonly WebKitGtkBrowserSession _host;
     private bool _dark;
+    private HtmlMailDarkModeMethod _darkMethod;
     private string? _font;
     private int _fontSize = 15;
     private ReaderAccessibilityContext? _accessibility;
@@ -21,7 +22,10 @@ public sealed class WebKitGtkHtmlMailReaderSession : IHtmlMailReaderSession
     public WebKitGtkHtmlMailReaderSession(IDispatcher dispatcher)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
-        _host = new(dispatcher);
+        _host = new(dispatcher)
+        {
+            AllowedContextActions = [WebKit.ContextMenuAction.Copy, WebKit.ContextMenuAction.CopyLinkToClipboard, WebKit.ContextMenuAction.CopyImageToClipboard, WebKit.ContextMenuAction.SelectAll],
+        };
         _host.NavigationRequested += (_, e) => NavigationRequested?.Invoke(this, e);
         _host.LinkHovered += (_, e) => LinkHovered?.Invoke(this, e);
         _host.OperationFailed += (_, e) => OperationFailed?.Invoke(this, e);
@@ -37,6 +41,9 @@ public sealed class WebKitGtkHtmlMailReaderSession : IHtmlMailReaderSession
 
     /// <summary>WebKit's web process ended; the document is gone until the next render.</summary>
     public event EventHandler? ContentProcessTerminated;
+
+    /// <summary>The stock actions of the most recent web context menu after pruning (diagnostics).</summary>
+    public string LastContextMenu => _host.LastContextMenu;
 
     /// <summary>True while the current document is loaded and its bridge answered.</summary>
     public bool IsReady => _host.IsReady;
@@ -84,7 +91,14 @@ public sealed class WebKitGtkHtmlMailReaderSession : IHtmlMailReaderSession
         _host.Queue.RunAsync(async () =>
         {
             _dark = isDarkMode;
-            if (_host.IsReady) await _host.EvaluateAsync($"window.WinoRenderer.setTheme({Bool(_dark)})");
+            if (_host.IsReady) await ApplyThemeAsync();
+        }, cancellationToken);
+
+    public Task SetDarkModeMethodAsync(HtmlMailDarkModeMethod method, CancellationToken cancellationToken = default) =>
+        _host.Queue.RunAsync(async () =>
+        {
+            _darkMethod = method;
+            if (_host.IsReady) await ApplyThemeAsync();
         }, cancellationToken);
 
     public Task SetReaderTypographyAsync(string? fontFamily, int fontSize, CancellationToken cancellationToken = default) =>
@@ -104,8 +118,14 @@ public sealed class WebKitGtkHtmlMailReaderSession : IHtmlMailReaderSession
 
     public Task EnterIdleAsync(CancellationToken cancellationToken = default) => ClearAsync(cancellationToken);
 
+    private Task ApplyThemeAsync() =>
+        _host.EvaluateAsync($"window.WinoRenderer.setTheme({Bool(_dark)}, {Quote(EditorDocumentAssets.GetDarkModeMethodName(_darkMethod))})");
+
     private async Task ApplyPresentationAsync()
     {
+        // A fresh document starts adaptive (the builder writes no method), so another method is set again per load,
+        // before render: setTheme hides the reader until its styles settle.
+        if (_darkMethod != HtmlMailDarkModeMethod.Adaptive) await ApplyThemeAsync();
         await _host.EvaluateAsync($"window.WinoRenderer.setTypography({Quote(_font)}, {_fontSize})");
         if (_accessibility is { } a)
             await _host.EvaluateAsync($"window.WinoRenderer.setAccessibility({Quote(a.Subject)}, {Quote(a.Sender)}, {Quote(a.Date)}, {Quote(a.BodyAutomationName)}, {Quote(a.PlainTextFallbackAutomationName)}, {Quote(a.AccessibleText)})");

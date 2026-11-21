@@ -91,3 +91,4 @@ A build does not prove UI behavior.
 - Attachments are `AttachmentStrip` tiles with system file-type icons (`Infrastructure/AttachmentFileIcons`); in Debug builds `debug-next-folder` answers the next folder picker.
 - `IRenderingFrameHost.SetCover` covers the pane with a list page's widget while the reader stays alive underneath.
 - Sender pictures come from `LinuxSenderPictureProvider`; never decode an image in a cell bind.
+- The privacy button, its popover (`ReaderPrivacyPopover`), the three remote-content bars and the hovered link's address (`ReaderLinkTargetBar`) live in `MailReaderView.Privacy.cs`; the bars offer Load once only, every other privacy action is an item of `ViewModel.PrivacyMenuItems`.

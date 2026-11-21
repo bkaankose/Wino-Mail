@@ -172,6 +172,10 @@ internal static partial class ReaderDebugActions
         });
         RegisterCommands(application, services);
         RegisterAttachments(application, services);
+        RegisterPrivacy(application, services);
+        RegisterPrint(application, services);
+        RegisterInvitation(application, services);
+        RegisterWindows(application, services);
 
         GLib.Functions.TimeoutAdd(GLib.Constants.PRIORITY_DEFAULT, 500, () =>
         {
@@ -188,6 +192,10 @@ internal static partial class ReaderDebugActions
 
     static partial void RegisterCommands(Adw.Application application, Func<IServiceProvider?> services);
     static partial void RegisterAttachments(Adw.Application application, Func<IServiceProvider?> services);
+    static partial void RegisterPrivacy(Adw.Application application, Func<IServiceProvider?> services);
+    static partial void RegisterPrint(Adw.Application application, Func<IServiceProvider?> services);
+    static partial void RegisterInvitation(Adw.Application application, Func<IServiceProvider?> services);
+    static partial void RegisterWindows(Adw.Application application, Func<IServiceProvider?> services);
 
     private static MailReaderView Current() => ReaderDiagnostics.Current ?? throw new InvalidOperationException("No reader is shown.");
 
