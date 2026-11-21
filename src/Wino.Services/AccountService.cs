@@ -453,6 +453,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             transaction.Execute("DELETE FROM DirectoryPhotoLookup WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM SentMailReceiptState WHERE AccountId = ?", account.Id);
             transaction.Execute("DELETE FROM MailInvitationCalendarMapping WHERE AccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM ItemLink WHERE SourceAccountId = ? OR TargetAccountId = ?", account.Id, account.Id);
             transaction.Execute("DELETE FROM MailAccountPreferences WHERE AccountId = ?", account.Id);
         }).ConfigureAwait(false);
 

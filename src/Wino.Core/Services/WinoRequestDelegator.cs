@@ -44,6 +44,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     private readonly IMessenger _messenger;
 
+    private readonly IItemLinkService _itemLinks;
+
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IAccountService accountService,
                                 ICalendarService calendarService,
@@ -54,8 +56,10 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                 IMessenger messenger,
                                 IMailProviderRegistry providers,
                                 IAppLockService appLockService,
-                                IMailService mailService)
+                                IMailService mailService,
+                                IItemLinkService itemLinks = null)
     {
+        _itemLinks = itemLinks;
         _mailService = mailService ?? throw new ArgumentNullException(nameof(mailService));
         _providers = providers;
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
@@ -403,7 +407,16 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (assignedCalendar == null)
             throw new InvalidOperationException($"Calendar {composeResult.CalendarId} could not be resolved.");
 
-        return new CreateCalendarEventRequest(composeResult, assignedCalendar);
+        var request = new CreateCalendarEventRequest(composeResult, assignedCalendar);
+
+        // The event's links are stored when its row is stored, which happens only after the server confirmed it.
+        if (_itemLinks is not null)
+        {
+            foreach (var link in composeResult.PendingLinks ?? [])
+                _itemLinks.ExpectLink(request.PreparedItem.Id, link);
+        }
+
+        return request;
     }
 
     private async Task<AccountCalendar> ResolveCalendarAsync(CalendarOperationPreparationRequest calendarPreparationRequest)

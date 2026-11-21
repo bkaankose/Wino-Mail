@@ -24,10 +24,12 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
     private static readonly SemaphoreSlim TaskListColorGate = new(1, 1);
 
     private readonly IMailProviderRegistry _providers;
+    private readonly IItemLinkService _itemLinks;
 
-    public TaskService(IDatabaseService databaseService, IMessenger messenger, IMailProviderRegistry providers) : base(databaseService, messenger)
+    public TaskService(IDatabaseService databaseService, IMessenger messenger, IMailProviderRegistry providers, IItemLinkService itemLinks = null) : base(databaseService, messenger)
     {
         _providers = providers;
+        _itemLinks = itemLinks;
     }
 
     public async Task<List<AccountTaskListGroup>> GetTaskListGroupsAsync(Guid? accountId = null)
@@ -1122,7 +1124,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         }
     }
 
-    public async Task CompleteTaskMutationAsync(
+    private async Task CompleteTaskMutationCoreAsync(
         Guid taskId,
         AccountTask remoteTask,
         bool deleted,

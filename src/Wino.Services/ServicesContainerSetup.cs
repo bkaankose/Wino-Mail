@@ -81,6 +81,7 @@ public static class ServicesContainerSetup
         services.AddTransient<IRemoteContentPolicyService, RemoteContentPolicyService>();
         services.AddSingleton<ILinkSanitizer, LinkSanitizer>();
         services.AddTransient<IRecipientSuggestionService, RecipientSuggestionService>();
+        services.AddSingleton<IItemLinkService, ItemLinkService>();
         services.AddTransient<ITaskService, TaskService>();
         services.AddTransient<ITaskQueryService>(provider => provider.GetRequiredService<ITaskService>());
         services.AddTransient<ISignatureService, SignatureService>();

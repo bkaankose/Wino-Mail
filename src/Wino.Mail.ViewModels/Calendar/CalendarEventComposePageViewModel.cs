@@ -404,6 +404,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
+    private List<ItemLink> _pendingLinks = [];
+
     public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
@@ -411,6 +413,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         await LoadAvailableCalendarsAsync();
 
         var args = parameters as CalendarEventComposeNavigationArgs;
+        _pendingLinks = args?.EditCalendarItemId is null && args?.PendingLinks is { Count: > 0 } links ? [.. links] : [];
 
         if (args?.EditCalendarItemId is Guid editCalendarItemId)
         {
@@ -1692,7 +1695,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
                 ? Attachments.Where(attachment => !attachment.IsExisting).Select(attachment => attachment.ToDraftModel()).ToList()
                 : [],
             Recurrence = BuildRecurrenceRule(),
-            RecurrenceSummary = RecurrenceSummary
+            RecurrenceSummary = RecurrenceSummary,
+            PendingLinks = IsEditMode ? [] : [.. _pendingLinks]
         };
     }
 

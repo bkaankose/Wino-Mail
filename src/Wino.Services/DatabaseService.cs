@@ -317,6 +317,7 @@ VALUES
             Connection.CreateTableAsync<CalendarAttachment>(),
             Connection.CreateTableAsync<Reminder>(),
             Connection.CreateTableAsync<MailInvitationCalendarMapping>(),
+            Connection.CreateTableAsync<ItemLink>(),
             Connection.CreateTableAsync<SentMailReceiptState>(),
             Connection.CreateTableAsync<WinoAccount>());
 

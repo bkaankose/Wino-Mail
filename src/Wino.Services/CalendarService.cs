@@ -22,8 +22,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     // Predefined reminder options in minutes
     private static readonly int[] PredefinedReminderMinutes = [60, 30, 15, 5, 1];
 
-    public CalendarService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
+    private readonly IItemLinkService _itemLinks;
+
+    public CalendarService(IDatabaseService databaseService, IMessenger messenger, IItemLinkService itemLinks = null) : base(databaseService, messenger)
     {
+        _itemLinks = itemLinks;
     }
 
     public int[] GetPredefinedReminderMinutes() => PredefinedReminderMinutes;
@@ -213,8 +216,17 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         catch (Exception ex)
         {
             Log.Error(ex, "Error creating new calendar item");
+            return;
         }
+
+        await ConfirmPendingLinksAsync(calendarItem).ConfigureAwait(false);
     }
+
+    // Rows are stored only after the server confirmed them, so a stored row ends the wait of links created with it.
+    private Task ConfirmPendingLinksAsync(CalendarItem calendarItem)
+        => _itemLinks is null || calendarItem is null
+            ? Task.CompletedTask
+            : _itemLinks.ConfirmPendingLinksAsync(calendarItem.Id, Wino.Core.Domain.Models.Links.ItemLinkKeys.ForEvent(calendarItem));
 
     public async Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
     {
@@ -241,7 +253,10 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         catch (Exception ex)
         {
             Log.Error(ex, "Error updating calendar item");
+            return;
         }
+
+        await ConfirmPendingLinksAsync(calendarItem).ConfigureAwait(false);
     }
 
     public async Task<List<CalendarItem>> SearchCalendarItemsAsync(string searchQuery, int limit, CancellationToken cancellationToken = default)
