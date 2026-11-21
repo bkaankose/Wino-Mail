@@ -95,7 +95,7 @@
 
             <controls:SettingsCard
                 AutomationProperties.AutomationId="AccountMailSenderNameCard"
-                Description="{x:Bind domain:Translator.SettingsEditAccountDetails_Description, Mode=OneTime}"
+                Description="{x:Bind domain:Translator.AccountMail_SenderNameDescription, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsSenderNameEditable, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>

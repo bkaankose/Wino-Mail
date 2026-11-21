@@ -79,7 +79,7 @@
                             <controls:SettingsExpander.Items>
                                 <controls:SettingsCard
                                     AutomationProperties.AutomationId="AccountCalendarColorCard"
-                                    Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}"
+                                    Description="{x:Bind domain:Translator.AccountApps_CalendarColorDescription, Mode=OneTime}"
                                     Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
                                     <controls:SettingsCard.HeaderIcon>
                                         <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Color" />

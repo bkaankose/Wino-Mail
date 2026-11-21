@@ -554,9 +554,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     }
 
     private static string GetAccountDetailsTitle(MailAccount account)
-        => !string.IsNullOrWhiteSpace(account?.Address)
-            ? string.Format(Translator.SettingsAccountDetails_NavigationTitle, account.Address)
-            : account?.Name ?? Translator.AccountDetailsPage_Title;
+        => !string.IsNullOrWhiteSpace(account?.Name)
+            ? account.Name
+            : !string.IsNullOrWhiteSpace(account?.Address) ? account.Address : Translator.AccountDetailsPage_Title;
 
     public async Task OnTitleBarSearchTextChangedAsync()
     {
