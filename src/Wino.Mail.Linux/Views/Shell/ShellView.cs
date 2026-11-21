@@ -61,7 +61,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         _pane = new ReadingPaneHost(ReportError);
         _layout = new ShellLayout(ViewModel.PreferencesService, ViewModel.StatePersistenceService, store);
         _reading = new ShellReadingPane(_pane, _layout);
-        _sidebar = new ShellSidebarView(ViewModel, Bind);
+        _sidebar = new ShellSidebarView(ViewModel, Bind, serviceProvider.GetService<IPictureStorageService>(), ReportError);
         _sidebar.ItemInvoked += _layout.DismissOverlaySidebar;
         _layout.SetSidebar(_sidebar.Root);
         _sidebar.SetFooter(_switcher.Root);

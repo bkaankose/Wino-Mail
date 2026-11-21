@@ -30,4 +30,19 @@ public static class WinoCssClass
     public const string InfoBarFloating = "wino-info-bar-floating";
     public const string InfoBarGlyph = "wino-info-bar-glyph";
     public const string ModeSwitcher = "wino-mode-switcher";
+    public const string SidebarList = "wino-sidebar-list";
+    public const string SidebarPill = "wino-sidebar-pill";
+    public const string RowPlain = "wino-row-plain";
+    public const string ShellRow = "wino-shell-row";
+    public const string ShellRowNew = "wino-shell-row-new";
+    public const string ShellRowHeader = "wino-shell-row-header";
+    public const string ShellRowAccount = "wino-shell-row-account";
+    public const string ShellRowFolder = "wino-shell-row-folder";
+    public const string ShellRowAttention = "wino-shell-row-attention";
+    public const string ShellRowCompact = "wino-shell-row-compact";
+    public const string ShellSync = "wino-shell-sync";
+    public const string ShellTitleChip = "wino-shell-title-chip";
+    public const string Selected = "wino-selected";
+    public const string WeightMedium = "wino-weight-medium";
+    public const string WeightSemibold = "wino-weight-semibold";
 }

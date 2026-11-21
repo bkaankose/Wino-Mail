@@ -29,7 +29,7 @@ A view is a plain class that builds its widgets in the constructor and exposes `
 - `ShellLayout` (`Views/Shell`) owns the panes and their widths; `ShellMetrics` holds every size. The sidebar docks from 860 px and is an overlay below; the list and the reader stack when the content area is narrower than the list and reader minimums together. The sidebar width and the window placement are kept by `WindowStateStore`, the list width by `IStatePersistanceService.MailListPaneLength`.
 - A content page shown beside the reading pane implements `IUsesReadingPane`; any other page gets the whole content area and may split it with `ListDetailSplit`. Pages in the content area have no header bar with window buttons: the shell's one header spans the content area.
 - The shell's one header is `ShellHeaderBar` (`Views/Shell`). The content view may implement `IShellSearchTarget` (`Infrastructure/ShellContracts.cs`) to receive the header search entry. Header buttons for Daily briefing, What's New and Wino Account appear when their presenter is registered. Application actions are in `Infrastructure/AppActions.cs`; add an accelerator there, not in a view.
-- Sidebar rows (`ShellSidebarView`) navigate on activation and on a selection made from outside (an accessibility client); a selection that follows keyboard focus does not navigate.
+- The sidebar is `ShellSidebarView`, a `Gtk.ListView` over `ShellMenuRowPresentation.Flatten`/`Describe` drawn by `WinoShellRow`. A row is invoked by a selection change (pointer, accessibility clients) or by Enter; the arrow keys only move the focus, Left and Right collapse and expand. Other packages extend it through `CellSetup`/`CellTeardown`, `RowsChanged`, `AddRowProvider` and partial files of the class.
 - The mail list sends `ActiveMailFolderChangedEvent` after `OnNavigatedTo` and awaits `WaitForCurrentFolderInitializationAsync`. Without it the shell never shows its menu.
 - Rows come from shared presentation code: `ShellMenuRowPresentation` for the sidebar, `MailListProjection`, `MailRowPresentation` and `MailListSelectionSnapshotBuilder` for the list. A cell only renders.
 - New lists use `ObservableListModel<T>`, `WinoCellFactory` and `ListSections` from `Wino.Presentation.Linux.Lists`; the mail list still uses its `Gtk.StringList` of row keys until ML-02. A page disposes its factories, sections and model when it is released (`Bindings.Own`).
@@ -64,7 +64,7 @@ A build does not prove UI behavior.
 
 ## Performance
 
-- Coalesce rebuilds: the sidebar and the list rebuild once per main-loop turn (a `MainLoop.Coalescer` or `QueueRebuild`), not once per notification.
+- Coalesce rebuilds: the list rebuilds once per main-loop turn (a `MainLoop.Coalescer` or `QueueRebuild`), not once per notification. In the sidebar a menu item's property change repaints one row; only a structure change re-flattens, once per main-loop turn.
 - Appending a loaded page must stay an append to the list model, so the scroll position is kept.
 - The reader reuses one web view and one ViewModel for every message.
 - Sender pictures come from `LinuxSenderPictureProvider`; never decode an image in a cell bind.

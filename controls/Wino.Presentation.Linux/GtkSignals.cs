@@ -38,6 +38,21 @@ public static class GtkSignals
         return new Subscription<GObject.SignalHandler<TSender, TArgs>>(box, forward, disconnect);
     }
 
+    /// <summary>The <see cref="Connect{TSender}"/> pattern for signals whose handler returns a value; an emptied box returns the default.</summary>
+    public static IDisposable Connect<TSender, TArgs, TReturn>(
+        Action<GObject.ReturningSignalHandler<TSender, TArgs, TReturn>> connect,
+        Action<GObject.ReturningSignalHandler<TSender, TArgs, TReturn>> disconnect,
+        GObject.ReturningSignalHandler<TSender, TArgs, TReturn> handler)
+        where TSender : GObject.NativeObject
+        where TArgs : GObject.SignalArgs
+        where TReturn : struct
+    {
+        var box = new Box<GObject.ReturningSignalHandler<TSender, TArgs, TReturn>>(handler);
+        GObject.ReturningSignalHandler<TSender, TArgs, TReturn> forward = (sender, args) => box.Value is { } target ? target(sender, args) : default;
+        connect(forward);
+        return new Subscription<GObject.ReturningSignalHandler<TSender, TArgs, TReturn>>(box, forward, disconnect);
+    }
+
     /// <summary>Calls <paramref name="changed"/> when <paramref name="property"/> of <paramref name="source"/> changes; dispose disconnects.</summary>
     public static IDisposable OnNotify(GObject.Object source, string property, Action changed)
         => Connect<GObject.Object, GObject.Object.NotifySignalArgs>(

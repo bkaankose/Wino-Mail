@@ -21,6 +21,7 @@ GTK controls for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin
 
 - Feature folders as in the AppKit twin: `MailList`, `Shell`, `Common`, `Settings`, `Calendar`, `Contacts`, `ToDo`, `Intelligence`. The namespace follows the folder.
 - A control is a plain class that builds its widgets and exposes `Root`, unless the plan of its package says otherwise.
+- A row control (the sidebar's `WinoShellRow` in the head is the pattern) is built once and switched by `Apply`; it is never rebuilt for a content change.
 - A control only renders. Pages own menus, commands and navigation.
 - Every interactive widget gets an accessible name through `WinoA11y.Label` (or `WinoA11y.LabelWithTooltip` for icon-only buttons).
 - `WinoContactPicture` and `WinoAccountIcon` never fetch or decode in a cell bind beyond a cache lookup: the page asks `LinuxSenderPictureProvider` (head) and sets `Picture`.

@@ -155,3 +155,28 @@
   background-color: alpha(@card_bg_color, 0.78);
   box-shadow: 0 0 0 1px @card_shade_color;
 }
+
+.wino-shell-row { min-height: var(--wino-sidebar-row-height); }
+.wino-shell-row-account { min-height: 44px; }
+.wino-shell-row-account.wino-shell-row-compact { min-height: var(--wino-sidebar-row-height); }
+.wino-shell-row-new { min-height: 40px; }
+.wino-shell-row-header { min-height: 28px; margin-top: 6px; }
+.wino-shell-row-attention { min-height: 58px; }
+.wino-shell-sync { min-height: 2px; }
+.wino-shell-sync trough, .wino-shell-sync progress { min-height: 2px; }
+.wino-shell-title-chip { border-radius: 3px; padding: 1px 4px; }
+.wino-weight-medium { font-weight: 500; }
+.wino-weight-semibold { font-weight: 600; }
+.wino-sidebar-pill {
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background-color: alpha(currentColor, 0.10);
+  font-size: 0.8em;
+  font-weight: 600;
+}
+.wino-sidebar-list > row { padding: 0; margin: 1px 6px; border-radius: var(--wino-control-radius); }
+.wino-sidebar-list > row:selected { background-color: alpha(currentColor, 0.10); }
+.wino-sidebar-list > row.wino-row-plain, .wino-sidebar-list > row.wino-row-plain:hover { background: none; }
+
