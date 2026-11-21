@@ -113,3 +113,26 @@
 .wino-avatar-s72 { font-size: 27px; }
 .wino-avatar-s96 { font-size: 36px; }
 .wino-avatar-s128 { font-size: 49px; }
+
+/* Info bar */
+
+.wino-info-bar {
+  padding: 10px 8px 10px 12px;
+  border-radius: var(--wino-control-radius);
+  border: 1px solid alpha(currentColor, 0.12);
+  background-color: alpha(@accent_bg_color, 0.10);
+}
+
+.wino-info-bar-informational .wino-info-bar-glyph { color: @accent_color; }
+.wino-info-bar-success { background-color: alpha(@success_bg_color, 0.14); }
+.wino-info-bar-success .wino-info-bar-glyph { color: @success_color; }
+.wino-info-bar-warning { background-color: alpha(@warning_bg_color, 0.16); }
+.wino-info-bar-warning .wino-info-bar-glyph { color: @warning_color; }
+.wino-info-bar-error { background-color: alpha(@error_bg_color, 0.14); }
+.wino-info-bar-error .wino-info-bar-glyph { color: @error_color; }
+
+.wino-info-bar-floating {
+  background-color: @window_bg_color;
+  border-radius: var(--wino-control-radius);
+  box-shadow: 0 0 0 1px @card_shade_color, 0 4px 14px @shade_color;
+}

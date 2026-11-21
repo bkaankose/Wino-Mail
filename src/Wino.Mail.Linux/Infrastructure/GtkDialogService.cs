@@ -17,10 +17,10 @@ namespace Wino.Mail.Linux.Infrastructure;
 internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<Views.MainWindow?> window, IConfigurationService configuration) : IMailDialogService
 {
     public void InfoBarMessage(string title, string message, InfoBarMessageType messageType)
-        => _ = dispatcher.ExecuteOnUIThread(() => window()?.ShowToast(title, message, null, null));
+        => _ = dispatcher.ExecuteOnUIThread(() => window()?.ShowMessage(title, message, messageType, null, null));
 
     public void InfoBarMessage(string title, string message, InfoBarMessageType messageType, string actionButtonText, Action action)
-        => _ = dispatcher.ExecuteOnUIThread(() => window()?.ShowToast(title, message, actionButtonText, action));
+        => _ = dispatcher.ExecuteOnUIThread(() => window()?.ShowMessage(title, message, messageType, actionButtonText, action));
 
     public Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt)
     {

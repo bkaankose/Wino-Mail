@@ -49,6 +49,7 @@ public MailListView(MailListPageViewModel viewModel, WinoViewServices services) 
 - Take user-visible text from `Translator` when the string exists. The proof of concept has a few English status texts of its own (`LinuxApplication`, `GtkApplicationLifecycleHost`); move them to `resources.json` before the head is released.
 - Register a new head service in its area's `Infrastructure/LinuxViewModelRegistration.<Area>.cs` hook, never in [LinuxComposition.cs](LinuxComposition.cs); platform services go to `Wino.Platform.Linux`.
 - A dialog without a screen stays in `GtkDialogService.Dismissed.cs`. Its package moves it into its own `GtkDialogService.<Group>.cs` and builds it on `AlertAsync(AlertRequest)` (`Views/Dialogs/AlertPresenter`), `FormDialog` or `FilePickers`, presented through `PresentAsync(owner => ..., dismissed)` so it runs on the main thread and hangs from the active window. Files and folders are picked only through `FilePickers`.
+- Window-level messages go through `IMailDialogService.InfoBarMessage` (or the `InfoBarMessageRequested` message) to the window's `InfoBarHost`; a view never creates a host.
 
 ## Check your change
 

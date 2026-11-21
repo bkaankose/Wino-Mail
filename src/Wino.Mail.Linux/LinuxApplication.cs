@@ -1,4 +1,6 @@
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.Linux.Views;
 using Wino.Mail.ViewModels.Activation;
@@ -19,6 +21,7 @@ internal sealed class LinuxApplication
     private readonly List<ActivationItem> _pendingActivations = [];
     private MainWindow? _window;
     private ServiceProvider? _services;
+    private InfoBarMessageRelay? _infoBarRelay;
     private bool _started;
     private bool _stopping;
 
@@ -47,6 +50,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.IconDebugActions.Register(application);
             Infrastructure.Diagnostics.ThemeDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.AvatarDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.InfoBarDebugActions.Register(application, () => _services, () => _window);
         }
 #endif
     }
@@ -84,6 +88,7 @@ internal sealed class LinuxApplication
             }
 
             _services = LinuxComposition.Create(bootstrap, () => _window, _options);
+            _infoBarRelay = InfoBarMessageRelay.Start(_services.GetRequiredService<IMessenger>(), _services.GetRequiredService<IMailDialogService>());
             await _services.GetRequiredService<ApplicationLifecycleCoordinator>().StartAsync(_services.GetRequiredService<GtkApplicationLifecycleHost>());
             LogIconFonts();
             _started = true;

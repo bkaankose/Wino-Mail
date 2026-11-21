@@ -25,4 +25,8 @@ public static class WinoCssClass
     public const string Avatar = "wino-avatar";
     public const string AvatarPrefix = "wino-avatar-";
     public const string SurfacePrefix = "wino-surface-";
+
+    public const string InfoBar = "wino-info-bar";
+    public const string InfoBarFloating = "wino-info-bar-floating";
+    public const string InfoBarGlyph = "wino-info-bar-glyph";
 }

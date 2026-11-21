@@ -78,7 +78,8 @@ public static class MainLoop
             Cancel();
         }
 
-        private void Cancel()
+        /// <summary>Drops a pending run without running it; a later <see cref="Request"/> schedules again.</summary>
+        public void Cancel()
         {
             if (_source == 0) return;
             GLib.Functions.SourceRemove(_source);

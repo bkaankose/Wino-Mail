@@ -1,14 +1,17 @@
 using Serilog;
+using Wino.Core.Domain.Enums;
+using Wino.Mail.Linux.Infrastructure;
 using Wino.Presentation.Linux;
 using Wino.Presentation.Linux.Style;
 
 namespace Wino.Mail.Linux.Views;
 
-/// <summary>The one window: a toast overlay over the theme backdrop, which holds either a status page (startup, errors) or the shell.</summary>
+/// <summary>The one window: a toast overlay over the info bar host and the theme backdrop, which holds either a status page (startup, errors) or the shell.</summary>
 internal sealed class MainWindow
 {
     private readonly Adw.ToastOverlay _toasts = Adw.ToastOverlay.New();
     private readonly ThemeBackdrop _backdrop = new();
+    private readonly InfoBarHost _infoBars = new();
 
     public MainWindow(Adw.Application application)
     {
@@ -17,7 +20,8 @@ internal sealed class MainWindow
         Window.Title = "Wino Mail";
         Window.SetDefaultSize(1360, 860);
         Window.SetContent(_toasts);
-        _toasts.SetChild(_backdrop.Root);
+        _infoBars.Child = _backdrop.Root;
+        _toasts.SetChild(_infoBars.Root);
         ShowStatus("mail-send-receive-symbolic", "Wino Mail", null, busy: true);
     }
 
@@ -45,22 +49,8 @@ internal sealed class MainWindow
         _backdrop.Child = view;
     }
 
-    public void ShowToast(string? title, string? message, string? actionText, Action? action)
-    {
-        var text = string.Join(": ", new[] { title, message }.Where(part => !string.IsNullOrWhiteSpace(part)));
-        if (text.Length == 0) return;
-        var toast = Adw.Toast.New(GLib.Functions.MarkupEscapeText(text, -1));
-        if (!string.IsNullOrEmpty(actionText) && action is not null)
-        {
-            toast.SetButtonLabel(actionText);
-            var clicked = GtkSignals.Connect<Adw.Toast>(h => toast.OnButtonClicked += h, h => toast.OnButtonClicked -= h, (_, _) => action());
-            IDisposable? dismissed = null;
-            dismissed = GtkSignals.Connect<Adw.Toast>(h => toast.OnDismissed += h, h => toast.OnDismissed -= h, (_, _) =>
-            {
-                clicked.Dispose();
-                dismissed?.Dispose();
-            });
-        }
-        _toasts.AddToast(toast);
-    }
+    internal InfoBarHost InfoBars => _infoBars;
+
+    public void ShowMessage(string title, string message, InfoBarMessageType type, string? actionText, Action? action)
+        => _infoBars.Show(title, message, type, actionText, action);
 }
