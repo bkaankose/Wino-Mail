@@ -5975,5 +5975,7 @@
   "AccountApps_CalendarColorDescription": "Change the display color for this calendar",
   "ImapSetup_IncomingImapValidationFailedTitle": "Incoming mail server (IMAP) validation failed.",
   "ImapSetup_IncomingPop3ValidationFailedTitle": "Incoming mail server (POP3) validation failed.",
-  "ImapSetup_OutgoingValidationFailedTitle": "Outgoing mail server (SMTP) validation failed."
+  "ImapSetup_OutgoingValidationFailedTitle": "Outgoing mail server (SMTP) validation failed.",
+  "ImapSetup_CalDavValidationFailedTitle": "CalDAV server validation failed.",
+  "ImapSetup_CardDavValidationFailedTitle": "CardDAV server validation failed."
 }

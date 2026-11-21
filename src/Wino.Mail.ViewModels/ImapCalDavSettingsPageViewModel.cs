@@ -1013,11 +1013,16 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
     }
 
-    /// <summary>Names the server that failed the mail test: the incoming one, or the outgoing one after the incoming one answered.</summary>
+    /// <summary>
+    /// Names the server that failed: the incoming one, the outgoing one after the incoming one answered, or the CalDAV or
+    /// CardDAV server, whose rows keep the message of their failed test.
+    /// </summary>
     private string GetValidationFailedTitle(Exception exception) => exception switch
     {
         ImapValidationException { IsOutgoingServer: true } or Pop3ValidationException { IsOutgoingServer: true } => Translator.ImapSetup_OutgoingValidationFailedTitle,
         ImapValidationException or Pop3ValidationException => IsPop3 ? Translator.ImapSetup_IncomingPop3ValidationFailedTitle : Translator.ImapSetup_IncomingImapValidationFailedTitle,
+        _ when HasCalDavConnectionError && CalDavConnectionError == exception.Message => Translator.ImapSetup_CalDavValidationFailedTitle,
+        _ when HasCardDavConnectionError && CardDavConnectionError == exception.Message => Translator.ImapSetup_CardDavValidationFailedTitle,
         _ => MailValidationFailedTitle
     };
 
