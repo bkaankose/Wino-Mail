@@ -62,7 +62,7 @@ internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<View
     /// The window a dialog hangs from: the surface window (Settings) while it is visible, then the application's active
     /// window while it is visible (a dialog raised from a second window stays on it), else the main window. Main thread only.
     /// </summary>
-    private Gtk.Window? ResolveOwner()
+    internal Gtk.Window? ResolveOwner()
     {
         if (_surface?.Owner is Gtk.Window surface && surface.GetVisible()) return surface;
         if ((Gio.Application.GetDefault() as Gtk.Application)?.GetActiveWindow() is { } active && active.GetVisible()) return active;

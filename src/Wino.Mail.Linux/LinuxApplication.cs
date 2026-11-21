@@ -7,6 +7,7 @@ using Wino.Mail.Linux.Views;
 using Wino.Mail.ViewModels.Activation;
 using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Platform.Linux;
+using Wino.Platform.Linux.Authentication;
 using Wino.Platform.Linux.Security;
 
 namespace Wino.Mail.Linux;
@@ -20,6 +21,7 @@ internal sealed class LinuxApplication
     private readonly Adw.Application _application;
     private readonly LaunchOptions _options;
     private readonly List<ActivationItem> _pendingActivations = [];
+    private readonly List<Uri> _pendingCallbacks = [];
     private MainWindow? _window;
     private ServiceProvider? _services;
     private InfoBarMessageRelay? _infoBarRelay;
@@ -35,6 +37,11 @@ internal sealed class LinuxApplication
         {
             foreach (var file in args.Files)
             {
+                if (LinuxActivation.TryGetAuthCallback(file, out var callback))
+                {
+                    DeliverAuthCallback(callback);
+                    continue;
+                }
                 if (LinuxActivation.Classify(file) is { } item) _pendingActivations.Add(item);
             }
             ShowWindow();
@@ -80,8 +87,26 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.MailFiltersDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.AccountsDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailListHeaderDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.SignInDebugActions.Register(application, () => _services);
         }
 #endif
+    }
+
+    // The query carries the completion code: only the path is ever logged.
+    private void DeliverAuthCallback(Uri callback)
+    {
+        // Before startup nothing can wait and nothing logs yet; the address is reported once the services run.
+        if (!_started)
+        {
+            _pendingCallbacks.Add(callback);
+            return;
+        }
+        if (_services?.GetService<LinuxExternalAuthCallbacks>()?.Deliver(callback) == true)
+        {
+            Serilog.Log.Information("A sign-in redirect arrived (path {Path}).", callback.AbsolutePath);
+            return;
+        }
+        Serilog.Log.Warning("A sign-in redirect arrived while nothing was waiting for it (path {Path}).", callback.AbsolutePath);
     }
 
     private void ShowWindow()
@@ -122,6 +147,8 @@ internal sealed class LinuxApplication
             await _services.GetRequiredService<ApplicationLifecycleCoordinator>().StartAsync(_services.GetRequiredService<GtkApplicationLifecycleHost>());
             LogIconFonts();
             _started = true;
+            foreach (var callback in _pendingCallbacks) DeliverAuthCallback(callback);
+            _pendingCallbacks.Clear();
             await RouteActivationsAsync();
         }
         catch (Exception exception)

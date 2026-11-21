@@ -90,12 +90,17 @@ public static class LinuxPlatformRegistration
         services.Replace(ServiceDescriptor.Singleton<INotificationBuilder, LinuxNotificationBuilder>());
         services.Replace(ServiceDescriptor.Singleton<IInstalledBrowserService, LinuxInstalledBrowserService>());
 
-        // Interactive sign-in does not exist on Linux yet; stored passwords (IMAP, DAV) work.
+        // Browser sign-in: wino://auth-complete callbacks, the custom-scheme OAuth broker and the Wino Account broker are
+        // real; generic OAuth with a loopback redirect uses the shared receiver. Outlook, Gmail and the embedded browser still throw.
+        services.AddSingleton<LinuxExternalAuthCallbacks>();
+        services.AddSingleton<IOAuthBrowserBroker>(provider => new LinuxOAuthBrowserBroker(
+            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<LinuxExternalAuthCallbacks>(),
+            () => provider.GetService<IExternalBrowserAuthenticationPresenter>()));
+        services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new LinuxWinoAccountBrowserAuthBroker(
+            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<LinuxExternalAuthCallbacks>()));
         services.AddSingleton<IOutlookAuthenticationHost, LinuxOutlookAuthenticationHost>();
         services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver, LinuxGoogleAuthorizationCodeReceiver>());
-        services.AddSingleton<IOAuthBrowserBroker, LinuxOAuthBrowserBroker>();
         services.AddSingleton<IEmbeddedBrowserAuthBroker, LinuxEmbeddedBrowserAuthBroker>();
-        services.AddSingleton<IWinoAccountBrowserAuthBroker, LinuxWinoAccountBrowserAuthBroker>();
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
@@ -110,7 +115,7 @@ public static class LinuxPlatformRegistration
             KeyboardShortcuts: true,
             MailListDensity: true,
             Notifications: true,
-            OAuthLoopbackRedirect: false,
+            OAuthLoopbackRedirect: true,
             PointerHover: true));
         return services;
     }

@@ -39,26 +39,10 @@ public sealed class LinuxGoogleAuthorizationCodeReceiver : IGoogleAuthorizationC
     }
 }
 
-public sealed class LinuxOAuthBrowserBroker : IOAuthBrowserBroker
-{
-    public Task<Uri> AuthorizeAsync(Uri authorizationUri, CancellationToken cancellationToken)
-    {
-        return Task.FromException<Uri>(LinuxSignIn.Exception());
-    }
-}
-
 public sealed class LinuxEmbeddedBrowserAuthBroker : IEmbeddedBrowserAuthBroker
 {
     public Task<EmbeddedBrowserAuthResult> AuthenticateAsync(Uri startUri, Uri redirectUri, CancellationToken cancellationToken)
     {
         return Task.FromException<EmbeddedBrowserAuthResult>(LinuxSignIn.Exception());
-    }
-}
-
-public sealed class LinuxWinoAccountBrowserAuthBroker : IWinoAccountBrowserAuthBroker
-{
-    public Task<Uri> AuthorizeAsync(Uri authorizationUri, string callbackScheme, CancellationToken cancellationToken)
-    {
-        return Task.FromException<Uri>(LinuxSignIn.Exception());
     }
 }

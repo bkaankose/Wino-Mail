@@ -99,6 +99,16 @@ scripts/development/linux/install-desktop-entry.sh --remove
 The script also writes the scheme default to `$XDG_CONFIG_HOME/mimeapps.list`. Set both `XDG_DATA_HOME` and `XDG_CONFIG_HOME` to try it without touching your profile.
 The file is installed as `app.winomail.Mail.desktop`, the application id. GNOME Shell shows notifications under the app's name and icon only when that file exists.
 
+### Sign-in checks
+
+A `wino://auth-complete` address that reaches the running instance completes the waiting browser sign-in and is never routed as an activation; only its path is logged. In a private session the app's own bus takes it without a desktop entry:
+
+```sh
+gdbus call --session --dest app.winomail.Mail --object-path /app/winomail/Mail --method org.freedesktop.Application.Open "['wino://auth-complete?code=test']" "{}"
+```
+
+From a browser the address needs the desktop entry above. In a Debug build, `WINO_DEBUG_CAPTURE_URIS=<file>` stops the app from opening a browser: every address it would open is appended to the file as scheme, host, path and parameter names, with values only for `redirect_uri`, `response_type`, `code_challenge_method`, `scope`, `prompt` and `access_type`. The `debug-signin-*` actions (`Infrastructure/Diagnostics/SignInDebugActions.cs`) run the brokers and the waiting dialog against it; `WINO_DEBUG_SIGNIN_TIMEOUT_SECONDS` shortens their time limit. Agents stop at the authorization address and the callback plumbing; the real sign-ins with Outlook, Gmail and OAuth providers are owner checks.
+
 ## System services
 
 | Need | How | Notes |
