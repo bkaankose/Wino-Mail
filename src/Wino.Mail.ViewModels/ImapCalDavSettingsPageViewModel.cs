@@ -372,6 +372,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         await RefreshDavGrantedScopesAsync();
         _isDavModeTrackingEnabled = true;
 
+        if (mode != NavigationMode.Back)
+            ApplyRequestedAppMode(context);
+
         Log.Debug("IMAP setup opened in {Mode}: wizard contacts source {Source}, contact mode {ContactMode}, CardDAV {IsCardDavEnabled}",
             _pageMode, _wizardContext.ContactIntegrationSource, Capabilities.ContactMode, _isCardDavEnabled);
         UpdateAppPasswordHelp();
@@ -1375,7 +1378,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (!Capabilities.RequiresRemoteService)
             return;
 
-        if (IsMailSupportEnabled && string.IsNullOrWhiteSpace(DisplayName))
+        // An existing account edits its sender name with its mail settings, not here.
+        if (IsCreateMode && IsMailSupportEnabled && string.IsNullOrWhiteSpace(DisplayName))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationDisplayNameRequired);
 
         if (string.IsNullOrWhiteSpace(EmailAddress))

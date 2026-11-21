@@ -669,6 +669,7 @@ public partial class ImapCalDavSettingsPageViewModel
         OnPropertyChanged(nameof(IsCardDavCredentialsVisible));
         OnPropertyChanged(nameof(IncomingSettingsTitle));
         NotifySecureSignInLayoutChanged();
+        NotifyAccountSettingsLayoutChanged();
     }
 
     partial void OnMaxConcurrentClientsChanged(int value) => OnPropertyChanged(nameof(MaxConcurrentClientsValue));
