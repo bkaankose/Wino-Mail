@@ -18,6 +18,16 @@
   <ItemGroup>
     <EmbeddedResource Include="Style/wino.css" LogicalName="Wino.Presentation.Linux.Style.wino.css" />
   </ItemGroup>
+  <!-- The Material Rounded WinoIcons fonts (icons/README.md) under the Classic file names, registered for the process by
+       WinoIcons. The set is named twice: here and in WinoIcons.SetFamily. -->
+  <PropertyGroup>
+    <WinoIconSet>MaterialRounded</WinoIconSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../../icons/fonts/WinoIcons$(WinoIconSet).ttf" Link="Fonts/WinoIcons.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../icons/fonts/WinoIcons$(WinoIconSet)Color-Light.ttf" Link="Fonts/WinoIconsColor-Light.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../icons/fonts/WinoIcons$(WinoIconSet)Color-Dark.ttf" Link="Fonts/WinoIconsColor-Dark.ttf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
     <ProjectReference Include="../Wino.Presentation.Core/Wino.Presentation.Core.csproj" />

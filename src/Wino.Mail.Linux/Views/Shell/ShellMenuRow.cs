@@ -1,6 +1,7 @@
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Views.Shell;
 
@@ -48,7 +49,7 @@ internal static class ShellMenuRow
         }
         else
         {
-            box.Append(Gtk.Image.NewFromIconName(IconName(item)));
+            box.Append(new WinoIcon(content.Glyph == WinoIconGlyph.None ? WinoIconGlyph.Folder : content.Glyph).Root);
             var title = Label(content.Title);
             title.SetHexpand(true);
             box.Append(title);
@@ -81,21 +82,4 @@ internal static class ShellMenuRow
         label.SetEllipsize(Pango.EllipsizeMode.End);
         return label;
     }
-
-    // Freedesktop icon names from the Adwaita theme; the WinoIcons font is not bundled on Linux yet.
-    private static string IconName(IMenuItem item) => item is IBaseFolderMenuItem folder
-        ? folder.SpecialFolderType switch
-        {
-            SpecialFolderType.Inbox => "mail-unread-symbolic",
-            SpecialFolderType.Sent => "mail-send-symbolic",
-            SpecialFolderType.Draft => "document-edit-symbolic",
-            SpecialFolderType.Deleted => "user-trash-symbolic",
-            SpecialFolderType.Junk => "mail-mark-junk-symbolic",
-            SpecialFolderType.Starred => "starred-symbolic",
-            SpecialFolderType.Important => "mail-mark-important-symbolic",
-            SpecialFolderType.Archive => "folder-documents-symbolic",
-            SpecialFolderType.More => "view-more-symbolic",
-            _ => "folder-symbolic"
-        }
-        : "folder-symbolic";
 }

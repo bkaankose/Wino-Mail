@@ -31,7 +31,7 @@ The projects are plain `net10.0`, so the shared Release gate applies to them unc
 | `src/Wino.Mail.Linux` | The head: composition, navigation host, dialogs, and the shell, mail list and reader views |
 | `src/Wino.Platform.Linux` | XDG paths, the Secret Service store, dispatcher, launcher, clipboard, notifications, registration |
 | `controls/Wino.Editor.WebKitGtk` | The WebKitGTK reader session over `Wino.Editor.Core` |
-| `controls/Wino.Presentation.Linux` | GTK presentation helpers: binding glue, main-loop scheduling, accessibility, weak events, live objects |
+| `controls/Wino.Presentation.Linux` | GTK presentation helpers: binding glue, main-loop scheduling, accessibility, weak events, live objects, stylesheet, menus, the WinoIcons fonts |
 | `controls/Wino.Mail.Controls.Linux` | GTK controls, the twin of `Wino.Mail.Controls.AppKit` |
 
 ## Build and run
@@ -158,3 +158,4 @@ Do not add such a script to the repository; each check is run ad hoc and reporte
 | An error appears in the log file only after a while | The log file is buffered. Wait a few seconds or close the app. |
 | Dozens of `gvfsd`, `goa-daemon` or `evolution-*` processes after headless runs | A private session was killed instead of ended, so the helpers its bus started live on. Let the session's last command exit, or stop the processes whose `DBUS_SESSION_BUS_ADDRESS` points at `/tmp/dbus-*`. |
 | `libEGL` and `MESA` warnings under WSL or headless | No GPU; GTK falls back to software rendering. Harmless. |
+| Squares or wrong symbols instead of Wino icons | `Fonts/WinoIcons*.ttf` is missing next to the executable, or Pango is older than 1.56 and fontconfig rejected the files. The start log has a line `Wino icon fonts`. |

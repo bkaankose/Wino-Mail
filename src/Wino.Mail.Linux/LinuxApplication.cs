@@ -44,6 +44,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.MenuDebugActions.Register(application);
             Infrastructure.Diagnostics.NavigationDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.DialogDebugActions.Register(application, () => _services, () => _window?.Window);
+            Infrastructure.Diagnostics.IconDebugActions.Register(application);
         }
 #endif
     }
@@ -56,6 +57,7 @@ internal sealed class LinuxApplication
             return;
         }
 
+        Wino.Presentation.Linux.WinoIcons.Install();
         _window = new MainWindow(_application);
         _window.Window.OnCloseRequest += OnCloseRequest;
         _window.Window.Present();
@@ -81,6 +83,7 @@ internal sealed class LinuxApplication
 
             _services = LinuxComposition.Create(bootstrap, () => _window, _options);
             await _services.GetRequiredService<ApplicationLifecycleCoordinator>().StartAsync(_services.GetRequiredService<GtkApplicationLifecycleHost>());
+            LogIconFonts();
             _started = true;
             await RouteActivationsAsync();
         }
@@ -89,6 +92,13 @@ internal sealed class LinuxApplication
             Serilog.Log.Error(exception, "Startup failed.");
             window.ShowStatus("dialog-error-symbolic", "Wino Mail could not start", exception.Message);
         }
+    }
+
+    private static void LogIconFonts()
+    {
+        var check = Wino.Presentation.Linux.WinoIcons.Verify();
+        if (check.Ok) Serilog.Log.Information("Wino icon fonts: {Detail}", check.Detail);
+        else Serilog.Log.Error("Wino icon fonts are not available: {Detail}", check.Detail);
     }
 
     private async Task RouteActivationsAsync()

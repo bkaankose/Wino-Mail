@@ -3,6 +3,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Collections;
+using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Views.Mail;
 
@@ -16,8 +17,8 @@ internal sealed class MailRowCell
     private readonly Gtk.Label _date = Label("caption");
     private readonly Gtk.Label _subject = Label(null);
     private readonly Gtk.Label _preview = Label("caption");
-    private readonly Gtk.Image _attachment = Gtk.Image.NewFromIconName("mail-attachment-symbolic");
-    private readonly Gtk.Image _flag = Gtk.Image.NewFromIconName("starred-symbolic");
+    private readonly Gtk.Label _attachment = WinoIcons.Label(WinoIconGlyph.Attachment, 12);
+    private readonly WinoIcon _flag = new(WinoIconGlyph.Flag, 12);
     private readonly List<INotifyPropertyChanged> _observed = [];
     private MailListRow? _row;
     private TimeFormatPreference _timeFormat;
@@ -33,13 +34,12 @@ internal sealed class MailRowCell
         _date.AddCssClass("dim-label");
         _date.AddCssClass("numeric");
         _preview.AddCssClass("dim-label");
-        _attachment.SetPixelSize(12);
-        _flag.SetPixelSize(12);
+        _attachment.AddCssClass("dim-label");
 
         var first = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
         first.Append(_sender);
         first.Append(_attachment);
-        first.Append(_flag);
+        first.Append(_flag.Root);
         first.Append(_date);
         var text = Gtk.Box.New(Gtk.Orientation.Vertical, 2);
         text.SetHexpand(true);
@@ -106,7 +106,7 @@ internal sealed class MailRowCell
         _date.SetText(content.DateText);
         _unread.SetOpacity(content.IsUnread ? 1 : 0);
         _attachment.SetVisible(content.HasAttachments);
-        _flag.SetVisible(content.IsFlagged);
+        _flag.Root.SetVisible(content.IsFlagged);
         Toggle(_sender, content.IsUnread);
         Toggle(_subject, content.IsUnread);
     }

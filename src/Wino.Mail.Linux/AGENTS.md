@@ -42,6 +42,7 @@ public MailListView(MailListPageViewModel viewModel, WinoViewServices services) 
 
 ## Always
 
+- Every Wino concept glyph is a `WinoIcon` or `WinoIcons.Label`/`Button` from `Wino.Presentation.Linux`. Adwaita icon names only for GNOME chrome (back, close, menu, window controls, expanders) and for widgets that take an icon name only.
 - Touch widgets on the GTK main thread only. ViewModel notifications can arrive on other threads; go through `IDispatcher` or `GLib.Functions.IdleAdd`.
 - Connect GTK signals only through `GtkSignals` (`Connect`, `OnClicked`, `OnNotify`, ...) or `GtkBinder`, and own the returned subscription in `Bindings`. Gir.Core 0.8.1 keeps a handler in the object's closure table after `-=`, so a raw `+=` whose handler captures the view keeps it alive with its widgets; the helpers reach the handler through a box that disposing empties. `MailListView` is the example. Raw `+=` is fine only for handlers that live as long as the app.
 - Initialize a Gir.Core module before its first use when nothing else does: `WebKit.Module.Initialize()` runs in the reader session. Without it the native library is not found.
