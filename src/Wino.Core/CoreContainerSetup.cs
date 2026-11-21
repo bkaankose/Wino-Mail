@@ -21,6 +21,7 @@ public static class CoreContainerSetup
         services.AddSingleton(loggerLevelSwitcher);
         services.AddSingleton<IMailProviderRegistry>(provider => new MailProviderRegistry(() => provider.GetServices<IMailProviderModule>()));
         services.AddSingleton<SynchronizerFactory>();
+        services.AddSingleton<ITaskTransferService, TaskTransferService>();
         services.AddSingleton<ISynchronizerFactory>(provider => provider.GetRequiredService<SynchronizerFactory>());
 
         // Relay registrations the app manages itself (Gmail watch, Graph subscription). IMAP's builder lives in Wino.Services.

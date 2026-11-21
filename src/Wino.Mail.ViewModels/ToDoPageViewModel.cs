@@ -532,9 +532,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         IAppModeReadinessService appModeReadinessService = null,
         IMailShellClient mailShell = null,
         Links.ConnectedItemsCoordinator connectedItems = null,
-        FlaggedMail.FlaggedMailListViewModel flaggedMail = null) : base(messenger)
+        FlaggedMail.FlaggedMailListViewModel flaggedMail = null,
+        ITaskTransferService taskTransferService = null) : base(messenger)
     {
         _connectedItems = connectedItems;
+        _taskTransferService = taskTransferService;
         FlaggedMail = flaggedMail;
         if (flaggedMail is not null)
             flaggedMail.CountChanged += (_, _) => _flaggedMailMenuItem.Count = flaggedMail.Items.Count;

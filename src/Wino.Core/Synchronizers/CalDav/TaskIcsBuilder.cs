@@ -6,10 +6,10 @@ using System.Linq;
 using System.Text;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Providers.Dav.Synchronizers.CalDav;
+namespace Wino.Core.Synchronizers.CalDav;
 
 /// <summary>The fields of one VTODO that Wino maps to a task or a step.</summary>
-internal sealed class CalDavTodo
+public sealed class CalDavTodo
 {
     public string Uid { get; init; } = string.Empty;
     public string? Summary { get; init; }
@@ -56,7 +56,7 @@ internal sealed class CalDavTodo
 
 /// <summary>The VTODO fields a mutation changed; an update patches only these.</summary>
 [Flags]
-internal enum CalDavTodoFields
+public enum CalDavTodoFields
 {
     None = 0,
     Title = 1,
@@ -72,7 +72,7 @@ internal enum CalDavTodoFields
 }
 
 /// <summary>What Wino writes into a VTODO. Steps write only the title, completion and parent.</summary>
-internal sealed class CalDavTodoContent
+public sealed class CalDavTodoContent
 {
     public CalDavTodoFields Fields { get; init; } = CalDavTodoFields.All;
     public string Uid { get; init; } = string.Empty;
@@ -98,7 +98,7 @@ internal sealed class CalDavTodoContent
 /// client stored. Ical.Net is not used for writing because re-serializing a resource rewrites
 /// lines it does not need to touch.
 /// </summary>
-internal static class TaskIcsBuilder
+public static class TaskIcsBuilder
 {
     internal const string ProductId = "-//Wino Mail//Calendar//EN";
     private const int MaximumLineOctets = 75;

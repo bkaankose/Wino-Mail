@@ -707,6 +707,30 @@
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
 
+                                <MenuFlyoutSubItem AutomationProperties.AutomationId="ToDoExportTasksMenuItem" Text="{x:Bind domain:Translator.ToDoPage_ExportTasks, Mode=OneTime}">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <coreControls:WinoFontIcon Icon="ArrowUpload" />
+                                    </MenuFlyoutSubItem.Icon>
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoExportIcsMenuItem"
+                                        Command="{x:Bind ViewModel.ExportTasksCommand}"
+                                        CommandParameter="ics"
+                                        Text="{x:Bind domain:Translator.ToDoPage_ExportIcs, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoExportCsvMenuItem"
+                                        Command="{x:Bind ViewModel.ExportTasksCommand}"
+                                        CommandParameter="csv"
+                                        Text="{x:Bind domain:Translator.ToDoPage_ExportCsv, Mode=OneTime}" />
+                                </MenuFlyoutSubItem>
+                                <MenuFlyoutItem
+                                    AutomationProperties.AutomationId="ToDoImportTasksMenuItem"
+                                    Command="{x:Bind ViewModel.ImportTasksCommand}"
+                                    Text="{x:Bind domain:Translator.ToDoPage_ImportTasks, Mode=OneTime}">
+                                    <MenuFlyoutItem.Icon>
+                                        <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+
                                 <MenuFlyoutSeparator />
 
                                 <MenuFlyoutItem
