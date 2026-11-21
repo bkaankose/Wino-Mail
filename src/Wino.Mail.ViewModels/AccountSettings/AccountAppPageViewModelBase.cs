@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -205,11 +206,11 @@ public abstract partial class AccountAppPageViewModelBase : CoreBaseViewModel, I
 
         try
         {
-            SourceOptions.Clear();
+            var options = new List<AccountAppSourceOption>();
 
             if (state.IsServiceOffered)
             {
-                SourceOptions.Add(new AccountAppSourceOption(
+                options.Add(new AccountAppSourceOption(
                     AccountCapabilityMode.Provider,
                     AccountAppPresenter.GetSourceTitle(account, state, AccountCapabilityMode.Provider),
                     AccountAppPresenter.GetSourceDescription(account, state, AccountCapabilityMode.Provider)));
@@ -217,13 +218,30 @@ public abstract partial class AccountAppPageViewModelBase : CoreBaseViewModel, I
 
             if (state.IsDeviceOffered)
             {
-                SourceOptions.Add(new AccountAppSourceOption(
+                options.Add(new AccountAppSourceOption(
                     AccountCapabilityMode.Local,
                     AccountAppPresenter.GetSourceTitle(account, state, AccountCapabilityMode.Local),
                     AccountAppPresenter.GetSourceDescription(account, state, AccountCapabilityMode.Local)));
             }
 
+            // Replacing the items makes the radio list drop its selection after it is set again, so the
+            // existing choices stay when they read the same.
+            var isSameChoice = options.Count == SourceOptions.Count &&
+                               options.Zip(SourceOptions).All(pair => pair.First.Mode == pair.Second.Mode &&
+                                                                      pair.First.Title == pair.Second.Title &&
+                                                                      pair.First.Description == pair.Second.Description);
+
+            if (!isSameChoice)
+            {
+                SourceOptions.Clear();
+                foreach (var option in options)
+                    SourceOptions.Add(option);
+            }
+
             SelectedSourceOption = SourceOptions.FirstOrDefault(option => option.Mode == state.Mode);
+
+            // The list may have cleared its own selection while the change ran; the view reads the stored one again.
+            OnPropertyChanged(nameof(SelectedSourceOption));
         }
         finally
         {
@@ -322,6 +340,7 @@ public abstract partial class AccountAppPageViewModelBase : CoreBaseViewModel, I
         try
         {
             SelectedSourceOption = SourceOptions.FirstOrDefault(option => option.Mode == State?.Mode);
+            OnPropertyChanged(nameof(SelectedSourceOption));
         }
         finally
         {
