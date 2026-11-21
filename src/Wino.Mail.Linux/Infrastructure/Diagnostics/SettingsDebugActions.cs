@@ -120,6 +120,11 @@ internal static class SettingsDebugActions
             nameof(IPreferencesService.LoadRemoteContentFromRecipients) => Flag(() => p.LoadRemoteContentFromRecipients, v => p.LoadRemoteContentFromRecipients = v, value),
             nameof(IPreferencesService.WarnBeforeOpeningExecutableAttachments) => Flag(() => p.WarnBeforeOpeningExecutableAttachments, v => p.WarnBeforeOpeningExecutableAttachments = v, value),
             nameof(IPreferencesService.RemoteContentMode) => Choice(() => p.RemoteContentMode, v => p.RemoteContentMode = v, value),
+            nameof(IPreferencesService.AreNewMailNotificationsEnabled) => Flag(() => p.AreNewMailNotificationsEnabled, v => p.AreNewMailNotificationsEnabled = v, value),
+            nameof(IPreferencesService.AreQuietHoursEnabled) => Flag(() => p.AreQuietHoursEnabled, v => p.AreQuietHoursEnabled = v, value),
+            nameof(IPreferencesService.AreCalendarRemindersEnabled) => Flag(() => p.AreCalendarRemindersEnabled, v => p.AreCalendarRemindersEnabled = v, value),
+            nameof(IPreferencesService.AreTaskRemindersEnabled) => Flag(() => p.AreTaskRemindersEnabled, v => p.AreTaskRemindersEnabled = v, value),
+            nameof(IPreferencesService.NotificationSnoozePreset) => p.NotificationSnoozePreset.ToString(),
             _ => throw new ArgumentException($"debug-settings-pref does not know '{name}'; add it to SettingsDebugActions.Preference."),
         };
     }
