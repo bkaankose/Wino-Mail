@@ -510,6 +510,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private void TodayClicked()
     {
+        CalendarPage.CancelPendingQuickEvent();
         var today = _dateContextProvider.GetToday();
 
         if (StatePersistenceService.CalendarDisplayType == CalendarDisplayType.WorkWeek)
@@ -541,12 +542,14 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private void PreviousDateRange()
     {
+        CalendarPage.CancelPendingQuickEvent();
         NavigateRelativePeriod(-1);
     }
 
     [RelayCommand]
     private void NextDateRange()
     {
+        CalendarPage.CancelPendingQuickEvent();
         NavigateRelativePeriod(1);
     }
 
@@ -582,6 +585,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private async Task NewEventAsync()
     {
+        CalendarPage.CancelPendingQuickEvent();
+
         // The pane entry, the shortcut and the command all land here.
         var readiness = CalendarPage.Readiness;
         if (!await readiness.EnsureReadyAsync())
@@ -646,7 +651,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     [RelayCommand]
     private void DateClicked(CalendarViewDayClickedEventArgs clickedDateArgs)
-        => NavigateCalendarDate(clickedDateArgs.ClickedDate);
+    {
+        CalendarPage.CancelPendingQuickEvent();
+        NavigateCalendarDate(clickedDateArgs.ClickedDate);
+    }
 
     protected override void RegisterRecipients()
     {

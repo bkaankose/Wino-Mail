@@ -59,6 +59,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private readonly DispatcherQueueTimer _wheelSettleTimer;
     private readonly DispatcherQueueTimer _monthTapTimer;
     private CalendarEmptySlotTappedEventArgs? _pendingMonthTap;
+    private UIElement? _pressWatchRoot;
+    private PointerEventHandler? _outsidePressHandler;
     private VisibleDateRange? _shownRange;
 
     [GeneratedDependencyProperty]

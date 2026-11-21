@@ -674,6 +674,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public bool LastQuickCreationSucceeded { get; private set; }
 
+    /// <summary>
+    /// Raised when another command takes over (New event, Today, period navigation), so a view drops a
+    /// click that is still waiting to open the quick event popup and closes the popup.
+    /// </summary>
+    public event EventHandler QuickEventCancellationRequested;
+
+    public void CancelPendingQuickEvent() => QuickEventCancellationRequested?.Invoke(this, EventArgs.Empty);
+
     [RelayCommand]
     private void GoToEventComposePage()
     {

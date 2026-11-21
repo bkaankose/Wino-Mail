@@ -206,6 +206,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     }
 
     [DynamicWindowsRuntimeCast(typeof(ContentDialog))]
+    private void ViewModelQuickEventCancellationRequested(object? sender, EventArgs e)
+        => CloseQuickEventPopup(clearSelection: true);
+
     private bool HasOpenDialog()
     {
         if (XamlRoot is null)
@@ -399,6 +402,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarSurface.TodayRequested += CalendarSurfaceTodayRequested;
         CalendarSurface.MonthDayDoubleTapped += CalendarSurfaceMonthDayDoubleTapped;
         CalendarSurface.EmptyAreaContextRequested += CalendarSurfaceEmptyAreaContextRequested;
+        ViewModel.QuickEventCancellationRequested += ViewModelQuickEventCancellationRequested;
         CalendarSurface.ViewportPeriodChanged += CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged += CalendarShellClientPropertyChanged;
@@ -422,6 +426,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarSurface.TodayRequested -= CalendarSurfaceTodayRequested;
         CalendarSurface.MonthDayDoubleTapped -= CalendarSurfaceMonthDayDoubleTapped;
         CalendarSurface.EmptyAreaContextRequested -= CalendarSurfaceEmptyAreaContextRequested;
+        ViewModel.QuickEventCancellationRequested -= ViewModelQuickEventCancellationRequested;
         CalendarSurface.ViewportPeriodChanged -= CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged -= CalendarShellClientPropertyChanged;

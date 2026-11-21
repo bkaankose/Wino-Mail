@@ -3,12 +3,14 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.UI.ViewManagement;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.ViewModels.Calendar.Data;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls.Calendar;
 
@@ -71,6 +73,7 @@ public sealed partial class CalendarPeriodControl
             new Size(_monthCellWidth, _unitSize));
         _monthTapTimer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickMilliseconds());
         _monthTapTimer.Start();
+        WatchPressesOutside();
     }
 
     private void MonthInteractionLayerDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -92,6 +95,7 @@ public sealed partial class CalendarPeriodControl
 
         var pending = _pendingMonthTap;
         _pendingMonthTap = null;
+        StopWatchingPressesOutside();
 
         if (pending != null && IsLoaded && VisibleRange?.DisplayType == CalendarDisplayType.Month)
         {
@@ -103,6 +107,43 @@ public sealed partial class CalendarPeriodControl
     {
         _monthTapTimer.Stop();
         _pendingMonthTap = null;
+        StopWatchingPressesOutside();
+    }
+
+    // While a month click waits, a press anywhere outside the surface (the navigation pane, the
+    // toolbar, the title bar) drops it before that press can start a command such as New event.
+    private void WatchPressesOutside()
+    {
+        StopWatchingPressesOutside();
+
+        _pressWatchRoot = XamlRoot?.Content;
+        _pressWatchRoot?.AddHandler(PointerPressedEvent, _outsidePressHandler ??= new PointerEventHandler(WindowPointerPressed), true);
+    }
+
+    private void StopWatchingPressesOutside()
+    {
+        if (_pressWatchRoot != null && _outsidePressHandler != null)
+        {
+            _pressWatchRoot.RemoveHandler(PointerPressedEvent, _outsidePressHandler);
+        }
+
+        _pressWatchRoot = null;
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
+    private void WindowPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var source = e.OriginalSource as DependencyObject;
+
+        while (source != null && !ReferenceEquals(source, this))
+        {
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        if (source == null)
+        {
+            CancelPendingMonthTap();
+        }
     }
 
     /// <summary>
