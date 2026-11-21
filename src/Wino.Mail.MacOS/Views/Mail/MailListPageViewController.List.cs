@@ -975,6 +975,30 @@ public sealed partial class MailListPageViewController
             _table.ScrollRowToVisible((nint)indexes.FirstIndex);
             return Task.FromResult("ok");
         });
+        // "mail-menu N" prints the context menu the list builds for row N (titles, separators, submenus, [off] disabled, [red] destructive).
+        MacDebugBridge.Register("mail-menu", async args =>
+        {
+            if (_released || _contextMenu is null) return "released";
+            int index = MailRowIndex(int.Parse(args[0]));
+            if (index < 0) return "no such row";
+            BuildContextMenu(_contextMenu, index);
+            await Task.Delay(1500);
+            return DescribeMenu(_contextMenu);
+        });
+        // "mail-rightclick N" right-clicks row N through the table's own right-mouse path, which opens the menu; "mail-menu-close" ends the tracking.
+        MacDebugBridge.Register("mail-rightclick", args =>
+        {
+            if (_released || _table.Window is not { } window) return Task.FromResult("released");
+            int index = MailRowIndex(int.Parse(args[0]));
+            if (index < 0) return Task.FromResult("no such row");
+            if (_table.GetRowView(index, false) is not { } rowView) return Task.FromResult("row not visible");
+            var location = rowView.ConvertPointToView(new CoreGraphics.CGPoint(rowView.Bounds.GetMidX(), rowView.Bounds.GetMidY()), null);
+            var click = NSEvent.MouseEvent(NSEventType.RightMouseDown, location, (NSEventModifierMask)0, NSProcessInfo.ProcessInfo.SystemUptime,
+                window.WindowNumber, null, 0, 1, 1f);
+            CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() => _table.RightMouseDown(click));
+            return Task.FromResult("opened");
+        });
+        MacDebugBridge.Register("mail-menu-close", _ => Task.FromResult(_contextMenu is null ? "released" : Close(_contextMenu)));
         // "swipe N leading|trailing [run]" prints the resolved swipe operation for mail row N and optionally runs it.
         MacDebugBridge.Register("swipe", async args =>
         {

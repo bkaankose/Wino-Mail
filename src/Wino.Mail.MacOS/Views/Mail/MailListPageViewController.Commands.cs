@@ -206,10 +206,11 @@ public sealed partial class MailListPageViewController
 
     // ---- Context menu ----
 
-    private void BuildContextMenu(NSMenu menu)
+    private void BuildContextMenu(NSMenu menu) => BuildContextMenu(menu, _table.ClickedRow);
+
+    private void BuildContextMenu(NSMenu menu, nint clicked)
     {
         menu.RemoveAllItems();
-        var clicked = _table.ClickedRow;
         if (RowAt(clicked) is not { } row) return;
 
         IReadOnlyList<MailItemViewModel> targets;
@@ -330,6 +331,24 @@ public sealed partial class MailListPageViewController
         }
         return menuItem;
     }
+
+#if DEBUG
+    private static string DescribeMenu(NSMenu menu)
+        => string.Join(" | ", menu.Items.Select(DescribeItem));
+
+    private static string DescribeItem(NSMenuItem item)
+    {
+        if (item.IsSeparatorItem) return "---";
+        var text = item.Title + (item.Enabled ? string.Empty : "[off]") + (item.AttributedTitle is null ? string.Empty : "[red]");
+        return item.HasSubmenu ? $"{text}{{{string.Join(", ", item.Submenu!.Items.Select(DescribeItem))}}}" : text;
+    }
+
+    private static string Close(NSMenu menu)
+    {
+        menu.CancelTracking();
+        return "closed";
+    }
+#endif
 
     // ---- Categories (Windows MailContextFlyoutBuilder.CreateCategoriesItem) ----
 
