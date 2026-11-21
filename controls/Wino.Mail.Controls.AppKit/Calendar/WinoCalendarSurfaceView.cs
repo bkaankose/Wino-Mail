@@ -664,7 +664,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         public void Relayout()
         {
             double dayWidth = Owner.DayWidth;
-            var (items, overflows) = CalendarLayoutCalculator.CalculateAllDay(Owner.Dates, Owner.Items, dayWidth);
+            var (items, overflows) = CalendarLayoutCalculator.CalculateAllDay(Owner.Dates, Owner.Items, dayWidth, Owner.RangeBreakIndex);
             var placements = items.Select(p => p with { Bounds = new CGRect(p.Bounds.X + HourColumnWidth, p.Bounds.Y, p.Bounds.Width, p.Bounds.Height) });
             _overflows = overflows.ConvertAll(o => o with { Bounds = new CGRect(o.Bounds.X + HourColumnWidth, o.Bounds.Y, o.Bounds.Width, o.Bounds.Height) });
             SyncTiles(placements);

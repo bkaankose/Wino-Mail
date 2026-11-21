@@ -56,6 +56,9 @@ public sealed partial class WinoCalendarSurfaceView
     /// <summary>Columns or rows the viewport shows at once.</summary>
     internal int VisibleUnitCount => _space?.VisibleUnitCount ?? 1;
 
+    /// <summary>The realized index of the first day of the shown period: the all-day bars restart there.</summary>
+    internal int RangeBreakIndex => _rangeUnit - _windowStart;
+
     internal bool IsMonth => _space?.Axis == CalendarRailAxis.Vertical;
 
     /// <summary>The width of a column, or the height of a week row, in points.</summary>

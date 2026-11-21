@@ -120,7 +120,12 @@ public sealed partial class WinoCalendarSurfaceView
     {
         bool isStaleAnswer = _requestedUnits.Contains(targetUnit) && targetUnit != _latestRequestedUnit;
         if (targetUnit == _latestRequestedUnit) _requestedUnits.Clear();
-        _rangeUnit = targetUnit;
+        if (_rangeUnit != targetUnit)
+        {
+            _rangeUnit = targetUnit;
+            _railDirty = true;
+            NeedsLayout = true;
+        }
         if (isStaleAnswer || targetUnit == _settledUnit || (_isGliding && _glideTarget == targetUnit)) return;
         GlideToExternalUnit(targetUnit);
     }

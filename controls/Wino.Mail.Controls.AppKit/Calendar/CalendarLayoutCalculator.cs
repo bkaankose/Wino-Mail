@@ -28,7 +28,7 @@ public static class CalendarLayoutCalculator
     public static double GetAllDayHeight(int laneCount, bool hasMoreRow) => CalendarSurfaceLayoutCalculator.GetAllDayHeight(laneCount, hasMoreRow);
 
     public static (int Lanes, bool HasOverflow) GetAllDayLaneCount(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items)
-        => CalendarSurfaceLayoutCalculator.GetAllDayLaneCount(dates, items);
+        => CalendarSpanLayout.GetAllDayLaneCount(dates, items);
 
     /// <summary>
     /// Timed and multi-day placements for the hour grid. X is relative to the first day column.
@@ -51,21 +51,17 @@ public static class CalendarLayoutCalculator
         return placements;
     }
 
-    /// <summary>All-day lanes above the hour grid, and the days whose extra items sit behind an "n more" link.</summary>
-    public static (List<CalendarItemPlacement> Items, List<CalendarOverflowCell> Overflows) CalculateAllDay(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double dayWidth)
-    {
-        var (items2, overflows) = CalendarSurfaceLayoutCalculator.CalculateAllDay(dates, items, dayWidth);
-        return (items2.ConvertAll(ToAppKit), overflows.ConvertAll(ToAppKit));
-    }
+    /// <summary>
+    /// All-day bars above the hour grid, and the days whose extra bars sit behind an "n more" link. The bar that
+    /// crosses <paramref name="breakIndex"/> (the first day of the shown period) restarts there.
+    /// </summary>
+    public static (List<CalendarItemPlacement> Items, List<CalendarOverflowCell> Overflows) CalculateAllDay(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double dayWidth, int breakIndex = 0)
+        => CalendarSpanLayout.CalculateAllDay(dates, items, dayWidth, breakIndex);
 
     /// <summary>The month grid (7 cells per week row). Dates must already be week-aligned.</summary>
     public static (List<CalendarMonthCell> Cells, List<CalendarItemPlacement> Items, List<CalendarOverflowCell> Overflows) CalculateMonth(IReadOnlyList<DateOnly> dates,
         IEnumerable<ICalendarItem> items, double width, double height)
-    {
-        var (cells, placements, overflows) = CalendarSurfaceLayoutCalculator.CalculateMonth(dates, items, width, height);
-        return (cells.ConvertAll(cell => new CalendarMonthCell(cell.Date, cell.Index, cell.Row, cell.Column, ToRect(cell.Bounds))),
-            placements.ConvertAll(ToAppKit), overflows.ConvertAll(ToAppKit));
-    }
+        => CalendarSpanLayout.CalculateMonth(dates, items, width, height);
 
     /// <summary>Expands a month range to full weeks (42 days) like the Windows control.</summary>
     public static IReadOnlyList<DateOnly> MonthGridDates(VisibleDateRange range, DayOfWeek firstDayOfWeek)
@@ -73,9 +69,6 @@ public static class CalendarLayoutCalculator
 
     private static CalendarItemPlacement ToAppKit(CalendarLayoutPlacement placement)
         => new(placement.Item, placement.Date, ToRect(placement.Bounds), placement.Kind);
-
-    private static CalendarOverflowCell ToAppKit(CalendarLayoutOverflowCell overflow)
-        => new(overflow.Date, overflow.HiddenItems, ToRect(overflow.Bounds));
 
     private static CGRect ToRect(CalendarLayoutRect rect) => new(rect.X, rect.Y, rect.Width, rect.Height);
 }
