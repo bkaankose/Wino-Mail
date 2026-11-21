@@ -8,6 +8,9 @@ namespace Wino.Presentation.Linux;
 /// </summary>
 public static class GtkSignals
 {
+    /// <summary>Receives exceptions that <see cref="ConnectReturning"/> kept from crossing into GTK; the head logs them.</summary>
+    public static Action<Exception>? HandlerFailed { get; set; }
+
     /// <summary>
     /// Connects <paramref name="handler"/> through <paramref name="connect"/> (<c>h =&gt; widget.OnSomething += h</c>);
     /// dispose releases it and calls <paramref name="disconnect"/> (<c>h =&gt; widget.OnSomething -= h</c>).
@@ -51,6 +54,33 @@ public static class GtkSignals
         GObject.ReturningSignalHandler<TSender, TArgs, TReturn> forward = (sender, args) => box.Value is { } target ? target(sender, args) : default;
         connect(forward);
         return new Subscription<GObject.ReturningSignalHandler<TSender, TArgs, TReturn>>(box, forward, disconnect);
+    }
+
+    /// <summary>
+    /// For signals whose handler returns a value (drag prepare, drop, key press). <paramref name="fallback"/> is returned
+    /// after dispose and when the handler throws: an exception must not cross into GTK.
+    /// </summary>
+    public static IDisposable ConnectReturning<TSender, TArgs, TResult>(
+        Action<GObject.ReturningSignalHandler<TSender, TArgs, TResult>> connect,
+        Action<GObject.ReturningSignalHandler<TSender, TArgs, TResult>> disconnect,
+        GObject.ReturningSignalHandler<TSender, TArgs, TResult> handler, TResult fallback)
+        where TSender : GObject.NativeObject
+        where TArgs : GObject.SignalArgs
+    {
+        var box = new Box<GObject.ReturningSignalHandler<TSender, TArgs, TResult>>(handler);
+        GObject.ReturningSignalHandler<TSender, TArgs, TResult> forward = (sender, args) =>
+        {
+            if (box.Value is not { } target) return fallback;
+            try { return target(sender, args); }
+            catch (Exception exception)
+            {
+                if (HandlerFailed is { } report) report(exception);
+                else Console.Error.WriteLine(exception);
+                return fallback;
+            }
+        };
+        connect(forward);
+        return new Subscription<GObject.ReturningSignalHandler<TSender, TArgs, TResult>>(box, forward, disconnect);
     }
 
     /// <summary>Calls <paramref name="changed"/> when <paramref name="property"/> of <paramref name="source"/> changes; dispose disconnects.</summary>

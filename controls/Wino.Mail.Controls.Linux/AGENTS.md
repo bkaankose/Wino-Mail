@@ -26,6 +26,7 @@ GTK controls for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin
 - Every interactive widget gets an accessible name through `WinoA11y.Label` (or `WinoA11y.LabelWithTooltip` for icon-only buttons).
 - `WinoContactPicture` and `WinoAccountIcon` never fetch or decode in a cell bind beyond a cache lookup: the page asks `LinuxSenderPictureProvider` (head) and sets `Picture`.
 - Avatar colours come from `ContactPictureAppearance.PaletteIndex` and the `.wino-avatar-N` classes; `Adw.Avatar` is not used for people or accounts (its colours differ from the other platforms).
+- `Settings/WinoDragList` reorders caller-built rows by drag, Alt+Up / Alt+Down and optional Move up / Move down buttons, and across lists that share a `WinoDragGroup`. It never moves a row: it raises `Dropped` / `Reordered`, and the owner moves its collection and calls `SetRows`.
 - `Common/WinoInfoBar` is the inline banner of pages and the card of the window info bar; its text is never markup.
 - `MailList/WinoMailRow` takes a `WinoMailRowModel`; the page maps and subscribes (`MailRowCell`). Later packages extend the row through `TileSlot`, `CompactTileSlot`, `AddOverlay` and `ContentBox`, not by changing its tree.
 

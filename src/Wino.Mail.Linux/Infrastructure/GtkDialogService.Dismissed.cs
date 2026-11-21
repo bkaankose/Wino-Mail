@@ -1,17 +1,12 @@
-using System.Collections.ObjectModel;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Connectivity;
-using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Mail.Linux.Infrastructure;
 
@@ -48,20 +43,11 @@ internal sealed partial class GtkDialogService
     public Task<IMailItemFolder?> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
         => DismissAsync<IMailItemFolder?>(nameof(ShowMoveMailFolderDialogAsync), null, null);
 
-    public Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
-        => DismissAsync(nameof(ShowAccountReorderDialogAsync));
-
     public Task<IMailItemFolder?> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
         => DismissAsync<IMailItemFolder?>(nameof(PickFolderAsync), reason.ToString(), null);
 
     public Task<AccountSignature?> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)
         => DismissAsync<AccountSignature?>(nameof(ShowSignatureEditorDialog), null, null);
-
-    public Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
-        => DismissAsync<ICreateAccountAliasDialog>(nameof(ShowCreateAccountAliasDialogAsync), null, new GtkAliasDialogResult());
-
-    public Task<MailCategoryDialogResult?> ShowEditMailCategoryDialogAsync(MailCategory? category = null)
-        => DismissAsync<MailCategoryDialogResult?>(nameof(ShowEditMailCategoryDialogAsync), category?.Name, null);
 
     public Task ShowMessageSourceDialogAsync(string messageSource) => DismissAsync(nameof(ShowMessageSourceDialogAsync));
 
@@ -78,11 +64,6 @@ internal sealed partial class GtkDialogService
     public Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync()
         => DismissAsync<UnlimitedAccountsPurchaseChannel?>(nameof(ShowUnlimitedAccountsPurchaseChannelDialogAsync), null, null);
 
-
-    private sealed class GtkAliasDialogResult : ICreateAccountAliasDialog
-    {
-        public MailAccountAlias? CreatedAccountAlias { get; set; }
-    }
 
     private sealed class GtkAccountCreationDialog : IAccountCreationDialog
     {

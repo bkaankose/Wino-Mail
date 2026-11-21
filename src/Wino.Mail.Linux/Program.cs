@@ -11,6 +11,7 @@ internal static class Program
         Infrastructure.LinuxLanguage.Prepare();
         Wino.Presentation.Linux.WinoIcons.Register(Path.Combine(AppContext.BaseDirectory, "Fonts"));
         Wino.Presentation.Linux.WinoPresentation.Initialize();
+        Wino.Presentation.Linux.GtkSignals.HandlerFailed = exception => Serilog.Log.Error(exception, "A signal handler failed.");
         var application = Adw.Application.New(ApplicationId, Gio.ApplicationFlags.HandlesOpen);
         _ = new LinuxApplication(application, options);
 
