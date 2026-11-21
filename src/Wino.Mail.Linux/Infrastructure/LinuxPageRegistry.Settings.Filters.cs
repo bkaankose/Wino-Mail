@@ -8,5 +8,6 @@ internal sealed partial class LinuxPageRegistry
     partial void RegisterSettingsFiltersPages()
     {
         Register<MailFiltersPage>(WinoPage.MailFiltersPage, LinuxPageHost.Settings);
+        Register<MailFilterEditorPage>(WinoPage.MailFilterEditorPage, LinuxPageHost.Settings);
     }
 }
