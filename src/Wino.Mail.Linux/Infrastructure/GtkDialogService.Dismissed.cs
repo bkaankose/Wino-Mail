@@ -30,16 +30,10 @@ internal sealed partial class GtkDialogService
         return Task.CompletedTask;
     }
 
-    public IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
-        => new GtkAccountCreationDialog();
-
     public Task<AccountSignature?> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)
         => DismissAsync<AccountSignature?>(nameof(ShowSignatureEditorDialog), null, null);
 
     public Task ShowMessageSourceDialogAsync(string messageSource) => DismissAsync(nameof(ShowMessageSourceDialogAsync));
-
-    public Task ShowImapValidationFailedDialogAsync(string errorMessage, string protocolLog)
-        => DismissAsync(nameof(ShowImapValidationFailedDialogAsync), errorMessage);
 
 
     public Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync() => DismissAsync<WinoAccount?>(nameof(ShowWinoAccountRegistrationDialogAsync), null, null);
@@ -50,14 +44,4 @@ internal sealed partial class GtkDialogService
 
     public Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync()
         => DismissAsync<UnlimitedAccountsPurchaseChannel?>(nameof(ShowUnlimitedAccountsPurchaseChannelDialogAsync), null, null);
-
-
-    private sealed class GtkAccountCreationDialog : IAccountCreationDialog
-    {
-        public AccountCreationDialogState State { get; set; }
-
-        public Task ShowDialogAsync(CancellationTokenSource cancellationTokenSource) => Task.CompletedTask;
-
-        public void Complete(bool cancel) { }
-    }
 }

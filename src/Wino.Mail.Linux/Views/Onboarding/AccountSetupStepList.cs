@@ -97,8 +97,9 @@ internal sealed class AccountSetupStepList
             indicator.SetSizeRequest(28, 20);
             indicator.SetValign(Gtk.Align.Start);
             indicator.SetMarginTop(2);
-            _icon.Root.SetHexpand(true);
-            _spinner.SetHexpand(true);
+            _icon.Root.SetHalign(Gtk.Align.Center);
+            _spinner.SetHalign(Gtk.Align.Center);
+            indicator.SetHomogeneous(true);
             indicator.Append(_icon.Root);
             indicator.Append(_spinner);
             _title.SetXalign(0);

@@ -99,6 +99,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.AccountSetupDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailTilesDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.ImapSetupDebugActions.Register(application);
+            Infrastructure.Diagnostics.SetupProgressDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailDragDebugActions.Register(application, () => _services);
         }
 #endif
