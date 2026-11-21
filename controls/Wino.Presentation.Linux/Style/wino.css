@@ -317,3 +317,9 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-recipient-entry.error { color: @error_color; }
 .wino-recipient-suggestions row { padding: 4px 6px; }
 .wino-recipient-suggestions .wino-recipient-source { font-size: 0.8em; padding: 0 6px; border-radius: 999px; background-color: alpha(currentColor, 0.08); }
+
+/* Invitation card (RD-06) */
+.wino-invitation-header:hover { background-color: alpha(currentColor, 0.04); }
+.wino-invitation-facts { background-color: alpha(currentColor, 0.05); border-radius: 4px; padding: 8px 10px; }
+.wino-invitation button.flat { min-height: 24px; }
+.wino-invitation .wino-invitation-header > button:not(.flat) { min-height: 26px; padding: 0 8px; }

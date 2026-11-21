@@ -93,3 +93,4 @@ A build does not prove UI behavior.
 - Sender pictures come from `LinuxSenderPictureProvider`; never decode an image in a cell bind.
 - The privacy button, its popover (`ReaderPrivacyPopover`), the three remote-content bars and the hovered link's address (`ReaderLinkTargetBar`) live in `MailReaderView.Privacy.cs`; the bars offer Load once only, every other privacy action is an item of `ViewModel.PrivacyMenuItems`.
 - Print and PDF export go through `LinuxMailPrintPresenter`, which each reader sets as `ViewModel.PrintPresenter` over its own web view; the message source is `Views/Dialogs/MessageSourceDialog`.
+- The invitation card is `MailInvitationCard`, bound to `ViewModel.Invitation` only; it holds no reader knowledge, so other surfaces can reuse it.
