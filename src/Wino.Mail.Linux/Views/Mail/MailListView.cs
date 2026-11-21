@@ -32,6 +32,7 @@ internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IU
     private readonly GtkNavigationService _navigation;
     private readonly LinuxSenderPictureProvider _pictures;
     private readonly IFolderService _folders;
+    private readonly Compose.ComposeSourceMime _composeSources;
     private readonly IKeyboardShortcutService _shortcuts;
     private readonly MailRowCellContext _context;
     private readonly ObservableListModel<MailListEntry> _model;
@@ -47,7 +48,7 @@ internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IU
     private readonly LoadMoreTrigger _loadMore;
 
     public MailListView(MailListPageViewModel viewModel, WinoViewServices services, LinuxSenderPictureProvider pictures, GtkNavigationService navigation,
-        IFolderService folders, IKeyboardShortcutService shortcuts)
+        IFolderService folders, IKeyboardShortcutService shortcuts, Compose.ComposeSourceMime composeSources)
         : base(viewModel, services)
     {
         MailListPerf.ViewCreated(this);
@@ -56,6 +57,7 @@ internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IU
         _pictures = pictures;
         _folders = folders;
         _shortcuts = shortcuts;
+        _composeSources = composeSources;
         _context = new MailRowCellContext(ViewModel.PreferencesService, pictures, () => ViewModel.IsMergedAccountView, ReportError)
         {
             Bound = (cell, entry, binding) => self.Value?.OnCellBound(cell, entry, binding),

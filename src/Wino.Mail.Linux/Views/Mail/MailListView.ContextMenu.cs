@@ -182,10 +182,16 @@ internal sealed partial class MailListView
 
     private Task RunMenuOperation(MailOperation operation, IMailItemFolder? folder, MailListTargets targets) => operation switch
     {
-        MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward => targets.ComposeTarget is { } mail ? ViewModel.CreateDraftFromMailAsync(mail, operation) : Task.CompletedTask,
+        MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward => targets.ComposeTarget is { } mail ? CreateDraftAsync(mail, operation) : Task.CompletedTask,
         MailOperation.RetryDraftUpload => targets.ComposeTarget is { } draft ? ViewModel.RetryDraftUploadAsync(draft) : Task.CompletedTask,
         _ => ViewModel.ExecuteMailOperationAsync(new MailOperationPreperationRequest(operation, targets.Mails, moveTargetFolder: folder)),
     };
+
+    private async Task CreateDraftAsync(Wino.Mail.ViewModels.Data.MailItemViewModel mail, MailOperation operation)
+    {
+        if (!await _composeSources.EnsureAsync(mail.MailCopy) || IsReleased) return;
+        await ViewModel.CreateDraftFromMailAsync(mail, operation);
+    }
 
     private void Fill(WinoMenuBuilder builder, MailMenuEntry[] entries)
     {

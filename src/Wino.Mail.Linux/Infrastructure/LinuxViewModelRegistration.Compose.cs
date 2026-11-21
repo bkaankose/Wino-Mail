@@ -9,6 +9,7 @@ internal static partial class LinuxViewModelRegistration
     static partial void RegisterCompose(IServiceCollection services)
     {
         services.AddSingleton<ComposeDetachedDraftRouter>();
+        services.AddSingleton<ComposeSourceMime>();
         services.AddSingleton<IApplicationLifecycleHook>(provider => provider.GetRequiredService<ComposeDetachedDraftRouter>());
     }
 }
