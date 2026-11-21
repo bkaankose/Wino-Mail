@@ -92,3 +92,4 @@ A build does not prove UI behavior.
 - `IRenderingFrameHost.SetCover` covers the pane with a list page's widget while the reader stays alive underneath.
 - Sender pictures come from `LinuxSenderPictureProvider`; never decode an image in a cell bind.
 - The privacy button, its popover (`ReaderPrivacyPopover`), the three remote-content bars and the hovered link's address (`ReaderLinkTargetBar`) live in `MailReaderView.Privacy.cs`; the bars offer Load once only, every other privacy action is an item of `ViewModel.PrivacyMenuItems`.
+- Print and PDF export go through `LinuxMailPrintPresenter`, which each reader sets as `ViewModel.PrintPresenter` over its own web view; the message source is `Views/Dialogs/MessageSourceDialog`.

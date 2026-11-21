@@ -33,8 +33,6 @@ internal sealed partial class GtkDialogService
     public Task<AccountSignature?> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)
         => DismissAsync<AccountSignature?>(nameof(ShowSignatureEditorDialog), null, null);
 
-    public Task ShowMessageSourceDialogAsync(string messageSource) => DismissAsync(nameof(ShowMessageSourceDialogAsync));
-
 
     public Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync() => DismissAsync<WinoAccount?>(nameof(ShowWinoAccountRegistrationDialogAsync), null, null);
 

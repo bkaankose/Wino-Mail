@@ -124,7 +124,9 @@ public static class LinuxPlatformRegistration
             MailListDensity: true,
             Notifications: true,
             OAuthLoopbackRedirect: true,
-            PointerHover: true));
+            PdfExport: true,
+            PointerHover: true,
+            Printing: true));
         return services;
     }
 

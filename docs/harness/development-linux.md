@@ -122,6 +122,7 @@ Gmail uses the shared loopback receiver (`http://127.0.0.1:<port>/authorize/`, P
 | Opening links and files | `Gtk.UriLauncher`, `Gtk.FileLauncher` | xdg-desktop-portal (OpenURI) in a sandbox |
 | Dark and light | `Adw.StyleManager` | Follows the Settings portal (`org.freedesktop.appearance color-scheme`), live. `GtkThemeService` applies the user's choice through `Adw.StyleManager.ColorScheme`, and the accent and the Wino theme backdrop through one CSS provider at priority 601; theme wallpapers are copied to `Themes/` next to the executable |
 | Activation | `GApplication` with `HANDLES_OPEN`, one instance per session | `x-scheme-handler/wino` in the `.desktop` file |
+| Printing and PDF | `WebKit.PrintOperation`: the GTK print dialog; Save as PDF prints without a dialog to GTK's "Print to File" printer | Part of GTK 4, no CUPS needed. The reader sets its own `LinuxMailPrintPresenter` |
 
 ## Trimming and Native AOT
 

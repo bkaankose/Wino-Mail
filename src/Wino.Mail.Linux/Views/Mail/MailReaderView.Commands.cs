@@ -242,6 +242,11 @@ internal sealed partial class MailReaderView
         if (_commandBar is not { } bar) return false;
         if (id == nameof(ReaderCommandAction.EditorTheme)) { ToggleTheme(); return true; }
         if (id == nameof(ReaderCommandAction.ReaderView)) { ToggleReaderView(); return true; }
+        if (id is nameof(MailOperation.SaveAsPdf) or nameof(MailOperation.SaveAsEml))
+        {
+            RunOperation(MailOperationMenuItem.Create(id == nameof(MailOperation.SaveAsPdf) ? MailOperation.SaveAsPdf : MailOperation.SaveAsEml));
+            return true;
+        }
         var item = ViewModel.MenuItems.OfType<MailOperationMenuItem>().FirstOrDefault(candidate => candidate.Operation.ToString() == id);
         if (id == nameof(MailOperation.Move) && _currentItem is not null)
         {
