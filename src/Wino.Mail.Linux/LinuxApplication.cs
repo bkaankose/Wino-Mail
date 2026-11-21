@@ -9,6 +9,7 @@ using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Platform.Linux;
 using Wino.Platform.Linux.Authentication;
 using Wino.Platform.Linux.Security;
+using Wino.Platform.Linux.Services;
 
 namespace Wino.Mail.Linux;
 
@@ -90,6 +91,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.SignInDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.EmbeddedSignInDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailContextMenuDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.OutlookDebugActions.Register(application, () => _services);
         }
 #endif
     }
@@ -145,6 +147,7 @@ internal sealed class LinuxApplication
             }
 
             _services = LinuxComposition.Create(bootstrap, () => _window, _options);
+            _services.GetRequiredService<LinuxWindowPresence>().HasWindow = true;
             _infoBarRelay = InfoBarMessageRelay.Start(_services.GetRequiredService<IMessenger>(), _services.GetRequiredService<IMailDialogService>());
             await _services.GetRequiredService<ApplicationLifecycleCoordinator>().StartAsync(_services.GetRequiredService<GtkApplicationLifecycleHost>());
             LogIconFonts();
@@ -181,6 +184,7 @@ internal sealed class LinuxApplication
     {
         if (_stopping || _services is null) return false;
         _stopping = true;
+        _services.GetRequiredService<LinuxWindowPresence>().HasWindow = false;
         if (_window is { } window)
         {
             try { _services.GetRequiredService<WindowStateStore>().SavePlacement(window.CapturePlacement()); }

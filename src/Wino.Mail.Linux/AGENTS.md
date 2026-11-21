@@ -15,7 +15,7 @@ The Linux app, as a proof of concept for issue #1216: GTK 4 and libadwaita throu
 - No Uno, Avalonia or MAUI. The UI is GTK widgets built in code.
 - No test projects, and no reference to `Wino.Hosting`: no app may reference it.
 - Shared projects get no Linux-only change. They must still build for Windows.
-- Gmail and Outlook sign-in do not exist here. Never use the Google UWP OAuth client for it; the rule is in the root guidance.
+- Outlook signs in through MSAL with the system browser and `http://localhost`, with the Entra app of `IAuthenticatorConfig`; the token cache is a secure item (`msal-cache`). Gmail sign-in does not exist here. Never use the Google UWP OAuth client for it; the rule is in the root guidance.
 - The application id `app.winomail.Mail` (`Program.ApplicationId`) is the GApplication id, the name of the `.desktop` file and the application attribute of the keyring item. Never change it.
 - `--lab-lease` works in Debug builds only (`LabAccountBootstrap`). Never log the lab password.
 - This project is plain `net10.0`, so the shared Release gate applies: Native AOT, trimming and single-file analyzers with warnings as errors. Keep it clean; do not exempt the project.

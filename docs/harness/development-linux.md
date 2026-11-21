@@ -109,6 +109,8 @@ gdbus call --session --dest app.winomail.Mail --object-path /app/winomail/Mail -
 
 From a browser the address needs the desktop entry above. In a Debug build, `WINO_DEBUG_CAPTURE_URIS=<file>` stops the app from opening a browser: every address it would open is appended to the file as scheme, host, path and parameter names, with values only for `redirect_uri`, `response_type`, `code_challenge_method`, `scope`, `prompt` and `access_type`. The `debug-signin-*` actions (`Infrastructure/Diagnostics/SignInDebugActions.cs`) run the brokers and the waiting dialog against it; `WINO_DEBUG_SIGNIN_TIMEOUT_SECONDS` shortens their time limit. Agents stop at the authorization address and the callback plumbing; the real sign-ins with Outlook, Gmail and OAuth providers are owner checks.
 
+Outlook signs in with MSAL's own `http://localhost:<port>` listener; `debug-outlook-signin 'hint'`, `debug-outlook-cancel` and `debug-outlook-cache` drive it. Owner checks with a real Outlook.com and a work account: add the account in the browser and let mail, calendar, contacts and To Do synchronise; quit and start again without a browser prompt; Reconnect contacts and tasks in Account details; remove the account (`debug-outlook-cache` shows one account less) and add it again; revoke the app's access at account.microsoft.com and fix the account from its attention row.
+
 ## System services
 
 | Need | How | Notes |

@@ -91,15 +91,22 @@ public static class LinuxPlatformRegistration
         services.Replace(ServiceDescriptor.Singleton<IInstalledBrowserService, LinuxInstalledBrowserService>());
 
         // Browser sign-in: wino://auth-complete callbacks, the custom-scheme OAuth broker and the Wino Account broker are
-        // real; generic OAuth with a loopback redirect uses the shared receiver. Outlook and Gmail still throw; the
-        // head supplies the embedded browser.
+        // real; generic OAuth with a loopback redirect uses the shared receiver. Outlook signs in through
+        // MSAL with the system browser; Gmail still throws; the head supplies the embedded browser.
         services.AddSingleton<LinuxExternalAuthCallbacks>();
         services.AddSingleton<IOAuthBrowserBroker>(provider => new LinuxOAuthBrowserBroker(
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<LinuxExternalAuthCallbacks>(),
             () => provider.GetService<IExternalBrowserAuthenticationPresenter>()));
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new LinuxWinoAccountBrowserAuthBroker(
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<LinuxExternalAuthCallbacks>()));
-        services.AddSingleton<IOutlookAuthenticationHost, LinuxOutlookAuthenticationHost>();
+        services.AddSingleton<LinuxWindowPresence>();
+        services.AddSingleton<IOutlookAuthenticationHost>(provider =>
+        {
+            var presence = provider.GetRequiredService<LinuxWindowPresence>();
+            return new LinuxOutlookAuthenticationHost(provider.GetRequiredService<IAuthenticatorConfig>(), provider.GetRequiredService<ISecureItemStore>(),
+                provider.GetRequiredService<IExternalLauncher>(), () => provider.GetService<IExternalBrowserAuthenticationPresenter>(),
+                () => presence.HasWindow, SignInTimeout());
+        });
         services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver, LinuxGoogleAuthorizationCodeReceiver>());
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
@@ -118,6 +125,15 @@ public static class LinuxPlatformRegistration
             OAuthLoopbackRedirect: true,
             PointerHover: true));
         return services;
+    }
+
+    private static TimeSpan SignInTimeout()
+    {
+#if DEBUG
+        if (int.TryParse(Environment.GetEnvironmentVariable("WINO_DEBUG_SIGNIN_TIMEOUT_SECONDS"), out var seconds) && seconds > 0)
+            return TimeSpan.FromSeconds(seconds);
+#endif
+        return TimeSpan.FromMinutes(5);
     }
 
 #if DEBUG

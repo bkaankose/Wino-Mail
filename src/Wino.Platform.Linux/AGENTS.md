@@ -14,13 +14,15 @@ Linux platform services for the [Linux proof of concept](../Wino.Mail.Linux/AGEN
 - **The protection key lives in the Secret Service and nowhere else.** `LibsecretSecureItemStore` has no file fallback. When the service is missing or locked, `LinuxPlatformBootstrap.Create` throws `SecretServiceException` and the app stops with a message. Never add an unprotected store, and never use `FileProtectionKeyProvider`, which is for `Wino.Hosting` only.
 - **Item names are permanent.** The schema `app.winomail.Mail.SecureItem`, its attributes `application`, `scope` and `account`, and the folder names in `LinuxPaths` name existing data. Changing one orphans every installation.
 - **Freedesktop standards only.** No GNOME-only or KDE-only D-Bus interface. Open addresses and files through `Gtk.UriLauncher` and `Gtk.FileLauncher`, and pick files through `Gtk.FileDialog`: they use the portals inside a sandbox.
-- **Sign-in:** the browser callbacks (`LinuxExternalAuthCallbacks`), the OAuth and Wino Account brokers are real, and the head supplies the embedded browser sign-in (`GtkEmbeddedBrowserAuthBroker`); Outlook and Gmail are added by their own packages. Never add an OAuth client id here; the rules are in the root guidance.
+- **Sign-in:** the browser callbacks (`LinuxExternalAuthCallbacks`), the OAuth and Wino Account brokers are real, and the head supplies the embedded browser sign-in (`GtkEmbeddedBrowserAuthBroker`), and Outlook signs in through `LinuxOutlookAuthenticationHost`; Gmail is added by its own package. Never add an OAuth client id here; the rules are in the root guidance.
+- The MSAL token cache item `msal-cache` / `outlook-user-cache` is permanent: renaming it signs every Outlook account out.
 - Telemetry stays off: `LinuxApplicationConfiguration` returns an empty Sentry address until the head is released.
 
 ## Always
 
 - Reuse a portable implementation from `Wino.Services` or `Wino.Authentication` before writing one here. `AddPortablePlatformServices` supplies the ones every non-Windows head shares.
 - Call libsecret through `LibraryImport` and only through its non-variadic functions (`secret_password_lookupv_sync`, `secret_password_storev_sync`, `secret_password_clearv_sync`). Variadic C functions cannot be called safely from .NET.
+- No `MsalCacheHelper`: it binds libsecret through variadic functions. The Outlook cache goes through `ISecureItemStore`.
 - Create `GtkDispatcher` on the GTK main thread. Work from that thread runs inline; other threads queue on the main context.
 - When shared code gains a contract a head must supply, register it in `LinuxPlatformRegistration.cs` in the same change.
 
