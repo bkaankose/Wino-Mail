@@ -191,7 +191,8 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         {
             IsClickable = true
         };
-        card.Content = AccountStatus(account.Account);
+        var apps = AppIcons(account, rows);
+        card.Content = AccountRowContent(apps, account.Account);
         var icon = AccountIcon(account.Account);
         card.LeadingView = icon;
         rows.Bind(account, nameof(account.Account), a => a.Account, value =>
@@ -199,7 +200,7 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
             card.Header = value?.Name ?? string.Empty;
             card.Description = account.DescriptionText;
             ConfigureIcon(icon, value);
-            card.Content = AccountStatus(value);
+            card.Content = AccountRowContent(apps, value);
         });
         EventHandler handler = (_, _) =>
         {
@@ -235,6 +236,34 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         expander.Add(edit);
         foreach (var account in merged.HoldingAccounts) expander.Add(AccountRow(account, rows));
         return expander;
+    }
+
+    /// <summary>The apps this account provides, read-only (Windows AccountManagementAppIcons); they are switched on the account's page.</summary>
+    private static NSStackView AppIcons(AccountProviderDetailViewModel account, SettingsBinder rows)
+    {
+        var icons = WinoLayout.HStack(8);
+        icons.Alignment = NSLayoutAttribute.CenterY;
+        AddAppIcon(icons, rows, account, WinoIconGlyph.Mail, nameof(account.IsMailOn), a => a.IsMailOn);
+        AddAppIcon(icons, rows, account, WinoIconGlyph.Calendar, nameof(account.IsCalendarOn), a => a.IsCalendarOn);
+        AddAppIcon(icons, rows, account, WinoIconGlyph.People, nameof(account.IsPeopleOn), a => a.IsPeopleOn);
+        AddAppIcon(icons, rows, account, WinoIconGlyph.CheckmarkCircle, nameof(account.IsToDoOn), a => a.IsToDoOn);
+        rows.Bind(account, nameof(account.AppsAutomationName), a => a.AppsAutomationName, name => WinoAccessibility.Label(icons, name));
+        rows.Bind(account, nameof(account.CapabilitySummary), a => a.CapabilitySummary, summary => icons.ToolTip = summary);
+        return icons;
+    }
+
+    private static void AddAppIcon(NSStackView icons, SettingsBinder rows, AccountProviderDetailViewModel account, WinoIconGlyph glyph, string property, Func<AccountProviderDetailViewModel, bool> read)
+    {
+        var icon = new WinoIconView(glyph, 16, WinoStyle.SecondaryText);
+        WinoLayout.Size(icon, 16, 16);
+        icons.AddArrangedSubview(icon);
+        rows.Bind(account, property, read, on => icon.Hidden = !on);
+    }
+
+    private static NSView? AccountRowContent(NSStackView apps, MailAccount? account)
+    {
+        var status = AccountStatus(account);
+        return status is null ? apps : WinoLayout.HStack(12, apps, status);
     }
 
     private static NSView? AccountStatus(MailAccount? account)

@@ -172,9 +172,10 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
     /// The single gate every notification passes through, like Windows ShowNotificationAsync:
     /// snooze, quiet hours, per-type switches and per-account overrides; suppressed ones are dropped.
     /// </summary>
-    private async Task ShowAsync(NotificationRequest request, NotificationKind kind, MailAccountPreferences? accountPreferences = null)
+    private async Task ShowAsync(NotificationRequest request, NotificationKind kind, MailAccountPreferences? accountPreferences = null, DateTime? deliverAtLocal = null)
     {
-        if (!_policy.Evaluate(kind, accountPreferences, DateTimeOffset.Now).ShouldDeliver) return;
+        var deliverAt = deliverAtLocal is { } due ? new DateTimeOffset(DateTime.SpecifyKind(due, DateTimeKind.Local)) : DateTimeOffset.Now;
+        if (!_policy.Evaluate(kind, accountPreferences, deliverAt).ShouldDeliver) return;
         if (!await AuthorizeAsync().ConfigureAwait(false))
         {
             Serilog.Log.Debug("Notification {Identifier} dropped: notifications are not authorized.", request.Identifier);
@@ -203,7 +204,8 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
                 if (attachment is not null) content.Attachments = [attachment];
                 else Serilog.Log.Debug("Notification image was not attached: {Error}", attachmentError?.LocalizedDescription);
             }
-            using var notificationRequest = UNNotificationRequest.FromIdentifier(request.Identifier, content, null);
+            using var trigger = deliverAtLocal is { } triggerLocal ? CreateCalendarTrigger(triggerLocal) : null;
+            using var notificationRequest = UNNotificationRequest.FromIdentifier(request.Identifier, content, trigger);
             UNUserNotificationCenter.Current.AddNotificationRequest(notificationRequest, error =>
             {
                 if (error != null) completion.TrySetException(new InvalidOperationException("The notification center could not deliver the notification: " + error.LocalizedDescription));
@@ -439,10 +441,29 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
 
     #region Calendar, people and tasks
 
+    /// <summary>The identifier a calendar reminder is delivered under; a scheduled and a live copy share it, so the notification center keeps one.</summary>
+    public static string CalendarReminderIdentifier(CalendarItem calendarItem, long reminderDurationInSeconds)
+        => $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
+
     public async Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
     {
         if (calendarItem == null) return;
 
+        var (request, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, DateTime.Now).ConfigureAwait(false);
+        await ShowAsync(request, NotificationKind.CalendarReminder, accountPreferences).ConfigureAwait(false);
+    }
+
+    /// <summary>Hands a reminder to the notification center for <paramref name="triggerLocal"/>, so it fires while Wino is closed.</summary>
+    public async Task ScheduleCalendarReminderAsync(CalendarItem calendarItem, long reminderDurationInSeconds, DateTime triggerLocal)
+    {
+        if (calendarItem == null) return;
+
+        var (request, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, triggerLocal).ConfigureAwait(false);
+        await ShowAsync(request, NotificationKind.CalendarReminder, accountPreferences, triggerLocal).ConfigureAwait(false);
+    }
+
+    private async Task<(NotificationRequest Request, MailAccountPreferences? Preferences)> BuildCalendarReminderAsync(CalendarItem calendarItem, long reminderDurationInSeconds, DateTime referenceLocal)
+    {
         MailAccountPreferences? accountPreferences = null;
         if (calendarItem.AssignedCalendar?.AccountId is { } accountId)
             accountPreferences = (await _accountService.GetAccountAsync(accountId).ConfigureAwait(false))?.Preferences;
@@ -451,7 +472,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
         var title = hidesContent ? NotificationContentRules.HiddenCalendarReminderTitle : calendarItem.Title ?? string.Empty;
         var body = hidesContent
             ? NotificationContentRules.ComposeHiddenCalendarReminderText()
-            : NotificationContentRules.ComposeCalendarReminderBody(calendarItem, DateTime.Now);
+            : NotificationContentRules.ComposeCalendarReminderBody(calendarItem, referenceLocal);
 
         // One Snooze action whose length follows the "Default snooze duration" setting (Windows' default pick).
         var snoozeMinutes = NotificationContentRules.ResolveReminderSnoozeMinutes(
@@ -465,16 +486,30 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
         };
         if (snoozeMinutes is { } minutes) userInfo[Constants.ToastCalendarSnoozeDurationInputId] = minutes.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-        await ShowAsync(new NotificationRequest(
-            Identifier: $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}",
+        var request = new NotificationRequest(
+            Identifier: CalendarReminderIdentifier(calendarItem, reminderDurationInSeconds),
             Title: title,
             Subtitle: null,
             Body: body,
             Category: AppleNotificationCategories.CalendarCategory(canJoin, snoozeMinutes),
             ThreadIdentifier: "calendar",
             UserInfo: userInfo,
-            Sound: _sounds.Resolve(NotificationSoundKind.Calendar)),
-            NotificationKind.CalendarReminder, accountPreferences).ConfigureAwait(false);
+            Sound: _sounds.Resolve(NotificationSoundKind.Calendar));
+        return (request, accountPreferences);
+    }
+
+    private static UNCalendarNotificationTrigger CreateCalendarTrigger(DateTime localTime)
+    {
+        var components = new NSDateComponents
+        {
+            Year = localTime.Year,
+            Month = localTime.Month,
+            Day = localTime.Day,
+            Hour = localTime.Hour,
+            Minute = localTime.Minute,
+            Second = localTime.Second
+        };
+        return UNCalendarNotificationTrigger.CreateTrigger(components, false);
     }
 
     public Task CreateTestCalendarReminderNotificationAsync(CalendarItem calendarItem)
@@ -495,6 +530,34 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModePeople },
             ImagePath: contact.ContactPictureFileId is { } pictureId ? _pictureStorageService.GetPicturePath(PictureKind.Contact, pictureId) : null),
             NotificationKind.Other);
+    }
+
+    public async Task CreateTaskReminderNotificationAsync(AccountTask task)
+    {
+        if (task == null) return;
+
+        var accountPreferences = (await _accountService.GetAccountAsync(task.MailAccountId).ConfigureAwait(false))?.Preferences;
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
+        var title = hidesContent
+            ? Translator.TaskReminder_HiddenTitle
+            : string.IsNullOrWhiteSpace(task.Title) ? Translator.ToDoPage_NewTask : task.Title;
+        var body = !hidesContent && task.DueDate is { } dueDate ? string.Format(Translator.ToDoPage_DueOn, dueDate.ToString("D")) : string.Empty;
+
+        var request = new NotificationRequest(
+            Identifier: $"task-reminder-{task.Id:N}",
+            Title: title,
+            Subtitle: null,
+            Body: body,
+            Category: AppleNotificationCategories.TaskReminder,
+            ThreadIdentifier: "tasks",
+            UserInfo: new Dictionary<string, string>
+            {
+                [Constants.ToastModeKey] = Constants.ToastModeTasks,
+                [Constants.ToastTaskIdKey] = task.Id.ToString(),
+                [Constants.ToastTaskActionKey] = Constants.ToastTaskOpenAction
+            },
+            Sound: _sounds.Resolve(NotificationSoundKind.Task));
+        await ShowAsync(request, NotificationKind.TaskReminder, accountPreferences).ConfigureAwait(false);
     }
 
     public Task CreateTestTaskReminderNotificationAsync(AccountTask task)

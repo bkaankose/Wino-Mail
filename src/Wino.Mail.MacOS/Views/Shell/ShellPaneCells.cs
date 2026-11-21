@@ -314,6 +314,11 @@ internal sealed class ShellPaneCell : NSTableCellView
                 SetTitle(Translator.ToDoPage_Planned, WinoStyle.Body);
                 _pill.Count = planned.Count;
                 break;
+            case FlaggedMailTaskMenuItem flagged:
+                GlyphRow(WinoIconGlyph.Flag, 16, WinoStyle.Critical);
+                SetTitle(Translator.ToDoPage_FlaggedMail, WinoStyle.Body);
+                _pill.Count = flagged.Count;
+                break;
             case ImportantTaskMenuItem important:
                 GlyphRow(WinoIconGlyph.Star, 16, null);
                 SetTitle(Translator.ToDoPage_Important, WinoStyle.Body);

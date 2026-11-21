@@ -7,6 +7,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.AppKit.ToDo;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.MacOS.Views.Links;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
@@ -42,6 +43,8 @@ public sealed partial class ToDoPageViewController
     private NSTextField _notesPlaceholder = null!;
     private WinoDrawerActionRow _calendarRow = null!;
     private NSTextField _createdLabel = null!;
+    private LinkedItemButtons _taskLinks = null!;
+    private NSStackView _linkedSection = null!;
     private NSButton _multiBack = null!;
     private NSTextField _multiCountHeader = null!;
     private NSTextField _multiCountBody = null!;
@@ -166,7 +169,8 @@ public sealed partial class ToDoPageViewController
         _deleteRow = new WinoDrawerActionRow(WinoIconGlyph.Delete, Translator.ToDoPage_DeleteTask, WinoToDoStyle.Critical, WinoToDoStyle.Critical);
         _deleteRow.Clicked += (_, _) => { if (ViewModel.SelectedTask is { } task) Observe(ViewModel.DeleteTaskCommand.ExecuteAsync(task)); };
         var ruleRow = Indent(rule, 12);
-        var schedule = Section(scheduleLabel, Indent(_myDayRow), Indent(_dueRow), ruleRow, Indent(_deleteRow));
+        BuildTaskFieldRows();
+        var schedule = Section(scheduleLabel, Indent(_myDayRow), Indent(_dueRow), Indent(_reminderRow), Indent(_repeatRow), Indent(_priorityRow), Indent(_categoriesRow), ruleRow, Indent(_deleteRow));
         schedule.SetCustomSpacing(6, ruleRow);
 
         var notesLabel = Indent(WinoDrawerSection.Label(Translator.ToDoPage_Notes), 12);
@@ -192,7 +196,13 @@ public sealed partial class ToDoPageViewController
         _calendarRow.Clicked += (_, _) => Observe(ViewModel.CreateCalendarEventCommand.ExecuteAsync(null));
         _createdLabel = WinoToDoStyle.Caption(null, WinoStyle.SecondaryText);
 
-        var body = WinoLayout.VStack(16, steps, schedule, notes, Indent(_calendarRow), Indent(_createdLabel, 12));
+        _taskLinks = new LinkedItemButtons(item => Observe(ViewModel.OpenLinkedItemCommand.ExecuteAsync(item)), NSUserInterfaceLayoutOrientation.Vertical);
+        var linkedLabel = Indent(WinoDrawerSection.Label(Translator.ConnectedItems_LinkedHeader), 12);
+        _linkedSection = Section(linkedLabel, Indent(_taskLinks, 12));
+        _linkedSection.Hidden = true;
+
+        var body = WinoLayout.VStack(16, steps, schedule, notes, _linkedSection, Indent(_calendarRow), Indent(_createdLabel, 12));
+        body.DetachesHiddenViews = true;
         body.EdgeInsets = new NSEdgeInsets(14, 0, 14, 0);
         var flipped = new FlippedView();
         flipped.AddSubview(body);
@@ -322,12 +332,18 @@ public sealed partial class ToDoPageViewController
             if (!value && !_newStepRow.Hidden) CloseNewStepEditor();
             _myDayRow.Enabled = value;
             _dueRow.Enabled = value;
+            _reminderRow.Enabled = value;
+            _repeatRow.Enabled = value;
+            _priorityRow.Enabled = value;
+            _categoriesRow.Enabled = value;
             _deleteRow.Enabled = value;
             _notes.Editable = value;
         });
         Bind(nameof(ViewModel.CanCreateCalendarEvent), static vm => vm.CanCreateCalendarEvent, value => _calendarRow.Hidden = !value);
         Bind(nameof(ViewModel.SelectedTaskCountText), static vm => vm.SelectedTaskCountText, value => { _multiCountHeader.StringValue = value ?? string.Empty; _multiCountBody.StringValue = value ?? string.Empty; });
         Bind(nameof(ViewModel.CanEditSelectedTasks), static vm => vm.CanEditSelectedTasks, value => { foreach (var button in _multiActions) button.Enabled = value; });
+        _taskLinks.Attach(ViewModel.SelectedTaskLinks);
+        Bind(nameof(ViewModel.HasSelectedTaskLinks), static vm => vm.HasSelectedTaskLinks, value => _linkedSection.Hidden = !value);
     }
 
     private void ReleaseDetail()
@@ -336,6 +352,7 @@ public sealed partial class ToDoPageViewController
         _detailBound = false;
         _taskScope?.Dispose(); _taskScope = null;
         _stepsScope?.Dispose(); _stepsScope = null;
+        _taskLinks.Detach();
     }
 
     /// <summary>Binds the drawer to one task; the returned scope is disposed when the selection changes.</summary>
@@ -376,6 +393,11 @@ public sealed partial class ToDoPageViewController
             _notesPlaceholder.Hidden = !string.IsNullOrEmpty(value);
         });
         On(nameof(task.CreatedOnText), static item => item.CreatedOnText, value => _createdLabel.StringValue = value ?? string.Empty);
+        On(nameof(task.ReminderDisplayText), static item => item.ReminderDisplayText, _ => ApplyTaskFieldRows(task));
+        On(nameof(task.HasReminder), static item => item.HasReminder, _ => ApplyTaskFieldRows(task));
+        On(nameof(task.RecurrenceDisplayText), static item => item.RecurrenceDisplayText, _ => ApplyTaskFieldRows(task));
+        On(nameof(task.PriorityDisplayText), static item => item.PriorityDisplayText, _ => ApplyTaskFieldRows(task));
+        On(nameof(task.CategorySummaryText), static item => item.CategorySummaryText, _ => ApplyTaskFieldRows(task));
 
         NotifyCollectionChangedEventHandler stepsChanged = (_, _) => OnUI(() => { if (ViewModel.SelectedTask == task) RebuildSteps(task); });
         task.Steps.CollectionChanged += stepsChanged;

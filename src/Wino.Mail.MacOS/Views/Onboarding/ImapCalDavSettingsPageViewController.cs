@@ -33,6 +33,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
     public override void LoadView()
     {
         var vm = ViewModel;
+        vm.IsFeaturesStepSupportedByHost = true;
         _form = new FormBinder<ImapCalDavSettingsPageViewModel>(vm, Bindings, Dispatcher, ReportError);
 
         var content = WinoLayout.VStack(WinoStyle.Space4);
@@ -75,8 +76,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         _form.Visible(pop3, nameof(vm.IsPop3), s => s.IsPop3);
         Add(pop3);
 
+        Add(BuildFeaturesStep());
         Add(BuildSignInStep());
-        Add(BuildEditFeatures());
         Add(BuildEditSignIn());
         Add(BuildServers());
 
@@ -365,11 +366,10 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
     }
 
     /// <summary>
-    /// Editing an account: what it is used for, as the provider step's capability cards (Windows
-    /// AccountCapabilityPicker on ImapCalDavSettingsPage). Turning Calendar or Contacts off hides the
-    /// CalDAV / CardDAV sections; To Do stays on this device because IMAP has no task service.
+    /// Adding an account before its apps were chosen (Windows ImapCalDavSettingsPage Features step): the capability
+    /// cards, shown only while the setup starts on Features.
     /// </summary>
-    private NSView BuildEditFeatures()
+    private NSView BuildFeaturesStep()
     {
         var vm = ViewModel;
         var picker = new AccountCapabilityPicker(vm.Capabilities, () => Translator.ProviderSelection_ModeImap, null, Bindings, Dispatcher, ReportError);
@@ -378,9 +378,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);
         var column = WinoLayout.VStack(WinoStyle.Space3, picker, missing);
         foreach (var view in column.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
-        // The capability cards are cards already; a group surface around them nested cards inside a card.
         var group = OnboardingPageView.Section(Translator.ImapSetup_FeaturesGroup, column);
-        _form.Visible(group, nameof(vm.IsEditMode), s => s.IsEditMode);
+        _form.Visible(group, nameof(vm.IsFeaturesStepVisible), s => s.IsFeaturesStepVisible);
         return group;
     }
 
@@ -738,7 +737,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         // discovering; imap-expand on|off opens every server section. Nothing is typed.
         MacDebugBridge.Register("imap-step", async args =>
         {
-            var step = args.Length > 0 && args[0].Equals("servers", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Servers : ImapSetupStep.SignIn;
+            var step = args.Length > 0 && args[0].Equals("features", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Features
+                : args.Length > 0 && args[0].Equals("servers", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Servers : ImapSetupStep.SignIn;
             await Dispatcher.ExecuteOnUIThread(() => ViewModel.CurrentSetupStep = step);
             return "ok " + step;
         });

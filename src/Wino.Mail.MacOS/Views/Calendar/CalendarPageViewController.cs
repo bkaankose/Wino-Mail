@@ -84,7 +84,9 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _surface.ItemResizeRequested += SurfaceItemResizeRequested;
         _surface.ItemClicked += SurfaceItemClicked;
         _surface.ItemDoubleClicked += SurfaceItemDoubleClicked;
+        _surface.MonthDayDoubleClicked += SurfaceMonthDayDoubleClicked;
         _surface.ItemRightClicked += SurfaceItemRightClicked;
+        _surface.EmptyAreaContextRequested += SurfaceEmptyAreaContextRequested;
         _surface.SlotClicked += SurfaceSlotClicked;
         _surface.PeriodSettled += SurfacePeriodSettled;
         _surface.ViewportPeriodChanged += SurfaceViewportPeriodChanged;
@@ -99,7 +101,9 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _detailsWidth = _detailsZone.WidthAnchor.ConstraintEqualTo((nfloat)DetailsWidth);
         _detailsWidth.Active = true;
 
+        var dueStrip = BuildDueTasksStrip();
         root.AddSubview(_toolbar);
+        root.AddSubview(dueStrip);
         root.AddSubview(_zone);
         root.AddSubview(_detailsZone);
         var zoneTrailing = WinoZoneInsets.Track(_zone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor), -7);
@@ -110,7 +114,10 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             _toolbar.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
             _toolbar.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
             // The gap between the date row and the calendar surface.
-            _zone.TopAnchor.ConstraintEqualTo(_toolbar.BottomAnchor, 12),
+            _zone.TopAnchor.ConstraintEqualTo(dueStrip.BottomAnchor, 12),
+            dueStrip.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor, 4),
+            dueStrip.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor, -7),
+            _dueStripTop,
             WinoZoneInsets.Track(_zone.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor), 4),
             WinoZoneInsets.Track(_zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor), -7),
             zoneTrailing,
@@ -181,6 +188,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
 
     private void BindAll()
     {
+        BindDueTasks();
         Bind(nameof(ViewModel.VisibleDateRangeText), vm => vm.VisibleDateRangeText, text => _toolbar.RangeText = text);
         Bind(nameof(ViewModel.CurrentVisibleRange), vm => vm.CurrentVisibleRange, range => _surface.VisibleRange = range);
         Bind(nameof(ViewModel.CurrentSettings), vm => vm.CurrentSettings, settings => _surface.Settings = settings);
@@ -271,6 +279,12 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
     {
         CloseQuickEvent();
         if (args.Item is CalendarItemViewModel item) WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(item));
+    }
+
+    private void SurfaceMonthDayDoubleClicked(object? sender, DateTime day)
+    {
+        CloseQuickEvent();
+        _shell.OpenDayView(DateOnly.FromDateTime(day));
     }
 
     private void SurfaceItemDoubleClicked(object? sender, CalendarItemClickedEventArgs args)
@@ -578,6 +592,11 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         // "cal-details-showas N VALUE", "cal-details-reminder N MINUTES", "cal-attach-save N" act on the open details.
         MacDebugBridge.Register("cal-details-showas", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0
             ? details.DebugChooseShowAsAsync(args[^1]) : Task.FromResult("open an event's details first (cal-details N)"));
+#if DEBUG
+        MacDebugBridge.Register("cal-reminder-add", _ => Task.FromResult(Wino.Mail.MacOS.Views.Dialogs.CalendarReminderEditorSheet.DebugAddRow()));
+#endif
+        MacDebugBridge.Register("cal-details-customize", _ => _detailsChild is EventDetailsPageViewController details
+            ? details.DebugCustomizeRemindersAsync() : Task.FromResult("open an event's details first (cal-details N)"));
         MacDebugBridge.Register("cal-details-reminder", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0 && int.TryParse(args[^1], out var minutes)
             ? details.DebugToggleReminderAsync(minutes) : Task.FromResult("open an event's details first (cal-details N)"));
         MacDebugBridge.Register("cal-attach-save", args => Task.FromResult(_detailsChild is EventDetailsPageViewController details

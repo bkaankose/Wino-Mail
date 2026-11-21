@@ -9,6 +9,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.MacOS.Views.Links;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
 using Wino.Mail.ViewModels.Calendar;
@@ -34,6 +35,9 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     private ActionBarButton _rsvp = null!;
     private ActionBarButton _delete = null!;
     private ActionBarButton _series = null!;
+    private ActionBarButton _followUp = null!;
+    private WinoSurfaceView _linkedCard = null!;
+    private LinkedItemButtons _linkedItems = null!;
     private ActionBarButton _openInWindow = null!;
     private NSPopUpButton _showAs = null!;
     private NSPopUpButton _reminder = null!;
@@ -81,6 +85,8 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _rsvp = Action(WinoIconGlyph.EventRespond, Translator.CalendarEventResponse_NotResponded, ViewModel.ToggleRsvpPanelCommand);
         _delete = Action(WinoIconGlyph.Delete, Translator.Buttons_Delete, ViewModel.DeleteCommand);
         _series = Action(WinoIconGlyph.EventEditSeries, Translator.CalendarEventDetails_EditSeries, ViewModel.ViewSeriesCommand);
+        _followUp = Action(WinoIconGlyph.TaskList, Translator.CalendarContextMenu_CreateTask, ViewModel.CreateFollowUpTaskCommand);
+        _followUp.Hidden = !ViewModel.CanCreateFollowUpTask;
         // Mac addition: the details pane can open the event in its own window (EventDetailsWindow).
         _openInWindow = new ActionBarButton(WinoIconGlyph.OpenInNewWindow, null, Translator.CalendarEventDetails_OpenInNewWindow);
         _openInWindow.Activated += (_, _) => OpenInNewWindow();
@@ -105,7 +111,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         var actions = new ActionRow { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Spacing = 2, TranslatesAutoresizingMaskIntoConstraints = false };
         actions.Collapsible = [_delete, _series, _join];
         actions.Alignment = NSLayoutAttribute.CenterY;
-        foreach (var view in new NSView[] { _join, _rsvp, _delete, _series }) actions.AddArrangedSubview(view);
+        foreach (var view in new NSView[] { _join, _rsvp, _followUp, _delete, _series }) actions.AddArrangedSubview(view);
         actions.AddArrangedSubview(WinoLayout.Spacer());
         actions.AddArrangedSubview(_openInWindow);
         var secondary = WinoLayout.HStack(10, showAsRow, reminderRow, WinoLayout.Spacer());
@@ -150,6 +156,17 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         var details = WinoLayout.VStack(8, _when, _location, _online, _repeat, _reminderRow, _calendar);
         details.DetachesHiddenViews = true;
         AddRow(details);
+
+        // Mails and tasks linked to the event (Windows EventDetailsPage linked items).
+        _linkedItems = new LinkedItemButtons(item => Observe(ViewModel.OpenLinkedItemCommand.ExecuteAsync(item)), NSUserInterfaceLayoutOrientation.Vertical);
+        _linkedItems.Attach(ViewModel.LinkedItems);
+        var linkedTitle = WinoStyle.Label(Translator.ConnectedItems_LinkedHeader, WinoStyle.Caption, WinoStyle.SecondaryText);
+        var linkedColumn = WinoLayout.VStack(8, linkedTitle, _linkedItems);
+        linkedColumn.EdgeInsets = new NSEdgeInsets(10, 12, 10, 12);
+        _linkedItems.WidthAnchor.ConstraintEqualTo(linkedColumn.WidthAnchor, 1, -24).Active = true;
+        _linkedCard = new WinoSurfaceView { Fill = CardFill, CornerRadius = 4, Hidden = true };
+        WinoLayout.Fill(linkedColumn, _linkedCard);
+        AddRow(_linkedCard);
 
         // People
         _peopleTitle = WinoStyle.Label(Translator.CalendarEventDetails_People, WinoStyle.Caption, WinoStyle.SecondaryText);
@@ -267,6 +284,8 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         Bind(nameof(ViewModel.CanEditSeries), vm => vm.CanEditSeries, can => _series.Hidden = !can);
         Bind(nameof(ViewModel.Reminders), vm => vm.Reminders, _ => QueueReminderMenu());
         Bind(nameof(ViewModel.HasAttachments), vm => vm.HasAttachments, _ => ApplyAttachments());
+        Bind(nameof(ViewModel.HasLinkedItems), vm => vm.HasLinkedItems, visible => _linkedCard.Hidden = !visible);
+        Bindings.Own(new ActionDisposable(_linkedItems.Detach));
         return Task.CompletedTask;
     }
 
@@ -435,6 +454,15 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     }
 
     /// <summary>Debug bridge: toggles the reminder with <paramref name="minutes"/> through the menu path and waits for the save.</summary>
+    internal async Task<string> DebugCustomizeRemindersAsync()
+    {
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (ViewModel.EditRemindersCommand.CanExecute(null)) ViewModel.EditRemindersCommand.Execute(null);
+        });
+        return "ok";
+    }
+
     internal async Task<string> DebugToggleReminderAsync(int minutes)
     {
         await Dispatcher.ExecuteOnUIThread(() =>
@@ -478,6 +506,13 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
             item.Activated += (_, _) => ToggleReminder(captured, item);
             menu.AddItem(item);
         }
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        var customize = new NSMenuItem(Translator.CalendarReminder_Customize) { Enabled = !_isReadOnly };
+        customize.Activated += (_, _) =>
+        {
+            if (ViewModel.EditRemindersCommand.CanExecute(null)) ViewModel.EditRemindersCommand.Execute(null);
+        };
+        menu.AddItem(customize);
         UpdateReminderRow();
     }
 
