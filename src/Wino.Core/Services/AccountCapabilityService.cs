@@ -12,7 +12,7 @@ using Wino.Services.Interfaces;
 
 namespace Wino.Core.Services;
 
-public sealed class AccountCapabilityService : IAccountCapabilityService
+public sealed partial class AccountCapabilityService : IAccountCapabilityService
 {
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IAccountService _accountService;

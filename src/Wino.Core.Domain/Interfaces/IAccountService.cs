@@ -255,6 +255,9 @@ public interface IAccountService
     /// </summary>
     Task DeleteAccountMailDataAsync(Guid accountId);
 
+    /// <summary>Creates the account's calendar on this device when the account has no calendar yet.</summary>
+    Task EnsureDefaultLocalCalendarAsync(Guid accountId);
+
     /// <summary>
     /// Updates the synchronization identifier for a specific account asynchronously.
     /// </summary>

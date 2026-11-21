@@ -1387,7 +1387,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
     }
 
-    private async Task EnsureDefaultLocalCalendarAsync(Guid accountId)
+    public async Task EnsureDefaultLocalCalendarAsync(Guid accountId)
     {
         var existingCalendarCount = await Connection.Table<AccountCalendar>()
             .Where(a => a.AccountId == accountId)
