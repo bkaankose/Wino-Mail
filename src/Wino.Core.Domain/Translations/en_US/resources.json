@@ -5967,5 +5967,10 @@
   "AccountMail_NotificationsHeader": "Notifications",
   "AccountMail_Pop3Header": "POP3 downloads",
   "SettingsPersonalization_AppModes_ProvidedByOne": "Used by 1 account",
-  "SettingsPersonalization_AppModes_ProvidedByMany": "Used by {0} accounts"
+  "SettingsPersonalization_AppModes_ProvidedByMany": "Used by {0} accounts",
+  "AccountTroubleshooting_NoLogsMessage": "No logs yet. Turn on protocol diagnostics and let the account sync; logs can be saved or sent after that.",
+  "AccountTroubleshooting_PageDescription": "Protocol diagnostics and logs of {0}.",
+  "AccountSignIn_PageDescription": "How Wino signs in to {0} and which servers it uses.",
+  "AccountMail_SenderNameDescription": "The name people see when you send mail from this account.",
+  "AccountApps_CalendarColorDescription": "Change the display color for this calendar"
 }

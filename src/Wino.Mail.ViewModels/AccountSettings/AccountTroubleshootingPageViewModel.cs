@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -54,6 +55,15 @@ public partial class AccountTroubleshootingPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial bool IsProtocolLogEnabled { get; set; }
 
+    /// <summary>Whether this account has written protocol logs yet; saving and sending need some.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNoLogsNoteVisible))]
+    [NotifyCanExecuteChangedFor(nameof(ExportProtocolLogsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(UploadProtocolLogsCommand))]
+    public partial bool HasLogs { get; set; }
+
+    public bool IsNoLogsNoteVisible => Account != null && !HasLogs;
+
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
@@ -65,13 +75,35 @@ public partial class AccountTroubleshootingPageViewModel : CoreBaseViewModel
         if (account == null)
             return;
 
+        var hasLogs = HasLogFiles(account.Id);
+
         await ExecuteUIThread(() =>
         {
             _isLoading = true;
             Account = account;
             IsProtocolLogEnabled = account.IsProtocolLogEnabled;
+            HasLogs = hasLogs;
+            OnPropertyChanged(nameof(IsNoLogsNoteVisible));
             _isLoading = false;
         });
+    }
+
+    private bool HasLogFiles(Guid accountId)
+    {
+        var folder = WinoProtocolLogger.GetAccountLogFolder(_applicationConfiguration.ApplicationDataFolderPath, accountId);
+
+        try
+        {
+            return Directory.Exists(folder) && Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Any();
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     partial void OnIsProtocolLogEnabledChanged(bool value)
@@ -109,7 +141,7 @@ public partial class AccountTroubleshootingPageViewModel : CoreBaseViewModel
         return null;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasLogs))]
     private async Task ExportProtocolLogsAsync()
     {
         var logsFolder = GetLogsFolder();
@@ -142,7 +174,7 @@ public partial class AccountTroubleshootingPageViewModel : CoreBaseViewModel
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasLogs))]
     private async Task UploadProtocolLogsAsync()
     {
         var logsFolder = GetLogsFolder();

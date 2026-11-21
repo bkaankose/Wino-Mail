@@ -42,5 +42,12 @@
                     Content="{x:Bind domain:Translator.ProtocolLog_UploadAction, Mode=OneTime}" />
             </StackPanel>
         </controls:SettingsCard>
+
+        <InfoBar
+            AutomationProperties.AutomationId="AccountTroubleshootingNoLogsInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsNoLogsNoteVisible, Mode=OneWay}"
+            Message="{x:Bind domain:Translator.AccountTroubleshooting_NoLogsMessage, Mode=OneTime}"
+            Severity="Informational" />
     </StackPanel>
 </viewsAbstract:AccountTroubleshootingPageAbstract>
