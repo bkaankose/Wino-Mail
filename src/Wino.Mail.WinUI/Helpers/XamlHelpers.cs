@@ -138,6 +138,8 @@ public static class XamlHelpers
     public static bool IsThreadMessageHead(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead;
     public static WinoIconGlyph GetThreadChevronGlyph(bool isExpanded) => isExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
+
+    public static WinoIconGlyph GetAppSourceGlyph(AccountCapabilityMode mode) => mode == AccountCapabilityMode.Local ? WinoIconGlyph.Desktop : WinoIconGlyph.Globe;
     public static bool IsMultiple(int count) => count > 1;
     public static bool ReverseIsMultiple(int count) => count < 1;
     public static PopupPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)

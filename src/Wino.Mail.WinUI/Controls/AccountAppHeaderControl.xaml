@@ -90,21 +90,35 @@
                         HorizontalAlignment="Stretch"
                         AutomationProperties.HelpText="{x:Bind Description}"
                         AutomationProperties.Name="{x:Bind Title}">
-                        <StackPanel
+                        <Grid
                             MinHeight="72"
                             Padding="16,12"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
-                            CornerRadius="{ThemeResource ControlCornerRadius}"
-                            Spacing="2">
-                            <TextBlock Text="{x:Bind Title}" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind Description}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
+                            ColumnSpacing="16"
+                            CornerRadius="{ThemeResource ControlCornerRadius}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <coreControls:WinoFontIcon
+                                VerticalAlignment="Center"
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="24"
+                                Icon="{x:Bind winuiHelpers:XamlHelpers.GetAppSourceGlyph(Mode)}" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Text="{x:Bind Title}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind Description}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Grid>
                     </ItemContainer>
                 </DataTemplate>
             </ItemsView.ItemTemplate>
