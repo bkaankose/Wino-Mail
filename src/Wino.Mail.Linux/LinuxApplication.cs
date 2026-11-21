@@ -78,6 +78,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.AccountDialogDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.FolderCategoryDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailFiltersDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.AccountsDebugActions.Register(application, () => _services);
         }
 #endif
     }
