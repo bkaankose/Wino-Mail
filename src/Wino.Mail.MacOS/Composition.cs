@@ -147,7 +147,7 @@ internal static class Composition
             RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             // The Dock badge launches the app; there is one Dock tile, so the taskbar identity never follows the mode.
             PointerHover: true, MailListDensity: true, PresentationDetection: true, ConfigurableSyncIntervals: true,
-            BadgeLaunchNavigation: true, AddressFirstAccountSetup: true,
+            BadgeLaunchNavigation: true, AddressFirstAccountSetup: true, FlaggedMailTaskView: true,
 #if WINO_APPSTORE
             AppleAppStore: true
 #else
