@@ -96,6 +96,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.OutlookDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailHoverDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailFolderPickerDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.AccountSetupDebugActions.Register(application, () => _services);
         }
 #endif
     }

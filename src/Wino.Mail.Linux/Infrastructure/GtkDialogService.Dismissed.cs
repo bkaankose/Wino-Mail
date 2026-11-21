@@ -30,10 +30,6 @@ internal sealed partial class GtkDialogService
         return Task.CompletedTask;
     }
 
-    public Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders)
-        => Task.FromException<AccountCreationDialogResult>(new NotSupportedException(
-            Dismiss(nameof(ShowAccountProviderSelectionDialogAsync), null, "Account provider selection has no screen on Linux yet.")));
-
     public IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
         => new GtkAccountCreationDialog();
 

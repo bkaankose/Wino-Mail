@@ -116,6 +116,7 @@ public static class LinuxPlatformRegistration
         // One capability per line, in alphabetical order, so that parallel changes merge.
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             AdditionalWindows: true,
+            AddressFirstAccountSetup: true,
             ConfigurableSyncIntervals: true,
             FileBackup: true,
             GeneralActivation: true,

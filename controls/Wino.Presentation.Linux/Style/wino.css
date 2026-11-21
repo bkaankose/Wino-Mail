@@ -238,3 +238,11 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 
 /* ML-09 folder picker */
 .wino-folder-picker-row { min-height: 32px; padding: 0 8px; border-radius: var(--wino-control-radius); font-weight: normal; }
+
+/* AC-04 account setup */
+.wino-setup-shelf-item { min-width: 36px; min-height: 36px; border-radius: 999px; background-color: alpha(currentColor, 0.08); }
+.wino-setup-shelf-item.wino-setup-shelf-label { padding: 0 12px; }
+.wino-setup-shelf-item.wino-setup-matched { box-shadow: inset 0 0 0 2px @accent_bg_color; }
+.wino-setup-known { padding: 6px 16px 6px 6px; border-radius: 22px; }
+.wino-setup-known-mark { border-radius: 999px; background-color: alpha(currentColor, 0.08); }
+.wino-setup-provider-choice { padding: 6px 8px; font-weight: normal; }
