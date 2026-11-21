@@ -53,7 +53,7 @@ internal static class OnboardingDebug
             if (provider is null) return Task.FromResult("no custom provider");
             var context = Services.GetRequiredService<WelcomeWizardContext>();
             context.SelectedProvider = provider;
-            context.AccountName ??= "IMAP";
+            context.AccountName = args.Length > 1 ? args[1] : context.AccountName ?? "IMAP";
             context.IsMailAccessEnabled = true;
             return Task.FromResult(Navigate(WinoPage.ImapCalDavSettingsPage,
                 ImapCalDavSettingsNavigationContext.CreateForWizardMode(context.BuildAccountCreationDialogResult())));
