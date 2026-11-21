@@ -1043,6 +1043,28 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
+    <DataTemplate x:Key="FlaggedMailTaskTemplate" x:DataType="menuitems:FlaggedMailTaskMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="38"
+            AutomationProperties.AutomationId="ToDoFlaggedMailView"
+            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_FlaggedMail, Mode=OneTime}"
+            Content="{x:Bind domain:Translator.ToDoPage_FlaggedMail, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="True">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Flag" />
+            </muxc:NavigationViewItem.Icon>
+            <muxc:NavigationViewItem.InfoBadge>
+                <muxc:InfoBadge
+                    AutomationProperties.AutomationId="ToDoFlaggedMailViewCount"
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Value="{x:Bind Count, Mode=OneWay}" />
+            </muxc:NavigationViewItem.InfoBadge>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
     <DataTemplate x:Key="AccountTaskListGroupTemplate" x:DataType="menuitems:AccountTaskListGroupMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="38"

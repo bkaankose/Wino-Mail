@@ -46,6 +46,7 @@
                 CreateNewMailTemplate="{StaticResource CreateNewMailTemplate}"
                 FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
                 FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfigTemplate}"
+                FlaggedMailTaskTemplate="{StaticResource FlaggedMailTaskTemplate}"
                 FolderMenuTemplate="{StaticResource FolderMenuTemplate}"
                 ImportantTaskTemplate="{StaticResource ImportantTaskTemplate}"
                 MailCategoryMenuTemplate="{StaticResource MailCategoryMenuTemplate}"

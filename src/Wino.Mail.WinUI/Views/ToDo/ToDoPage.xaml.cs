@@ -524,4 +524,16 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)
             ViewModel.OpenLinkedItemCommand.Execute(item);
     }
+
+    private void FlaggedMail_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is Wino.Mail.ViewModels.FlaggedMail.FlaggedMailItemViewModel item)
+            ViewModel.FlaggedMail?.OpenCommand.Execute(item);
+    }
+
+    private void FlaggedMailComplete_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.FlaggedMail.FlaggedMailItemViewModel item)
+            ViewModel.FlaggedMail?.CompleteCommand.Execute(item);
+    }
 }

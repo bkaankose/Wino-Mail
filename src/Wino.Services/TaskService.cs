@@ -909,6 +909,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
             TaskViewKind.Planned => filtered.Where(task => task.DueDate.HasValue),
             TaskViewKind.MyDay => filtered.Where(task => task.MyDayDateUtc == today),
             TaskViewKind.Important => filtered.Where(task => task.IsImportant),
+            TaskViewKind.FlaggedMail => filtered.Where(static _ => false),
             _ => filtered
         };
 

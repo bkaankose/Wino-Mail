@@ -187,6 +187,26 @@ public class MailService : BaseDatabaseService, IMailService
         return draftCount > 0;
     }
 
+    public async Task<List<MailCopy>> GetFlaggedMailsAsync(int maxCount)
+    {
+        // Gmail stores one message once per label, so keep one copy per account and server id.
+        var mails = await Connection.QueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy " +
+            "INNER JOIN MailItemFolder ON MailItemFolder.Id = MailCopy.FolderId " +
+            "WHERE MailCopy.IsFlagged = 1 AND MailCopy.IsDraft = 0 AND MailItemFolder.SpecialFolderType NOT IN (?, ?) " +
+            "ORDER BY MailCopy.CreationDate DESC LIMIT ?",
+            (int)SpecialFolderType.Deleted,
+            (int)SpecialFolderType.Junk,
+            Math.Max(1, maxCount) * 2).ConfigureAwait(false);
+
+        var hydrated = await HydrateMailCopiesAsync(mails).ConfigureAwait(false);
+        return hydrated
+            .Where(static mail => mail.AssignedAccount is not null)
+            .DistinctBy(static mail => (mail.AssignedAccount.Id, string.IsNullOrEmpty(mail.Id) ? mail.UniqueId.ToString() : mail.Id))
+            .Take(Math.Max(1, maxCount))
+            .ToList();
+    }
+
     public async Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId)
     {
         var unreadMails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ? AND IsRead = 0", folderId).ConfigureAwait(false);

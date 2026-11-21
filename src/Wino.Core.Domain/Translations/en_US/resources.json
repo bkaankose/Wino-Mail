@@ -5754,5 +5754,10 @@
   "MailOperation_CreateEvent": "Create event",
   "ConnectedItems_FollowUpTitleFormat": "Follow up: {0}",
   "CalendarContextMenu_CreateTask": "Add follow-up task",
-  "ToDoPage_ScheduleTime": "Schedule time"
+  "ToDoPage_ScheduleTime": "Schedule time",
+  "ToDoPage_FlaggedMail": "Flagged mail",
+  "ToDoPage_FlaggedMailEmptyTitle": "No flagged mail",
+  "ToDoPage_FlaggedMailEmptyBody": "Flag a message in Mail and it shows up here. Completing it here clears the flag.",
+  "ToDoPage_FlaggedMailComplete": "Complete and clear the flag",
+  "ToDoPage_FlaggedMailOpen": "Open message"
 }

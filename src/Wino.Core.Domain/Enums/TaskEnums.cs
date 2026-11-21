@@ -32,7 +32,10 @@ public enum TaskViewKind
     Planned = 1,
     Completed = 2,
     MyDay = 3,
-    Important = 4
+    Important = 4,
+
+    /// <summary>Flagged mail shown as tasks. It lists mails, not stored tasks.</summary>
+    FlaggedMail = 5
 }
 
 /// <summary>

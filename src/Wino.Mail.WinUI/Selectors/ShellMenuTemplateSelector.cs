@@ -36,6 +36,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? MyDayTaskTemplate { get; set; }
     public DataTemplate? PlannedTaskTemplate { get; set; }
     public DataTemplate? ImportantTaskTemplate { get; set; }
+    public DataTemplate? FlaggedMailTaskTemplate { get; set; }
     public DataTemplate? SharedAccountMenuTemplate { get; set; }
     public DataTemplate? SharedCompactAccountMenuTemplate { get; set; }
     public DataTemplate? AccountTaskListGroupTemplate { get; set; }
@@ -86,6 +87,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         MyDayTaskMenuItem => MyDayTaskTemplate,
         PlannedTaskMenuItem => PlannedTaskTemplate,
         ImportantTaskMenuItem => ImportantTaskTemplate,
+        FlaggedMailTaskMenuItem => FlaggedMailTaskTemplate,
         AccountTaskListAccountMenuItem => GetAccountTemplate(),
         AccountTaskListGroupMenuItem => AccountTaskListGroupTemplate,
         AccountTaskListMenuItem => AccountTaskListTemplate,

@@ -50,6 +50,7 @@ public static class WinoViewModelRegistration
         services.AddSingleton<CalendarAppShellViewModel>();
         services.AddSingleton<SettingsMenuProvider>();
         services.AddSingleton<ContactsPageViewModel>();
+        services.AddSingleton<FlaggedMail.FlaggedMailListViewModel>();
         services.AddSingleton<ToDoPageViewModel>();
         services.AddSingleton<CalendarPageViewModel>();
         services.AddSingleton<IShellMenuProviderResolver>(provider => new ShellMenuProviderResolver(

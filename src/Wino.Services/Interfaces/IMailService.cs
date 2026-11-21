@@ -172,6 +172,9 @@ public interface IMailService
     /// </summary>
     Task<MailCopy> GetMailCopyByMessageIdAsync(Guid accountId, string messageId);
 
+    /// <summary>Flagged mails of every account, newest first, outside Deleted items and Junk; one copy per message.</summary>
+    Task<List<MailCopy>> GetFlaggedMailsAsync(int maxCount);
+
     /// <summary>
     /// Returns ids 
     /// </summary>

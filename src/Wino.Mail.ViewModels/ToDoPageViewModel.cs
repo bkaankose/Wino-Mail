@@ -101,6 +101,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
+    [NotifyPropertyChangedFor(nameof(IsTaskEmptyStateVisible))]
     public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
@@ -234,6 +235,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
         OnPropertyChanged(nameof(CanCreateTask));
         OnPropertyChanged(nameof(IsQuickAddVisible));
+        OnFlaggedMailSurfaceChanged();
         OnPropertyChanged(nameof(IsNamedListSelected));
         OnPropertyChanged(nameof(CanReorderTasks));
         OnPropertyChanged(nameof(IsSmartViewSelected));
@@ -256,6 +258,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     partial void OnSelectedViewChanged(TaskViewKind value)
     {
         IsSuggestionsOpen = false;
+        OnFlaggedMailSurfaceChanged();
         OnPropertyChanged(nameof(SelectedSurfaceTitle));
         OnPropertyChanged(nameof(SelectedSurfaceSubtitle));
         OnPropertyChanged(nameof(HasSurfaceSubtitle));
@@ -290,7 +293,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public bool CanEditSelectedTasks => SelectedTasks.Count > 1 && SelectedTasks.All(item => !item.IsReadOnly);
     public bool CanCreateTask => Readiness.IsReady && !IsEmptyAccountSelected &&
                                  (SelectedList is { IsReadOnly: false } ||
-                                  (SelectedList is null && SelectedView != TaskViewKind.Completed && GetWritableDestinationList() is not null));
+                                  (SelectedList is null && SelectedView is not (TaskViewKind.Completed or TaskViewKind.FlaggedMail) && GetWritableDestinationList() is not null));
 
     /// <summary>A new list needs an account that can hold it and a mode that is ready.</summary>
     public bool CanCreateList => Readiness.IsReady && Accounts.Count > 0;
@@ -300,7 +303,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     /// sign-in pending, or the first sync still running.
     /// </summary>
     public ModeReadinessViewModel Readiness { get; }
-    public bool IsQuickAddVisible => SelectedList is not null || (!IsEmptyAccountSelected && SelectedView != TaskViewKind.Completed);
+    public bool IsQuickAddVisible => SelectedList is not null || (!IsEmptyAccountSelected && SelectedView is not (TaskViewKind.Completed or TaskViewKind.FlaggedMail));
 
     /// <summary>An account was chosen that holds no task lists, so the surface shows that account's empty state.</summary>
     public bool IsEmptyAccountSelected => _emptyAccountId is not null && SelectedList is null;
@@ -365,6 +368,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         TaskViewKind.Important => Translator.ToDoPage_Important,
         TaskViewKind.Planned => Translator.ToDoPage_Planned,
         TaskViewKind.Completed => Translator.ToDoPage_Completed,
+        TaskViewKind.FlaggedMail => Translator.ToDoPage_FlaggedMail,
         _ => Translator.ToDoPage_Tasks
     };
 
@@ -525,9 +529,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         ITaskCompletionSound taskCompletionSound = null,
         IAppModeReadinessService appModeReadinessService = null,
         IMailShellClient mailShell = null,
-        Links.ConnectedItemsCoordinator connectedItems = null) : base(messenger)
+        Links.ConnectedItemsCoordinator connectedItems = null,
+        FlaggedMail.FlaggedMailListViewModel flaggedMail = null) : base(messenger)
     {
         _connectedItems = connectedItems;
+        FlaggedMail = flaggedMail;
+        if (flaggedMail is not null)
+            flaggedMail.CountChanged += (_, _) => _flaggedMailMenuItem.Count = flaggedMail.Items.Count;
         _synchronizationManager = synchronizationManager;
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
@@ -601,6 +609,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Register<AccountLayoutChanged>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
         Messenger.Register<ItemLinksChanged>(this);
+        FlaggedMail?.Attach();
     }
 
     protected override void UnregisterRecipients()
@@ -613,6 +622,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Unregister<AccountLayoutChanged>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
         Messenger.Unregister<ItemLinksChanged>(this);
+        FlaggedMail?.Detach();
         base.UnregisterRecipients();
     }
 
@@ -677,6 +687,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             ApplyTaskStepState(message);
 
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(IsTaskEmptyStateVisible));
         OnPropertyChanged(nameof(CanCreateTask));
         ApplyMenuCounts();
     }
@@ -1504,6 +1515,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             OnPropertyChanged(nameof(CanCreateTask));
             OnPropertyChanged(nameof(CanEditSelectedTask));
             OnPropertyChanged(nameof(IsEmpty));
+            OnPropertyChanged(nameof(IsTaskEmptyStateVisible));
             OnPropertyChanged(nameof(HasSuggestions));
             OnPropertyChanged(nameof(EmptyStateTitle));
             OnPropertyChanged(nameof(EmptyStateBody));
@@ -2943,6 +2955,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             TaskViewKind.Planned => task.DueDate.HasValue,
             TaskViewKind.Important => task.IsImportant,
             TaskViewKind.All => true,
+            TaskViewKind.FlaggedMail => false,
             _ => false
         };
     }
@@ -3002,6 +3015,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             SetSelectedTasks(SelectedTasks.Where(item => _taskGroups.Any(group => group.Contains(item))).ToList());
 
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(IsTaskEmptyStateVisible));
 
         // The subtitle reports the counts, so it is only correct once the groups are.
         OnPropertyChanged(nameof(SelectedSurfaceSubtitle));
@@ -3310,14 +3324,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     /// The fixed head of the pane: the commands, then the smart views. Held in one place so the
     /// initial seed and every later reconcile agree on it.
     /// </summary>
-    private IMenuItem[] GetShellMenuPrefix() =>
-    [
-        _newListMenuItem,
-        _commandSeparator,
-        _myDayMenuItem,
-        _plannedMenuItem,
-        _importantMenuItem
-    ];
+    private IMenuItem[] GetShellMenuPrefix() => IsFlaggedMailAvailable
+        ? [_newListMenuItem, _commandSeparator, _myDayMenuItem, _plannedMenuItem, _importantMenuItem, _flaggedMailMenuItem]
+        : [_newListMenuItem, _commandSeparator, _myDayMenuItem, _plannedMenuItem, _importantMenuItem];
 
     private AccountTaskListMenuItem GetOrCreateListMenuItem(
         AccountTaskList list,
@@ -3418,6 +3427,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 TaskViewKind.MyDay => _myDayMenuItem,
                 TaskViewKind.Planned => _plannedMenuItem,
                 TaskViewKind.Important => _importantMenuItem,
+                TaskViewKind.FlaggedMail when IsFlaggedMailAvailable => _flaggedMailMenuItem,
                 _ => _myDayMenuItem
             };
 

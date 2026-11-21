@@ -31,4 +31,5 @@ public sealed record PlatformCapabilities(
     bool WidgetsAndLiveTiles = false,
     bool AttachmentSecurityCheck = false,
     bool VoiceControl = false,
-    bool AppLock = false) : IPlatformCapabilities;
+    bool AppLock = false,
+    bool FlaggedMailTaskView = false) : IPlatformCapabilities;

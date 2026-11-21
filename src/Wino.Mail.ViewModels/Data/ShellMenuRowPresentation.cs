@@ -180,6 +180,8 @@ public static class ShellMenuRowPresentation
                 return row with { Glyph = WinoIconGlyph.Calendar, Title = Translator.ToDoPage_Planned, UnreadCount = planned.Count, IsExpanded = null };
             case ImportantTaskMenuItem important:
                 return row with { Glyph = WinoIconGlyph.Star, Title = Translator.ToDoPage_Important, UnreadCount = important.Count, IsExpanded = null };
+            case FlaggedMailTaskMenuItem flagged:
+                return row with { Glyph = WinoIconGlyph.Flag, Title = Translator.ToDoPage_FlaggedMail, UnreadCount = flagged.Count, IsExpanded = null };
             case AccountGroupMenuItem accountGroup:
                 return row with
                 {

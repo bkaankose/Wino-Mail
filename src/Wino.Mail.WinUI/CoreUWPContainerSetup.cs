@@ -49,7 +49,7 @@ public static class CoreUWPContainerSetup
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
             ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true, WidgetsAndLiveTiles: true,
-            AttachmentSecurityCheck: true, VoiceControl: true, AppLock: true));
+            AttachmentSecurityCheck: true, VoiceControl: true, AppLock: true, FlaggedMailTaskView: true));
         // The desktop socket (Wino.PushRelay.Socket): the key is a DPAPI-protected file. ApplicationRuntimeInitialization
         // starts the socket after the relay registration in background startup.
         services.AddSingleton<IPushRelaySocketKeyStore, ProtectedFilePushRelaySocketKeyStore>();
