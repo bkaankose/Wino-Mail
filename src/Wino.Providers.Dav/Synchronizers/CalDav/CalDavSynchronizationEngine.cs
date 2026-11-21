@@ -1286,7 +1286,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         if (snapshot != null)
             return await WriteEventEditAsync(account, item, attendees, reminders, identity, connection, calendar, snapshot, cancellationToken).ConfigureAwait(false);
 
-        var icsContent = CalDavIcsMutator.Normalize(CalendarIcsBuilder.BuildIcsContent(item, attendees, reminders));
+        var icsContent = CalDavIcsMutator.Normalize(CalendarIcsBuilder.BuildIcsContent(item, attendees, reminders ?? []));
         icsContent = await PrepareOutgoingIcsAsync(account, item, calendar, snapshot, icsContent, cancellationToken).ConfigureAwait(false);
 
         var result = await _client
