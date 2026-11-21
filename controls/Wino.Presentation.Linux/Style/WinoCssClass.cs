@@ -29,4 +29,5 @@ public static class WinoCssClass
     public const string InfoBar = "wino-info-bar";
     public const string InfoBarFloating = "wino-info-bar-floating";
     public const string InfoBarGlyph = "wino-info-bar-glyph";
+    public const string ModeSwitcher = "wino-mode-switcher";
 }

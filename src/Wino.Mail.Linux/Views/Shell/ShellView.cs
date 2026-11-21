@@ -7,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Messaging.Client.Mails;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Linux.Infrastructure;
+using Wino.Mail.Controls.Linux.Shell;
 using Wino.Mail.Linux.Views.Mail;
 using Wino.Mail.ViewModels.MenuItems.Contracts;
 using Wino.Mail.ViewModels.Shell;
@@ -17,7 +18,7 @@ namespace Wino.Mail.Linux.Views.Shell;
 
 /// <summary>
 /// The shell: <see cref="ShellSidebarView"/> beside the content area that <see cref="ShellLayout"/> arranges, with the
-/// reading pane beside pages that use it. Mail is the only mode of the proof of concept.
+/// reading pane beside pages that use it.
 /// </summary>
 internal sealed class ShellView : WinoView<WinoAppShellViewModel>
 {
@@ -28,6 +29,8 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     private readonly ShellLayout _layout;
     private readonly ShellSidebarView _sidebar;
     private readonly ShellHeaderBar _header;
+    private readonly WinoModeSwitcher _switcher = new();
+    private readonly Dictionary<WinoApplicationMode, Gtk.Widget> _placeholders = [];
     private readonly IServiceProvider _services;
     private readonly IDailyBriefingPresenter? _briefing;
     private readonly IWhatsNewPresenter? _whatsNew;
@@ -61,6 +64,8 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         _sidebar = new ShellSidebarView(ViewModel, Bind);
         _sidebar.ItemInvoked += _layout.DismissOverlaySidebar;
         _layout.SetSidebar(_sidebar.Root);
+        _sidebar.SetFooter(_switcher.Root);
+        _switcher.ModeSelected += SwitchMode;
         _layout.ReadingPane = _pane.Root;
         _header = new ShellHeaderBar(Translator.Buttons_Sync, ReportError);
         _layout.SetHeader(_header.Root);
@@ -74,6 +79,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     public object? ContentViewModel { get; private set; }
     internal ShellLayout Layout => _layout;
     internal ShellSidebarView Sidebar => _sidebar;
+    internal IReadOnlyList<WinoApplicationMode>? VisibleModes => ViewModel.ModeVisibility?.VisibleModes;
 
     public async Task SetContentAsync(IWinoView view, object? parameter)
     {
@@ -131,12 +137,58 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
 
 #if DEBUG
     internal string DescribeHeader() => _header.DescribeState();
+
+    internal string DescribeModes()
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append("ActiveMode=").AppendLine(_modes.ActiveMode?.ToString() ?? "-");
+        text.Append("CurrentMode=").AppendLine(ViewModel.CurrentMode.ToString());
+        text.Append("Switcher=").AppendLine(_switcher.Selected.ToString());
+        text.Append("Visible=").AppendLine(VisibleModes is { } visible ? string.Join(",", visible) : "-");
+        text.Append("Available=").AppendLine(string.Join(",", Wino.Core.Domain.Models.Accounts.AppModeVisibility.SwitchableModes.Select(mode => $"{mode}:{_navigation.IsModeAvailable(mode)}")));
+        text.Append("Placeholder=").AppendLine((_modes.ActiveMode is { } active && !_navigation.IsModeAvailable(active)).ToString());
+        var rows = Wino.Mail.ViewModels.Data.ShellMenuRowPresentation.Flatten(ViewModel.CurrentMenu?.Items);
+        text.Append("MenuRows=").AppendLine(rows.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        foreach (var (item, depth) in rows.Take(10))
+            text.Append("Row=").AppendLine(Wino.Mail.ViewModels.Data.ShellMenuRowPresentation.Describe(item, depth, null).Title);
+        return text.ToString();
+    }
 #endif
 
     public async Task ActivateModeAsync(WinoApplicationMode mode, ShellModeActivationContext? context)
     {
-        if (IsReleased || mode != WinoApplicationMode.Mail) return;
-        await _modes.ActivateAsync(mode, context, _navigation.ClearShellContentAsync, Dispatcher);
+        if (IsReleased) return;
+        await _modes.ActivateAsync(mode, context, _navigation.ClearShellContentAsync, Dispatcher, () => _content is not null, ModeTitle);
+        if (!IsReleased) UpdatePlaceholder();
+    }
+
+    internal void SwitchMode(WinoApplicationMode mode)
+    {
+        if (IsReleased) return;
+        if (!_navigation.ChangeApplicationMode(mode)) Serilog.Log.Information("The {Mode} mode is not available.", mode);
+    }
+
+    private static string ModeTitle(WinoApplicationMode mode) => mode switch
+    {
+        WinoApplicationMode.Calendar => "Wino " + Translator.KeyboardShortcuts_ModeCalendar,
+        WinoApplicationMode.Contacts => "Wino " + Translator.ContactsPage_Title,
+        WinoApplicationMode.Tasks => "Wino " + Translator.ToDoPage_Title,
+        _ => AppActions.ApplicationName
+    };
+
+    private void UpdatePlaceholder()
+    {
+        if (IsReleased) return;
+        Gtk.Widget? placeholder = null;
+        if (_modes.ActiveMode is { } active && !_navigation.IsModeAvailable(active))
+        {
+            if (!_placeholders.TryGetValue(active, out placeholder))
+            {
+                placeholder = ModePlaceholderView.Create(active);
+                _placeholders[active] = placeholder;
+            }
+        }
+        _layout.SetPlaceholder(placeholder);
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
@@ -150,7 +202,9 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
 
     // Mode activation navigates, so it follows OnPageLoaded as on the other heads.
     protected override Task LoadedAsync()
-        => ActivateModeAsync(WinoApplicationMode.Mail, new ShellModeActivationContext { IsInitialActivation = true });
+        => ActivateModeAsync(
+            ShellModeActivator.StartMode(ViewModel.StatePersistenceService, _navigation.IsModeAvailable, ViewModel.PreferencesService.HiddenApplicationModes),
+            new ShellModeActivationContext { IsInitialActivation = true });
 
     protected override async Task DeactivateAsync()
     {
@@ -162,6 +216,8 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         ViewModel.PreferencesService.PreferenceChanged -= _preferenceChanged;
         if (_briefing is not null) _briefing.UnseenItemsChanged -= _briefingChanged;
         _header.Dispose();
+        _switcher.ModeSelected -= SwitchMode;
+        _switcher.Dispose();
         _sidebar.Dispose();
         await ClearContentAsync();
         await _pane.ReleaseAsync();
@@ -181,12 +237,23 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         _header.BackRequested += GoBack;
         _header.SidebarToggleRequested += _layout.ToggleSidebar;
         _header.SynchronizeRequested += Synchronize;
-        _header.ModeRequested += SwitchModeFromHeader;
+        _header.ModeRequested += SwitchMode;
         _header.WhatsNewRequested += ShowWhatsNew;
         _header.AccountRequested += OpenAccount;
 
-        Bind.Bind(nameof(WinoAppShellViewModel.CurrentMode), static vm => vm.CurrentMode, _ => { UpdateModes(); UpdateTitle(); });
-        Bind.Bind(nameof(WinoAppShellViewModel.ModeVisibility), static vm => vm.ModeVisibility, _ => UpdateModes());
+        Bind.Bind(nameof(WinoAppShellViewModel.CurrentMode), static vm => vm.CurrentMode, mode =>
+        {
+            _switcher.Selected = mode;
+            _sidebar.SetTitle(ModeTitle(mode));
+            UpdateModes();
+            UpdateTitle();
+            UpdatePlaceholder();
+        });
+        Bind.Bind(nameof(WinoAppShellViewModel.ModeVisibility), static vm => vm.ModeVisibility, visibility =>
+        {
+            _switcher.SetVisibleModes(visibility?.VisibleModes);
+            UpdateModes();
+        });
         Bind.Bind(nameof(WinoAppShellViewModel.CurrentProvider), static vm => vm.CurrentProvider, ObserveProvider);
         Bind.Bind(nameof(WinoAppShellViewModel.SelectedMenuItem), static vm => vm.SelectedMenuItem, item =>
         {
@@ -247,11 +314,6 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     {
         await _navigation.GoBackAsync();
         if (!IsReleased) RefreshBack();
-    }
-
-    private void SwitchModeFromHeader(WinoApplicationMode mode)
-    {
-        if (!_navigation.ChangeApplicationMode(mode)) Serilog.Log.Information("The {Mode} mode is not available.", mode);
     }
 
     private void UpdateModes() => _header.SetModes(ViewModel.CurrentMode, ViewModel.ModeVisibility?.VisibleModes);

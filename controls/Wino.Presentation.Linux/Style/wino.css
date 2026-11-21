@@ -136,3 +136,22 @@
   border-radius: var(--wino-control-radius);
   box-shadow: 0 0 0 1px @card_shade_color, 0 4px 14px @shade_color;
 }
+
+.wino-mode-switcher togglebutton,
+.wino-mode-switcher button {
+  min-height: 32px;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.wino-mode-switcher togglebutton:checked {
+  color: @accent_color;
+  background-color: alpha(@accent_bg_color, 0.14);
+}
+
+.wino-has-backdrop .wino-mode-switcher {
+  padding: 5px;
+  border-radius: 9px;
+  background-color: alpha(@card_bg_color, 0.78);
+  box-shadow: 0 0 0 1px @card_shade_color;
+}
