@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Mail.WinUI.Dialogs;
@@ -33,8 +34,11 @@ public sealed partial class TaskListPickerDialog : ContentDialog
     internal TaskListPickerItem[] Items { get; }
     public AccountTaskList? PickedList { get; private set; }
 
-    public TaskListPickerDialog(IReadOnlyList<AccountTaskList> taskLists, IReadOnlyList<MailAccount> accounts)
+    internal string DialogTitle { get; }
+
+    public TaskListPickerDialog(IReadOnlyList<AccountTaskList> taskLists, IReadOnlyList<MailAccount> accounts, string? title = null)
     {
+        DialogTitle = string.IsNullOrWhiteSpace(title) ? Translator.ToDoSettings_ListPicker_Title : title;
         Items = taskLists
             .Select(list => new TaskListPickerItem(
                 list,

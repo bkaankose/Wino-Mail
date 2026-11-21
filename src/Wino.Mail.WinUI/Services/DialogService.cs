@@ -277,12 +277,10 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         IReadOnlyList<MailAccount> accounts,
         string? title)
     {
-        var dialog = new TaskListPickerDialog(taskLists, accounts)
+        var dialog = new TaskListPickerDialog(taskLists, accounts, title)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
-        if (!string.IsNullOrWhiteSpace(title))
-            dialog.Title = title;
 
         await HandleDialogPresentationAsync(dialog);
         return dialog.PickedList;

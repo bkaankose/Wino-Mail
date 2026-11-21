@@ -6,7 +6,7 @@
     xmlns:dialogs="using:Wino.Mail.WinUI.Dialogs"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
-    Title="{x:Bind domain:Translator.ToDoSettings_ListPicker_Title}"
+    Title="{x:Bind DialogTitle}"
     CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
     Style="{StaticResource WinoDialogStyle}">
     <ListView
