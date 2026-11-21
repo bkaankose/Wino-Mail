@@ -66,4 +66,8 @@ public static class WinoCssClass
     public const string Dragging = "wino-dragging";
     public const string DropBefore = "wino-drop-before";
     public const string DropAfter = "wino-drop-after";
+    public const string PivotBar = "wino-pivot-bar";
+    public const string Pivot = "wino-pivot";
+    public const string Link = "wino-link";
+    public const string MailListHeader = "wino-mail-list-header";
 }
