@@ -79,7 +79,7 @@
                 SelectedItem="{x:Bind ViewModel.SelectedSourceOption, Mode=TwoWay}">
                 <RadioButtons.ItemTemplate>
                     <DataTemplate x:DataType="accountSettings:AccountAppSourceOption">
-                        <StackPanel Margin="0,4" AutomationProperties.Name="{x:Bind Title}">
+                        <StackPanel Margin="0,0,0,6" AutomationProperties.Name="{x:Bind Title}">
                             <TextBlock Text="{x:Bind Title}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
