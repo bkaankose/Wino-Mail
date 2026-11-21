@@ -10,15 +10,14 @@ namespace Wino.Mail.Linux.Views.Settings;
 
 /// <summary>
 /// Reader actions (Windows ReaderActionsPage): order and visibility of the reader command bar and the action labels
-/// switch. Changes stay in the ViewModel's working copy until Apply. Rows move with up and down buttons until the
-/// drag list lands.
+/// switch. Changes stay in the ViewModel's working copy until Apply. Rows move by drag, Alt+Up / Alt+Down and the
+/// Move up / Move down buttons of the drag list.
 /// </summary>
 internal sealed class ReaderActionsPage(ReaderActionsPageViewModel viewModel, WinoViewServices services)
     : SettingsPageView<ReaderActionsPageViewModel>(viewModel, services)
 {
-    private readonly List<Gtk.Widget> _rows = [];
-    private Adw.ExpanderRow? _arrange;
-    private SettingsBinder? _rowBinder;
+    private readonly Dictionary<ReaderCommandLayoutItemViewModel, (WinoDragRow Row, SettingsBinder Binder)> _rows = new(ReferenceEqualityComparer.Instance);
+    private WinoDragList? _arrange;
 
     protected override void BuildPage()
     {
@@ -28,8 +27,12 @@ internal sealed class ReaderActionsPage(ReaderActionsPageViewModel viewModel, Wi
             Settings.Switch(vm, Translator.SettingsMailRendering_ActionLabels_Title, Translator.SettingsMailRendering_ActionLabels_Description, WinoIconGlyph.ToggleLeft,
                 nameof(vm.ShowActionLabels), static s => s.ShowActionLabels, static (s, v) => s.ShowActionLabels = v));
 
-        _arrange = WinoSettingsRows.Expander(Translator.ReaderActions_ArrangeHeader, Translator.ReaderActions_ArrangeDescription, WinoIconGlyph.ReOrderDotsVertical, true);
-        AddGroup(null, _arrange);
+        var arrange = _arrange = new WinoDragList(null, Translator.ReaderActions_ArrangeHeader) { ShowsMoveButtons = true };
+        Settings.Own(arrange);
+        arrange.Group.Dropped = (_, from, _, to) => Move(from, to);
+        var group = Page.AddGroup(Translator.ReaderActions_ArrangeHeader, Translator.ReaderActions_ArrangeDescription);
+        group.HidesWhenEmpty = false;
+        group.Root.Add(arrange.Root);
         Settings.Collection(vm.Items, Rebuild);
 
         var unsaved = WinoSettingsRows.Caption(Translator.ReaderActions_UnsavedChanges);
@@ -47,22 +50,28 @@ internal sealed class ReaderActionsPage(ReaderActionsPageViewModel viewModel, Wi
 
     private void Rebuild()
     {
-        if (_arrange is not { } arrange) return;
-        _rowBinder?.Scope.Dispose();
-        var binder = _rowBinder = Settings.Child();
-        foreach (var row in _rows) arrange.Remove(row);
-        _rows.Clear();
-
-        var items = ViewModel.Items;
-        for (var index = 0; index < items.Count; index++)
+        if (_arrange is not { } arrange || IsReleased) return;
+        var items = ViewModel.Items.ToList();
+        var present = new HashSet<ReaderCommandLayoutItemViewModel>(items, ReferenceEqualityComparer.Instance);
+        var rows = new List<WinoDragRow>(items.Count);
+        foreach (var item in items)
         {
-            var row = ActionRow(binder, items[index], index, items.Count);
-            arrange.AddRow(row);
-            _rows.Add(row);
+            if (!_rows.TryGetValue(item, out var entry))
+            {
+                var binder = Settings.Child();
+                _rows[item] = entry = (new WinoDragRow(ActionRow(binder, item), item.Title ?? string.Empty), binder);
+            }
+            rows.Add(entry.Row);
+        }
+        arrange.SetRows(rows);
+        foreach (var stale in _rows.Keys.Where(item => !present.Contains(item)).ToList())
+        {
+            _rows[stale].Binder.Scope.Dispose();
+            _rows.Remove(stale);
         }
     }
 
-    private Adw.ActionRow ActionRow(SettingsBinder binder, ReaderCommandLayoutItemViewModel item, int index, int count)
+    private static Adw.ActionRow ActionRow(SettingsBinder binder, ReaderCommandLayoutItemViewModel item)
     {
         var row = WinoSettingsRows.Action(item.Title ?? string.Empty, null, item.Icon);
         if (item.HasSecondIcon)
@@ -71,13 +80,6 @@ internal sealed class ReaderActionsPage(ReaderActionsPageViewModel viewModel, Wi
             second.SetValign(Gtk.Align.Center);
             row.AddPrefix(second);
         }
-
-        var up = WinoSettingsRows.Suffix(row, WinoSettingsRows.GlyphButton(WinoIconGlyph.ChevronUp, Translator.MailFilters_MoveUp));
-        up.SetSensitive(index > 0);
-        binder.Own(GtkSignals.OnClicked(up, () => Move(index, index - 1)));
-        var down = WinoSettingsRows.Suffix(row, WinoSettingsRows.GlyphButton(WinoIconGlyph.ChevronDown, Translator.MailFilters_MoveDown));
-        down.SetSensitive(index < count - 1);
-        binder.Own(GtkSignals.OnClicked(down, () => Move(index, index + 1)));
         WinoSettingsRows.Suffix(row, binder.SwitchSuffix(item, item.VisibilityAutomationName, nameof(item.IsVisible),
             static s => s.IsVisible, static (s, v) => s.IsVisible = v));
         return row;
