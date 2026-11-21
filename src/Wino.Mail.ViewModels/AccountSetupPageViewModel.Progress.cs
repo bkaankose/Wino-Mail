@@ -373,7 +373,7 @@ public partial class AccountSetupPageViewModel
             return;
         }
 
-        var accountName = GetAdvancedAccountName(address);
+        var accountName = GetAdvancedAccountName();
         var calendarSupportMode = calendarMode switch
         {
             AccountCapabilityMode.Provider => ImapCalendarSupportMode.CalDav,
@@ -443,17 +443,11 @@ public partial class AccountSetupPageViewModel
                ?? providers.FirstOrDefault(provider => provider.Type == MailProviderType.IMAP4 && provider.SpecialImapProvider == SpecialImapProvider.None);
     }
 
-    private string GetAdvancedAccountName(string address)
-    {
-        var name = AccountName?.Trim();
-        if (!string.IsNullOrWhiteSpace(name))
-            return name;
-
-        if (MailAccountAddressValidator.TryGetDomain(address, out var domain) && !string.IsNullOrWhiteSpace(domain))
-            return domain;
-
-        return Translator.ProviderSelection_ModeImap;
-    }
+    /// <summary>
+    /// Only a name the user typed. Advanced setup names the account after the address it is saved with when there is
+    /// none, because the address may still change there.
+    /// </summary>
+    private string GetAdvancedAccountName() => AccountName?.Trim() ?? string.Empty;
 
     #endregion
 

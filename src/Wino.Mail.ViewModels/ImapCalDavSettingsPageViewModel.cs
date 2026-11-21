@@ -518,6 +518,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         serverInformation.Id = Guid.NewGuid();
         serverInformation.AccountId = Guid.Empty;
 
+        _wizardContext.AccountName = NewAccountName;
+
         // The account is created from the wizard context, which still holds the setup page's guess when that page
         // found no servers (CalDAV calendar). What this page shows and saves is the user's choice.
         _wizardContext.IsMailAccessEnabled = IsMailSupportEnabled;
@@ -1168,13 +1170,14 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
+    /// <summary>The name the user typed before Advanced setup opened, otherwise the address the account is saved with.</summary>
+    private string NewAccountName => string.IsNullOrWhiteSpace(_accountCreationContext?.AccountName)
+        ? EmailAddress?.Trim() ?? string.Empty
+        : _accountCreationContext.AccountName.Trim();
+
     private async Task<bool> ValidateAccountUniquenessAsync(Guid? excludedAccountId)
     {
-        var accountName = (_pageMode == ImapCalDavSettingsPageMode.Create
-                           || _pageMode == ImapCalDavSettingsPageMode.Wizard
-                           || _pageMode == ImapCalDavSettingsPageMode.AddAccount)
-            ? _accountCreationContext?.AccountName
-            : null;
+        var accountName = IsCreateMode ? NewAccountName : null;
 
         if (!string.IsNullOrWhiteSpace(accountName) &&
             await _accountService.AccountNameExistsAsync(accountName, excludedAccountId).ConfigureAwait(false))
