@@ -150,6 +150,11 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     private readonly IImapCalendarOperationHandler _calDavCalendarOperationHandler;
     private bool _isFolderStructureChanged;
 
+    // NAMESPACE (RFC 2342) is read once per session, and a server may resolve what others share with the user when the
+    // session logs in, so a long-lived pooled session can miss a new share. Once the server shows it can share (ACL,
+    // RFC 4314, or a non-personal namespace), every folder listing runs on a new session.
+    private bool _serverCanShareFolders;
+
     public ImapSynchronizer(MailAccount account,
                                                         IMessenger messenger,
                             RequestUiChangeCoordinator uiChanges,
@@ -1412,7 +1417,11 @@ IImapChangeProcessor imapChangeProcessor,
                         _logger.Warning(ex, "Listing the IMAP namespace {Namespace} failed. Its folders are kept as they are.", otherNamespace.Path);
                     }
                 }
-            }, cancellationToken, purpose: "FolderStructure").ConfigureAwait(false);
+            }, cancellationToken, purpose: "FolderStructure", freshConnection: _serverCanShareFolders).ConfigureAwait(false);
+
+            _serverCanShareFolders = executorClient.Capabilities.HasFlag(ImapCapabilities.Acl) ||
+                                     executorClient.OtherNamespaces.Count > 0 ||
+                                     executorClient.SharedNamespaces.Count > 0;
 
             remoteFolders = remoteFolders
                 .GroupBy(folder => folder.FullName, StringComparer.Ordinal)
