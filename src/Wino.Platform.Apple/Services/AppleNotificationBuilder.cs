@@ -532,6 +532,34 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             NotificationKind.Other);
     }
 
+    public async Task CreateTaskReminderNotificationAsync(AccountTask task)
+    {
+        if (task == null) return;
+
+        var accountPreferences = (await _accountService.GetAccountAsync(task.MailAccountId).ConfigureAwait(false))?.Preferences;
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
+        var title = hidesContent
+            ? Translator.TaskReminder_HiddenTitle
+            : string.IsNullOrWhiteSpace(task.Title) ? Translator.ToDoPage_NewTask : task.Title;
+        var body = !hidesContent && task.DueDate is { } dueDate ? string.Format(Translator.ToDoPage_DueOn, dueDate.ToString("D")) : string.Empty;
+
+        var request = new NotificationRequest(
+            Identifier: $"task-reminder-{task.Id:N}",
+            Title: title,
+            Subtitle: null,
+            Body: body,
+            Category: AppleNotificationCategories.TaskReminder,
+            ThreadIdentifier: "tasks",
+            UserInfo: new Dictionary<string, string>
+            {
+                [Constants.ToastModeKey] = Constants.ToastModeTasks,
+                [Constants.ToastTaskIdKey] = task.Id.ToString(),
+                [Constants.ToastTaskActionKey] = Constants.ToastTaskOpenAction
+            },
+            Sound: _sounds.Resolve(NotificationSoundKind.Task));
+        await ShowAsync(request, NotificationKind.TaskReminder, accountPreferences).ConfigureAwait(false);
+    }
+
     public Task CreateTestTaskReminderNotificationAsync(AccountTask task)
     {
         if (task == null) return Task.CompletedTask;
