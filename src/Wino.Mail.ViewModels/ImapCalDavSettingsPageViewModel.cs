@@ -54,6 +54,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private TaskCompletionSource<ImapCalDavSetupResult> _completionSource;
     private AccountCreationDialogResult _accountCreationContext;
     private bool _isCompletionFinalized;
+    private bool _isLeavingPage;
     private bool _isCardDavEnabled;
     private MailProviderType _providerType = MailProviderType.IMAP4;
 
@@ -347,6 +348,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _providerType = context.AccountCreationDialogResult?.ProviderType ?? MailProviderType.IMAP4;
         _isCardDavEnabled = _wizardContext.ContactIntegrationSource == AccountIntegrationSource.Dav;
         _isCompletionFinalized = false;
+        _isLeavingPage = false;
         _isDavModeTrackingEnabled = false;
         IsPageInfoBarOpen = false;
 
@@ -507,6 +509,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             _isCompletionFinalized = true;
         }
 
+        _isLeavingPage = true;
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
@@ -1178,6 +1181,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             Translator.ImapCalDavSettingsPage_SaveSuccessMessage,
             InfoBarMessageType.Success);
 
+        _isLeavingPage = true;
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
@@ -1318,6 +1322,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             Translator.ImapCalDavSettingsPage_SaveSuccessMessage,
             InfoBarMessageType.Success);
 
+        _isLeavingPage = true;
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 

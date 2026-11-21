@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
@@ -18,7 +19,7 @@ namespace Wino.Mail.ViewModels;
 /// The guided flow of the IMAP server page: sign in, then check the servers. Also carries the
 /// connection states and the capability choices that the edit page shares with the wizard.
 /// </summary>
-public partial class ImapCalDavSettingsPageViewModel
+public partial class ImapCalDavSettingsPageViewModel : IConfirmBackNavigation
 {
     private AccountCapabilityMode _initialContactMode = AccountCapabilityMode.Off;
     private AccountCapabilityMode _initialTaskMode = AccountCapabilityMode.Off;
@@ -265,34 +266,44 @@ public partial class ImapCalDavSettingsPageViewModel
     [RelayCommand(CanExecute = nameof(IsNotBusy))]
     private void Back()
     {
-        if (IsFeaturesStepVisible)
-        {
+        // The first step goes back to the page Advanced setup was opened from.
+        if (!TryGoBackOneStep())
             Cancel();
-            return;
-        }
+    }
 
-        if (IsCreateMode && CurrentSetupStep == ImapSetupStep.Servers)
+    /// <summary>
+    /// The window's Back button, the mouse back button and the breadcrumb leave the page through here. While adding
+    /// an account they go back one step like the page's own Back, so the apps chosen on Features are kept.
+    /// </summary>
+    public ValueTask<bool> CanNavigateBackAsync()
+        => ValueTask.FromResult(_isLeavingPage || IsBusy || !TryGoBackOneStep());
+
+    private bool TryGoBackOneStep()
+    {
+        if (!IsCreateMode || IsFeaturesStepVisible)
+            return false;
+
+        if (CurrentSetupStep == ImapSetupStep.Servers)
         {
             CurrentSetupStep = ImapSetupStep.SignIn;
-            return;
+            return true;
         }
 
-        if (IsCreateMode && SignInStage == ImapSignInStage.Method)
+        if (SignInStage == ImapSignInStage.Method)
         {
             CancelOAuthSignIn();
             HideOAuthInfoBar();
             SignInStage = ImapSignInStage.Identity;
-            return;
+            return true;
         }
 
-        if (IsCreateMode && _hasFeaturesStep)
+        if (_hasFeaturesStep)
         {
             CurrentSetupStep = ImapSetupStep.Features;
-            return;
+            return true;
         }
 
-        // The first step goes back to the provider page, where the capabilities were chosen.
-        Cancel();
+        return false;
     }
 
     partial void OnCurrentSetupStepChanged(ImapSetupStep value) => NotifySecureSignInLayoutChanged();
