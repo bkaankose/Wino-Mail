@@ -143,6 +143,8 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     public event EventHandler<CalendarItemClickedEventArgs>? ItemDoubleClicked;
     public event EventHandler<CalendarItemClickedEventArgs>? ItemRightClicked;
     public event EventHandler<CalendarSlotClickedEventArgs>? SlotClicked;
+    /// <summary>A double click on a month day (Windows MonthDayDoubleTapped): the day, for the Day view.</summary>
+    public event EventHandler<DateTime>? MonthDayDoubleClicked;
 
     /// <summary>
     /// The period the view model shows. A confirmation of the period the rail settled on moves
@@ -236,6 +238,8 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         else if (clicks < 0) ItemRightClicked?.Invoke(this, args);
         else ItemClicked?.Invoke(this, args);
     }
+
+    internal void RaiseMonthDayDoubleClicked(DateTime date) => MonthDayDoubleClicked?.Invoke(this, date);
 
     internal void RaiseSlotClicked(DateTime start, CGRect anchorInChild, NSView child, bool allDay)
         => SlotClicked?.Invoke(this, new CalendarSlotClickedEventArgs(start, ConvertRectFromView(anchorInChild, child), allDay));
@@ -966,7 +970,13 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             if (Owner.TryShowOverflow(this, _overflows, point)) return;
             var cell = _cells.FirstOrDefault(c => c.Bounds.Contains(point));
             if (cell is null) { Owner.BeginRailPress(this, theEvent, null); return; }
-            Owner.BeginSlotPress(this, month: true, point, theEvent, () => Owner.RaiseSlotClicked(cell.Date.ToDateTime(TimeOnly.MinValue), cell.Bounds, this, true));
+            var day = cell.Date.ToDateTime(TimeOnly.MinValue);
+            var doubleClick = theEvent.ClickCount == 2;
+            Owner.BeginSlotPress(this, month: true, point, theEvent, () =>
+            {
+                if (doubleClick) Owner.RaiseMonthDayDoubleClicked(day);
+                else Owner.RaiseSlotClicked(day, cell.Bounds, this, true);
+            });
         }
 
         public override void MouseDragged(NSEvent theEvent) => Owner.DragSlotPress(theEvent);

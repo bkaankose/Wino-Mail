@@ -84,6 +84,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _surface.ItemResizeRequested += SurfaceItemResizeRequested;
         _surface.ItemClicked += SurfaceItemClicked;
         _surface.ItemDoubleClicked += SurfaceItemDoubleClicked;
+        _surface.MonthDayDoubleClicked += SurfaceMonthDayDoubleClicked;
         _surface.ItemRightClicked += SurfaceItemRightClicked;
         _surface.SlotClicked += SurfaceSlotClicked;
         _surface.PeriodSettled += SurfacePeriodSettled;
@@ -271,6 +272,12 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
     {
         CloseQuickEvent();
         if (args.Item is CalendarItemViewModel item) WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(item));
+    }
+
+    private void SurfaceMonthDayDoubleClicked(object? sender, DateTime day)
+    {
+        CloseQuickEvent();
+        _shell.OpenDayView(DateOnly.FromDateTime(day));
     }
 
     private void SurfaceItemDoubleClicked(object? sender, CalendarItemClickedEventArgs args)
