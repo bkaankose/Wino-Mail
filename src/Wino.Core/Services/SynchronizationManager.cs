@@ -798,11 +798,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (allRequests.All(request => request is TaskActionRequest { AllowUndo: true }))
         {
             var taskRequests = allRequests.Cast<TaskActionRequest>().ToList();
-            var title = taskRequests.All(request => request.Operation == TaskSynchronizerOperation.DeleteTask)
-                ? Translator.UndoActions_TaskDeleted
-                : taskRequests.Any(request => request.OriginalTask is { } original && request.Task is { } task && original.TaskListId != task.TaskListId)
-                    ? Translator.UndoActions_TaskMoved
-                    : Translator.UndoActions_TaskCompleted;
+            var moved = taskRequests.Count(request => request.Operation == TaskSynchronizerOperation.UpdateTask &&
+                                                      request.OriginalTask is { } original && request.Task is { } task && original.TaskListId != task.TaskListId);
+
+            // A completion pack can also hold the next occurrence of a recurring task; only the completions count.
+            string title;
+            if (taskRequests.All(request => request.Operation == TaskSynchronizerOperation.DeleteTask))
+                title = taskRequests.Count == 1 ? Translator.UndoActions_TaskDeleted : string.Format(Translator.UndoActions_TasksDeleted, taskRequests.Count);
+            else if (moved > 0)
+                title = moved == 1 ? Translator.UndoActions_TaskMoved : string.Format(Translator.UndoActions_TasksMoved, moved);
+            else
+            {
+                var completed = taskRequests.Count(request => request.Operation == TaskSynchronizerOperation.UpdateTask);
+                title = completed <= 1 ? Translator.UndoActions_TaskCompleted : string.Format(Translator.UndoActions_TasksCompleted, completed);
+            }
 
             return new UndoActionSettings(title, string.Empty, InfoBarMessageType.Information, TaskUndoIntervalInSeconds, UndoableActionKind.Task);
         }
