@@ -194,7 +194,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More || !folder.IsMoveTarget)
             return default;
 
-        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder);
+        var isOwnFolder = folder.HandlingFolders.All(handlingFolder => handlingFolder.Scope == MailFolderScope.Personal);
+
+        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder, isOwnFolder);
     }
 
     private async Task CreateFooterItemsAsync(bool showNotification = false)

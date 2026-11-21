@@ -14,7 +14,7 @@ namespace Wino.Services;
 
 public class ContextMenuItemService(IMailProviderRegistry providers) : IContextMenuItemService
 {
-    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder)
+    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder, bool isOwnFolder = true)
     {
         var list = new List<FolderOperationMenuItem>();
 
@@ -25,13 +25,15 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
 
         list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
 
-        // Following 4 items are disabled for system folders.
+        // Disabled for system folders. A shared folder's rights are not known, so they are not offered there.
+        if (isOwnFolder)
+        {
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.Rename, !isSystemFolder));
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.Delete, !isSystemFolder));
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.CreateSubFolder, !isSystemFolder));
 
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Rename, !isSystemFolder));
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Delete, !isSystemFolder));
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.CreateSubFolder, !isSystemFolder));
-
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
+        }
 
         list.Add(FolderOperationMenuItem.Create(FolderOperation.Empty));
 
