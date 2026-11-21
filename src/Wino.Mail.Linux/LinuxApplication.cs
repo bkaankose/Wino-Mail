@@ -98,6 +98,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.MailFolderPickerDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.AccountSetupDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailTilesDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.ImapSetupDebugActions.Register(application);
         }
 #endif
     }
