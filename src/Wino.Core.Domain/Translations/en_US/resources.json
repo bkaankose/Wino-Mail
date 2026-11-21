@@ -5855,5 +5855,7 @@
   "ToDoPage_FlaggedMailComplete": "Complete and clear the flag",
   "ToDoPage_FlaggedMailOpen": "Open message",
   "ToDoPage_FlaggedMailCount": "{0} flagged messages",
-  "ToDoPage_FlaggedMailCount_Singular": "{0} flagged message"
+  "ToDoPage_FlaggedMailCount_Singular": "{0} flagged message",
+  "ConnectedItems_NoTaskListYetTitle": "No task list yet",
+  "ConnectedItems_NoTaskListYetMessage": "Create a task list in To Do, then create the task again."
 }

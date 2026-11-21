@@ -91,13 +91,28 @@ public sealed partial class ConnectedItemsCoordinator(
             .Where(static list => !list.IsReadOnly)
             .ToList();
 
+        var accounts = await accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
+
         if (lists.Count == 0)
         {
-            dialogService.InfoBarMessage(Translator.ConnectedItems_NoTaskListTitle, Translator.ConnectedItems_NoTaskListMessage, InfoBarMessageType.Warning);
+            // To Do can be on for an account that holds no list yet; that one can make a list right away.
+            if (accounts.Any(static account => account.IsTaskAccessEnabled))
+            {
+                dialogService.InfoBarMessage(
+                    Translator.ConnectedItems_NoTaskListYetTitle,
+                    Translator.ConnectedItems_NoTaskListYetMessage,
+                    InfoBarMessageType.Warning,
+                    Translator.ToDoPage_NewList,
+                    () => _ = OpenToDoAsync(new ToDoNavigationArgs(CreateList: true)));
+            }
+            else
+            {
+                dialogService.InfoBarMessage(Translator.ConnectedItems_NoTaskListTitle, Translator.ConnectedItems_NoTaskListMessage, InfoBarMessageType.Warning);
+            }
+
             return;
         }
 
-        var accounts = await accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
         var orderedLists = lists
             .OrderBy(list => accounts.FindIndex(account => account.Id == list.MailAccountId) is var index && index >= 0 ? index : int.MaxValue)
             .ThenByDescending(static list => list.IsDefault)
@@ -282,10 +297,12 @@ public sealed partial class ConnectedItemsCoordinator(
             return;
         }
 
-        await dispatcher.ExecuteOnUIThread(() =>
-            navigationService.ChangeApplicationMode(WinoApplicationMode.Tasks, new ShellModeActivationContext { Parameter = new ToDoNavigationArgs(taskId) }))
-            .ConfigureAwait(false);
+        await OpenToDoAsync(new ToDoNavigationArgs(taskId)).ConfigureAwait(false);
     }
+
+    private Task OpenToDoAsync(ToDoNavigationArgs args)
+        => dispatcher.ExecuteOnUIThread(() =>
+            navigationService.ChangeApplicationMode(WinoApplicationMode.Tasks, new ShellModeActivationContext { Parameter = args }));
 
     public async Task OpenEventAsync(Guid accountId, string eventKey)
     {

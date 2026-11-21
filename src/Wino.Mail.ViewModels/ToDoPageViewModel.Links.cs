@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -37,8 +38,13 @@ public partial class ToDoPageViewModel : IRecipient<ItemLinksChanged>
 
     private async Task OpenRequestedTaskAsync(object parameters)
     {
-        if (parameters is ToDoNavigationArgs { } args)
-            await LoadAndSelectTaskAsync(args.TaskId).ConfigureAwait(false);
+        if (parameters is not ToDoNavigationArgs { } args)
+            return;
+
+        if (args.TaskId is Guid taskId)
+            await LoadAndSelectTaskAsync(taskId).ConfigureAwait(false);
+        else if (args.CreateList)
+            await ExecuteUIThreadAsync(CreateListAsync).ConfigureAwait(false);
     }
 
     private void BeginSelectedTaskLinksLoad(TaskItemViewModel item)
