@@ -10,8 +10,8 @@ namespace Wino.Mail.Linux.Views.Settings;
 
 /// <summary>
 /// The theme gallery (Windows ApplicationThemeGalleryPage): errors, the current theme with Create, the filter, and the
-/// tiles as one radio group of toggle buttons; activating a tile applies its theme. Wallpaper previews decode one per
-/// main-loop idle turn, so the page is usable before they finish.
+/// tiles as one radio group of toggle buttons; activating a tile applies its theme. Wallpaper previews decode on worker
+/// threads and appear as they finish.
 /// </summary>
 internal sealed class ApplicationThemeGalleryPage(ApplicationThemeGalleryPageViewModel viewModel, WinoViewServices services)
     : SettingsPageView<ApplicationThemeGalleryPageViewModel>(viewModel, services)
@@ -23,7 +23,7 @@ internal sealed class ApplicationThemeGalleryPage(ApplicationThemeGalleryPageVie
     private readonly Gtk.Picture _currentPicture = Gtk.Picture.New();
     private string? _currentGradient;
     private SettingsBinder? _tileBinder;
-    private uint _loader;
+    private CancellationTokenSource? _loader;
     private bool _syncing;
 
     protected override void BuildPage()
@@ -196,7 +196,10 @@ internal sealed class ApplicationThemeGalleryPage(ApplicationThemeGalleryPageVie
         }
         else if (model.ImagePath is { } path)
         {
-            _currentPicture.SetPaintable(ThemePreviews.Load(path));
+            Observe(ThemePreviews.LoadAsync(path, Dispatcher, texture =>
+            {
+                if (!IsReleased && ViewModel.CurrentTheme?.Id == theme.Id) _currentPicture.SetPaintable(texture);
+            }));
         }
     }
 
@@ -212,26 +215,30 @@ internal sealed class ApplicationThemeGalleryPage(ApplicationThemeGalleryPageVie
 
     private void StartLoader()
     {
-        if (_loader != 0 || _pending.Count == 0) return;
-        var started = DateTime.UtcNow;
-        _loader = GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
+        if (_loader is not null || _pending.Count == 0) return;
+        var loader = _loader = new CancellationTokenSource();
+        var token = loader.Token;
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        var loads = new List<Task>(_pending.Count);
+        while (_pending.TryDequeue(out var next))
         {
-            if (IsReleased || !_pending.TryDequeue(out var next))
+            var tile = next.Tile;
+            loads.Add(ThemePreviews.LoadAsync(next.Path, Dispatcher, texture =>
             {
-                // Cleared before returning false: removing a finished source logs a GLib critical.
-                _loader = 0;
-                if (!IsReleased) Serilog.Log.Debug("Theme gallery previews decoded in {Elapsed} ms.", (int)(DateTime.UtcNow - started).TotalMilliseconds);
-                return false;
-            }
-            next.Tile.SetTexture(ThemePreviews.Load(next.Path));
-            return true;
-        });
+                if (!IsReleased) tile.SetTexture(texture);
+            }, token));
+        }
+        Observe(Task.WhenAll(loads).ContinueWith(task =>
+        {
+            if (!task.IsCanceled) Serilog.Log.Debug("Theme gallery previews decoded in {Elapsed} ms.", started.ElapsedMilliseconds);
+        }, TaskScheduler.Default));
     }
 
     private void StopLoader()
     {
-        if (_loader == 0) return;
-        GLib.Functions.SourceRemove(_loader);
-        _loader = 0;
+        if (_loader is not { } loader) return;
+        _loader = null;
+        loader.Cancel();
+        loader.Dispose();
     }
 }

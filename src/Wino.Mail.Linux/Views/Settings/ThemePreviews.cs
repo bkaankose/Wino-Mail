@@ -1,4 +1,6 @@
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
+using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.Controls.Linux.Settings;
 using Wino.Presentation.Linux;
 
@@ -6,7 +8,8 @@ namespace Wino.Mail.Linux.Views.Settings;
 
 /// <summary>
 /// Theme previews for the Personalization and gallery pages: the tile model of a theme and its decoded preview, scaled to
-/// twice the tile size and cached for the process by path and write time (a custom theme can rewrite its preview).
+/// twice the tile size off the main thread and cached for the process by path and write time (a custom theme can rewrite
+/// its preview).
 /// </summary>
 internal static class ThemePreviews
 {
@@ -28,28 +31,33 @@ internal static class ThemePreviews
             theme.IsCustomTheme);
     }
 
+    /// <summary>Main thread.</summary>
     public static bool TryGet(string path, out Gdk.Texture? texture) => Cache.TryGetValue(Key(path), out texture);
 
-    /// <summary>Decodes on the main thread at preview size; null when the file is missing or unreadable.</summary>
-    public static Gdk.Texture? Load(string path)
+    /// <summary>
+    /// Decodes at preview size on a worker thread and creates the texture on the main thread, where
+    /// <paramref name="apply"/> runs unless <paramref name="cancellation"/> was cancelled. Null when the file is missing
+    /// or unreadable. Call on the main thread.
+    /// </summary>
+    public static async Task LoadAsync(string path, IDispatcher dispatcher, Action<Gdk.Texture?> apply, CancellationToken cancellation = default)
     {
         var key = Key(path);
-        if (Cache.TryGetValue(key, out var cached)) return cached;
-        Gdk.Texture? texture = null;
-        try
+        if (Cache.TryGetValue(key, out var cached))
         {
-            if (File.Exists(path))
+            apply(cached);
+            return;
+        }
+        var image = await Task.Run(() => File.Exists(path) ? ThemeImaging.DecodeToFit(path, DecodeWidth, DecodeHeight) : null, cancellation).ConfigureAwait(false);
+        if (image is null) Serilog.Log.Warning("Theme preview {Path} could not be decoded.", path);
+        await dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (!Cache.TryGetValue(key, out var texture))
             {
-                var pixbuf = GdkPixbuf.Pixbuf.NewFromFileAtScale(path, DecodeWidth, DecodeHeight, true);
-                if (pixbuf is not null) texture = Gdk.Texture.NewForPixbuf(pixbuf);
+                texture = image is null ? null : ThemeImaging.ToTexture(image);
+                Cache[key] = texture;
             }
-        }
-        catch (Exception exception)
-        {
-            Serilog.Log.Warning(exception, "Theme preview {Path} could not be decoded.", path);
-        }
-        Cache[key] = texture;
-        return texture;
+            if (!cancellation.IsCancellationRequested) apply(texture);
+        });
     }
 
     private static string Key(string path)

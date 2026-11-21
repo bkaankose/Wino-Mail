@@ -24,6 +24,7 @@ internal sealed class PersonalizationPage : SettingsPageView<PersonalizationPage
     private readonly Gtk.Box _currentThemePreview = Gtk.Box.New(Gtk.Orientation.Horizontal, 0);
     private readonly Gtk.Picture _currentThemePicture = Gtk.Picture.New();
     private string? _currentGradient;
+    private Guid? _currentThemeId;
     private Adw.ExpanderRow? _modes;
     private readonly List<Gtk.Widget> _modeRows = [];
     private SettingsBinder? _modeBinder;
@@ -134,6 +135,7 @@ internal sealed class PersonalizationPage : SettingsPageView<PersonalizationPage
         {
             if (IsReleased) return;
             _currentThemeName.SetText(current?.ThemeName ?? string.Empty);
+            _currentThemeId = current?.Id;
             if (_currentGradient is not null) _currentThemePreview.RemoveCssClass(_currentGradient);
             _currentGradient = null;
             _currentThemePicture.SetPaintable(null);
@@ -146,7 +148,11 @@ internal sealed class PersonalizationPage : SettingsPageView<PersonalizationPage
             }
             else if (model.ImagePath is { } path)
             {
-                _currentThemePicture.SetPaintable(ThemePreviews.Load(path));
+                var shown = current.Id;
+                Observe(ThemePreviews.LoadAsync(path, Dispatcher, texture =>
+                {
+                    if (!IsReleased && shown == _currentThemeId) _currentThemePicture.SetPaintable(texture);
+                }));
             }
         });
     }
