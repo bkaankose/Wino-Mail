@@ -7,9 +7,17 @@ namespace Wino.Mail.Linux.Views.Dialogs;
 /// </summary>
 internal static class FilePickers
 {
+#if DEBUG
+    /// <summary>Paths the next pickers return without opening a dialog: agents cannot drive the portal.</summary>
+    internal static readonly Queue<string> DebugNext = new();
+#endif
+
     /// <summary>Paths of the picked files; empty when dismissed. <paramref name="extensions"/> as <see cref="Extensions"/> returns them.</summary>
     public static async Task<string[]> OpenAsync(Gtk.Window owner, bool multiple, string[] extensions)
     {
+#if DEBUG
+        if (DebugNext.TryDequeue(out var injected)) return [injected];
+#endif
         var dialog = Create(extensions);
         try
         {
@@ -34,6 +42,9 @@ internal static class FilePickers
     /// <summary>The path to write to; null when dismissed.</summary>
     public static async Task<string?> SaveAsync(Gtk.Window owner, string suggestedName)
     {
+#if DEBUG
+        if (DebugNext.TryDequeue(out var injected)) return injected;
+#endif
         var extension = System.IO.Path.GetExtension(suggestedName).TrimStart('.');
         // A filter with the suggested extension keeps it when the user retypes the name.
         var dialog = Create(extension.Length > 0 ? [extension.ToLowerInvariant()] : []);
@@ -45,6 +56,9 @@ internal static class FilePickers
     /// <summary>The folder path; null when dismissed.</summary>
     public static async Task<string?> SelectFolderAsync(Gtk.Window owner)
     {
+#if DEBUG
+        if (DebugNext.TryDequeue(out var injected)) return injected;
+#endif
         var dialog = Create([]);
         try { return Path(await dialog.SelectFolderAsync(owner)); }
         catch (GLib.GException) { return null; }
