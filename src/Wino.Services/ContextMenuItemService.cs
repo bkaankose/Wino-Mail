@@ -73,22 +73,14 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
             operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
         }
 
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.Reply));
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.ReplyAll));
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+        operationList.Add(CreateQuickAction(MailOperation.Reply));
+        operationList.Add(CreateQuickAction(MailOperation.ReplyAll));
+        operationList.Add(CreateQuickAction(MailOperation.Forward));
+        operationList.Add(CreateQuickAction(MailOperation.Seperator));
+        operationList.Add(CreateQuickAction(isArchiveFolder ? MailOperation.UnArchive : MailOperation.Archive));
+        operationList.Add(CreateQuickAction(MailOperation.SoftDelete));
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
-        // Archive button.
-
-        if (isArchiveFolder)
-            operationList.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
-        else
-            operationList.Add(MailOperationMenuItem.Create(MailOperation.Archive));
-
-        // Delete button.
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.SoftDelete));
-
-        // Move button.
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Move, !isDraftOrSent));
 
         if (isSingleItem && !singleItem.IsDraft)
@@ -223,6 +215,9 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
 
         return actionList;
     }
+
+    private static MailOperationMenuItem CreateQuickAction(MailOperation operation)
+        => MailOperationMenuItem.Create(operation, placement: MailOperationMenuPlacement.QuickActions);
 
     private void AddFocusedInboxActions(List<MailOperationMenuItem> operationList, IReadOnlyCollection<MailCopy> selectedItems)
     {

@@ -93,6 +93,11 @@ public sealed partial class ContextFlyoutSubMenuEntry : ContextFlyoutMenuEntry
 /// </summary>
 public sealed partial class ContextFlyoutHeaderEntry
 {
+    /// <summary>A divider between two groups of header actions.</summary>
+    public static ContextFlyoutHeaderEntry Separator { get; } = new() { IsSeparator = true, IsEnabled = false };
+
+    public bool IsSeparator { get; private init; }
+
     public string Label { get; init; } = string.Empty;
 
     public ContextFlyoutIcon? Icon { get; init; }
@@ -104,6 +109,8 @@ public sealed partial class ContextFlyoutHeaderEntry
     public bool IsEnabled { get; init; } = true;
 
     public ContextFlyoutShortcut? Shortcut { get; init; }
+
+    public bool IsDestructive { get; init; }
 
     public string AutomationId { get; init; } = string.Empty;
 

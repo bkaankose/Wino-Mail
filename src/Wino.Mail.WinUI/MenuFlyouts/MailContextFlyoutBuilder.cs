@@ -22,13 +22,6 @@ namespace Wino.Mail.WinUI.MenuFlyouts;
 /// </summary>
 internal static class MailContextFlyoutBuilder
 {
-    private static readonly MailOperation[] HeaderOperations =
-    [
-        MailOperation.Reply,
-        MailOperation.ReplyAll,
-        MailOperation.Forward
-    ];
-
     public static MailContextFlyoutMenu Build(
         IEnumerable<MailOperationMenuItem> availableActions,
         IReadOnlyList<MailCategory> availableCategories,
@@ -50,7 +43,7 @@ internal static class MailContextFlyoutBuilder
         {
             var action = actions[index];
 
-            if (HeaderOperations.Contains(action.Operation))
+            if (action.Placement == MailOperationMenuPlacement.QuickActions)
             {
                 continue;
             }
@@ -136,20 +129,34 @@ internal static class MailContextFlyoutBuilder
     {
         var headerItems = new List<ContextFlyoutHeaderEntry>();
 
-        foreach (var operation in HeaderOperations)
+        foreach (var action in actions)
         {
-            var action = actions.FirstOrDefault(candidate => candidate.Operation == operation);
-            var isEnabled = action?.IsEnabled == true;
+            if (action.Placement != MailOperationMenuPlacement.QuickActions)
+            {
+                continue;
+            }
+
+            var operation = action.Operation;
+            if (operation == MailOperation.Seperator)
+            {
+                if (headerItems.Count > 0 && !headerItems[^1].IsSeparator)
+                {
+                    headerItems.Add(ContextFlyoutHeaderEntry.Separator);
+                }
+
+                continue;
+            }
+
+            var isEnabled = action.IsEnabled;
 
             headerItems.Add(new ContextFlyoutHeaderEntry
             {
                 Label = XamlHelpers.GetOperationString(operation),
                 Icon = CreateIcon(XamlHelpers.GetWinoIconGlyph(operation)),
                 IsEnabled = isEnabled,
-                Command = action is null
-                    ? null
-                    : CreateCommand(() => selected(new MailContextFlyoutSelection(Operation: action)), isEnabled),
+                Command = CreateCommand(() => selected(new MailContextFlyoutSelection(Operation: action)), isEnabled),
                 Shortcut = isEnabled ? shortcutResolver.Resolve(operation) : null,
+                IsDestructive = IsDestructive(operation),
                 AutomationId = $"MailContextHeader{operation}"
             });
         }
@@ -189,7 +196,7 @@ internal static class MailContextFlyoutBuilder
             Text = text ?? XamlHelpers.GetOperationString(action.Operation),
             Icon = CreateIcon(XamlHelpers.GetWinoIconGlyph(action.Operation)),
             IsEnabled = action.IsEnabled,
-            IsDestructive = action.Operation is MailOperation.SoftDelete or MailOperation.HardDelete or MailOperation.DiscardLocalDraft,
+            IsDestructive = IsDestructive(action.Operation),
             Command = CreateCommand(() => selected(new MailContextFlyoutSelection(Operation: action)), action.IsEnabled),
             Shortcut = shortcutResolver.Resolve(action.Operation),
             AutomationId = $"MailContextOperation_{action.Operation}"
@@ -382,6 +389,9 @@ internal static class MailContextFlyoutBuilder
 
     private static ICommand CreateCommand(Action execute, bool canExecute = true)
         => new RelayCommand(execute, () => canExecute);
+
+    private static bool IsDestructive(MailOperation operation)
+        => operation is MailOperation.SoftDelete or MailOperation.HardDelete or MailOperation.DiscardLocalDraft;
 
     private static bool IsFocusedInboxMoveOperation(MailOperation operation)
         => operation is MailOperation.MoveToFocused

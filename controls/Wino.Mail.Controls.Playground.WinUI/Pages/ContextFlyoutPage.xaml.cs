@@ -56,6 +56,16 @@ public sealed partial class ContextFlyoutPage : Page
             CommandParameter = "Header reply all",
             AutomationId = "ContextFlyoutHeaderReplyAll"
         },
+        ContextFlyoutHeaderEntry.Separator,
+        new ContextFlyoutHeaderEntry
+        {
+            Label = "Delete",
+            Icon = new ContextFlyoutIcon(DeleteGlyph),
+            Command = SampleCommand,
+            CommandParameter = "Header delete",
+            IsDestructive = true,
+            AutomationId = "ContextFlyoutHeaderDelete"
+        },
         new ContextFlyoutHeaderEntry
         {
             Label = "Unavailable",
