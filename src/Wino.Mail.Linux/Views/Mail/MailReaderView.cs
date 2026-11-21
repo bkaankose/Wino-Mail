@@ -3,6 +3,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
 using Wino.Editor.WebKitGtk;
+using Wino.Mail.Controls.Linux.Common;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
@@ -16,7 +17,7 @@ namespace Wino.Mail.Linux.Views.Mail;
 /// </summary>
 internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRenavigableView
 {
-    private readonly record struct HeaderState(string Subject, string Avatar, string Sender, string Date, bool Loading);
+    private readonly record struct HeaderState(string Subject, string Avatar, string Address, string Sender, string Date, bool Loading);
 
     private readonly Gtk.Label _subject = Label("title-2", wrap: true);
     private readonly Gtk.Label _sender = Label("heading", wrap: false);
@@ -24,13 +25,15 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
     private readonly Gtk.Label _date = Label("dim-label", wrap: false);
     private readonly Gtk.FlowBox _attachments = Gtk.FlowBox.New();
     private readonly Adw.Spinner _loading = Adw.Spinner.New();
-    private readonly Adw.Avatar _avatar = Adw.Avatar.New(40, string.Empty, true);
+    private readonly WinoContactPicture _avatar = new(WinoContactPicture.ReaderSize);
+    private readonly LinuxSenderPictureProvider _pictures;
     private readonly Adw.Bin _webHost = Adw.Bin.New();
     private WebKitGtkHtmlMailReaderSession? _reader;
     private bool _dark;
 
-    public MailReaderView(MailRenderingPageViewModel viewModel, WinoViewServices services) : base(viewModel, services)
+    public MailReaderView(MailRenderingPageViewModel viewModel, WinoViewServices services, LinuxSenderPictureProvider pictures) : base(viewModel, services)
     {
+        _pictures = pictures;
         var names = Gtk.Box.New(Gtk.Orientation.Vertical, 2);
         names.SetHexpand(true);
         names.Append(_sender);
@@ -38,7 +41,8 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
         _date.SetValign(Gtk.Align.Start);
         _date.AddCssClass("numeric");
         var people = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
-        people.Append(_avatar);
+        _avatar.Root.SetValign(Gtk.Align.Start);
+        people.Append(_avatar.Root);
         people.Append(names);
         people.Append(_date);
 
@@ -96,6 +100,13 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
         viewModel.ClearRenderedHtmlAsyncFunc = () => _reader is { } session && !IsReleased ? session.ClearAsync() : Task.CompletedTask;
 
         Bind.BindAny(ReadHeader, ApplyHeader);
+        EventHandler<string?> pictureChanged = (_, address) =>
+        {
+            if (IsReleased) return;
+            if (address is null || address == LinuxSenderPictureProvider.Normalize(ViewModel.FromAddress)) _avatar.Picture = _pictures.Get(ViewModel.FromAddress);
+        };
+        _pictures.PictureChanged += pictureChanged;
+        Bindings.Own(new ActionDisposable(() => _pictures.PictureChanged -= pictureChanged));
         Bind.BindCollection(viewModel.ToItems, UpdateRecipients);
         Bind.BindCollection(viewModel.CcItems, UpdateRecipients);
         Bind.BindCollection(viewModel.Attachments, UpdateAttachments);
@@ -149,6 +160,7 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
         return new HeaderState(
             string.IsNullOrWhiteSpace(viewModel.Subject) ? Translator.MailItemNoSubject : viewModel.Subject,
             name,
+            viewModel.FromAddress ?? string.Empty,
             string.IsNullOrWhiteSpace(viewModel.FromAddress) || name == viewModel.FromAddress ? name : $"{name}  <{viewModel.FromAddress}>",
             MailRowPresentation.FormatReaderDate(viewModel.CreationDate, viewModel.PreferencesService.MailTimeFormatPreference),
             !viewModel.IsMailContentReady);
@@ -157,7 +169,8 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
     private void ApplyHeader(HeaderState header)
     {
         _subject.SetText(header.Subject);
-        _avatar.SetText(header.Avatar);
+        _avatar.SetIdentity(header.Avatar, header.Address);
+        _avatar.Picture = _pictures.Get(header.Address);
         _sender.SetText(header.Sender);
         _date.SetText(header.Date);
         _loading.SetVisible(header.Loading);

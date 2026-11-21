@@ -23,6 +23,8 @@ GTK controls for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin
 - A control is a plain class that builds its widgets and exposes `Root`, unless the plan of its package says otherwise.
 - A control only renders. Pages own menus, commands and navigation.
 - Every interactive widget gets an accessible name through `WinoA11y.Label` (or `WinoA11y.LabelWithTooltip` for icon-only buttons).
+- `WinoContactPicture` and `WinoAccountIcon` never fetch or decode in a cell bind beyond a cache lookup: the page asks `LinuxSenderPictureProvider` (head) and sets `Picture`.
+- Avatar colours come from `ContactPictureAppearance.PaletteIndex` and the `.wino-avatar-N` classes; `Adw.Avatar` is not used for people or accounts (its colours differ from the other platforms).
 
 ## Check your change
 

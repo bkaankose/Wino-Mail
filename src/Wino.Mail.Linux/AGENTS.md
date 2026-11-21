@@ -62,3 +62,4 @@ A build does not prove UI behavior.
 - Coalesce rebuilds: the sidebar and the list rebuild once per main-loop turn (`QueueRebuild`), not once per notification.
 - Appending a loaded page must stay an append to the list model, so the scroll position is kept.
 - The reader reuses one web view and one ViewModel for every message.
+- Sender pictures come from `LinuxSenderPictureProvider`; never decode an image in a cell bind.

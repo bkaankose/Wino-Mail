@@ -14,6 +14,7 @@ GTK 4 and libadwaita presentation helpers for the [Linux head](../../src/Wino.Ma
 - The root namespace is `Wino.Presentation.Linux`, and no folder is named after a Gir.Core namespace (`Gtk`, `Gdk`, `Gsk`, `Gio`, `GLib`, `GObject`, `Adw`, `Pango`, `Cairo`, `Graphene`, `WebKit`). Inside a namespace with a child segment called `Gtk`, the expression `Gtk.Label` binds to that child and the build fails.
 - References: `Wino.Core.Domain` and `Wino.Presentation.Core` only. No service, provider or ViewModel project.
 - Every member runs on the GTK main thread.
+- `Gdk.Texture` objects are created on the main thread (`Textures`); files are read off it (`Textures.ReadAsync`).
 - `Gtk.Internal` is used in `WinoA11y` only. It is the single accessibility entry point: Gir.Core 0.8.1 has no public `Gtk.Accessible.UpdateProperty`.
 - Every signal subscription goes through `GtkSignals` and is owned by a `BindingScope` or returned as an `IDisposable`. Gir.Core 0.8.1 does not drop a handler on `-=`; `GtkSignals` connects a forwarder that reaches the handler through a box, which disposing empties.
 - CSS uses libadwaita named colours only (`@accent_bg_color`, `@view_bg_color`, ...); the one fixed palette is the avatar palette from `WinoTokens`. Lengths come from the `--wino-*` variables `WinoStyle` generates. The static stylesheet loads at priority 600 (`WinoStyle.ApplicationPriority`); theme CSS uses 601 (`WinoStyle.ThemePriority`).

@@ -84,3 +84,32 @@
 .wino-reader-header {
   padding: var(--wino-space-4) 20px var(--wino-space-3) 20px;
 }
+
+/* Contact picture and account icon */
+
+.wino-avatar.wino-avatar-square {
+  border-radius: 7px;
+}
+
+.wino-avatar.wino-avatar-photo {
+  background: none;
+}
+
+.wino-avatar-badge {
+  border-radius: 999px;
+  background-color: @window_bg_color;
+  padding: 1px;
+}
+
+.wino-avatar-s16, .wino-avatar-s20, .wino-avatar-s22, .wino-avatar-s24 { font-size: 9px; }
+.wino-avatar-s26 { font-size: 10px; }
+.wino-avatar-s28 { font-size: 11px; }
+.wino-avatar-s32 { font-size: 12px; }
+.wino-avatar-s36 { font-size: 14px; }
+.wino-avatar-s40 { font-size: 15px; }
+.wino-avatar-s48 { font-size: 18px; }
+.wino-avatar-s56 { font-size: 21px; }
+.wino-avatar-s64 { font-size: 24px; }
+.wino-avatar-s72 { font-size: 27px; }
+.wino-avatar-s96 { font-size: 36px; }
+.wino-avatar-s128 { font-size: 49px; }
