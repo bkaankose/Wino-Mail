@@ -90,9 +90,10 @@ public static class LinuxPlatformRegistration
         services.Replace(ServiceDescriptor.Singleton<INotificationBuilder, LinuxNotificationBuilder>());
         services.Replace(ServiceDescriptor.Singleton<IInstalledBrowserService, LinuxInstalledBrowserService>());
 
-        // Browser sign-in: wino://auth-complete callbacks, the custom-scheme OAuth broker and the Wino Account broker are
-        // real; generic OAuth with a loopback redirect uses the shared receiver. Outlook signs in through
-        // MSAL with the system browser; Gmail still throws; the head supplies the embedded browser.
+        // Browser sign-in: wino://auth-complete callbacks, the custom-scheme OAuth broker and the Wino Account broker;
+        // generic OAuth with a loopback redirect uses the shared receiver, Outlook MSAL with the system browser, and the
+        // head supplies the embedded browser. Gmail uses the loopback receiver that AddGmailProvider registers (the desktop
+        // flow, as Android's fallback): the default browser, http://127.0.0.1:<port>/authorize/, PKCE. Nothing is added for it.
         services.AddSingleton<LinuxExternalAuthCallbacks>();
         services.AddSingleton<IOAuthBrowserBroker>(provider => new LinuxOAuthBrowserBroker(
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<LinuxExternalAuthCallbacks>(),
@@ -107,7 +108,6 @@ public static class LinuxPlatformRegistration
                 provider.GetRequiredService<IExternalLauncher>(), () => provider.GetService<IExternalBrowserAuthenticationPresenter>(),
                 () => presence.HasWindow, SignInTimeout());
         });
-        services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver, LinuxGoogleAuthorizationCodeReceiver>());
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));

@@ -111,6 +111,8 @@ From a browser the address needs the desktop entry above. In a Debug build, `WIN
 
 Outlook signs in with MSAL's own `http://localhost:<port>` listener; `debug-outlook-signin 'hint'`, `debug-outlook-cancel` and `debug-outlook-cache` drive it. Owner checks with a real Outlook.com and a work account: add the account in the browser and let mail, calendar, contacts and To Do synchronise; quit and start again without a browser prompt; Reconnect contacts and tasks in Account details; remove the account (`debug-outlook-cache` shows one account less) and add it again; revoke the app's access at account.microsoft.com and fix the account from its attention row.
 
+Gmail uses the shared loopback receiver (`http://127.0.0.1:<port>/authorize/`, PKCE) with the client `IAuthenticatorConfig` supplies, as Android's fallback; `debug-gmail-receiver`, `debug-gmail-signin` (a request without a client id, for the listener and the waiting dialog) and `debug-gmail-cancel` drive it. Owner checks with a real Gmail account: add it in the browser, the Wino result page shows and the app adds the account with labels, mail, calendar, contacts and tasks; restart without a browser prompt; remove and add it again; revoke access in the Google account and fix it from the attention row; confirm the Windows app with the same Google account is unaffected. A sandboxed package later needs network access for the loopback listener.
+
 ## System services
 
 | Need | How | Notes |
