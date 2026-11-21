@@ -43,6 +43,12 @@ public partial class ImapCalDavSettingsPageViewModel
         }
     }
 
+    /// <summary>The POP3 download choices of an existing account are on its Mail page.</summary>
+    public bool IsPop3ServerCopiesVisible => IsPop3 && IsCreateMode;
+
+    /// <summary>An existing account keeps "Save a copy in Sent" on its Mail page.</summary>
+    public bool IsAppendSentCopyOptionVisible => IsMailAdvancedOptionsVisible && IsCreateMode;
+
     public bool IsCalDavUnusedHintVisible => IsEditMode && !IsPop3 && !IsCalDavSettingsVisible;
 
     public bool IsCardDavUnusedHintVisible => IsEditMode && !IsPop3 && !IsCardDavSettingsVisible;
@@ -93,6 +99,8 @@ public partial class ImapCalDavSettingsPageViewModel
     private void NotifyAccountSettingsLayoutChanged()
     {
         OnPropertyChanged(nameof(IsAccountSettingsEditMode));
+        OnPropertyChanged(nameof(IsPop3ServerCopiesVisible));
+        OnPropertyChanged(nameof(IsAppendSentCopyOptionVisible));
         OnPropertyChanged(nameof(SignInUsedByText));
         OnPropertyChanged(nameof(IsCalDavUnusedHintVisible));
         OnPropertyChanged(nameof(IsCardDavUnusedHintVisible));
@@ -103,6 +111,11 @@ public partial class ImapCalDavSettingsPageViewModel
     partial void OnUseMailCredentialsForDavChanged(bool value) => OnPropertyChanged(nameof(SignInUsedByText));
 
     [RelayCommand]
+    private void OpenCalendarApp() => OpenAccountApp(WinoApplicationMode.Calendar);
+
+    [RelayCommand]
+    private void OpenPeopleApp() => OpenAccountApp(WinoApplicationMode.Contacts);
+
     private void OpenAccountApp(WinoApplicationMode app)
     {
         if (_editingAccountId == System.Guid.Empty)

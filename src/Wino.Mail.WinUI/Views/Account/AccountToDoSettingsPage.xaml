@@ -1,0 +1,52 @@
+﻿<viewsAbstract:AccountToDoSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Account.AccountToDoSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountSettings="using:Wino.Mail.ViewModels.AccountSettings"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="4">
+        <coreControls:AccountAppHeaderControl ViewModel="{x:Bind ViewModel}" />
+
+        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsOn, Mode=OneWay}">
+            <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.AccountApps_TaskListsHeader, Mode=OneTime}" />
+
+            <TextBlock
+                Margin="2,4"
+                AutomationProperties.AutomationId="AccountToDoEmptyText"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind domain:Translator.AccountApps_NoTaskLists, Mode=OneTime}"
+                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasTaskLists), Mode=OneWay}" />
+
+            <ItemsControl AutomationProperties.AutomationId="AccountToDoTaskListList" ItemsSource="{x:Bind ViewModel.TaskLists, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="accountSettings:AccountCollectionItem">
+                        <controls:SettingsCard
+                            Margin="0,0,0,4"
+                            AutomationProperties.AutomationId="AccountToDoTaskListCard"
+                            Description="{x:Bind Detail}"
+                            Header="{x:Bind Title}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="TaskList" />
+                            </controls:SettingsCard.HeaderIcon>
+                        </controls:SettingsCard>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock
+                Margin="2,8,2,0"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind domain:Translator.AccountApps_ToDoAppWideNote, Mode=OneTime}"
+                TextWrapping="WrapWholeWords" />
+        </StackPanel>
+    </StackPanel>
+</viewsAbstract:AccountToDoSettingsPageAbstract>

@@ -1,0 +1,66 @@
+﻿<viewsAbstract:AccountPeopleSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Account.AccountPeopleSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:accountSettings="using:Wino.Mail.ViewModels.AccountSettings"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="4">
+        <coreControls:AccountAppHeaderControl ViewModel="{x:Bind ViewModel}" />
+
+        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsOn, Mode=OneWay}">
+            <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.AccountApps_AddressBooksHeader, Mode=OneTime}" />
+
+            <TextBlock
+                Margin="2,4"
+                AutomationProperties.AutomationId="AccountPeopleEmptyText"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind domain:Translator.AccountApps_NoAddressBooks, Mode=OneTime}"
+                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasAddressBooks), Mode=OneWay}" />
+
+            <ItemsControl AutomationProperties.AutomationId="AccountPeopleAddressBookList" ItemsSource="{x:Bind ViewModel.AddressBooks, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="accountSettings:AccountCollectionItem">
+                        <controls:SettingsCard
+                            Margin="0,0,0,4"
+                            AutomationProperties.AutomationId="AccountPeopleAddressBookCard"
+                            Description="{x:Bind Detail}"
+                            Header="{x:Bind Title}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="People" />
+                            </controls:SettingsCard.HeaderIcon>
+                        </controls:SettingsCard>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <accessibilityControls:WinoSettingsCard
+                Margin="0,8,0,0"
+                AutomationProperties.AutomationId="AccountPeopleCategoriesCard"
+                Command="{x:Bind ViewModel.EditCategoriesCommand}"
+                Description="{x:Bind domain:Translator.SettingsMailCategories_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsMailCategories_Title, Mode=OneTime}"
+                IsClickEnabled="True"
+                Visibility="{x:Bind ViewModel.IsCategoriesVisible, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Tag" />
+                </controls:SettingsCard.HeaderIcon>
+            </accessibilityControls:WinoSettingsCard>
+
+            <TextBlock
+                Margin="2,8,2,0"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind domain:Translator.AccountApps_PeopleAppWideNote, Mode=OneTime}"
+                TextWrapping="WrapWholeWords" />
+        </StackPanel>
+    </StackPanel>
+</viewsAbstract:AccountPeopleSettingsPageAbstract>

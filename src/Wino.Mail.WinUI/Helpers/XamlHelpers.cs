@@ -748,6 +748,8 @@ public static class XamlHelpers
     public static string FormatAutomationName(string format, string? value)
         => string.Format(AppDisplayCulture, format, value ?? string.Empty);
 
+    public static string GetAccountAppAutomationId(WinoApplicationMode app) => $"AccountHubApp{app}";
+
     public static string GetItemActionAutomationName(string action, string? item)
         => string.IsNullOrWhiteSpace(item) ? action : string.Format(AppDisplayCulture, Translator.Accessibility_ItemAction, action, item);
 

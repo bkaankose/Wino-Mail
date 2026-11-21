@@ -1,0 +1,358 @@
+﻿<viewsAbstract:AccountMailSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Account.AccountMailSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:folders="using:Wino.Core.Domain.Models.Folders"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    mc:Ignorable="d">
+    <Page.Resources>
+        <DataTemplate x:Key="FolderStructureTemplate" x:DataType="folders:IMailItemFolder">
+            <TreeViewItem
+                CanDrag="False"
+                IsExpanded="True"
+                ItemsSource="{x:Bind ChildFolders}">
+                <Grid Height="32">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="300" />
+                    </Grid.ColumnDefinitions>
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="20"
+                        Icon="{x:Bind winuiHelpers:XamlHelpers.GetFolderGlyph(SpecialFolderType, Scope, IsContainer, IsSharedOwnerNode)}" />
+                    <TextBlock
+                        Grid.Column="1"
+                        Margin="12,0"
+                        VerticalAlignment="Center"
+                        Text="{x:Bind ResolvedDisplayName}" />
+
+                    <Grid Grid.Column="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox
+                            MinWidth="0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="AccountMailFolderSyncCheckBox"
+                            AutomationProperties.Name="{x:Bind ResolvedDisplayName}"
+                            Checked="SyncFolderToggled"
+                            IsChecked="{x:Bind IsSynchronizationEnabled}"
+                            Tag="{x:Bind}"
+                            Unchecked="SyncFolderToggled"
+                            Visibility="{x:Bind IsSelectable}" />
+
+                        <CheckBox
+                            x:Name="FolderJumpListCheckBox"
+                            Grid.Column="1"
+                            MinWidth="0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="AccountMailFolderJumpListCheckBox"
+                            Checked="JumpListCheckboxToggled"
+                            IsChecked="{x:Bind IsJumpListEnabled}"
+                            Loaded="JumpListCheckBoxLoaded"
+                            Tag="{x:Bind}"
+                            Unchecked="JumpListCheckboxToggled"
+                            Visibility="{x:Bind IsSelectable}" />
+                    </Grid>
+                </Grid>
+            </TreeViewItem>
+        </DataTemplate>
+    </Page.Resources>
+
+    <StackPanel Spacing="4">
+        <coreControls:AccountAppHeaderControl ViewModel="{x:Bind ViewModel}" />
+
+        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsOn, Mode=OneWay}">
+            <InfoBar
+                Title="{x:Bind domain:Translator.AccountDetailsPage_InitialSynchronization_Title, Mode=OneTime}"
+                Margin="0,8,0,0"
+                AutomationProperties.AutomationId="AccountMailInitialSyncInfoBar"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsInitialSynchronizationSummaryVisible, Mode=OneWay}"
+                Message="{x:Bind ViewModel.InitialSynchronizationSummary, Mode=OneWay}"
+                Severity="Informational" />
+
+            <!--  Sending  -->
+            <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.AccountMail_SendingHeader, Mode=OneTime}" />
+
+            <InfoBar
+                AutomationProperties.AutomationId="AccountMailProviderManagedSenderNameInfoBar"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsProviderManagedSenderNameNoteVisible, Mode=OneWay}"
+                Message="{x:Bind domain:Translator.AccountDetailsPage_SenderNameProviderManagedNote, Mode=OneTime}"
+                Severity="Informational" />
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountMailSenderNameCard"
+                Description="{x:Bind domain:Translator.SettingsEditAccountDetails_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsSenderNameEditable, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Person" />
+                </controls:SettingsCard.HeaderIcon>
+                <TextBox
+                    Width="250"
+                    AutomationProperties.AutomationId="AccountMailSenderNameTextBox"
+                    AutomationProperties.Name="{x:Bind domain:Translator.AccountSettingsDialog_AccountName, Mode=OneTime}"
+                    PlaceholderText="{x:Bind domain:Translator.AccountSettingsDialog_AccountNamePlaceholder, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.SenderName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </controls:SettingsCard>
+
+            <accessibilityControls:WinoSettingsCard
+                AutomationProperties.AutomationId="AccountMailAliasesCard"
+                Command="{x:Bind ViewModel.EditAliasesCommand}"
+                Description="{x:Bind domain:Translator.SettingsManageAliases_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsManageAliases_Title, Mode=OneTime}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="PersonSwap" />
+                </controls:SettingsCard.HeaderIcon>
+            </accessibilityControls:WinoSettingsCard>
+
+            <accessibilityControls:WinoSettingsCard
+                AutomationProperties.AutomationId="AccountMailSignatureCard"
+                Command="{x:Bind ViewModel.EditSignatureCommand}"
+                Description="{x:Bind domain:Translator.SettingsSignature_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsSignature_Title, Mode=OneTime}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Signature" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="AccountMailSignatureToggle"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsSignature_Title, Mode=OneTime}"
+                    IsOn="{x:Bind ViewModel.IsSignatureEnabled, Mode=TwoWay}" />
+            </accessibilityControls:WinoSettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountMailAppendSentCard"
+                Description="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Title, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsAppendMessageSettingVisible, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="MailArrowUp" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="AccountMailAppendSentToggle"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Title, Mode=OneTime}"
+                    IsOn="{x:Bind ViewModel.IsAppendMessageSettingEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <!--  Folders and organization  -->
+            <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.AccountMail_OrganizeHeader, Mode=OneTime}" />
+
+            <controls:SettingsExpander
+                AutomationProperties.AutomationId="AccountMailFoldersExpander"
+                Description="{x:Bind domain:Translator.SettingsFolderOptions_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsFolderOptions_Title, Mode=OneTime}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="FolderSync" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <accessibilityControls:WinoSettingsCard
+                        AutomationProperties.AutomationId="AccountMailCustomizeFoldersCard"
+                        Command="{x:Bind ViewModel.CustomizeFolderListCommand}"
+                        Description="{x:Bind domain:Translator.FolderCustomization_EntryCardDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.FolderCustomization_EntryCardTitle, Mode=OneTime}"
+                        IsClickEnabled="True">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="List" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                    <accessibilityControls:WinoSettingsCard
+                        AutomationProperties.AutomationId="AccountMailSpecialFoldersCard"
+                        Command="{x:Bind ViewModel.SetupSpecialFoldersCommand}"
+                        Description="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Title, Mode=OneTime}"
+                        IsClickEnabled="True">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="Settings" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="AccountMailFolderTreeCard"
+                        ContentAlignment="Vertical">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="300" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Column="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind domain:Translator.SettingsFolderSynchronize_Title, Mode=OneTime}"
+                                    TextWrapping="Wrap" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind domain:Translator.SettingsFolderJumpList_Title, Mode=OneTime}"
+                                    TextWrapping="Wrap" />
+                            </Grid>
+
+                            <!--  Dragging tree items crashes the TreeView, so it stays off.  -->
+                            <TreeView
+                                Grid.Row="1"
+                                Grid.ColumnSpan="2"
+                                AutomationProperties.AutomationId="AccountMailFolderTreeView"
+                                CanDragItems="False"
+                                CanReorderItems="False"
+                                ItemTemplate="{StaticResource FolderStructureTemplate}"
+                                ItemsSource="{x:Bind ViewModel.CurrentFolders, Mode=OneWay}"
+                                SelectionMode="None" />
+                        </Grid>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+            <accessibilityControls:WinoSettingsCard
+                AutomationProperties.AutomationId="AccountMailCategoriesCard"
+                Command="{x:Bind ViewModel.EditCategoriesCommand}"
+                Description="{x:Bind domain:Translator.SettingsMailCategories_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsMailCategories_Title, Mode=OneTime}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Tag" />
+                </controls:SettingsCard.HeaderIcon>
+            </accessibilityControls:WinoSettingsCard>
+
+            <accessibilityControls:WinoSettingsCard
+                AutomationProperties.AutomationId="AccountMailFiltersCard"
+                Command="{x:Bind ViewModel.ManageMailFiltersCommand}"
+                Description="{x:Bind domain:Translator.MailFilters_AccountCardDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.MailFilters_Title, Mode=OneTime}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Filter" />
+                </controls:SettingsCard.HeaderIcon>
+            </accessibilityControls:WinoSettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountMailFocusedInboxCard"
+                Description="{x:Bind domain:Translator.SettingsFocusedInbox_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsFocusedInbox_Title, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsFocusedInboxSupported, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="MailInboxCheckmark" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="AccountMailFocusedInboxToggle"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsFocusedInbox_Title, Mode=OneTime}"
+                    IsOn="{x:Bind ViewModel.IsFocusedInboxEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <accessibilityControls:WinoSettingsCard
+                AutomationProperties.AutomationId="AccountMailIntelligenceCard"
+                Command="{x:Bind ViewModel.ManageWinoIntelligenceCommand}"
+                Description="{x:Bind domain:Translator.SemanticIndex_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SemanticIndex_Title, Mode=OneTime}"
+                IsClickEnabled="True"
+                Visibility="{x:Bind ViewModel.CanAccessWinoIntelligence, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                </controls:SettingsCard.HeaderIcon>
+            </accessibilityControls:WinoSettingsCard>
+
+            <!--  Notifications  -->
+            <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.AccountMail_NotificationsHeader, Mode=OneTime}" />
+
+            <accessibilityControls:WinoSettingsCard
+                AutomationProperties.AutomationId="AccountMailUnreadBadgesCard"
+                Command="{x:Bind ViewModel.ConfigureUnreadBadgesCommand}"
+                Description="{x:Bind domain:Translator.SettingsUnreadBadges_Card_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsUnreadBadges_Card_Title, Mode=OneTime}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="AlertBadge" />
+                </controls:SettingsCard.HeaderIcon>
+            </accessibilityControls:WinoSettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountMailJumpListCard"
+                Description="{x:Bind domain:Translator.SettingsJumpList_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsJumpList_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="TaskList" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="AccountMailJumpListToggle"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsJumpList_Title, Mode=OneTime}"
+                    IsOn="{x:Bind ViewModel.IsJumpListEnabled, Mode=TwoWay}"
+                    Toggled="JumpListMasterToggled" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountMailHideNotificationContentCard"
+                Description="{x:Bind domain:Translator.SettingsHideNotificationContent_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsHideNotificationContent_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="EyeOff" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="AccountMailHideNotificationContentToggle"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsHideNotificationContent_Title, Mode=OneTime}"
+                    IsOn="{x:Bind ViewModel.IsNotificationContentHidden, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <!--  POP3: when downloaded messages leave the server  -->
+            <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsPop3, Mode=OneWay}">
+                <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.AccountMail_Pop3Header, Mode=OneTime}" />
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountMailPop3LeaveOnServerCard"
+                    Description="{x:Bind domain:Translator.POP3Setup_LeaveOnServerDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.POP3Setup_LeaveOnServerTitle, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="AccountMailPop3LeaveOnServerToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.POP3Setup_LeaveOnServerTitle, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.Pop3LeaveOnServer, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountMailPop3DeleteAfterDaysCard"
+                    Description="{x:Bind domain:Translator.POP3Setup_DeleteAfterDaysDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.POP3Setup_DeleteAfterDaysTitle, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.Pop3LeaveOnServer, Mode=OneWay}">
+                    <ComboBox
+                        MinWidth="140"
+                        AutomationProperties.AutomationId="AccountMailPop3DeleteAfterDaysComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.POP3Setup_DeleteAfterDaysTitle, Mode=OneTime}"
+                        ItemsSource="{x:Bind ViewModel.Pop3DeleteAfterDaysLabels, Mode=OneTime}"
+                        SelectedIndex="{x:Bind ViewModel.SelectedPop3DeleteAfterDaysIndex, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountMailPop3DeleteWithLocalCard"
+                    Description="{x:Bind domain:Translator.POP3Setup_DeleteWithLocalDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.POP3Setup_DeleteWithLocalTitle, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.Pop3LeaveOnServer, Mode=OneWay}">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="AccountMailPop3DeleteWithLocalToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.POP3Setup_DeleteWithLocalTitle, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.Pop3DeleteWithLocal, Mode=TwoWay}" />
+                </controls:SettingsCard>
+            </StackPanel>
+        </StackPanel>
+    </StackPanel>
+</viewsAbstract:AccountMailSettingsPageAbstract>

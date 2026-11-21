@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.AccountSettings;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Companion;
 using Wino.Mail.ViewModels.Data;
@@ -63,6 +64,18 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(ThreadMailItemViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailListCollection<MailItemViewModel>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AccountProviderDetailViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountAppItemViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountAppItemViewModel>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountAppSourceOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountAppSourceOption>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountCollectionItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountCollectionItem>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountCalendarSettingsItemViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountCalendarSettingsItemViewModel>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountCalendarShowAsOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountCalendarShowAsOption>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ExchangeTransportOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<ExchangeTransportOption>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MergedAccountProviderDetailViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<IAccountProviderDetailViewModel>))]
 

@@ -453,29 +453,19 @@
             </StackPanel>
         </StackPanel>
 
-        <!--  ============ Features (editing an account) ============  -->
-        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}">
-            <TextBlock Style="{StaticResource ImapSetupGroupHeaderStyle}" Text="{x:Bind domain:Translator.ImapSetup_FeaturesGroup, Mode=OneTime}" />
-            <coreControls:AccountCapabilityPicker AutomationProperties.AutomationId="ImapSetupCapabilityPicker" Selection="{x:Bind ViewModel.Capabilities}" />
-        </StackPanel>
+        <!--
+            ============ Sign-in (editing an account) ============
+            The apps are switched on their own pages of the account settings; this page is Sign-in and servers.
+        -->
+        <InfoBar
+            AutomationProperties.AutomationId="ImapSetupPendingAppInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsPendingAppMessageVisible, Mode=OneWay}"
+            Message="{x:Bind ViewModel.PendingAppMessage, Mode=OneWay}"
+            Severity="Informational" />
 
-        <!--  ============ Sign-in (editing an account) ============  -->
         <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsEditSignInVisible, Mode=OneWay}">
             <TextBlock Style="{StaticResource ImapSetupGroupHeaderStyle}" Text="{x:Bind domain:Translator.ImapSetup_SignInGroup, Mode=OneTime}" />
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="ImapSetupSenderNameCard"
-                Description="{x:Bind domain:Translator.ImapSetup_YourNameDescription, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.ImapSetup_YourName, Mode=OneTime}"
-                Visibility="{x:Bind ViewModel.IsSignInSenderNameVisible, Mode=OneWay}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Person" />
-                </controls:SettingsCard.HeaderIcon>
-                <TextBox
-                    Width="280"
-                    AutomationProperties.AutomationId="ImapSetupEditSenderNameTextBox"
-                    AutomationProperties.Name="{x:Bind domain:Translator.ImapSetup_YourName, Mode=OneTime}"
-                    Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay}" />
-            </controls:SettingsCard>
             <controls:SettingsCard AutomationProperties.AutomationId="ImapSetupAddressCard" Header="{x:Bind ViewModel.SignInAddressHeader, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
                     <coreControls:WinoFontIcon Icon="Mail" />
@@ -488,7 +478,7 @@
             </controls:SettingsCard>
             <controls:SettingsCard
                 AutomationProperties.AutomationId="ImapSetupPasswordCard"
-                Description="{x:Bind ViewModel.AppPasswordHelpText, Mode=OneWay}"
+                Description="{x:Bind ViewModel.SignInUsedByText, Mode=OneWay}"
                 Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsEditPasswordSignInVisible, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
@@ -831,6 +821,34 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
+            <!--  A DAV server no app uses: the server is added from the app that wants it.  -->
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="ImapSetupCalDavUnusedCard"
+                Description="{x:Bind domain:Translator.AccountSignIn_CalDavUnusedDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.AccountSignIn_CalDavUnusedTitle, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsCalDavUnusedHintVisible, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Calendar" />
+                </controls:SettingsCard.HeaderIcon>
+                <Button
+                    AutomationProperties.AutomationId="ImapSetupOpenCalendarButton"
+                    Command="{x:Bind ViewModel.OpenCalendarAppCommand}"
+                    Content="{x:Bind domain:Translator.AccountSignIn_OpenCalendar, Mode=OneTime}" />
+            </controls:SettingsCard>
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="ImapSetupCardDavUnusedCard"
+                Description="{x:Bind domain:Translator.AccountSignIn_CardDavUnusedDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.AccountSignIn_CardDavUnusedTitle, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsCardDavUnusedHintVisible, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="People" />
+                </controls:SettingsCard.HeaderIcon>
+                <Button
+                    AutomationProperties.AutomationId="ImapSetupOpenPeopleButton"
+                    Command="{x:Bind ViewModel.OpenPeopleAppCommand}"
+                    Content="{x:Bind domain:Translator.AccountSignIn_OpenPeople, Mode=OneTime}" />
+            </controls:SettingsCard>
+
             <!--  POP3: when downloaded messages leave the server  -->
             <controls:SettingsExpander
                 Margin="0,8,0,0"
@@ -838,7 +856,7 @@
                 Description="{x:Bind domain:Translator.POP3Setup_ServerCopiesDescription, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.POP3Setup_ServerCopiesTitle, Mode=OneTime}"
                 IsExpanded="True"
-                Visibility="{x:Bind ViewModel.IsPop3, Mode=OneWay}">
+                Visibility="{x:Bind ViewModel.IsPop3ServerCopiesVisible, Mode=OneWay}">
                 <controls:SettingsExpander.HeaderIcon>
                     <coreControls:WinoFontIcon Icon="ArrowDownload" />
                 </controls:SettingsExpander.HeaderIcon>
@@ -926,7 +944,7 @@
                         AutomationProperties.AutomationId="ImapSetupAppendSentCopyCard"
                         Description="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Description, Mode=OneTime}"
                         Header="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Title, Mode=OneTime}"
-                        Visibility="{x:Bind ViewModel.IsMailAdvancedOptionsVisible, Mode=OneWay}">
+                        Visibility="{x:Bind ViewModel.IsAppendSentCopyOptionVisible, Mode=OneWay}">
                         <ToggleSwitch
                             AutomationProperties.AutomationId="ImapSetupAppendSentCopyToggle"
                             AutomationProperties.Name="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Title, Mode=OneTime}"
