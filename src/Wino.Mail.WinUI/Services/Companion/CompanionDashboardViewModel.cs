@@ -25,6 +25,7 @@ public sealed partial class CompanionDashboardViewModel : Wino.Mail.ViewModels.C
         [nameof(HasMoreEvents)] = nameof(MoreEventsVisibility),
         [nameof(HasUnreadMail)] = nameof(UnreadMailVisibility),
         [nameof(HasTasks)] = nameof(TasksVisibility),
+        [nameof(HasMoreTasks)] = nameof(MoreTasksVisibility),
         [nameof(HasFavorites)] = nameof(FavoritesVisibility),
         [nameof(IsAllCaughtUp)] = nameof(CaughtUpVisibility),
         [nameof(HasContent)] = nameof(ContentVisibility),
@@ -57,6 +58,7 @@ public sealed partial class CompanionDashboardViewModel : Wino.Mail.ViewModels.C
     public Visibility MoreEventsVisibility => ToVisibility(HasMoreEvents);
     public Visibility UnreadMailVisibility => ToVisibility(HasUnreadMail);
     public Visibility TasksVisibility => ToVisibility(HasTasks);
+    public Visibility MoreTasksVisibility => ToVisibility(HasMoreTasks);
     public Visibility FavoritesVisibility => ToVisibility(HasFavorites);
     public Visibility CaughtUpVisibility => ToVisibility(IsAllCaughtUp);
     public Visibility ContentVisibility => ToVisibility(HasContent);

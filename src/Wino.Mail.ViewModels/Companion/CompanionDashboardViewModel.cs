@@ -86,6 +86,9 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     public ObservableCollection<CalendarItemViewModel> LaterEvents { get; } = [];
     public ObservableCollection<CompanionEventItem> ListedEvents { get; } = [];
     public ObservableCollection<CompanionEventItem> MoreEvents { get; } = [];
+
+    /// <summary>The tasks past the first <see cref="MaximumTasks"/>, behind the "more" row as events are.</summary>
+    public ObservableCollection<TaskItemViewModel> MoreTasks { get; } = [];
     public ObservableCollection<TaskItemViewModel> Tasks { get; } = [];
     public ObservableCollection<AccountContactViewModel> Favorites { get; } = [];
 
@@ -160,10 +163,19 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     /// <summary>"MY DAY", or "DUE" when the companion lists tasks by due date.</summary>
     public string TasksHeaderText => _taskBehavior == CompanionTaskBehavior.DueDate ? Translator.Companion_DueTasks : Translator.Companion_MyDay;
 
-    public string TaskProgressText => string.Format(
-        Translator.Companion_TaskProgressFormat,
-        Tasks.Count(static task => task.IsCompleted),
-        Tasks.Count);
+    public bool HasMoreTasks => MoreTasks.Count > 0;
+    public string MoreTasksText => string.Format(Translator.Companion_MoreTasksFormat, MoreTasks.Count);
+
+    /// <summary>
+    /// "2 of 5" over every listed task in My Day; the count of open tasks when the companion lists them by due
+    /// date, where a completed task leaves the list.
+    /// </summary>
+    public string TaskProgressText => _taskBehavior == CompanionTaskBehavior.DueDate
+        ? (Tasks.Count(static task => !task.IsCompleted) + MoreTasks.Count(static task => !task.IsCompleted)).ToString(System.Globalization.CultureInfo.CurrentCulture)
+        : string.Format(
+            Translator.Companion_TaskProgressFormat,
+            Tasks.Count(static task => task.IsCompleted) + MoreTasks.Count(static task => task.IsCompleted),
+            Tasks.Count + MoreTasks.Count);
     public string SnoozeGlyph => SnoozeNotifications ? WinoIconGlyphs.GetGlyph(WinoIconGlyph.AlertOff) : WinoIconGlyphs.GetGlyph(WinoIconGlyph.Alert);
     public string SnoozeActionText => SnoozeNotifications
         ? Translator.Companion_ResumeNotifications
@@ -350,7 +362,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
                     cancellationToken)
                 : ([], 0);
             var tasks = _showTasks
-                ? (await content.GetCompanionTasksAsync(_taskBehavior, cancellationToken)).Take(MaximumTasks).ToList()
+                ? await content.GetCompanionTasksAsync(_taskBehavior, cancellationToken)
                 : [];
             var contacts = _showFavoriteContacts ? await content.GetFavoritesAsync(MaximumContacts, folders, cancellationToken) : [];
             var events = _showCalendar
@@ -393,7 +405,8 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     {
         _loadedAt = loadedAt;
         Replace(UnreadMail, mail);
-        Replace(Tasks, tasks);
+        Replace(Tasks, tasks.Take(MaximumTasks));
+        Replace(MoreTasks, tasks.Skip(MaximumTasks));
         Replace(Favorites, contacts);
         // The next-event card counts down to a start time, so it takes the first timed event when there is one.
         var nextEvent = events.FirstOrDefault(item => !CompanionContentService.IsAllDayUpcoming(item, loadedAt.LocalDateTime))
@@ -436,6 +449,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     {
         UnreadMail.Clear();
         Tasks.Clear();
+        MoreTasks.Clear();
         Favorites.Clear();
         LaterEvents.Clear();
         ListedEvents.Clear();
@@ -468,6 +482,8 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(MoreEventsText));
         OnPropertyChanged(nameof(TaskProgressText));
         OnPropertyChanged(nameof(TasksHeaderText));
+        OnPropertyChanged(nameof(HasMoreTasks));
+        OnPropertyChanged(nameof(MoreTasksText));
         RaiseNextEventProperties();
     }
 

@@ -1985,6 +1985,7 @@
   "Companion_Today": "TODAY",
   "Companion_TaskOverdue": "Overdue",
   "Companion_MoreEventsFormat": "{0} more today",
+  "Companion_MoreTasksFormat": "{0} more",
   "Companion_Unread": "UNREAD",
   "Companion_Archive": "Archive",
   "Companion_MarkRead": "Mark as read",
