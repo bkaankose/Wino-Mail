@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Providers.Dav.Synchronizers.CalDav;
 
@@ -38,6 +39,19 @@ internal sealed class CalDavTodo
 
     /// <summary>RFC 5545 section 3.8.1.9: 1-4 is high priority, 5 medium, 6-9 low, 0 undefined.</summary>
     public bool IsImportant => Priority is >= 1 and <= 4;
+
+    public TaskPriority PriorityLevel => TaskIcsBuilder.ToPriorityLevel(Priority);
+
+    /// <summary>The start day as the user sees it, or null without DTSTART.</summary>
+    public DateTime? StartDate { get; init; }
+
+    public IReadOnlyList<string> Categories { get; init; } = [];
+
+    /// <summary>The first RRULE value, without the property name.</summary>
+    public string? RecurrenceRule { get; init; }
+
+    /// <summary>When the earliest display or audio alarm fires, in UTC; null when there is none or it cannot be placed.</summary>
+    public DateTime? ReminderUtc { get; init; }
 }
 
 /// <summary>The VTODO fields a mutation changed; an update patches only these.</summary>
@@ -50,10 +64,14 @@ internal enum CalDavTodoFields
     Due = 4,
     Completion = 8,
     Importance = 16,
-    All = Title | Notes | Due | Completion | Importance
+    Reminder = 32,
+    Categories = 64,
+    Start = 128,
+    Recurrence = 256,
+    All = Title | Notes | Due | Completion | Importance | Reminder | Categories | Start | Recurrence
 }
 
-/// <summary>What Wino writes into a VTODO. Steps leave the description, due date and priority alone.</summary>
+/// <summary>What Wino writes into a VTODO. Steps write only the title, completion and parent.</summary>
 internal sealed class CalDavTodoContent
 {
     public CalDavTodoFields Fields { get; init; } = CalDavTodoFields.All;
@@ -63,7 +81,11 @@ internal sealed class CalDavTodoContent
     public DateTime? DueDate { get; init; }
     public bool IsCompleted { get; init; }
     public DateTime? CompletedAtUtc { get; init; }
-    public bool IsImportant { get; init; }
+    public TaskPriority Priority { get; init; }
+    public DateTime? ReminderUtc { get; init; }
+    public IReadOnlyList<string> Categories { get; init; } = [];
+    public DateTime? StartDate { get; init; }
+    public string? RecurrenceRule { get; init; }
     public DateTime? CreatedAtUtc { get; init; }
     public string? ParentUid { get; init; }
     public bool IsStep { get; init; }
@@ -92,7 +114,7 @@ internal static class TaskIcsBuilder
 
         var instances = new List<(CalDavTodo Todo, bool IsOverride)>();
         foreach (var block in FindTodoBlocks(ParseLines(icsContent)))
-            instances.Add((ReadTodo(block.Properties), block.Properties.Any(line => line.Name == "RECURRENCE-ID")));
+            instances.Add((ReadTodo(block.Properties, block.Alarms), block.Properties.Any(line => line.Name == "RECURRENCE-ID")));
 
         foreach (var group in instances.Where(item => !string.IsNullOrWhiteSpace(item.Todo.Uid)).GroupBy(item => item.Todo.Uid, StringComparer.Ordinal))
         {
@@ -105,7 +127,7 @@ internal static class TaskIcsBuilder
 
     public static CalDavTodo? ParseMasterTodo(string? icsContent) => ParseTodos(icsContent).FirstOrDefault();
 
-    private static CalDavTodo ReadTodo(IReadOnlyList<IcsLine> properties)
+    private static CalDavTodo ReadTodo(IReadOnlyList<IcsLine> properties, IReadOnlyList<AlarmBlock> alarms)
     {
         string? Text(string name)
         {
@@ -148,8 +170,192 @@ internal static class TaskIcsBuilder
             DtStampUtc = Utc("DTSTAMP"),
             Sequence = Integer("SEQUENCE"),
             ParentUid = string.IsNullOrWhiteSpace(parent?.Value) ? null : parent!.Value.Trim(),
-            SortOrder = long.TryParse(sortOrderValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sortOrder) ? sortOrder : null
+            SortOrder = long.TryParse(sortOrderValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sortOrder) ? sortOrder : null,
+            StartDate = ReadDueDate(properties.FirstOrDefault(item => item.Name == "DTSTART")),
+            Categories = ReadCategories(properties),
+            RecurrenceRule = properties.FirstOrDefault(item => item.Name == "RRULE")?.Value.Trim() is { Length: > 0 } rule ? rule : null,
+            ReminderUtc = ReadReminder(properties, alarms)
         };
+    }
+
+    internal static TaskPriority ToPriorityLevel(int? priority)
+        => priority switch
+        {
+            >= 1 and <= 4 => TaskPriority.High,
+            5 => TaskPriority.Normal,
+            >= 6 and <= 9 => TaskPriority.Low,
+            _ => TaskPriority.None
+        };
+
+    private static int ToPriorityValue(TaskPriority priority)
+        => priority switch
+        {
+            TaskPriority.High => 1,
+            TaskPriority.Normal => 5,
+            TaskPriority.Low => 9,
+            _ => 0
+        };
+
+    /// <summary>Every CATEGORIES line, split on unescaped commas (RFC 5545 section 3.8.1.2).</summary>
+    private static List<string> ReadCategories(IReadOnlyList<IcsLine> properties)
+    {
+        var result = new List<string>();
+        foreach (var line in properties.Where(item => item.Name == "CATEGORIES"))
+        {
+            var current = new StringBuilder();
+            var value = line.Value;
+            for (var index = 0; index < value.Length; index++)
+            {
+                if (value[index] == '\\' && index + 1 < value.Length)
+                {
+                    current.Append(value[index]).Append(value[++index]);
+                    continue;
+                }
+
+                if (value[index] == ',')
+                {
+                    AddCategory(result, current.ToString());
+                    current.Clear();
+                    continue;
+                }
+
+                current.Append(value[index]);
+            }
+
+            AddCategory(result, current.ToString());
+        }
+
+        return result;
+    }
+
+    private static void AddCategory(List<string> categories, string escaped)
+    {
+        var name = UnescapeText(escaped).Trim();
+        if (name.Length > 0 && !categories.Contains(name, StringComparer.OrdinalIgnoreCase))
+            categories.Add(name);
+    }
+
+    private static bool SameCategories(IReadOnlyList<string> first, IReadOnlyList<string> second)
+        => first.Count == second.Count &&
+           first.All(name => second.Contains(name, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The reminder Wino models: the earliest display or audio alarm. An absolute TRIGGER is taken as it
+    /// is; a relative one is placed against DTSTART, or DUE with RELATED=END (RFC 5545 section 3.8.6.3),
+    /// with a date-only anchor read as local midnight.
+    /// </summary>
+    private static DateTime? ReadReminder(IReadOnlyList<IcsLine> properties, IReadOnlyList<AlarmBlock> alarms)
+    {
+        DateTime? earliest = null;
+        foreach (var alarm in alarms.Where(IsModeledAlarm))
+        {
+            if (GetAlarmTime(alarm, properties) is { } value && (earliest is null || value < earliest))
+                earliest = value;
+        }
+
+        return earliest;
+    }
+
+    private static bool IsModeledAlarm(AlarmBlock alarm)
+    {
+        var action = alarm.Properties.FirstOrDefault(line => line.Name == "ACTION")?.Value.Trim().ToUpperInvariant();
+        return alarm.Properties.Any(line => line.Name == "TRIGGER") && action is null or "DISPLAY" or "AUDIO";
+    }
+
+    private static DateTime? GetAlarmTime(AlarmBlock alarm, IReadOnlyList<IcsLine> properties)
+    {
+        var trigger = alarm.Properties.FirstOrDefault(line => line.Name == "TRIGGER");
+        if (trigger == null)
+            return null;
+
+        if (TryParseDateTime(trigger.Value, out var absolute, out var absoluteHasTime, out var absoluteIsUtc))
+            return ToReminderUtc(absolute, absoluteHasTime, absoluteIsUtc);
+
+        if (!TryParseDuration(trigger.Value, out var offset))
+            return null;
+
+        var anchorLine = string.Equals(trigger.GetParameter("RELATED"), "END", StringComparison.OrdinalIgnoreCase)
+            ? properties.FirstOrDefault(line => line.Name == "DUE")
+            : properties.FirstOrDefault(line => line.Name == "DTSTART") ?? properties.FirstOrDefault(line => line.Name == "DUE");
+
+        if (anchorLine == null || !TryParseDateTime(anchorLine.Value, out var anchor, out var hasTime, out var isUtc))
+            return null;
+
+        return ToReminderUtc(anchor, hasTime, isUtc) + offset;
+    }
+
+    private static DateTime ToReminderUtc(DateTime value, bool hasTime, bool isUtc)
+        => isUtc
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : DateTime.SpecifyKind(hasTime ? value : value.Date, DateTimeKind.Local).ToUniversalTime();
+
+    /// <summary>Parses an RFC 5545 section 3.3.6 duration such as -PT15M, P1D or -P1DT2H.</summary>
+    internal static bool TryParseDuration(string? value, out TimeSpan duration)
+    {
+        duration = TimeSpan.Zero;
+        var text = value?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(text))
+            return false;
+
+        var negative = false;
+        var index = 0;
+        if (text[0] is '+' or '-')
+        {
+            negative = text[0] == '-';
+            index++;
+        }
+
+        if (index >= text.Length || text[index] != 'P')
+            return false;
+
+        index++;
+        var inTime = false;
+        var number = 0L;
+        var hasNumber = false;
+        var total = TimeSpan.Zero;
+
+        for (; index < text.Length; index++)
+        {
+            var character = text[index];
+            if (char.IsAsciiDigit(character))
+            {
+                number = number * 10 + (character - '0');
+                hasNumber = true;
+                continue;
+            }
+
+            if (character == 'T' && !hasNumber)
+            {
+                inTime = true;
+                continue;
+            }
+
+            if (!hasNumber)
+                return false;
+
+            TimeSpan? part = (character, inTime) switch
+            {
+                ('W', false) => TimeSpan.FromDays(7 * number),
+                ('D', false) => TimeSpan.FromDays(number),
+                ('H', true) => TimeSpan.FromHours(number),
+                ('M', true) => TimeSpan.FromMinutes(number),
+                ('S', true) => TimeSpan.FromSeconds(number),
+                _ => null
+            };
+
+            if (part is null)
+                return false;
+
+            total += part.Value;
+            number = 0;
+            hasNumber = false;
+        }
+
+        if (hasNumber)
+            return false;
+
+        duration = negative ? -total : total;
+        return true;
     }
 
     /// <summary>
@@ -200,11 +406,26 @@ internal static class TaskIcsBuilder
 
         lines.AddRange(BuildCompletionLines(content, nowUtc));
 
-        if (!content.IsStep && content.IsImportant)
-            lines.Add("PRIORITY:1");
+        if (!content.IsStep)
+        {
+            if (content.Priority != TaskPriority.None)
+                lines.Add($"PRIORITY:{ToPriorityValue(content.Priority).ToString(CultureInfo.InvariantCulture)}");
+
+            if (content.StartDate is { } startDate && (content.DueDate is not { } due || startDate.Date < due.Date))
+                lines.Add($"DTSTART;VALUE=DATE:{FormatDate(startDate)}");
+
+            if (content.Categories.Count > 0)
+                lines.Add(BuildCategoriesLine(content.Categories));
+
+            if (!string.IsNullOrWhiteSpace(content.RecurrenceRule))
+                lines.Add($"RRULE:{content.RecurrenceRule.Trim()}");
+        }
 
         if (!string.IsNullOrWhiteSpace(content.ParentUid))
             lines.Add($"RELATED-TO;RELTYPE=PARENT:{content.ParentUid}");
+
+        if (!content.IsStep && content.ReminderUtc is { } reminder)
+            lines.AddRange(BuildAlarmLines(reminder));
 
         lines.Add("END:VTODO");
         lines.Add("END:VCALENDAR");
@@ -232,9 +453,11 @@ internal static class TaskIcsBuilder
         if (block == null)
             return null;
 
-        var stored = ReadTodo(block.Properties);
+        var stored = ReadTodo(block.Properties, block.Alarms);
         var fields = content.Fields;
         var replacements = new Dictionary<string, List<string>?>(StringComparer.Ordinal);
+        var replaceAlarms = false;
+        DateTime? newReminder = null;
 
         if (fields.HasFlag(CalDavTodoFields.Title) &&
             !string.Equals(stored.Summary ?? string.Empty, content.Title ?? string.Empty, StringComparison.Ordinal))
@@ -254,12 +477,35 @@ internal static class TaskIcsBuilder
             if (fields.HasFlag(CalDavTodoFields.Due) && stored.DueDate?.Date != content.DueDate?.Date)
                 ApplyDueChange(block, content.DueDate, replacements);
 
-            if (fields.HasFlag(CalDavTodoFields.Importance))
+            // A level change only: a PRIORITY:3 written by another client stays when the task is still high.
+            if (fields.HasFlag(CalDavTodoFields.Importance) && stored.PriorityLevel != content.Priority)
+                replacements["PRIORITY"] = [$"PRIORITY:{ToPriorityValue(content.Priority).ToString(CultureInfo.InvariantCulture)}"];
+
+            if (fields.HasFlag(CalDavTodoFields.Categories) && !SameCategories(stored.Categories, content.Categories))
+                replacements["CATEGORIES"] = content.Categories.Count == 0 ? null : [BuildCategoriesLine(content.Categories)];
+
+            if (fields.HasFlag(CalDavTodoFields.Recurrence) &&
+                !string.Equals(stored.RecurrenceRule ?? string.Empty, content.RecurrenceRule?.Trim() ?? string.Empty, StringComparison.OrdinalIgnoreCase))
             {
-                if (content.IsImportant && !stored.IsImportant)
-                    replacements["PRIORITY"] = ["PRIORITY:1"];
-                else if (!content.IsImportant && stored.IsImportant)
-                    replacements["PRIORITY"] = ["PRIORITY:0"];
+                if (string.IsNullOrWhiteSpace(content.RecurrenceRule))
+                {
+                    replacements["RRULE"] = null;
+                    replacements["RDATE"] = null;
+                    replacements["EXDATE"] = null;
+                }
+                else
+                {
+                    replacements["RRULE"] = [$"RRULE:{content.RecurrenceRule.Trim()}"];
+                }
+            }
+
+            if (fields.HasFlag(CalDavTodoFields.Start) && stored.StartDate?.Date != content.StartDate?.Date)
+                ApplyStartChange(block, content, replacements);
+
+            if (fields.HasFlag(CalDavTodoFields.Reminder) && !SameMinute(stored.ReminderUtc, content.ReminderUtc))
+            {
+                replaceAlarms = true;
+                newReminder = content.ReminderUtc;
             }
         }
 
@@ -272,12 +518,19 @@ internal static class TaskIcsBuilder
 
             // Completing a recurring VTODO completes the current occurrence only: like Apple
             // Reminders, Nextcloud and tasks.org, the master moves to the next occurrence and stays open.
-            if (content.IsCompleted && TryAdvanceRecurrence(lines, block, out var advanced))
+            if (content.IsCompleted && TryAdvanceRecurrence(lines, block, out var advanced, out var shift))
             {
                 foreach (var pair in advanced)
                     replacements[pair.Key] = pair.Value;
 
                 replacements["STATUS"] = ["STATUS:NEEDS-ACTION"];
+
+                // Relative alarms move with DTSTART and DUE; an absolute one is moved by the same amount.
+                if (!replaceAlarms && stored.ReminderUtc is { } storedReminder && block.Alarms.Any(alarm => IsModeledAlarm(alarm) && HasAbsoluteTrigger(alarm)))
+                {
+                    replaceAlarms = true;
+                    newReminder = storedReminder + shift;
+                }
             }
             else
             {
@@ -289,13 +542,24 @@ internal static class TaskIcsBuilder
             }
         }
 
-        if (replacements.Count == 0)
+        if (replacements.Count == 0 && !replaceAlarms)
             return existingIcs;
 
         var stamp = FormatUtc(nowUtc);
         replacements["LAST-MODIFIED"] = [$"LAST-MODIFIED:{stamp}"];
         replacements["DTSTAMP"] = [$"DTSTAMP:{stamp}"];
         replacements["SEQUENCE"] = [$"SEQUENCE:{(stored.Sequence ?? 0) + 1}"];
+
+        // Only the display and audio alarms Wino models are replaced; EMAIL and unknown alarms stay byte for byte.
+        var removedAlarmIndexes = new HashSet<int>();
+        if (replaceAlarms)
+        {
+            foreach (var alarm in block.Alarms.Where(IsModeledAlarm))
+            {
+                for (var index = alarm.StartIndex; index <= alarm.EndIndex; index++)
+                    removedAlarmIndexes.Add(index);
+            }
+        }
 
         var output = new StringBuilder(existingIcs.Length + 256);
         for (var index = 0; index < lines.Count; index++)
@@ -306,14 +570,75 @@ internal static class TaskIcsBuilder
                     output.Append(FoldLine(replacement)).Append("\r\n");
             }
 
+            if (index == block.EndIndex && newReminder is { } reminder)
+            {
+                foreach (var alarmLine in BuildAlarmLines(reminder))
+                    output.Append(FoldLine(alarmLine)).Append("\r\n");
+            }
+
             var line = lines[index];
             if (block.PropertyIndexes.Contains(index) && replacements.ContainsKey(line.Name))
+                continue;
+
+            if (removedAlarmIndexes.Contains(index))
                 continue;
 
             output.Append(line.Raw).Append("\r\n");
         }
 
         return output.ToString();
+    }
+
+    private static string BuildCategoriesLine(IReadOnlyList<string> categories)
+        => "CATEGORIES:" + string.Join(',', categories.Select(EscapeText));
+
+    private static IEnumerable<string> BuildAlarmLines(DateTime reminderUtc)
+    {
+        yield return "BEGIN:VALARM";
+        yield return "ACTION:DISPLAY";
+        yield return "DESCRIPTION:Reminder";
+        yield return $"TRIGGER;VALUE=DATE-TIME:{FormatUtc(reminderUtc)}";
+        yield return "END:VALARM";
+    }
+
+    private static bool HasAbsoluteTrigger(AlarmBlock alarm)
+        => alarm.Properties.FirstOrDefault(line => line.Name == "TRIGGER") is { } trigger &&
+           TryParseDateTime(trigger.Value, out _, out _, out _);
+
+    private static bool SameMinute(DateTime? first, DateTime? second)
+        => first is null || second is null
+            ? first is null && second is null
+            : Math.Abs((ToUtc(first.Value) - ToUtc(second.Value)).TotalSeconds) < 60;
+
+    /// <summary>
+    /// Sets or removes a date-only DTSTART. It is written only where sabre/vobject accepts it: before a
+    /// date-only DUE, or without DUE. A DTSTART that anchors a recurrence without DUE is not removed.
+    /// </summary>
+    private static void ApplyStartChange(TodoBlock block, CalDavTodoContent content, Dictionary<string, List<string>?> replacements)
+    {
+        var isRecurring = block.Properties.Any(line => line.Name is "RRULE" or "RDATE") || !string.IsNullOrWhiteSpace(content.RecurrenceRule);
+        var hasDue = content.Fields.HasFlag(CalDavTodoFields.Due)
+            ? content.DueDate.HasValue
+            : block.Properties.Any(line => line.Name == "DUE");
+
+        if (content.StartDate is not { } start)
+        {
+            if (!isRecurring || hasDue)
+                replacements["DTSTART"] = null;
+            return;
+        }
+
+        var dueLine = replacements.TryGetValue("DUE", out var dueReplacement) && dueReplacement?.Count > 0
+            ? IcsLine.Create(dueReplacement[0], dueReplacement[0])
+            : block.Properties.FirstOrDefault(line => line.Name == "DUE");
+
+        if (dueLine != null && TryParseDateTime(dueLine.Value, out var dueValue, out var dueHasTime, out _))
+        {
+            if (dueHasTime || start.Date >= dueValue.Date)
+                return;
+        }
+
+        replacements["DTSTART"] = [$"DTSTART;VALUE=DATE:{FormatDate(start)}"];
     }
 
     private static IEnumerable<string> BuildCompletionLines(CalDavTodoContent content, DateTime nowUtc)
@@ -432,9 +757,10 @@ internal static class TaskIcsBuilder
     /// COUNT shrinks by the occurrence just completed. False when the VTODO does not recur, has no
     /// DTSTART or DUE to anchor it, or has no occurrence left.
     /// </summary>
-    private static bool TryAdvanceRecurrence(IReadOnlyList<IcsLine> lines, TodoBlock block, out Dictionary<string, List<string>?> changes)
+    private static bool TryAdvanceRecurrence(IReadOnlyList<IcsLine> lines, TodoBlock block, out Dictionary<string, List<string>?> changes, out TimeSpan shift)
     {
         changes = new Dictionary<string, List<string>?>(StringComparer.Ordinal);
+        shift = TimeSpan.Zero;
 
         var rules = block.Properties.Where(line => line.Name == "RRULE").ToList();
         var dates = block.Properties.Where(line => line.Name is "RDATE" or "EXDATE").ToList();
@@ -457,6 +783,7 @@ internal static class TaskIcsBuilder
             return false;
 
         var delta = nextValue - anchorValue;
+        shift = delta;
         foreach (var line in new[] { dtStart, due })
         {
             if (line == null || !TryParseDateTime(line.Value, out var value, out var hasTime, out var isUtc))
@@ -549,6 +876,7 @@ internal static class TaskIcsBuilder
         var blocks = new List<TodoBlock>();
         var stack = new Stack<string>();
         TodoBlock? current = null;
+        AlarmBlock? alarm = null;
 
         for (var index = 0; index < lines.Count; index++)
         {
@@ -563,6 +891,9 @@ internal static class TaskIcsBuilder
                 if (component == "VTODO" && stack.Count == 1 && stack.Peek() == "VCALENDAR")
                     current = new TodoBlock();
 
+                if (component == "VALARM" && current != null && stack.Count == 2 && stack.Peek() == "VTODO")
+                    alarm = new AlarmBlock { StartIndex = index };
+
                 stack.Push(component);
                 continue;
             }
@@ -570,11 +901,19 @@ internal static class TaskIcsBuilder
             if (line.Name == "END")
             {
                 var component = line.Value.Trim().ToUpperInvariant();
+                if (component == "VALARM" && alarm != null && current != null && stack.Count == 3)
+                {
+                    alarm.EndIndex = index;
+                    current.Alarms.Add(alarm);
+                    alarm = null;
+                }
+
                 if (component == "VTODO" && current != null && stack.Count == 2)
                 {
                     if (current.InsertIndex < 0)
                         current.InsertIndex = index;
 
+                    current.EndIndex = index;
                     blocks.Add(current);
                     current = null;
                 }
@@ -589,6 +928,10 @@ internal static class TaskIcsBuilder
             {
                 current.Properties.Add(line);
                 current.PropertyIndexes.Add(index);
+            }
+            else if (alarm != null && stack.Count == 3 && stack.Peek() == "VALARM")
+            {
+                alarm.Properties.Add(line);
             }
         }
 
@@ -744,6 +1087,19 @@ internal static class TaskIcsBuilder
 
         /// <summary>Where new properties go: before the first subcomponent, else before END:VTODO.</summary>
         public int InsertIndex { get; set; } = -1;
+
+        /// <summary>The END:VTODO line, where a new alarm goes.</summary>
+        public int EndIndex { get; set; } = -1;
+
+        public List<AlarmBlock> Alarms { get; } = [];
+    }
+
+    /// <summary>A VALARM directly inside a VTODO: its BEGIN and END lines and its own properties.</summary>
+    private sealed class AlarmBlock
+    {
+        public int StartIndex { get; init; }
+        public int EndIndex { get; set; } = -1;
+        public List<IcsLine> Properties { get; } = [];
     }
 
     /// <summary>One content line: the unfolded text split into name, parameters and value, and the original folded text.</summary>

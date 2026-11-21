@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
@@ -867,7 +868,11 @@ public sealed partial class CalDavTaskSynchronizationEngine
             DueDate = task.DueDate?.Date,
             IsCompleted = task.IsCompleted,
             CompletedAtUtc = task.CompletedAtUtc,
-            IsImportant = task.IsImportant,
+            Priority = TaskFields.GetEffectivePriority(task),
+            ReminderUtc = task.ReminderAtUtc,
+            Categories = TaskFields.GetCategories(task),
+            StartDate = task.StartDate?.Date,
+            RecurrenceRule = TaskFields.NormalizeRecurrence(task.Recurrence),
             CreatedAtUtc = task.CreatedAtUtc
         };
 
@@ -901,8 +906,16 @@ public sealed partial class CalDavTaskSynchronizationEngine
             fields |= CalDavTodoFields.Due;
         if (original.IsCompleted != edited.IsCompleted)
             fields |= CalDavTodoFields.Completion;
-        if (original.IsImportant != edited.IsImportant)
+        if (TaskFields.GetEffectivePriority(original) != TaskFields.GetEffectivePriority(edited))
             fields |= CalDavTodoFields.Importance;
+        if (original.ReminderAtUtc != edited.ReminderAtUtc)
+            fields |= CalDavTodoFields.Reminder;
+        if (!TaskFields.CategoriesEqual(original.Categories, edited.Categories))
+            fields |= CalDavTodoFields.Categories;
+        if (original.StartDate?.Date != edited.StartDate?.Date)
+            fields |= CalDavTodoFields.Start;
+        if (!string.Equals(TaskFields.NormalizeRecurrence(original.Recurrence), TaskFields.NormalizeRecurrence(edited.Recurrence), StringComparison.OrdinalIgnoreCase))
+            fields |= CalDavTodoFields.Recurrence;
 
         return fields;
     }
@@ -936,6 +949,8 @@ public sealed partial class CalDavTaskSynchronizationEngine
         remoteTask.IsCompleted = false;
         remoteTask.CompletedAtUtc = null;
         remoteTask.DueDate = todo.DueDate;
+        remoteTask.StartDate = todo.StartDate;
+        remoteTask.ReminderAtUtc = todo.ReminderUtc;
     }
 
     private static AccountTask BuildRemoteTask(AccountTask task, AccountTaskList list, string uid, string eTag, List<AccountTaskStep> steps)

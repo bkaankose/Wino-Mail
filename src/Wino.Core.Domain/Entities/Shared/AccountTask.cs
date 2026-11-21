@@ -53,6 +53,26 @@ public class AccountTask
 
     /// <summary>Position under the Manual sort. Local only: no provider receives or supplies it.</summary>
     public int? ManualOrder { get; set; }
+
+    /// <summary>When the task reminds, with date and time. The due date stays date-only; the reminder carries the time.</summary>
+    [Indexed]
+    public DateTime? ReminderAtUtc { get; set; }
+
+    /// <summary>A snoozed reminder fires again at this time. Local only.</summary>
+    public DateTime? ReminderSnoozedUntilUtc { get; set; }
+
+    /// <summary>Kept in step with <see cref="IsImportant"/>, which stays the importance star; see <c>TaskFields.GetEffectivePriority</c>.</summary>
+    public TaskPriority Priority { get; set; }
+
+    /// <summary>Category names separated by line feeds.</summary>
+    public string? Categories { get; set; }
+
+    /// <summary>A date-only start date, stored so copies and exports keep it.</summary>
+    public DateTime? StartDate { get; set; }
+
+    /// <summary>An RFC 5545 RRULE value without the "RRULE:" prefix, or null.</summary>
+    public string? Recurrence { get; set; }
+
     public TaskPendingMutation PendingMutation { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedAtUtc { get; set; } = DateTime.UtcNow;

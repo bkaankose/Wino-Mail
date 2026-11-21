@@ -487,6 +487,51 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             await ViewModel.DeleteStepCommand.ExecuteAsync(step);
     }
 
+    private void PickReminderMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var start = ViewModel.SelectedTask?.ReminderAtUtc is { } reminderUtc
+            ? DateTime.SpecifyKind(reminderUtc, DateTimeKind.Utc).ToLocalTime()
+            : (ViewModel.SelectedTask?.DueDate ?? DateTime.Now.Date.AddDays(1)).Date.AddHours(9);
+
+        ReminderDatePicker.Date = new DateTimeOffset(start.Date);
+        ReminderTimePicker.Time = start.TimeOfDay;
+        ReminderPickerPanel.Visibility = Visibility.Visible;
+    }
+
+    private void ReminderPickerCancel_Click(object sender, RoutedEventArgs e)
+        => ReminderPickerPanel.Visibility = Visibility.Collapsed;
+
+    private async void ReminderPickerSave_Click(object sender, RoutedEventArgs e)
+    {
+        ReminderPickerPanel.Visibility = Visibility.Collapsed;
+        if (ViewModel.SelectedTask is not { } task)
+            return;
+
+        await ViewModel.SetTaskReminderAsync(task, ReminderDatePicker.Date.Date + ReminderTimePicker.Time);
+    }
+
+    private async void CategoryChip_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string category })
+            await ViewModel.RemoveTaskCategoryCommand.ExecuteAsync(category);
+    }
+
+    private void CategoryBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
+            sender.ItemsSource = ViewModel.GetCategorySuggestions(sender.Text);
+    }
+
+    private async void CategoryBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var category = args.ChosenSuggestion as string ?? args.QueryText;
+        sender.Text = string.Empty;
+        sender.ItemsSource = null;
+
+        if (ViewModel.SelectedTask is { } task && ViewModel.CanEditSelectedTask)
+            await ViewModel.AddTaskCategoryAsync(task, category);
+    }
+
     private async void DeleteTaskButton_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.SelectedTask is not null)

@@ -1,6 +1,7 @@
 using System.Linq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Models.Tasks;
 
 namespace Wino.Core.Requests;
 
@@ -172,7 +173,7 @@ public static class RequestEntityCloner
         if (source is null)
             return null;
 
-        return new AccountTask
+        var task = new AccountTask
         {
             Id = source.Id,
             MailAccountId = source.MailAccountId,
@@ -195,6 +196,9 @@ public static class RequestEntityCloner
             IsReadOnly = source.IsReadOnly,
             Steps = source.Steps?.Select(TaskStep).ToList() ?? []
         };
+
+        TaskFields.CopyExtendedFields(source, task);
+        return task;
     }
 
     public static AccountTaskStep TaskStep(AccountTaskStep source)

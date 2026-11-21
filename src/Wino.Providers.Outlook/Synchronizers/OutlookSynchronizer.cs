@@ -572,7 +572,7 @@ IAuthenticator authenticator,
         else
         {
             remote = await _outlookTasksClient
-                .UpdateTaskAsync(list.RemoteId, localTask.RemoteId, BuildRemoteTask(localTask, includeChecklistItems: false), localTask.RemoteVersion, cancellationToken)
+                .UpdateTaskAsync(list.RemoteId, localTask.RemoteId, BuildRemoteTask(localTask, includeChecklistItems: false, original: typedRequest?.OriginalTask ?? storedTask), localTask.RemoteVersion, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -1120,6 +1120,7 @@ IAuthenticator authenticator,
             RemoteOrder = GetRemoteValue(remote, "order"),
             PendingMutation = TaskPendingMutation.None
         };
+        TaskFieldMapper.ReadInto(task, remote);
         task.Steps = (remote?.ChecklistItems ?? []).Select((step, index) => new AccountTaskStep
         {
             TaskId = task.Id,
@@ -1140,8 +1141,9 @@ IAuthenticator authenticator,
     /// task POST; a PATCH carrying them is rejected, so updates must leave them out and
     /// use the checklistItems child collection instead.
     /// </summary>
-    private static TodoTask BuildRemoteTask(AccountTask task, bool includeChecklistItems, bool includeIdentity = false)
-        => new()
+    private static TodoTask BuildRemoteTask(AccountTask task, bool includeChecklistItems, bool includeIdentity = false, AccountTask original = null)
+    {
+        var payload = new TodoTask
         {
             Title = task.Title,
             Body = string.IsNullOrWhiteSpace(task.Notes) ? null : new ItemBody { ContentType = BodyType.Text, Content = task.Notes },
@@ -1170,6 +1172,10 @@ IAuthenticator authenticator,
                 ]
                 : null
         };
+
+        TaskFieldMapper.WriteInto(payload, task, original, isCreate: includeIdentity);
+        return payload;
+    }
 
     private static Guid? GetWinoTaskId(TodoTask task)
     {

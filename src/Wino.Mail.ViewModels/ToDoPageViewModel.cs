@@ -20,6 +20,7 @@ using Wino.Core.Domain.Models.AppLock;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Domain.Misc;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
@@ -1549,6 +1550,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             IsImportant = SelectedList is null && SelectedView == TaskViewKind.Important,
             MyDayDateUtc = IsMyDaySelected ? DateTime.UtcNow.Date : null
         };
+        task.ReminderAtUtc = TaskFields.GetDefaultReminderUtc(
+            task.DueDate,
+            _preferencesService?.AreTaskRemindersEnabled == true,
+            _preferencesService?.TaskReminderTiming ?? TaskReminderTiming.AtDueTime,
+            DateTime.UtcNow);
 
         if (!await QueueMutationAsync(new TaskActionRequest(
             task.MailAccountId,

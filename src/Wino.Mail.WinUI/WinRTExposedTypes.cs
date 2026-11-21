@@ -123,6 +123,7 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(UnreadBadgeFolderViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailSearchFilterEditor))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableRangeCollection<string>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<string>))]
 
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableObject[]))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AppLockMethodOption[]))]

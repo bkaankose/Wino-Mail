@@ -76,3 +76,12 @@ public enum TaskSynchronizerOperation
     DeleteGroup = 11,
     UpdateListPlacement = 12
 }
+
+/// <summary>A task's priority. <see cref="None"/> is "not set"; the importance star is <see cref="High"/>.</summary>
+public enum TaskPriority
+{
+    None = 0,
+    Low = 1,
+    Normal = 2,
+    High = 3
+}
