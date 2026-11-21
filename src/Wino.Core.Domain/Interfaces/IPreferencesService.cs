@@ -71,6 +71,12 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool ShowTasksInCalendar { get; set; }
 
     /// <summary>
+    /// Accounts whose last task list on this device the user deleted, so To Do does not create a replacement.
+    /// Comma-separated account ids.
+    /// </summary>
+    string DeletedLocalTaskListAccountIds { get; set; }
+
+    /// <summary>
     /// Setting: Whether calendar events are shown in the companion flyout.
     /// </summary>
     bool ShowCalendarInCompanion { get; set; }

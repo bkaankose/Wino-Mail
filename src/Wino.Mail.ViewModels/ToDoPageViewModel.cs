@@ -1391,7 +1391,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             var listGroups = await _taskService.GetTaskListGroupsAsync().ConfigureAwait(false) ?? [];
             var accountGroups = await _accountService.GetAccountGroupsAsync().ConfigureAwait(false);
 
-            foreach (var account in accounts.Where(RequiresLocalFallbackList))
+            var declinedAccountIds = GetDeletedLocalListAccountIds();
+            foreach (var account in accounts.Where(RequiresLocalFallbackList).Where(account => !declinedAccountIds.Contains(account.Id)))
             {
                 if (_isPreparedForShellShutdown) return;
                 if (lists.Any(list => list.MailAccountId == account.Id && list.SourceKind == TaskSourceKind.Local))
@@ -2299,6 +2300,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             Translator.ToDoPage_DeleteList).ConfigureAwait(false);
         if (!confirmed)
             return;
+        RememberDeletedLastLocalList(item.Parameter);
         await QueueMutationAsync(new TaskActionRequest(
             item.Parameter.MailAccountId,
             TaskSynchronizerOperation.DeleteList,
@@ -2540,6 +2542,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (!confirmed)
             return;
 
+        RememberDeletedLastLocalList(list);
         await QueueMutationAsync(new TaskActionRequest(
             list.MailAccountId,
             TaskSynchronizerOperation.DeleteList,
@@ -2787,6 +2790,31 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 : null;
         }
     }
+
+    /// <summary>
+    /// The reload creates a list for an account that has no list on this device, so a new account starts with
+    /// one. When the user deletes that account's last such list, the account is remembered and gets no
+    /// replacement; a list the user creates later is unaffected.
+    /// </summary>
+    private void RememberDeletedLastLocalList(AccountTaskList list)
+    {
+        if (_preferencesService is null || list.SourceKind != TaskSourceKind.Local ||
+            TaskLists.Any(other => other.Id != list.Id && other.MailAccountId == list.MailAccountId && other.SourceKind == TaskSourceKind.Local))
+        {
+            return;
+        }
+
+        var accountIds = GetDeletedLocalListAccountIds();
+        if (accountIds.Add(list.MailAccountId))
+            _preferencesService.DeletedLocalTaskListAccountIds = string.Join(',', accountIds);
+    }
+
+    private HashSet<Guid> GetDeletedLocalListAccountIds()
+        => (_preferencesService?.DeletedLocalTaskListAccountIds ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .ToHashSet();
 
     private static bool RequiresLocalFallbackList(MailAccount account)
         => account.IsTaskAccessEnabled &&

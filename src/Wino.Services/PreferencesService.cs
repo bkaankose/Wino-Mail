@@ -908,6 +908,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(CompanionTaskBehavior), Enum.IsDefined(value) ? value : CompanionTaskBehavior.MyDay);
     }
 
+    public string DeletedLocalTaskListAccountIds
+    {
+        get => _configurationService.Get(nameof(DeletedLocalTaskListAccountIds), string.Empty);
+        set => SetPropertyAndSave(nameof(DeletedLocalTaskListAccountIds), value ?? string.Empty);
+    }
+
     public bool ShowTasksInCalendar
     {
         get => _configurationService.Get(nameof(ShowTasksInCalendar), true);
