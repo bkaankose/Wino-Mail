@@ -28,6 +28,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Core.Domain.Messaging.Client.Navigation;
 using Wino.Core.Domain.Messaging.Server;
 using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.Calendar;
 using Wino.Mail.ViewModels.Common.Data;
 using Wino.Services.Interfaces;
 
@@ -1042,7 +1043,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             foreach (var calendar in calendars)
             {
                 AccountCalendars.Add(calendar);
-                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(calendar, ShowAsOptions, AvailableColors, IsCalendarSynchronizationConfigurable));
+                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(
+                    calendar,
+                    ShowAsOptions,
+                    AvailableColors,
+                    IsCalendarSynchronizationConfigurable,
+                    CalendarDefaultReminderOption.CreateOptions(_preferencesService.DefaultReminderDurationInSeconds, calendar.DefaultReminderInSeconds)));
             }
         });
 
@@ -1072,6 +1078,18 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         calendar.DefaultShowAs = option.ShowAs;
         try { await _calendarService.UpdateAccountCalendarAsync(calendar); }
         catch { calendar.DefaultShowAs = previous; throw; }
+    }
+
+    /// <summary>Stores the reminder new events in the calendar get. Kept in Wino only.</summary>
+    public async Task UpdateCalendarDefaultReminderAsync(AccountCalendar calendar, CalendarDefaultReminderOption option)
+    {
+        if (calendar == null || option == null || calendar.DefaultReminderInSeconds == option.Seconds)
+            return;
+
+        var previous = calendar.DefaultReminderInSeconds;
+        calendar.DefaultReminderInSeconds = option.Seconds;
+        try { await _calendarService.UpdateAccountCalendarAsync(calendar); }
+        catch { calendar.DefaultReminderInSeconds = previous; throw; }
     }
 
     public async Task UpdateCalendarColorAsync(AccountCalendarSettingsItemViewModel calendarItem, AppColorViewModel color)
@@ -1373,8 +1391,19 @@ public partial class AccountCalendarSettingsItemViewModel : ObservableObject
     [ObservableProperty]
     public partial AppColorViewModel SelectedColor { get; set; }
 
-    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar, ObservableCollection<AccountCalendarShowAsOption> showAsOptions, List<AppColorViewModel> availableColors, bool isSynchronizationConfigurable)
+    public List<CalendarDefaultReminderOption> DefaultReminderOptions { get; }
+
+    [ObservableProperty]
+    public partial CalendarDefaultReminderOption SelectedDefaultReminderOption { get; set; }
+
+    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar,
+                                                ObservableCollection<AccountCalendarShowAsOption> showAsOptions,
+                                                List<AppColorViewModel> availableColors,
+                                                bool isSynchronizationConfigurable,
+                                                List<CalendarDefaultReminderOption> defaultReminderOptions)
     {
+        DefaultReminderOptions = defaultReminderOptions;
+        SelectedDefaultReminderOption = CalendarDefaultReminderOption.FindSelected(defaultReminderOptions, calendar.DefaultReminderInSeconds);
         Calendar = calendar;
         ShowAsOptions = showAsOptions;
         AvailableColors = availableColors;

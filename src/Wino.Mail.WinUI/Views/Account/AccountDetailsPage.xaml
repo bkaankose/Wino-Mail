@@ -6,6 +6,7 @@
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:calendar="using:Wino.Core.Domain.Entities.Calendar"
+    xmlns:calendarViewModels="using:Wino.Mail.ViewModels.Calendar"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -867,6 +868,27 @@
                                             Tag="{x:Bind}">
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate x:DataType="mailViewModels:AccountCalendarShowAsOption">
+                                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </controls:SettingsCard>
+
+                                    <controls:SettingsCard
+                                        AutomationProperties.AutomationId="AccountDetailsPageCalendarDefaultReminderCard"
+                                        Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminderDescription, Mode=OneTime}"
+                                        Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminder, Mode=OneTime}">
+                                        <controls:SettingsCard.HeaderIcon>
+                                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Reminder" />
+                                        </controls:SettingsCard.HeaderIcon>
+                                        <ComboBox
+                                            AutomationProperties.AutomationId="AccountDetailsPageCalendarDefaultReminderComboBox"
+                                            ItemsSource="{x:Bind DefaultReminderOptions, Mode=OneTime}"
+                                            SelectedItem="{x:Bind SelectedDefaultReminderOption, Mode=OneWay}"
+                                            SelectionChanged="CalendarDefaultReminderSelectionChanged"
+                                            Tag="{x:Bind}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="calendarViewModels:CalendarDefaultReminderOption">
                                                     <TextBlock Text="{x:Bind DisplayText}" />
                                                 </DataTemplate>
                                             </ComboBox.ItemTemplate>

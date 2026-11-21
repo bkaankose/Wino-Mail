@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Calendar;
 using Wino.Mail.ViewModels.Common.Data;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Views.Abstract;
@@ -75,6 +76,15 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         {
             calendarItem.SelectedShowAsOption = option;
             await ViewModel.UpdateCalendarDefaultShowAsAsync(calendarItem.Calendar, option);
+        }
+    }
+
+    private async void CalendarDefaultReminderSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { Tag: AccountCalendarSettingsItemViewModel calendarItem, SelectedItem: CalendarDefaultReminderOption option })
+        {
+            calendarItem.SelectedDefaultReminderOption = option;
+            await ViewModel.UpdateCalendarDefaultReminderAsync(calendarItem.Calendar, option);
         }
     }
 

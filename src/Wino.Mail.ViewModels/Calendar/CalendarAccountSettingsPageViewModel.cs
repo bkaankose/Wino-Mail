@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,8 +28,6 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     private readonly ICalendarCapabilityService _calendarCapabilityService;
     private readonly IPreferencesService _preferencesService;
     private bool _isLoadingDefaultReminder;
-
-    private static readonly long[] DefaultReminderChoices = [0, 5 * 60, 10 * 60, 15 * 60, 30 * 60, 3600, 2 * 3600, 86400, 2 * 86400, 7 * 86400];
     private int _capabilityRequestVersion;
     private CalendarCapabilities _accountCapabilities = CalendarCapabilities.None;
     public Task PendingPersistence { get; private set; } = Task.CompletedTask;
@@ -217,20 +216,10 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
         _isLoadingDefaultReminder = true;
         DefaultReminderOptions.Clear();
 
-        var appDefault = _preferencesService?.DefaultReminderDurationInSeconds ?? 0;
-        DefaultReminderOptions.Add(new CalendarDefaultReminderOption(null, string.Format(
-            Translator.CalendarReminder_UseAppDefault,
-            appDefault > 0 ? CalendarReminderFormatter.Format(appDefault) : Translator.CalendarReminder_None)));
-        DefaultReminderOptions.Add(new CalendarDefaultReminderOption(AccountCalendar.NoDefaultReminder, Translator.CalendarReminder_None));
+        foreach (var option in CalendarDefaultReminderOption.CreateOptions(_preferencesService?.DefaultReminderDurationInSeconds ?? 0, storedValue))
+            DefaultReminderOptions.Add(option);
 
-        var values = DefaultReminderChoices.ToList();
-        if (storedValue is { } stored && stored != AccountCalendar.NoDefaultReminder && !values.Contains(stored))
-            values.Add(stored);
-
-        foreach (var value in values.OrderBy(value => value))
-            DefaultReminderOptions.Add(new CalendarDefaultReminderOption(value, CalendarReminderFormatter.Format(value)));
-
-        SelectedDefaultReminderOption = DefaultReminderOptions.FirstOrDefault(option => option.Seconds == storedValue) ?? DefaultReminderOptions[0];
+        SelectedDefaultReminderOption = CalendarDefaultReminderOption.FindSelected(DefaultReminderOptions, storedValue);
         _isLoadingDefaultReminder = false;
     }
 
@@ -270,7 +259,31 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
 /// <summary>One choice for a calendar's default reminder; <see cref="Seconds"/> null uses the app's default.</summary>
 public sealed class CalendarDefaultReminderOption(long? seconds, string displayText)
 {
+    private static readonly long[] Choices = [0, 5 * 60, 10 * 60, 15 * 60, 30 * 60, 3600, 2 * 3600, 86400, 2 * 86400, 7 * 86400];
+
     public long? Seconds { get; } = seconds;
     public string DisplayText { get; } = displayText;
     public override string ToString() => DisplayText;
+
+    /// <summary>The app default, none, and the fixed choices, plus <paramref name="storedValue"/> when it is not one of them.</summary>
+    public static List<CalendarDefaultReminderOption> CreateOptions(long appDefaultReminderInSeconds, long? storedValue)
+    {
+        var options = new List<CalendarDefaultReminderOption>
+        {
+            new(null, string.Format(
+                Translator.CalendarReminder_UseAppDefault,
+                appDefaultReminderInSeconds > 0 ? CalendarReminderFormatter.Format(appDefaultReminderInSeconds) : Translator.CalendarReminder_None)),
+            new(AccountCalendar.NoDefaultReminder, Translator.CalendarReminder_None)
+        };
+
+        var values = Choices.ToList();
+        if (storedValue is { } stored && stored != AccountCalendar.NoDefaultReminder && !values.Contains(stored))
+            values.Add(stored);
+
+        options.AddRange(values.OrderBy(value => value).Select(value => new CalendarDefaultReminderOption(value, CalendarReminderFormatter.Format(value))));
+        return options;
+    }
+
+    public static CalendarDefaultReminderOption FindSelected(IEnumerable<CalendarDefaultReminderOption> options, long? storedValue)
+        => options.FirstOrDefault(option => option.Seconds == storedValue) ?? options.First();
 }
