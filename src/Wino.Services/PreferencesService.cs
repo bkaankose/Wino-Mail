@@ -898,6 +898,16 @@ public partial class PreferencesService(IConfigurationService configurationServi
             Enum.IsDefined(value) ? value : CompanionUnreadMessageBehavior.AfterAppSession);
     }
 
+    public CompanionTaskBehavior CompanionTaskBehavior
+    {
+        get
+        {
+            var value = _configurationService.Get(nameof(CompanionTaskBehavior), CompanionTaskBehavior.MyDay);
+            return Enum.IsDefined(value) ? value : CompanionTaskBehavior.MyDay;
+        }
+        set => SetPropertyAndSave(nameof(CompanionTaskBehavior), Enum.IsDefined(value) ? value : CompanionTaskBehavior.MyDay);
+    }
+
     public bool ShowCalendarInCompanion
     {
         get => _configurationService.Get(nameof(ShowCalendarInCompanion), true);

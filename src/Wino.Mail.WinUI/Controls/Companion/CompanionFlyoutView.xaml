@@ -603,7 +603,7 @@
                                 FontSize="12"
                                 FontWeight="Bold"
                                 Foreground="{ThemeResource CompanionTertiaryTextBrush}"
-                                Text="{x:Bind domain:Translator.Companion_MyDay, Mode=OneTime}" />
+                                Text="{x:Bind ViewModel.TasksHeaderText, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="1"
                                 VerticalAlignment="Center"

@@ -59,6 +59,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     private bool _showCalendar;
     private bool _showUnreadMail;
     private bool _showTasks;
+    private CompanionTaskBehavior _taskBehavior;
     private bool _showFavoriteContacts;
 
     public CompanionDashboardViewModel(
@@ -156,6 +157,9 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     public string LaterEventsText => string.Format(Translator.Companion_MoreEventsFormat, LaterEvents.Count);
     public bool HasMoreEvents => MoreEvents.Count > 0;
     public string MoreEventsText => string.Format(Translator.Companion_MoreEventsFormat, MoreEvents.Count);
+    /// <summary>"MY DAY", or "DUE" when the companion lists tasks by due date.</summary>
+    public string TasksHeaderText => _taskBehavior == CompanionTaskBehavior.DueDate ? Translator.Companion_DueTasks : Translator.Companion_MyDay;
+
     public string TaskProgressText => string.Format(
         Translator.Companion_TaskProgressFormat,
         Tasks.Count(static task => task.IsCompleted),
@@ -331,6 +335,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
             _showCalendar = preferences.ShowCalendarInCompanion;
             _showUnreadMail = preferences.ShowUnreadMailInCompanion;
             _showTasks = preferences.ShowTasksInCompanion;
+            _taskBehavior = preferences.CompanionTaskBehavior;
             _showFavoriteContacts = preferences.ShowFavoriteContactsInCompanion;
 
             var content = _services.GetRequiredService<CompanionContentService>();
@@ -345,7 +350,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
                     cancellationToken)
                 : ([], 0);
             var tasks = _showTasks
-                ? (await content.GetMyDayTasksAsync(cancellationToken)).Take(MaximumTasks).ToList()
+                ? (await content.GetCompanionTasksAsync(_taskBehavior, cancellationToken)).Take(MaximumTasks).ToList()
                 : [];
             var contacts = _showFavoriteContacts ? await content.GetFavoritesAsync(MaximumContacts, folders, cancellationToken) : [];
             var events = _showCalendar
@@ -462,6 +467,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasMoreEvents));
         OnPropertyChanged(nameof(MoreEventsText));
         OnPropertyChanged(nameof(TaskProgressText));
+        OnPropertyChanged(nameof(TasksHeaderText));
         RaiseNextEventProperties();
     }
 
@@ -538,6 +544,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
             or nameof(IPreferencesService.ShowTasksInCompanion)
             or nameof(IPreferencesService.ShowFavoriteContactsInCompanion)
             or nameof(IPreferencesService.CompanionUnreadMessageBehavior)
+            or nameof(IPreferencesService.CompanionTaskBehavior)
             // Values baked into the rows on each refresh.
             or nameof(IPreferencesService.AccountNicknamePosition)
             or nameof(IPreferencesService.ContactSortOrder)
@@ -747,6 +754,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         }
 
         OnPropertyChanged(nameof(TaskProgressText));
+        OnPropertyChanged(nameof(TasksHeaderText));
     }
 
     private bool CanAddTask() => !string.IsNullOrWhiteSpace(NewTaskTitle);

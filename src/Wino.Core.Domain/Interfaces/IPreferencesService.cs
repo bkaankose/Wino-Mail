@@ -61,6 +61,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     CompanionUnreadMessageBehavior CompanionUnreadMessageBehavior { get; set; }
 
     /// <summary>
+    /// Setting: Which tasks are shown in the companion flyout: My Day, or open tasks due today or overdue.
+    /// </summary>
+    CompanionTaskBehavior CompanionTaskBehavior { get; set; }
+
+    /// <summary>
     /// Setting: Whether calendar events are shown in the companion flyout.
     /// </summary>
     bool ShowCalendarInCompanion { get; set; }
