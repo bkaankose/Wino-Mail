@@ -16,7 +16,7 @@ internal static class MailListPerf
     private static int _applyCount;
 
     /// <summary>Stopwatch timestamp set by a Debug action right before it asks for a folder.</summary>
-    public static long SwitchRequested;
+    public static long SwitchRequested { get; set; }
 
     public static int ViewGeneration { get; private set; }
 
