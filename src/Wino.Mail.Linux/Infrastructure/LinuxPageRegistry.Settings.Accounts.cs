@@ -11,5 +11,6 @@ internal sealed partial class LinuxPageRegistry
         Register<ManageAccountsPage>(WinoPage.AccountManagementPage, LinuxPageHost.Settings);
         Register<AccountGroupDetailsPage>(WinoPage.MergedAccountDetailsPage, LinuxPageHost.Settings);
         Register<AccountDetailsPage>(WinoPage.AccountDetailsPage, LinuxPageHost.Settings);
+        Register<AliasManagementPage>(WinoPage.AliasManagementPage, LinuxPageHost.Settings);
     }
 }
