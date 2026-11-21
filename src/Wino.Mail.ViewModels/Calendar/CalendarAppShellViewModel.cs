@@ -587,6 +587,27 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         CalendarPage.CancelPendingQuickEvent();
 
+        // The pane entry, the command and the shortcut can all fire for one activation (UI Automation
+        // invokes the pane entry and selects it), so a second request while the picker is open is dropped.
+        if (_isNewEventFlowRunning)
+            return;
+
+        _isNewEventFlowRunning = true;
+
+        try
+        {
+            await RunNewEventFlowAsync();
+        }
+        finally
+        {
+            _isNewEventFlowRunning = false;
+        }
+    }
+
+    private bool _isNewEventFlowRunning;
+
+    private async Task RunNewEventFlowAsync()
+    {
         // The pane entry, the shortcut and the command all land here.
         var readiness = CalendarPage.Readiness;
         if (!await readiness.EnsureReadyAsync())
