@@ -45,6 +45,28 @@ internal sealed class WindowStateStore(IConfigurationService configuration)
             configuration.Set(MaximizedKey, placement.IsMaximized);
     }
 
+    /// <summary>The remembered size of a secondary window kind ("reader", "composer", ...), or null before its first close.</summary>
+    public WindowPlacement? ReadKind(string kind)
+    {
+        var prefix = KindPrefix(kind);
+        if (!configuration.Contains(prefix + "Width") || !configuration.Contains(prefix + "Height")) return null;
+        return new WindowPlacement(
+            Math.Clamp(configuration.Get(prefix + "Width", 0), 1, ShellMetrics.WindowMaximumLength),
+            Math.Clamp(configuration.Get(prefix + "Height", 0), 1, ShellMetrics.WindowMaximumLength),
+            configuration.Get(prefix + "Maximized", false));
+    }
+
+    public void WriteKind(string kind, WindowPlacement placement)
+    {
+        var prefix = KindPrefix(kind);
+        SetIfChanged(prefix + "Width", Math.Clamp(placement.Width, 1, ShellMetrics.WindowMaximumLength), 0);
+        SetIfChanged(prefix + "Height", Math.Clamp(placement.Height, 1, ShellMetrics.WindowMaximumLength), 0);
+        if (!configuration.Contains(prefix + "Maximized") || configuration.Get(prefix + "Maximized", false) != placement.IsMaximized)
+            configuration.Set(prefix + "Maximized", placement.IsMaximized);
+    }
+
+    private static string KindPrefix(string kind) => "LinuxWindow." + kind + ".";
+
     public int SidebarWidth
     {
         get => ClampSidebar(configuration.Get(SidebarWidthKey, ShellMetrics.SidebarDefaultWidth));

@@ -214,6 +214,7 @@ internal sealed class GtkNavigationService : INavigationService, INavigationHost
             return true;
         });
         if (SecondaryWindows is { } secondary) await secondary.CloseAsync(closedByUser: false);
+        await _services.GetRequiredService<WindowManager>().CloseAllAsync();
         await OnUIAsync(async () =>
         {
             // Until a Welcome route exists the replace above was refused and the shell is still the main content.

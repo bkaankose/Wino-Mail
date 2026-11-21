@@ -49,6 +49,7 @@ internal static partial class LinuxViewModelRegistration
         RegisterTheme(services);
         RegisterDesktop(services);
         RegisterShortcuts(services);
+        RegisterWindows(services);
         return services;
     }
 
@@ -66,4 +67,5 @@ internal static partial class LinuxViewModelRegistration
     static partial void RegisterTheme(IServiceCollection services);
     static partial void RegisterDesktop(IServiceCollection services);
     static partial void RegisterShortcuts(IServiceCollection services);
+    static partial void RegisterWindows(IServiceCollection services);
 }
