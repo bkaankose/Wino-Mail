@@ -183,6 +183,7 @@ public sealed partial class CalendarPeriodControl
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(UIElement))]
     private void TimedDayAreaRightTapped(object sender, RightTappedRoutedEventArgs e)
     {
         if (sender is UIElement element && TryResolveTimedColumn(e.GetPosition(element).X, out _, out var date))

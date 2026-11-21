@@ -519,7 +519,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 
         var anchor = task.DueDate ?? DateTime.Now.Date;
         var rule = TaskRecurrenceRule.Parse(task.Recurrence)
-                   ?? new TaskRecurrenceRule(TaskRecurrenceFrequency.Weekly, Days: [anchor.DayOfWeek]);
+                   ?? new TaskRecurrenceRule(TaskRecurrenceFrequency.Weekly, Days: (DayOfWeek[])[anchor.DayOfWeek]);
 
         RepeatIntervalBox.Value = rule.Interval;
         RepeatUnitComboBox.SelectedItem = rule.Frequency switch
@@ -628,6 +628,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             await ViewModel.SaveTaskCommand.ExecuteAsync(ViewModel.SelectedTask);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void LinkedItem_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)
@@ -640,6 +641,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             ViewModel.FlaggedMail?.OpenCommand.Execute(item);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void FlaggedMailComplete_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.FlaggedMail.FlaggedMailItemViewModel item)

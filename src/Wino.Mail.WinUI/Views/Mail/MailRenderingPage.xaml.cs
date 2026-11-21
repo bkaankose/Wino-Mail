@@ -253,6 +253,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private void EditSenderRule_Click(object sender, RoutedEventArgs e)
         => PrivacyFlyout.ShowAt(PrivacyButton);
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void LinkedItem_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)

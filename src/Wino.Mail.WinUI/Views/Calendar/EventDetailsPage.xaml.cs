@@ -21,6 +21,8 @@ using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Mail.ViewModels.Calendar.Data;
 using Wino.Mail.WinUI.Helpers;
 
+using WinRT;
+
 namespace Wino.Mail.WinUI.Views.Calendar;
 
 public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
@@ -202,6 +204,7 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         ], FlyoutPlacementMode.Right);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void LinkedItem_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)
