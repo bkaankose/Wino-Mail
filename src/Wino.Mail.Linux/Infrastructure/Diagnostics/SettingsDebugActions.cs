@@ -138,6 +138,18 @@ internal static class SettingsDebugActions
             nameof(IPreferencesService.IconStyle) => Choice(() => p.IconStyle, v => p.IconStyle = v, value),
             nameof(IPreferencesService.IsCompactAccountMenuItemEnabled) => Flag(() => p.IsCompactAccountMenuItemEnabled, v => p.IsCompactAccountMenuItemEnabled = v, value),
             nameof(IPreferencesService.IsWinoAccountButtonHidden) => Flag(() => p.IsWinoAccountButtonHidden, v => p.IsWinoAccountButtonHidden = v, value),
+            nameof(IPreferencesService.FirstDayOfWeek) => Choice(() => p.FirstDayOfWeek, v => p.FirstDayOfWeek = v, value),
+            nameof(IPreferencesService.IsWorkingHoursEnabled) => Flag(() => p.IsWorkingHoursEnabled, v => p.IsWorkingHoursEnabled = v, value),
+            nameof(IPreferencesService.WorkingHourStart) => p.WorkingHourStart.ToString(),
+            nameof(IPreferencesService.WorkingHourEnd) => p.WorkingHourEnd.ToString(),
+            nameof(IPreferencesService.WorkingDayStart) => p.WorkingDayStart.ToString(),
+            nameof(IPreferencesService.WorkingDayEnd) => p.WorkingDayEnd.ToString(),
+            nameof(IPreferencesService.HourHeight) => p.HourHeight.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            nameof(IPreferencesService.CalendarTimeFormatPreference) => Choice(() => p.CalendarTimeFormatPreference, v => p.CalendarTimeFormatPreference = v, value),
+            nameof(IPreferencesService.CalendarTimedDayHeaderDateFormat) => Text(() => p.CalendarTimedDayHeaderDateFormat, v => p.CalendarTimedDayHeaderDateFormat = v, value),
+            nameof(IPreferencesService.CalendarEventDisplayMode) => Choice(() => p.CalendarEventDisplayMode, v => p.CalendarEventDisplayMode = v, value),
+            nameof(IPreferencesService.CalendarSyncIntervalMinutes) => Number(() => p.CalendarSyncIntervalMinutes, v => p.CalendarSyncIntervalMinutes = v, value),
+            nameof(IPreferencesService.IsCalendarAccountsGrouped) => Flag(() => p.IsCalendarAccountsGrouped, v => p.IsCalendarAccountsGrouped = v, value),
             _ => throw new ArgumentException($"debug-settings-pref does not know '{name}'; add it to SettingsDebugActions.Preference."),
         };
     }

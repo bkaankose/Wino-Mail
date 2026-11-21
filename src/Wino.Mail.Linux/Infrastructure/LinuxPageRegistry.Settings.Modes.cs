@@ -11,5 +11,9 @@ internal sealed partial class LinuxPageRegistry
         Register<AboutPage>(WinoPage.AboutPage, LinuxPageHost.Settings);
         Register<ContactsPreferenceSettingsPage>(WinoPage.ContactsPreferenceSettingsPage, LinuxPageHost.Settings);
         Register<ToDoPreferenceSettingsPage>(WinoPage.ToDoPreferenceSettingsPage, LinuxPageHost.Settings);
+        Register<CalendarPreferenceSettingsPage>(WinoPage.CalendarPreferenceSettingsPage, LinuxPageHost.Settings);
+        Register<CalendarPreferenceSettingsPage>(WinoPage.CalendarSettingsPage, LinuxPageHost.Settings);
+        Register<CalendarRenderingSettingsPage>(WinoPage.CalendarRenderingSettingsPage, LinuxPageHost.Settings);
+        Register<CalendarAccountSettingsPage>(WinoPage.CalendarAccountSettingsPage, LinuxPageHost.Settings);
     }
 }
