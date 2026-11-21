@@ -17,7 +17,7 @@ namespace Wino.Mail.Linux.Infrastructure;
 /// the single apply point; it publishes the result in <see cref="WinoAppearance"/>. Window materials do not exist here:
 /// the compositor draws the window.
 /// </summary>
-internal sealed class GtkThemeService(IDispatcher dispatcher, IConfigurationService configuration, IPreferencesService preferences, CustomThemeFileStore store) : INewThemeService
+internal sealed partial class GtkThemeService(IDispatcher dispatcher, IConfigurationService configuration, IPreferencesService preferences, CustomThemeFileStore store) : INewThemeService
 {
     private const string AdwaitaBlue = "#3584e4";
 
@@ -132,11 +132,12 @@ internal sealed class GtkThemeService(IDispatcher dispatcher, IConfigurationServ
         var custom = predefined is null ? await FindCustomAsync(themeId) : null;
         if (predefined is null && custom is null)
             throw new InvalidOperationException($"Theme '{themeId}' is not available.");
-        if (!forceReapply && themeId == _themeId) return;
+        if (!forceReapply && themeId == _themeId && _preview is null) return;
 
         var previous = CaptureRuntimeState();
         try
         {
+            _preview = null;
             _themeId = themeId;
             configuration.Set(WinoThemeCatalog.CurrentApplicationThemeKey, themeId);
             ApplyThemeChoice(predefined, custom);
@@ -191,12 +192,14 @@ internal sealed class GtkThemeService(IDispatcher dispatcher, IConfigurationServ
         try
         {
             var styleManager = Adw.StyleManager.GetDefault();
+            var preview = _preview;
             var themeId = _themeId ?? WinoThemeCatalog.DefaultThemeId;
-            var definition = WinoThemeCatalog.Find(themeId);
-            var custom = definition is null ? FindCachedCustom(themeId) : null;
+            var definition = preview is null ? WinoThemeCatalog.Find(themeId) : null;
+            var custom = preview?.Metadata ?? (definition is null ? FindCachedCustom(themeId) : null);
             if (definition is null && custom is null) definition = WinoThemeCatalog.Find(WinoThemeCatalog.DefaultThemeId);
 
-            var root = definition is { ForcedElementTheme: not ApplicationElementTheme.Default and var forced } ? forced : _rootTheme;
+            var root = preview?.ElementTheme
+                ?? (definition is { ForcedElementTheme: not ApplicationElementTheme.Default and var forced } ? forced : _rootTheme);
             styleManager.SetColorScheme(root switch
             {
                 ApplicationElementTheme.Dark => Adw.ColorScheme.ForceDark,
@@ -206,11 +209,11 @@ internal sealed class GtkThemeService(IDispatcher dispatcher, IConfigurationServ
             var dark = styleManager.Dark;
             _systemAccentHex = SystemAccentHex(styleManager);
 
-            var accent = WinoRgba.FromHexString(_accent);
+            var accent = WinoRgba.FromHexString(preview is null ? _accent : preview.Metadata.AccentColorHex);
             var input = new ThemeCssInput(accent, null, null, null, IsDark: dark);
             if (custom is not null)
             {
-                var wallpaper = store.WallpaperPath(custom.Id);
+                var wallpaper = preview is null ? store.WallpaperPath(custom.Id) : PreviewWallpaperPath(preview);
                 var palette = dark
                     ? custom.DarkPalette?.Resolve(true) ?? CustomThemePalette.CreateDefaults(true)
                     : custom.LightPalette?.Resolve(false) ?? CustomThemePalette.CreateDefaults(false);
@@ -306,6 +309,8 @@ internal sealed class GtkThemeService(IDispatcher dispatcher, IConfigurationServ
 
     public async Task RestoreRuntimeStateAsync(ThemeRuntimeState state)
     {
+        // Dropped first, or an unsaved editor preview stays on screen after Cancel.
+        ClearPreview();
         _themeId = state.ThemeId;
         configuration.Set(WinoThemeCatalog.CurrentApplicationThemeKey, state.ThemeId ?? WinoThemeCatalog.DefaultThemeId);
         _accent = state.AccentColor ?? string.Empty;
@@ -329,30 +334,6 @@ internal sealed class GtkThemeService(IDispatcher dispatcher, IConfigurationServ
     public void ApplyIconStyle() => _ = ObserveAsync(dispatcher.ExecuteOnUIThread(() => WinoAppearance.SetIconStyle(preferences.IconStyle)));
 
     public void UpdateSystemCaptionButtonColors() { }
-
-    public async Task<CustomThemeMetadata?> GetCustomThemeAsync(Guid themeId)
-        => (await RefreshCustomThemesAsync()).FirstOrDefault(theme => theme.Id == themeId);
-
-    public Task<List<CustomThemeMetadata>> GetCurrentCustomThemesAsync() => RefreshCustomThemesAsync();
-
-    public Task<CustomThemeMetadata> SaveCustomThemeAsync(CustomThemeSaveRequest request)
-        => Task.FromException<CustomThemeMetadata>(new NotSupportedException("Custom themes are not available on Linux yet."));
-
-    public async Task<bool> DeleteCustomThemeAsync(Guid themeId)
-    {
-        if (await store.GetAsync(themeId) is null) return false;
-        if (_themeId == themeId) await SelectThemeAsync(WinoThemeCatalog.DefaultThemeId, forceReapply: true);
-        try
-        {
-            return await Task.Run(() => store.DeleteAsync(themeId));
-        }
-        finally
-        {
-            await RefreshCustomThemesAsync();
-        }
-    }
-
-    public Task PreviewCustomThemeAsync(CustomThemeMetadata metadata, byte[]? wallpaperData, ApplicationElementTheme elementTheme) => Task.CompletedTask;
 
     private async Task<List<CustomThemeMetadata>> RefreshCustomThemesAsync()
     {
@@ -389,22 +370,5 @@ internal sealed class GtkThemeService(IDispatcher dispatcher, IConfigurationServ
         public override Task<string> GetThemeResourceDictionaryContentAsync() => Task.FromResult(string.Empty);
         protected override Task<string> GetPreviewImagePathAsync()
             => Task.FromResult(ThemeImagePath(ThemeName) is var path && File.Exists(path) ? path : string.Empty);
-    }
-
-    private sealed class CustomTheme : AppThemeBase
-    {
-        private readonly string _previewPath;
-
-        public CustomTheme(CustomThemeMetadata metadata, string previewPath) : base(metadata.Name, metadata.Id)
-        {
-            _previewPath = previewPath;
-            AccentColor = metadata.AccentColorHex;
-            ForceElementTheme = ApplicationElementTheme.Default;
-            Compatibility = ThemeCompatibility.Both;
-        }
-
-        public override AppThemeType AppThemeType => AppThemeType.Custom;
-        public override Task<string> GetThemeResourceDictionaryContentAsync() => Task.FromResult(string.Empty);
-        protected override Task<string> GetPreviewImagePathAsync() => Task.FromResult(File.Exists(_previewPath) ? _previewPath : string.Empty);
     }
 }

@@ -59,6 +59,7 @@ internal sealed class ShellLayout : IDisposable
         _handle.Dragged += width => SetSidebarWidth(width, persist: false);
         _handle.DragEnded += () => _store.SidebarWidth = _sidebarWidth;
         var sidebar = Gtk.Overlay.New();
+        sidebar.AddCssClass(WinoZone.SurfaceClass(WinoThemeSurface.Navigation));
         sidebar.SetChild(_sidebarHost);
         sidebar.AddOverlay(_handle.Root);
 

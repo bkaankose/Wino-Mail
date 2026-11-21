@@ -80,10 +80,10 @@ public static class ThemeCss
         return uri.IndexOfAny(['"', '\\', '\n', '\r']) >= 0 ? null : uri;
     }
 
-    private static string Rgba(WinoRgba color)
+    public static string Rgba(WinoRgba color)
         => string.Create(CultureInfo.InvariantCulture, $"rgba({color.R}, {color.G}, {color.B}, {Math.Clamp(color.Alpha, 0, 1):0.###})");
 
-    private static string Position(ThemeWallpaperAlignment alignment) => alignment switch
+    public static string Position(ThemeWallpaperAlignment alignment) => alignment switch
     {
         ThemeWallpaperAlignment.TopLeft => "left top",
         ThemeWallpaperAlignment.Top => "center top",

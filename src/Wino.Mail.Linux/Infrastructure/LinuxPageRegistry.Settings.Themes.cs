@@ -9,5 +9,6 @@ internal sealed partial class LinuxPageRegistry
     {
         Register<PersonalizationPage>(WinoPage.PersonalizationPage, LinuxPageHost.Settings);
         Register<ApplicationThemeGalleryPage>(WinoPage.ApplicationThemeGalleryPage, LinuxPageHost.Settings);
+        Register<ApplicationThemeEditorPage>(WinoPage.ApplicationThemeEditorPage, LinuxPageHost.Settings);
     }
 }
