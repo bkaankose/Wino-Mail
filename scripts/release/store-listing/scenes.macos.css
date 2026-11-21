@@ -1,0 +1,27 @@
+/* Mac App Store set: a 1920x1200 (16:10) canvas rendered at 1.5x to 2880x1800, with captures from screens/macos. */
+html.mac.single, html.mac.single body { height: 1200px; }
+.mac .scene { height: 1200px; }
+
+.mac .lay-full .cap, .mac .lay-zoom .cap, .mac .lay-fan .cap { left: 0; right: 0; top: 40px; bottom: auto; width: auto; display: block; text-align: center; }
+.mac .lay-full .cap h1, .mac .lay-zoom .cap h1, .mac .lay-fan .cap h1 { font-size: 56px; line-height: 1.15; letter-spacing: -0.015em; }
+
+/* macOS windows: rounded corners and a soft shadow tinted with the scene color. */
+.mac .window { border-radius: 14px; border: 1px solid rgba(0,0,0,.14); background: #fff; }
+.mac .lay-full .window { left: 50%; top: 142px; transform: translateX(-50%); width: 1600px; height: 1000px; font-size: 0; }
+.mac .lay-full .window .shot { position: static; display: block; width: 1600px; height: 1000px; max-width: none; max-height: none; }
+
+/* Zoomed: the capture enlarged so the navigation pane (280 of 1440 points) falls off the left edge, running off the bottom. */
+.mac .lay-zoom .window { left: auto; right: 120px; top: 142px; width: 1680px; height: 1120px; font-size: 0; }
+.mac .lay-zoom .window .shot { position: absolute; right: 0; top: 0; left: auto; width: 2086px; height: auto; max-width: none; }
+
+/* Themes: three themed windows in a cascade. */
+.mac .fan { inset: 0; }
+.mac .fan .window { position: absolute; width: 1140px; height: 712px; font-size: 0; }
+.mac .fan .window .shot { position: static; display: block; width: 1140px; height: 712px; max-width: none; }
+.mac .fan .window:nth-child(1) { left: 150px; top: 168px; }
+.mac .fan .window:nth-child(2) { left: 390px; top: 312px; }
+.mac .fan .window:nth-child(3) { left: 630px; top: 456px; }
+
+.mac .lay-top .cap { top: 96px; }
+.mac .feats { top: 400px; }
+.mac .providers { top: 912px; }

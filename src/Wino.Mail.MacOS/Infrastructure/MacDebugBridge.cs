@@ -14,7 +14,7 @@ namespace Wino.Mail.MacOS.Infrastructure;
 /// snapshots to *.png in the same folder. Snapshots render the app's own windows, so they need
 /// no Screen Recording permission (behind-window vibrancy renders as its fallback colour).
 ///
-/// Commands: snap NAME · mode Mail|Calendar|Contacts|Tasks · settings [WinoPage] ·
+/// Commands: snap NAME · snap2x NAME · seedmail · seedstore · mode Mail|Calendar|Contacts|Tasks · settings [WinoPage] ·
 /// page WinoPage · theme NAME|Default · appearance light|dark|system · iconstyle mono|color ·
 /// size WIDTH HEIGHT · sleep MS · front · windows
 /// Feature code can add commands with <see cref="Register"/>.
@@ -128,6 +128,51 @@ public static class MacDebugBridge
             Get<AppKitNavigationService>().ChangeApplicationMode(WinoApplicationMode.Mail);
             return result;
         });
+        // "seedstore" adds the store screenshot demo (StoreListingDebugSeed): Outlook, Gmail and iCloud accounts with mail,
+        // calendars, contacts and tasks. Run it on an empty data folder.
+        Register("seedstore", async _ =>
+        {
+            var result = await Wino.Mail.ViewModels.Diagnostics.StoreListingDebugSeed.SeedAsync(_services!);
+            Get<AppKitNavigationService>().ChangeApplicationMode(WinoApplicationMode.Mail);
+            return result;
+        });
+        // "clearattention" removes the attention state the demo's token-less Outlook and Gmail accounts get after a sync.
+        Register("clearattention", async _ =>
+        {
+            var accounts = Get<IAccountService>();
+            int cleared = 0;
+            foreach (var account in await accounts.GetAccountsAsync())
+            {
+                if (account.AttentionReason == AccountAttentionReason.None) continue;
+                account.AttentionReason = AccountAttentionReason.None;
+                await accounts.UpdateAccountAsync(account);
+                cleared++;
+            }
+            return $"cleared {cleared}";
+        });
+        // "wsnap NAME" captures the shell window as the window server composites it (glass and vibrancy included). It needs
+        // Screen Recording permission for Wino Mail; the first call shows the system prompt.
+        Register("wsnap", args =>
+        {
+            if (!CGPreflightScreenCaptureAccess())
+            {
+                CGRequestScreenCaptureAccess();
+                return Task.FromResult("no screen recording permission; prompt requested");
+            }
+            var window = AllWindows().Where(item => item.IsVisible && item.StyleMask.HasFlag(NSWindowStyle.Titled)).MaxBy(item => item.Frame.Width * item.Frame.Height);
+            if (window is null) return Task.FromResult("no window");
+            // kCGWindowListOptionIncludingWindow, kCGWindowImageBoundsIgnoreFraming | kCGWindowImageBestResolution
+            var handle = CGWindowListCreateImage(CoreGraphics.CGRect.Null, 8, (uint)window.WindowNumber, 9);
+            if (handle == IntPtr.Zero) return Task.FromResult("capture failed");
+            using var image = ObjCRuntime.Runtime.GetINativeObject<CoreGraphics.CGImage>(handle, true)!;
+            using var rep = new NSBitmapImageRep(image);
+            using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
+            var file = Path.Combine(Folder, (args.Length > 0 ? args[0] : "wsnap") + ".png");
+            data?.Save(NSUrl.FromFilename(file), true);
+            return Task.FromResult($"{Path.GetFileName(file)} {image.Width}x{image.Height}");
+        });
+        // "snap2x NAME" is snap at twice the window's point size, for Retina-size store screenshots on a 1x display.
+        Register("snap2x", args => Task.FromResult(Snap(args.Length > 0 ? args[0] : "snap2x", 2)));
         // "pref NAME" prints a preference; "pref NAME VALUE" sets it (bool, number, string or enum member name).
         Register("live", _ =>
         {
@@ -330,7 +375,7 @@ public static class MacDebugBridge
     private static NSWindow[] AllWindows() => NSApplication.SharedApplication.DangerousWindows.ToArray();
 
     /// <summary>Renders every visible app window (frame view included, so the toolbar shows) to PNG.</summary>
-    public static string Snap(string name)
+    public static string Snap(string name, int scale = 1)
     {
         var saved = new List<string>();
         int index = 0;
@@ -338,7 +383,7 @@ public static class MacDebugBridge
         {
             var view = window.ContentView!.Superview ?? window.ContentView!;
             view.LayoutSubtreeIfNeeded();
-            var rep = view.BitmapImageRepForCachingDisplayInRect(view.Bounds);
+            var rep = scale == 1 ? view.BitmapImageRepForCachingDisplayInRect(view.Bounds) : ScaledRep(view.Bounds.Size, scale);
             if (rep is null) continue;
             view.CacheDisplay(view.Bounds, rep);
             using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
@@ -348,6 +393,28 @@ public static class MacDebugBridge
             index++;
         }
         return saved.Count == 0 ? "no visible windows" : string.Join(", ", saved);
+    }
+
+    private const string CoreGraphicsLibrary = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
+
+    [System.Runtime.InteropServices.DllImport(CoreGraphicsLibrary)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.I1)]
+    private static extern bool CGPreflightScreenCaptureAccess();
+
+    [System.Runtime.InteropServices.DllImport(CoreGraphicsLibrary)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.I1)]
+    private static extern bool CGRequestScreenCaptureAccess();
+
+    // Deprecated in favour of ScreenCaptureKit but still present; this is a debug-only capture path.
+    [System.Runtime.InteropServices.DllImport(CoreGraphicsLibrary)]
+    private static extern IntPtr CGWindowListCreateImage(CoreGraphics.CGRect bounds, uint listOption, uint windowId, uint imageOption);
+
+    // A bitmap with more pixels than points: cacheDisplay then draws the view at that scale.
+    private static NSBitmapImageRep ScaledRep(CoreGraphics.CGSize size, int scale)
+    {
+        var rep = new NSBitmapImageRep(IntPtr.Zero, (nint)(size.Width * scale), (nint)(size.Height * scale), 8, 4, true, false, "NSDeviceRGBColorSpace", 0, 0);
+        rep.Size = size;
+        return rep;
     }
 }
 #endif
