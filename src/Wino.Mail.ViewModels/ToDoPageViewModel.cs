@@ -817,8 +817,17 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             // A list delete removes its tasks on the server without a delete message for each task.
             RemoveListTasks(message.List.Id);
             _listMenuItems.Remove(message.List.Id);
+
+            // Staying on the same account keeps its lists open in the pane; My Day would collapse them.
             if (SelectedList?.Id == message.List.Id)
-                SelectSurface(TaskViewKind.MyDay, null);
+            {
+                var sibling = TaskLists
+                    .Where(list => list.MailAccountId == message.List.MailAccountId)
+                    .OrderByDescending(list => list.IsDefault)
+                    .ThenBy(list => list.SortOrder)
+                    .FirstOrDefault();
+                SelectSurface(sibling is null ? TaskViewKind.MyDay : TaskViewKind.All, sibling);
+            }
 
             SyncShellMenuItems();
             return;
