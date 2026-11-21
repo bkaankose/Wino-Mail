@@ -370,6 +370,98 @@ public static class MacDebugBridge
         });
         Register("windows", _ => Task.FromResult(string.Join(" | ",
             AllWindows().Where(item => item.IsVisible).Select(item => $"{item.GetType().Name} '{item.Title}' {item.Frame.Width}x{item.Frame.Height}"))));
+        // press WINDOW TITLE|BUTTON TITLE: presses the first enabled button with that title in the visible window with that
+        // title. "type:NSPanel" selects windows by class, and an empty or * title searches every visible window.
+        Register("press", args => Task.FromResult(Press(string.Join(' ', args))));
+        // drawer-menu ROW|ITEM: runs an item of a visible drawer row's menu (Remind me, Repeat, Priority, Categories), as a click does.
+        Register("drawer-menu", args => Task.FromResult(DrawerMenu(string.Join(' ', args))));
+        // choose WINDOW TITLE|ITEM TITLE: selects an item of the first visible pop-up button in that window that has it, and
+        // sends the pop-up's action as a selection does.
+        Register("choose", args => Task.FromResult(Choose(string.Join(' ', args))));
+    }
+
+    private static string Choose(string spec)
+    {
+        var parts = spec.Split('|', 2);
+        if (parts.Length != 2) return "usage: choose WINDOW TITLE|ITEM TITLE";
+        var title = parts[0].Trim();
+        var item = parts[1].Trim();
+        foreach (var window in AllWindows().Where(candidate => candidate.IsVisible && candidate.ContentView is not null && (candidate.Title == title || title is "*")))
+        {
+            var popup = FindPopUp(window.ContentView!, item);
+            if (popup is null) continue;
+            popup.SelectItem(item);
+            popup.SendAction(popup.Action, popup.Target);
+            return "chose " + item;
+        }
+        return "no pop-up with " + item + " in " + title;
+    }
+
+    private static NSPopUpButton? FindPopUp(NSView view, string item)
+    {
+        if (view is NSPopUpButton popup && !popup.Hidden && popup.ItemTitles().Contains(item)) return popup;
+        foreach (var child in view.Subviews.Where(child => !child.Hidden))
+        {
+            var found = FindPopUp(child, item);
+            if (found is not null) return found;
+        }
+        return null;
+    }
+
+    private static string DrawerMenu(string spec)
+    {
+        var parts = spec.Split('|', 2);
+        if (parts.Length != 2) return "usage: drawer-menu ROW|ITEM";
+        var label = parts[0].Trim();
+        var item = parts[1].Trim();
+        Wino.Mail.Controls.AppKit.ToDo.WinoDrawerActionRow? found = null;
+        void Collect(NSView view)
+        {
+            if (view.Hidden || found is not null) return;
+            if (view is Wino.Mail.Controls.AppKit.ToDo.WinoDrawerActionRow drawerRow && drawerRow.Text == label && drawerRow.Menu is not null)
+            {
+                found = drawerRow;
+                return;
+            }
+            foreach (var child in view.Subviews) Collect(child);
+        }
+        foreach (var window in AllWindows().Where(candidate => candidate.IsVisible && candidate.ContentView is not null))
+            Collect(window.ContentView!);
+        if (found?.Menu is not { } menu) return "no visible drawer row " + label;
+        var index = Array.FindIndex(menu.Items, candidate => candidate.Title == item);
+        if (index < 0) return "no item " + item + " in " + label;
+        menu.PerformActionForItem(index);
+        return "ran " + item;
+    }
+
+    private static string Press(string spec)
+    {
+        var parts = spec.Split('|', 2);
+        if (parts.Length != 2) return "usage: press WINDOW TITLE|BUTTON TITLE";
+        var title = parts[0].Trim();
+        var anyWindow = title is "" or "*";
+        var byType = title.StartsWith("type:", StringComparison.Ordinal) ? title[5..] : null;
+        var windows = AllWindows().Where(item => item.IsVisible && item.ContentView is not null
+            && (anyWindow || (byType is null ? item.Title == title : item.GetType().Name == byType)));
+        foreach (var window in windows)
+        {
+            var button = FindButton(window.ContentView!, parts[1].Trim());
+            if (button is null) continue;
+            button.PerformClick(button);
+            return "pressed " + parts[1];
+        }
+        return "no button " + parts[1] + " in " + (anyWindow ? "any window" : title);
+    }
+
+    private static NSButton? FindButton(NSView view, string title)
+    {
+        if (view is NSButton button && button.Title == title && button.Enabled) return button;
+        foreach (var child in view.Subviews.Where(child => !child.Hidden))
+        {
+            var found = FindButton(child, title);
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     private static NSWindow[] AllWindows() => NSApplication.SharedApplication.DangerousWindows.ToArray();

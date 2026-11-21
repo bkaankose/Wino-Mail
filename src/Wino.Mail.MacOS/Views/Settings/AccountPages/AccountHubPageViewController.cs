@@ -56,7 +56,32 @@ public sealed class AccountHubPageViewController(AccountHubPageViewModel viewMod
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
-        => ViewModel.InitializeAsync(mode, parameter!);
+    {
+#if DEBUG
+        // hub-app Mail|Calendar|Contacts|Tasks on|off: flips the app switch on the hub row, as a click does.
+        MacDebugBridge.Register("hub-app", async args =>
+        {
+            if (args.Length < 2 || !Enum.TryParse<WinoApplicationMode>(args[0], true, out var app)) return "usage: hub-app Mail|Calendar|Contacts|Tasks on|off";
+            var item = ViewModel.Apps.FirstOrDefault(candidate => candidate.App == app);
+            if (item is null) return "no app row " + args[0];
+            var isOn = args[1].Equals("on", StringComparison.OrdinalIgnoreCase);
+            await Dispatcher.ExecuteOnUIThread(() => item.IsOn = isOn);
+            return $"{app}={(isOn ? "on" : "off")}";
+        });
+        // hub-signin: the Sign-in and servers row of the hub.
+        MacDebugBridge.Register("hub-signin", async _ =>
+        {
+            var ran = false;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                ran = ViewModel.OpenSignInCommand.CanExecute(null);
+                if (ran) ViewModel.OpenSignInCommand.Execute(null);
+            });
+            return ran ? "opened sign-in and servers" : "disabled";
+        });
+#endif
+        return ViewModel.InitializeAsync(mode, parameter!);
+    }
 
     private NSView BuildHeader()
     {

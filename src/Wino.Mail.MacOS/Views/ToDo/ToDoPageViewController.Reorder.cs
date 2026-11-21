@@ -114,6 +114,42 @@ public sealed partial class ToDoPageViewController
             return "ok";
         });
         Infrastructure.MacDebugBridge.Register("todo-lists", _ => Task.FromResult(string.Join(" | ", ViewModel.TaskLists.Select((list, index) => $"{index}:{list.Title} sort={list.SortKind}"))));
+        // todo-toggle completes or reopens the selected task as its circle does; todo-list-copy, todo-list-export ics|csv and
+        // todo-list-import run the list overflow menu's commands.
+        Infrastructure.MacDebugBridge.Register("todo-toggle", async _ =>
+        {
+            if (ViewModel.SelectedTask is not { } task) return "no selected task";
+            await ViewModel.ToggleTaskCommand.ExecuteAsync(task);
+            return "toggled " + task.Title;
+        });
+        Infrastructure.MacDebugBridge.Register("todo-delete", args =>
+        {
+            if (ViewModel.SelectedTask is not { IsReadOnly: false } task) return Task.FromResult("no selected task");
+            _ = ViewModel.DeleteTaskCommand.ExecuteAsync(task);
+            return Task.FromResult("delete requested for " + task.Title);
+        });
+        Infrastructure.MacDebugBridge.Register("todo-undo", async _ =>
+        {
+            if (!ViewModel.UndoTaskActionCommand.CanExecute(null)) return "no undo pending";
+            await ViewModel.UndoTaskActionCommand.ExecuteAsync(null);
+            return "undone";
+        });
+        // These open dialogs and panels, so the command returns before they close; the bridge runs one command at a time.
+        Infrastructure.MacDebugBridge.Register("todo-list-copy", args =>
+        {
+            _ = ViewModel.CopySelectedListCommand.ExecuteAsync(null);
+            return Task.FromResult("copy list requested");
+        });
+        Infrastructure.MacDebugBridge.Register("todo-list-export", args =>
+        {
+            _ = ViewModel.ExportTasksCommand.ExecuteAsync(args.Length > 0 ? args[0] : "ics");
+            return Task.FromResult("export requested");
+        });
+        Infrastructure.MacDebugBridge.Register("todo-list-import", args =>
+        {
+            _ = ViewModel.ImportTasksCommand.ExecuteAsync(null);
+            return Task.FromResult("import requested");
+        });
     }
 #endif
 }

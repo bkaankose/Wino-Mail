@@ -453,6 +453,18 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         return await DebugAfterSaveAsync();
     }
 
+    /// <summary>Debug bridge: runs the "Add follow-up task" action of the details, as its action bar button does.</summary>
+    internal async Task<string> DebugFollowUpAsync()
+    {
+        var ran = false;
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            ran = ViewModel.CreateFollowUpTaskCommand.CanExecute(null);
+            if (ran) ViewModel.CreateFollowUpTaskCommand.Execute(null);
+        });
+        return ran ? "follow-up task requested" : "follow-up task unavailable";
+    }
+
     /// <summary>Debug bridge: toggles the reminder with <paramref name="minutes"/> through the menu path and waits for the save.</summary>
     internal async Task<string> DebugCustomizeRemindersAsync()
     {

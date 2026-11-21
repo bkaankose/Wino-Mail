@@ -597,6 +597,8 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
 #endif
         MacDebugBridge.Register("cal-details-customize", _ => _detailsChild is EventDetailsPageViewController details
             ? details.DebugCustomizeRemindersAsync() : Task.FromResult("open an event's details first (cal-details N)"));
+        MacDebugBridge.Register("cal-details-followup", _ => _detailsChild is EventDetailsPageViewController details
+            ? details.DebugFollowUpAsync() : Task.FromResult("open an event's details first (cal-details N)"));
         MacDebugBridge.Register("cal-details-reminder", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0 && int.TryParse(args[^1], out var minutes)
             ? details.DebugToggleReminderAsync(minutes) : Task.FromResult("open an event's details first (cal-details N)"));
         MacDebugBridge.Register("cal-attach-save", args => Task.FromResult(_detailsChild is EventDetailsPageViewController details
@@ -632,6 +634,24 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             var date = ViewModel.CurrentVisibleRange?.Dates.FirstOrDefault() ?? _dateContext.GetToday();
             SurfaceSlotClicked(this, new CalendarSlotClickedEventArgs(date.ToDateTime(new TimeOnly(10, 0)), new CGRect(WinoCalendarSurfaceView.HourColumnWidth, 200, 120, 26), false));
             return Task.FromResult("ok");
+        });
+        // cal-copy TITLE copies a loaded event as its "Copy" menu item does; cal-paste YYYY-MM-DDTHH:mm pastes it at that time
+        // as the empty-area "Paste" item does.
+        MacDebugBridge.Register("cal-copy", async args =>
+        {
+            var name = string.Join(' ', args);
+            var item = ViewModel.CalendarItems.FirstOrDefault(candidate => candidate.Title.Contains(name, StringComparison.OrdinalIgnoreCase));
+            if (item is null) return $"no loaded event matches '{name}'";
+            await ViewModel.CopyCalendarItemAsync(item);
+            return ViewModel.HasCopiedCalendarItem ? "copied " + item.Title : "nothing copied";
+        });
+        MacDebugBridge.Register("cal-paste", async args =>
+        {
+            if (args.Length == 0 || !DateTime.TryParse(args[0], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var target))
+                return "usage: cal-paste YYYY-MM-DDTHH:mm";
+            if (!ViewModel.HasCopiedCalendarItem) return "nothing copied";
+            await ViewModel.PasteCalendarItemAsync(target, true);
+            return "pasted at " + target.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
         });
     }
 #endif
