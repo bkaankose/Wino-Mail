@@ -100,7 +100,9 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _detailsWidth = _detailsZone.WidthAnchor.ConstraintEqualTo((nfloat)DetailsWidth);
         _detailsWidth.Active = true;
 
+        var dueStrip = BuildDueTasksStrip();
         root.AddSubview(_toolbar);
+        root.AddSubview(dueStrip);
         root.AddSubview(_zone);
         root.AddSubview(_detailsZone);
         var zoneTrailing = WinoZoneInsets.Track(_zone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor), -7);
@@ -111,7 +113,10 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             _toolbar.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
             _toolbar.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
             // The gap between the date row and the calendar surface.
-            _zone.TopAnchor.ConstraintEqualTo(_toolbar.BottomAnchor, 12),
+            _zone.TopAnchor.ConstraintEqualTo(dueStrip.BottomAnchor, 12),
+            dueStrip.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor, 4),
+            dueStrip.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor, -7),
+            _dueStripTop,
             WinoZoneInsets.Track(_zone.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor), 4),
             WinoZoneInsets.Track(_zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor), -7),
             zoneTrailing,
@@ -182,6 +187,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
 
     private void BindAll()
     {
+        BindDueTasks();
         Bind(nameof(ViewModel.VisibleDateRangeText), vm => vm.VisibleDateRangeText, text => _toolbar.RangeText = text);
         Bind(nameof(ViewModel.CurrentVisibleRange), vm => vm.CurrentVisibleRange, range => _surface.VisibleRange = range);
         Bind(nameof(ViewModel.CurrentSettings), vm => vm.CurrentSettings, settings => _surface.Settings = settings);
