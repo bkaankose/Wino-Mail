@@ -581,6 +581,53 @@ public class NotificationBuilder : INotificationBuilder
         return ShowNotificationAsync(NotificationHostApplication.Tasks, builder, $"task-test-{task.Id:N}");
     }
 
+    public async Task CreateTaskReminderNotificationAsync(AccountTask task)
+    {
+        if (task == null)
+            return;
+
+        var account = await _accountService.GetAccountAsync(task.MailAccountId).ConfigureAwait(false);
+        var accountPreferences = account?.Preferences;
+        var builder = CreateBuilder(AppNotificationScenario.Reminder);
+
+        if (NotificationSettingsResolver.HidesNotificationContent(accountPreferences))
+        {
+            builder.AddText(Translator.TaskReminder_HiddenTitle);
+        }
+        else
+        {
+            builder.AddText(string.IsNullOrWhiteSpace(task.Title) ? Translator.ToDoPage_NewTask : task.Title);
+            if (task.DueDate is { } dueDate)
+                builder.AddText(string.Format(Translator.ToDoPage_DueOn, dueDate.ToString("D")));
+        }
+
+        var taskId = task.Id.ToString();
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks);
+        builder.AddArgument(Constants.ToastTaskIdKey, taskId);
+        builder.AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskOpenAction);
+        SetSound(builder, _preferencesService.TaskNotificationSoundEvent);
+
+        if (!_appLockService.AreNotificationsReadOnly)
+        {
+            builder.AddButton(CreateButton(Translator.ToDoPage_MarkCompleted, "mail-markread")
+                .AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskCompleteAction)
+                .AddArgument(Constants.ToastTaskIdKey, taskId)
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
+            builder.AddButton(CreateButton(Translator.CalendarReminder_SnoozeAction, "calendar-snooze")
+                .AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskSnoozeAction)
+                .AddArgument(Constants.ToastTaskIdKey, taskId)
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
+        }
+
+        builder.AddButton(CreateOpenButton()
+            .AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskOpenAction)
+            .AddArgument(Constants.ToastTaskIdKey, taskId)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
+        builder.AddButton(CreateDismissButton());
+
+        await ShowNotificationAsync(NotificationHostApplication.Tasks, builder, $"task-reminder-{task.Id:N}", accountPreferences).ConfigureAwait(false);
+    }
+
     private async Task CreateSingleNotificationAsync(MailCopy mailItem, MailAccountPreferences? accountPreferences = null)
     {
         var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, accountPreferences);

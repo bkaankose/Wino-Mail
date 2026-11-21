@@ -77,6 +77,9 @@ public interface INotificationBuilder
     /// </summary>
     Task CreateTestTaskReminderNotificationAsync(AccountTask task);
 
+    /// <summary>Shows the reminder of a task that fell due. Platforms that do not deliver task reminders yet keep the default no-op.</summary>
+    Task CreateTaskReminderNotificationAsync(AccountTask task) => Task.CompletedTask;
+
     /// <summary>
     /// Shows that a WinoRelay test push reached this device. Platforms without a push channel keep the default no-op.
     /// </summary>

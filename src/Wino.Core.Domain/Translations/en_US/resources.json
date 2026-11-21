@@ -491,6 +491,7 @@
   "CalendarReminder_SnoozeAction": "Snooze",
   "CalendarReminder_SnoozeMinutesOption": "{0} minutes",
   "CalendarReminder_HiddenContentTitle": "Event reminder",
+  "TaskReminder_HiddenTitle": "Task reminder",
   "CalendarReminder_HiddenContentMessage": "An event on your calendar is about to start.",
   "CalendarTypeSelector_Day": "Day",
   "CalendarTypeSelector_Week": "Week",

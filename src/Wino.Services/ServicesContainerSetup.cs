@@ -58,6 +58,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<ILinkBrowserService, LinkBrowserService>();
         // Needs the platform INotificationBuilder; each head starts it once its shell is running.
         services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
+        services.AddSingleton<ITaskReminderServer, TaskReminderServer>();
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();

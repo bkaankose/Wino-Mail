@@ -66,6 +66,9 @@ public partial class App : IApplicationLifecycleHost, IApplicationShellHost
     {
         _preferencesService = Services.GetRequiredService<IPreferencesService>();
         _accountService = Services.GetRequiredService<IAccountService>();
+
+        // Task reminders are window-less, so they also fire after a background start at sign-in.
+        _ = Services.GetRequiredService<ITaskReminderServer>().StartAsync();
         return Task.CompletedTask;
     }
 

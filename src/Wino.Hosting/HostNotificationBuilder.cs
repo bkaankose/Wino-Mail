@@ -45,5 +45,7 @@ internal sealed class HostNotificationBuilder(HostInteractionLog log) : INotific
 
     public Task CreateTestTaskReminderNotificationAsync(AccountTask task) => Record(nameof(CreateTestTaskReminderNotificationAsync));
 
+    public Task CreateTaskReminderNotificationAsync(AccountTask task) => Record(nameof(CreateTaskReminderNotificationAsync), task?.Title);
+
     public Task CreateLiveNotificationsTestNotificationAsync() => Record(nameof(CreateLiveNotificationsTestNotificationAsync));
 }
