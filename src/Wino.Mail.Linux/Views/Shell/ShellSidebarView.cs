@@ -125,6 +125,7 @@ internal sealed partial class ShellSidebarView : IDisposable
         child.Bind(nameof(WinoAppShellViewModel.CurrentMenu), static vm => vm.CurrentMenu, SetMenu);
         child.Bind(nameof(WinoAppShellViewModel.SelectedMenuItem), static vm => vm.SelectedMenuItem, item => SetSelectedItem(item as IMenuItem));
         child.Bind(nameof(WinoAppShellViewModel.CurrentMode), static vm => vm.CurrentMode, SetMode);
+        SetUpDrop();
     }
 
     public Gtk.Widget Root { get; }

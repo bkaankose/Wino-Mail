@@ -93,4 +93,13 @@ public static class WinoCssClass
     public const string ChipAccent = "wino-chip-accent";
     public const string TileDot = "wino-tile-dot";
     public const string TileBadge = "wino-tile-badge";
+    public const string DragCardRoot = "wino-drag-card-root";
+    public const string DragCard = "wino-drag-card";
+    public const string DragCard2 = "wino-drag-card-2";
+    public const string DragCard3 = "wino-drag-card-3";
+    public const string DragBadge = "wino-drag-badge";
+    public const string DragCaption = "wino-drag-caption";
+    public const string DragCaptionRefused = "wino-drag-caption-refused";
+    public const string DragBanner = "wino-drag-banner";
+    public const string DropTarget = "wino-drop-target";
 }

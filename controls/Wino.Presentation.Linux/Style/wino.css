@@ -260,3 +260,15 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-tile-dot { min-width: 8px; min-height: 8px; border-radius: 4px; }
 .wino-tile-dot.wino-chip-accent { background-color: @accent_bg_color; }
 .wino-tile-badge { min-width: 18px; min-height: 18px; border-radius: 999px; background-color: alpha(currentColor, 0.08); border: 1px solid alpha(currentColor, 0.10); }
+
+/* ML-10 mail drag */
+.wino-drag-card-root { padding: 12px 16px 8px 4px; }
+.wino-drag-card { border-radius: 8px; background-color: @card_bg_color; color: @card_fg_color; box-shadow: 0 0 0 1px @card_shade_color, 0 4px 12px @shade_color; }
+.wino-drag-card.wino-drag-card-2 { box-shadow: 0 0 0 1px @card_shade_color, 4px 4px 0 0 @card_bg_color, 4px 4px 0 1px @card_shade_color, 0 4px 12px @shade_color; }
+.wino-drag-card.wino-drag-card-3 { box-shadow: 0 0 0 1px @card_shade_color, 4px 4px 0 0 @card_bg_color, 4px 4px 0 1px @card_shade_color, 8px 8px 0 0 @card_bg_color, 8px 8px 0 1px @card_shade_color, 0 4px 12px @shade_color; }
+.wino-drag-badge { min-width: 22px; min-height: 22px; margin: -8px -8px 0 0; padding: 0 6px; border-radius: 999px; background-color: @accent_bg_color; color: @accent_fg_color; font-weight: 700; font-size: 0.85em; }
+.wino-drag-caption { padding: 3px 12px; border-radius: 999px; background-color: @accent_bg_color; color: @accent_fg_color; font-weight: 600; font-size: 0.9em; }
+.wino-drag-caption.wino-drag-caption-refused { background-color: alpha(@window_fg_color, 0.55); color: @window_bg_color; }
+.wino-drag-banner { margin: 6px; padding: 6px 10px; border-radius: 8px; background-color: @card_bg_color; color: @card_fg_color; box-shadow: 0 0 0 1px @card_shade_color, 0 2px 8px @shade_color; font-weight: 600; font-size: 0.9em; }
+.wino-mail-cell.wino-dragging { opacity: 0.45; }
+.wino-sidebar-list > row.wino-drop-target { background-color: alpha(@accent_bg_color, 0.30); box-shadow: inset 0 0 0 2px @accent_bg_color; }
