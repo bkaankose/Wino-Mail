@@ -19,6 +19,10 @@ public partial class AccountSetupPageViewModel
 {
     public AccountCapabilitySelection Capabilities { get; } = new();
 
+    // What the user set on the review rows for this address. Signing in again or going back starts every app that is
+    // available, except these, which keep the user's choice.
+    private readonly Dictionary<AccountSetupAppKind, AccountCapabilityMode> _userAppModes = [];
+
     public List<InitialSynchronizationRangeOption> InitialSynchronizationRanges { get; } =
     [
         new(InitialSynchronizationRange.ThreeMonths, Translator.AccountCreation_InitialSynchronization_3Months),
@@ -185,12 +189,9 @@ public partial class AccountSetupPageViewModel
         Capabilities.TaskMode = isTaskSupported ? AccountCapabilityMode.Provider : AccountCapabilityMode.Local;
         Capabilities.CoerceUnavailableModes();
 
-        // A server that offers calendar, contacts or tasks does not mean the user wants them; on IMAP and POP3 only
-        // mail starts on.
-        if (resolution.Route == AccountRoute.Imap)
-            Capabilities.TurnOffOptionalApps();
+        ApplyUserAppModes();
 
-        var isDavRoute =resolution.Route == AccountRoute.Imap && resolution.Imap?.IsPop3 != true;
+        var isDavRoute = resolution.Route == AccountRoute.Imap && resolution.Imap?.IsPop3 != true;
         Capabilities.IsCalendarManualEntryAvailable = isDavRoute;
         Capabilities.IsContactManualEntryAvailable = isDavRoute;
 
@@ -200,6 +201,7 @@ public partial class AccountSetupPageViewModel
     /// <summary>A local account offers calendar, contacts and To Do on this device only; each can still be turned off.</summary>
     private void ConfigureLocalFeatures()
     {
+        _userAppModes.Clear();
         ResetFeatureEntries();
 
         Capabilities.ConfigureProvider(false, false, false, string.Empty, string.Empty, string.Empty);
@@ -209,6 +211,27 @@ public partial class AccountSetupPageViewModel
         Capabilities.TaskMode = AccountCapabilityMode.Local;
 
         NotifyFeaturesLayoutChanged();
+    }
+
+    private void ApplyUserAppModes()
+    {
+        foreach (var (kind, mode) in _userAppModes)
+        {
+            switch (kind)
+            {
+                case AccountSetupAppKind.Calendar:
+                    Capabilities.CalendarMode = mode;
+                    break;
+                case AccountSetupAppKind.Contacts:
+                    Capabilities.ContactMode = mode;
+                    break;
+                case AccountSetupAppKind.Tasks:
+                    Capabilities.TaskMode = mode;
+                    break;
+            }
+        }
+
+        Capabilities.CoerceUnavailableModes();
     }
 
     private void ResetFeatureEntries()

@@ -164,6 +164,7 @@ public partial class AccountSetupPageViewModel
             return;
         }
 
+        _userAppModes.Clear();
         ConfigureFeatures(resolution);
 
         // The IMAP route signs in first: only the signed-in server can say whether calendar, contacts and tasks are there.

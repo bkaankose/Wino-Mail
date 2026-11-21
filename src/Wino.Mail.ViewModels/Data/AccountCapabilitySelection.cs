@@ -236,17 +236,6 @@ public partial class AccountCapabilitySelection : ObservableObject
     public AccountCapabilityMode ContactModeWhenOn => ContactMode != AccountCapabilityMode.Off ? ContactMode : RestoreMode(_lastContactMode, IsContactProviderModeAvailable);
     public AccountCapabilityMode TaskModeWhenOn => TaskMode != AccountCapabilityMode.Off ? TaskMode : RestoreMode(_lastTaskMode, IsTaskProviderModeAvailable);
 
-    /// <summary>
-    /// Turns calendar, contacts and To Do off. Each keeps its current mode as the one it starts on when the user turns
-    /// it on, so a server that discovery found is offered without being chosen for the user.
-    /// </summary>
-    public void TurnOffOptionalApps()
-    {
-        CalendarMode = AccountCapabilityMode.Off;
-        ContactMode = AccountCapabilityMode.Off;
-        TaskMode = AccountCapabilityMode.Off;
-    }
-
     public void CoerceUnavailableModes()
     {
         if (!IsCalendarProviderModeAvailable && CalendarMode == AccountCapabilityMode.Provider)

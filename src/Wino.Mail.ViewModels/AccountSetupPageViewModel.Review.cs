@@ -318,15 +318,15 @@ public partial class AccountSetupPageViewModel
                     row.Note = GetMailNote();
                     break;
                 case AccountSetupAppKind.Calendar:
-                    Capabilities.CalendarMode = ToMode(row, id);
+                    Capabilities.CalendarMode = _userAppModes[row.Kind] = ToMode(row, id);
                     AlignCalDavRows(row, AccountSetupAppKind.Tasks);
                     break;
                 case AccountSetupAppKind.Tasks:
-                    Capabilities.TaskMode = ToMode(row, id);
+                    Capabilities.TaskMode = _userAppModes[row.Kind] = ToMode(row, id);
                     AlignCalDavRows(row, AccountSetupAppKind.Calendar);
                     break;
                 case AccountSetupAppKind.Contacts:
-                    Capabilities.ContactMode = ToMode(row, id);
+                    Capabilities.ContactMode = _userAppModes[row.Kind] = ToMode(row, id);
                     break;
             }
 
