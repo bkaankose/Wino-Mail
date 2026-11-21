@@ -67,6 +67,7 @@ Account setup has no screen yet. A Debug build adds one leased lab account on it
 ```sh
 lease=$(scripts/lab/linux/lab.sh lease stalwart)     # prints the lease file path
 wino-mail --lab-lease "$lease" [--lab-server stalwart]
+scripts/lab/linux/lab.sh renew <lease id> [ttlHours]  # before it expires (default 24 hours)
 scripts/lab/linux/lab.sh release <lease id>          # when done
 ```
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Lease and release lab accounts on Linux, where lab.ps1 needs PowerShell. Needs curl and jq.
-#   lab.sh lease [server ...]   leases accounts (default: stalwart) and prints the lease file path
-#   lab.sh release <lease id>   releases the lease and removes its file
-#   lab.sh list                 lists the local lease files
+#   lab.sh lease [server ...]            leases accounts (default: stalwart) and prints the lease file path
+#   lab.sh renew <lease id> [ttlHours]   extends the lease (default: 24 hours) and prints the new expiry
+#   lab.sh release <lease id>            releases the lease and removes its file
+#   lab.sh list                          lists the local lease files
 # A lease file has the shape lab.ps1 writes. The password and the control token are never printed.
 set -euo pipefail
 
@@ -35,6 +36,18 @@ lease)
     jq -r '.accounts[] | "\(.key)\t\(.address)"' "$leases/$id.json" >&2
     echo "$leases/$id.json"
     ;;
+renew)
+    id="${2:?lease id}"
+    answer="$(api -X POST "$url/leases/$id/renew" -H 'Content-Type: application/json' -d "$(jq -nc --argjson ttl "${3:-24}" '{ttlHours: $ttl}')")"
+    expires="$(jq -r .expiresAt <<<"$answer")"
+    if [[ -f "$leases/$id.json" ]]; then
+        (umask 077; jq --arg expires "$expires" '.expiresAt = $expires' "$leases/$id.json" > "$leases/$id.json.tmp")
+        mv "$leases/$id.json.tmp" "$leases/$id.json"
+        echo "Lease $id renewed until $expires."
+    else
+        echo "Lease $id renewed until $expires (no local file)."
+    fi
+    ;;
 release)
     id="${2:?lease id}"
     api -X DELETE "$url/leases/$id" > /dev/null
@@ -48,7 +61,7 @@ list)
     done
     ;;
 *)
-    sed -n '2,6p' "$0" >&2
+    sed -n '2,7p' "$0" >&2
     exit 2
     ;;
 esac
