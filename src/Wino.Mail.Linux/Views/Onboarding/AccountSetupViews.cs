@@ -123,7 +123,7 @@ internal sealed class AccountSetupChoiceCard
 internal sealed class AccountSetupAppRowView
 {
     private readonly Adw.ActionRow _row;
-    private readonly Gtk.DropDown _source;
+    private readonly Adw.ComboRow _source;
     private readonly Gtk.Switch _switch;
     private readonly Adw.EntryRow _server;
     private readonly Gtk.Label _note;
@@ -135,8 +135,10 @@ internal sealed class AccountSetupAppRowView
     {
         Row = row;
         _row = WinoSettingsRows.Action(row.Title, null, row.Glyph);
-        _source = Gtk.DropDown.New(Gtk.StringList.New([.. row.Options.Select(option => option.Label)]), null);
-        _source.SetValign(Gtk.Align.Center);
+        // The source is a row of its own: provider names are long, and a drop-down suffix squeezed the title to a letter per line.
+        _source = WinoSettingsRows.Combo(string.Empty);
+        _source.SetModel(Gtk.StringList.New([.. row.Options.Select(option => option.Label)]));
+        _source.SetUseSubtitle(true);
         _sourceName = row.Kind == AccountSetupAppKind.Mail
             ? Translator.AccountSetup_Review_MailRange
             : string.Format(Translator.AccountSetup_Review_SourceOf, row.Title);
@@ -144,7 +146,7 @@ internal sealed class AccountSetupAppRowView
         _switch.SetValign(Gtk.Align.Center);
         _switch.SetVisible(row.IsSwitchVisible);
         WinoA11y.Label(_switch, string.Format(Translator.AccountSetup_Review_UseApp, row.Title));
-        _row.AddSuffix(_source);
+        _source.SetTitle(_sourceName);
         _row.AddSuffix(_switch);
 
         _server = WinoSettingsRows.Entry(Translator.AccountSetup_ServerAddressHeader);
@@ -173,6 +175,7 @@ internal sealed class AccountSetupAppRowView
 
     public AccountSetupAppRow Row { get; }
     public Gtk.Widget Main => _row;
+    public Gtk.Widget Source => _source;
     public Gtk.Widget Server => _server;
     public Adw.PreferencesRow Notes { get; }
     public Adw.EntryRow ServerField => _server;
@@ -196,8 +199,6 @@ internal sealed class AccountSetupAppRowView
             OnboardingUi.SetVisible(_source, row.IsSourceVisible);
             var index = row.SelectedOption is null ? -1 : row.Options.IndexOf(row.SelectedOption);
             if (index >= 0 && _source.GetSelected() != index) _source.SetSelected((uint)index);
-            // A drop-down takes its name from the selected item again after every selection.
-            WinoA11y.Rename(_source, _sourceName);
             WinoA11y.Description(_source, row.AutomationName);
             OnboardingUi.SetVisible(_server, row.IsServerEntryShown);
             if (_server.GetText() != row.ServerUrl) _server.SetText(row.ServerUrl);

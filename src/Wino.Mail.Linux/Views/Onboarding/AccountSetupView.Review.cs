@@ -128,6 +128,7 @@ internal sealed partial class AccountSetupView
                 _form.Track(row, scope);
                 _appRowViews.Add(view);
                 _appRows.Add(view.Main);
+                _appRows.Add(view.Source);
                 _appRows.Add(view.Server);
                 _appRows.Add(view.Notes);
                 Field("server-" + row.Kind.ToString().ToLowerInvariant(), view.ServerField);
@@ -148,6 +149,7 @@ internal sealed partial class AccountSetupView
         foreach (var view in _appRowViews)
         {
             _appRows.Remove(view.Main);
+            _appRows.Remove(view.Source);
             _appRows.Remove(view.Server);
             _appRows.Remove(view.Notes);
         }
