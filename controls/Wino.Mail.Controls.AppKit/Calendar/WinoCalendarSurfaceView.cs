@@ -27,6 +27,14 @@ public sealed class CalendarSlotClickedEventArgs(DateTime start, CGRect anchor, 
     public DateTime? End { get; } = end;
 }
 
+/// <summary>A right click on empty calendar space: the day or slot it lands on, and where to show the menu in the surface.</summary>
+public sealed class CalendarEmptyAreaContextRequestedEventArgs(DateTime target, bool hasTime, CGPoint position) : EventArgs
+{
+    public DateTime Target { get; } = target;
+    public bool HasTime { get; } = hasTime;
+    public CGPoint Position { get; } = position;
+}
+
 public sealed class CalendarItemClickedEventArgs(ICalendarItem item, WinoCalendarItemView view, NSEvent? nativeEvent) : EventArgs
 {
     public ICalendarItem Item { get; } = item;
@@ -143,6 +151,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     public event EventHandler<CalendarItemClickedEventArgs>? ItemDoubleClicked;
     public event EventHandler<CalendarItemClickedEventArgs>? ItemRightClicked;
     public event EventHandler<CalendarSlotClickedEventArgs>? SlotClicked;
+    public event EventHandler<CalendarEmptyAreaContextRequestedEventArgs>? EmptyAreaContextRequested;
     /// <summary>A double click on a month day (Windows MonthDayDoubleTapped): the day, for the Day view.</summary>
     public event EventHandler<DateTime>? MonthDayDoubleClicked;
 
@@ -240,6 +249,9 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     }
 
     internal void RaiseMonthDayDoubleClicked(DateTime date) => MonthDayDoubleClicked?.Invoke(this, date);
+
+    internal void RaiseEmptyAreaContextRequested(DateTime target, bool hasTime, NSEvent theEvent)
+        => EmptyAreaContextRequested?.Invoke(this, new CalendarEmptyAreaContextRequestedEventArgs(target, hasTime, ConvertPointFromView(theEvent.LocationInWindow, null)));
 
     internal void RaiseSlotClicked(DateTime start, CGRect anchorInChild, NSView child, bool allDay)
         => SlotClicked?.Invoke(this, new CalendarSlotClickedEventArgs(start, ConvertRectFromView(anchorInChild, child), allDay));
@@ -709,6 +721,18 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             Owner.BeginRailPress(this, theEvent, click);
         }
 
+        public override void RightMouseDown(NSEvent theEvent)
+        {
+            var point = ConvertPointFromView(theEvent.LocationInWindow, null);
+            if (Owner.DayWidth > 0 && point.X >= HourColumnWidth && Owner.Dates.Count > 0)
+            {
+                int dayIndex = WinoCalendarSurfaceGeometry.DayIndexAt(point.X, Owner.Dates.Count, Owner.DayWidth);
+                Owner.RaiseEmptyAreaContextRequested(Owner.Dates[dayIndex].ToDateTime(TimeOnly.MinValue), false, theEvent);
+                return;
+            }
+            base.RightMouseDown(theEvent);
+        }
+
         public override void MouseDragged(NSEvent theEvent) => Owner.DragSlotPress(theEvent);
         public override void MouseUp(NSEvent theEvent) => Owner.EndSlotPress(theEvent);
     }
@@ -871,6 +895,15 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             Owner.BeginSlotPress(this, month: false, point, theEvent, () => Owner.RaiseSlotClicked(start, anchor, this, false));
         }
 
+        public override void RightMouseDown(NSEvent theEvent)
+        {
+            var point = ConvertPointFromView(theEvent.LocationInWindow, null);
+            if (WinoCalendarSurfaceGeometry.SlotStartAt(point.X, point.Y, Owner.Dates, Owner.DayWidth, Owner.HourHeight) is { } start)
+                Owner.RaiseEmptyAreaContextRequested(start, true, theEvent);
+            else
+                base.RightMouseDown(theEvent);
+        }
+
         public override void MouseDragged(NSEvent theEvent) => Owner.DragSlotPress(theEvent);
         public override void MouseUp(NSEvent theEvent) => Owner.EndSlotPress(theEvent);
     }
@@ -977,6 +1010,15 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 if (doubleClick) Owner.RaiseMonthDayDoubleClicked(day);
                 else Owner.RaiseSlotClicked(day, cell.Bounds, this, true);
             });
+        }
+
+        public override void RightMouseDown(NSEvent theEvent)
+        {
+            var point = ConvertPointFromView(theEvent.LocationInWindow, null);
+            if (_cells.FirstOrDefault(c => c.Bounds.Contains(point)) is { } cell)
+                Owner.RaiseEmptyAreaContextRequested(cell.Date.ToDateTime(TimeOnly.MinValue), false, theEvent);
+            else
+                base.RightMouseDown(theEvent);
         }
 
         public override void MouseDragged(NSEvent theEvent) => Owner.DragSlotPress(theEvent);

@@ -86,6 +86,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _surface.ItemDoubleClicked += SurfaceItemDoubleClicked;
         _surface.MonthDayDoubleClicked += SurfaceMonthDayDoubleClicked;
         _surface.ItemRightClicked += SurfaceItemRightClicked;
+        _surface.EmptyAreaContextRequested += SurfaceEmptyAreaContextRequested;
         _surface.SlotClicked += SurfaceSlotClicked;
         _surface.PeriodSettled += SurfacePeriodSettled;
         _surface.ViewportPeriodChanged += SurfaceViewportPeriodChanged;
