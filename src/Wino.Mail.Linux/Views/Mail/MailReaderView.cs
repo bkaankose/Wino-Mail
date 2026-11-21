@@ -1,5 +1,6 @@
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
 using Wino.Editor.WebKitGtk;
@@ -110,6 +111,10 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
 
         await reader.InitializeAsync();
         if (IsReleased) return;
+        var preferences = viewModel.PreferencesService;
+        EventHandler<string> preferenceChanged = (_, name) => RunOnUI(() => ApplyPreference(name));
+        preferences.PreferenceChanged += preferenceChanged;
+        Bindings.Own(new ActionDisposable(() => preferences.PreferenceChanged -= preferenceChanged));
         await reader.SetThemeAsync(_dark);
         if (IsReleased) return;
         await viewModel.InitializeNavigationAsync(mode, parameter);
@@ -139,6 +144,16 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
             Translator.Reader_MessageBodyAutomationName,
             Translator.Reader_PlainTextFallbackAutomationName,
             viewModel.CurrentRenderModel?.AccessibleText ?? string.Empty));
+    }
+
+    // Typography restyles the loaded message; RenderStyles and RenderPlaintextLinks are baked into the rendered HTML and
+    // the ViewModel has no public re-render, so they apply to the next opened message as on Windows and macOS.
+    private void ApplyPreference(string name)
+    {
+        if (_reader is not { } reader) return;
+        if (name is not (nameof(IPreferencesService.ReaderFont) or nameof(IPreferencesService.ReaderFontSize))) return;
+        var preferences = ViewModel.PreferencesService;
+        Observe(reader.SetReaderTypographyAsync($"{preferences.ReaderFont}, sans-serif", preferences.ReaderFontSize));
     }
 
     private void StyleChanged()
