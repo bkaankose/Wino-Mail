@@ -1,115 +1,266 @@
+using System.Runtime.CompilerServices;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Linux.MailList;
 using Wino.Mail.Linux.Infrastructure;
-using Wino.Presentation.Linux;
-using Wino.Presentation.Linux.Style;
 using Wino.Mail.ViewModels;
-using Wino.Mail.ViewModels.Collections;
-using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Presentation.Linux;
+using Wino.Presentation.Linux.Lists;
+using Wino.Presentation.Linux.Style;
 
 namespace Wino.Mail.Linux.Views.Mail;
 
 /// <summary>
 /// The mail list of one folder. Rows come from the shared <see cref="MailListProjection"/> (grouping and threads) and
-/// <see cref="MailRowPresentation"/> (texts); the selection goes back to <see cref="MailListPageViewModel"/> as a
-/// snapshot, and the ViewModel decides what opens.
+/// <see cref="MailRowPresentation"/> (texts); they live in a list store as <see cref="MailListEntry"/> items (rows only)
+/// with the date groups as GTK sections, and store order equals screen order. The selection goes back to
+/// <see cref="MailListPageViewModel"/> as a snapshot, and the ViewModel decides what opens. Features extend the view
+/// through partial files and the hooks below; every GTK handler reaches the view through <see cref="_self"/>.
 /// </summary>
-internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadingPane
+internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IUsesReadingPane
 {
-    private sealed record Entry(string Key, string? Header, MailListRow? Row);
+    private const int LoadMoreDistance = 600;
 
-    private readonly MailListProjection _projection;
-    private readonly Gtk.StringList _keys = Gtk.StringList.New([]);
-    private readonly Gtk.SingleSelection _selection;
-    private readonly Gtk.ScrolledWindow _scroll = Gtk.ScrolledWindow.New();
-    private readonly Gtk.Stack _stack = Gtk.Stack.New();
-    private readonly Dictionary<nint, MailRowCell> _cells = [];
+    private readonly StrongBox<MailListView?> _self;
+    private readonly GtkNavigationService _navigation;
+    private readonly LinuxSenderPictureProvider _pictures;
     private readonly MailRowCellContext _context;
-    private readonly Gtk.ListView _list;
-    private List<Entry> _entries = [];
-    private string _publishedSelection = string.Empty;
-    private bool _applying;
-    private bool _rebuildQueued;
+    private readonly ObservableListModel<MailListEntry> _model;
+    private readonly ListSections<MailListEntry> _sections;
+    private readonly WinoHeaderFactory<MailListEntry> _headers;
+    private readonly ConditionalWeakTable<Gtk.Widget, GroupHeaderSlot> _headerSlots = new();
+    private readonly Gtk.Box _root;
+    private readonly Gtk.Stack _stack;
+    private readonly Gtk.ScrolledWindow _scroll;
+    private readonly WinoMailGroupHeader _sticky;
+    private readonly Gtk.Box _loadingMore;
+    private readonly MailListStates _states = new();
+    private readonly LoadMoreTrigger _loadMore;
 
-    public MailListView(MailListPageViewModel viewModel, WinoViewServices services, LinuxSenderPictureProvider pictures) : base(viewModel, services)
+    public MailListView(MailListPageViewModel viewModel, WinoViewServices services, LinuxSenderPictureProvider pictures, GtkNavigationService navigation)
+        : base(viewModel, services)
     {
-        _context = new MailRowCellContext(ViewModel.PreferencesService, pictures, () => ViewModel.IsMergedAccountView, ReportError);
+        MailListPerf.ViewCreated(this);
+        var self = _self = new StrongBox<MailListView?>(this);
+        _navigation = navigation;
+        _pictures = pictures;
+        _context = new MailRowCellContext(ViewModel.PreferencesService, pictures, () => ViewModel.IsMergedAccountView, ReportError)
+        {
+            Bound = (cell, entry, binding) => self.Value?.OnCellBound(cell, entry, binding),
+        };
+
         ViewModel.MailCollection.CoreDispatcher = Dispatcher;
-        _projection = new MailListProjection(ViewModel.MailCollection.Items, ViewModel.MailListOptions ?? new MailListProjectionOptions());
-        _projection.ProjectionChanged += (_, _) => QueueRebuild();
+        Projection = new MailListProjection(ViewModel.MailCollection.Items, ViewModel.MailListOptions ?? new MailListProjectionOptions());
 
-        _selection = Gtk.SingleSelection.New(_keys);
-        _selection.SetAutoselect(false);
-        _selection.SetCanUnselect(true);
-        // Handlers go through GtkSignals: Gir.Core 0.8.1 keeps a disconnected handler alive, so a raw capture of the
-        // view would root it while GTK holds the object.
-        var selection = _selection;
-        Bindings.Own(GtkSignals.Connect<Gtk.SelectionModel, Gtk.SelectionModel.SelectionChangedSignalArgs>(
-            h => selection.OnSelectionChanged += h, h => selection.OnSelectionChanged -= h, (_, _) => SelectionChanged()));
+        _model = new ObservableListModel<MailListEntry>(Dispatcher, ReportError);
+        _sections = new ListSections<MailListEntry>(_model.Store, static (a, b) => a.GroupOrdinal.CompareTo(b.GroupOrdinal), null, ReportError);
+        Selection = Gtk.MultiSelection.New(_sections.Model);
+        Cells = new WinoCellFactory<MailRowCell, MailListEntry>(() => new MailRowCell(_context), ReportError)
+        {
+            Setup = (cell, _) => self.Value?.OnCellSetup(cell),
+            Teardown = cell =>
+            {
+                self.Value?.OnCellTeardown(cell);
+                cell.Dispose();
+            },
+        };
+        _headers = new WinoHeaderFactory<MailListEntry>(
+            () => self.Value?.CreateHeader() ?? Gtk.Box.New(Gtk.Orientation.Horizontal, 0),
+            (widget, entry, _) => self.Value?.BindHeader(widget, entry),
+            ReportError);
 
-        // The model holds row keys only; a cell looks its row up by position, so no GObject subclass is needed.
-        var factory = Gtk.SignalListItemFactory.New();
-        Bindings.Own(GtkSignals.Connect<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.SetupSignalArgs>(
-            h => factory.OnSetup += h, h => factory.OnSetup -= h, (_, args) => SetupCell((Gtk.ListItem)args.Object)));
-        Bindings.Own(GtkSignals.Connect<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.BindSignalArgs>(
-            h => factory.OnBind += h, h => factory.OnBind -= h, (_, args) => BindCell((Gtk.ListItem)args.Object)));
-        Bindings.Own(GtkSignals.Connect<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.UnbindSignalArgs>(
-            h => factory.OnUnbind += h, h => factory.OnUnbind -= h, (_, args) => CellOf((Gtk.ListItem)args.Object)?.Unbind()));
-        Bindings.Own(GtkSignals.Connect<Gtk.SignalListItemFactory, Gtk.SignalListItemFactory.TeardownSignalArgs>(
-            h => factory.OnTeardown += h, h => factory.OnTeardown -= h, (_, args) => TeardownCell((Gtk.ListItem)args.Object)));
+        List = Gtk.ListView.New(Selection, Cells.Factory);
+        List.SetSingleClickActivate(false);
+        List.SetShowSeparators(false);
+        List.SetEnableRubberband(false);
+        List.AddCssClass(WinoCssClass.MailList);
+        WinoStyle.SetDensity(List, ViewModel.PreferencesService.MailItemDisplayMode);
+        WinoA11y.Label(List, Translator.SettingsMessageList_Title);
 
-        var list = Gtk.ListView.New(selection, factory);
-        _list = list;
-        list.SetSingleClickActivate(false);
-        list.AddCssClass(WinoCssClass.MailList);
-        WinoStyle.SetDensity(list, ViewModel.PreferencesService.MailItemDisplayMode);
+        _scroll = Gtk.ScrolledWindow.New();
         _scroll.SetPolicy(Gtk.PolicyType.Never, Gtk.PolicyType.Automatic);
-        _scroll.SetChild(list);
-        var adjustment = _scroll.GetVadjustment();
-        Bindings.Own(GtkSignals.Connect<Gtk.Adjustment>(h => adjustment.OnValueChanged += h, h => adjustment.OnValueChanged -= h, (_, _) => LoadMoreIfNeeded()));
+        _scroll.SetChild(List);
+        _scroll.SetVexpand(true);
+
+        _sticky = new WinoMailGroupHeader(floating: true);
+        _sticky.Root.SetValign(Gtk.Align.Start);
+        _sticky.Root.SetCanTarget(false);
+        _sticky.Root.SetVisible(false);
+
+        _loadingMore = Gtk.Box.New(Gtk.Orientation.Horizontal, 0);
+        _loadingMore.AddCssClass("osd");
+        _loadingMore.AddCssClass(WinoCssClass.MailLoadingMore);
+        _loadingMore.SetHalign(Gtk.Align.Center);
+        _loadingMore.SetValign(Gtk.Align.End);
+        _loadingMore.SetMarginBottom(12);
+        _loadingMore.SetCanTarget(false);
+        _loadingMore.SetVisible(false);
+        var moreSpinner = Adw.Spinner.New();
+        moreSpinner.SetSizeRequest(16, 16);
+        _loadingMore.Append(moreSpinner);
+
+        FloatingSlot = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
+        FloatingSlot.SetValign(Gtk.Align.End);
+        FloatingSlot.SetMarginStart(8);
+        FloatingSlot.SetMarginEnd(8);
+        FloatingSlot.SetMarginBottom(8);
+
+        var listArea = Gtk.Overlay.New();
+        listArea.SetChild(_scroll);
+        listArea.AddOverlay(_sticky.Root);
+        listArea.AddOverlay(_loadingMore);
+        listArea.AddOverlay(FloatingSlot);
 
         var loading = Adw.Spinner.New();
         loading.SetHalign(Gtk.Align.Center);
         loading.SetValign(Gtk.Align.Center);
         loading.SetSizeRequest(32, 32);
-        var empty = Adw.StatusPage.New();
-        empty.SetIconName("mail-read-symbolic");
-        empty.SetTitle(Translator.NoMessageEmptyFolder);
-        empty.AddCssClass("compact");
+
+        _stack = Gtk.Stack.New();
+        _stack.SetTransitionType(Gtk.StackTransitionType.None);
         _stack.AddNamed(loading, "loading");
-        _stack.AddNamed(empty, "empty");
-        _stack.AddNamed(_scroll, "list");
+        _stack.AddNamed(_states.Root, "state");
+        _stack.AddNamed(listArea, "list");
+        _stack.SetVisibleChildName("list");
 
-        Bind.Bind(nameof(MailListPageViewModel.MailListOptions), static vm => vm.MailListOptions, options =>
+        Toasts = Adw.ToastOverlay.New();
+        Toasts.SetChild(_stack);
+        Toasts.SetVexpand(true);
+        HeaderSlot = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
+        FooterSlot = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
+        _root = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
+        _root.Append(HeaderSlot);
+        _root.Append(Toasts);
+        _root.Append(FooterSlot);
+
+        _loadMore = ListViews.LoadMoreNearEnd(_scroll, LoadMoreDistance, () => self.Value?.LoadMore());
+
+        Bindings.Own(_model);
+        Bindings.Own(_sections);
+        Bindings.Own(_headers);
+        Bindings.Own(Cells);
+        Bindings.Own(_loadMore);
+
+        var selection = Selection;
+        Bindings.Own(GtkSignals.Connect<Gtk.SelectionModel, Gtk.SelectionModel.SelectionChangedSignalArgs>(
+            h => selection.OnSelectionChanged += h, h => selection.OnSelectionChanged -= h,
+            (_, args) => self.Value?.SelectionChanged(args.Position, args.NItems)));
+        var adjustment = _scroll.GetVadjustment();
+        Bindings.Own(GtkSignals.Connect<Gtk.Adjustment>(h => adjustment.OnValueChanged += h, h => adjustment.OnValueChanged -= h,
+            (_, _) => self.Value?.RequestSticky()));
+
+        EventHandler projectionChanged = (_, _) => self.Value?.ProjectionChanged();
+        Projection.ProjectionChanged += projectionChanged;
+        var loadMoreCommand = ViewModel.LoadMoreItemsCommand;
+        System.ComponentModel.PropertyChangedEventHandler loadMoreChanged = (_, args) =>
         {
-            if (!IsReleased) _projection.SetOptions(options ?? new MailListProjectionOptions());
-        });
-        Bind.BindAny(static vm => (vm.IsInitializingFolder, vm.IsEmpty, vm.IsFolderEmpty), _ => UpdateState());
-
+            if (args.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) self.Value?.RunOnUI(() => self.Value?.UpdateLoadingMore());
+        };
+        loadMoreCommand.PropertyChanged += loadMoreChanged;
         var preferences = ViewModel.PreferencesService;
         EventHandler<string> preferenceChanged = (_, name) =>
         {
             if (name is nameof(IPreferencesService.MailItemDisplayMode) or nameof(IPreferencesService.IsShowPreviewEnabled)
                 or nameof(IPreferencesService.IsShowSenderPicturesEnabled) or nameof(IPreferencesService.AccountNicknamePosition)
                 or nameof(IPreferencesService.AlwaysShowSenderAddress) or nameof(IPreferencesService.MailTimeFormatPreference))
-                RunOnUI(RefreshAppearance);
+                self.Value?.RunOnUI(() => self.Value?.RefreshAppearance());
         };
-        EventHandler<string?> pictureChanged = (_, address) => RunOnUI(() => RefreshPictures(address));
         preferences.PreferenceChanged += preferenceChanged;
+        EventHandler<string?> pictureChanged = (_, address) => self.Value?.RunOnUI(() => self.Value?.RefreshPictures(address));
         pictures.PictureChanged += pictureChanged;
+        var projection = Projection;
         Bindings.Own(new ActionDisposable(() =>
         {
+            projection.ProjectionChanged -= projectionChanged;
+            loadMoreCommand.PropertyChanged -= loadMoreChanged;
             preferences.PreferenceChanged -= preferenceChanged;
             pictures.PictureChanged -= pictureChanged;
+            CancelScheduledApply();
+            CancelLoadingState();
+            self.Value = null;
+            projection.Dispose();
         }));
+
+        BuildSelection();
+        BuildHeader();
+        SetUpFeatures();
+
+        Bind.Bind(nameof(MailListPageViewModel.MailListOptions), static vm => vm.MailListOptions, options =>
+        {
+            if (IsReleased) return;
+            Projection.SetOptions(options ?? new MailListProjectionOptions());
+            UpdateGrouping();
+        });
+        Bind.BindAny(static vm => (vm.IsInitializingFolder, vm.IsEmpty, vm.IsFolderEmpty, vm.IsInSearchMode, vm.AreSearchResultsOnline, vm.HasNoOnlineSearchResult),
+            _ => UpdateState());
+        Subscribe<LanguageChanged>(_ => Relocalize());
     }
 
-    public override Gtk.Widget Root => _stack;
+    public override Gtk.Widget Root => _root;
+
+    /// <summary>Above the list: the list header and notices, the search scope bar.</summary>
+    internal Gtk.Box HeaderSlot { get; }
+
+    /// <summary>Over the bottom edge of the list: the drag banner.</summary>
+    internal Gtk.Box FloatingSlot { get; }
+
+    /// <summary>Under the list: the online search panel.</summary>
+    internal Gtk.Box FooterSlot { get; }
+
+    /// <summary>Around the list area: undo and update toasts.</summary>
+    internal Adw.ToastOverlay Toasts { get; }
+
+    internal MailListProjection Projection { get; }
+
+    internal Gtk.ListView List { get; }
+
+    internal Gtk.MultiSelection Selection { get; }
+
+    internal WinoCellFactory<MailRowCell, MailListEntry> Cells { get; }
+
+    internal Gtk.ScrolledWindow Scroller => _scroll;
+
+    internal int RowCount => _shown.Count;
+
+    internal MailListEntry? EntryAt(uint position) => position < _shown.Count ? _shown[(int)position] : null;
+
+    internal uint? PositionOf(MailListEntry entry) => _model.IndexOf(entry) is >= 0 and var index ? (uint)index : null;
+
+    internal MailListEntry? FindEntry(string rowKey)
+        => _byKey.TryGetValue(rowKey, out var entry) && PositionOf(entry) is not null ? entry : null;
+
+    internal void ScrollToEntry(MailListEntry entry)
+    {
+        if (PositionOf(entry) is { } position) ListViews.ScrollTo(List, position);
+    }
+
+    /// <summary>Re-maps every bound cell.</summary>
+    internal void RefreshCells() => Cells.ForEachBound(static (cell, _) => cell.Refresh());
+
+#if DEBUG
+    internal static MailListView? DebugCurrent { get; private set; }
+#endif
+
+    // Hooks of the packages that extend the list. An unimplemented hook compiles to nothing.
+    partial void BuildSelection();
+    partial void BuildHeader();
+    partial void SetupSelectionCell(MailRowCell cell);
+    partial void TeardownSelectionCell(MailRowCell cell);
+    partial void BindSelectionCell(MailRowCell cell, MailListEntry entry, bool isSelected);
+    partial void OnApplying(ref MailListApplyContext context);
+    partial void OnApplied(MailListApplyKind kind);
+    partial void OnActivated(NavigationMode mode, object? parameter);
+    partial void OnDeactivating();
+
+    /// <summary>Raised after every apply, after <c>OnApplied</c>: a second consumer subscribes here instead of implementing the hook.</summary>
+    private event Action<MailListApplyKind>? Applied;
 
     /// <summary>What a page does on every head: navigate the ViewModel, announce the folder, then wait for its first load.</summary>
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
@@ -121,13 +272,24 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
             Messenger.Send(new ActiveMailFolderChangedEvent(folder.BaseFolderMenuItem, folder.FolderInitLoadAwaitTask));
             await ViewModel.WaitForCurrentFolderInitializationAsync();
         }
+        if (IsReleased) return;
+        MailListPerf.InitializationDone(this);
+        _folderLoaded = true;
+        UpdateState();
+#if DEBUG
+        DebugCurrent = this;
+#endif
+        OnActivated(mode, parameter);
     }
 
     protected override Task DeactivateAsync()
     {
-        foreach (var cell in _cells.Values) cell.Dispose();
-        _cells.Clear();
-        _projection.Dispose();
+#if DEBUG
+        if (ReferenceEquals(DebugCurrent, this)) DebugCurrent = null;
+#endif
+        OnDeactivating();
+        // GTK tears the cells down while the factory still listens.
+        List.SetModel(null);
         ViewModel.OnNavigatedFrom(NavigationMode.Back, null);
         return Task.CompletedTask;
     }
@@ -138,106 +300,154 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
         else ViewModel.OpenItem(item);
     }
 
+    private void OnCellSetup(MailRowCell cell)
+    {
+        SetupSelectionCell(cell);
+        FeatureCellSetup(cell);
+    }
+
+    private void OnCellTeardown(MailRowCell cell)
+    {
+        TeardownSelectionCell(cell);
+        FeatureCellTeardown(cell);
+    }
+
+    private void OnCellBound(MailRowCell cell, MailListEntry entry, WinoCellBinding binding)
+    {
+        BindSelectionCell(cell, entry, binding.IsSelected);
+        FeatureCellBound(cell, entry.Row);
+    }
+
+    private Gtk.Widget CreateHeader()
+    {
+        var header = new WinoMailGroupHeader();
+        _headerSlots.Add(header.Root, new GroupHeaderSlot(header));
+        return header.Root;
+    }
+
+    private void BindHeader(Gtk.Widget widget, MailListEntry entry)
+    {
+        if (_headerSlots.TryGetValue(widget, out var slot))
+        {
+            slot.Entry = entry;
+            slot.Header.Title = entry.GroupTitle;
+        }
+        widget.SetVisible(entry.GroupTitle.Length > 0);
+    }
+
+    /// <summary>Headers keep their entry, so new group titles reach the shown headers without a re-sort.</summary>
+    private void RetitleHeaders()
+    {
+        foreach (var (widget, slot) in _headerSlots)
+        {
+            if (slot.Entry is not { } entry) continue;
+            slot.Header.Title = entry.GroupTitle;
+            widget.SetVisible(entry.GroupTitle.Length > 0);
+        }
+    }
+
+    private void LoadMore()
+    {
+        if (IsReleased || RowCount == 0) return;
+        var command = ViewModel.LoadMoreItemsCommand;
+        if (command.CanExecute(null)) command.Execute(null);
+    }
+
+    private void UpdateLoadingMore()
+        => _loadingMore.SetVisible(ViewModel.LoadMoreItemsCommand.IsRunning && RowCount > 0);
+
+    /// <summary>Row heights change with the density: the top row is put back where it was once the rows are measured again.</summary>
     private void RefreshAppearance()
     {
-        WinoStyle.SetDensity(_list, ViewModel.PreferencesService.MailItemDisplayMode);
-        foreach (var cell in _cells.Values) cell.Refresh();
+        var anchor = _scroll.GetVadjustment().GetValue() > 0.5 ? ListViews.CaptureTop(Cells, _scroll) : null;
+        WinoStyle.SetDensity(List, ViewModel.PreferencesService.MailItemDisplayMode);
+        RefreshCells();
+        if (anchor is { } top && PositionOf(top.Item) is { } position) ListViews.RestoreTop(List, Cells, _scroll, top, position);
     }
 
     private void RefreshPictures(string? address)
     {
         var key = LinuxSenderPictureProvider.Normalize(address);
-        foreach (var cell in _cells.Values)
+        Cells.ForEachBound((cell, _) =>
         {
             if (key is null || LinuxSenderPictureProvider.Normalize(cell.Row.Model.SenderAddress) == key) cell.Refresh();
-        }
-    }
-
-    private void SetupCell(Gtk.ListItem item)
-    {
-        var cell = new MailRowCell(_context);
-        _cells[cell.Root.Handle.DangerousGetHandle()] = cell;
-        item.SetChild(cell.Root);
-    }
-
-    private void BindCell(Gtk.ListItem item)
-    {
-        if (CellOf(item) is not { } cell || item.GetPosition() >= _entries.Count) return;
-        var entry = _entries[(int)item.GetPosition()];
-        item.SetSelectable(entry.Row is not null);
-        item.SetActivatable(entry.Row is not null);
-        cell.Bind(entry.Header, entry.Row, item);
-    }
-
-    private void TeardownCell(Gtk.ListItem item)
-    {
-        if (item.GetChild() is { } child && _cells.Remove(child.Handle.DangerousGetHandle(), out var cell)) cell.Dispose();
-    }
-
-    private MailRowCell? CellOf(Gtk.ListItem item)
-        => item.GetChild() is { } child && _cells.TryGetValue(child.Handle.DangerousGetHandle(), out var cell) ? cell : null;
-
-    private void UpdateState()
-    {
-        if (IsReleased) return;
-        _stack.SetVisibleChildName(_entries.Count > 0 ? "list" : ViewModel.IsInitializingFolder ? "loading" : "empty");
-    }
-
-    private void QueueRebuild()
-    {
-        if (_rebuildQueued || IsReleased) return;
-        _rebuildQueued = true;
-        GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
-        {
-            _rebuildQueued = false;
-            if (!IsReleased) Rebuild();
-            return false;
         });
     }
 
-    private void Rebuild()
+    private void Relocalize()
     {
-        var entries = new List<Entry>();
-        foreach (var group in _projection.Groups)
-        {
-            var title = MailRowPresentation.GroupTitle(group.Key);
-            if (!string.IsNullOrEmpty(title)) entries.Add(new Entry("group:" + title, title, null));
-            foreach (var row in group) entries.Add(new Entry(MailListSelectionSnapshotBuilder.RowKey(row), null, row));
-        }
-
-        // A page loaded at the end only appends, which keeps the scroll position; anything else replaces the model.
-        var common = 0;
-        while (common < _entries.Count && common < entries.Count && _entries[common].Key == entries[common].Key) common++;
-        var selectedKey = _selection.GetSelected() is var position && position < _entries.Count ? _entries[(int)position].Key : null;
-        var removed = (uint)(_entries.Count - common);
-
-        _applying = true;
-        _entries = entries;
-        _keys.Splice((uint)common, removed, [.. entries.Skip(common).Select(static entry => entry.Key)]);
-        if (selectedKey is not null && entries.FindIndex(entry => entry.Key == selectedKey) is >= 0 and var index) _selection.SetSelected((uint)index);
-        _applying = false;
-
-        UpdateState();
-        LoadMoreIfNeeded();
+        WinoA11y.Label(List, Translator.SettingsMessageList_Title);
+        _states.Relocalize();
+        ApplyNow(force: true);
     }
 
-    private void SelectionChanged()
+    private sealed class GroupHeaderSlot(WinoMailGroupHeader header)
     {
-        if (_applying || IsReleased) return;
-        var position = _selection.GetSelected();
-        var row = position < _entries.Count ? _entries[(int)position].Row : null;
-        MailListRow[] selected = row is null ? [] : [row];
-        var result = MailListSelectionSnapshotBuilder.Build(selected, _projection, row);
-        if (result.Signature == _publishedSelection) return;
-        _publishedSelection = result.Signature;
+        public WinoMailGroupHeader Header { get; } = header;
+
+        public MailListEntry? Entry { get; set; }
+    }
+
+    #region Selection
+
+    private readonly HashSet<MailListEntry> _selected = new(ReferenceEqualityComparer.Instance);
+    private string _published = string.Empty;
+    private bool _applying;
+    private uint _lastChangedPosition = uint.MaxValue;
+    private bool _folderLoaded;
+
+    private void SelectionChanged(uint position, uint count)
+    {
+        if (_applying || _model.IsApplying || IsReleased) return;
+        _lastChangedPosition = count == 1 ? position : uint.MaxValue;
+        ReadSelection();
+        PublishSelection();
+    }
+
+    /// <summary>Rebuilds the selected entries from the selection model; positions index the view's own row array (store order is screen order).</summary>
+    private void ReadSelection()
+    {
+        _selected.Clear();
+        foreach (var position in ListViews.SelectedPositions(Selection))
+        {
+            if (position < _shown.Count) _selected.Add(_shown[(int)position]);
+        }
+    }
+
+    /// <summary>Selects again what was selected before an apply (and <paramref name="selectAfter"/>); GTK drops the selection of rows a splice moved.</summary>
+    private void RestoreSelection(MailListEntry? selectAfter)
+    {
+        var expected = new List<uint>(_selected.Count + 1);
+        foreach (var entry in _selected)
+        {
+            if (PositionOf(entry) is { } position) expected.Add(position);
+        }
+        if (selectAfter is not null && PositionOf(selectAfter) is { } after && !expected.Contains(after)) expected.Add(after);
+        expected.Sort();
+        if (ListViews.SelectedPositions(Selection).AsSpan().SequenceEqual(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(expected))) return;
+        if (expected.Count > 0 && expected.Count == _shown.Count)
+        {
+            using var all = Gtk.Bitset.NewRange(0, (uint)_shown.Count);
+            Selection.SetSelection(all, all);
+        }
+        else ListViews.Select(Selection, [.. expected]);
+    }
+
+    private void PublishSelection()
+    {
+        var rows = new List<MailListRow>(_selected.Count);
+        MailListRow? active = null;
+        foreach (var position in ListViews.SelectedPositions(Selection))
+        {
+            if (position >= _shown.Count) continue;
+            rows.Add(_shown[(int)position].Row);
+            if (position == _lastChangedPosition) active = _shown[(int)position].Row;
+        }
+        var result = MailListSelectionSnapshotBuilder.Build(rows, Projection, active);
+        if (result.Signature == _published) return;
+        _published = result.Signature;
         ViewModel.ApplyMailSelectionSnapshot(result.Snapshot);
     }
 
-    private void LoadMoreIfNeeded()
-    {
-        if (IsReleased) return;
-        var adjustment = _scroll.GetVadjustment();
-        if (adjustment.GetValue() + adjustment.GetPageSize() < adjustment.GetUpper() - 600) return;
-        if (ViewModel.LoadMoreItemsCommand.CanExecute(null)) ViewModel.LoadMoreItemsCommand.Execute(null);
-    }
+    #endregion
 }

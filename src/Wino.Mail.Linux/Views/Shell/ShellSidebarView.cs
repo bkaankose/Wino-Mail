@@ -335,7 +335,7 @@ internal sealed partial class ShellSidebarView : IDisposable
         var changed = false;
         Action<ListChange> onChanged = _ => changed = true;
         _model.Changed += onChanged;
-        try { _model.SetItems([.. _rows]); }
+        try { _model.SetItems(_rows); }
         finally { _model.Changed -= onChanged; }
         ApplySelection();
 

@@ -78,7 +78,7 @@ public sealed class ObservableListModel<T> : IDisposable where T : class
     }
 
     /// <summary>Shows a snapshot (for projected lists) at once. A pending source pass still runs and wins.</summary>
-    public void SetItems(T[] items)
+    public void SetItems(IReadOnlyList<T> items)
     {
         if (_disposed) return;
         Apply(items);
@@ -120,33 +120,36 @@ public sealed class ObservableListModel<T> : IDisposable where T : class
         Apply(snapshot);
     }
 
-    private void Apply(T[] next)
+    private void Apply(IReadOnlyList<T> next)
     {
         var oldCount = _items.Count;
-        var shortest = Math.Min(oldCount, next.Length);
+        var count = next.Count;
+        var shortest = Math.Min(oldCount, count);
         var prefix = 0;
         while (prefix < shortest && ReferenceEquals(_items[prefix], next[prefix])) prefix++;
         var suffix = 0;
-        while (suffix < shortest - prefix && ReferenceEquals(_items[oldCount - 1 - suffix], next[next.Length - 1 - suffix])) suffix++;
+        while (suffix < shortest - prefix && ReferenceEquals(_items[oldCount - 1 - suffix], next[count - 1 - suffix])) suffix++;
 
         var removed = oldCount - prefix - suffix;
-        var added = next.Length - prefix - suffix;
+        var added = count - prefix - suffix;
         if (removed == 0 && added == 0) return;
 
         var change = new ListChange(prefix, removed, added, removed == 0 && prefix == oldCount, prefix == 0 && suffix == 0 && oldCount > 0);
         Raise(Changing, change);
 
+        var inserted = new T[added];
         var wrappers = new ManagedItem[added];
         var additions = new GObject.Object[added];
         for (var offset = 0; offset < added; offset++)
         {
-            wrappers[offset] = ManagedItem.Create(next[prefix + offset]);
+            inserted[offset] = next[prefix + offset];
+            wrappers[offset] = ManagedItem.Create(inserted[offset]);
             additions[offset] = wrappers[offset];
         }
 
         // The managed lists change first, so cells bound during the splice already see the new state.
         _items.RemoveRange(prefix, removed);
-        _items.InsertRange(prefix, new ArraySegment<T>(next, prefix, added));
+        _items.InsertRange(prefix, inserted);
         _wrappers.RemoveRange(prefix, removed);
         _wrappers.InsertRange(prefix, wrappers);
         _index = null;

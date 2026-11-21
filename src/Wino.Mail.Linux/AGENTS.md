@@ -34,15 +34,16 @@ A view is a plain class that builds its widgets in the constructor and exposes `
 - The mail list sends `ActiveMailFolderChangedEvent` after `OnNavigatedTo` and awaits `WaitForCurrentFolderInitializationAsync`. Without it the shell never shows its menu.
 - Rows come from shared presentation code: `ShellMenuRowPresentation` for the sidebar, `MailListProjection`, `MailRowPresentation` and `MailListSelectionSnapshotBuilder` for the list. A cell only renders.
 - Mail rows: `MailRowMapper` maps, `MailRowCell` binds, `WinoMailRow` renders.
-- New lists use `ObservableListModel<T>`, `WinoCellFactory` and `ListSections` from `Wino.Presentation.Linux.Lists`; the mail list still uses its `Gtk.StringList` of row keys until ML-02. A page disposes its factories, sections and model when it is released (`Bindings.Own`).
+- New lists use `ObservableListModel<T>`, `WinoCellFactory` and `ListSections` from `Wino.Presentation.Linux.Lists`. A page disposes its factories, sections and model when it is released (`Bindings.Own`).
+- The mail list holds `MailListEntry` items (rows only); date groups are GTK sections, and store order equals screen order, so a position indexes the view's own row array (`EntryAt`, `PositionOf`). Projection changes apply at most every 120 ms as the smallest splices. A package extends `MailListView` through a partial file and the hooks (`MailListView.cs`, `MailListView.Features.cs`), never by editing `MailListView.cs`; every GTK handler of the view reaches it through `_self`.
 
 ```csharp
-public MailListView(MailListPageViewModel viewModel, WinoViewServices services) : base(viewModel, services)
+public MailListView(MailListPageViewModel viewModel, WinoViewServices services, LinuxSenderPictureProvider pictures, GtkNavigationService navigation)
+    : base(viewModel, services)
 {
     ViewModel.MailCollection.CoreDispatcher = Dispatcher;
-    _projection = new MailListProjection(ViewModel.MailCollection.Items, ViewModel.MailListOptions ?? new MailListProjectionOptions());
-    _projection.ProjectionChanged += (_, _) => QueueRebuild();
-    Bind.Bind(nameof(MailListPageViewModel.MailListOptions), static vm => vm.MailListOptions, options => _projection.SetOptions(options ?? new MailListProjectionOptions()));
+    Projection = new MailListProjection(ViewModel.MailCollection.Items, ViewModel.MailListOptions ?? new MailListProjectionOptions());
+    Bind.Bind(nameof(MailListPageViewModel.MailListOptions), static vm => vm.MailListOptions, options => Projection.SetOptions(options ?? new MailListProjectionOptions()));
 }
 ```
 
@@ -68,7 +69,7 @@ A build does not prove UI behavior.
 
 ## Performance
 
-- Coalesce rebuilds: the list rebuilds once per main-loop turn (a `MainLoop.Coalescer` or `QueueRebuild`), not once per notification. In the sidebar a menu item's property change repaints one row; only a structure change re-flattens, once per main-loop turn.
+- Coalesce rebuilds: a list rebuilds once per main-loop turn (a `MainLoop.Coalescer`) or, for the mail list, once per 120 ms throttle window, not once per notification. In the sidebar a menu item's property change repaints one row; only a structure change re-flattens, once per main-loop turn.
 - Appending a loaded page must stay an append to the list model, so the scroll position is kept.
 - The reader reuses one web view and one ViewModel for every message.
 - Sender pictures come from `LinuxSenderPictureProvider`; never decode an image in a cell bind.

@@ -59,4 +59,5 @@ public static class WinoCssClass
     public const string MailChevron = "wino-mail-chevron";
     public const string Floating = "wino-floating";
     public const string TintPrefix = "wino-tint-";
+    public const string MailLoadingMore = "wino-mail-loading-more";
 }
