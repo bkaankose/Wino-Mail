@@ -290,25 +290,27 @@
                 MinWidth="100"
                 AutomationProperties.AutomationId="AccountHubRemoveButton"
                 AutomationProperties.Name="{x:Bind domain:Translator.AccountHub_RemoveTitle, Mode=OneTime}"
-                Background="{ThemeResource DeleteBrush}"
                 Command="{x:Bind ViewModel.RemoveAccountCommand}"
-                Content="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}"
-                Foreground="{ThemeResource DeleteButtonForegroundBrush}">
+                Content="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
+                <!--  Every state of the button is red with white text; only the shade changes on hover and press.  -->
                 <Button.Resources>
                     <ResourceDictionary>
                         <ResourceDictionary.ThemeDictionaries>
                             <ResourceDictionary x:Key="Default">
+                                <SolidColorBrush x:Key="ButtonBackground" Color="#E74C3C" />
+                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#D64233" />
+                                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#B8372A" />
+                                <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#80E74C3C" />
+                                <SolidColorBrush x:Key="ButtonBorderBrush" Color="Transparent" />
+                                <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent" />
+                                <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="Transparent" />
                                 <SolidColorBrush x:Key="ButtonForeground" Color="White" />
                                 <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
-                                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#E6FFFFFF" />
                                 <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="White" />
                             </ResourceDictionary>
-                            <ResourceDictionary x:Key="HighContrast">
-                                <StaticResource x:Key="ButtonForeground" ResourceKey="SystemColorWindowColorBrush" />
-                                <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="SystemColorHighlightTextColorBrush" />
-                                <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="SystemColorHighlightTextColorBrush" />
-                                <StaticResource x:Key="ButtonForegroundDisabled" ResourceKey="SystemColorGrayTextColorBrush" />
-                            </ResourceDictionary>
+                            <!--  Contrast themes keep the system button colors.  -->
+                            <ResourceDictionary x:Key="HighContrast" />
                         </ResourceDictionary.ThemeDictionaries>
                     </ResourceDictionary>
                 </Button.Resources>
