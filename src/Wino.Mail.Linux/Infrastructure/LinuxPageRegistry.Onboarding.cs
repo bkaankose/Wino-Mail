@@ -10,6 +10,7 @@ internal sealed partial class LinuxPageRegistry
     partial void RegisterOnboardingPages()
     {
         Register<AccountSetupView>(WinoPage.AccountSetupPage, LinuxPageHost.Window);
+        Register<SpecialImapCredentialsView>(WinoPage.SpecialImapCredentialsPage, LinuxPageHost.Window);
         // Account details edits server settings inside Settings; adding an account stays in the onboarding window.
         Register<ImapCalDavSettingsView>(WinoPage.ImapCalDavSettingsPage, LinuxPageHost.Settings);
         RegisterHostResolver(WinoPage.ImapCalDavSettingsPage, parameter =>

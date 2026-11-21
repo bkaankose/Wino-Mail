@@ -250,6 +250,9 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-setup-choice:checked { box-shadow: inset 0 0 0 2px @accent_bg_color; background-color: alpha(@accent_bg_color, 0.08); color: inherit; }
 .wino-setup-step-number { border-radius: 999px; background-color: alpha(currentColor, 0.1); font-size: 0.85em; font-weight: 700; }
 .wino-setup-step-number.wino-setup-step-accent { background-color: @accent_bg_color; color: @accent_fg_color; }
+.wino-setup-card-accent, .wino-setup-card-success { padding: 14px; }
+.wino-setup-card-accent { box-shadow: inset 0 0 0 1px @accent_bg_color; background-color: alpha(@accent_bg_color, 0.06); }
+.wino-setup-card-success { box-shadow: inset 0 0 0 1px @success_color; background-color: alpha(@success_color, 0.06); }
 
 /* ML-08 mail row tiles */
 .wino-chip-tile { padding: 0 7px; border-radius: 4px; font-size: 0.85em; }
