@@ -19,6 +19,7 @@ internal sealed class SettingsSidebarView : IDisposable
     private readonly List<(SettingsCatalogEntry Entry, Gtk.ListBoxRow Row)> _rows = [];
     private readonly List<IDisposable> _subscriptions = [];
     private WinoPage? _selected;
+    private Gtk.ListBoxRow? _justSelected;
     private bool _applying;
 
     public SettingsSidebarView(ISettingsCatalog catalog)
@@ -30,6 +31,8 @@ internal sealed class SettingsSidebarView : IDisposable
         var list = _list;
         _subscriptions.Add(GtkSignals.Connect<Gtk.ListBox, Gtk.ListBox.RowSelectedSignalArgs>(
             h => list.OnRowSelected += h, h => list.OnRowSelected -= h, (_, args) => RowSelected(args.Row)));
+        _subscriptions.Add(GtkSignals.Connect<Gtk.ListBox, Gtk.ListBox.RowActivatedSignalArgs>(
+            h => list.OnRowActivated += h, h => list.OnRowActivated -= h, (_, args) => RowActivated(args.Row)));
 
         _search.SetPlaceholderText(Translator.SearchBarPlaceholder);
         WinoA11y.Label(_search, Translator.SearchBarPlaceholder);
@@ -67,6 +70,12 @@ internal sealed class SettingsSidebarView : IDisposable
 
     /// <summary>A page the user selected. Not raised for <see cref="Select"/> or a rebuild.</summary>
     public event Action<WinoPage>? PageSelected;
+
+    /// <summary>
+    /// The row of the page that is already selected was clicked or got Enter: GTK raises no selection for it, so this is
+    /// the only way back to that page from its sub-pages or, in the narrow layout, from the list.
+    /// </summary>
+    public event Action<WinoPage>? SelectedPageActivated;
 
     public SettingsCatalogEntry[] Entries => [.. _rows.Select(row => row.Entry)];
 
@@ -108,13 +117,16 @@ internal sealed class SettingsSidebarView : IDisposable
 
     public void FocusSearch() => _search.GrabFocus();
 
-    public Gtk.Widget SearchEntry => _search;
+    /// <summary>The selected row, or the list before a page is shown; never the search entry, so no key typed while the window opens lands in it.</summary>
+    public Gtk.Widget FocusTarget => _list.GetSelectedRow() as Gtk.Widget ?? _list;
+
 
     public void Dispose()
     {
         foreach (var subscription in _subscriptions) subscription.Dispose();
         _subscriptions.Clear();
         PageSelected = null;
+        SelectedPageActivated = null;
     }
 
     private void ApplySelection()
@@ -138,8 +150,20 @@ internal sealed class SettingsSidebarView : IDisposable
         {
             if (!ReferenceEquals(candidate, row) || entry.Page is not { } page) continue;
             _selected = page;
+            // The click that selects a row also activates it; that activation is not a second request.
+            _justSelected = row;
+            MainLoop.Post(() => _justSelected = null);
             PageSelected?.Invoke(page);
             return;
+        }
+    }
+
+    private void RowActivated(Gtk.ListBoxRow row)
+    {
+        if (_applying || ReferenceEquals(row, _justSelected) || _selected is not { } selected) return;
+        foreach (var (entry, candidate) in _rows)
+        {
+            if (ReferenceEquals(candidate, row) && entry.Page == selected) SelectedPageActivated?.Invoke(selected);
         }
     }
 

@@ -270,6 +270,11 @@ internal sealed class SettingsWindowPresenter : ISettingsWindowPresenter
             if (_current?.Page == page) return;
             _ = ObserveAsync(LeaveToSidebarPageAsync(page));
         };
+        window.Sidebar.SelectedPageActivated += page =>
+        {
+            window.RevealContent();
+            if (_current is { } current && current.Page != page) _ = ObserveAsync(GoToRootAsync(page));
+        };
         // A page with unsaved work (the theme editor) is asked before the window closes, then closed.
         window.ShouldClose = () =>
         {

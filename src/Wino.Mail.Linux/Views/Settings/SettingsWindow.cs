@@ -57,7 +57,11 @@ internal sealed class SettingsWindow : IDialogSurface
 
         var breakpoint = Adw.Breakpoint.New(Adw.BreakpointCondition.NewLength(Adw.BreakpointConditionLengthType.MaxWidth, CollapseMaximumWidth, Adw.LengthUnit.Sp));
         _subscriptions.Add(GtkSignals.Connect<Adw.Breakpoint>(h => breakpoint.OnApply += h, h => breakpoint.OnApply -= h, (_, _) => _split.SetCollapsed(true)));
-        _subscriptions.Add(GtkSignals.Connect<Adw.Breakpoint>(h => breakpoint.OnUnapply += h, h => breakpoint.OnUnapply -= h, (_, _) => _split.SetCollapsed(false)));
+        _subscriptions.Add(GtkSignals.Connect<Adw.Breakpoint>(h => breakpoint.OnUnapply += h, h => breakpoint.OnUnapply -= h, (_, _) =>
+        {
+            _split.SetCollapsed(false);
+            if (_slot.GetChild() is not null) _split.SetShowContent(true);
+        }));
         Window.AddBreakpoint(breakpoint);
 
         _subscriptions.Add(GtkSignals.OnClicked(_back, () => BackRequested?.Invoke()));
@@ -96,7 +100,7 @@ internal sealed class SettingsWindow : IDialogSurface
     public void Present()
     {
         if (_destroyed) return;
-        if (!Window.GetVisible()) Window.SetFocus(Sidebar.SearchEntry);
+        if (!Window.GetVisible()) Window.SetFocus(Sidebar.FocusTarget);
         Window.Present();
     }
 
@@ -111,7 +115,8 @@ internal sealed class SettingsWindow : IDialogSurface
     {
         _slot.SetChild(page);
         SetHeader(title, current, root, description);
-        if (reveal && _split.GetCollapsed()) _split.SetShowContent(true);
+        // show-content also decides what a later collapse shows: a page shown beside the sidebar stays in view.
+        if (reveal || !_split.GetCollapsed()) _split.SetShowContent(true);
     }
 
     public void SetHeader(string title, WinoPage current, WinoPage root, string description)
@@ -126,6 +131,9 @@ internal sealed class SettingsWindow : IDialogSurface
         _description.SetVisible(!string.IsNullOrWhiteSpace(description));
         _contentPage.SetTitle(title);
     }
+
+    /// <summary>In the narrow layout, shows the page instead of the list.</summary>
+    public void RevealContent() => _split.SetShowContent(true);
 
     public void ClearPage()
     {
