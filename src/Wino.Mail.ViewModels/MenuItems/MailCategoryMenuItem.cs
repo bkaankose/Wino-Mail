@@ -31,6 +31,7 @@ public partial class MailCategoryMenuItem : MenuItemBase<MailCategory, IMenuItem
     public IEnumerable<IMailItemFolder> HandlingFolders => _handlingFolders;
     public new ObservableCollection<IMenuItem> SubMenuItems { get; } = [];
     public bool IsMoveTarget => true;
+    public bool IsSelectable => true;
     public bool IsSticky => false;
     public bool IsSystemFolder => false;
     public bool ShowUnreadCount => true;

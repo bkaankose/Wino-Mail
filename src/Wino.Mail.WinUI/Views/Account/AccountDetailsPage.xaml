@@ -56,7 +56,7 @@
                             IsChecked="{x:Bind IsSynchronizationEnabled}"
                             Tag="{x:Bind}"
                             Unchecked="SyncFolderToggled"
-                            Visibility="{x:Bind IsMoveTarget}" />
+                            Visibility="{x:Bind IsSelectable}" />
 
                         <CheckBox
                             x:Name="FolderJumpListCheckBox"
@@ -70,7 +70,7 @@
                             Loaded="JumpListCheckBoxLoaded"
                             Tag="{x:Bind}"
                             Unchecked="JumpListCheckboxToggled"
-                            Visibility="{x:Bind IsMoveTarget}" />
+                            Visibility="{x:Bind IsSelectable}" />
                     </Grid>
                 </Grid>
             </TreeViewItem>

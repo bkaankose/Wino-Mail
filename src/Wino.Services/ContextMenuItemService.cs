@@ -14,7 +14,7 @@ namespace Wino.Services;
 
 public class ContextMenuItemService(IMailProviderRegistry providers) : IContextMenuItemService
 {
-    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder, bool isOwnFolder = true)
+    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder, bool canRenameAndDelete = true, bool canCreateSubFolder = true)
     {
         var list = new List<FolderOperationMenuItem>();
 
@@ -25,15 +25,18 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
 
         list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
 
-        // Disabled for system folders. A shared folder's rights are not known, so they are not offered there.
-        if (isOwnFolder)
+        // Disabled for system folders, and left out of a shared folder whose rights do not allow them.
+        if (canRenameAndDelete)
         {
             list.Add(FolderOperationMenuItem.Create(FolderOperation.Rename, !isSystemFolder));
             list.Add(FolderOperationMenuItem.Create(FolderOperation.Delete, !isSystemFolder));
+        }
+
+        if (canCreateSubFolder)
             list.Add(FolderOperationMenuItem.Create(FolderOperation.CreateSubFolder, !isSystemFolder));
 
+        if (canRenameAndDelete || canCreateSubFolder)
             list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
-        }
 
         list.Add(FolderOperationMenuItem.Create(FolderOperation.Empty));
 

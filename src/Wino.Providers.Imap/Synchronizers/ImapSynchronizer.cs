@@ -1490,11 +1490,14 @@ IImapChangeProcessor imapChangeProcessor,
                 personalLocalFolders,
                 localFolders);
 
+            var rightsByFolder = await GetNonPersonalRightsAsync(executorClient, selectableRemoteFolders, namespaces, cancellationToken).ConfigureAwait(false);
+
             foreach (var remoteFolder in selectableRemoteFolders.Concat(containerRemoteFolders))
             {
                 var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.FullName);
                 var scope = namespaces.Classify(remoteFolder);
                 var isContainer = containerRemoteFolders.Contains(remoteFolder);
+                var myRights = rightsByFolder.GetValueOrDefault(remoteFolder.FullName);
 
                 if (existingLocalFolder == null)
                 {
@@ -1503,6 +1506,7 @@ IImapChangeProcessor imapChangeProcessor,
                     var localFolder = remoteFolder.GetLocalFolder();
                     localFolder.Scope = scope;
                     localFolder.IsContainer = isContainer;
+                    localFolder.MyRights = myRights;
 
                     var resolvedRole = scope == MailFolderScope.Personal && !isContainer
                         ? knownFolderMap.GetValueOrDefault(remoteFolder.FullName, restoredRoleMap.GetValueOrDefault(remoteFolder.FullName, SpecialFolderType.Other))
@@ -1539,10 +1543,12 @@ IImapChangeProcessor imapChangeProcessor,
                         needsUpdate = true;
                     }
 
-                    if (existingLocalFolder.Scope != scope || existingLocalFolder.IsContainer != isContainer)
+                    if (existingLocalFolder.Scope != scope || existingLocalFolder.IsContainer != isContainer ||
+                        !string.Equals(existingLocalFolder.MyRights, myRights, StringComparison.Ordinal))
                     {
                         existingLocalFolder.Scope = scope;
                         existingLocalFolder.IsContainer = isContainer;
+                        existingLocalFolder.MyRights = myRights;
                         needsUpdate = true;
                     }
 
@@ -1617,6 +1623,38 @@ IImapChangeProcessor imapChangeProcessor,
                 _clientPool.Release(executorClient, destroyClient: faulted);
             }
         }
+    }
+
+    /// <summary>
+    /// MYRIGHTS (RFC 4314) of every selectable folder outside the personal namespace, as sorted right letters. Personal
+    /// folders stay unknown (null), which allows everything as before. One command per shared folder on the listing
+    /// connection; MailKit cannot ask for rights inside LIST (LIST-MYRIGHTS, RFC 8440).
+    /// </summary>
+    private async Task<Dictionary<string, string>> GetNonPersonalRightsAsync(
+        IImapClient client,
+        List<IMailFolder> selectableRemoteFolders,
+        ImapNamespaceClassifier namespaces,
+        CancellationToken cancellationToken)
+    {
+        var rights = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (!client.Capabilities.HasFlag(ImapCapabilities.Acl))
+            return rights;
+
+        foreach (var remoteFolder in selectableRemoteFolders.Where(folder => namespaces.Classify(folder) != MailFolderScope.Personal))
+        {
+            try
+            {
+                var accessRights = await remoteFolder.GetMyAccessRightsAsync(cancellationToken).ConfigureAwait(false);
+                rights[remoteFolder.FullName] = new string(accessRights.Select(right => right.Right).Distinct().OrderBy(right => right).ToArray());
+            }
+            catch (ImapCommandException ex)
+            {
+                _logger.Debug(ex, "MYRIGHTS for {Folder} failed. Its rights stay unknown.", remoteFolder.FullName);
+            }
+        }
+
+        return rights;
     }
 
     private static bool IsSelectableRemoteFolder(IMailFolder remoteFolder)

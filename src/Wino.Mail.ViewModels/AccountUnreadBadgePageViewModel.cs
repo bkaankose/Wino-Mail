@@ -157,7 +157,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
         {
             Folders.Clear();
 
-            foreach (var folder in folders.Where(folder => folder.IsMoveTarget))
+            foreach (var folder in folders.Where(folder => folder.IsSelectable))
             {
                 Folders.Add(new UnreadBadgeFolderViewModel(folder,
                     row => { PreferenceWrites.Enqueue(() => OnFolderCountedChangedAsync(row)); return Task.CompletedTask; },

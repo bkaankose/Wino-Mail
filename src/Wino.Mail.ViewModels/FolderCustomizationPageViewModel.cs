@@ -191,7 +191,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
         if (item == null || !item.CanPinAndRename) return;
 
         var folder = item.Folder;
-        var canRenameOnServer = !folder.IsSystemFolder && folder.Scope == MailFolderScope.Personal;
+        var canRenameOnServer = !folder.IsSystemFolder && (folder.Scope == MailFolderScope.Personal || folder.HasKnownRight('x'));
 
         var result = await _dialogService.ShowRenameFolderDialogAsync(folder.FolderName, folder.DisplayName, canRenameOnServer);
         if (result == null) return;

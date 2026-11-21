@@ -272,7 +272,7 @@
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
             MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
-            SelectsOnInvoked="{x:Bind IsMoveTarget, Mode=OneWay}"
+            SelectsOnInvoked="{x:Bind IsSelectable, Mode=OneWay}"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
             <animations:Implicit.Animations>
                 <animations:ScaleAnimation Duration="0:0:0.5" />

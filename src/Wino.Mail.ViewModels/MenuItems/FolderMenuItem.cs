@@ -18,6 +18,7 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
 
     public bool HasTextColor => !string.IsNullOrEmpty(Parameter.TextColorHex);
     public bool IsMoveTarget => HandlingFolders.All(a => a.IsMoveTarget);
+    public bool IsSelectable => HandlingFolders.All(a => a.IsSelectable);
 
     public SpecialFolderType SpecialFolderType => Parameter.SpecialFolderType;
     public bool IsSticky => Parameter.IsSticky;

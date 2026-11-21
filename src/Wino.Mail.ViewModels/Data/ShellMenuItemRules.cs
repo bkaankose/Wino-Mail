@@ -27,7 +27,7 @@ public static class ShellMenuItemRules
         ContactCategoriesExpanderMenuItem or AccountTaskListGroupMenuItem or RateMenuItem or SettingsItem => false,
         MergedAccountMenuItem or AccountGroupMenuItem => false,
         IAccountNavigationMenuItem account => account.SelectsOnInvoked,
-        FolderMenuItem folder => folder.IsMoveTarget,
+        FolderMenuItem folder => folder.IsSelectable,
         _ => true
     };
 

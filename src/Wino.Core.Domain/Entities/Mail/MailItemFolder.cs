@@ -65,6 +65,17 @@ public class MailItemFolder : IMailItemFolder
     /// </summary>
     public bool IsContainer { get; set; }
 
+    /// <summary>
+    /// The user's rights on a folder outside the personal namespace (RFC 4314 MYRIGHTS letters, for example "lrswi"),
+    /// read on folder synchronization when the server supports ACL. Null when unknown, which allows everything.
+    /// </summary>
+    public string MyRights { get; set; }
+
+    /// <summary>Whether the folder's rights are known and include the RFC 4314 right.</summary>
+    public bool HasKnownRight(char right) => MyRights != null && MyRights.Contains(right);
+
+    private bool AllowsRight(char right) => MyRights == null || MyRights.Contains(right);
+
     public SpecialFolderType SpecialFolderType { get; set; }
     public bool IsSystemFolder { get; set; }
     public bool IsSticky { get; set; }
@@ -112,8 +123,11 @@ public class MailItemFolder : IMailItemFolder
     [Ignore]
     public List<IMailItemFolder> ChildFolders { get; set; } = [];
 
-    // Category and More folders are virtual, and containers cannot hold mail.
-    public bool IsMoveTarget => !IsContainer && !(SpecialFolderType == SpecialFolderType.More || SpecialFolderType == SpecialFolderType.Category);
+    /// <summary>A folder that holds mail and can be opened: not a virtual group (More, Categories) or a container.</summary>
+    public bool IsSelectable => !IsContainer && !(SpecialFolderType == SpecialFolderType.More || SpecialFolderType == SpecialFolderType.Category);
+
+    /// <summary>A folder mail can be moved or copied into: selectable, and the RFC 4314 insert right when rights are known.</summary>
+    public bool IsMoveTarget => IsSelectable && AllowsRight('i');
 
     public bool ContainsSpecialFolderType(SpecialFolderType type)
     {

@@ -29,6 +29,7 @@ public partial class MergedMailCategoryMenuItem : MenuItemBase<List<MailCategory
     public SpecialFolderType SpecialFolderType => SpecialFolderType.Other;
     public IEnumerable<IMailItemFolder> HandlingFolders => _handlingFolders;
     public bool IsMoveTarget => true;
+    public bool IsSelectable => true;
     public bool IsSticky => false;
     public bool IsSystemFolder => false;
     public bool ShowUnreadCount => true;

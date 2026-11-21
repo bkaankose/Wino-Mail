@@ -216,7 +216,7 @@ public class FolderService : BaseDatabaseService, IFolderService
     /// </summary>
     private static List<MailItemFolder> GetCountedFolders(List<MailItemFolder> folders, UnreadBadgeCountSource countSource)
         => countSource == UnreadBadgeCountSource.SelectedFolders
-            ? folders.Where(folder => folder.IsCountedInAccountTotal && folder.IsMoveTarget).ToList()
+            ? folders.Where(folder => folder.IsCountedInAccountTotal && folder.IsSelectable).ToList()
             : folders.Where(folder => folder.SpecialFolderType == SpecialFolderType.Inbox).ToList();
 
     private async Task<int> GetFolderUnreadCountAsync(MailItemFolder folder, MailAccount account)
@@ -713,7 +713,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             RootFolders = rootFolders,
             FavoriteCategories = favoriteCategories.ToList(),
             CategoryFolders = favoriteCategories.Any()
-                ? hierarchy.Folders.Where(a => a.IsMoveTarget).Cast<IMailItemFolder>().ToList()
+                ? hierarchy.Folders.Where(a => a.IsSelectable).Cast<IMailItemFolder>().ToList()
                 : [],
 
             // An empty Categories item is a dead end after the user hides every Gmail category.
@@ -782,7 +782,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             CommonFolders = commonFolders,
             FavoriteCategoryGroups = favoriteCategoryGroups,
             CategoryFolders = favoriteCategoryGroups.Count > 0
-                ? allAccountFolders.SelectMany(a => a).Where(a => a.IsMoveTarget).Cast<IMailItemFolder>().ToList()
+                ? allAccountFolders.SelectMany(a => a).Where(a => a.IsSelectable).Cast<IMailItemFolder>().ToList()
                 : []
         };
     }

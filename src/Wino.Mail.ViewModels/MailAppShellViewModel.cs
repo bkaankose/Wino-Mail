@@ -191,12 +191,15 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folder)
     {
-        if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More || !folder.IsMoveTarget)
+        if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More || !folder.IsSelectable)
             return default;
 
-        var isOwnFolder = folder.HandlingFolders.All(handlingFolder => handlingFolder.Scope == MailFolderScope.Personal);
+        // A shared folder offers what its known rights allow (RFC 4314: x renames and deletes, k creates subfolders).
+        var sharedFolders = folder.HandlingFolders.Where(handlingFolder => handlingFolder.Scope != MailFolderScope.Personal).ToList();
+        var canRenameAndDelete = sharedFolders.All(sharedFolder => sharedFolder.HasKnownRight('x'));
+        var canCreateSubFolder = sharedFolders.All(sharedFolder => sharedFolder.HasKnownRight('k'));
 
-        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder, isOwnFolder);
+        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder, canRenameAndDelete, canCreateSubFolder);
     }
 
     private async Task CreateFooterItemsAsync(bool showNotification = false)
@@ -1074,7 +1077,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             await HandleCreateNewMailAsync();
         }
         else if (clickedMenuItem is IBaseFolderMenuItem baseFolderMenuItem &&
-                 (clickedMenuItem is IMailCategoryMenuItem or IMergedMailCategoryMenuItem || baseFolderMenuItem.HandlingFolders.All(a => a.IsMoveTarget)))
+                 (clickedMenuItem is IMailCategoryMenuItem or IMergedMailCategoryMenuItem || baseFolderMenuItem.HandlingFolders.All(a => a.IsSelectable)))
         {
             // Don't navigate to base folders that contain non-move target folders.
             // Theory: This is a special folder like Categories or More. Don't navigate to it.

@@ -435,7 +435,7 @@ public sealed partial class ShellMenuTemplates
     {
         if (sender is not WinoNavigationViewItem menuItem ||
             menuItem.DataContext is not IBaseFolderMenuItem baseFolderMenuItem ||
-            !baseFolderMenuItem.IsMoveTarget ||
+            !baseFolderMenuItem.IsSelectable ||
             !args.TryGetPosition(sender, out Point position))
         {
             return;
