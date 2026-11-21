@@ -4968,6 +4968,7 @@
   "MacOS_Welcome_ThemesDescription": "Wino themes, native light and dark",
   "MacOS_Shell_FixMissingSystemFolders": "Account is missing system folder configuration.\nClick here to fix it.",
   "MacOS_Shell_FixInvalidCredentials": "Account credentials can not be verified.\nClick here to fix it.",
+  "SharedFolder_NameWithOwner": "{0} – {1}",
   "Shell_FixMissingSystemFolders": "Account is missing system folder configuration.\nSelect here to fix it.",
   "Shell_FixInvalidCredentials": "Account credentials can not be verified.\nSelect here to fix it.",
   "MacOS_Reader_KeyboardHint": "Use ↑ ↓ to move, ⌘R to reply, ⌫ to delete.",

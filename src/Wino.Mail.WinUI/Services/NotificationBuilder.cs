@@ -634,27 +634,7 @@ public class NotificationBuilder : INotificationBuilder
         var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
         var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, account?.Preferences);
 
-        return settings.IsEnabled && IsWithinNotificationScope(mailItem, settings.Scope);
-    }
-
-    /// <summary>
-    /// Applies the folder scope. Note this narrows previous behaviour: every downloaded message used
-    /// to raise a notification regardless of the folder it landed in.
-    /// </summary>
-    private static bool IsWithinNotificationScope(MailCopy mailItem, MailNotificationScope scope)
-    {
-        if (scope == MailNotificationScope.AllFolders)
-            return true;
-
-        var isInbox = mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox;
-
-        return scope switch
-        {
-            MailNotificationScope.InboxOnly => isInbox,
-            MailNotificationScope.FocusedInboxOnly => isInbox && mailItem.IsFocused,
-            MailNotificationScope.InboxAndCustomFolders => isInbox || mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Other,
-            _ => true
-        };
+        return settings.IsEnabled && NotificationContentRules.IsWithinNotificationScope(mailItem, settings.Scope);
     }
 
     private void UpdateBadge(string applicationId, int? badgeCount)

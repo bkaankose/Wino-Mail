@@ -27,6 +27,30 @@ public class MailItemFolder : IMailItemFolder
     [Ignore]
     public string ResolvedDisplayName => string.IsNullOrWhiteSpace(DisplayName) ? FolderName : DisplayName;
 
+    /// <summary>
+    /// Name with the owner of a shared folder, for places that list it outside its owner's tree (pinned, flat lists).
+    /// </summary>
+    [Ignore]
+    public string QualifiedDisplayName => !string.IsNullOrWhiteSpace(DisplayName) || string.IsNullOrWhiteSpace(OwnerName)
+        ? ResolvedDisplayName
+        : string.Format(Translator.SharedFolder_NameWithOwner, FolderName, OwnerName);
+
+    /// <summary>
+    /// The mailbox owner of a folder outside the personal namespace. Filled by the folder service when it reads
+    /// folders; empty for personal folders and for the owner's own node.
+    /// </summary>
+    [Ignore]
+    public string OwnerName { get; set; }
+
+    /// <remarks>Rows stored before this column existed read as <see cref="MailFolderScope.Personal"/>.</remarks>
+    public MailFolderScope Scope { get; set; }
+
+    /// <summary>
+    /// A level of a shared tree that cannot be opened (\Noselect, or missing on the server). It only groups its
+    /// children: it is never synchronized, selected, renamed, deleted or used as a move target.
+    /// </summary>
+    public bool IsContainer { get; set; }
+
     public SpecialFolderType SpecialFolderType { get; set; }
     public bool IsSystemFolder { get; set; }
     public bool IsSticky { get; set; }
@@ -74,9 +98,8 @@ public class MailItemFolder : IMailItemFolder
     [Ignore]
     public List<IMailItemFolder> ChildFolders { get; set; } = [];
 
-    // Category and Move type folders are not valid move targets.
-    // These folders are virtual. They don't exist on the server.
-    public bool IsMoveTarget => !(SpecialFolderType == SpecialFolderType.More || SpecialFolderType == SpecialFolderType.Category);
+    // Category and More folders are virtual, and containers cannot hold mail.
+    public bool IsMoveTarget => !IsContainer && !(SpecialFolderType == SpecialFolderType.More || SpecialFolderType == SpecialFolderType.Category);
 
     public bool ContainsSpecialFolderType(SpecialFolderType type)
     {

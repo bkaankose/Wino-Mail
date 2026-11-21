@@ -1388,12 +1388,30 @@ IImapChangeProcessor imapChangeProcessor,
             List<MailItemFolder> deletedFolders = new();
 
             var remoteFolders = new List<IMailFolder>();
+            var nonPersonalNamespacesListed = true;
             executorClient = await _clientPool.RentForReadAsync(async (candidate, token) =>
             {
                 remoteFolders.Clear();
+                nonPersonalNamespacesListed = true;
+
                 foreach (var personalNamespace in candidate.PersonalNamespaces)
                     remoteFolders.AddRange(await candidate.GetFoldersAsync(personalNamespace,
                         cancellationToken: token).ConfigureAwait(false));
+
+                // RFC 2342: folders other users share and public folders live in their own namespaces.
+                foreach (var otherNamespace in candidate.OtherNamespaces.Concat(candidate.SharedNamespaces))
+                {
+                    try
+                    {
+                        remoteFolders.AddRange(await candidate.GetFoldersAsync(otherNamespace,
+                            cancellationToken: token).ConfigureAwait(false));
+                    }
+                    catch (ImapCommandException ex)
+                    {
+                        nonPersonalNamespacesListed = false;
+                        _logger.Warning(ex, "Listing the IMAP namespace {Namespace} failed. Its folders are kept as they are.", otherNamespace.Path);
+                    }
+                }
             }, cancellationToken, purpose: "FolderStructure").ConfigureAwait(false);
 
             remoteFolders = remoteFolders
@@ -1401,19 +1419,31 @@ IImapChangeProcessor imapChangeProcessor,
                 .Select(group => group.First())
                 .ToList();
 
+            var namespaces = ImapNamespaceClassifier.Create(executorClient);
+
             // A successful listing can establish folder absence. UIDVALIDITY is checked during
             // message synchronization so the folder identity and user preferences survive a reset.
             if (executorClient.Inbox != null && !remoteFolders.Any(remote => remote.FullName == executorClient.Inbox.FullName))
                 remoteFolders.Add(executorClient.Inbox);
 
+            var selectableRemoteFolders = remoteFolders.Where(IsSelectableRemoteFolder).ToList();
+            var containerRemoteFolders = GetNonPersonalContainers(selectableRemoteFolders, namespaces);
+
             foreach (var localFolder in localFolders.ToList())
             {
-                if (!remoteFolders.Any(remote => remote.FullName == localFolder.RemoteFolderId))
+                if (remoteFolders.Any(remote => remote.FullName == localFolder.RemoteFolderId) ||
+                    containerRemoteFolders.Any(container => container.FullName == localFolder.RemoteFolderId))
                 {
-                    await _imapChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
-                    deletedFolders.Add(localFolder);
-                    localFolders.Remove(localFolder);
+                    continue;
                 }
+
+                // A failed listing of a shared namespace does not prove its folders are gone.
+                if (!nonPersonalNamespacesListed && namespaces.Classify(localFolder.RemoteFolderId) != MailFolderScope.Personal)
+                    continue;
+
+                await _imapChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
+                deletedFolders.Add(localFolder);
+                localFolders.Remove(localFolder);
             }
 
             // 2. Get all remote folders and insert/update each of them.
@@ -1422,30 +1452,52 @@ IImapChangeProcessor imapChangeProcessor,
 
             // Sometimes Inbox is the root namespace. We need to check for that.
             if (inbox != null && !remoteFolders.Contains(inbox))
+            {
                 remoteFolders.Add(inbox);
 
-            var selectableRemoteFolders = remoteFolders
-                .Where(remoteFolder => (!remoteFolder.IsNamespace || remoteFolder.Attributes.HasFlag(FolderAttributes.Inbox)) &&
-                                       remoteFolder.Exists &&
-                                       remoteFolder.CanOpen)
+                if (IsSelectableRemoteFolder(inbox) && !selectableRemoteFolders.Contains(inbox))
+                    selectableRemoteFolders.Add(inbox);
+            }
+
+            // Special-folder roles belong to the account's own mailboxes only. A server may also mark a shared
+            // mailbox \Sent or \Trash (RFC 6154 does not forbid it); such a folder never takes the account's role.
+            var personalRemoteFolders = selectableRemoteFolders
+                .Where(remoteFolder => namespaces.Classify(remoteFolder) == MailFolderScope.Personal)
                 .ToList();
+            var personalLocalFolders = localFolders
+                .Where(localFolder => namespaces.Classify(localFolder.RemoteFolderId) == MailFolderScope.Personal)
+                .ToList();
+
             var knownFolderMap = _unifiedSynchronizer.ResolveKnownFolders(
                 executorClient,
                 Account,
-                selectableRemoteFolders,
+                personalRemoteFolders,
+                personalLocalFolders);
+
+            var restoredRoleMap = GetRolesToRestoreFromNonPersonalFolders(
+                executorClient,
+                namespaces,
+                personalRemoteFolders,
+                personalLocalFolders,
                 localFolders);
 
-            foreach (var remoteFolder in selectableRemoteFolders)
+            foreach (var remoteFolder in selectableRemoteFolders.Concat(containerRemoteFolders))
             {
                 var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.FullName);
+                var scope = namespaces.Classify(remoteFolder);
+                var isContainer = containerRemoteFolders.Contains(remoteFolder);
 
                 if (existingLocalFolder == null)
                 {
                     // Folder doesn't exist locally. Insert it.
 
                     var localFolder = remoteFolder.GetLocalFolder();
+                    localFolder.Scope = scope;
+                    localFolder.IsContainer = isContainer;
 
-                    var resolvedRole = knownFolderMap.GetValueOrDefault(remoteFolder.FullName, SpecialFolderType.Other);
+                    var resolvedRole = scope == MailFolderScope.Personal && !isContainer
+                        ? knownFolderMap.GetValueOrDefault(remoteFolder.FullName, restoredRoleMap.GetValueOrDefault(remoteFolder.FullName, SpecialFolderType.Other))
+                        : SpecialFolderType.Other;
                     ApplyFolderRole(localFolder, resolvedRole);
 
                     localFolder.MailAccountId = Account.Id;
@@ -1478,11 +1530,36 @@ IImapChangeProcessor imapChangeProcessor,
                         needsUpdate = true;
                     }
 
-                    if (Account.ImapKnownFolderBootstrapState == ImapKnownFolderBootstrapState.Pending &&
+                    if (existingLocalFolder.Scope != scope || existingLocalFolder.IsContainer != isContainer)
+                    {
+                        existingLocalFolder.Scope = scope;
+                        existingLocalFolder.IsContainer = isContainer;
+                        needsUpdate = true;
+                    }
+
+                    if (scope != MailFolderScope.Personal || isContainer)
+                    {
+                        if (existingLocalFolder.SpecialFolderType != SpecialFolderType.Other || (isContainer && existingLocalFolder.IsSynchronizationEnabled))
+                        {
+                            _logger.Information("IMAP folder {Folder} is outside the personal namespace and loses the role {Role}.",
+                                remoteFolder.FullName, existingLocalFolder.SpecialFolderType);
+                            ApplyFolderRole(existingLocalFolder, SpecialFolderType.Other);
+                            needsUpdate = true;
+                        }
+                    }
+                    else if (Account.ImapKnownFolderBootstrapState == ImapKnownFolderBootstrapState.Pending &&
                         knownFolderMap.TryGetValue(remoteFolder.FullName, out var resolvedRole) &&
                         !HasFolderRoleMetadata(existingLocalFolder, resolvedRole))
                     {
                         ApplyFolderRole(existingLocalFolder, resolvedRole);
+                        needsUpdate = true;
+                    }
+                    else if (restoredRoleMap.TryGetValue(remoteFolder.FullName, out var restoredRole) &&
+                             existingLocalFolder.SpecialFolderType == SpecialFolderType.Other)
+                    {
+                        _logger.Information("IMAP folder {Folder} takes back the role {Role} from a folder outside the personal namespace.",
+                            remoteFolder.FullName, restoredRole);
+                        ApplyFolderRole(existingLocalFolder, restoredRole);
                         needsUpdate = true;
                     }
 
@@ -1531,6 +1608,81 @@ IImapChangeProcessor imapChangeProcessor,
                 _clientPool.Release(executorClient, destroyClient: faulted);
             }
         }
+    }
+
+    private static bool IsSelectableRemoteFolder(IMailFolder remoteFolder)
+        => (!remoteFolder.IsNamespace || remoteFolder.Attributes.HasFlag(FolderAttributes.Inbox)) &&
+           remoteFolder.Exists &&
+           remoteFolder.CanOpen;
+
+    /// <summary>
+    /// The levels above each selectable folder outside the personal namespace that cannot be opened: \Noselect
+    /// names, names the server did not list (MailKit adds them as \NonExistent) and the namespace prefix itself.
+    /// They become display-only rows, so a shared tree keeps its owner levels instead of falling apart.
+    /// </summary>
+    private static List<IMailFolder> GetNonPersonalContainers(List<IMailFolder> selectableRemoteFolders, ImapNamespaceClassifier namespaces)
+    {
+        var containers = new List<IMailFolder>();
+        var seen = new HashSet<string>(selectableRemoteFolders.Select(folder => folder.FullName), StringComparer.Ordinal);
+
+        foreach (var remoteFolder in selectableRemoteFolders.ToList())
+        {
+            var scope = namespaces.Classify(remoteFolder);
+
+            if (scope == MailFolderScope.Personal)
+                continue;
+
+            for (var parent = remoteFolder.ParentFolder; parent != null && !string.IsNullOrEmpty(parent.FullName); parent = parent.ParentFolder)
+            {
+                if (namespaces.Classify(parent) != scope || !seen.Add(parent.FullName))
+                    break;
+
+                if (IsSelectableRemoteFolder(parent))
+                    selectableRemoteFolders.Add(parent);
+                else
+                    containers.Add(parent);
+            }
+        }
+
+        return containers;
+    }
+
+    /// <summary>
+    /// Sent, Drafts, Trash, Junk and Archive may have been given to a shared folder before shared folders were told
+    /// apart. Those roles move back to the personal folder that holds them now, by the server's special-use
+    /// attributes or, without them, by the folder name aliases of the first synchronization.
+    /// </summary>
+    private Dictionary<string, SpecialFolderType> GetRolesToRestoreFromNonPersonalFolders(
+        IImapClient client,
+        ImapNamespaceClassifier namespaces,
+        List<IMailFolder> personalRemoteFolders,
+        List<MailItemFolder> personalLocalFolders,
+        List<MailItemFolder> localFolders)
+    {
+        var restored = new Dictionary<string, SpecialFolderType>(StringComparer.Ordinal);
+
+        if (!namespaces.HasNonPersonalNamespaces || Account.ImapKnownFolderBootstrapState == ImapKnownFolderBootstrapState.Pending)
+            return restored;
+
+        var lostRoles = localFolders
+            .Where(localFolder => namespaces.Classify(localFolder.RemoteFolderId) != MailFolderScope.Personal)
+            .Select(localFolder => localFolder.SpecialFolderType)
+            .Where(role => role is SpecialFolderType.Sent or SpecialFolderType.Draft or SpecialFolderType.Deleted or SpecialFolderType.Junk or SpecialFolderType.Archive)
+            .Where(role => personalLocalFolders.All(personalFolder => personalFolder.SpecialFolderType != role))
+            .ToHashSet();
+
+        if (lostRoles.Count == 0)
+            return restored;
+
+        var candidates = _unifiedSynchronizer.ResolveKnownFolders(client, Account, personalRemoteFolders, personalLocalFolders, includeAliases: true);
+
+        foreach (var (remoteFolderId, role) in candidates)
+        {
+            if (lostRoles.Contains(role))
+                restored[remoteFolderId] = role;
+        }
+
+        return restored;
     }
 
     internal static void ApplyFolderRole(MailItemFolder folder, SpecialFolderType role)

@@ -91,13 +91,15 @@ public class UnifiedImapSynchronizer
 
     /// <summary>
     /// Resolves one special role per remote folder. Server-declared roles are always evaluated;
-    /// provider and generic aliases are used only during the one-time account bootstrap.
+    /// provider and generic aliases are used only during the one-time account bootstrap, or when
+    /// <paramref name="includeAliases"/> asks for them to restore a lost role.
     /// </summary>
     public IReadOnlyDictionary<string, SpecialFolderType> ResolveKnownFolders(
         IImapClient client,
         MailAccount account,
         IReadOnlyList<IMailFolder> remoteFolders,
-        IReadOnlyList<MailItemFolder> localFolders)
+        IReadOnlyList<MailItemFolder> localFolders,
+        bool includeAliases = false)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(account);
@@ -145,7 +147,7 @@ public class UnifiedImapSynchronizer
             resolved[selected.FullName] = roleGroup.Key;
         }
 
-        if (account.ImapKnownFolderBootstrapState != ImapKnownFolderBootstrapState.Pending)
+        if (account.ImapKnownFolderBootstrapState != ImapKnownFolderBootstrapState.Pending && !includeAliases)
             return resolved;
 
         var provider = _knownImapProviderCatalog.Match(

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
@@ -110,7 +111,10 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
     {
         try
         {
-            var configurableFolder = await folderService.GetFoldersAsync(accountId);
+            // Special-folder roles belong to the account's own folders only.
+            var configurableFolder = (await folderService.GetFoldersAsync(accountId))
+                .Where(folder => folder.Scope == MailFolderScope.Personal && !folder.IsContainer)
+                .ToList();
 
             var systemFolderConfigurationDialog = new SystemFolderConfigurationDialog(configurableFolder)
             {

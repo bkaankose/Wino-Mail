@@ -11,6 +11,10 @@ public interface IMailItemFolder
     string FolderName { get; set; }
     string DisplayName { get; set; }
     string ResolvedDisplayName { get; }
+    string QualifiedDisplayName { get; }
+    string OwnerName { get; set; }
+    MailFolderScope Scope { get; set; }
+    bool IsContainer { get; set; }
     long HighestModeSeq { get; set; }
     uint HighestKnownUid { get; set; }
     Guid Id { get; set; }

@@ -191,7 +191,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folder)
     {
-        if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More)
+        if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More || !folder.IsMoveTarget)
             return default;
 
         return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder);
