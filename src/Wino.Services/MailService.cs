@@ -2982,8 +2982,34 @@ WHERE MailItemFolder.MailAccountId = ?
         }
 
         // A message stored in several folders (Gmail labels) is announced once, by its Inbox copy when it has one.
-        return (await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false))
+        var newMails = (await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false))
             .GroupBy(mail => mail.Id, StringComparer.Ordinal)
+            .Select(copies => copies.FirstOrDefault(mail => mail.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox) ?? copies.First())
+            .ToList();
+
+        // A message another device moved or copied arrives as a new copy in its new folder. It is not new to the
+        // account while an older copy with the same Message-ID is still stored.
+        var batchIds = newMails.Select(mail => mail.Id).ToHashSet(StringComparer.Ordinal);
+        var messageIds = newMails.Select(mail => mail.MessageId).Where(id => !string.IsNullOrEmpty(id)).Distinct(StringComparer.Ordinal).ToList();
+        var knownMessageIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(messageIds, fixedParameters: 1))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT MailCopy.Id, MailCopy.MessageId FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailItemFolder.MailAccountId = ? AND MailCopy.MessageId IN ({placeholders})";
+            var parameters = new List<object> { accountId };
+            parameters.AddRange(idChunk.Cast<object>());
+
+            foreach (var row in await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false))
+            {
+                if (!batchIds.Contains(row.Id))
+                    knownMessageIds.Add(row.MessageId);
+            }
+        }
+
+        return newMails
+            .Where(mail => string.IsNullOrEmpty(mail.MessageId) || !knownMessageIds.Contains(mail.MessageId))
+            .GroupBy(mail => string.IsNullOrEmpty(mail.MessageId) ? mail.Id : mail.MessageId, StringComparer.Ordinal)
             .Select(copies => copies.FirstOrDefault(mail => mail.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox) ?? copies.First())
             .ToList();
     }

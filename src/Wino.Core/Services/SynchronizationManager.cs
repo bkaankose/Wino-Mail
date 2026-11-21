@@ -62,6 +62,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly bool _notificationsEnabled;
+    private readonly AnnouncedMessageIds _announcedMessageIds = new();
     private readonly IPreferencesService _preferencesService;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
     private readonly DraftUpdateCoordinator _draftUpdateCoordinator;
@@ -112,12 +113,15 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public IDraftUpdateCoordinator DraftUpdates => _draftUpdateCoordinator;
 
     internal static async Task PublishMailSynchronizationNotificationsAsync(
-        MailSynchronizationResult result, MailAccount account, INotificationBuilder notifications, bool notificationsEnabled)
+        MailSynchronizationResult result, MailAccount account, INotificationBuilder notifications, bool notificationsEnabled,
+        AnnouncedMessageIds announcedMessageIds)
     {
         // An unavailable native integration must not turn successful provider work into failed sync.
         if (!notificationsEnabled) return;
 
-        var newMessages = GetNotifiableMessages(result.DownloadedMessages, account);
+        var newMessages = GetNotifiableMessages(result.DownloadedMessages, account)
+            .Where(message => string.IsNullOrEmpty(message.MessageId) || announcedMessageIds.TryAdd(account.Id, message.MessageId))
+            .ToList();
         if (newMessages.Count > 0)
             await notifications.CreateNotificationsAsync(newMessages).ConfigureAwait(false);
 
@@ -346,7 +350,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
             await PersistSignInAttentionIfRequiredAsync(synchronizer.Account, result.Exception, result.AllIssues).ConfigureAwait(false);
 
-            await PublishMailSynchronizationNotificationsAsync(result, synchronizer.Account, _notificationBuilder, _notificationsEnabled).ConfigureAwait(false);
+            await PublishMailSynchronizationNotificationsAsync(result, synchronizer.Account, _notificationBuilder, _notificationsEnabled, _announcedMessageIds).ConfigureAwait(false);
 
             return result;
         }
