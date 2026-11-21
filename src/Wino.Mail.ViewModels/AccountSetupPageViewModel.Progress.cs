@@ -410,7 +410,9 @@ public partial class AccountSetupPageViewModel
             CalDavServiceUrl = calendarMode == AccountCapabilityMode.Provider || taskMode == AccountCapabilityMode.Provider ? CalDavServiceUri?.ToString() : null,
             CardDavServiceUrl = contactMode == AccountCapabilityMode.Provider ? CardDavServiceUri?.ToString() : null,
             OAuthSession = useOAuth ? _oauthSession : null,
-            StartOnServers = isAddressValid && (isImapResolution || Phase is AccountSetupPhase.NotFound or AccountSetupPhase.Resolving)
+            StartOnServers = isAddressValid && (isImapResolution || Phase is AccountSetupPhase.NotFound or AccountSetupPhase.Resolving),
+            // The IMAP route shows its apps on the review after signing in; the other routes show them before.
+            StartOnFeatures = !hasFeatures || (IsImapRoute && Phase != AccountSetupPhase.Features)
         };
 
         // Advanced setup owns the session now and discards it if it is not saved; the rest of this attempt goes.

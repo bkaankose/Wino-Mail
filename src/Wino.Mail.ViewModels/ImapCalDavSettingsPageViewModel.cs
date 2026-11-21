@@ -358,6 +358,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
             if (mode != NavigationMode.Back && context.Prefill != null)
                 ApplyPrefill(context.Prefill);
+
+            if (mode != NavigationMode.Back)
+                ApplyFeaturesStep(context.Prefill);
         }
         else
         {

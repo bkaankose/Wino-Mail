@@ -29,6 +29,8 @@ public partial class ImapCalDavSettingsPageViewModel
     // the server values the user already edited.
     private string _lastDiscoveredAddress;
     private bool _isSpecialImapProviderInferred;
+    private bool _hasFeaturesStep;
+    private ImapSetupStep _stepAfterFeatures = ImapSetupStep.SignIn;
 
     /// <summary>
     /// What this account is used for. Editable on the edit page through the capability picker;
@@ -42,6 +44,8 @@ public partial class ImapCalDavSettingsPageViewModel
     [NotifyPropertyChangedFor(nameof(IsSignInStepCurrent))]
     [NotifyPropertyChangedFor(nameof(IsServersStepCurrent))]
     [NotifyPropertyChangedFor(nameof(IsSignInStepDone))]
+    [NotifyPropertyChangedFor(nameof(IsFeaturesStepVisible))]
+    [NotifyPropertyChangedFor(nameof(IsFeaturesStepCurrent))]
     [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
     [NotifyPropertyChangedFor(nameof(IsDiscoveryFoundVisible))]
     [NotifyPropertyChangedFor(nameof(IsDiscoveryNotFoundVisible))]
@@ -152,13 +156,22 @@ public partial class ImapCalDavSettingsPageViewModel
     public bool IsServersStepCurrent => CurrentSetupStep == ImapSetupStep.Servers;
     public bool IsSignInStepDone => CurrentSetupStep == ImapSetupStep.Servers;
 
+    /// <summary>Set by a head that shows the capability picker on the Features step.</summary>
+    public bool IsFeaturesStepSupportedByHost { get; set; }
+
+    public bool IsFeaturesStepVisible => IsCreateMode && CurrentSetupStep == ImapSetupStep.Features;
+    public bool IsFeaturesStepCurrent => CurrentSetupStep == ImapSetupStep.Features;
+
     public bool IsEditSignInVisible => IsEditMode && Capabilities.RequiresRemoteService;
 
     public string PrimaryActionText => IsEditMode
         ? Translator.Buttons_Save
-        : CurrentSetupStep == ImapSetupStep.SignIn
-            ? SignInStage == ImapSignInStage.Method ? Translator.ImapSetup_Next : Translator.ProviderSelection_ContinueButton
-            : Translator.ProviderSelection_AddAccountButton;
+        : CurrentSetupStep switch
+        {
+            ImapSetupStep.Features => Translator.ProviderSelection_ContinueButton,
+            ImapSetupStep.SignIn => SignInStage == ImapSignInStage.Method ? Translator.ImapSetup_Next : Translator.ProviderSelection_ContinueButton,
+            _ => Translator.ProviderSelection_AddAccountButton
+        };
 
     public bool IsDiscoveryFoundVisible => IsCreateMode && IsServersStepCurrent && DiscoveryState == ServerDiscoveryState.Found;
     public bool IsDiscoveryNotFoundVisible => IsCreateMode && IsServersStepCurrent && DiscoveryState == ServerDiscoveryState.NotFound;
@@ -229,6 +242,12 @@ public partial class ImapCalDavSettingsPageViewModel
     [RelayCommand(CanExecute = nameof(IsNotBusy))]
     private async Task PrimaryActionAsync()
     {
+        if (IsFeaturesStepVisible)
+        {
+            await ContinueFromFeaturesAsync();
+            return;
+        }
+
         if (IsCreateMode && CurrentSetupStep == ImapSetupStep.SignIn)
         {
             if (SignInStage == ImapSignInStage.Identity)
@@ -245,6 +264,12 @@ public partial class ImapCalDavSettingsPageViewModel
     [RelayCommand(CanExecute = nameof(IsNotBusy))]
     private void Back()
     {
+        if (IsFeaturesStepVisible)
+        {
+            Cancel();
+            return;
+        }
+
         if (IsCreateMode && CurrentSetupStep == ImapSetupStep.Servers)
         {
             CurrentSetupStep = ImapSetupStep.SignIn;
@@ -259,8 +284,41 @@ public partial class ImapCalDavSettingsPageViewModel
             return;
         }
 
+        if (IsCreateMode && _hasFeaturesStep)
+        {
+            CurrentSetupStep = ImapSetupStep.Features;
+            return;
+        }
+
         // The first step goes back to the provider page, where the capabilities were chosen.
         Cancel();
+    }
+
+    partial void OnCurrentSetupStepChanged(ImapSetupStep value) => NotifySecureSignInLayoutChanged();
+
+    private async Task ContinueFromFeaturesAsync()
+    {
+        await HidePageErrorAsync();
+
+        try
+        {
+            ValidateCapabilitySelection();
+            CurrentSetupStep = _stepAfterFeatures;
+        }
+        catch (Exception ex)
+        {
+            await ShowImapValidationFailureAsync(ex);
+        }
+    }
+
+    /// <summary>Opens on the Features step when the setup page had not asked for the apps yet.</summary>
+    private void ApplyFeaturesStep(ImapSetupPrefill prefill)
+    {
+        _hasFeaturesStep = IsFeaturesStepSupportedByHost && prefill?.StartOnFeatures == true;
+        _stepAfterFeatures = CurrentSetupStep;
+
+        if (_hasFeaturesStep)
+            CurrentSetupStep = ImapSetupStep.Features;
     }
 
     /// <summary>
