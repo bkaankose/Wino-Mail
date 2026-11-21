@@ -16,7 +16,9 @@ using Wino.Providers.Exchange.Services;
 using Wino.Providers.Exchange.Synchronizers.Errors.Exchange;
 using Wino.Providers.Exchange.Synchronizers.Exchange;
 using Wino.Providers.Exchange.Synchronizers.Mapi;
+using Wino.Services;
 using Wino.Services.Interfaces;
+using Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 namespace Wino.Providers.Exchange.Providers;
 
@@ -29,7 +31,8 @@ public sealed class ExchangeProviderModule(
     IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
     IContactService contactService,
     IPictureStorageService contactPictureService,
-    ITaskService taskService) : IMailProviderModule
+    ITaskService taskService,
+    Func<MailAccount, IWinoSynchronizerBase> activeSyncFactory) : IMailProviderModule
 {
     public MailProviderType ProviderType => MailProviderType.Exchange;
 
@@ -59,7 +62,8 @@ public sealed class ExchangeProviderModule(
             errorHandlerFactory ?? throw new InvalidOperationException("The Exchange error handler factory is not registered."),
             contactService,
             contactPictureService,
-            taskService);
+            taskService,
+            () => activeSyncFactory(account));
 
     /// <summary>
     /// A synchronizer runs on another transport than the account now asks for when the connection method was changed,
@@ -71,8 +75,13 @@ public sealed class ExchangeProviderModule(
         if (account.ServerInformation == null)
             return true;
 
-        var wantsMapi = account.ServerInformation.EffectiveExchangeTransport != ExchangeTransport.Ews;
-        return wantsMapi == (existing is MapiExchangeSynchronizer);
+        var currentTransport = existing switch
+        {
+            ActiveSyncExchangeSynchronizer => ExchangeTransport.ActiveSync,
+            MapiExchangeSynchronizer => ExchangeTransport.MapiHttp,
+            _ => ExchangeTransport.Ews
+        };
+        return currentTransport == account.ServerInformation.EffectiveExchangeTransport;
     }
 
     public bool IsAuthorizationFailure(Exception exception) => false;
@@ -90,7 +99,21 @@ public static class ExchangeProviderRegistration
             provider.GetService<IExchangeSynchronizerErrorHandlerFactory>(),
             provider.GetRequiredService<IContactService>(),
             provider.GetRequiredService<IPictureStorageService>(),
-            provider.GetService<ITaskService>()));
+            provider.GetService<ITaskService>(),
+            account => new ActiveSyncExchangeSynchronizer(account,
+                provider.GetRequiredService<IMessenger>(),
+                provider.GetRequiredService<RequestUiChangeCoordinator>(),
+                provider.GetRequiredService<IDatabaseService>(),
+                provider.GetRequiredService<IAccountService>(),
+                provider.GetRequiredService<IFolderService>(),
+                provider.GetRequiredService<IMailService>(),
+                provider.GetRequiredService<ICalendarService>(),
+                provider.GetRequiredService<IContactService>(),
+                provider.GetRequiredService<ITaskService>(),
+                provider.GetRequiredService<IMimeFileService>(),
+                provider.GetRequiredService<IPictureStorageService>(),
+                provider.GetRequiredService<ICalDavChangeProcessor>(),
+                provider.GetRequiredService<IApplicationConfiguration>().ApplicationDataFolderPath)));
 
         services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();
