@@ -23,10 +23,8 @@ public enum CalendarPlacementKind
 {
     /// <summary>A timed event in the hour grid.</summary>
     Timed,
-    /// <summary>An all-day event in the all-day strip (32pt, title only).</summary>
+    /// <summary>An all-day or multi-day event in the all-day strip (32pt, title only).</summary>
     AllDay,
-    /// <summary>A multi-day timed event's faint ghost in the hour grid (not hit-testable).</summary>
-    MultiDayGhost,
     /// <summary>A month cell entry (title only).</summary>
     MonthCell
 }
@@ -90,7 +88,7 @@ public static class CalendarSurfaceLayoutCalculator
         => AllDaySectionPadding + CalendarItemOverflow.MaxAllDayLanes * AllDayItemHeight +
            (CalendarItemOverflow.MaxAllDayLanes - 1) * AllDayItemGap + CalendarItemOverflow.MoreButtonGap;
 
-    /// <summary>Timed and multi-day placements for the hour grid.</summary>
+    /// <summary>Timed placements for the hour grid. All-day and multi-day items are left to <see cref="CalculateAllDay"/>.</summary>
     public static List<CalendarLayoutPlacement> CalculateTimed(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items,
         double dayWidth, double hourHeight, CalendarEventDisplayMode mode)
     {
@@ -114,7 +112,7 @@ public static class CalendarSurfaceLayoutCalculator
                     var segment = segments[placement.SourceIndex];
                     double y = segment.StartMinute / 60 * hourHeight;
                     double height = Math.Max(1, (segment.EndMinute - segment.StartMinute) / 60 * hourHeight);
-                    result.Add(new CalendarLayoutPlacement(segment.Item, date, new CalendarLayoutRect(dayX + placement.Left, y, placement.Width, height), TimedKind(segment.Item)));
+                    result.Add(new CalendarLayoutPlacement(segment.Item, date, new CalendarLayoutRect(dayX + placement.Left, y, placement.Width, height), CalendarPlacementKind.Timed));
                 }
 
                 continue;
@@ -131,7 +129,7 @@ public static class CalendarSurfaceLayoutCalculator
                     double width = Math.Max(0, subWidth - 4 - (columns == 1 ? ItemRightSpacing : 0));
                     double y = segment.StartMinute / 60 * hourHeight;
                     double height = Math.Max(1, (segment.EndMinute - segment.StartMinute) / 60 * hourHeight);
-                    result.Add(new CalendarLayoutPlacement(segment.Item, date, new CalendarLayoutRect(x, y, width, height), TimedKind(segment.Item)));
+                    result.Add(new CalendarLayoutPlacement(segment.Item, date, new CalendarLayoutRect(x, y, width, height), CalendarPlacementKind.Timed));
                 }
             }
         }
@@ -140,8 +138,8 @@ public static class CalendarSurfaceLayoutCalculator
     }
 
     /// <summary>
-    /// All-day lanes above the hour grid: at most <see cref="CalendarItemOverflow.MaxAllDayLanes"/> per day, the rest
-    /// behind that day's "n more" link (Windows TimedCalendarLayoutCalculator.CalculateAllDayItems).
+    /// All-day and multi-day lanes above the hour grid: at most <see cref="CalendarItemOverflow.MaxAllDayLanes"/> per day,
+    /// the rest behind that day's "n more" link (Windows TimedCalendarLayoutCalculator.AssignAllDaySpans).
     /// </summary>
     public static (List<CalendarLayoutPlacement> Items, List<CalendarLayoutOverflowCell> Overflows) CalculateAllDay(
         IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double dayWidth)
@@ -239,8 +237,6 @@ public static class CalendarSurfaceLayoutCalculator
         return dates;
     }
 
-    private static CalendarPlacementKind TimedKind(ICalendarItem item) => item.IsMultiDayEvent ? CalendarPlacementKind.MultiDayGhost : CalendarPlacementKind.Timed;
-
     private static IEnumerable<ICalendarItem> GetCellItems(IList<ICalendarItem> items, DateOnly date)
     {
         var dayStart = date.ToDateTime(TimeOnly.MinValue);
@@ -261,7 +257,7 @@ public static class CalendarSurfaceLayoutCalculator
         var result = new List<ICalendarItem>();
         foreach (var item in items)
         {
-            if (!item.IsAllDayEvent) continue;
+            if (!item.IsAllDayEvent && !item.IsMultiDayEvent) continue;
             var start = item.StartDate;
             var end = item.EndDate;
             if (end <= start) continue;
@@ -278,7 +274,7 @@ public static class CalendarSurfaceLayoutCalculator
         var segments = new List<Segment>();
         foreach (var item in items)
         {
-            if (item.IsAllDayEvent) continue;
+            if (item.IsAllDayEvent || item.IsMultiDayEvent) continue;
             var start = item.StartDate;
             var end = item.EndDate;
             if (end <= start) continue;
