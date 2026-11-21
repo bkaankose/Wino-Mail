@@ -66,20 +66,32 @@
             Text="{x:Bind domain:Translator.AccountApps_SyncsWith, Mode=OneTime}"
             Visibility="{x:Bind ViewModel.IsOn, Mode=OneWay}" />
 
-        <controls:SettingsCard
+        <ItemsView
+            x:Name="SourceChoiceView"
             HorizontalContentAlignment="Stretch"
-            AutomationProperties.AutomationId="AccountAppSourceChoiceCard"
-            ContentAlignment="Left"
+            AutomationProperties.AutomationId="AccountAppSourceChoice"
+            AutomationProperties.Name="{x:Bind domain:Translator.AccountApps_SyncsWith, Mode=OneTime}"
+            IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsChangingSource), Mode=OneWay}"
+            ItemsSource="{x:Bind ViewModel.SourceOptions, Mode=OneWay}"
+            SelectionChanged="SourceChoiceSelectionChanged"
+            SelectionMode="Single"
             Visibility="{x:Bind ViewModel.IsSourceChoiceVisible, Mode=OneWay}">
-            <RadioButtons
-                AutomationProperties.AutomationId="AccountAppSourceChoice"
-                AutomationProperties.Name="{x:Bind domain:Translator.AccountApps_SyncsWith, Mode=OneTime}"
-                IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsChangingSource), Mode=OneWay}"
-                ItemsSource="{x:Bind ViewModel.SourceOptions, Mode=OneWay}"
-                SelectedItem="{x:Bind ViewModel.SelectedSourceOption, Mode=TwoWay}">
-                <RadioButtons.ItemTemplate>
-                    <DataTemplate x:DataType="accountSettings:AccountAppSourceOption">
-                        <StackPanel Margin="0,0,0,6" AutomationProperties.Name="{x:Bind Title}">
+            <ItemsView.Layout>
+                <StackLayout Spacing="4" />
+            </ItemsView.Layout>
+            <ItemsView.ItemTemplate>
+                <DataTemplate x:DataType="accountSettings:AccountAppSourceOption">
+                    <ItemContainer
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.HelpText="{x:Bind Description}"
+                        AutomationProperties.Name="{x:Bind Title}">
+                        <StackPanel
+                            Padding="16,12"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{ThemeResource ControlCornerRadius}"
+                            Spacing="2">
                             <TextBlock Text="{x:Bind Title}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -87,10 +99,10 @@
                                 Text="{x:Bind Description}"
                                 TextWrapping="WrapWholeWords" />
                         </StackPanel>
-                    </DataTemplate>
-                </RadioButtons.ItemTemplate>
-            </RadioButtons>
-        </controls:SettingsCard>
+                    </ItemContainer>
+                </DataTemplate>
+            </ItemsView.ItemTemplate>
+        </ItemsView>
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="AccountAppSourceCard"

@@ -54,13 +54,6 @@
                     <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Tag" />
                 </controls:SettingsCard.HeaderIcon>
             </accessibilityControls:WinoSettingsCard>
-
-            <TextBlock
-                Margin="2,8,2,0"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="{x:Bind domain:Translator.AccountApps_PeopleAppWideNote, Mode=OneTime}"
-                TextWrapping="WrapWholeWords" />
         </StackPanel>
     </StackPanel>
 </viewsAbstract:AccountPeopleSettingsPageAbstract>

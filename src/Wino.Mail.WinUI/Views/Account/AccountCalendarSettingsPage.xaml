@@ -162,13 +162,6 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-
-            <TextBlock
-                Margin="2,8,2,0"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="{x:Bind domain:Translator.AccountApps_CalendarAppWideNote, Mode=OneTime}"
-                TextWrapping="WrapWholeWords" />
         </StackPanel>
     </StackPanel>
 </viewsAbstract:AccountCalendarSettingsPageAbstract>
