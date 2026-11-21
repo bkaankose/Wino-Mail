@@ -1316,7 +1316,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
                 var actionButton = new Button()
                 {
                     Content = message.ActionButtonTitle,
-                    Command = new RelayCommand(message.Action)
+                    // The button usually navigates; the bar must not stay over the page it opens.
+                    Command = new RelayCommand(() =>
+                    {
+                        ShellInfoBar.IsOpen = false;
+                        message.Action();
+                    })
                 };
                 AutomationProperties.SetAutomationId(actionButton, "ShellInfoBarActionButton");
                 AutomationProperties.SetName(actionButton, message.ActionButtonTitle);
