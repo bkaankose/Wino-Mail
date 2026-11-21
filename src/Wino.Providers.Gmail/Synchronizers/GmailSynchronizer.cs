@@ -4819,11 +4819,11 @@ IGmailChangeProcessor gmailChangeProcessor,
             googleEvent.Reminders = new Event.RemindersData
             {
                 UseDefault = false,
-                Overrides = reminders
+                Overrides = ReminderSyncPlan.Split(reminders, CalendarCapabilities.Gmail).Server
                     .Select(reminder => new EventReminder
                     {
                         Method = reminder.ReminderType == CalendarItemReminderType.Email ? "email" : "popup",
-                        Minutes = (int)Math.Max(0, reminder.DurationInSeconds / 60)
+                        Minutes = (int)(reminder.DurationInSeconds / 60)
                     })
                     .ToList()
             };

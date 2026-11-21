@@ -380,9 +380,27 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                 existingCalendarItem.RecurringCalendarItemId = parentRecurringEvent.Id;
             }
 
-            // Do not overwrite reminders for an existing local event. Provider reminders
-            // are imported only when the event is first created locally; Wino owns all
-            // subsequent reminder selection and notification scheduling.
+            // An event with its own reminders (useDefault false) reports them in full, so a change made
+            // in another app replaces the reminders Google holds; reminders kept only in Wino stay.
+            // Calendar default reminders are not reported per event and leave the stored ones alone.
+            if (calendarEvent.Status != "cancelled" && calendarEvent.Reminders?.UseDefault == false)
+            {
+                var serverReminders = (calendarEvent.Reminders.Overrides ?? [])
+                    .Where(reminderOverride => reminderOverride.Minutes.HasValue)
+                    .Select(reminderOverride => new Reminder
+                    {
+                        Id = Guid.NewGuid(),
+                        CalendarItemId = existingCalendarItem.Id,
+                        DurationInSeconds = reminderOverride.Minutes.GetValueOrDefault() * 60L,
+                        ReminderType = reminderOverride.Method == "email" ? CalendarItemReminderType.Email : CalendarItemReminderType.Popup
+                    })
+                    .ToList();
+
+                var storedReminders = await CalendarService.GetRemindersAsync(existingCalendarItem.Id).ConfigureAwait(false);
+                var reconciled = ReminderSyncPlan.Reconcile(storedReminders, serverReminders, CalendarCapabilities.Gmail, existingCalendarItem.Id);
+                if (reconciled != null)
+                    await CalendarService.SaveRemindersAsync(existingCalendarItem.Id, reconciled).ConfigureAwait(false);
+            }
 
             // Prepare attachments metadata from Gmail event for update
             List<CalendarAttachment> attachments = null;

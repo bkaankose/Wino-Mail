@@ -5266,21 +5266,10 @@ IAuthenticator authenticator,
             Type = a.IsOptionalAttendee ? Microsoft.Graph.Models.AttendeeType.Optional : Microsoft.Graph.Models.AttendeeType.Required
         }).ToList();
 
-        if (reminders.Count > 0)
-        {
-            var reminder = reminders
-                .OrderBy(reminder => reminder.DurationInSeconds)
-                .FirstOrDefault(reminder => reminder.ReminderType == CalendarItemReminderType.Popup)
-                ?? reminders.OrderBy(reminder => reminder.DurationInSeconds).First();
-
-            outlookEvent.IsReminderOn = true;
-            outlookEvent.ReminderMinutesBeforeStart = (int)Math.Max(0, reminder.DurationInSeconds / 60);
-        }
-        else
-        {
-            outlookEvent.IsReminderOn = false;
-            outlookEvent.ReminderMinutesBeforeStart = null;
-        }
+        // Graph keeps one reminder before the start; the others stay in Wino and fire from there.
+        var serverReminder = ReminderSyncPlan.Split(reminders, CalendarCapabilities.Outlook).Server.FirstOrDefault();
+        outlookEvent.IsReminderOn = serverReminder != null;
+        outlookEvent.ReminderMinutesBeforeStart = serverReminder == null ? null : (int)(serverReminder.DurationInSeconds / 60);
 
         var recurrence = CalendarRecurrenceMapper.CreateOutlookRecurrence(calendarItem);
         if (recurrence != null)
@@ -5472,21 +5461,9 @@ IAuthenticator authenticator,
 
         if (reminders != null)
         {
-            var reminder = reminders
-                .OrderBy(reminder => reminder.DurationInSeconds)
-                .FirstOrDefault(reminder => reminder.ReminderType == CalendarItemReminderType.Popup)
-                ?? reminders.OrderBy(reminder => reminder.DurationInSeconds).FirstOrDefault();
-
-            if (reminder == null)
-            {
-                outlookEvent.IsReminderOn = false;
-                outlookEvent.ReminderMinutesBeforeStart = null;
-            }
-            else
-            {
-                outlookEvent.IsReminderOn = true;
-                outlookEvent.ReminderMinutesBeforeStart = (int)Math.Max(0, reminder.DurationInSeconds / 60);
-            }
+            var serverReminder = ReminderSyncPlan.Split(reminders, CalendarCapabilities.Outlook).Server.FirstOrDefault();
+            outlookEvent.IsReminderOn = serverReminder != null;
+            outlookEvent.ReminderMinutesBeforeStart = serverReminder == null ? null : (int)(serverReminder.DurationInSeconds / 60);
         }
 
         // Recurrence belongs to the series master; Graph can reject it on an occurrence.
