@@ -578,6 +578,11 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         // "cal-details-showas N VALUE", "cal-details-reminder N MINUTES", "cal-attach-save N" act on the open details.
         MacDebugBridge.Register("cal-details-showas", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0
             ? details.DebugChooseShowAsAsync(args[^1]) : Task.FromResult("open an event's details first (cal-details N)"));
+#if DEBUG
+        MacDebugBridge.Register("cal-reminder-add", _ => Task.FromResult(Wino.Mail.MacOS.Views.Dialogs.CalendarReminderEditorSheet.DebugAddRow()));
+#endif
+        MacDebugBridge.Register("cal-details-customize", _ => _detailsChild is EventDetailsPageViewController details
+            ? details.DebugCustomizeRemindersAsync() : Task.FromResult("open an event's details first (cal-details N)"));
         MacDebugBridge.Register("cal-details-reminder", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0 && int.TryParse(args[^1], out var minutes)
             ? details.DebugToggleReminderAsync(minutes) : Task.FromResult("open an event's details first (cal-details N)"));
         MacDebugBridge.Register("cal-attach-save", args => Task.FromResult(_detailsChild is EventDetailsPageViewController details

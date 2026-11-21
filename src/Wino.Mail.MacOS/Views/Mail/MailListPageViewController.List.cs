@@ -1079,12 +1079,24 @@ public sealed partial class MailListPageViewController
             data?.Save(NSUrl.FromFilename(file), true);
             return Task.FromResult(Path.GetFileName(file));
         });
+        MacDebugBridge.Register("sheet-confirm", _ =>
+        {
+            foreach (var window in NSApplication.SharedApplication.DangerousWindows.ToArray())
+            {
+                if (!window.IsVisible || window.SheetParent is null || window.ContentView is null) continue;
+                var button = FindDefaultButton(window.ContentView);
+                if (button is null) continue;
+                button.PerformClick(button);
+                return Task.FromResult("confirmed " + button.Title);
+            }
+            return Task.FromResult("no sheet with a default button");
+        });
         MacDebugBridge.Register("dismiss", _ =>
         {
             int closed = 0;
             foreach (var window in NSApplication.SharedApplication.DangerousWindows.ToArray())
             {
-                if (!window.IsVisible || window is not NSPanel) continue;
+                if (!window.IsVisible || (window is not NSPanel && window.SheetParent is null)) continue;
                 if (window.SheetParent is { } parent) parent.EndSheet(window);
                 else window.Close();
                 closed++;
@@ -1094,6 +1106,16 @@ public sealed partial class MailListPageViewController
         });
 #endif
     }
+
+#if DEBUG
+    private static NSButton? FindDefaultButton(NSView view)
+    {
+        if (view is NSButton { KeyEquivalent: "\r" } button) return button;
+        foreach (var child in view.Subviews)
+            if (FindDefaultButton(child) is { } found) return found;
+        return null;
+    }
+#endif
 
     private sealed class MailListTableDataSource(MailListPageViewController owner) : NSTableViewDataSource
     {

@@ -435,6 +435,15 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     }
 
     /// <summary>Debug bridge: toggles the reminder with <paramref name="minutes"/> through the menu path and waits for the save.</summary>
+    internal async Task<string> DebugCustomizeRemindersAsync()
+    {
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (ViewModel.EditRemindersCommand.CanExecute(null)) ViewModel.EditRemindersCommand.Execute(null);
+        });
+        return "ok";
+    }
+
     internal async Task<string> DebugToggleReminderAsync(int minutes)
     {
         await Dispatcher.ExecuteOnUIThread(() =>
@@ -478,6 +487,13 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
             item.Activated += (_, _) => ToggleReminder(captured, item);
             menu.AddItem(item);
         }
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        var customize = new NSMenuItem(Translator.CalendarReminder_Customize) { Enabled = !_isReadOnly };
+        customize.Activated += (_, _) =>
+        {
+            if (ViewModel.EditRemindersCommand.CanExecute(null)) ViewModel.EditRemindersCommand.Execute(null);
+        };
+        menu.AddItem(customize);
         UpdateReminderRow();
     }
 
