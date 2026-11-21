@@ -804,7 +804,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
 
     public int UndoDeletingMailsIntervalInSeconds
     {
-        get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 3);
+        get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 5);
         set => SetPropertyAndSave(nameof(UndoDeletingMailsIntervalInSeconds), Math.Clamp(value, 1, 10));
     }
 
