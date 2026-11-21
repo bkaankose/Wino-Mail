@@ -880,7 +880,10 @@
                                     IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(IsCompleting), Mode=OneWay}"
                                     Style="{StaticResource TransparentActionButtonStyle}"
                                     ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_FlaggedMailComplete}">
-                                    <coreControls:WinoFontIcon FontSize="18" Icon="CheckmarkCircle" />
+                                    <coreControls:WinoFontIcon
+                                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                                        FontSize="18"
+                                        Icon="CheckmarkCircle" />
                                 </Button>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock
@@ -896,6 +899,7 @@
                                 <coreControls:WinoFontIcon
                                     Grid.Column="2"
                                     VerticalAlignment="Center"
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
                                     FontSize="14"
                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                     Icon="Flag" />
@@ -1678,6 +1682,7 @@
                                             </Grid.ColumnDefinitions>
                                             <coreControls:WinoFontIcon
                                                 VerticalAlignment="Center"
+                                                FontFamily="{ThemeResource WinoIconFontFamily}"
                                                 FontSize="14"
                                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                                 Icon="{x:Bind Glyph}" />

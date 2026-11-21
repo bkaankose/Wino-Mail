@@ -816,6 +816,7 @@
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <coreControls:WinoFontIcon
                                         VerticalAlignment="Center"
+                                        FontFamily="{ThemeResource WinoIconFontFamily}"
                                         FontSize="14"
                                         Icon="{x:Bind Glyph}" />
                                     <TextBlock
