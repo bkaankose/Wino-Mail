@@ -88,7 +88,7 @@ internal sealed class WebKitGtkBrowserSession
         string? generation = _sessionId;
         return await OnUIAsync(async () =>
         {
-            var value = await Browser.EvaluateJavascriptAsync("String((" + expression + ") ?? '')");
+            using var value = await Browser.EvaluateJavascriptAsync("String((" + expression + ") ?? '')");
             if (_disposed || generation != _sessionId) throw new ObjectDisposedException(nameof(WebKitGtkBrowserSession));
             return (string?)value.ToString();
         });

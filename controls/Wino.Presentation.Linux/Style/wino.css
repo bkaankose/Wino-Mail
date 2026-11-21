@@ -94,7 +94,7 @@
 }
 
 .wino-reader-header {
-  padding: var(--wino-space-4) 20px var(--wino-space-3) 20px;
+  padding: 14px 20px 10px 20px;
 }
 
 /* Contact picture and account icon */
@@ -281,3 +281,18 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-search-chip { min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 0.9em; font-weight: normal; background-color: alpha(currentColor, 0.08); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.10); }
 .wino-search-chip.wino-active { background-color: alpha(@accent_bg_color, 0.22); box-shadow: inset 0 0 0 1px alpha(@accent_bg_color, 0.55); }
 .wino-online-search-panel { margin: 8px 12px 12px 12px; padding: 10px 12px; border-radius: 12px; background-color: alpha(currentColor, 0.06); font-weight: normal; }
+
+/* Reader (RD-01) */
+.wino-reader-toolbar { min-height: 46px; padding: 2px 6px 2px 20px; }
+.wino-reader-narrow .wino-reader-toolbar { padding-left: 14px; }
+.wino-reader-subject { font-weight: 600; font-size: 1.15em; }
+.wino-reader-narrow .wino-reader-header { padding: 12px 14px 10px 14px; }
+.wino-reader-sender { padding: 0; min-height: 0; }
+.wino-recipient { padding: 0 2px; min-height: 0; font-size: 0.9em; color: @accent_color; font-weight: normal; }
+.wino-recipient.heading { font-weight: 600; }
+.wino-status-dot { min-width: 8px; min-height: 8px; border-radius: 999px; background-color: currentColor; }
+.wino-status-dot.success { color: @success_color; }
+.wino-status-dot.warning { color: @warning_color; }
+.wino-reader-body { border-top: 1px solid alpha(currentColor, 0.12); }
+.wino-has-backdrop .wino-reader-body { margin: 6px 20px 20px 20px; border: 1px solid alpha(currentColor, 0.12); border-radius: var(--wino-zone-radius); }
+.wino-reader-loading { background-color: @view_bg_color; }

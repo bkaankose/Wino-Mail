@@ -21,6 +21,16 @@ public static class WinoCssClass
     public const string Chip = "wino-chip";
     public const string Attachment = "wino-attachment";
     public const string ReaderHeader = "wino-reader-header";
+    public const string Reader = "wino-reader";
+    public const string ReaderToolbar = "wino-reader-toolbar";
+    public const string ReaderSubject = "wino-reader-subject";
+    public const string ReaderNarrow = "wino-reader-narrow";
+    public const string ReaderCompact = "wino-reader-compact";
+    public const string ReaderSender = "wino-reader-sender";
+    public const string ReaderBody = "wino-reader-body";
+    public const string ReaderLoading = "wino-reader-loading";
+    public const string Recipient = "wino-recipient";
+    public const string StatusDot = "wino-status-dot";
 
     public const string Avatar = "wino-avatar";
     public const string AvatarPrefix = "wino-avatar-";

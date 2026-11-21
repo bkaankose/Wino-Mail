@@ -25,6 +25,7 @@ public sealed class WebKitGtkHtmlMailReaderSession : IHtmlMailReaderSession
         _host.NavigationRequested += (_, e) => NavigationRequested?.Invoke(this, e);
         _host.LinkHovered += (_, e) => LinkHovered?.Invoke(this, e);
         _host.OperationFailed += (_, e) => OperationFailed?.Invoke(this, e);
+        _host.ContentProcessTerminated += (_, e) => ContentProcessTerminated?.Invoke(this, e);
     }
 
     /// <summary>The widget to show. The session owns its configuration; the head only places it.</summary>
@@ -33,6 +34,12 @@ public sealed class WebKitGtkHtmlMailReaderSession : IHtmlMailReaderSession
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
     public event EventHandler<RendererLinkHoverEventArgs>? LinkHovered;
+
+    /// <summary>WebKit's web process ended; the document is gone until the next render.</summary>
+    public event EventHandler? ContentProcessTerminated;
+
+    /// <summary>True while the current document is loaded and its bridge answered.</summary>
+    public bool IsReady => _host.IsReady;
 
     public void Configure(IExternalLauncher launcher) => _host.Configure(launcher);
 
@@ -109,6 +116,7 @@ public sealed class WebKitGtkHtmlMailReaderSession : IHtmlMailReaderSession
         NavigationRequested = null;
         OperationFailed = null;
         LinkHovered = null;
+        ContentProcessTerminated = null;
         _originalHtml = string.Empty;
     });
 

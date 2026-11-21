@@ -1,4 +1,6 @@
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.ViewModels;
@@ -7,48 +9,39 @@ using Wino.Presentation.Linux;
 namespace Wino.Mail.Linux.Views.Mail;
 
 /// <summary>
-/// The reading pane while no message is open, and the mail states of <see cref="IdlePageViewModel"/>: an account that
-/// needs a sign-in (or is loading its first folders), and no account at all. The pane keeps this view, so a later
-/// navigation renavigates it with the new state.
+/// The reading pane while no message is open (macOS <c>IdlePageViewController</c>): "No message selected" with the
+/// user's Reply and Delete shortcuts, an account that needs a sign-in (or is loading its first folders), and no account
+/// at all. The pane keeps this view, so a later navigation renavigates it with the new state.
 /// </summary>
 internal sealed class IdleView : WinoView<IdlePageViewModel>, IRenavigableView
 {
-    private readonly Adw.StatusPage _page = Adw.StatusPage.New();
-    private readonly Gtk.Button _signIn;
-    private readonly Gtk.Button _addAccount;
-    private readonly Gtk.Button _manageAccounts;
-    private readonly Adw.Spinner _loading = Adw.Spinner.New();
+    private readonly MailIdleContent _content = new();
+    private readonly IKeyboardShortcutService _shortcuts;
+    private bool _empty;
+    private bool _signIn;
 
-    public IdleView(IdlePageViewModel viewModel, WinoViewServices services) : base(viewModel, services)
+    public IdleView(IdlePageViewModel viewModel, WinoViewServices services, IKeyboardShortcutService shortcuts) : base(viewModel, services)
     {
-        _signIn = Button(ViewModel.SignInText, suggested: true);
-        _addAccount = Button(ViewModel.AddAccountText, suggested: true);
-        _manageAccounts = Button(ViewModel.ManageAccountsText, suggested: false);
-        _loading.SetSizeRequest(32, 32);
-        _loading.SetHalign(Gtk.Align.Center);
-
-        var actions = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
-        actions.SetHalign(Gtk.Align.Center);
-        actions.Append(_loading);
-        actions.Append(_signIn);
-        actions.Append(_addAccount);
-        actions.Append(_manageAccounts);
-        _page.SetChild(actions);
-        Root = _page;
-
-        Bind.BindCommand(_signIn, ViewModel.SignInCommand);
-        Bind.BindCommand(_addAccount, ViewModel.AddAccountCommand);
-        Bind.BindCommand(_manageAccounts, ViewModel.ManageAccountsCommand);
-        Bind.Bind(nameof(IdlePageViewModel.IsAccountStateVisible), static vm => vm.IsAccountStateVisible, _ => Apply());
-        Bind.Bind(nameof(IdlePageViewModel.IsMailEmptyStateVisible), static vm => vm.IsMailEmptyStateVisible, _ => Apply());
-        Bind.Bind(nameof(IdlePageViewModel.IsSignInVisible), static vm => vm.IsSignInVisible, _ => Apply());
-        Bind.Bind(nameof(IdlePageViewModel.AccountStateTitle), static vm => vm.AccountStateTitle, _ => Apply());
-        Bind.Bind(nameof(IdlePageViewModel.AccountStateMessage), static vm => vm.AccountStateMessage, _ => Apply());
+        _shortcuts = shortcuts;
+        Bindings.Own(_content);
+        _content.ActionInvoked += () =>
+        {
+            if (_empty) ViewModel.AddAccountCommand.Execute(null);
+            else if (_signIn) Observe(ViewModel.SignInCommand.ExecuteAsync(null));
+        };
+        _content.SecondaryInvoked += () =>
+        {
+            if (_empty) ViewModel.ManageAccountsCommand.Execute(null);
+        };
+        Bind.BindAny(static vm => (vm.IsMailEmptyStateVisible, vm.IsAccountStateVisible, vm.AccountStateTitle, vm.AccountStateMessage, vm.IsSignInVisible), _ => Apply());
         Subscribe<LanguageChanged>(_ => Apply());
+        EventHandler changed = (_, _) => RunOnUI(Apply);
+        shortcuts.KeyboardShortcutsChanged += changed;
+        Bindings.Own(new ActionDisposable(() => shortcuts.KeyboardShortcutsChanged -= changed));
         Apply();
     }
 
-    public override Gtk.Widget Root { get; }
+    public override Gtk.Widget Root => _content.Root;
 
     public Task RenavigateAsync(object? parameter)
     {
@@ -57,45 +50,38 @@ internal sealed class IdleView : WinoView<IdlePageViewModel>, IRenavigableView
     }
 
     /// <summary>One line per state, for checks.</summary>
-    internal string Describe()
-        => $"title={_page.GetTitle()} signIn={_signIn.GetVisible()} loading={_loading.GetVisible()} addAccount={_addAccount.GetVisible()} manage={_manageAccounts.GetVisible()}";
+    internal string Describe() => _content.Describe();
 
     private void Apply()
     {
         var account = ViewModel.IsAccountStateVisible;
-        var empty = !account && ViewModel.IsMailEmptyStateVisible;
+        _empty = !account && ViewModel.IsMailEmptyStateVisible;
+        _signIn = account && ViewModel.IsSignInVisible;
         if (account)
         {
-            _page.SetIconName(ViewModel.IsSignInVisible ? "dialog-password-symbolic" : null);
-            _page.SetTitle(ViewModel.AccountStateTitle);
-            _page.SetDescription(ViewModel.AccountStateMessage);
+            _content.SetContent(ViewModel.AccountStateTitle, ViewModel.AccountStateMessage, _signIn ? ViewModel.SignInText : null, loading: !_signIn);
+            _content.SetHints([]);
         }
-        else if (empty)
+        else if (_empty)
         {
-            _page.SetIconName("mail-unread-symbolic");
-            _page.SetTitle(ViewModel.MailEmptyStateTitle);
-            _page.SetDescription(ViewModel.MailEmptyStateMessage);
+            _content.SetContent(ViewModel.MailEmptyStateTitle, ViewModel.MailEmptyStateMessage, ViewModel.AddAccountText, ViewModel.ManageAccountsText);
+            _content.SetHints([]);
         }
         else
         {
-            _page.SetIconName("mail-read-symbolic");
-            _page.SetTitle(Translator.NoMailSelected);
-            _page.SetDescription(null);
+            _content.SetContent(Translator.NoMailSelected, null, null);
+            _content.SetHints(Hints());
         }
-        _signIn.SetVisible(account && ViewModel.IsSignInVisible);
-        _loading.SetVisible(account && !ViewModel.IsSignInVisible);
-        _addAccount.SetVisible(empty);
-        _manageAccounts.SetVisible(empty);
-        _signIn.SetLabel(ViewModel.SignInText);
-        _addAccount.SetLabel(ViewModel.AddAccountText);
-        _manageAccounts.SetLabel(ViewModel.ManageAccountsText);
     }
 
-    private static Gtk.Button Button(string text, bool suggested)
+    private (string Accelerator, string Title)[] Hints()
     {
-        var button = Gtk.Button.NewWithLabel(text);
-        button.AddCssClass("pill");
-        if (suggested) button.AddCssClass("suggested-action");
-        return WinoA11y.Rename(button, text);
+        var hints = new List<(string, string)>(2);
+        foreach (var (action, title) in new[] { (KeyboardShortcutAction.Reply, Translator.MailOperation_Reply), (KeyboardShortcutAction.Delete, Translator.MailOperation_Delete) })
+        {
+            var shortcut = _shortcuts.EnabledShortcutsSnapshot.FirstOrDefault(candidate => candidate.Mode == WinoApplicationMode.Mail && candidate.Action == action);
+            if (shortcut is not null && ShortcutKeys.Accelerator(shortcut.ModifierKeys, shortcut.Key) is { } accelerator) hints.Add((accelerator, title));
+        }
+        return [.. hints];
     }
 }
