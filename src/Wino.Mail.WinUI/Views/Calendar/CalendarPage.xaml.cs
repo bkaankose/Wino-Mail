@@ -43,6 +43,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private bool _suppressSelectionResetOnPopupClose;
     private bool _hasAttachedNavigationLifetimeEvents;
     private UIElement? _quickEventDismissRoot;
+    private double _quickEventHorizontalShift;
     private PointerEventHandler? _quickEventDismissHandler;
 
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
@@ -201,6 +202,12 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         Canvas.SetLeft(TeachingTipPositionerGrid, canvasPoint.X);
         Canvas.SetTop(TeachingTipPositionerGrid, canvasPoint.Y);
 
+        _quickEventHorizontalShift = GetQuickEventHorizontalShift(CalendarSurface.TransformToVisual(null).TransformPoint(e.AnchorPoint).X);
+        if (QuickEventPopupDialog.DesiredPlacement is PopupPlacementMode.Bottom or PopupPlacementMode.Top)
+        {
+            QuickEventPopupDialog.HorizontalOffset = _quickEventHorizontalShift;
+        }
+
         _suppressSelectionResetOnPopupClose = true;
         QuickEventPopupDialog.IsOpen = false;
         QuickEventPopupDialog.IsOpen = true;
@@ -265,6 +272,26 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         _quickEventDismissRoot = null;
     }
 
+    // Above or below the anchor the popup is centred on it, and the popup only flips vertically, so
+    // near the left or right window edge it is moved sideways to stay inside the window.
+    private double GetQuickEventHorizontalShift(double anchorX)
+    {
+        const double edgeMargin = 8d;
+
+        var rootWidth = XamlRoot?.Size.Width ?? 0d;
+
+        if (rootWidth <= 0d)
+            return 0d;
+
+        QuickEventPopupContent.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+
+        var width = QuickEventPopupContent.DesiredSize.Width;
+        var left = anchorX - (width / 2d);
+        var clampedLeft = Math.Clamp(left, edgeMargin, Math.Max(edgeMargin, rootWidth - width - edgeMargin));
+
+        return clampedLeft - left;
+    }
+
     private void QuickEventDismissPointerPressed(object sender, PointerRoutedEventArgs e)
         => CloseQuickEventPopup(clearSelection: true);
 
@@ -301,9 +328,11 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         switch (popup.ActualPlacement)
         {
             case PopupPlacementMode.Top:
+                popup.HorizontalOffset = _quickEventHorizontalShift;
                 popup.VerticalOffset = PopupDialogOffset * -1;
                 break;
             case PopupPlacementMode.Bottom:
+                popup.HorizontalOffset = _quickEventHorizontalShift;
                 popup.VerticalOffset = PopupDialogOffset;
                 break;
             case PopupPlacementMode.Left:
