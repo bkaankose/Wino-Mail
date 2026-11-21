@@ -42,6 +42,8 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private long _calendarTypeSelectorChangedToken;
     private bool _suppressSelectionResetOnPopupClose;
     private bool _hasAttachedNavigationLifetimeEvents;
+    private UIElement? _quickEventDismissRoot;
+    private PointerEventHandler? _quickEventDismissHandler;
 
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
     public SearchBarMode SearchMode => SearchBarMode.Calendar;
@@ -205,10 +207,10 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         _suppressSelectionResetOnPopupClose = false;
     }
 
-    [DynamicWindowsRuntimeCast(typeof(ContentDialog))]
     private void ViewModelQuickEventCancellationRequested(object? sender, EventArgs e)
         => CloseQuickEventPopup(clearSelection: true);
 
+    [DynamicWindowsRuntimeCast(typeof(ContentDialog))]
     private bool HasOpenDialog()
     {
         if (XamlRoot is null)
@@ -241,8 +243,44 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         QuickEventAccountSelectorFlyout.Hide();
     }
 
+    // The popup is not light-dismissed: a light-dismiss popup swallows the press that closes it, so
+    // Today, Next or New event needed a second click. A press anywhere outside it closes it here and
+    // still reaches the control under the pointer. The popup's own content is in another tree and
+    // never raises this handler.
+    private void QuickEventPopupOpened(object sender, object e)
+    {
+        DetachQuickEventDismissWatch();
+
+        _quickEventDismissRoot = XamlRoot?.Content;
+        _quickEventDismissRoot?.AddHandler(PointerPressedEvent, _quickEventDismissHandler ??= new PointerEventHandler(QuickEventDismissPointerPressed), true);
+    }
+
+    private void DetachQuickEventDismissWatch()
+    {
+        if (_quickEventDismissRoot != null && _quickEventDismissHandler != null)
+        {
+            _quickEventDismissRoot.RemoveHandler(PointerPressedEvent, _quickEventDismissHandler);
+        }
+
+        _quickEventDismissRoot = null;
+    }
+
+    private void QuickEventDismissPointerPressed(object sender, PointerRoutedEventArgs e)
+        => CloseQuickEventPopup(clearSelection: true);
+
+    private void QuickEventPopupContentKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Escape)
+        {
+            e.Handled = true;
+            CloseQuickEventPopup(clearSelection: true);
+        }
+    }
+
     private void QuickEventPopupClosed(object sender, object e)
     {
+        DetachQuickEventDismissWatch();
+
         if (!_suppressSelectionResetOnPopupClose)
         {
             ViewModel.SelectedQuickEventDate = null;

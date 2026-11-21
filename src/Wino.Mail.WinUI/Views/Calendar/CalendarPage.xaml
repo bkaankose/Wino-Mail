@@ -116,7 +116,8 @@
                 ActualPlacementChanged="PopupPlacementChanged"
                 Closed="QuickEventPopupClosed"
                 DesiredPlacement="{x:Bind winuiHelpers:XamlHelpers.GetPlaccementModeForCalendarType(ViewModel.StatePersistanceService.CalendarDisplayType), Mode=OneWay}"
-                IsLightDismissEnabled="True"
+                IsLightDismissEnabled="False"
+                Opened="QuickEventPopupOpened"
                 PlacementTarget="{x:Bind TeachingTipPositionerGrid}">
                 <Popup.ChildTransitions>
                     <TransitionCollection>
@@ -125,12 +126,14 @@
                 </Popup.ChildTransitions>
 
                 <Grid
+                    x:Name="QuickEventPopupContent"
                     MinWidth="440"
                     MaxWidth="520"
                     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                     BorderBrush="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay, TargetNullValue='LightGray'}"
                     BorderThickness="1"
                     CornerRadius="8"
+                    KeyDown="QuickEventPopupContentKeyDown"
                     RowSpacing="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
