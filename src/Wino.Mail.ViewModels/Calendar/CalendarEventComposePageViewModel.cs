@@ -65,11 +65,14 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     private bool _isSyncingDateRange;
     private bool _isApplyingRecurrence;
     private bool _isApplyingReminderSelection;
+
+    // True once the reminders were chosen or imported, so a change of calendar no longer applies its default.
+    private bool _hasChosenReminders;
     private DateTime? _lastEffectiveStart;
 
     private CalendarItem _editingItem;
     private CalendarComposeTimeZoneOption _editInitialTimeZoneOption;
-    private HashSet<int> _editInitialReminderMinutes;
+    private List<CalendarReminderDraft> _editInitialReminders;
     private string _editInitialRecurrenceInputs = string.Empty;
     private HashSet<Guid> _editInitialAttachmentIds = [];
 
@@ -247,7 +250,6 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         {
             if (SetProperty(ref _calendarCapabilities, value ?? CalendarCapabilities.None))
             {
-                ReminderOption.TrimToLimit(ReminderOptions, _calendarCapabilities.MaxReminders);
                 NotifyCapabilityPropertiesChanged();
             }
         }
@@ -363,7 +365,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
         LoadTimeZoneOptions();
 
-        SelectReminders([GetDefaultReminderMinutes()]);
+        SelectReminders(GetDefaultReminders(null));
         SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == CalendarItemShowAs.Busy);
 
         var (defaultStart, defaultEnd) = GetDefaultComposeDateRange();
@@ -470,7 +472,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         if (item == null)
         {
             _editInitialTimeZoneOption = null;
-            _editInitialReminderMinutes = null;
+            _editInitialReminders = null;
             _editInitialRecurrenceInputs = string.Empty;
             _editInitialAttachmentIds = [];
             HasPreservedRecurrence = false;
@@ -528,11 +530,9 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
         ApplyEditRecurrence(item);
 
-        SelectReminders(reminders
-            .Where(reminder => reminder.DurationInSeconds > 0)
-            .Select(reminder => (int)(reminder.DurationInSeconds / 60)));
+        SelectReminders(reminders.Select(reminder => new CalendarReminderDraft(reminder.DurationInSeconds, reminder.ReminderType)));
 
-        _editInitialReminderMinutes = GetSelectedReminderMinutes();
+        _editInitialReminders = ReminderOption.GetSelectedDrafts(ReminderOptions);
         _editInitialRecurrenceInputs = GetRecurrenceInputSignature();
         _editInitialAttachmentIds = Attachments.Select(attachment => attachment.Id).ToHashSet();
 
@@ -677,6 +677,9 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
         SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == value.DefaultShowAs)
                                ?? ShowAsOptions.FirstOrDefault();
+
+        if (!IsEditMode && !_hasChosenReminders)
+            SelectReminders(GetDefaultReminders(value));
 
         // The provider's fixed set (conservative for CalDAV) applies until the server's answer arrives.
         CalendarCapabilities = CalendarCapabilityPresenter.GetFallback(value.Account, value.AccountCalendar);
@@ -1143,8 +1146,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
     private List<Reminder> BuildEditedReminders(Guid calendarItemId, List<Reminder> originalReminders)
     {
-        // An untouched choice keeps the stored reminders as they are, including their types.
-        if (_editInitialReminderMinutes != null && _editInitialReminderMinutes.SetEquals(GetSelectedReminderMinutes()))
+        // An untouched choice keeps the stored reminders as they are.
+        if (_editInitialReminders != null && _editInitialReminders.ToHashSet().SetEquals(ReminderOption.GetSelectedDrafts(ReminderOptions)))
         {
             return originalReminders
                 .Select(reminder => new Reminder
@@ -1157,22 +1160,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
                 .ToList();
         }
 
-        return GetSelectedReminderMinutes()
-            .OrderBy(minutes => minutes)
-            .Select(minutes =>
-            {
-                var durationInSeconds = minutes * 60L;
-                var existing = originalReminders.FirstOrDefault(reminder => reminder.DurationInSeconds == durationInSeconds);
-
-                return new Reminder
-                {
-                    Id = existing?.Id ?? Guid.NewGuid(),
-                    CalendarItemId = calendarItemId,
-                    DurationInSeconds = durationInSeconds,
-                    ReminderType = existing?.ReminderType ?? CalendarItemReminderType.Popup
-                };
-            })
-            .ToList();
+        return ReminderOption.BuildReminders(ReminderOptions, calendarItemId, originalReminders);
     }
 
     private List<CalendarEventComposeAttachmentDraft> BuildEditedAttachmentDrafts()
@@ -1429,28 +1417,25 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     private void ApplyImportedReminder(int? reminderMinutes, bool isImportedEvent)
     {
         if (reminderMinutes is > 0)
-            SelectReminders([reminderMinutes.Value]);
+        {
+            SelectReminders([new CalendarReminderDraft(reminderMinutes.Value * 60L, CalendarItemReminderType.Popup)]);
+            _hasChosenReminders = true;
+        }
         else if (isImportedEvent)
+        {
             SelectReminders([]);
+            _hasChosenReminders = true;
+        }
     }
 
-    /// <summary>Selects exactly these reminders, adding an option for any duration the list does not offer.</summary>
-    private void SelectReminders(IEnumerable<int> minutes)
+    /// <summary>Selects exactly these reminders, adding an option for any reminder the list does not offer.</summary>
+    private void SelectReminders(IEnumerable<CalendarReminderDraft> reminders)
     {
-        var wanted = minutes.Where(value => value > 0).ToHashSet();
-
         _isApplyingReminderSelection = true;
 
         try
         {
-            foreach (var value in wanted.Where(value => ReminderOptions.All(option => option.Minutes != value)))
-            {
-                var index = ReminderOptions.TakeWhile(option => option.Minutes > value).Count();
-                ReminderOptions.Insert(index, new ReminderOption(value, isCustom: true, selectionChanged: OnReminderOptionSelectionChanged));
-            }
-
-            foreach (var option in ReminderOptions)
-                option.IsSelected = wanted.Contains(option.Minutes);
+            ReminderOption.Select(ReminderOptions, reminders, OnReminderOptionSelectionChanged);
         }
         finally
         {
@@ -1465,12 +1450,35 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         if (_isApplyingReminderSelection)
             return;
 
-        ReminderOption.EnforceLimit(ReminderOptions, option, CalendarCapabilities.MaxReminders);
+        _hasChosenReminders = true;
         ReminderSummary = ReminderOption.Summarize(ReminderOptions);
     }
 
-    private HashSet<int> GetSelectedReminderMinutes()
-        => ReminderOptions.Where(option => option.IsSelected && option.Minutes > 0).Select(option => option.Minutes).ToHashSet();
+    /// <summary>Opens the reminder editor and selects the reminders the user kept.</summary>
+    [RelayCommand]
+    private async Task EditRemindersAsync()
+    {
+        var edited = await _dialogService.ShowCalendarReminderEditorAsync(
+            ReminderOption.GetSelectedDrafts(ReminderOptions),
+            CalendarCapabilities.SupportsEmailReminder);
+
+        if (edited == null)
+            return;
+
+        SelectReminders(edited);
+        _hasChosenReminders = true;
+    }
+
+    /// <summary>The default reminder of a new event: the calendar's own, else the app's.</summary>
+    private List<CalendarReminderDraft> GetDefaultReminders(AccountCalendarViewModel calendar)
+    {
+        var appDefault = _preferencesService.DefaultReminderDurationInSeconds;
+        var seconds = calendar?.AccountCalendar != null
+            ? calendar.AccountCalendar.ResolveDefaultReminder(appDefault)
+            : appDefault > 0 ? appDefault : null;
+
+        return seconds is { } value ? [new CalendarReminderDraft(value, CalendarItemReminderType.Popup)] : [];
+    }
 
     private AccountCalendarViewModel ResolveSelectedCalendar(Guid? selectedCalendarId)
     {
@@ -1701,16 +1709,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     }
 
     private List<Reminder> BuildSelectedReminders()
-        => GetSelectedReminderMinutes()
-            .OrderBy(minutes => minutes)
-            .Select(minutes => new Reminder
-            {
-                Id = Guid.NewGuid(),
-                CalendarItemId = Guid.Empty,
-                DurationInSeconds = minutes * 60L,
-                ReminderType = CalendarItemReminderType.Popup
-            })
-            .ToList();
+        => ReminderOption.BuildReminders(ReminderOptions, Guid.Empty, []);
 
     private static List<CalendarEventAttendee> BuildAttendees(IEnumerable<CalendarComposeAttendeeViewModel> attendees)
     {
@@ -1729,8 +1728,6 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
             .ToList();
     }
 
-    private int GetDefaultReminderMinutes()
-        => (int)Math.Max(1, _preferencesService.DefaultReminderDurationInSeconds / 60);
 
     private void UpdateRecurrenceSummary()
     {

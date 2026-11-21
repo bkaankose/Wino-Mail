@@ -39,6 +39,13 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
 
     public string GetEditorThemeToolTip(bool isDarkMode) => isDarkMode ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme;
 
+    private void CustomizeRemindersClicked(object sender, RoutedEventArgs e)
+    {
+        // The editor is a dialog; the flyout closes first so it does not stay open behind it.
+        ComposeReminderFlyout.Hide();
+        ViewModel.EditRemindersCommand.Execute(null);
+    }
+
     private void ToggleNotesEditorThemeClicked(object sender, RoutedEventArgs e)
     {
         NotesEditor.ToggleEditorTheme();

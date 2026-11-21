@@ -22,6 +22,23 @@ public class AccountCalendar : IAccountCalendar
     public CalendarItemShowAs DefaultShowAs { get; set; } = CalendarItemShowAs.Busy;
 
     /// <summary>
+    /// Seconds before the start of the reminder new events in this calendar get: null uses the app's
+    /// default, <see cref="NoDefaultReminder"/> means none. Kept only in Wino.
+    /// </summary>
+    public long? DefaultReminderInSeconds { get; set; }
+
+    public const long NoDefaultReminder = long.MinValue;
+
+    /// <summary>The reminder a new event in this calendar gets, or null for none.</summary>
+    public long? ResolveDefaultReminder(long appDefaultReminderInSeconds)
+        => DefaultReminderInSeconds switch
+        {
+            NoDefaultReminder => null,
+            { } seconds => seconds,
+            null => appDefaultReminderInSeconds > 0 ? appDefaultReminderInSeconds : null
+        };
+
+    /// <summary>
     /// Unused for now.
     /// </summary>
     public string TextColorHex { get; set; }

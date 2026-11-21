@@ -51,7 +51,6 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     private Guid _capabilityCalendarId;
     private int _capabilityRequestVersion;
     private CalendarCapabilities _calendarCapabilities = CalendarCapabilities.None;
-    private bool _isLoadingReminderOptions;
 
     private CalendarSettings _currentSettings;
 
@@ -624,36 +623,32 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 
     private void InitializeReminderOptions()
     {
-        _isLoadingReminderOptions = true;
         ReminderOptions.Clear();
 
-        var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
-        var selectedMinutes = (Reminders ?? [])
-            .Select(reminder => (int)(reminder.DurationInSeconds / 60))
-            .ToHashSet();
-        var optionMinutes = predefinedMinutes
-            .Concat(selectedMinutes)
-            .Distinct()
-            .OrderByDescending(minutes => minutes);
+        foreach (var minutes in _calendarService.GetPredefinedReminderMinutes().OrderByDescending(minutes => minutes))
+            ReminderOptions.Add(new ReminderOption(minutes));
 
-        foreach (var minutes in optionMinutes)
-        {
-            ReminderOptions.Add(new ReminderOption(
-                minutes,
-                isCustom: !predefinedMinutes.Contains(minutes),
-                selectionChanged: OnReminderOptionSelectionChanged)
-            {
-                IsSelected = selectedMinutes.Contains(minutes)
-            });
-        }
-
-        _isLoadingReminderOptions = false;
+        ReminderOption.Select(
+            ReminderOptions,
+            (Reminders ?? []).Select(reminder => new CalendarReminderDraft(reminder.DurationInSeconds, reminder.ReminderType)),
+            selectionChanged: null);
     }
 
-    private void OnReminderOptionSelectionChanged(ReminderOption option)
+    /// <summary>Opens the reminder editor; the edited reminders are saved with the event.</summary>
+    [RelayCommand]
+    private async Task EditRemindersAsync()
     {
-        if (!_isLoadingReminderOptions)
-            ReminderOption.EnforceLimit(ReminderOptions, option, CalendarCapabilities.MaxReminders);
+        if (CurrentEvent == null)
+            return;
+
+        var edited = await _dialogService.ShowCalendarReminderEditorAsync(
+            ReminderOption.GetSelectedDrafts(ReminderOptions),
+            CalendarCapabilities.SupportsEmailReminder);
+
+        if (edited == null)
+            return;
+
+        ReminderOption.Select(ReminderOptions, edited, selectionChanged: null);
     }
 
 
@@ -678,23 +673,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
             var originalAttendees = await _calendarService.GetAttendeesAsync(CurrentEvent.CalendarItem.Id);
             var originalReminders = await _calendarService.GetRemindersAsync(CurrentEvent.CalendarItem.Id);
 
-            var selectedOptions = ReminderOptions.Where(o => o.IsSelected).ToList();
-            var newReminders = new List<Reminder>();
-
-            foreach (var option in selectedOptions)
-            {
-                var durationInSeconds = option.Minutes * 60L;
-                var existingReminder = originalReminders.FirstOrDefault(
-                    reminder => reminder.DurationInSeconds == durationInSeconds);
-
-                newReminders.Add(new Reminder
-                {
-                    Id = existingReminder?.Id ?? Guid.NewGuid(),
-                    CalendarItemId = CurrentEvent.Id,
-                    DurationInSeconds = durationInSeconds,
-                    ReminderType = existingReminder?.ReminderType ?? CalendarItemReminderType.Popup
-                });
-            }
+            var newReminders = ReminderOption.BuildReminders(ReminderOptions, CurrentEvent.Id, originalReminders);
 
             Reminders = newReminders;
 
@@ -1174,40 +1153,41 @@ public partial class ReminderOption : ObservableObject
 {
     public override string ToString() => DisplayText;
 
-    public int Minutes { get; }
+    /// <summary>Seconds before the event start: negative after it, zero at the start.</summary>
+    public long OffsetSeconds { get; }
+    public CalendarItemReminderType ReminderType { get; }
+    public int Minutes => (int)(OffsetSeconds / 60);
     public bool IsCustom { get; }
-    public string AutomationId => $"EventDetailsReminderOption{Minutes}CheckBox";
+    public string AutomationId => ReminderType == CalendarItemReminderType.Email
+        ? $"EventDetailsReminderOption{Minutes}EmailCheckBox"
+        : $"EventDetailsReminderOption{Minutes}CheckBox";
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
-    public string DisplayText
-    {
-        get
-        {
-            if (Minutes == 0)
-                return Translator.CalendarReminder_None;
-
-            if (Minutes >= 60)
-            {
-                var hours = Minutes / 60;
-                return string.Format(hours == 1 ? Translator.CalendarReminder_HourOption : Translator.CalendarReminder_HoursOption, hours);
-            }
-
-            return string.Format(Minutes == 1 ? Translator.CalendarReminder_MinuteOption : Translator.CalendarReminder_MinutesOption, Minutes);
-        }
-    }
+    public string DisplayText => CalendarReminderFormatter.Format(OffsetSeconds, ReminderType);
 
     private readonly Action<ReminderOption> _selectionChanged;
 
     public ReminderOption(int minutes, bool isCustom = false, Action<ReminderOption> selectionChanged = null)
+        : this(minutes * 60L, CalendarItemReminderType.Popup, isCustom, selectionChanged)
     {
-        Minutes = minutes;
+    }
+
+    public ReminderOption(long offsetSeconds, CalendarItemReminderType reminderType, bool isCustom, Action<ReminderOption> selectionChanged)
+    {
+        OffsetSeconds = offsetSeconds;
+        ReminderType = reminderType;
         IsCustom = isCustom;
         _selectionChanged = selectionChanged;
     }
 
     partial void OnIsSelectedChanged(bool value) => _selectionChanged?.Invoke(this);
+
+    public bool Matches(long offsetSeconds, CalendarItemReminderType reminderType)
+        => OffsetSeconds == offsetSeconds && ReminderType == reminderType;
+
+    public CalendarReminderDraft ToDraft() => new(OffsetSeconds, ReminderType);
 
     /// <summary>The selected options as one line, or the None text when nothing is selected.</summary>
     public static string Summarize(IEnumerable<ReminderOption> options)
@@ -1216,36 +1196,42 @@ public partial class ReminderOption : ObservableObject
         return selected.Count == 0 ? Translator.CalendarReminder_None : string.Join(", ", selected);
     }
 
+    public static List<CalendarReminderDraft> GetSelectedDrafts(IEnumerable<ReminderOption> options)
+        => options.Where(option => option.IsSelected).Select(option => option.ToDraft()).ToList();
+
     /// <summary>
-    /// Keeps a selection within what the calendar stores. With room for one reminder a new choice replaces the
-    /// previous one; with a larger limit a choice beyond it is undone.
+    /// Selects exactly <paramref name="reminders"/>, adding an option for each one the list does not offer.
+    /// Options stay ordered from the earliest reminder to the latest.
     /// </summary>
-    public static void EnforceLimit(IList<ReminderOption> options, ReminderOption changed, int? maxReminders)
+    public static void Select(IList<ReminderOption> options, IEnumerable<CalendarReminderDraft> reminders, Action<ReminderOption> selectionChanged)
     {
-        if (maxReminders is not > 0 || changed is not { IsSelected: true })
-            return;
+        var wanted = (reminders ?? []).Distinct().ToList();
 
-        if (maxReminders == 1)
+        foreach (var reminder in wanted.Where(reminder => !options.Any(option => option.Matches(reminder.OffsetSeconds, reminder.ReminderType))))
         {
-            foreach (var option in options.Where(option => option.IsSelected && !ReferenceEquals(option, changed)).ToList())
-                option.IsSelected = false;
-
-            return;
+            var index = options.TakeWhile(option => option.OffsetSeconds > reminder.OffsetSeconds ||
+                                                    (option.OffsetSeconds == reminder.OffsetSeconds && option.ReminderType < reminder.ReminderType)).Count();
+            options.Insert(index, new ReminderOption(reminder.OffsetSeconds, reminder.ReminderType, isCustom: true, selectionChanged));
         }
 
-        if (options.Count(option => option.IsSelected) > maxReminders.Value)
-            changed.IsSelected = false;
+        foreach (var option in options)
+            option.IsSelected = wanted.Any(reminder => option.Matches(reminder.OffsetSeconds, reminder.ReminderType));
     }
 
-    /// <summary>Clears all but the shortest selected reminders when a calendar keeps fewer than are selected.</summary>
-    public static void TrimToLimit(IList<ReminderOption> options, int? maxReminders)
-    {
-        if (maxReminders is not > 0)
-            return;
-
-        foreach (var option in options.Where(option => option.IsSelected).OrderBy(option => option.Minutes).Skip(maxReminders.Value).ToList())
-            option.IsSelected = false;
-    }
+    /// <summary>
+    /// The reminder rows for the selected options. An option that matches a stored reminder keeps its id.
+    /// </summary>
+    public static List<Reminder> BuildReminders(IEnumerable<ReminderOption> options, Guid calendarItemId, IReadOnlyCollection<Reminder> storedReminders)
+        => options
+            .Where(option => option.IsSelected)
+            .Select(option => new Reminder
+            {
+                Id = storedReminders?.FirstOrDefault(reminder => option.Matches(reminder.DurationInSeconds, reminder.ReminderType))?.Id ?? Guid.NewGuid(),
+                CalendarItemId = calendarItemId,
+                DurationInSeconds = option.OffsetSeconds,
+                ReminderType = option.ReminderType
+            })
+            .ToList();
 }
 
 public partial class ShowAsOption : ObservableObject

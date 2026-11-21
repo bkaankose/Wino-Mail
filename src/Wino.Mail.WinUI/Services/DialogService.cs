@@ -247,6 +247,16 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
+    public async Task<List<CalendarReminderDraft>?> ShowCalendarReminderEditorAsync(List<CalendarReminderDraft> reminders, bool supportsEmailReminder)
+    {
+        var dialog = new CalendarReminderEditorDialog(reminders, supportsEmailReminder)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+        await HandleDialogPresentationAsync(dialog);
+        return dialog.Result;
+    }
+
     public async Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName, bool canRenameOnServer)
     {
         var dialog = new RenameFolderDialog(folderName, displayName, canRenameOnServer)

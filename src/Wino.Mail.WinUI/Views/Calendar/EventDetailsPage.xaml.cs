@@ -48,6 +48,13 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         EventDetailsRenderer.Dispose();
     }
 
+    private void CustomizeRemindersClicked(object sender, RoutedEventArgs e)
+    {
+        // The editor is a dialog; the flyout closes first so it does not stay open behind it.
+        EventDetailsReminderFlyout.Hide();
+        ViewModel.EditRemindersCommand.Execute(null);
+    }
+
     protected override void ReleasePageResources()
         => ReleaseTemplateSelector("RsvpStatusIconSelector");
 

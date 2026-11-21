@@ -31,6 +31,15 @@ public interface IMailDialogService : IDialogServiceBase
     /// <returns>The chosen scope, or null when the user cancels.</returns>
     Task<CalendarEventTargetType?> ShowRecurringEventDeleteDialogAsync();
     Task<bool> ShowHardDeleteConfirmationAsync();
+
+    /// <summary>
+    /// Edits the reminders of an event: any number, each a value and unit before or after the start.
+    /// Heads without the editor keep this default, and the caller keeps its reminders.
+    /// </summary>
+    /// <param name="supportsEmailReminder">The calendar's server sends email reminders.</param>
+    /// <returns>The edited reminders, or null when the user cancels.</returns>
+    Task<List<CalendarReminderDraft>?> ShowCalendarReminderEditorAsync(List<CalendarReminderDraft> reminders, bool supportsEmailReminder)
+        => Task.FromResult<List<CalendarReminderDraft>?>(null);
     Task<ThreeButtonDialogResult> ShowThreeButtonDialogAsync(string title,
                                                              string description,
                                                              string primaryButtonText,
