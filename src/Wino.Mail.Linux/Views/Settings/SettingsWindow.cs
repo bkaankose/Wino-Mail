@@ -130,6 +130,7 @@ internal sealed class SettingsWindow : IDialogSurface
     public void ClearPage()
     {
         _slot.SetChild(null);
+        _split.SetShowContent(false);
         _title.SetText(string.Empty);
         _description.SetText(string.Empty);
         _rootButton.SetVisible(false);
