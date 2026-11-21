@@ -14,8 +14,8 @@ namespace Wino.Core.Synchronizers.CalDav;
 /// </summary>
 /// <param name="Block">The VALARM text to write into a new event, marked with <c>X-APPLE-DEFAULT-ALARM:TRUE</c>.</param>
 /// <param name="Reminder">
-/// The local reminder the alarm maps to, or null when Wino cannot express it: a trigger after the
-/// start or relative to the end.
+/// The local reminder the alarm maps to, or null when Wino cannot express it: a trigger relative
+/// to the end.
 /// </param>
 public sealed record CalDavDefaultAlarm(string Block, CalDavEventReminder? Reminder);
 
@@ -225,13 +225,13 @@ public static partial class CalendarIcsBuilder
 
         var relatedToEnd = HasParameter(parameters, "RELATED", "END");
 
-        // Wino reminders count seconds before the start, so a trigger after the start or relative
-        // to the end is written to the server but has no local reminder.
-        CalDavEventReminder? reminder = relatedToEnd || trigger > TimeSpan.Zero
+        // Wino reminders count seconds before the start, so a trigger relative to the end is
+        // written to the server but has no local reminder.
+        CalDavEventReminder? reminder = relatedToEnd
             ? null
             : new CalDavEventReminder
             {
-                DurationInSeconds = (int)Math.Min(int.MaxValue, -trigger.TotalSeconds),
+                DurationInSeconds = (int)Math.Clamp(-trigger.TotalSeconds, int.MinValue, int.MaxValue),
                 ReminderType = string.Equals(action, "EMAIL", StringComparison.OrdinalIgnoreCase)
                     ? CalendarItemReminderType.Email
                     : CalendarItemReminderType.Popup

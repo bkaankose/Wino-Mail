@@ -767,16 +767,19 @@ public sealed partial class CalDavClient : ICalDavClient
             .Where(a => !string.IsNullOrWhiteSpace(a.Email))
             .ToList() ?? [];
 
+        // A Wino reminder is seconds before the start, so a trigger after the start is negative and
+        // one at the start is zero. Triggers relative to the end stay in the stored ICS only.
         var reminders = sourceEvent.Alarms?
             .Where(a => a?.Trigger != null && a.Trigger.IsRelative && a.Trigger.Duration.HasValue)
+            .Where(a => !string.Equals(a.Trigger.Related?.ToString(), "END", StringComparison.OrdinalIgnoreCase))
+            .Where(a => !string.Equals(a.Action, "NONE", StringComparison.OrdinalIgnoreCase))
             .Select(a => new CalDavEventReminder
             {
-                DurationInSeconds = (int)Math.Abs(a.Trigger.Duration.Value.ToTimeSpanUnspecified().TotalSeconds),
+                DurationInSeconds = (int)Math.Clamp(-a.Trigger.Duration.Value.ToTimeSpanUnspecified().TotalSeconds, int.MinValue, int.MaxValue),
                 ReminderType = string.Equals(a.Action, "EMAIL", StringComparison.OrdinalIgnoreCase)
                     ? CalendarItemReminderType.Email
                     : CalendarItemReminderType.Popup
             })
-            .Where(r => r.DurationInSeconds > 0)
             .ToList() ?? [];
 
         return new CalDavCalendarEvent

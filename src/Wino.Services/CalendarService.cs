@@ -571,7 +571,14 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     private static DateTime GetEffectiveReminderTriggerLocal(CalendarReminderCandidate candidate)
     {
-        var eventStartLocal = candidate.StartDate.ToLocalTimeFromTimeZone(candidate.StartTimeZone);
+        // An all-day event starts at local midnight of its date wherever the user is, as the calendar
+        // shows it, so "on the day at 09:00" fires on that day.
+        var eventStartLocal = new CalendarItem
+        {
+            StartDate = candidate.StartDate,
+            DurationInSeconds = candidate.DurationInSeconds,
+            StartTimeZone = candidate.StartTimeZone
+        }.GetLocalStartDate();
         var triggerTimeLocal = eventStartLocal.AddSeconds(-candidate.ReminderDurationInSeconds);
         return candidate.SnoozedUntil.HasValue
             ? MaxDateTime(triggerTimeLocal, candidate.SnoozedUntil.Value)
@@ -585,6 +592,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 c.Id AS CalendarItemId,
                 c.StartDate,
                 c.StartTimeZone,
+                c.DurationInSeconds,
                 r.DurationInSeconds AS ReminderDurationInSeconds,
                 c.SnoozedUntil
             FROM CalendarItem c
@@ -686,6 +694,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         public Guid CalendarItemId { get; set; }
         public DateTime StartDate { get; set; }
         public string StartTimeZone { get; set; }
+        public double DurationInSeconds { get; set; }
         public long ReminderDurationInSeconds { get; set; }
         public DateTime? SnoozedUntil { get; set; }
     }

@@ -121,7 +121,6 @@ public partial class CalDavChangeProcessor : DefaultChangeProcessor, ICalDavChan
             .ToList();
 
         var reminders = calendarEvent.Reminders?
-            .Where(r => r.DurationInSeconds > 0)
             .Select(r => new Reminder
             {
                 Id = Guid.NewGuid(),
