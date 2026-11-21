@@ -6,6 +6,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.Android.MailList;
 using Wino.Mail.Controls.Core;
@@ -214,34 +215,67 @@ public sealed partial class MailListFragment
         }
     }
 
-    /// <summary>More: Flag, the rest of the shared actions (Windows MailContextFlyoutBuilder) and Pin.</summary>
+    /// <summary>
+    /// More, in the Windows context menu's order: the top row's Reply, Reply all and Forward, a divider, the Create
+    /// submenu (Task, Event), Flag, the rest of the shared actions and Pin. Archive, Delete and Move stay on the toolbar.
+    /// </summary>
     private void ShowMoreActions(View anchor)
     {
         if (ViewModel is not { } viewModel || anchor.Context is not { } context) return;
         var selected = viewModel.SelectedItems.ToArray();
         if (selected.Length == 0) return;
+        const int topRowGroup = 1;
         var popup = new AndroidX.AppCompat.Widget.PopupMenu(context, anchor);
         var actions = new Dictionary<int, Action>();
-        void Add(string title, Action run, bool enabled = true)
+        int nextId = 1;
+        void Add(IMenu menu, int groupId, string title, Action run, bool enabled = true)
         {
-            int id = actions.Count + 1;
+            int id = nextId++;
             actions[id] = run;
-            popup.Menu.Add(0, id, id, title)?.SetEnabled(enabled);
+            menu.Add(groupId, id, id, title)?.SetEnabled(enabled);
         }
-        bool allFlagged = selected.All(static item => item.IsFlagged);
-        Add(allFlagged ? MailOperationDisplay.GetTitle(MailOperation.ClearFlag) : Translator.MailOperation_Flag,
-            () => RunOperation(allFlagged ? MailOperation.ClearFlag : MailOperation.SetFlag, selected, null));
-        foreach (var available in viewModel.GetAvailableMailActions(selected))
+        void AddOperation(IMenu menu, int groupId, MailOperationMenuItem action, string title)
+            => Add(menu, groupId, title, () => RunOperation(action.Operation, selected, selected.FirstOrDefault()), action.IsEnabled);
+
+        var available = viewModel.GetAvailableMailActions(selected).ToArray();
+        static bool IsToolbarAction(MailOperation operation) => operation is MailOperation.Seperator or MailOperation.Archive or MailOperation.UnArchive
+            or MailOperation.SoftDelete or MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.Move or MailOperation.MarkAsRead or MailOperation.MarkAsUnread;
+
+        int topRowCount = 0;
+        foreach (var action in available)
         {
-            if (available.Operation is MailOperation.Seperator or MailOperation.Archive or MailOperation.UnArchive or MailOperation.SoftDelete
-                or MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.Move or MailOperation.MarkAsRead or MailOperation.MarkAsUnread) continue;
-            var title = MailOperationDisplay.GetTitle(available.Operation);
+            if (action.Placement != MailOperationMenuPlacement.QuickActions || IsToolbarAction(action.Operation)) continue;
+            var title = MailOperationDisplay.GetTitle(action.Operation);
             if (string.IsNullOrEmpty(title)) continue;
-            var operation = available.Operation;
-            Add(title, () => RunOperation(operation, selected, selected.FirstOrDefault()), available.IsEnabled);
+            AddOperation(popup.Menu, topRowGroup, action, title);
+            topRowCount++;
+        }
+        if (topRowCount > 0) AndroidX.Core.View.MenuCompat.SetGroupDividerEnabled(popup.Menu, true);
+
+        var createChildren = available.Where(static action => action.Placement == MailOperationMenuPlacement.CreateSubmenu).ToArray();
+        int createId = nextId++;
+        var createTitle = MailOperationDisplay.GetSubmenuTitle(MailOperationMenuPlacement.CreateSubmenu);
+        if (createChildren.Length > 0 && popup.Menu.AddSubMenu(0, createId, createId, createTitle) is { } create)
+        {
+            foreach (var child in createChildren)
+            {
+                var title = MailOperationDisplay.GetSubmenuItemTitle(child.Operation);
+                if (!string.IsNullOrEmpty(title)) AddOperation(create, 0, child, title);
+            }
+        }
+
+        bool allFlagged = selected.All(static item => item.IsFlagged);
+        Add(popup.Menu, 0, allFlagged ? MailOperationDisplay.GetTitle(MailOperation.ClearFlag) : Translator.MailOperation_Flag,
+            () => RunOperation(allFlagged ? MailOperation.ClearFlag : MailOperation.SetFlag, selected, null));
+        foreach (var action in available)
+        {
+            if (action.Placement != MailOperationMenuPlacement.Menu || IsToolbarAction(action.Operation)) continue;
+            var title = MailOperationDisplay.GetTitle(action.Operation);
+            if (string.IsNullOrEmpty(title)) continue;
+            AddOperation(popup.Menu, 0, action, title);
         }
         bool allPinned = selected.All(static item => item.MailCopy.IsPinned);
-        Add(allPinned ? Translator.FolderOperation_Unpin : Translator.FolderOperation_Pin,
+        Add(popup.Menu, 0, allPinned ? Translator.FolderOperation_Unpin : Translator.FolderOperation_Pin,
             () => Observe(viewModel.ChangePinnedStatusAsync(selected, !allPinned)));
         popup.MenuItemClick += (_, args) => { if (args.Item?.ItemId is int id && actions.TryGetValue(id, out var run)) run(); };
         popup.Show();
