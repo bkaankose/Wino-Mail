@@ -76,19 +76,11 @@ internal sealed class NotificationSettingsPage(NotificationSettingsPageViewModel
             push = WinoSettingsRows.Action(Translator.NotificationSettings_RealtimePush_Title, Translator.NotificationSettings_RealtimePush_Description, WinoIconGlyph.Flash);
         }
 
-        var signIn = Settings.Visible(WinoSettingsRows.Custom(WinoSettingsRows.Caption(Translator.NotificationSettings_PushRelay_SignInRequired)),
-            vm, nameof(vm.IsPushRelaySignInRequired), static s => s.IsPushRelaySignInRequired);
-
-        var reconnect = WinoSettingsRows.Action(Translator.NotificationSettings_PushRelay_ReconnectTitle, Translator.NotificationSettings_PushRelay_ReconnectDescription, WinoIconGlyph.Flash);
-        WinoSettingsRows.Suffix(reconnect, Settings.Button(Translator.NotificationSettings_PushRelay_Reconnect, vm.ReconnectRelayCommand));
-        Settings.Visible(reconnect, vm, nameof(vm.IsRelayReconnectVisible), static s => s.IsRelayReconnectVisible);
-
+        // The push relay is not connected on Linux yet, so the shared view model reports the relay as disconnected while
+        // timer sync runs; its sign-in, reconnect and mailbox rows would ask for something that cannot work here.
         AddGroup(null,
             push,
-            signIn,
-            TextRow(nameof(vm.PushRelayProblemText), static s => s.PushRelayProblemText),
-            reconnect,
-            TextRow(nameof(vm.PushRelayMailboxWarningText), static s => s.PushRelayMailboxWarningText));
+            TextRow(nameof(vm.PushRelayProblemText), static s => s.PushRelayProblemText));
     }
 
     private Adw.PreferencesRow TextRow(string property, Func<NotificationSettingsPageViewModel, string?> read)
