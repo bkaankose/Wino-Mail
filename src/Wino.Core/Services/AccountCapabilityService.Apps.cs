@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Synchronizers;
 
 namespace Wino.Core.Services;
 
@@ -43,8 +44,6 @@ public sealed partial class AccountCapabilityService
 
         var previous = CapabilityFlags.Capture(account);
         var previousCalendarSupportMode = account.ServerInformation?.CalendarSupportMode;
-        var synchronizer = await _synchronizationManager.GetSynchronizerAsync(account.Id).ConfigureAwait(false);
-        var synchronizerAccount = synchronizer?.Account;
         var serverTaskSource = ServerTaskSource(traits);
         var existingServerTaskListIds = app == WinoApplicationMode.Tasks && mode == AccountCapabilityMode.Provider
             ? (await _taskService.GetTaskListsAsync(account.Id).ConfigureAwait(false))
@@ -54,8 +53,6 @@ public sealed partial class AccountCapabilityService
             : [];
 
         ApplyAppMode(account, traits, app, mode);
-        if (synchronizerAccount is not null && !ReferenceEquals(synchronizerAccount, account))
-            ApplyAppMode(synchronizerAccount, traits, app, mode);
 
         var isCommitted = false;
 
@@ -85,12 +82,6 @@ public sealed partial class AccountCapabilityService
         {
             previous.Restore(account);
             RestoreCalendarSupportMode(account, previousCalendarSupportMode);
-
-            if (synchronizerAccount is not null && !ReferenceEquals(synchronizerAccount, account))
-            {
-                previous.Restore(synchronizerAccount);
-                RestoreCalendarSupportMode(synchronizerAccount, previousCalendarSupportMode);
-            }
 
             if (mode == AccountCapabilityMode.Provider)
                 await RemoveUncommittedServerDataAsync(account, traits, app, state.Mode, existingServerTaskListIds).ConfigureAwait(false);
@@ -185,45 +176,73 @@ public sealed partial class AccountCapabilityService
             }
         }
 
-        switch (app)
+        // The cached synchronizer is rebuilt from the stored account whenever its access differs, so it would run with
+        // the old state. A synchronizer of its own, built from the account as it would be saved, talks to the server.
+        var module = _providers.Find(account.ProviderType)
+                     ?? throw new NotSupportedException($"No provider is registered for {account.ProviderType}.");
+        var probe = module.CreateSynchronizer(account)
+                    ?? throw new NotSupportedException($"{account.ProviderType} cannot synchronize.");
+
+        if (probe is IProviderTraitsReceiver receiver)
+            receiver.ProviderTraits = module.Traits;
+
+        try
         {
-            case WinoApplicationMode.Mail:
-                {
-                    var result = await _synchronizationManager.SynchronizeFoldersAsync(account.Id, cancellationToken).ConfigureAwait(false);
-                    ThrowIfFailed(result.CompletedState, result.Exception, Translator.AccountApps_ConnectFailedMessage);
-                    break;
-                }
-            case WinoApplicationMode.Calendar:
-                {
-                    var result = await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+            switch (app)
+            {
+                case WinoApplicationMode.Mail:
                     {
-                        AccountId = account.Id,
-                        Type = CalendarSynchronizationType.CalendarMetadata
-                    }, cancellationToken).ConfigureAwait(false);
-                    ThrowIfFailed(result.CompletedState, result.Exception, Translator.AccountApps_ConnectFailedMessage);
-                    break;
-                }
-            case WinoApplicationMode.Contacts:
-                {
-                    var result = await _synchronizationManager.SynchronizeContactsAsync(new ContactSynchronizationOptions
+                        var result = await probe.SynchronizeMailsAsync(new MailSynchronizationOptions
+                        {
+                            AccountId = account.Id,
+                            Type = MailSynchronizationType.FoldersOnly
+                        }, cancellationToken).ConfigureAwait(false);
+                        ThrowIfFailed(result.CompletedState, result.Exception, Translator.AccountApps_ConnectFailedMessage);
+                        break;
+                    }
+                case WinoApplicationMode.Calendar:
                     {
-                        AccountId = account.Id,
-                        Type = ContactSynchronizationType.Full
-                    }, cancellationToken).ConfigureAwait(false);
-                    ThrowIfFailed(result.CompletedState, result.Exception, Translator.AccountApps_ConnectFailedMessage);
-                    break;
-                }
-            case WinoApplicationMode.Tasks:
-                {
-                    var result = await _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
+                        var result = await probe.SynchronizeCalendarEventsAsync(new CalendarSynchronizationOptions
+                        {
+                            AccountId = account.Id,
+                            Type = CalendarSynchronizationType.CalendarMetadata
+                        }, cancellationToken).ConfigureAwait(false);
+                        ThrowIfFailed(result.CompletedState, result.Exception, Translator.AccountApps_ConnectFailedMessage);
+                        break;
+                    }
+                case WinoApplicationMode.Contacts:
                     {
-                        AccountId = account.Id,
-                        Type = TaskSynchronizationType.Full,
-                        IsUserInitiated = true
-                    }, cancellationToken).ConfigureAwait(false);
-                    ThrowIfFailed(result.CompletedState, result.Exception, Translator.AccountApps_ConnectFailedMessage);
-                    break;
-                }
+                        var result = await probe.SynchronizeContactsAsync(new ContactSynchronizationOptions
+                        {
+                            AccountId = account.Id,
+                            Type = ContactSynchronizationType.Full
+                        }, cancellationToken).ConfigureAwait(false);
+                        ThrowIfFailed(result.CompletedState, result.Exception, Translator.AccountApps_ConnectFailedMessage);
+                        break;
+                    }
+                case WinoApplicationMode.Tasks:
+                    {
+                        var result = await probe.SynchronizeTasksAsync(new TaskSynchronizationOptions
+                        {
+                            AccountId = account.Id,
+                            Type = TaskSynchronizationType.Full,
+                            IsUserInitiated = true
+                        }, cancellationToken).ConfigureAwait(false);
+                        ThrowIfFailed(result.CompletedState, result.Exception, Translator.AccountApps_ConnectFailedMessage);
+                        break;
+                    }
+            }
+        }
+        finally
+        {
+            try
+            {
+                await probe.KillSynchronizerAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Stopping the synchronizer that connected {App} of account {AccountId} failed", app, account.Id);
+            }
         }
     }
 
@@ -336,9 +355,8 @@ public sealed partial class AccountCapabilityService
                     break;
             }
 
-            // The synchronizer builds its calendar and DAV handlers from the account when it is created.
-            if (!traits.ServesModesFromProvider)
-                await _synchronizationManager.DestroySynchronizerAsync(account.Id).ConfigureAwait(false);
+            // The synchronizer reads the app's source when it is created, and its cached account still has the old state.
+            await _synchronizationManager.DestroySynchronizerAsync(account.Id).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
