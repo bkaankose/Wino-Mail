@@ -594,13 +594,13 @@
                                 <TextBox
                                     AutomationProperties.AutomationId="ImapSetupIncomingServerTextBox"
                                     Header="{x:Bind domain:Translator.ImapSetup_ServerHeader, Mode=OneTime}"
-                                    Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
+                                    Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBox
                                     Grid.Column="1"
                                     AutomationProperties.AutomationId="ImapSetupIncomingPortTextBox"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}"
                                     InputScope="Number"
-                                    Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
+                                    Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <ComboBox
                                     Grid.Row="1"
                                     HorizontalAlignment="Stretch"
@@ -620,7 +620,7 @@
                                     Grid.Row="2"
                                     AutomationProperties.AutomationId="ImapSetupIncomingUsernameTextBox"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_Username, Mode=OneTime}"
-                                    Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}"
+                                    Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                     Visibility="{x:Bind ViewModel.IsIncomingPasswordSignInVisible, Mode=OneWay}" />
                                 <PasswordBox
                                     Grid.Row="2"
@@ -670,13 +670,13 @@
                                 <TextBox
                                     AutomationProperties.AutomationId="ImapSetupOutgoingServerTextBox"
                                     Header="{x:Bind domain:Translator.ImapSetup_ServerHeader, Mode=OneTime}"
-                                    Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
+                                    Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBox
                                     Grid.Column="1"
                                     AutomationProperties.AutomationId="ImapSetupOutgoingPortTextBox"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPort, Mode=OneTime}"
                                     InputScope="Number"
-                                    Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
+                                    Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <ComboBox
                                     Grid.Row="1"
                                     HorizontalAlignment="Stretch"
@@ -706,7 +706,7 @@
                                 <TextBox
                                     AutomationProperties.AutomationId="ImapSetupOutgoingUsernameTextBox"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerUsername, Mode=OneTime}"
-                                    Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
+                                    Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <PasswordBox
                                     Grid.Column="1"
                                     AutomationProperties.AutomationId="ImapSetupOutgoingPasswordBox"
@@ -745,7 +745,7 @@
                                 AutomationProperties.AutomationId="ImapSetupCalDavUrlTextBox"
                                 Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalDavServiceUrl, Mode=OneTime}"
                                 InputScope="Url"
-                                Text="{x:Bind ViewModel.CalDavServiceUrl, Mode=TwoWay}" />
+                                Text="{x:Bind ViewModel.CalDavServiceUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock
                                 AutomationProperties.AutomationId="ImapSetupCalDavSecureSignInText"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -766,7 +766,7 @@
                                 <TextBox
                                     AutomationProperties.AutomationId="ImapSetupDavUsernameTextBox"
                                     Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_DavUsername, Mode=OneTime}"
-                                    Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay}" />
+                                    Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <PasswordBox
                                     Grid.Column="1"
                                     AutomationProperties.AutomationId="ImapSetupDavPasswordBox"
@@ -807,7 +807,7 @@
                                 Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CardDavServiceUrl, Mode=OneTime}"
                                 InputScope="Url"
                                 PlaceholderText="{x:Bind domain:Translator.ImapCalDavSettingsPage_CardDavDiscoveryPlaceholder, Mode=OneTime}"
-                                Text="{x:Bind ViewModel.CardDavServiceUrl, Mode=TwoWay}" />
+                                Text="{x:Bind ViewModel.CardDavServiceUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <!--  Without a calendar row, the shared DAV sign-in is set here instead.  -->
                             <CheckBox
                                 AutomationProperties.AutomationId="ImapSetupCardDavSameSignInCheckBox"
@@ -822,7 +822,7 @@
                                 <TextBox
                                     AutomationProperties.AutomationId="ImapSetupCardDavUsernameTextBox"
                                     Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_DavUsername, Mode=OneTime}"
-                                    Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay}" />
+                                    Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <PasswordBox
                                     Grid.Column="1"
                                     AutomationProperties.AutomationId="ImapSetupCardDavPasswordBox"
@@ -929,14 +929,14 @@
                                 AutomationProperties.AutomationId="ImapSetupProxyServerTextBox"
                                 AutomationProperties.Name="{x:Bind domain:Translator.ImapSetup_ProxyTitle, Mode=OneTime}"
                                 PlaceholderText="{x:Bind domain:Translator.ImapSetup_ServerHeader, Mode=OneTime}"
-                                Text="{x:Bind ViewModel.ProxyServer, Mode=TwoWay}" />
+                                Text="{x:Bind ViewModel.ProxyServer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBox
                                 Width="90"
                                 AutomationProperties.AutomationId="ImapSetupProxyPortTextBox"
                                 AutomationProperties.Name="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}"
                                 InputScope="Number"
                                 PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}"
-                                Text="{x:Bind ViewModel.ProxyServerPort, Mode=TwoWay}" />
+                                Text="{x:Bind ViewModel.ProxyServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
                     </controls:SettingsCard>
                     <controls:SettingsCard
