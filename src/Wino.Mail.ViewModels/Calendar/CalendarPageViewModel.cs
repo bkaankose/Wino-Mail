@@ -137,8 +137,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     partial void OnSelectedQuickEventDateChanged(DateTime? value)
     {
-        if (value == null)
-            SelectedQuickEventEndDate = null;
+        if (value != null)
+            return;
+
+        // The selection ends when the quick event is saved, handed to the composer or dismissed, so the
+        // next one starts empty.
+        SelectedQuickEventEndDate = null;
+        EventName = string.Empty;
+        Location = string.Empty;
     }
 
     public static readonly TimeSpan QuickEventDefaultDuration = TimeSpan.FromMinutes(30);
