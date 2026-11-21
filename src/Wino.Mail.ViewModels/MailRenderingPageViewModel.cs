@@ -231,6 +231,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             KeyboardShortcutAction.Reply => MailOperation.Reply,
             KeyboardShortcutAction.ReplyAll => MailOperation.ReplyAll,
             KeyboardShortcutAction.Forward => MailOperation.Forward,
+            KeyboardShortcutAction.CreateTaskFromMail => MailOperation.CreateTask,
             _ => MailOperation.None
         };
 
@@ -267,8 +268,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         ICalendarService calendarService,
         IAttachmentFileService attachmentFileService = null,
         ILinkBrowserService linkBrowserService = null,
-        IMailInvitationService mailInvitationService = null) : base(messenger)
+        IMailInvitationService mailInvitationService = null,
+        Links.ConnectedItemsCoordinator connectedItems = null) : base(messenger)
     {
+        _connectedItems = connectedItems;
         _synchronizationManager = synchronizationManager;
         _dialogService = dialogService;
         ExternalLauncher = externalLauncher;
@@ -566,6 +569,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         CurrentRenderModel = null;
         ResetPrivacyState();
         ResetInvitation();
+        ResetLinkedItems();
 
         Subject = string.Empty;
         FromName = string.Empty;
@@ -745,6 +749,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         initializedMailItemViewModel = mailItemViewModel;
         BeginInvitationLoad(mailItemViewModel, mimeMessageInformation.MimeMessage, cancellationToken);
+        BeginLinkedItemsLoad(mailItemViewModel);
         await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
         await RenderAsync(mimeMessageInformation);
     }
@@ -874,6 +879,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         initializedMimeMessageInformation = null;
         CurrentMailItemDisplayInformation = null;
         ResetInvitation();
+        ResetLinkedItems();
 
         StatePersistenceService.IsReadingMail = false;
     }
@@ -1368,6 +1374,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         Messenger.Register<ThumbnailAdded>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
         Messenger.Register<RemoteContentRulesChangedMessage>(this);
+        Messenger.Register<ItemLinksChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -1377,5 +1384,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ThumbnailAdded>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
         Messenger.Unregister<RemoteContentRulesChangedMessage>(this);
+        Messenger.Unregister<ItemLinksChanged>(this);
     }
 }

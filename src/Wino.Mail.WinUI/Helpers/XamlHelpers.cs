@@ -840,6 +840,8 @@ public static class XamlHelpers
             MailOperation.DarkEditor => WinoIconGlyph.DarkEditor,
             MailOperation.LightEditor => WinoIconGlyph.LightEditor,
             MailOperation.ViewMessageSource => WinoIconGlyph.ViewMessageSource,
+            MailOperation.CreateTask => WinoIconGlyph.TaskList,
+            MailOperation.CreateEvent => WinoIconGlyph.Calendar,
             _ => WinoIconGlyph.None,
         };
     }
@@ -922,6 +924,8 @@ public static class XamlHelpers
             MailOperation.ViewMessageSource => Translator.MailOperation_ViewMessageSource,
             MailOperation.RetryDraftUpload => Translator.Draft_RetryUpload,
             MailOperation.Navigate => Translator.MailOperation_Navigate,
+            MailOperation.CreateTask => Translator.MailOperation_CreateTask,
+            MailOperation.CreateEvent => Translator.MailOperation_CreateEvent,
             _ => "unknown",
         };
     }

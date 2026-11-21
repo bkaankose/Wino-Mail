@@ -253,6 +253,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private void EditSenderRule_Click(object sender, RoutedEventArgs e)
         => PrivacyFlyout.ShowAt(PrivacyButton);
 
+    private void LinkedItem_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)
+            ViewModel.OpenLinkedItemCommand.Execute(item);
+    }
+
     public Visibility GetPrivacyIconVisibility(PrivacyButtonState state, PrivacyButtonState visibleState)
         => state == visibleState ? Visibility.Visible : Visibility.Collapsed;
 

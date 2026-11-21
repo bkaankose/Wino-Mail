@@ -17,6 +17,7 @@ using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Companion;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Intelligence;
+using Wino.Mail.ViewModels.Links;
 using Wino.Mail.ViewModels.Search;
 using Wino.Mail.ViewModels.Calendar;
 using Wino.Mail.ViewModels.Calendar.Data;
@@ -151,3 +152,7 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(KnownImapProviderRegion[]))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(SettingsNavigationItemInfo[]))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(BriefingLabelChip[]))]
+
+// Items linked to the open message, task or event.
+[assembly: GeneratedWinRTExposedExternalType(typeof(LinkedItemViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<LinkedItemViewModel>))]

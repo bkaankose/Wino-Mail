@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Tasks;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -47,6 +48,17 @@ public interface IMailDialogService : IDialogServiceBase
     Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
         IReadOnlyList<AccountTaskList> taskLists,
         IReadOnlyList<MailAccount> accounts);
+
+    /// <summary>
+    /// Shows a task prefilled from a mail or an event so the user can edit it and pick its list.
+    /// A head without its own dialog asks only for the list and keeps the prefilled text.
+    /// </summary>
+    /// <returns>The task to create, or null when the user cancels.</returns>
+    async Task<TaskFromItemResult?> ShowCreateTaskFromItemDialogAsync(TaskFromItemDraft draft)
+    {
+        var list = await ShowTaskListPickerDialogAsync(draft.Lists, draft.Accounts);
+        return list is null ? null : new TaskFromItemResult(draft.Title, draft.Notes, list, draft.DueDate);
+    }
 
     /// <summary>
     /// Displays a dialog to the user for reordering accounts.

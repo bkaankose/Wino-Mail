@@ -28,13 +28,23 @@ public sealed class WinoRequestCoordinator(
     IMailDialogService dialogService,
     IFolderService folderService,
     IPreferencesService preferencesService,
-    IShortcutPlatformService shortcutPlatformService)
+    IShortcutPlatformService shortcutPlatformService,
+    Links.ConnectedItemsCoordinator? connectedItems = null)
 {
     private static readonly WinoRequestDelegationResult Cancelled = new(0, null);
 
     /// <summary>Asks what the mail operation needs, queues it, and shows the error that stopped it.</summary>
     public async Task<WinoRequestDelegationResult> ExecuteMailOperationAsync(MailOperationPreperationRequest request)
     {
+        // Create task and Create event change no mail; they open the task or event editor for the mail.
+        if (Links.ConnectedItemsCoordinator.IsConnectedMailOperation(request.Action))
+        {
+            if (connectedItems is not null)
+                await connectedItems.ExecuteMailOperationAsync(request.Action, request.MailItems);
+
+            return Cancelled;
+        }
+
         var answered = await AnswerMailOperationAsync(request);
         if (answered is null) return Cancelled;
 

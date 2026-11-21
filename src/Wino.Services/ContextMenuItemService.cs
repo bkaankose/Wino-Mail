@@ -72,6 +72,12 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
+        if (isSingleItem && !singleItem.IsDraft)
+        {
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateTask));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
+        }
+
         // Archive button.
 
         if (isArchiveFolder)

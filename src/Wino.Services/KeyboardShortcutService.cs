@@ -356,7 +356,7 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
                 KeyboardShortcutAction.ToggleArchive or KeyboardShortcutAction.Delete or
                 KeyboardShortcutAction.Move or KeyboardShortcutAction.Reply or
                 KeyboardShortcutAction.ReplyAll or KeyboardShortcutAction.Forward or
-                KeyboardShortcutAction.Send,
+                KeyboardShortcutAction.Send or KeyboardShortcutAction.CreateTaskFromMail,
             WinoApplicationMode.Calendar => action is KeyboardShortcutAction.NewEvent or KeyboardShortcutAction.Delete,
             WinoApplicationMode.Contacts => action is KeyboardShortcutAction.NewContact or KeyboardShortcutAction.Delete,
             WinoApplicationMode.Tasks => action is KeyboardShortcutAction.NewTask or KeyboardShortcutAction.Delete,
@@ -415,6 +415,7 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
                 CreateDefault(mode, "R", _primaryCommandModifier, KeyboardShortcutAction.Reply),
                 CreateDefault(mode, "R", _primaryCommandModifier | ModifierKeys.Shift, KeyboardShortcutAction.ReplyAll),
                 CreateDefault(mode, "ENTER", _primaryCommandModifier, KeyboardShortcutAction.Send),
+                CreateDefault(mode, "T", _primaryCommandModifier | ModifierKeys.Shift, KeyboardShortcutAction.CreateTaskFromMail),
                 CreateDefault(mode, "DELETE", ModifierKeys.None, KeyboardShortcutAction.Delete)
             ],
             WinoApplicationMode.Calendar =>

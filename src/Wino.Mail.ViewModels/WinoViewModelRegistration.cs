@@ -32,6 +32,7 @@ public static class WinoViewModelRegistration
         // The questions and notices of the request pipeline and the sync snapshot's theme and layout. The backend
         // asks and shows nothing; these hold the dialog and theme services for the ViewModels that start the work.
         services.AddTransient<Requests.WinoRequestCoordinator>();
+        services.AddTransient<Links.ConnectedItemsCoordinator>();
         services.AddTransient<Settings.AppearanceSnapshotService>();
 
         // Notification actions run the same coordinator a page uses, so they ask and report the same way.

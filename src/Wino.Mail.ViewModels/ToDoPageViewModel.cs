@@ -209,6 +209,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             ? new DateTimeOffset(dueDate)
             : null;
         CanCreateCalendarEvent = false;
+        BeginSelectedTaskLinksLoad(value);
         OnPropertyChanged(nameof(IsTaskListSurfaceVisible));
         OnPropertyChanged(nameof(IsDetailSurfaceVisible));
         OnPropertyChanged(nameof(CanEditSelectedTask));
@@ -523,8 +524,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         IPreferencesService preferencesService = null,
         ITaskCompletionSound taskCompletionSound = null,
         IAppModeReadinessService appModeReadinessService = null,
-        IMailShellClient mailShell = null) : base(messenger)
+        IMailShellClient mailShell = null,
+        Links.ConnectedItemsCoordinator connectedItems = null) : base(messenger)
     {
+        _connectedItems = connectedItems;
         _synchronizationManager = synchronizationManager;
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
@@ -597,6 +600,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Register<AccountRemovedMessage>(this);
         Messenger.Register<AccountLayoutChanged>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
+        Messenger.Register<ItemLinksChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -608,6 +612,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Unregister<AccountRemovedMessage>(this);
         Messenger.Unregister<AccountLayoutChanged>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
+        Messenger.Unregister<ItemLinksChanged>(this);
         base.UnregisterRecipients();
     }
 
@@ -1053,7 +1058,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         base.OnNavigatedTo(mode, parameters);
         _isPreparedForShellShutdown = false;
         _applyStartViewOnReload = parameters is null && _preferencesService is not null;
-        _ = ReloadAsync();
+        _ = ReloadAndOpenRequestedTaskAsync(parameters);
         _ = Readiness.ActivateAsync();
     }
 
@@ -1064,6 +1069,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _applyStartViewOnReload = parameters is null && _preferencesService is not null;
         await Readiness.ActivateAsync();
         await ReloadAsync();
+        await OpenRequestedTaskAsync(parameters);
     }
 
     public override void OnNavigatedFrom(NavigationMode mode, object? parameters)

@@ -10,6 +10,7 @@
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:intelligenceControls="using:Wino.Mail.Controls.IntelligenceHeader"
+    xmlns:links="using:Wino.Mail.ViewModels.Links"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -786,6 +787,49 @@
                 x:Name="InvitationCard"
                 x:Load="{x:Bind ViewModel.Invitation.IsVisible, Mode=OneWay}"
                 Invitation="{x:Bind ViewModel.Invitation, Mode=OneTime}" />
+
+            <StackPanel
+                x:Name="LinkedItemsPanel"
+                Margin="0,4,0,0"
+                x:Load="{x:Bind ViewModel.HasLinkedItems, Mode=OneWay}"
+                AutomationProperties.AutomationId="MailLinkedItems"
+                Orientation="Horizontal"
+                Spacing="4">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.ConnectedItems_LinkedHeader, Mode=OneTime}" />
+                <ItemsControl ItemsSource="{x:Bind ViewModel.LinkedItems, Mode=OneTime}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="links:LinkedItemViewModel">
+                            <HyperlinkButton
+                                Padding="6,2"
+                                AutomationProperties.Name="{x:Bind AutomationName}"
+                                Click="LinkedItem_Click"
+                                ToolTipService.ToolTip="{x:Bind Subtitle}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <coreControls:WinoFontIcon
+                                        VerticalAlignment="Center"
+                                        FontSize="14"
+                                        Icon="{x:Bind Glyph}" />
+                                    <TextBlock
+                                        MaxWidth="240"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Title}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </HyperlinkButton>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </StackPanel>
 
         <intelligenceControls:WinoIntelligenceHeader

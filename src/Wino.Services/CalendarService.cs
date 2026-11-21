@@ -351,6 +351,31 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         return calendarItem;
     }
 
+    public async Task<CalendarItem> GetCalendarItemByLinkKeyAsync(Guid accountId, string linkKey)
+    {
+        if (string.IsNullOrWhiteSpace(linkKey))
+            return null;
+
+        CalendarItem calendarItem = null;
+        if (Guid.TryParse(linkKey, out var itemId))
+            calendarItem = await GetCalendarItemAsync(itemId).ConfigureAwait(false);
+
+        calendarItem ??= await Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT CalendarItem.* FROM CalendarItem " +
+            "INNER JOIN AccountCalendar ON AccountCalendar.Id = CalendarItem.CalendarId " +
+            "WHERE AccountCalendar.AccountId = ? AND (CalendarItem.RemoteEventId = ? OR CalendarItem.RemoteEventId LIKE ? ESCAPE '!') " +
+            "ORDER BY CalendarItem.RecurringCalendarItemId IS NOT NULL LIMIT 1",
+            accountId,
+            linkKey,
+            EscapeLike(linkKey) + "::%").ConfigureAwait(false);
+
+        await LoadAssignedCalendarAsync(calendarItem).ConfigureAwait(false);
+        return calendarItem;
+    }
+
+    private static string EscapeLike(string value)
+        => value.Replace("!", "!!").Replace("%", "!%").Replace("_", "!_");
+
     public async Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId)
     {
         var calendarItem = await FindCalendarItemByRemoteEventIdAsync(accountCalendarId, remoteEventId).ConfigureAwait(false);

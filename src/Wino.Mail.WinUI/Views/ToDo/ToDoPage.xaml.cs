@@ -518,4 +518,10 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         if (ViewModel.SelectedTask is not null && ViewModel.CanEditSelectedTask)
             await ViewModel.SaveTaskCommand.ExecuteAsync(ViewModel.SelectedTask);
     }
+
+    private void LinkedItem_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)
+            ViewModel.OpenLinkedItemCommand.Execute(item);
+    }
 }

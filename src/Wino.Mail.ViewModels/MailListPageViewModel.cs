@@ -1447,6 +1447,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 await CreateDraftForShortcutTargetAsync(DraftCreationReason.Forward);
                 args.Handled = true;
                 break;
+            case KeyboardShortcutAction.CreateTaskFromMail:
+                if (!targetItems.Any()) return;
+                await ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.CreateTask, targetItems.Take(1).Select(x => x.MailCopy)));
+                args.Handled = true;
+                break;
         }
     }
 

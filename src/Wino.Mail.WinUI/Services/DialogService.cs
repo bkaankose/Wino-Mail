@@ -23,6 +23,7 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Editor;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
@@ -266,6 +267,16 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         };
         await HandleDialogPresentationAsync(dialog);
         return dialog.PickedList;
+    }
+
+    public async Task<TaskFromItemResult?> ShowCreateTaskFromItemDialogAsync(TaskFromItemDraft draft)
+    {
+        var dialog = new CreateTaskFromItemDialog(draft)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+        await HandleDialogPresentationAsync(dialog);
+        return dialog.Result;
     }
 
     public async Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)

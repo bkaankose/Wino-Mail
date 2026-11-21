@@ -69,6 +69,7 @@ internal sealed class ContextFlyoutShortcutResolver(IKeyboardShortcutService sho
             MailOperation.Reply => KeyboardShortcutAction.Reply,
             MailOperation.ReplyAll => KeyboardShortcutAction.ReplyAll,
             MailOperation.Forward => KeyboardShortcutAction.Forward,
+            MailOperation.CreateTask => KeyboardShortcutAction.CreateTaskFromMail,
             _ => null
         };
 

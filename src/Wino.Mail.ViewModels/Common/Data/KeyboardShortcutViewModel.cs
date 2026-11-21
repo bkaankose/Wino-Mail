@@ -70,6 +70,7 @@ public partial class KeyboardShortcutViewModel : ObservableObject
                 KeyboardShortcutAction.NewEvent => Translator.CalendarEventCompose_NewEventButton,
                 KeyboardShortcutAction.NewContact => Translator.KeyboardShortcuts_ActionNewContact,
                 KeyboardShortcutAction.NewTask => Translator.KeyboardShortcuts_ActionNewTask,
+                KeyboardShortcutAction.CreateTaskFromMail => Translator.MailOperation_CreateTask,
                 _ => Action.ToString()
             };
         }

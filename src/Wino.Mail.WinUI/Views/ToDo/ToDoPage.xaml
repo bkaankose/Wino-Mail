@@ -7,6 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:links="using:Wino.Mail.ViewModels.Links"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
@@ -1278,6 +1279,47 @@
                             PlaceholderText="{x:Bind domain:Translator.ToDoPage_AddNote, Mode=OneTime}"
                             Text="{x:Bind ViewModel.SelectedTask.Notes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!--  Mails and events this task was created from or scheduled with.  -->
+                    <StackPanel
+                        x:Name="TaskLinksPanel"
+                        x:Load="{x:Bind ViewModel.HasSelectedTaskLinks, Mode=OneWay}"
+                        AutomationProperties.AutomationId="ToDoTaskLinks">
+                        <TextBlock Style="{StaticResource ToDoDetailSectionLabelStyle}" Text="{x:Bind domain:Translator.ConnectedItems_LinkedHeader, Mode=OneTime}" />
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.SelectedTaskLinks, Mode=OneTime}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="links:LinkedItemViewModel">
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        AutomationProperties.Name="{x:Bind AutomationName}"
+                                        Click="LinkedItem_Click"
+                                        Style="{StaticResource TransparentActionButtonStyle}">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <coreControls:WinoFontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="14"
+                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                Icon="{x:Bind Glyph}" />
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="{x:Bind Subtitle}"
+                                                    TextTrimming="CharacterEllipsis"
+                                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(HasSubtitle)}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
 
                     <Button

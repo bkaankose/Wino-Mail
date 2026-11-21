@@ -1,0 +1,74 @@
+<ContentDialog
+    x:Class="Wino.Mail.WinUI.Dialogs.CreateTaskFromItemDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:dialogs="using:Wino.Mail.WinUI.Dialogs"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    Title="{x:Bind domain:Translator.ConnectedItems_CreateTaskDialogTitle}"
+    CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    DefaultButton="Primary"
+    IsPrimaryButtonEnabled="{x:Bind CanCreate, Mode=OneWay}"
+    Opened="DialogOpened"
+    PrimaryButtonClick="CreateClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Create}"
+    Style="{StaticResource WinoDialogStyle}">
+    <StackPanel MinWidth="380" Spacing="12">
+        <TextBox
+            x:Name="TitleBox"
+            AutomationProperties.AutomationId="CreateTaskTitle"
+            Header="{x:Bind domain:Translator.ConnectedItems_TitleHeader}"
+            Text="{x:Bind TaskTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBox
+            MinHeight="80"
+            MaxHeight="160"
+            AcceptsReturn="True"
+            AutomationProperties.AutomationId="CreateTaskNotes"
+            Header="{x:Bind domain:Translator.ConnectedItems_NotesHeader}"
+            ScrollViewer.VerticalScrollBarVisibility="Auto"
+            Text="{x:Bind TaskNotes, Mode=TwoWay}"
+            TextWrapping="Wrap" />
+        <ComboBox
+            HorizontalAlignment="Stretch"
+            AutomationProperties.AutomationId="CreateTaskList"
+            Header="{x:Bind domain:Translator.ConnectedItems_ListHeader}"
+            ItemsSource="{x:Bind Lists}"
+            SelectedItem="{x:Bind SelectedList, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="dialogs:TaskListPickerItem">
+                    <Grid AutomationProperties.Name="{x:Bind AutomationName}" ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <accountIcon:WinoAccountIcon
+                            VerticalAlignment="Center"
+                            Account="{x:Bind winuiHelpers:XamlHelpers.GetAccountIconInfo(Account)}"
+                            IconSize="20" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{x:Bind List.Title}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind AccountDisplayText}"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ComboBox
+            HorizontalAlignment="Stretch"
+            AutomationProperties.AutomationId="CreateTaskDue"
+            Header="{x:Bind domain:Translator.ConnectedItems_DueHeader}"
+            ItemsSource="{x:Bind DueOptions}"
+            SelectedItem="{x:Bind SelectedDue, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="dialogs:TaskDueOption">
+                    <TextBlock AutomationProperties.Name="{x:Bind Label}" Text="{x:Bind Label}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+    </StackPanel>
+</ContentDialog>

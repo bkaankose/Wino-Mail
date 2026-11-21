@@ -58,6 +58,12 @@ public interface ICalendarService
     /// <param name="targetDetails">Target details.</param>
     Task<CalendarItem> GetCalendarItemTargetAsync(CalendarItemTarget targetDetails);
     Task<CalendarItem> GetCalendarItemAsync(Guid id);
+
+    /// <summary>
+    /// Finds an event of an account by its link key: the provider event id (stored with or without the client
+    /// tracking suffix) or the item id.
+    /// </summary>
+    Task<CalendarItem> GetCalendarItemByLinkKeyAsync(Guid accountId, string linkKey);
     Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
     Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
     Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
