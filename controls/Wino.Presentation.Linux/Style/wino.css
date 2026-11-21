@@ -22,18 +22,6 @@
   background-color: transparent;
 }
 
-.wino-mail-row {
-  padding: var(--wino-row-padding) var(--wino-space-3);
-}
-
-.wino-mail-row .wino-unread {
-  font-weight: 700;
-}
-
-.wino-unread-dot {
-  color: @accent_color;
-}
-
 .wino-group-header {
   padding: 14px var(--wino-space-3) var(--wino-space-1) var(--wino-space-3);
   font-weight: 700;
@@ -45,6 +33,28 @@
   background-color: alpha(currentColor, 0.05);
   opacity: 1;
 }
+
+/* Mail list and mail row (ML-01). Lengths are WinoMailRowMetrics: RowGap 2, ContentLeading 4, PillInset 3, PillWidth 3, InnerLeading 12, InnerTrailing 10. */
+.wino-mail-list { background: none; }
+.wino-mail-list > row { padding: 0; background: none; outline-offset: -4px; }
+.wino-mail-row { margin: 2px 4px; padding: 7px 10px 7px 0; min-height: 58px; border-radius: var(--wino-control-radius); }
+.wino-density-compact .wino-mail-row { padding-top: 6px; padding-bottom: 6px; min-height: 40px; }
+.wino-density-spacious .wino-mail-row { padding-top: 10px; padding-bottom: 10px; min-height: 64px; }
+.wino-mail-row.wino-thread-child { margin-left: 24px; }
+.wino-density-compact .wino-mail-row.wino-thread-child { margin-left: 20px; }
+.wino-mail-list > row:hover .wino-mail-row { background-color: alpha(currentColor, 0.05); }
+.wino-mail-list > row:selected .wino-mail-row { background-color: alpha(@accent_bg_color, 0.16); }
+.wino-mail-row-pill { min-width: 3px; min-height: 16px; margin: 0 6px 0 3px; border-radius: 999px; background-color: @accent_bg_color; opacity: 0; }
+.wino-mail-list > row:selected .wino-mail-row-pill { opacity: 1; }
+.wino-mail-row .wino-mail-sender.wino-unread { font-weight: 700; }
+.wino-mail-row .wino-mail-subject.wino-unread { font-weight: 600; color: @accent_color; }
+.wino-unread-dot { min-width: 6px; min-height: 6px; border-radius: 999px; background-color: @accent_bg_color; }
+.wino-mail-draft { color: @error_color; }
+.wino-mail-flag { color: @red_3; }
+.wino-mail-attachment { color: @yellow_5; }
+.wino-mail-nickname { padding: 0 6px; border-radius: 4px; font-size: 0.8em; font-weight: 600; color: @accent_color; background-color: alpha(currentColor, 0.16); }
+.wino-mail-chevron { min-width: 12px; min-height: 16px; padding: 0; }
+.wino-group-header.wino-floating { background-color: @view_bg_color; opacity: 1; }
 
 .wino-selection-pipe {
   min-width: 3px;

@@ -33,6 +33,7 @@ A view is a plain class that builds its widgets in the constructor and exposes `
 - Sidebar menus are data (`ShellSidebarContextMenus.Build`); other areas add entries with `AddExtension`, once at startup. `ShellSidebarMenuPresenter` shows them through `ContextMenu`; a menu action runs after its popover closed.
 - The mail list sends `ActiveMailFolderChangedEvent` after `OnNavigatedTo` and awaits `WaitForCurrentFolderInitializationAsync`. Without it the shell never shows its menu.
 - Rows come from shared presentation code: `ShellMenuRowPresentation` for the sidebar, `MailListProjection`, `MailRowPresentation` and `MailListSelectionSnapshotBuilder` for the list. A cell only renders.
+- Mail rows: `MailRowMapper` maps, `MailRowCell` binds, `WinoMailRow` renders.
 - New lists use `ObservableListModel<T>`, `WinoCellFactory` and `ListSections` from `Wino.Presentation.Linux.Lists`; the mail list still uses its `Gtk.StringList` of row keys until ML-02. A page disposes its factories, sections and model when it is released (`Bindings.Own`).
 
 ```csharp

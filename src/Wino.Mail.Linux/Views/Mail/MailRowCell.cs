@@ -1,129 +1,135 @@
 using System.ComponentModel;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Linux.MailList;
+using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.ViewModels.Collections;
+using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Views.Mail;
 
-/// <summary>A recycled list cell: either a group header or a mail row. It only renders the shared row description.</summary>
-internal sealed class MailRowCell
+internal sealed record MailRowCellContext(IPreferencesService Preferences, LinuxSenderPictureProvider Pictures, Func<bool> IsMergedAccountView, Action<Exception> Error);
+
+/// <summary>
+/// A recycled list cell: a group header or a mail row. It maps its row (<see cref="MailRowMapper"/>), follows the row's
+/// mails for state that changes without the projection changing (read, flagged), and lets <see cref="WinoMailRow"/> draw.
+/// </summary>
+internal sealed class MailRowCell : IDisposable
 {
-    private readonly Gtk.Label _header = Label("wino-group-header");
-    private readonly Gtk.Box _mail = Gtk.Box.New(Gtk.Orientation.Horizontal, 8);
-    private readonly Gtk.Image _unread = Gtk.Image.NewFromIconName("media-record-symbolic");
-    private readonly Gtk.Label _sender = Label(null);
-    private readonly Gtk.Label _date = Label("caption");
-    private readonly Gtk.Label _subject = Label(null);
-    private readonly Gtk.Label _preview = Label("caption");
-    private readonly Gtk.Label _attachment = WinoIcons.Label(WinoIconGlyph.Attachment, 12);
-    private readonly WinoIcon _flag = new(WinoIconGlyph.Flag, 12);
-    private readonly List<INotifyPropertyChanged> _observed = [];
-    private MailListRow? _row;
-    private TimeFormatPreference _timeFormat;
-    private bool _refreshQueued;
+    private readonly MailRowCellContext _context;
+    private readonly Gtk.Box _root;
+    private readonly PropertyChangedEventHandler _leafChanged;
+    private readonly PropertyChangedEventHandler _rowChanged;
+    private readonly List<INotifyPropertyChanged> _leaves = [];
+    private int _pending;
+    private int _generation;
+    private bool _disposed;
 
-    public MailRowCell()
+    public MailRowCell(MailRowCellContext context)
     {
-        _unread.SetPixelSize(10);
-        _unread.SetValign(Gtk.Align.Start);
-        _unread.SetMarginTop(6);
-        _unread.AddCssClass("wino-unread-dot");
-        _sender.SetHexpand(true);
-        _date.AddCssClass("dim-label");
-        _date.AddCssClass("numeric");
-        _preview.AddCssClass("dim-label");
-        _attachment.AddCssClass("dim-label");
-
-        var first = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
-        first.Append(_sender);
-        first.Append(_attachment);
-        first.Append(_flag.Root);
-        first.Append(_date);
-        var text = Gtk.Box.New(Gtk.Orientation.Vertical, 2);
-        text.SetHexpand(true);
-        text.Append(first);
-        text.Append(_subject);
-        text.Append(_preview);
-        _mail.AddCssClass("wino-mail-row");
-        _mail.Append(_unread);
-        _mail.Append(text);
-
-        var root = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
-        root.Append(_header);
-        root.Append(_mail);
-        Root = root;
+        _context = context;
+        Row = new WinoMailRow();
+        Header = new WinoMailGroupHeader();
+        _root = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
+        _root.Append(Header.Root);
+        _root.Append(Row.Root);
+        _leafChanged = LeafChanged;
+        _rowChanged = RowChanged;
     }
 
-    public Gtk.Widget Root { get; }
+    public Gtk.Widget Root => _root;
 
-    public void Bind(string? header, MailListRow? row, TimeFormatPreference timeFormat)
+    public WinoMailRow Row { get; }
+
+    public WinoMailGroupHeader Header { get; }
+
+    public MailListRow? Item { get; private set; }
+
+    public void Bind(string? header, MailListRow? row, Gtk.ListItem listItem)
     {
         Unbind();
-        _timeFormat = timeFormat;
-        _header.SetVisible(header is not null);
-        _mail.SetVisible(row is not null);
-        if (header is not null) _header.SetText(header);
-        if (row is null) return;
-
-        _row = row;
-        // A row shows state of its mails (read, flagged), which changes without the projection changing.
-        foreach (var leaf in MailRowPresentation.Leaves(row))
+        if (_disposed) return;
+        Header.Root.SetVisible(header is not null);
+        Header.Title = header ?? string.Empty;
+        Row.Root.SetVisible(row is not null);
+        if (row is null)
         {
-            leaf.PropertyChanged += LeafChanged;
-            _observed.Add(leaf);
+            listItem.SetAccessibleLabel(header ?? string.Empty);
+            return;
         }
-        Apply();
+
+        Item = row;
+        row.PropertyChanged += _rowChanged;
+        SubscribeLeaves(row);
+        Refresh();
+        listItem.SetAccessibleLabel(Row.Model.AccessibilityText);
     }
 
     public void Unbind()
     {
-        foreach (var leaf in _observed) leaf.PropertyChanged -= LeafChanged;
-        _observed.Clear();
-        _row = null;
+        _generation++;
+        if (Item is { } row) row.PropertyChanged -= _rowChanged;
+        foreach (var leaf in _leaves) leaf.PropertyChanged -= _leafChanged;
+        _leaves.Clear();
+        Item = null;
     }
 
+    /// <summary>Maps the bound row again now (preferences, picture, mail state).</summary>
+    public void Refresh()
+    {
+        if (_disposed || Item is not { } row) return;
+        try
+        {
+            if (MailRowMapper.Map(row, _context.Preferences, _context.IsMergedAccountView(), _context.Pictures) is { } model) Row.Apply(model);
+        }
+        catch (Exception exception) { _context.Error(exception); }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        Unbind();
+        _disposed = true;
+        Row.Dispose();
+    }
+
+    private void SubscribeLeaves(MailListRow row)
+    {
+        foreach (var leaf in MailRowPresentation.Leaves(row))
+        {
+            leaf.PropertyChanged += _leafChanged;
+            _leaves.Add(leaf);
+        }
+    }
+
+    // Mail items can change on a worker thread: only a flag and a thread-safe idle source here.
     private void LeafChanged(object? sender, PropertyChangedEventArgs args)
     {
-        if (_refreshQueued) return;
-        _refreshQueued = true;
+        if (args.PropertyName is nameof(MailItemViewModel.IsSelected) or nameof(MailItemViewModel.ThumbnailUpdatedEvent)) return;
+        RequestRefresh(false);
+    }
+
+    private void RowChanged(object? sender, PropertyChangedEventArgs args)
+        => RequestRefresh(args.PropertyName is nameof(MailListRow.Thread) or nameof(MailListRow.LeafItems));
+
+    private void RequestRefresh(bool resubscribe)
+    {
+        if (resubscribe) Interlocked.Exchange(ref _pending, 2);
+        else if (Interlocked.CompareExchange(ref _pending, 1, 0) != 0) return;
+        var generation = Volatile.Read(ref _generation);
         GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
         {
-            _refreshQueued = false;
-            Apply();
+            var pending = Interlocked.Exchange(ref _pending, 0);
+            if (pending == 0 || _disposed || generation != _generation || Item is not { } row) return false;
+            if (pending == 2)
+            {
+                foreach (var leaf in _leaves) leaf.PropertyChanged -= _leafChanged;
+                _leaves.Clear();
+                SubscribeLeaves(row);
+            }
+            Refresh();
             return false;
         });
-    }
-
-    private void Apply()
-    {
-        if (_row is null || MailRowPresentation.Describe(_row, _timeFormat) is not { } content) return;
-        var sender = content.ThreadCount > 1 ? $"{content.Sender}  ({content.ThreadCount})" : content.Sender;
-        _sender.SetText(content.IsDraft ? $"[{Translator.Draft}] {sender}" : sender);
-        _subject.SetText(content.Subject);
-        _preview.SetText(content.Preview);
-        _date.SetText(content.DateText);
-        _unread.SetOpacity(content.IsUnread ? 1 : 0);
-        _attachment.SetVisible(content.HasAttachments);
-        _flag.Root.SetVisible(content.IsFlagged);
-        Toggle(_sender, content.IsUnread);
-        Toggle(_subject, content.IsUnread);
-    }
-
-    private static void Toggle(Gtk.Widget widget, bool unread)
-    {
-        if (unread) widget.AddCssClass("wino-unread");
-        else widget.RemoveCssClass("wino-unread");
-    }
-
-    private static Gtk.Label Label(string? cssClass)
-    {
-        var label = Gtk.Label.New(string.Empty);
-        label.SetXalign(0);
-        label.SetEllipsize(Pango.EllipsizeMode.End);
-        label.SetSingleLineMode(true);
-        if (cssClass is not null) label.AddCssClass(cssClass);
-        return label;
     }
 }

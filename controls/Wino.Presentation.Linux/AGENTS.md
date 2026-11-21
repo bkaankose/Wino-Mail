@@ -1,6 +1,6 @@
 # Wino.Presentation.Linux
 
-GTK 4 and libadwaita presentation helpers for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin of `Wino.Presentation.AppKit`. It holds the binding glue (`Bindings/GtkBinder`), main-loop scheduling (`MainLoop`), signal helpers (`GtkSignals`), accessibility (`WinoA11y`), weak events (`WinoWeakEvent`) and the live-object registry for leak checks (`WinoLiveObjects`) the stylesheet (`Style/`: `WinoStyle`, `WinoCssClass`, `WinoZone` and the embedded `wino.css`) menus (`WinoMenus`, `ContextMenu`) and the WinoIcons fonts (`WinoIcons`, `WinoIcon`) and the list stack (`Lists/`: `ObservableListModel`, `WinoCellFactory`, `WinoHeaderFactory`, `ListSections`, `ListViews`). This file is binding for `controls/Wino.Presentation.Linux`.
+GTK 4 and libadwaita presentation helpers for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin of `Wino.Presentation.AppKit`. It holds the binding glue (`Bindings/GtkBinder`), main-loop scheduling (`MainLoop`), signal helpers (`GtkSignals`), accessibility (`WinoA11y`), weak events (`WinoWeakEvent`) and the live-object registry for leak checks (`WinoLiveObjects`) the stylesheet (`Style/`: `WinoStyle`, `WinoCssClass`, `WinoZone`, `WinoTint` for arbitrary colours and the embedded `wino.css`) menus (`WinoMenus`, `ContextMenu`) and the WinoIcons fonts (`WinoIcons`, `WinoIcon`) and the list stack (`Lists/`: `ObservableListModel`, `WinoCellFactory`, `WinoHeaderFactory`, `ListSections`, `ListViews`). This file is binding for `controls/Wino.Presentation.Linux`.
 
 ## Read first
 

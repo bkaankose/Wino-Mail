@@ -67,6 +67,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.ShortcutDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.WindowDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.LanguageDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.MailRowDebugActions.Register(application, () => _services);
         }
 #endif
     }

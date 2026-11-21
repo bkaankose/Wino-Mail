@@ -45,4 +45,18 @@ public static class WinoCssClass
     public const string Selected = "wino-selected";
     public const string WeightMedium = "wino-weight-medium";
     public const string WeightSemibold = "wino-weight-semibold";
+
+    public const string MailList = "wino-mail-list";
+    public const string MailRowPill = "wino-mail-row-pill";
+    public const string ThreadChild = "wino-thread-child";
+    public const string MailSender = "wino-mail-sender";
+    public const string MailSubject = "wino-mail-subject";
+    public const string MailPreview = "wino-mail-preview";
+    public const string MailDraft = "wino-mail-draft";
+    public const string MailFlag = "wino-mail-flag";
+    public const string MailAttachment = "wino-mail-attachment";
+    public const string MailNickname = "wino-mail-nickname";
+    public const string MailChevron = "wino-mail-chevron";
+    public const string Floating = "wino-floating";
+    public const string TintPrefix = "wino-tint-";
 }

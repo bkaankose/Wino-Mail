@@ -1,10 +1,12 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Presentation.Linux;
+using Wino.Presentation.Linux.Style;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
@@ -27,13 +29,16 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
     private readonly Gtk.ScrolledWindow _scroll = Gtk.ScrolledWindow.New();
     private readonly Gtk.Stack _stack = Gtk.Stack.New();
     private readonly Dictionary<nint, MailRowCell> _cells = [];
+    private readonly MailRowCellContext _context;
+    private readonly Gtk.ListView _list;
     private List<Entry> _entries = [];
     private string _publishedSelection = string.Empty;
     private bool _applying;
     private bool _rebuildQueued;
 
-    public MailListView(MailListPageViewModel viewModel, WinoViewServices services) : base(viewModel, services)
+    public MailListView(MailListPageViewModel viewModel, WinoViewServices services, LinuxSenderPictureProvider pictures) : base(viewModel, services)
     {
+        _context = new MailRowCellContext(ViewModel.PreferencesService, pictures, () => ViewModel.IsMergedAccountView, ReportError);
         ViewModel.MailCollection.CoreDispatcher = Dispatcher;
         _projection = new MailListProjection(ViewModel.MailCollection.Items, ViewModel.MailListOptions ?? new MailListProjectionOptions());
         _projection.ProjectionChanged += (_, _) => QueueRebuild();
@@ -59,7 +64,10 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
             h => factory.OnTeardown += h, h => factory.OnTeardown -= h, (_, args) => TeardownCell((Gtk.ListItem)args.Object)));
 
         var list = Gtk.ListView.New(selection, factory);
+        _list = list;
         list.SetSingleClickActivate(false);
+        list.AddCssClass(WinoCssClass.MailList);
+        WinoStyle.SetDensity(list, ViewModel.PreferencesService.MailItemDisplayMode);
         _scroll.SetPolicy(Gtk.PolicyType.Never, Gtk.PolicyType.Automatic);
         _scroll.SetChild(list);
         var adjustment = _scroll.GetVadjustment();
@@ -82,6 +90,23 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
             if (!IsReleased) _projection.SetOptions(options ?? new MailListProjectionOptions());
         });
         Bind.BindAny(static vm => (vm.IsInitializingFolder, vm.IsEmpty, vm.IsFolderEmpty), _ => UpdateState());
+
+        var preferences = ViewModel.PreferencesService;
+        EventHandler<string> preferenceChanged = (_, name) =>
+        {
+            if (name is nameof(IPreferencesService.MailItemDisplayMode) or nameof(IPreferencesService.IsShowPreviewEnabled)
+                or nameof(IPreferencesService.IsShowSenderPicturesEnabled) or nameof(IPreferencesService.AccountNicknamePosition)
+                or nameof(IPreferencesService.AlwaysShowSenderAddress) or nameof(IPreferencesService.MailTimeFormatPreference))
+                RunOnUI(RefreshAppearance);
+        };
+        EventHandler<string?> pictureChanged = (_, address) => RunOnUI(() => RefreshPictures(address));
+        preferences.PreferenceChanged += preferenceChanged;
+        pictures.PictureChanged += pictureChanged;
+        Bindings.Own(new ActionDisposable(() =>
+        {
+            preferences.PreferenceChanged -= preferenceChanged;
+            pictures.PictureChanged -= pictureChanged;
+        }));
     }
 
     public override Gtk.Widget Root => _stack;
@@ -100,7 +125,7 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
 
     protected override Task DeactivateAsync()
     {
-        foreach (var cell in _cells.Values) cell.Unbind();
+        foreach (var cell in _cells.Values) cell.Dispose();
         _cells.Clear();
         _projection.Dispose();
         ViewModel.OnNavigatedFrom(NavigationMode.Back, null);
@@ -113,9 +138,24 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
         else ViewModel.OpenItem(item);
     }
 
+    private void RefreshAppearance()
+    {
+        WinoStyle.SetDensity(_list, ViewModel.PreferencesService.MailItemDisplayMode);
+        foreach (var cell in _cells.Values) cell.Refresh();
+    }
+
+    private void RefreshPictures(string? address)
+    {
+        var key = LinuxSenderPictureProvider.Normalize(address);
+        foreach (var cell in _cells.Values)
+        {
+            if (key is null || LinuxSenderPictureProvider.Normalize(cell.Row.Model.SenderAddress) == key) cell.Refresh();
+        }
+    }
+
     private void SetupCell(Gtk.ListItem item)
     {
-        var cell = new MailRowCell();
+        var cell = new MailRowCell(_context);
         _cells[cell.Root.Handle.DangerousGetHandle()] = cell;
         item.SetChild(cell.Root);
     }
@@ -126,12 +166,12 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
         var entry = _entries[(int)item.GetPosition()];
         item.SetSelectable(entry.Row is not null);
         item.SetActivatable(entry.Row is not null);
-        cell.Bind(entry.Header, entry.Row, ViewModel.PreferencesService.MailTimeFormatPreference);
+        cell.Bind(entry.Header, entry.Row, item);
     }
 
     private void TeardownCell(Gtk.ListItem item)
     {
-        if (item.GetChild() is { } child) _cells.Remove(child.Handle.DangerousGetHandle());
+        if (item.GetChild() is { } child && _cells.Remove(child.Handle.DangerousGetHandle(), out var cell)) cell.Dispose();
     }
 
     private MailRowCell? CellOf(Gtk.ListItem item)

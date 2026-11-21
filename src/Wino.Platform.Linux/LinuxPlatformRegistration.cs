@@ -107,6 +107,7 @@ public static class LinuxPlatformRegistration
             ConfigurableSyncIntervals: true,
             GeneralActivation: true,
             KeyboardShortcuts: true,
+            MailListDensity: true,
             Notifications: true,
             OAuthLoopbackRedirect: false,
             PointerHover: true));
