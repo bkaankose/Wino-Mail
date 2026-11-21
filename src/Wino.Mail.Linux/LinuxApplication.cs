@@ -104,6 +104,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.MailSearchDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailSearchFilterDebugActions.Register(application);
             Infrastructure.Diagnostics.ReaderDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.EditorDebugActions.Register(application, () => _services);
         }
 #endif
     }

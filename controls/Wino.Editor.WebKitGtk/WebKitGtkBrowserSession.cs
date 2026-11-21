@@ -46,6 +46,7 @@ internal sealed class WebKitGtkBrowserSession
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
     public event EventHandler<RendererLinkHoverEventArgs>? LinkHovered;
+    public event EventHandler<EditorMessage>? Message;
 
     /// <summary>WebKit's web process ended; the document is gone until the next load.</summary>
     public event EventHandler? ContentProcessTerminated;
@@ -60,10 +61,14 @@ internal sealed class WebKitGtkBrowserSession
         _launcher = launcher;
     }
 
-    public async Task LoadAsync(RemoteContentPolicy policy, bool dark, CancellationToken token)
+    public Task LoadAsync(RemoteContentPolicy policy, bool dark, CancellationToken token) => LoadAsync(false, policy, dark, token);
+
+    public async Task LoadAsync(bool editor, RemoteContentPolicy policy, bool dark, CancellationToken token)
     {
         string id = Guid.NewGuid().ToString("N");
-        string document = await AppleMailDocumentBuilder.BuildReaderAsync(id, policy, dark, token, useCommandKey: false);
+        string document = editor
+            ? await AppleMailDocumentBuilder.BuildEditorAsync(id, dark, token, useCommandKey: false, policy)
+            : await AppleMailDocumentBuilder.BuildReaderAsync(id, policy, dark, token, useCommandKey: false);
         await OnUIAsync(() =>
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -153,6 +158,7 @@ internal sealed class WebKitGtkBrowserSession
                 var hover = JsonSerializer.Deserialize(json, EditorJsonContext.Default.RendererMessage);
                 LinkHovered?.Invoke(this, new(NullIfBlank(hover?.Uri), NullIfBlank(hover?.Target)));
             }
+            else Message?.Invoke(this, message);
         }
         catch (JsonException) { }
     }
@@ -186,7 +192,7 @@ internal sealed class WebKitGtkBrowserSession
             Browser.OnWebProcessTerminated -= OnWebProcessTerminated;
             WebKit.UserContentManager.ScriptMessageReceivedSignal.Disconnect(_content, _messageHandler);
             _content.UnregisterScriptMessageHandler(BridgeName, null);
-            NavigationRequested = null; OperationFailed = null; LinkHovered = null; ContentProcessTerminated = null;
+            NavigationRequested = null; OperationFailed = null; LinkHovered = null; ContentProcessTerminated = null; Message = null;
             releaseVisual();
             return Task.FromResult(true);
         });
