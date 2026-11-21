@@ -59,6 +59,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private readonly DispatcherQueueTimer _wheelSettleTimer;
     private readonly DispatcherQueueTimer _monthTapTimer;
     private CalendarEmptySlotTappedEventArgs? _pendingMonthTap;
+    private VisibleDateRange? _shownRange;
 
     [GeneratedDependencyProperty]
     public partial VisibleDateRange? VisibleRange { get; set; }
@@ -177,7 +178,18 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     partial void OnVisibleRangeChanged(VisibleDateRange? newValue)
     {
-        CancelPendingMonthTap();
+        // The view model publishes a new range object on every load, also for the period already shown
+        // (a settle, a sync, a settings change). Only a different period drops a click waiting to open
+        // the quick event popup; otherwise a click right after a load opened nothing.
+        if (newValue is null || _shownRange is null ||
+            newValue.DisplayType != _shownRange.DisplayType ||
+            newValue.StartDate != _shownRange.StartDate ||
+            newValue.EndDate != _shownRange.EndDate)
+        {
+            CancelPendingMonthTap();
+        }
+
+        _shownRange = newValue;
         CancelRangeSelection();
         _rangeRefreshPending = true;
         QueueRefresh();
