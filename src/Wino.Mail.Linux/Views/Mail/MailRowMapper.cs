@@ -7,7 +7,7 @@ using Wino.Mail.ViewModels.Collections;
 
 namespace Wino.Mail.Linux.Views.Mail;
 
-/// <summary>Maps a projected mail row into the snapshot <see cref="WinoMailRow"/> draws (the macOS mapper without tiles).</summary>
+/// <summary>Maps a projected mail row into the snapshot <see cref="WinoMailRow"/> draws (the macOS mapper).</summary>
 internal static class MailRowMapper
 {
     public static WinoMailRowDensity Density(IPreferencesService preferences) => MailRowPresentation.Density(preferences.MailItemDisplayMode);
@@ -39,7 +39,37 @@ internal static class MailRowMapper
             Picture = preferences.IsShowSenderPicturesEnabled ? pictures?.Get(content.SenderAddress) : null,
             ShowPicture = preferences.IsShowSenderPicturesEnabled,
             ShowPreview = preferences.IsShowPreviewEnabled,
-            AccessibilityText = content.AccessibilityText
+            AccessibilityText = content.AccessibilityText,
+            Tiles = Tiles(row)
         };
+    }
+
+    /// <summary>Categories of the row's leaves (distinct by id), then their intelligence tiles (distinct by text and glyph).</summary>
+    public static WinoMailRowTile[] Tiles(MailListRow row)
+    {
+        if (!MailRowPresentation.HasTiles(row)) return [];
+        var leaves = MailRowPresentation.Leaves(row);
+        var tiles = new List<WinoMailRowTile>();
+        var categories = new HashSet<Guid>();
+        foreach (var leaf in leaves)
+        {
+            foreach (var category in leaf.Categories)
+            {
+                if (category is null || !categories.Add(category.Id)) continue;
+                tiles.Add(new WinoMailRowTile(category.Name ?? string.Empty, null, category.BackgroundColorHex, category.TextColorHex, false));
+            }
+        }
+        var intelligence = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var leaf in leaves)
+        {
+            if (!leaf.HasRowIntelligenceTiles) continue;
+            foreach (var tile in leaf.RowIntelligenceTiles)
+            {
+                if (!intelligence.Add(tile.Text + tile.Glyph)) continue;
+                tiles.Add(new WinoMailRowTile(tile.Text ?? string.Empty, tile.Glyph, null, null, true, tile.IsWarning,
+                    string.IsNullOrEmpty(tile.AccessibleText) ? null : tile.AccessibleText));
+            }
+        }
+        return [.. tiles];
     }
 }

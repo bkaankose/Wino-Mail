@@ -14,7 +14,7 @@ namespace Wino.Mail.Linux.Infrastructure.Diagnostics;
 /// <summary>
 /// Debug actions of the mail row: <c>debug-mailrow-pref</c> <c>as</c> <c>[name, value]</c> sets a real preference
 /// (<c>density</c> compact|medium|spacious, <c>preview</c> on|off, <c>pictures</c> on|off, <c>nickname</c>
-/// none|left|right); <c>debug-mailrow-gallery</c> <c>s</c> (report path) opens the <c>Mail row gallery</c> window with
+/// none|left|right); <c>debug-mailrow-gallery</c> <c>s</c> (report path, optionally <c>#Density</c> to scroll to the end of that group, where the tile rows are) opens the <c>Mail row gallery</c> window with
 /// every row state in the three densities and writes the mean <c>Apply</c> time.
 /// </summary>
 internal static class MailRowDebugActions
@@ -64,8 +64,11 @@ internal static class MailRowDebugActions
         var gallery = Gio.SimpleAction.New("debug-mailrow-gallery", GLib.VariantType.New("s"));
         gallery.OnActivate += (_, args) => Run("debug-mailrow-gallery", () =>
         {
-            var path = args.Parameter?.GetString(out var _) ?? string.Empty;
+            var parameter = args.Parameter?.GetString(out var _) ?? string.Empty;
+            var split = parameter.LastIndexOf('#');
+            var path = split >= 0 ? parameter[..split] : parameter;
             ShowGallery(application);
+            if (split >= 0) ScrollGalleryTo(parameter[(split + 1)..]);
             var report = Measure();
             if (path.Length > 0) DebugActions.WriteText(path, report);
             Serilog.Log.Information("Debug action: mail row gallery {Report}", report.Trim().Replace('\n', ' '));
@@ -116,9 +119,31 @@ internal static class MailRowDebugActions
                 Subject = "An extraordinarily long subject line that must ellipsise instead of widening the mail list pane at all",
                 Preview = "A preview that goes on\nacross line breaks and on and on and on and on and on and on and on and on and on and on and on.",
             },
+            plain with { Sender = "Two Categories", Subject = "Category chips", Tiles = [Red, Blue] },
+            plain with { Sender = "Six Tiles", Subject = "Six tiles wrap", Tiles = [Red, Blue, Green, Amber, Plain, Purple] },
+            plain with { Sender = "Eight Tiles", Subject = "Eight tiles, two not shown", Tiles = [Red, Blue, Green, Amber, Plain, Purple, Red with { Text = "Seventh" }, Blue with { Text = "Eighth" }] },
+            plain with
+            {
+                Sender = "Intelligence",
+                                Subject = "Priority, two smart labels and a category",
+                Tiles =
+                [
+                    new WinoMailRowTile("High priority", WinoIcons.Glyph(WinoIconGlyph.Warning), null, null, true, true, "Priority: high"),
+                    new WinoMailRowTile("Newsletter", WinoIcons.Glyph(WinoIconGlyph.Flag), null, null, true),
+                    new WinoMailRowTile("No glyph", null, null, null, true),
+                    new WinoMailRowTile("A & <B>", null, "#DBEAFE", "#1E40AF", false),
+                ],
+            },
             plain with { Sender = "Selection Mode", Subject = "Checked in select mode" },
         ];
     }
+
+    private static readonly WinoMailRowTile Red = new("Red", null, "#FEE2E2", "#991B1B", false);
+    private static readonly WinoMailRowTile Blue = new("Blue", null, "#DBEAFE", "#1E40AF", false);
+    private static readonly WinoMailRowTile Green = new("A rather long category name that ellipsizes", null, "#DCFCE7", "#166534", false);
+    private static readonly WinoMailRowTile Amber = new("Amber", null, "#F59E0B", null, false);
+    private static readonly WinoMailRowTile Plain = new("No colour", null, null, null, false);
+    private static readonly WinoMailRowTile Purple = new("Purple", null, "#6D28D9", "#FFFFFF", false);
 
     private static void ShowGallery(Adw.Application application)
     {
@@ -181,6 +206,25 @@ internal static class MailRowDebugActions
         };
         _window = window;
         window.Present();
+    }
+
+    private static void ScrollGalleryTo(string density)
+    {
+        MainLoop.Delay(400, () =>
+        {
+            if (_window?.GetContent() is not Adw.ToolbarView toolbar || toolbar.GetContent() is not Gtk.ScrolledWindow scroll) return;
+            if (scroll.GetChild() is not { } viewport || viewport.GetFirstChild() is not { } content) return;
+            for (var child = content.GetFirstChild(); child is not null; child = child.GetNextSibling())
+            {
+                if (child.GetFirstChild() is Gtk.Label label && string.Equals(label.GetText(), density, StringComparison.OrdinalIgnoreCase)
+                    && child.GetNextSibling() is { } list && list.ComputeBounds(content, out var bounds))
+                {
+                    var adjustment = scroll.GetVadjustment();
+                    adjustment.SetValue(bounds.GetY() + bounds.GetHeight() - adjustment.GetPageSize());
+                    return;
+                }
+            }
+        });
     }
 
     private static string Measure()

@@ -31,6 +31,13 @@ public sealed record WinoMailRowModel
     public bool ShowPreview { get; init; } = true;
     public string AccessibilityText { get; init; } = string.Empty;
 
+    /// <summary>Categories first, then intelligence tiles; the row shows at most <c>WinoMailRowMetrics.MaxTiles</c>.</summary>
+    public WinoMailRowTile[] Tiles { get; init; } = [];
+
     public bool ShowNickname => !string.IsNullOrWhiteSpace(AccountNickname) && NicknamePosition != AccountNicknamePosition.None;
     public bool ShowChevron => Kind == WinoMailRowKind.ThreadHead && ThreadCount > 1;
 }
+
+/// <summary>One tile of a mail row: a category (colours, text) or an intelligence indicator (glyph, text).</summary>
+public sealed record WinoMailRowTile(string Text, string? Glyph, string? BackgroundHex, string? ForegroundHex,
+    bool IsIntelligence, bool IsWarning = false, string? Tooltip = null);

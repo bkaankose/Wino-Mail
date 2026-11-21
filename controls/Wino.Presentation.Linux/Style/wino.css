@@ -248,3 +248,13 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-setup-provider-choice { padding: 6px 8px; font-weight: normal; }
 .wino-setup-choice { padding: 10px 12px; font-weight: normal; }
 .wino-setup-choice:checked { box-shadow: inset 0 0 0 2px @accent_bg_color; background-color: alpha(@accent_bg_color, 0.08); color: inherit; }
+
+/* ML-08 mail row tiles */
+.wino-chip-tile { padding: 0 7px; border-radius: 4px; font-size: 0.85em; }
+.wino-chip-accent { background-color: alpha(@accent_bg_color, 0.16); }
+.wino-chip-glyph, .wino-tile-badge label { opacity: 0.7; }
+.wino-chip-warning .wino-chip-glyph, .wino-tile-badge.wino-chip-warning label { color: @warning_color; opacity: 1; }
+.wino-chip-dot { min-width: 6px; min-height: 6px; border-radius: 999px; background-color: alpha(currentColor, 0.55); }
+.wino-tile-dot { min-width: 8px; min-height: 8px; border-radius: 4px; }
+.wino-tile-dot.wino-chip-accent { background-color: @accent_bg_color; }
+.wino-tile-badge { min-width: 18px; min-height: 18px; border-radius: 999px; background-color: alpha(currentColor, 0.08); border: 1px solid alpha(currentColor, 0.10); }

@@ -36,6 +36,7 @@ public sealed class WinoMailRow : IDisposable
     private readonly IDisposable _chevronClicked;
     private readonly IDisposable _checkToggled;
     private WinoMailRowModel _model = new();
+    private WinoTileLine? _tiles;
     private string? _leftTint;
     private string? _rightTint;
     private string _accessibleText = string.Empty;
@@ -215,6 +216,9 @@ public sealed class WinoMailRow : IDisposable
 
     public Gtk.Button Chevron => _chevron;
 
+    /// <summary>Null until the row first showed a tile.</summary>
+    public WinoTileLine? Tiles => _tiles;
+
     public void AddOverlay(Gtk.Widget widget) => _root.AddOverlay(widget);
 
     public void Apply(WinoMailRowModel model)
@@ -274,6 +278,9 @@ public sealed class WinoMailRow : IDisposable
         var showPreview = model.Density != WinoMailRowDensity.Compact && model.ShowPreview && !Blank(model.Preview);
         if (all || previous.Preview != model.Preview) _preview.SetText(OneLine(model.Preview));
         _preview.SetVisible(showPreview);
+
+        if (model.Tiles.Length > 0 || _tiles is not null)
+            (_tiles ??= new WinoTileLine(TileSlot, CompactTileSlot)).Apply(model.Tiles, model.Density);
 
         if (!string.Equals(model.AccessibilityText, _accessibleText, StringComparison.Ordinal))
         {

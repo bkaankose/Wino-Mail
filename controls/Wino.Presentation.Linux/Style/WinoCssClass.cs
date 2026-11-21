@@ -86,4 +86,11 @@ public static class WinoCssClass
     public const string MailCell = "wino-mail-cell";
     public const string FolderPicker = "wino-folder-picker";
     public const string FolderPickerRow = "wino-folder-picker-row";
+    public const string ChipTile = "wino-chip-tile";
+    public const string ChipGlyph = "wino-chip-glyph";
+    public const string ChipDot = "wino-chip-dot";
+    public const string ChipWarning = "wino-chip-warning";
+    public const string ChipAccent = "wino-chip-accent";
+    public const string TileDot = "wino-tile-dot";
+    public const string TileBadge = "wino-tile-badge";
 }
