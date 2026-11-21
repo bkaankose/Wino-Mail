@@ -231,6 +231,22 @@ public partial class AccountCapabilitySelection : ObservableObject
         CoerceUnavailableModes();
     }
 
+    /// <summary>The mode each app gets when the user turns it on: its current mode, or the one it starts on while off.</summary>
+    public AccountCapabilityMode CalendarModeWhenOn => CalendarMode != AccountCapabilityMode.Off ? CalendarMode : RestoreMode(_lastCalendarMode, IsCalendarProviderModeAvailable);
+    public AccountCapabilityMode ContactModeWhenOn => ContactMode != AccountCapabilityMode.Off ? ContactMode : RestoreMode(_lastContactMode, IsContactProviderModeAvailable);
+    public AccountCapabilityMode TaskModeWhenOn => TaskMode != AccountCapabilityMode.Off ? TaskMode : RestoreMode(_lastTaskMode, IsTaskProviderModeAvailable);
+
+    /// <summary>
+    /// Turns calendar, contacts and To Do off. Each keeps its current mode as the one it starts on when the user turns
+    /// it on, so a server that discovery found is offered without being chosen for the user.
+    /// </summary>
+    public void TurnOffOptionalApps()
+    {
+        CalendarMode = AccountCapabilityMode.Off;
+        ContactMode = AccountCapabilityMode.Off;
+        TaskMode = AccountCapabilityMode.Off;
+    }
+
     public void CoerceUnavailableModes()
     {
         if (!IsCalendarProviderModeAvailable && CalendarMode == AccountCapabilityMode.Provider)

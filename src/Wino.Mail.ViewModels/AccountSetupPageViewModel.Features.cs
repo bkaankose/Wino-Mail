@@ -185,7 +185,12 @@ public partial class AccountSetupPageViewModel
         Capabilities.TaskMode = isTaskSupported ? AccountCapabilityMode.Provider : AccountCapabilityMode.Local;
         Capabilities.CoerceUnavailableModes();
 
-        var isDavRoute = resolution.Route == AccountRoute.Imap && resolution.Imap?.IsPop3 != true;
+        // A server that offers calendar, contacts or tasks does not mean the user wants them; on IMAP and POP3 only
+        // mail starts on.
+        if (resolution.Route == AccountRoute.Imap)
+            Capabilities.TurnOffOptionalApps();
+
+        var isDavRoute =resolution.Route == AccountRoute.Imap && resolution.Imap?.IsPop3 != true;
         Capabilities.IsCalendarManualEntryAvailable = isDavRoute;
         Capabilities.IsContactManualEntryAvailable = isDavRoute;
 

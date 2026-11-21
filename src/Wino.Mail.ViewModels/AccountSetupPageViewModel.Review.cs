@@ -118,6 +118,7 @@ public partial class AccountSetupPageViewModel
                 Translator.ProviderSelection_UseForCalendar,
                 WinoIconGlyph.Calendar,
                 Capabilities.CalendarMode,
+                Capabilities.CalendarModeWhenOn,
                 Capabilities.IsCalendarProviderModeAvailable,
                 GetCalendarSyncedText(),
                 _calDavAvailability,
@@ -130,6 +131,7 @@ public partial class AccountSetupPageViewModel
                 Translator.ProviderSelection_UseForContacts,
                 WinoIconGlyph.People,
                 Capabilities.ContactMode,
+                Capabilities.ContactModeWhenOn,
                 Capabilities.IsContactProviderModeAvailable,
                 GetContactSyncedText(),
                 _cardDavAvailability,
@@ -142,6 +144,7 @@ public partial class AccountSetupPageViewModel
                 Translator.ProviderSelection_UseForTasks,
                 WinoIconGlyph.TaskList,
                 Capabilities.TaskMode,
+                Capabilities.TaskModeWhenOn,
                 Capabilities.IsTaskProviderModeAvailable,
                 GetTaskSyncedText(),
                 _calDavAvailability,
@@ -188,6 +191,7 @@ public partial class AccountSetupPageViewModel
         string title,
         WinoIconGlyph glyph,
         AccountCapabilityMode mode,
+        AccountCapabilityMode modeWhenOn,
         bool isProviderAvailable,
         string syncedText,
         AccountSetupDavAvailability davAvailability,
@@ -209,7 +213,8 @@ public partial class AccountSetupPageViewModel
                 protocolName)));
         }
 
-        var selectedId = mode == AccountCapabilityMode.Provider
+        // An app that is off still shows the source it starts on when the switch is turned on.
+        var selectedId = modeWhenOn == AccountCapabilityMode.Provider
             ? isManualEntry ? EnterSourceId : ProviderSourceId
             : LocalSourceId;
 

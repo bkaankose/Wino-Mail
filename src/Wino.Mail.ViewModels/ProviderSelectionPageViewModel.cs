@@ -861,6 +861,10 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
             : AccountCapabilityMode.Local;
 
         CoerceUnavailableModes();
+
+        // IMAP and POP3 start with mail only; the user turns on calendar, contacts and To Do.
+        if (IsImapFamily || IsPop3)
+            Capabilities.TurnOffOptionalApps();
     }
 
     /// <summary>

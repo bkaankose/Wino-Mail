@@ -65,10 +65,12 @@ public partial class AccountSetupPageViewModel
         Capabilities.IsTaskProviderModeAvailable = isCalDavOffered;
 
         // Synced is the starting point only where the mail sign-in already works; a service that needs its own
-        // sign-in starts on this device, so the review never opens asking for another password.
+        // sign-in starts on this device, so the review never opens asking for another password. The apps stay off
+        // until the user turns them on.
         Capabilities.CalendarMode = _calDavAvailability == AccountSetupDavAvailability.Available ? AccountCapabilityMode.Provider : AccountCapabilityMode.Local;
         Capabilities.ContactMode = _cardDavAvailability == AccountSetupDavAvailability.Available ? AccountCapabilityMode.Provider : AccountCapabilityMode.Local;
         Capabilities.TaskMode = _calDavAvailability == AccountSetupDavAvailability.Available ? AccountCapabilityMode.Provider : AccountCapabilityMode.Local;
+        Capabilities.TurnOffOptionalApps();
 
         _pendingServer = server;
         SetSignInValidated(true);

@@ -341,10 +341,11 @@ public partial class AccountSetupPageViewModel
         var hasFeatures = _resolution != null && Phase is not (AccountSetupPhase.Identity or AccountSetupPhase.Resolving or AccountSetupPhase.NotFound);
         var isImapResolution = Route == AccountRoute.Imap && _resolution?.Imap?.IsFound == true;
 
+        // Before the apps were chosen only mail is on; Advanced setup asks for the rest.
         var isMailEnabled = !hasFeatures || Capabilities.IsMailEnabled;
-        var calendarMode = hasFeatures ? Capabilities.CalendarMode : AccountCapabilityMode.Provider;
-        var contactMode = hasFeatures ? Capabilities.ContactMode : AccountCapabilityMode.Local;
-        var taskMode = hasFeatures ? Capabilities.TaskMode : AccountCapabilityMode.Local;
+        var calendarMode = hasFeatures ? Capabilities.CalendarMode : AccountCapabilityMode.Off;
+        var contactMode = hasFeatures ? Capabilities.ContactMode : AccountCapabilityMode.Off;
+        var taskMode = hasFeatures ? Capabilities.TaskMode : AccountCapabilityMode.Off;
 
         var useOAuth = isImapResolution && _oauthSession != null && OAuthState == AccountSetupOAuthState.SignedIn;
         CustomServerInformation? server = null;

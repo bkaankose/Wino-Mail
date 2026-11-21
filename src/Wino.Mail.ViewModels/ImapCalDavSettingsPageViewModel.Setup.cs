@@ -303,12 +303,47 @@ public partial class ImapCalDavSettingsPageViewModel
         try
         {
             ValidateCapabilitySelection();
+
+            // The setup page found the mail servers before the apps were chosen, so the calendar and contacts servers
+            // of an app turned on here are looked up now.
+            if (_stepAfterFeatures == ImapSetupStep.Servers)
+                await DiscoverDavServersForServersStepAsync();
+
             CurrentSetupStep = _stepAfterFeatures;
         }
         catch (Exception ex)
         {
             await ShowImapValidationFailureAsync(ex);
         }
+    }
+
+    private async Task DiscoverDavServersForServersStepAsync()
+    {
+        if (!MailAccountAddressValidator.IsValid(EmailAddress?.Trim()))
+            return;
+
+        var needsCalDav = IsCalDavSettingsVisible && string.IsNullOrWhiteSpace(CalDavServiceUrl);
+        var needsCardDav = IsCardDavSettingsVisible && string.IsNullOrWhiteSpace(CardDavServiceUrl);
+        if (!needsCalDav && !needsCardDav)
+            return;
+
+        IsBusy = true;
+        BusyText = string.Format(Translator.ImapSetup_LookingUp, AddressDomain);
+
+        try
+        {
+            if (needsCalDav)
+                await DiscoverCalDavServiceUrlAsync();
+
+            await ResolveCardDavServiceUrlAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        IsCalDavExpanded = IsCalDavSettingsVisible && string.IsNullOrWhiteSpace(CalDavServiceUrl);
+        IsCardDavExpanded = IsCardDavSettingsVisible && string.IsNullOrWhiteSpace(CardDavServiceUrl);
     }
 
     /// <summary>Opens on the Features step when the setup page had not asked for the apps yet.</summary>
@@ -619,23 +654,27 @@ public partial class ImapCalDavSettingsPageViewModel
 
         if (IsCalDavSettingsVisible && string.IsNullOrWhiteSpace(CalDavServiceUrl))
         {
-            try
-            {
-                var discoveredUri = await _autoDiscoveryService.DiscoverCalDavServiceUriAsync(EmailAddress.Trim());
-                if (discoveredUri != null)
-                    CalDavServiceUrl = discoveredUri.ToString();
-            }
-            catch (Exception)
-            {
-                // A missing CalDAV address is reported through the result, not as an error.
-            }
-
+            await DiscoverCalDavServiceUrlAsync();
             isCalendarFound = !string.IsNullOrWhiteSpace(CalDavServiceUrl);
         }
 
         await ResolveCardDavServiceUrlAsync();
 
         return isMailFound && isCalendarFound;
+    }
+
+    private async Task DiscoverCalDavServiceUrlAsync()
+    {
+        try
+        {
+            var discoveredUri = await _autoDiscoveryService.DiscoverCalDavServiceUriAsync(EmailAddress.Trim());
+            if (discoveredUri != null)
+                CalDavServiceUrl = discoveredUri.ToString();
+        }
+        catch (Exception)
+        {
+            // A missing CalDAV address is reported through the result, not as an error.
+        }
     }
 
     /// <summary>
