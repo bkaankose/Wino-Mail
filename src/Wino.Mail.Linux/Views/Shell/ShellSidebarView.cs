@@ -629,7 +629,6 @@ internal sealed class ShellSidebarCell : IWinoCell<IMenuItem>, IDisposable
     public ShellSidebarCell(ShellSidebarView owner)
     {
         _owner = owner;
-        WinoLiveObjects.Track(this);
         Row = new WinoShellRow(Translator.Buttons_FixAccount, Translator.ToDoPage_NewGroup);
         Bin.SetChild(Row.Root);
         var row = Row;

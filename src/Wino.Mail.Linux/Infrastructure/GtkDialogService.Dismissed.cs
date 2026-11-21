@@ -81,9 +81,6 @@ internal sealed partial class GtkDialogService
     public Task<MailCategoryDialogResult?> ShowEditMailCategoryDialogAsync(MailCategory? category = null)
         => DismissAsync<MailCategoryDialogResult?>(nameof(ShowEditMailCategoryDialogAsync), category?.Name, null);
 
-    public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName, bool canRenameOnServer)
-        => DismissAsync<FolderRenameDialogResult?>(nameof(ShowRenameFolderDialogAsync), folderName, null);
-
     public Task ShowMessageSourceDialogAsync(string messageSource) => DismissAsync(nameof(ShowMessageSourceDialogAsync));
 
     public Task ShowImapValidationFailedDialogAsync(string errorMessage, string protocolLog)

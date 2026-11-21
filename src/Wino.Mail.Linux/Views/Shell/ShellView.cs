@@ -28,6 +28,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     private readonly ShellReadingPane _reading;
     private readonly ShellLayout _layout;
     private readonly ShellSidebarView _sidebar;
+    private readonly ShellSidebarMenuPresenter _sidebarMenus;
     private readonly ShellHeaderBar _header;
     private readonly WinoModeSwitcher _switcher = new();
     private readonly Dictionary<WinoApplicationMode, Gtk.Widget> _placeholders = [];
@@ -63,6 +64,8 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         _reading = new ShellReadingPane(_pane, _layout);
         _sidebar = new ShellSidebarView(ViewModel, Bind, serviceProvider.GetService<IPictureStorageService>(), ReportError);
         _sidebar.ItemInvoked += _layout.DismissOverlaySidebar;
+        SidebarMenuContext = new ShellSidebarMenuContext(MailClient, navigation, FixAccountAsync, ReportError);
+        _sidebarMenus = new ShellSidebarMenuPresenter(_sidebar, SidebarMenuContext);
         _layout.SetSidebar(_sidebar.Root);
         _sidebar.SetFooter(_switcher.Root);
         _switcher.ModeSelected += SwitchMode;
@@ -79,6 +82,8 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     public object? ContentViewModel { get; private set; }
     internal ShellLayout Layout => _layout;
     internal ShellSidebarView Sidebar => _sidebar;
+    internal ShellSidebarMenuPresenter SidebarMenus => _sidebarMenus;
+    internal ShellSidebarMenuContext SidebarMenuContext { get; }
     internal IReadOnlyList<WinoApplicationMode>? VisibleModes => ViewModel.ModeVisibility?.VisibleModes;
 
     public async Task SetContentAsync(IWinoView view, object? parameter)
@@ -168,6 +173,11 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         if (!_navigation.ChangeApplicationMode(mode)) Serilog.Log.Information("The {Mode} mode is not available.", mode);
     }
 
+    private IMailShellClient? MailClient() => ViewModel.TryGetProvider(WinoApplicationMode.Mail, out var provider) ? provider as IMailShellClient : null;
+
+    private Task FixAccountAsync(IAccountNavigationMenuItem account)
+        => account.Account is { } mailAccount && MailClient() is { } mail ? mail.HandleAccountAttentionAsync(mailAccount) : ViewModel.InvokeMenuItemAsync(account);
+
     private static string ModeTitle(WinoApplicationMode mode) => mode switch
     {
         WinoApplicationMode.Calendar => "Wino " + Translator.KeyboardShortcuts_ModeCalendar,
@@ -218,6 +228,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         _header.Dispose();
         _switcher.ModeSelected -= SwitchMode;
         _switcher.Dispose();
+        _sidebarMenus.Dispose();
         _sidebar.Dispose();
         await ClearContentAsync();
         await _pane.ReleaseAsync();

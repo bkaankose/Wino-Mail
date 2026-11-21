@@ -115,8 +115,9 @@ internal static class DebugActions
     // laid out, not attached to a renderer or drew nothing yet is retried on its next frame.
     private static void Screenshot(Gtk.Widget target, string path, int attempt)
     {
-        var root = target.GetRoot() as Gtk.Widget ?? target;
-        if (root is Gtk.Window { Suspended: true })
+        // The nearest native is the popover for a menu item (it has its own surface) and the window otherwise.
+        var root = target.GetNative() as Gtk.Widget ?? target.GetRoot() as Gtk.Widget ?? target;
+        if (target.GetRoot() is Gtk.Window { Suspended: true })
         {
             Serilog.Log.Error("Debug action: {Path} not written, the window is suspended (minimized, hidden or the screen is locked) and draws nothing.", path);
             return;
