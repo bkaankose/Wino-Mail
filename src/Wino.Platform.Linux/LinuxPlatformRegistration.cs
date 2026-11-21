@@ -91,7 +91,8 @@ public static class LinuxPlatformRegistration
         services.Replace(ServiceDescriptor.Singleton<IInstalledBrowserService, LinuxInstalledBrowserService>());
 
         // Browser sign-in: wino://auth-complete callbacks, the custom-scheme OAuth broker and the Wino Account broker are
-        // real; generic OAuth with a loopback redirect uses the shared receiver. Outlook, Gmail and the embedded browser still throw.
+        // real; generic OAuth with a loopback redirect uses the shared receiver. Outlook and Gmail still throw; the
+        // head supplies the embedded browser.
         services.AddSingleton<LinuxExternalAuthCallbacks>();
         services.AddSingleton<IOAuthBrowserBroker>(provider => new LinuxOAuthBrowserBroker(
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<LinuxExternalAuthCallbacks>(),
@@ -100,7 +101,6 @@ public static class LinuxPlatformRegistration
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<LinuxExternalAuthCallbacks>()));
         services.AddSingleton<IOutlookAuthenticationHost, LinuxOutlookAuthenticationHost>();
         services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver, LinuxGoogleAuthorizationCodeReceiver>());
-        services.AddSingleton<IEmbeddedBrowserAuthBroker, LinuxEmbeddedBrowserAuthBroker>();
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));

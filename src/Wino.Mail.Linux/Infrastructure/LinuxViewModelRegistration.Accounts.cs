@@ -10,6 +10,9 @@ internal static partial class LinuxViewModelRegistration
         services.AddSingleton(provider => new ExternalBrowserAuthPresenter(provider.GetRequiredService<IDispatcher>(),
             () => provider.GetRequiredService<GtkDialogService>().ResolveOwner(), provider.GetRequiredService<IClipboardService>()));
         services.AddSingleton<IExternalBrowserAuthenticationPresenter>(provider => provider.GetRequiredService<ExternalBrowserAuthPresenter>());
+        services.AddSingleton(provider => new GtkEmbeddedBrowserAuthBroker(provider.GetRequiredService<IDispatcher>(),
+            () => provider.GetRequiredService<GtkDialogService>().ResolveOwner()));
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => provider.GetRequiredService<GtkEmbeddedBrowserAuthBroker>());
 #if DEBUG
         Diagnostics.UriCaptureLauncher.Register(services);
 #endif

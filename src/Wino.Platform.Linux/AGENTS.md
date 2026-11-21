@@ -14,7 +14,7 @@ Linux platform services for the [Linux proof of concept](../Wino.Mail.Linux/AGEN
 - **The protection key lives in the Secret Service and nowhere else.** `LibsecretSecureItemStore` has no file fallback. When the service is missing or locked, `LinuxPlatformBootstrap.Create` throws `SecretServiceException` and the app stops with a message. Never add an unprotected store, and never use `FileProtectionKeyProvider`, which is for `Wino.Hosting` only.
 - **Item names are permanent.** The schema `app.winomail.Mail.SecureItem`, its attributes `application`, `scope` and `account`, and the folder names in `LinuxPaths` name existing data. Changing one orphans every installation.
 - **Freedesktop standards only.** No GNOME-only or KDE-only D-Bus interface. Open addresses and files through `Gtk.UriLauncher` and `Gtk.FileLauncher`, and pick files through `Gtk.FileDialog`: they use the portals inside a sandbox.
-- **Sign-in:** the browser callbacks (`LinuxExternalAuthCallbacks`), the OAuth and Wino Account brokers are real; Outlook, Gmail and the embedded browser are added by their own packages. Never add an OAuth client id here; the rules are in the root guidance.
+- **Sign-in:** the browser callbacks (`LinuxExternalAuthCallbacks`), the OAuth and Wino Account brokers are real, and the head supplies the embedded browser sign-in (`GtkEmbeddedBrowserAuthBroker`); Outlook and Gmail are added by their own packages. Never add an OAuth client id here; the rules are in the root guidance.
 - Telemetry stays off: `LinuxApplicationConfiguration` returns an empty Sentry address until the head is released.
 
 ## Always

@@ -38,11 +38,3 @@ public sealed class LinuxGoogleAuthorizationCodeReceiver : IGoogleAuthorizationC
         return Task.FromException<GoogleAuthorizationCode>(LinuxSignIn.Exception());
     }
 }
-
-public sealed class LinuxEmbeddedBrowserAuthBroker : IEmbeddedBrowserAuthBroker
-{
-    public Task<EmbeddedBrowserAuthResult> AuthenticateAsync(Uri startUri, Uri redirectUri, CancellationToken cancellationToken)
-    {
-        return Task.FromException<EmbeddedBrowserAuthResult>(LinuxSignIn.Exception());
-    }
-}

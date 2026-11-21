@@ -83,6 +83,29 @@ public static class GtkSignals
         return new Subscription<GObject.ReturningSignalHandler<TSender, TArgs, TResult>>(box, forward, disconnect);
     }
 
+    /// <summary>The <see cref="ConnectReturning{TSender, TArgs, TResult}"/> pattern for returning signals without arguments (close-request).</summary>
+    public static IDisposable ConnectReturning<TSender, TResult>(
+        Action<GObject.ReturningSignalHandler<TSender, TResult>> connect,
+        Action<GObject.ReturningSignalHandler<TSender, TResult>> disconnect,
+        GObject.ReturningSignalHandler<TSender, TResult> handler, TResult fallback)
+        where TSender : GObject.NativeObject
+    {
+        var box = new Box<GObject.ReturningSignalHandler<TSender, TResult>>(handler);
+        GObject.ReturningSignalHandler<TSender, TResult> forward = (sender, args) =>
+        {
+            if (box.Value is not { } target) return fallback;
+            try { return target(sender, args); }
+            catch (Exception exception)
+            {
+                if (HandlerFailed is { } report) report(exception);
+                else Console.Error.WriteLine(exception);
+                return fallback;
+            }
+        };
+        connect(forward);
+        return new Subscription<GObject.ReturningSignalHandler<TSender, TResult>>(box, forward, disconnect);
+    }
+
     /// <summary>Calls <paramref name="changed"/> when <paramref name="property"/> of <paramref name="source"/> changes; dispose disconnects.</summary>
     public static IDisposable OnNotify(GObject.Object source, string property, Action changed)
         => Connect<GObject.Object, GObject.Object.NotifySignalArgs>(
