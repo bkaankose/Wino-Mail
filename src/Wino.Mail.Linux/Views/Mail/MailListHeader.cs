@@ -134,6 +134,9 @@ internal sealed class MailListHeader : IDisposable
         WinoA11y.Label(_filter, string.IsNullOrEmpty(title) ? Translator.Accessibility_FilterMessages : $"{Translator.Accessibility_FilterMessages}: {title}");
     }
 
+    /// <summary>The filter and sort button: the anchor of the menu and of the search filters opened from it.</summary>
+    internal Gtk.Widget FilterButton => _filter;
+
 #if DEBUG
     internal Gtk.Widget DebugFilterButton => _filter;
 
