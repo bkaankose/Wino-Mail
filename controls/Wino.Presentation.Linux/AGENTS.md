@@ -1,6 +1,6 @@
 # Wino.Presentation.Linux
 
-GTK 4 and libadwaita presentation helpers for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin of `Wino.Presentation.AppKit`. It holds the binding glue (`Bindings/GtkBinder`), main-loop scheduling (`MainLoop`), signal helpers (`GtkSignals`), accessibility (`WinoA11y`), weak events (`WinoWeakEvent`) and the live-object registry for leak checks (`WinoLiveObjects`) the stylesheet (`Style/`: `WinoStyle`, `WinoCssClass`, `WinoZone` and the embedded `wino.css`) menus (`WinoMenus`, `ContextMenu`) and the WinoIcons fonts (`WinoIcons`, `WinoIcon`). List helpers and the theme come later. This file is binding for `controls/Wino.Presentation.Linux`.
+GTK 4 and libadwaita presentation helpers for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin of `Wino.Presentation.AppKit`. It holds the binding glue (`Bindings/GtkBinder`), main-loop scheduling (`MainLoop`), signal helpers (`GtkSignals`), accessibility (`WinoA11y`), weak events (`WinoWeakEvent`) and the live-object registry for leak checks (`WinoLiveObjects`) the stylesheet (`Style/`: `WinoStyle`, `WinoCssClass`, `WinoZone` and the embedded `wino.css`) menus (`WinoMenus`, `ContextMenu`) and the WinoIcons fonts (`WinoIcons`, `WinoIcon`) and the list stack (`Lists/`: `ObservableListModel`, `WinoCellFactory`, `WinoHeaderFactory`, `ListSections`, `ListViews`). This file is binding for `controls/Wino.Presentation.Linux`.
 
 ## Read first
 
@@ -22,6 +22,9 @@ GTK 4 and libadwaita presentation helpers for the [Linux head](../../src/Wino.Ma
 - The icon set is named in two places only: `WinoIconSet` in the project file and `WinoIcons.SetFamily`. The fonts are registered for the process (`WinoIcons.Register`); nothing is installed into the user's font folders.
 - An icon holds no handler: light, dark, high-contrast and icon-style changes are one stylesheet reload in `WinoIcons`.
 - Colourful icons always draw the mono outline over the colour font (`WinoIcon`): the GPU renderers draw the colour font's foreground layer white.
+- `ManagedItem` is the only GObject subclass; it is not sealed and has no constructor (generator rules). Do not add item subclasses: put the object into `Value`. `WinoPresentation.Initialize()` registers it and runs before the application object is created.
+- A `WinoCellFactory` and an `ObservableListModel` are disposed by their owner; an undisposed factory leaks its cells.
+- With `ListSections`, positions are positions of the sorted model: convert them with `ItemAt`, never with the model's indexer.
 - The Release gate (Native AOT, trimming, warnings as errors) applies. No reflection.
 
 ## Check your change

@@ -22,7 +22,7 @@ The Linux app, as a proof of concept for issue #1216: GTK 4 and libadwaita throu
 
 ## How a view consumes a ViewModel
 
-A view is a plain class that builds its widgets in the constructor and exposes `Root`. There is no XML, no Blueprint and no GObject subclass.
+A view is a plain class that builds its widgets in the constructor and exposes `Root`. There is no XML, no Blueprint and no GObject subclass except `ManagedItem`, the list item type.
 
 - A routed view derives from `WinoView<TViewModel>` (`Infrastructure/WinoView.cs`) and is created with `PageScopes.Create<T>(services)`: the view and its transient ViewModel live in a DI scope of their own, which `ReleaseAsync` disposes. Views are not registered in the container; a view needs a public constructor whose parameters are container services, the ViewModel first. The view binds through `Bind` (a `GtkBinder` from `Wino.Presentation.Linux`) and `Bindings`, subscribes to messages with `Subscribe`, and overrides `InitializeAsync` and `DeactivateAsync`. `MailListView` is the example.
 - `GtkNavigationService` is the host of the shared `NavigationCoordinator`. Routes are in `Infrastructure/LinuxPageRegistry.<Area>.cs` (`Register<TView>(page, host)`), head services in `Infrastructure/LinuxViewModelRegistration.<Area>.cs`; a new page edits neither `LinuxComposition.cs` nor `GtkNavigationService.cs`. A page without a route is refused. The reading pane (`ReadingPaneHost`) belongs to whoever calls `AttachRenderingHost`, today the shell; it keeps a page only when the view implements `IRenavigableView` (the reader) or is the idle view, and releases any other page when the next one shows.
@@ -32,7 +32,7 @@ A view is a plain class that builds its widgets in the constructor and exposes `
 - Sidebar rows (`ShellSidebarView`) navigate on activation and on a selection made from outside (an accessibility client); a selection that follows keyboard focus does not navigate.
 - The mail list sends `ActiveMailFolderChangedEvent` after `OnNavigatedTo` and awaits `WaitForCurrentFolderInitializationAsync`. Without it the shell never shows its menu.
 - Rows come from shared presentation code: `ShellMenuRowPresentation` for the sidebar, `MailListProjection`, `MailRowPresentation` and `MailListSelectionSnapshotBuilder` for the list. A cell only renders.
-- A `Gtk.ListView` model holds row keys in a `Gtk.StringList`; a cell finds its row by position.
+- New lists use `ObservableListModel<T>`, `WinoCellFactory` and `ListSections` from `Wino.Presentation.Linux.Lists`; the mail list still uses its `Gtk.StringList` of row keys until ML-02. A page disposes its factories, sections and model when it is released (`Bindings.Own`).
 
 ```csharp
 public MailListView(MailListPageViewModel viewModel, WinoViewServices services) : base(viewModel, services)
