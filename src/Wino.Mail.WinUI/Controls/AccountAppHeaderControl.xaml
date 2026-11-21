@@ -77,7 +77,12 @@
             SelectionMode="Single"
             Visibility="{x:Bind ViewModel.IsSourceChoiceVisible, Mode=OneWay}">
             <ItemsView.Layout>
-                <StackLayout Spacing="4" />
+                <UniformGridLayout
+                    ItemsStretch="Fill"
+                    MaximumRowsOrColumns="2"
+                    MinColumnSpacing="4"
+                    MinRowSpacing="4"
+                    Orientation="Horizontal" />
             </ItemsView.Layout>
             <ItemsView.ItemTemplate>
                 <DataTemplate x:DataType="accountSettings:AccountAppSourceOption">
@@ -86,6 +91,7 @@
                         AutomationProperties.HelpText="{x:Bind Description}"
                         AutomationProperties.Name="{x:Bind Title}">
                         <StackPanel
+                            MinHeight="72"
                             Padding="16,12"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
