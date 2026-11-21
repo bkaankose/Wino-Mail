@@ -35,7 +35,7 @@
                             Description="{x:Bind Detail}"
                             Header="{x:Bind Title}">
                             <controls:SettingsCard.HeaderIcon>
-                                <coreControls:WinoFontIcon Icon="People" />
+                                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
                             </controls:SettingsCard.HeaderIcon>
                         </controls:SettingsCard>
                     </DataTemplate>
@@ -51,7 +51,7 @@
                 IsClickEnabled="True"
                 Visibility="{x:Bind ViewModel.IsCategoriesVisible, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Tag" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Tag" />
                 </controls:SettingsCard.HeaderIcon>
             </accessibilityControls:WinoSettingsCard>
 

@@ -828,7 +828,7 @@
                 Header="{x:Bind domain:Translator.AccountSignIn_CalDavUnusedTitle, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsCalDavUnusedHintVisible, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Calendar" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Calendar" />
                 </controls:SettingsCard.HeaderIcon>
                 <Button
                     AutomationProperties.AutomationId="ImapSetupOpenCalendarButton"
@@ -841,7 +841,7 @@
                 Header="{x:Bind domain:Translator.AccountSignIn_CardDavUnusedTitle, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsCardDavUnusedHintVisible, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="People" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
                 </controls:SettingsCard.HeaderIcon>
                 <Button
                     AutomationProperties.AutomationId="ImapSetupOpenPeopleButton"

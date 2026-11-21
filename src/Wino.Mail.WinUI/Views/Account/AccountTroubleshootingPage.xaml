@@ -16,7 +16,7 @@
             Description="{x:Bind domain:Translator.ProtocolLog_EnableDescription, Mode=OneTime}"
             Header="{x:Bind domain:Translator.ProtocolLog_EnableTitle, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Pulse" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Pulse" />
             </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch
                 AutomationProperties.AutomationId="AccountTroubleshootingProtocolLogToggle"
@@ -29,7 +29,7 @@
             Description="{x:Bind domain:Translator.ProtocolLog_ExportDescription, Mode=OneTime}"
             Header="{x:Bind domain:Translator.ProtocolLog_ExportTitle, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="ArrowDownload" />
             </controls:SettingsCard.HeaderIcon>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button

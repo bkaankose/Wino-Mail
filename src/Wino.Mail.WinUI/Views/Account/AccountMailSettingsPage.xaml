@@ -99,7 +99,7 @@
                 Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsSenderNameEditable, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Person" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Person" />
                 </controls:SettingsCard.HeaderIcon>
                 <TextBox
                     Width="250"
@@ -116,7 +116,7 @@
                 Header="{x:Bind domain:Translator.SettingsManageAliases_Title, Mode=OneTime}"
                 IsClickEnabled="True">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="PersonSwap" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="PersonSwap" />
                 </controls:SettingsCard.HeaderIcon>
             </accessibilityControls:WinoSettingsCard>
 
@@ -127,7 +127,7 @@
                 Header="{x:Bind domain:Translator.SettingsSignature_Title, Mode=OneTime}"
                 IsClickEnabled="True">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Signature" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Signature" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     AutomationProperties.AutomationId="AccountMailSignatureToggle"
@@ -141,7 +141,7 @@
                 Header="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Title, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsAppendMessageSettingVisible, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="MailArrowUp" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="MailArrowUp" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     AutomationProperties.AutomationId="AccountMailAppendSentToggle"
@@ -157,7 +157,7 @@
                 Description="{x:Bind domain:Translator.SettingsFolderOptions_Description, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.SettingsFolderOptions_Title, Mode=OneTime}">
                 <controls:SettingsExpander.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="FolderSync" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="FolderSync" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
                     <accessibilityControls:WinoSettingsCard
@@ -167,7 +167,7 @@
                         Header="{x:Bind domain:Translator.FolderCustomization_EntryCardTitle, Mode=OneTime}"
                         IsClickEnabled="True">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="List" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="List" />
                         </controls:SettingsCard.HeaderIcon>
                     </accessibilityControls:WinoSettingsCard>
                     <accessibilityControls:WinoSettingsCard
@@ -177,7 +177,7 @@
                         Header="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Title, Mode=OneTime}"
                         IsClickEnabled="True">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="Settings" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Settings" />
                         </controls:SettingsCard.HeaderIcon>
                     </accessibilityControls:WinoSettingsCard>
                     <controls:SettingsCard
@@ -233,7 +233,7 @@
                 Header="{x:Bind domain:Translator.SettingsMailCategories_Title, Mode=OneTime}"
                 IsClickEnabled="True">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Tag" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Tag" />
                 </controls:SettingsCard.HeaderIcon>
             </accessibilityControls:WinoSettingsCard>
 
@@ -244,7 +244,7 @@
                 Header="{x:Bind domain:Translator.MailFilters_Title, Mode=OneTime}"
                 IsClickEnabled="True">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Filter" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Filter" />
                 </controls:SettingsCard.HeaderIcon>
             </accessibilityControls:WinoSettingsCard>
 
@@ -254,7 +254,7 @@
                 Header="{x:Bind domain:Translator.SettingsFocusedInbox_Title, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsFocusedInboxSupported, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="MailInboxCheckmark" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="MailInboxCheckmark" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     AutomationProperties.AutomationId="AccountMailFocusedInboxToggle"
@@ -270,7 +270,10 @@
                 IsClickEnabled="True"
                 Visibility="{x:Bind ViewModel.CanAccessWinoIntelligence, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
+                        Icon="WinoIntelligence" />
                 </controls:SettingsCard.HeaderIcon>
             </accessibilityControls:WinoSettingsCard>
 
@@ -284,7 +287,7 @@
                 Header="{x:Bind domain:Translator.SettingsUnreadBadges_Card_Title, Mode=OneTime}"
                 IsClickEnabled="True">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="AlertBadge" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="AlertBadge" />
                 </controls:SettingsCard.HeaderIcon>
             </accessibilityControls:WinoSettingsCard>
 
@@ -293,7 +296,7 @@
                 Description="{x:Bind domain:Translator.SettingsJumpList_Description, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.SettingsJumpList_Title, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="TaskList" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="TaskList" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     AutomationProperties.AutomationId="AccountMailJumpListToggle"
@@ -307,7 +310,7 @@
                 Description="{x:Bind domain:Translator.SettingsHideNotificationContent_Description, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.SettingsHideNotificationContent_Title, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="EyeOff" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="EyeOff" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     AutomationProperties.AutomationId="AccountMailHideNotificationContentToggle"
@@ -323,7 +326,7 @@
                     Description="{x:Bind domain:Translator.POP3Setup_LeaveOnServerDescription, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.POP3Setup_LeaveOnServerTitle, Mode=OneTime}">
                     <controls:SettingsCard.HeaderIcon>
-                        <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="ArrowDownload" />
                     </controls:SettingsCard.HeaderIcon>
                     <ToggleSwitch
                         AutomationProperties.AutomationId="AccountMailPop3LeaveOnServerToggle"

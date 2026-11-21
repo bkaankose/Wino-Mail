@@ -81,6 +81,7 @@
                     Spacing="10">
                     <coreControls:WinoFontIcon
                         VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                         Icon="Sync" />
                     <StackPanel>
@@ -98,6 +99,7 @@
                     Visibility="{x:Bind ViewModel.IsSignInStatusVisible, Mode=OneWay}">
                     <coreControls:WinoFontIcon
                         VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                         Icon="LockClosed" />
                     <StackPanel>
@@ -121,7 +123,7 @@
                 Description="{x:Bind domain:Translator.AccountHub_NameDescription, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.AccountHub_NameHeader, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Person" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Person" />
                 </controls:SettingsCard.HeaderIcon>
                 <TextBox
                     Width="250"
@@ -136,7 +138,7 @@
                 Description="{x:Bind ViewModel.ProfilePictureDescription, Mode=OneWay}"
                 Header="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureTitle, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Person" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Person" />
                 </controls:SettingsCard.HeaderIcon>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <ProgressRing
@@ -168,7 +170,7 @@
                 Description="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Color" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Color" />
                 </controls:SettingsCard.HeaderIcon>
                 <Grid RowSpacing="8">
                     <Grid.RowDefinitions>
@@ -219,7 +221,7 @@
                         Tag="{x:Bind}"
                         Visibility="{x:Bind IsOffered, Mode=OneWay}">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind Icon}" />
                         </controls:SettingsCard.HeaderIcon>
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <ProgressRing
@@ -257,7 +259,7 @@
             IsClickEnabled="True"
             Visibility="{x:Bind ViewModel.IsSignInRowVisible, Mode=OneWay}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Key" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Key" />
             </controls:SettingsCard.HeaderIcon>
             <TextBlock
                 VerticalAlignment="Center"
@@ -273,7 +275,7 @@
             IsClickEnabled="True"
             Visibility="{x:Bind ViewModel.IsTroubleshootingVisible, Mode=OneWay}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Wrench" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Wrench" />
             </controls:SettingsCard.HeaderIcon>
         </accessibilityControls:WinoSettingsCard>
 
@@ -282,7 +284,7 @@
             Description="{x:Bind ViewModel.RemoveDescription, Mode=OneWay}"
             Header="{x:Bind domain:Translator.AccountHub_RemoveTitle, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Delete" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Delete" />
             </controls:SettingsCard.HeaderIcon>
             <Button
                 MinWidth="100"

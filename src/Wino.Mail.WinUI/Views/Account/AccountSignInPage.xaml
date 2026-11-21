@@ -31,7 +31,7 @@
             Description="{x:Bind ViewModel.Address, Mode=OneWay}"
             Header="{x:Bind ViewModel.SignedInTitle, Mode=OneWay}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="LockClosed" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="LockClosed" />
             </controls:SettingsCard.HeaderIcon>
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <ProgressRing
@@ -57,7 +57,7 @@
             IsExpanded="{x:Bind ViewModel.NeedsAttention, Mode=OneWay}"
             Visibility="{x:Bind ViewModel.IsExchangePasswordAuth, Mode=OneWay}">
             <controls:SettingsExpander.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Key" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Key" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard
@@ -100,7 +100,7 @@
                 Description="{x:Bind ViewModel.ExchangeServerDescription, Mode=OneWay}"
                 Header="{x:Bind domain:Translator.ExchangeSetup_TransportHeader, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="GlobeDesktop" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="GlobeDesktop" />
                 </controls:SettingsCard.HeaderIcon>
                 <ComboBox
                     MinWidth="220"

@@ -35,7 +35,7 @@
             Description="{x:Bind ViewModel.AppItem.UseDescription, Mode=OneWay}"
             Header="{x:Bind ViewModel.AppItem.UseTitle, Mode=OneWay}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="{x:Bind ViewModel.AppItem.Icon, Mode=OneWay}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind ViewModel.AppItem.Icon, Mode=OneWay}" />
             </controls:SettingsCard.HeaderIcon>
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <ProgressRing
@@ -98,7 +98,7 @@
             Header="{x:Bind ViewModel.SourceText, Mode=OneWay}"
             Visibility="{x:Bind ViewModel.IsSourceTextVisible, Mode=OneWay}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Sync" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Sync" />
             </controls:SettingsCard.HeaderIcon>
         </controls:SettingsCard>
 
@@ -108,7 +108,7 @@
             Header="{x:Bind ViewModel.ServerRowTitle, Mode=OneWay}"
             Visibility="{x:Bind ViewModel.IsServerRowVisible, Mode=OneWay}">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="GlobeDesktop" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="GlobeDesktop" />
             </controls:SettingsCard.HeaderIcon>
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <TextBlock

@@ -42,21 +42,25 @@
                     Spacing="8"
                     ToolTipService.ToolTip="{x:Bind CapabilitySummary}">
                     <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="16"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Icon="Mail"
                         Visibility="{x:Bind IsMailOn}" />
                     <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="16"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Icon="Calendar"
                         Visibility="{x:Bind IsCalendarOn}" />
                     <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="16"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Icon="People"
                         Visibility="{x:Bind IsPeopleOn}" />
                     <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="16"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Icon="CheckmarkCircle"

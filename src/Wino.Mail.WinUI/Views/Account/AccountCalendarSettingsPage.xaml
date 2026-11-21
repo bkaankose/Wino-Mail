@@ -26,7 +26,7 @@
                 Header="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendar, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.HasCalendars, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Star" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Star" />
                 </controls:SettingsCard.HeaderIcon>
                 <ComboBox
                     MinWidth="200"
@@ -61,7 +61,10 @@
                             Header="{x:Bind Name, Mode=OneWay}"
                             IsExpanded="False">
                             <controls:SettingsExpander.HeaderIcon>
-                                <coreControls:WinoFontIcon Foreground="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" Icon="Calendar" />
+                                <coreControls:WinoFontIcon
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    Foreground="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                    Icon="Calendar" />
                             </controls:SettingsExpander.HeaderIcon>
                             <ToggleSwitch
                                 MinWidth="0"
@@ -79,7 +82,7 @@
                                     Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}"
                                     Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
                                     <controls:SettingsCard.HeaderIcon>
-                                        <coreControls:WinoFontIcon Icon="Color" />
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Color" />
                                     </controls:SettingsCard.HeaderIcon>
                                     <Button
                                         MinWidth="40"
@@ -116,7 +119,7 @@
                                     Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}"
                                     Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
                                     <controls:SettingsCard.HeaderIcon>
-                                        <coreControls:WinoFontIcon Icon="Calendar" />
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Calendar" />
                                     </controls:SettingsCard.HeaderIcon>
                                     <ComboBox
                                         AutomationProperties.AutomationId="AccountCalendarShowAsComboBox"
@@ -138,7 +141,7 @@
                                     Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminderDescription, Mode=OneTime}"
                                     Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminder, Mode=OneTime}">
                                     <controls:SettingsCard.HeaderIcon>
-                                        <coreControls:WinoFontIcon Icon="Reminder" />
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Reminder" />
                                     </controls:SettingsCard.HeaderIcon>
                                     <ComboBox
                                         AutomationProperties.AutomationId="AccountCalendarDefaultReminderComboBox"
