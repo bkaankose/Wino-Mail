@@ -855,7 +855,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         // Shared sign-ins collapse to one checkbox; a server that uses its own keeps its fields open.
         UseIncomingCredentialsForOutgoing = IsSameCredential(OutgoingServerUsername, OutgoingServerPassword, IncomingServerUsername, IncomingServerPassword);
-        UseMailCredentialsForDav = IsSameCredential(CalDavUsername, CalDavPassword, IncomingServerUsername, IncomingServerPassword);
+        UseMailCredentialsForDav = IsSameCredential(CalDavUsername, CalDavPassword, MailSharedDavUsername, IncomingServerPassword);
 
         SelectedIncomingServerAuthenticationMethodIndex = FindAuthenticationMethodIndex(serverInformation.IncomingAuthenticationMethod);
         SelectedIncomingServerConnectionSecurityIndex = FindConnectionSecurityIndex(serverInformation.IncomingServerSocketOption);

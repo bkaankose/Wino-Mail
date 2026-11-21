@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Validation;
@@ -234,7 +235,13 @@ public partial class ImapCalDavSettingsPageViewModel : IConfirmBackNavigation
 
     // Without mail the sign-in step is the DAV sign-in, so the DAV fields are used as they are.
     private bool IsDavSharingMailCredentials => IsMailSupportEnabled && UseMailCredentialsForDav && !IsIncomingOAuthSelected;
-    private string EffectiveDavUsername => IsDavSharingMailCredentials ? IncomingServerUsername : CalDavUsername;
+    private string EffectiveDavUsername => IsDavSharingMailCredentials ? MailSharedDavUsername : CalDavUsername;
+
+    // A catalog provider names its DAV sign-in, which can differ from the mail user name (iCloud signs in to mail with
+    // the local part and to CalDAV with the address) while the password is the same.
+    private string MailSharedDavUsername => _editingSpecialImapProvider != SpecialImapProvider.None && !string.IsNullOrWhiteSpace(CalDavUsername)
+        ? CalDavUsername
+        : IncomingServerUsername;
     private string EffectiveDavPassword => IsDavSharingMailCredentials ? IncomingServerPassword : CalDavPassword;
 
     private string AddressDomain => MailAccountAddressValidator.TryGetDomain(EmailAddress?.Trim(), out var domain)
@@ -677,6 +684,13 @@ public partial class ImapCalDavSettingsPageViewModel : IConfirmBackNavigation
 
     private async Task DiscoverCalDavServiceUrlAsync()
     {
+        var knownUrl = _knownImapProviderCatalog.ResolveCalDavServiceUrl(_editingSpecialImapProvider, IncomingServer);
+        if (!string.IsNullOrWhiteSpace(knownUrl))
+        {
+            CalDavServiceUrl = knownUrl;
+            return;
+        }
+
         try
         {
             var discoveredUri = await _autoDiscoveryService.DiscoverCalDavServiceUriAsync(EmailAddress.Trim());

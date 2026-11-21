@@ -704,6 +704,11 @@ public partial class AccountSetupPageViewModel
                 IsContactAccessGranted = IsContactRemote,
                 ContactIntegrationSource = IsContactRemote ? AccountIntegrationSource.Dav : AccountIntegrationSource.Local
             }, creation);
+
+            // The catalog clears the DAV sign-in while no app syncs, but the found servers are still asked with it: a
+            // provider such as iCloud signs in to mail with the address's local part and to CalDAV with the address.
+            if (string.IsNullOrWhiteSpace(server.CalDavUsername))
+                server.CalDavUsername = string.IsNullOrWhiteSpace(loginAddress) ? address : loginAddress;
         }
         else if (imap.ServerInformation != null)
         {
