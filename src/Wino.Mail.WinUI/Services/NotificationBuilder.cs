@@ -625,7 +625,7 @@ public class NotificationBuilder : INotificationBuilder
 
         if (!_appLockService.AreNotificationsReadOnly)
         {
-            builder.AddButton(CreateButton(Translator.ToDoPage_MarkCompleted, "mail-markread")
+            builder.AddButton(CreateButton(Translator.ToDoPage_MarkCompleted, "task-complete")
                 .AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskCompleteAction)
                 .AddArgument(Constants.ToastTaskIdKey, taskId)
                 .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
