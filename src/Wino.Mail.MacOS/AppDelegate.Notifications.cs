@@ -36,6 +36,7 @@ public sealed partial class AppDelegate
         (builder as AppleNotificationBuilder)?.RegisterCategories();
         _notificationResponses.Attach(_services);
         Observe(_services.GetRequiredService<ICalendarReminderServer>().StartAsync());
+        Observe(_services.GetRequiredService<MacCalendarReminderScheduler>().StartAsync());
         Observe(builder.UpdateTaskbarIconBadgeAsync());
 #if DEBUG
         RegisterNotificationDebugCommands(_services);
@@ -52,6 +53,21 @@ public sealed partial class AppDelegate
     private static void RegisterNotificationDebugCommands(IServiceProvider services)
     {
         var builder = services.GetRequiredService<INotificationBuilder>();
+        // "reminder-plan" replans the scheduled calendar reminders; "reminder-pending" lists them with their trigger time.
+        MacDebugBridge.Register("reminder-plan", async _ =>
+        {
+            await services.GetRequiredService<MacCalendarReminderScheduler>().ReplanAsync();
+            return "ok";
+        });
+        MacDebugBridge.Register("reminder-pending", async _ =>
+        {
+            var requests = await UNUserNotificationCenter.Current.GetPendingNotificationRequestsAsync();
+            var calendar = requests
+                .Where(request => request.Trigger is UNCalendarNotificationTrigger && request.Identifier.StartsWith("calendar-reminder-", StringComparison.Ordinal))
+                .Select(request => $"{request.Identifier} at {((UNCalendarNotificationTrigger)request.Trigger!).NextTriggerDate?.ToString() ?? "?"} title={request.Content.Title}")
+                .ToList();
+            return $"{calendar.Count} scheduled: " + string.Join(" | ", calendar);
+        });
         // "notify-test mail|calendar [search]|people|task" posts a test notification through the real builder.
         MacDebugBridge.Register("notify-test", async args =>
         {
