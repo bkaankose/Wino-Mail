@@ -461,35 +461,47 @@
                                 </StackPanel>
                                 <DropDownButton.Flyout>
                                     <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortImportance"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="importance"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'importance'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortImportance, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortDueDate"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="due"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'due'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortDueDate, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortMyDay"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="myday"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'myday'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortMyDay, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortAlphabetically"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="alphabetical"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'alphabetical'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortAlphabetically, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortCreationDate"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="created"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'created'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortCreationDate, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortManual"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="manual"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'manual'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}" />
                                     </MenuFlyout>
                                 </DropDownButton.Flyout>
@@ -548,35 +560,47 @@
                                         Text="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}" />
 
                                     <MenuFlyoutSubItem Text="{x:Bind domain:Translator.ToDoPage_SortBy, Mode=OneTime}">
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortImportance"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="importance"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'importance'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortImportance, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortDueDate"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="due"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'due'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortDueDate, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortMyDay"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="myday"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'myday'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortMyDay, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortAlphabetically"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="alphabetical"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'alphabetical'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortAlphabetically, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortCreationDate"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="created"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'created'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortCreationDate, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortManual"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="manual"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'manual'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}" />
                                     </MenuFlyoutSubItem>
 

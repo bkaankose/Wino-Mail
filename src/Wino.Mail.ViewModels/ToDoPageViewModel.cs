@@ -716,7 +716,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             if (message.List is not null)
             {
                 _pendingListStates.Remove(message.List.Id);
-                _pendingDeletedListIds.Remove(message.List.Id);
+
+                // The failed delete took the list's tasks off the page; only a reload brings them back.
+                if (_pendingDeletedListIds.Remove(message.List.Id) && !_isPreparedForShellShutdown)
+                    _ = ReloadAsync();
             }
 
             return;
@@ -786,6 +789,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             if (existing is not null)
                 TaskLists.Remove(existing);
 
+            // A list delete removes its tasks on the server without a delete message for each task.
+            RemoveListTasks(message.List.Id);
             _listMenuItems.Remove(message.List.Id);
             if (SelectedList?.Id == message.List.Id)
                 SelectSurface(TaskViewKind.MyDay, null);
@@ -821,6 +826,30 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             _listToOpenOnCreate = null;
             SelectSurface(TaskViewKind.All, message.List);
         }
+    }
+
+    private void RemoveListTasks(Guid listId)
+    {
+        foreach (var taskId in _menuCountTasks.Values.Where(task => task.TaskListId == listId).Select(task => task.Id).ToList())
+            _menuCountTasks.Remove(taskId);
+
+        var removed = _taskItems.Values.Where(item => item.Task.TaskListId == listId).ToList();
+        foreach (var item in removed)
+        {
+            _taskItems.Remove(item.Id);
+            _taskOrder.Remove(item.Id);
+        }
+
+        foreach (var suggestion in Suggestions.Where(item => item.Task.TaskListId == listId).ToList())
+            Suggestions.Remove(suggestion);
+
+        if (removed.Count == 0)
+            return;
+
+        if (SelectedTask is { } selected && removed.Contains(selected))
+            SelectedTask = null;
+
+        ReconcileTaskGroups();
     }
 
     /// <summary>
@@ -1449,6 +1478,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 .Where(task => !snapshot.PendingDeletedTaskIds.Contains(task.Id) &&
                                snapshot.PendingTasks.All(pending => pending.Id != task.Id))
                 .Concat(snapshot.PendingTasks)
+                .Where(task => !_pendingDeletedListIds.ContainsKey(task.TaskListId))
                 .ToList();
             ReconcileLoadedTasks(effectiveTasks, snapshot.ShowListName);
             ReconcileSuggestions(suggestions);
@@ -1610,8 +1640,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     /// A typed enum parameter would arrive as a string from XAML and fail the cast.
     /// </summary>
     [RelayCommand]
-    private void SetSort(string sort)
-        => SelectedSort = sort switch
+    private void SetSort(string sort) => SelectedSort = ParseSortKey(sort);
+
+    public static TaskSortKind ParseSortKey(string sort)
+        => sort switch
         {
             "importance" => TaskSortKind.Importance,
             "myday" => TaskSortKind.MyDay,
@@ -2885,7 +2917,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private bool TaskMatchesCurrentSurface(AccountTask task)
     {
-        if (task is null || IsEmptyAccountSelected)
+        if (task is null || IsEmptyAccountSelected || _pendingDeletedListIds.ContainsKey(task.TaskListId))
             return false;
 
         if (SelectedList is not null)
@@ -3392,6 +3424,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         => stored
             .Where(task => !_pendingDeletedTaskIds.ContainsKey(task.Id) && !_pendingTaskStates.ContainsKey(task.Id))
             .Concat(_pendingTaskStates.Values)
+            .Where(task => !_pendingDeletedListIds.ContainsKey(task.TaskListId))
             .ToList();
 
     private IReadOnlyList<AccountTaskList> MergePendingLists(IReadOnlyList<AccountTaskList> stored)

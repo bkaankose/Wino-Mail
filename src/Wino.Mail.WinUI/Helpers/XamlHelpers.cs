@@ -27,6 +27,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.HoverActions;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -190,6 +191,8 @@ public static class XamlHelpers
     // To Do
     // The star reuses the contacts favorite idiom: filled glyph when set, outline when not.
     public static WinoIconGlyph GetTaskImportanceGlyph(bool isImportant) => isImportant ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star;
+
+    public static bool IsTaskSort(TaskSortKind selectedSort, string sortKey) => ToDoPageViewModel.ParseSortKey(sortKey) == selectedSort;
 
     /// <summary>
     /// Task state never resolves a brush here. A brush taken from the application dictionary
