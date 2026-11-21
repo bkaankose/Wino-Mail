@@ -9,5 +9,7 @@ internal sealed partial class LinuxPageRegistry
     {
         Register<ReadComposePanePage>(WinoPage.ReadComposePanePage, LinuxPageHost.Settings);
         Register<ReaderActionsPage>(WinoPage.ReaderActionsPage, LinuxPageHost.Settings);
+        Register<PrivacySecurityPage>(WinoPage.PrivacySecurityPage, LinuxPageHost.Settings);
+        Register<RemoteContentRulesPage>(WinoPage.RemoteContentRulesPage, LinuxPageHost.Settings);
     }
 }

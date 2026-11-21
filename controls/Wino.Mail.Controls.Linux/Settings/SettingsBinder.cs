@@ -179,11 +179,15 @@ public sealed class SettingsBinder(BindingScope scope, IDispatcher dispatcher, A
         return label;
     }
 
-    /// <summary>An activatable row whose chevron (or, for <paramref name="external"/>, the Open glyph) button runs the command.</summary>
+    /// <summary>
+    /// An activatable row whose chevron (or, for <paramref name="external"/>, the Open glyph) button runs the command;
+    /// <paramref name="detail"/> (a value label) sits before the button.
+    /// </summary>
     public Adw.ActionRow Command(string title, string? description, WinoIconGlyph icon, ICommand command,
-        Func<object?>? parameter = null, bool external = false)
+        Func<object?>? parameter = null, bool external = false, Gtk.Widget? detail = null)
     {
         var row = WinoSettingsRows.Action(title, description, icon);
+        if (detail is not null) WinoSettingsRows.Suffix(row, detail);
         var button = WinoSettingsRows.Suffix(row, external ? WinoSettingsRows.GlyphButton(WinoIconGlyph.Open, title) : WinoSettingsRows.ChevronButton(title));
         row.SetActivatableWidget(button);
         var binding = Scope.Own(new CommandBinding(command, parameter ?? (static () => null), row.SetSensitive, dispatcher, error));

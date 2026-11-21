@@ -87,6 +87,7 @@ public static class LinuxPlatformRegistration
         services.AddSingleton<IUnderlyingThemeService, LinuxUnderlyingThemeService>();
         services.AddSingleton<IMicrophoneService, LinuxMicrophoneService>();
         services.Replace(ServiceDescriptor.Singleton<INotificationBuilder, LinuxNotificationBuilder>());
+        services.Replace(ServiceDescriptor.Singleton<IInstalledBrowserService, LinuxInstalledBrowserService>());
 
         // Interactive sign-in does not exist on Linux yet; stored passwords (IMAP, DAV) work.
         services.AddSingleton<IOutlookAuthenticationHost, LinuxOutlookAuthenticationHost>();
