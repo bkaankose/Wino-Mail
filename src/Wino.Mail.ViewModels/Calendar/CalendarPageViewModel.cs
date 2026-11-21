@@ -1084,6 +1084,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 }
             }).ConfigureAwait(false);
 
+            await ClearFinishedBusyStatesAsync(lifetimeVersion).ConfigureAwait(false);
+
             loadSucceeded = true;
         }
         catch (OperationCanceledException)
@@ -1392,6 +1394,40 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         {
             DisplayDetailsCalendarItemViewModel.IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// A load marks the events whose operation was still queued as busy. When that operation finishes
+    /// before the loaded items reach <see cref="CalendarItems"/> (typically right after the composer
+    /// saves and navigates back), its completion message finds nothing to clear and the event stays
+    /// busy. After every load the operations are checked again, and finished ones end the busy state.
+    /// </summary>
+    private async Task ClearFinishedBusyStatesAsync(long lifetimeVersion)
+    {
+        List<AccountCalendarViewModel> activeCalendars = null;
+
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
+        {
+            activeCalendars = CalendarItems.Any(item => item.IsBusy)
+                ? AccountCalendarStateService.ActiveCalendars.ToList()
+                : null;
+        }).ConfigureAwait(false);
+
+        if (activeCalendars == null || !IsPageActive(lifetimeVersion))
+            return;
+
+        var pendingCalendarItemIds = await GetPendingCalendarItemIdsAsync(activeCalendars, lifetimeVersion, new Dictionary<Guid, CalendarItem>()).ConfigureAwait(false);
+
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
+        {
+            foreach (var calendarItemViewModel in CalendarItems)
+            {
+                if (calendarItemViewModel.IsBusy && !HasPendingCalendarOperation(calendarItemViewModel.CalendarItem, pendingCalendarItemIds))
+                {
+                    calendarItemViewModel.IsBusy = false;
+                }
+            }
+        }).ConfigureAwait(false);
     }
 
     /// <summary>
