@@ -89,6 +89,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.MailListHeaderDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.SignInDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.EmbeddedSignInDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.MailContextMenuDebugActions.Register(application, () => _services);
         }
 #endif
     }

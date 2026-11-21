@@ -16,7 +16,14 @@ public static class ContextMenu
     /// Dispose the returned attachment with the view that owns the widget.
     /// </summary>
     public static ContextMenuAttachment Attach(Gtk.Widget widget, Action<WinoMenuBuilder> populate)
-        => new(widget, populate);
+        => new(widget, populate, null);
+
+    /// <summary>
+    /// The triggers of <see cref="Attach"/> for a menu that has to load data first: <paramref name="requested"/> gets the
+    /// point in widget coordinates (null for the keyboard) and shows the menu itself with <see cref="Show"/> once it is built.
+    /// </summary>
+    public static ContextMenuAttachment AttachRequest(Gtk.Widget widget, Action<double?, double?> requested)
+        => new(widget, null, requested);
 
     /// <summary>
     /// Shows <paramref name="menu"/> in a popover on <paramref name="widget"/>, pointing at (<paramref name="x"/>,
@@ -81,7 +88,8 @@ public static class ContextMenu
 public sealed class ContextMenuAttachment : IDisposable
 {
     private readonly Gtk.Widget _widget;
-    private readonly Action<WinoMenuBuilder> _populate;
+    private readonly Action<WinoMenuBuilder>? _populate;
+    private readonly Action<double?, double?>? _requested;
     private readonly Gtk.GestureClick _click = Gtk.GestureClick.New();
     private readonly Gtk.GestureLongPress _longPress = Gtk.GestureLongPress.New();
     private readonly Gtk.ShortcutController _keys = Gtk.ShortcutController.New();
@@ -93,10 +101,11 @@ public sealed class ContextMenuAttachment : IDisposable
     private Gtk.PopoverMenu? _open;
     private bool _disposed;
 
-    internal ContextMenuAttachment(Gtk.Widget widget, Action<WinoMenuBuilder> populate)
+    internal ContextMenuAttachment(Gtk.Widget widget, Action<WinoMenuBuilder>? populate, Action<double?, double?>? requested)
     {
         _widget = widget;
         _populate = populate;
+        _requested = requested;
         WinoLiveObjects.Track(this);
 
         _onClick = GtkSignals.Connect<Gtk.GestureClick, Gtk.GestureClick.PressedSignalArgs>(h => _click.OnPressed += h, h => _click.OnPressed -= h, (gesture, args) =>
@@ -126,10 +135,19 @@ public sealed class ContextMenuAttachment : IDisposable
     /// <summary>The menu popover that is open now, or null.</summary>
     public Gtk.PopoverMenu? Current => _open;
 
-    /// <summary>Builds the menu and shows it; null when the builder added nothing. A menu that is still open closes first.</summary>
+    /// <summary>
+    /// Builds the menu and shows it; null when the builder added nothing. A menu that is still open closes first. An
+    /// attachment made with <see cref="ContextMenu.AttachRequest"/> raises its request instead and returns null.
+    /// </summary>
     public Gtk.PopoverMenu? Open(double? x = null, double? y = null)
     {
         if (_disposed) return null;
+        if (_requested is { } requested)
+        {
+            requested(x, y);
+            return null;
+        }
+        if (_populate is null) return null;
         _open?.Popdown();
         var builder = WinoMenus.Create();
         _populate(builder);
