@@ -283,9 +283,9 @@ public sealed partial class MailListPageViewController
     }
 
     /// <summary>
-    /// The shared actions for <paramref name="targets"/> in the Windows context menu's order: the top row's groups at the
-    /// separators (Reply, Reply all, Forward | Archive, Delete in red), then Move and the Create submenu, then the rest,
-    /// then Pin and the Category submenu. Flag and Read stay out: the edit toolbar shows them as state buttons.
+    /// The shared actions for <paramref name="targets"/> the edit toolbar does not show: Reply, Reply all and Forward, the
+    /// Create submenu, then Pin and the Category submenu. Archive, Delete and Move are on the toolbar, and Flag and Read are
+    /// state buttons there, so they stay out.
     /// </summary>
     private UIMenuElement[] SelectionMenuElements(IReadOnlyList<MailItemViewModel> targets, MailItemViewModel? composeTarget = null)
     {
@@ -310,7 +310,8 @@ public sealed partial class MailListPageViewController
                 group = [];
                 continue;
             }
-            if (available.Operation is MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.MarkAsRead or MailOperation.MarkAsUnread) continue;
+            if (available.Operation is MailOperation.Archive or MailOperation.UnArchive or MailOperation.SoftDelete or MailOperation.Move
+                or MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.MarkAsRead or MailOperation.MarkAsUnread) continue;
             var title = MailOperationDisplay.GetTitle(available.Operation);
             if (string.IsNullOrEmpty(title)) continue;
             var operation = available.Operation;
