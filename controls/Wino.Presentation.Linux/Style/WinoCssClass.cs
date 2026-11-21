@@ -70,4 +70,18 @@ public static class WinoCssClass
     public const string Pivot = "wino-pivot";
     public const string Link = "wino-link";
     public const string MailListHeader = "wino-mail-list-header";
+    public const string HoverActions = "wino-hover-actions";
+    public const string HoverButton = "wino-hover-button";
+    public const string HoverShown = "wino-hover-shown";
+    public const string HoverInstant = "wino-hover-instant";
+    public const string HoverFromRight = "wino-hover-from-right";
+    public const string HoverFromTop = "wino-hover-from-top";
+    public const string HoverFromBottom = "wino-hover-from-bottom";
+    public const string HoverSmall = "wino-hover-small";
+    public const string HoverMedium = "wino-hover-medium";
+    public const string HoverLarge = "wino-hover-large";
+    public const string HoverPopup = "wino-hover-popup";
+    public const string HoverSlide = "wino-hover-slide";
+    public const string HoverNone = "wino-hover-none";
+    public const string MailCell = "wino-mail-cell";
 }

@@ -1,4 +1,5 @@
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Linux.MailList;
 
 namespace Wino.Mail.Linux.Views.Mail;
 
@@ -21,6 +22,8 @@ internal sealed partial class MailListView
     partial void SwipeCellBound(MailRowCell cell, MailListRow row);
     partial void DragCellBound(MailRowCell cell, MailListRow row);
 
+    partial void HoverCellRefreshed(MailRowCell cell, WinoMailRowModel model);
+
     partial void ContextMenuCellTeardown(MailRowCell cell);
     partial void HoverCellTeardown(MailRowCell cell);
     partial void SwipeCellTeardown(MailRowCell cell);
@@ -29,6 +32,7 @@ internal sealed partial class MailListView
     private void SetUpFeatures() { SetUpContextMenu(); SetUpHoverActions(); SetUpSwipeActions(); SetUpDrag(); SetUpSearch(); SetUpSearchFilters(); }
     private void FeatureCellSetup(MailRowCell cell) { ContextMenuCellSetup(cell); HoverCellSetup(cell); SwipeCellSetup(cell); DragCellSetup(cell); }
     private void FeatureCellBound(MailRowCell cell, MailListRow row) { HoverCellBound(cell, row); SwipeCellBound(cell, row); DragCellBound(cell, row); }
+    private void FeatureCellRefreshed(MailRowCell cell, WinoMailRowModel model) { HoverCellRefreshed(cell, model); }
     private void FeatureCellTeardown(MailRowCell cell) { ContextMenuCellTeardown(cell); HoverCellTeardown(cell); SwipeCellTeardown(cell); DragCellTeardown(cell); }
 
 #if DEBUG

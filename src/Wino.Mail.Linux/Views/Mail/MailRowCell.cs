@@ -13,6 +13,9 @@ internal sealed record MailRowCellContext(IPreferencesService Preferences, Linux
 {
     /// <summary>Runs after a cell bound its entry; the view calls its per-cell hooks from here.</summary>
     public Action<MailRowCell, MailListEntry, WinoCellBinding>? Bound { get; init; }
+
+    /// <summary>Runs after a cell mapped its row again (bind, mail state, preferences).</summary>
+    public Action<MailRowCell, WinoMailRowModel>? Refreshed { get; init; }
 }
 
 /// <summary>
@@ -22,6 +25,7 @@ internal sealed record MailRowCellContext(IPreferencesService Preferences, Linux
 internal sealed class MailRowCell : IWinoCell<MailListEntry>, IDisposable
 {
     private readonly MailRowCellContext _context;
+    private readonly Gtk.Overlay _root;
     private readonly PropertyChangedEventHandler _leafChanged;
     private readonly PropertyChangedEventHandler _rowChanged;
     private readonly List<INotifyPropertyChanged> _leaves = [];
@@ -36,13 +40,26 @@ internal sealed class MailRowCell : IWinoCell<MailListEntry>, IDisposable
     {
         _context = context;
         Row = new WinoMailRow();
+        Hover = new WinoHoverActions();
+        _root = Gtk.Overlay.New();
+        _root.AddCssClass(Wino.Presentation.Linux.Style.WinoCssClass.MailCell);
+        _root.SetChild(Row.Root);
+        _root.AddOverlay(Hover.Root);
+        // The bar never sizes the row, and a sliding bar is clipped by it.
+        _root.SetMeasureOverlay(Hover.Root, false);
+        _root.SetClipOverlay(Hover.Root, true);
         _leafChanged = LeafChanged;
         _rowChanged = RowChanged;
     }
 
-    public Gtk.Widget Root => Row.Root;
+    public Gtk.Widget Root => _root;
 
     public WinoMailRow Row { get; }
+
+    public WinoHoverActions Hover { get; }
+
+    /// <summary>The model the row shows now; null before the first bind.</summary>
+    public WinoMailRowModel? Content { get; private set; }
 
     public MailListEntry? Entry { get; private set; }
 
@@ -65,8 +82,10 @@ internal sealed class MailRowCell : IWinoCell<MailListEntry>, IDisposable
         _generation++;
         Unsubscribe();
         Entry = null;
+        Content = null;
         _listItem = null;
         _listItemLabel = string.Empty;
+        Hover.SetShown(false, animate: false);
     }
 
     /// <summary>Follows the entry's current row again after the view replaced it with an equal-key row.</summary>
@@ -86,11 +105,13 @@ internal sealed class MailRowCell : IWinoCell<MailListEntry>, IDisposable
         {
             if (MailRowMapper.Map(entry.Row, _context.Preferences, _context.IsMergedAccountView(), _context.Pictures) is not { } model) return;
             Row.Apply(model);
+            Content = model;
             if (_listItem is { } listItem && !string.Equals(_listItemLabel, model.AccessibilityText, StringComparison.Ordinal))
             {
                 _listItemLabel = model.AccessibilityText;
                 listItem.SetAccessibleLabel(model.AccessibilityText);
             }
+            _context.Refreshed?.Invoke(this, model);
         }
         catch (Exception exception) { _context.Error(exception); }
     }
@@ -100,6 +121,7 @@ internal sealed class MailRowCell : IWinoCell<MailListEntry>, IDisposable
         if (_disposed) return;
         Unbind();
         _disposed = true;
+        Hover.Dispose();
         Row.Dispose();
     }
 

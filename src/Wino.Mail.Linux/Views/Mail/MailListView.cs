@@ -59,6 +59,7 @@ internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IU
         _context = new MailRowCellContext(ViewModel.PreferencesService, pictures, () => ViewModel.IsMergedAccountView, ReportError)
         {
             Bound = (cell, entry, binding) => self.Value?.OnCellBound(cell, entry, binding),
+            Refreshed = (cell, model) => self.Value?.FeatureCellRefreshed(cell, model),
         };
 
         ViewModel.MailCollection.CoreDispatcher = Dispatcher;
