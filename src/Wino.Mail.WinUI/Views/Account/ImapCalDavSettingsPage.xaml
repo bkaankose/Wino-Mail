@@ -567,7 +567,7 @@
                 <controls:SettingsExpander.HeaderIcon>
                     <coreControls:WinoFontIcon Icon="ArrowDownload" />
                 </controls:SettingsExpander.HeaderIcon>
-                <coreControls:ConnectionStatusPill State="{x:Bind ViewModel.MailConnectionState, Mode=OneWay}" />
+                <coreControls:ConnectionStatusPill State="{x:Bind ViewModel.IncomingConnectionState, Mode=OneWay}" />
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard
                         HorizontalContentAlignment="Stretch"
@@ -578,8 +578,8 @@
                                 Title="{x:Bind ViewModel.MailValidationFailedTitle, Mode=OneWay}"
                                 AutomationProperties.AutomationId="ImapSetupMailErrorInfoBar"
                                 IsClosable="False"
-                                IsOpen="{x:Bind ViewModel.HasMailConnectionError, Mode=OneWay}"
-                                Message="{x:Bind ViewModel.MailConnectionError, Mode=OneWay}"
+                                IsOpen="{x:Bind ViewModel.HasIncomingConnectionError, Mode=OneWay}"
+                                Message="{x:Bind ViewModel.IncomingConnectionError, Mode=OneWay}"
                                 Severity="Error" />
                             <Grid ColumnSpacing="12" RowSpacing="12">
                                 <Grid.ColumnDefinitions>
@@ -645,13 +645,19 @@
                 <controls:SettingsExpander.HeaderIcon>
                     <coreControls:WinoFontIcon Icon="ArrowUpload" />
                 </controls:SettingsExpander.HeaderIcon>
-                <coreControls:ConnectionStatusPill State="{x:Bind ViewModel.MailConnectionState, Mode=OneWay}" />
+                <coreControls:ConnectionStatusPill State="{x:Bind ViewModel.OutgoingConnectionState, Mode=OneWay}" />
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard
                         HorizontalContentAlignment="Stretch"
                         AutomationProperties.AutomationId="ImapSetupOutgoingFieldsCard"
                         ContentAlignment="Vertical">
                         <StackPanel Spacing="12">
+                            <InfoBar
+                                AutomationProperties.AutomationId="ImapSetupOutgoingErrorInfoBar"
+                                IsClosable="False"
+                                IsOpen="{x:Bind ViewModel.HasOutgoingConnectionError, Mode=OneWay}"
+                                Message="{x:Bind ViewModel.OutgoingConnectionError, Mode=OneWay}"
+                                Severity="Error" />
                             <Grid ColumnSpacing="12" RowSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="2*" />
@@ -782,12 +788,19 @@
                 <controls:SettingsExpander.HeaderIcon>
                     <coreControls:WinoFontIcon Icon="People" />
                 </controls:SettingsExpander.HeaderIcon>
+                <coreControls:ConnectionStatusPill State="{x:Bind ViewModel.CardDavConnectionState, Mode=OneWay}" />
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard
                         HorizontalContentAlignment="Stretch"
                         AutomationProperties.AutomationId="ImapSetupCardDavFieldsCard"
                         ContentAlignment="Vertical">
                         <StackPanel Spacing="12">
+                            <InfoBar
+                                AutomationProperties.AutomationId="ImapSetupCardDavErrorInfoBar"
+                                IsClosable="False"
+                                IsOpen="{x:Bind ViewModel.HasCardDavConnectionError, Mode=OneWay}"
+                                Message="{x:Bind ViewModel.CardDavConnectionError, Mode=OneWay}"
+                                Severity="Error" />
                             <TextBox
                                 AutomationProperties.AutomationId="ImapSetupCardDavUrlTextBox"
                                 Description="{x:Bind ViewModel.CardDavUrlDescription, Mode=OneWay}"

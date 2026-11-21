@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
@@ -74,6 +75,34 @@ public partial class ImapCalDavSettingsPageViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasMailConnectionError))]
     public partial string MailConnectionError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The incoming and outgoing servers each on their own. <see cref="MailConnectionState"/> stays the result of the
+    /// whole mail test for the heads that show one state for both rows.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIncomingConnectionError))]
+    public partial ConnectionTestState IncomingConnectionState { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIncomingConnectionError))]
+    public partial string IncomingConnectionError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOutgoingConnectionError))]
+    public partial ConnectionTestState OutgoingConnectionState { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOutgoingConnectionError))]
+    public partial string OutgoingConnectionError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCardDavConnectionError))]
+    public partial ConnectionTestState CardDavConnectionState { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCardDavConnectionError))]
+    public partial string CardDavConnectionError { get; set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCalDavConnectionError))]
@@ -172,6 +201,9 @@ public partial class ImapCalDavSettingsPageViewModel
 
     public bool HasMailConnectionError => MailConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(MailConnectionError);
     public bool HasCalDavConnectionError => CalDavConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(CalDavConnectionError);
+    public bool HasIncomingConnectionError => IncomingConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(IncomingConnectionError);
+    public bool HasOutgoingConnectionError => OutgoingConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(OutgoingConnectionError);
+    public bool HasCardDavConnectionError => CardDavConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(CardDavConnectionError);
     public bool HasAppPasswordHelpLink => !string.IsNullOrWhiteSpace(AppPasswordHelpUrl);
 
     public bool IsMailAdvancedOptionsVisible => IsMailSupportEnabled;
@@ -360,6 +392,19 @@ public partial class ImapCalDavSettingsPageViewModel
                     SetCalDavConnectionFailed(ex);
                 }
             }
+
+            if (IsCardDavSettingsVisible)
+            {
+                try
+                {
+                    await ResolveCardDavServiceUrlAsync();
+                    await TestCardDavConnectionAsync(BuildServerInformationForTest());
+                }
+                catch (Exception)
+                {
+                    // The cause is already on the CardDAV row.
+                }
+            }
         }
         finally
         {
@@ -380,12 +425,18 @@ public partial class ImapCalDavSettingsPageViewModel
     {
         MailConnectionState = ConnectionTestState.Testing;
         MailConnectionError = string.Empty;
+        IncomingConnectionState = ConnectionTestState.Testing;
+        IncomingConnectionError = string.Empty;
+        OutgoingConnectionState = ConnectionTestState.Testing;
+        OutgoingConnectionError = string.Empty;
 
         try
         {
             await ValidateImapConnectivityAsync(serverInformation);
 
             MailConnectionState = ConnectionTestState.Succeeded;
+            IncomingConnectionState = ConnectionTestState.Succeeded;
+            OutgoingConnectionState = ConnectionTestState.Succeeded;
             IsImapValidationSucceeded = true;
         }
         catch (Exception ex)
@@ -416,12 +467,47 @@ public partial class ImapCalDavSettingsPageViewModel
         }
     }
 
+    /// <summary>The test signs in to the incoming server first, so an outgoing failure means the incoming one answered.</summary>
     private void SetMailConnectionFailed(Exception exception)
     {
+        IsImapValidationSucceeded = false;
         MailConnectionState = ConnectionTestState.Failed;
         MailConnectionError = exception.Message;
-        IsImapValidationSucceeded = false;
+
+        if (exception is ImapValidationException { IsOutgoingServer: true } or Pop3ValidationException { IsOutgoingServer: true })
+        {
+            IncomingConnectionState = ConnectionTestState.Succeeded;
+            IncomingConnectionError = string.Empty;
+            OutgoingConnectionState = ConnectionTestState.Failed;
+            OutgoingConnectionError = exception.Message;
+            IsOutgoingExpanded = true;
+            return;
+        }
+
+        IncomingConnectionState = ConnectionTestState.Failed;
+        IncomingConnectionError = exception.Message;
+        OutgoingConnectionState = ConnectionTestState.NotTested;
+        OutgoingConnectionError = string.Empty;
         IsIncomingExpanded = true;
+    }
+
+    private async Task TestCardDavConnectionAsync(CustomServerInformation serverInformation)
+    {
+        CardDavConnectionState = ConnectionTestState.Testing;
+        CardDavConnectionError = string.Empty;
+
+        try
+        {
+            await ValidateCardDavConnectivityAsync(serverInformation);
+            CardDavConnectionState = ConnectionTestState.Succeeded;
+        }
+        catch (Exception ex)
+        {
+            CardDavConnectionState = ConnectionTestState.Failed;
+            CardDavConnectionError = ex.Message;
+            IsCardDavExpanded = true;
+            throw;
+        }
     }
 
     private void SetCalDavConnectionFailed(Exception exception)
@@ -536,8 +622,14 @@ public partial class ImapCalDavSettingsPageViewModel
     {
         MailConnectionState = ConnectionTestState.NotTested;
         MailConnectionError = string.Empty;
+        IncomingConnectionState = ConnectionTestState.NotTested;
+        IncomingConnectionError = string.Empty;
+        OutgoingConnectionState = ConnectionTestState.NotTested;
+        OutgoingConnectionError = string.Empty;
         CalDavConnectionState = ConnectionTestState.NotTested;
         CalDavConnectionError = string.Empty;
+        CardDavConnectionState = ConnectionTestState.NotTested;
+        CardDavConnectionError = string.Empty;
     }
 
     /// <summary>

@@ -456,7 +456,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
             if (_isCardDavEnabled)
             {
-                await ValidateCardDavConnectivityAsync(serverInformation);
+                await TestCardDavConnectionAsync(serverInformation);
             }
 
             if (_pageMode == ImapCalDavSettingsPageMode.Wizard)
@@ -935,7 +935,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 {
                     throw new ImapValidationException(
                         connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
-                        connectivityResult.ProtocolLog);
+                        connectivityResult.ProtocolLog,
+                        isOutgoingServer: connectivityResult.IsOutgoingServerFailure);
                 }
 
                 return;
@@ -964,7 +965,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             if (!result.IsCertificateUIRequired)
             {
                 if (!result.IsSuccess)
-                    throw new Pop3ValidationException(result.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage, result.ProtocolLog);
+                    throw new Pop3ValidationException(
+                        result.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
+                        result.ProtocolLog,
+                        isOutgoingServer: result.IsOutgoingServerFailure);
 
                 return;
             }
