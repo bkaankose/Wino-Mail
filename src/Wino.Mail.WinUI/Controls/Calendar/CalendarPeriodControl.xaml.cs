@@ -104,6 +104,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         AddHandler(PointerReleasedEvent, new PointerEventHandler(ControlPointerReleased), true);
         AddHandler(PointerCanceledEvent, new PointerEventHandler(ControlPointerCanceled), true);
         AddHandler(PointerCaptureLostEvent, new PointerEventHandler(ControlPointerCaptureLost), true);
+        AddHandler(PointerExitedEvent, new PointerEventHandler(ControlPointerExited), true);
 
         _sizeRefreshTimer = DispatcherQueue.CreateTimer();
         _sizeRefreshTimer.Interval = SizeRefreshDebounceInterval;

@@ -11,6 +11,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Wino.Core.Domain;
@@ -180,8 +181,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
             return;
         }
 
-        // Clicking or dragging an empty slot creates an event; not while Calendar is blocked.
-        if (!ViewModel.Readiness.IsReady)
+        // Clicking or dragging an empty slot creates an event; not while Calendar is blocked, and not
+        // over a dialog that opened after the click.
+        if (!ViewModel.Readiness.IsReady || !IsLoaded || HasOpenDialog())
             return;
 
         var isAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
@@ -201,6 +203,21 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         QuickEventPopupDialog.IsOpen = false;
         QuickEventPopupDialog.IsOpen = true;
         _suppressSelectionResetOnPopupClose = false;
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(ContentDialog))]
+    private bool HasOpenDialog()
+    {
+        if (XamlRoot is null)
+            return true;
+
+        foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot))
+        {
+            if (popup.Child is ContentDialog)
+                return true;
+        }
+
+        return false;
     }
 
     private void CalendarSurfaceRangeSelectionStarted(object? sender, EventArgs e)
@@ -459,6 +476,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     private void CloseQuickEventPopup(bool clearSelection)
     {
+        CalendarSurface.CancelPendingTap();
         _suppressSelectionResetOnPopupClose = !clearSelection;
         QuickEventPopupDialog.IsOpen = false;
         _suppressSelectionResetOnPopupClose = false;

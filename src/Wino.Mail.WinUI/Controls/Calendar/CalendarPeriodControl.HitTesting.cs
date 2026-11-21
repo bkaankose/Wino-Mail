@@ -93,7 +93,7 @@ public sealed partial class CalendarPeriodControl
         var pending = _pendingMonthTap;
         _pendingMonthTap = null;
 
-        if (pending != null)
+        if (pending != null && IsLoaded && VisibleRange?.DisplayType == CalendarDisplayType.Month)
         {
             EmptySlotTapped?.Invoke(this, pending);
         }
@@ -103,6 +103,23 @@ public sealed partial class CalendarPeriodControl
     {
         _monthTapTimer.Stop();
         _pendingMonthTap = null;
+    }
+
+    /// <summary>
+    /// Drops a month click that is still waiting to open the quick event popup. The page calls it
+    /// whenever something else takes over: a dialog, a command, navigation or a closed popup.
+    /// </summary>
+    public void CancelPendingTap() => CancelPendingMonthTap();
+
+    // Exits bubble up from every child, so only a pointer that really left the surface counts.
+    private void ControlPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        var position = e.GetCurrentPoint(this).Position;
+
+        if (position.X < 0d || position.Y < 0d || position.X >= ActualWidth || position.Y >= ActualHeight)
+        {
+            CancelPendingMonthTap();
+        }
     }
 
     private static double GetDoubleClickMilliseconds()
