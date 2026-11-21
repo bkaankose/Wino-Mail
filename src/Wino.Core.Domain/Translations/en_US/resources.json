@@ -5972,5 +5972,8 @@
   "AccountTroubleshooting_PageDescription": "Protocol diagnostics and logs of {0}.",
   "AccountSignIn_PageDescription": "How Wino signs in to {0} and which servers it uses.",
   "AccountMail_SenderNameDescription": "The name people see when you send mail from this account.",
-  "AccountApps_CalendarColorDescription": "Change the display color for this calendar"
+  "AccountApps_CalendarColorDescription": "Change the display color for this calendar",
+  "ImapSetup_IncomingImapValidationFailedTitle": "Incoming mail server (IMAP) validation failed.",
+  "ImapSetup_IncomingPop3ValidationFailedTitle": "Incoming mail server (POP3) validation failed.",
+  "ImapSetup_OutgoingValidationFailedTitle": "Outgoing mail server (SMTP) validation failed."
 }

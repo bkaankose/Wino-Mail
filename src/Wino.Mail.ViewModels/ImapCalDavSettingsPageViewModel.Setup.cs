@@ -94,6 +94,7 @@ public partial class ImapCalDavSettingsPageViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasOutgoingConnectionError))]
+    [NotifyPropertyChangedFor(nameof(MailValidationFailedTitle))]
     public partial ConnectionTestState OutgoingConnectionState { get; set; }
 
     [ObservableProperty]

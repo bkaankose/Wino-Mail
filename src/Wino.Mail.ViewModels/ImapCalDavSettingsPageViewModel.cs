@@ -188,7 +188,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     public bool IsMailPasswordInputVisible => IsMailSupportEnabled;
     public bool IsMailActionsVisible => IsMailSupportEnabled;
     public bool IsPop3 => _providerType == MailProviderType.POP3;
-    public string MailValidationFailedTitle => IsPop3 ? Translator.POP3Setup_ValidationFailedTitle : Translator.IMAPSetupDialog_ValidationFailed_Title;
+    /// <summary>The heads that show one mail error for both servers name the outgoing server when only it failed.</summary>
+    public string MailValidationFailedTitle => OutgoingConnectionState == ConnectionTestState.Failed
+        ? Translator.ImapSetup_OutgoingValidationFailedTitle
+        : IsPop3 ? Translator.POP3Setup_ValidationFailedTitle : Translator.IMAPSetupDialog_ValidationFailed_Title;
     public string IncomingSettingsTitle => IsPop3 ? Translator.ImapSetup_IncomingPop3Title : Translator.ImapSetup_IncomingImapTitle;
     public bool IsCalendarModeSelectionVisible => IsCalendarSupportEnabled && !IsPop3;
     public bool IsCalDavSettingsVisible => IsCalDavCalendarEnabled || IsCalDavTaskEnabled;
@@ -995,7 +998,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private async Task ShowImapValidationFailureAsync(Exception exception)
     {
         await ShowPageErrorAsync(
-            MailValidationFailedTitle,
+            GetValidationFailedTitle(exception),
             exception.Message);
 
         if (exception is ImapValidationException { ProtocolLog.Length: > 0 } validationException)
@@ -1006,6 +1009,14 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                     validationException.ProtocolLog));
         }
     }
+
+    /// <summary>Names the server that failed the mail test: the incoming one, or the outgoing one after the incoming one answered.</summary>
+    private string GetValidationFailedTitle(Exception exception) => exception switch
+    {
+        ImapValidationException { IsOutgoingServer: true } or Pop3ValidationException { IsOutgoingServer: true } => Translator.ImapSetup_OutgoingValidationFailedTitle,
+        ImapValidationException or Pop3ValidationException => IsPop3 ? Translator.ImapSetup_IncomingPop3ValidationFailedTitle : Translator.ImapSetup_IncomingImapValidationFailedTitle,
+        _ => MailValidationFailedTitle
+    };
 
     private async Task ValidateCalDavConnectivityAsync(CustomServerInformation serverInformation)
     {
