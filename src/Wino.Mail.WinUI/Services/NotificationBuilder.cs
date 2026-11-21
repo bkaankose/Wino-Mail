@@ -399,20 +399,21 @@ public class NotificationBuilder : INotificationBuilder
 
         var tag = CalendarReminderTags.Create(calendarItem.Id, reminderDurationInSeconds);
 
-        // Windows may deliver a scheduled toast minutes after its time, so while Wino runs it shows the reminder on
-        // time itself and takes the scheduled copy back. One Windows already showed is not shown twice.
-        if (_calendarReminderToastPlan.IsDeliveredBySchedule(tag, DateTimeOffset.Now))
+        // A reminder handed to Windows is shown by Windows. Only when Windows has not shown it yet (it may be up to
+        // five minutes late) does Wino take the scheduled copy back and show the reminder on time itself.
+        if (_calendarReminderToastPlan.IsPlannedAround(tag, DateTimeOffset.Now))
         {
             try
             {
-                if (_notificationHostClient.IsInHistory(NotificationHostApplication.Calendar, tag))
+                if (!_notificationHostClient.IsScheduled(NotificationHostApplication.Calendar, tag))
                     return;
 
                 _notificationHostClient.RemoveScheduled(NotificationHostApplication.Calendar, tag);
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Could not take back the scheduled calendar reminder toast {Tag}.", tag);
+                Log.Warning(ex, "Could not check the scheduled calendar reminder toast {Tag}; Windows shows it.", tag);
+                return;
             }
 
             _calendarReminderToastPlan.Remove(tag);
