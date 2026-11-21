@@ -135,6 +135,9 @@ internal static class SettingsDebugActions
             nameof(IPreferencesService.CompletedTaskHideDelay) => Choice(() => p.CompletedTaskHideDelay, v => p.CompletedTaskHideDelay = v, value),
             nameof(IPreferencesService.IsTaskCompletionSoundEnabled) => Flag(() => p.IsTaskCompletionSoundEnabled, v => p.IsTaskCompletionSoundEnabled = v, value),
             nameof(IPreferencesService.IsTaskDeleteConfirmationEnabled) => Flag(() => p.IsTaskDeleteConfirmationEnabled, v => p.IsTaskDeleteConfirmationEnabled = v, value),
+            nameof(IPreferencesService.IconStyle) => Choice(() => p.IconStyle, v => p.IconStyle = v, value),
+            nameof(IPreferencesService.IsCompactAccountMenuItemEnabled) => Flag(() => p.IsCompactAccountMenuItemEnabled, v => p.IsCompactAccountMenuItemEnabled = v, value),
+            nameof(IPreferencesService.IsWinoAccountButtonHidden) => Flag(() => p.IsWinoAccountButtonHidden, v => p.IsWinoAccountButtonHidden = v, value),
             _ => throw new ArgumentException($"debug-settings-pref does not know '{name}'; add it to SettingsDebugActions.Preference."),
         };
     }
