@@ -62,6 +62,8 @@ internal static class EditorDebugActions
                     Log($"paste-image inserted={await session.PasteClipboardImageAsync()}");
                     break;
                 case "theme": await session.SetThemeAsync(Argument(arguments, 1) == "dark"); break;
+                case "transparent": session.View.SetBackgroundColor(new Gdk.RGBA { Alpha = 0 }); break;
+                case "policy": await session.SetRemoteContentPolicyAsync(Argument(arguments, 1) == "allow" ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked); break;
                 case "kill-web-process": session.View.TerminateWebProcess(); break;
                 case "close":
                     _current = null;

@@ -11,6 +11,9 @@ internal sealed class WebKitGtkBrowserSession
     private readonly IDispatcher _dispatcher;
     private readonly WebKit.UserContentManager _content;
     private readonly GObject.SignalHandler<WebKit.UserContentManager, WebKit.UserContentManager.ScriptMessageReceivedSignalArgs> _messageHandler;
+    private readonly GObject.ReturningSignalHandler<WebKit.WebView, WebKit.WebView.DecidePolicySignalArgs, bool> _decidePolicy;
+    private readonly GObject.SignalHandler<WebKit.WebView, WebKit.WebView.WebProcessTerminatedSignalArgs> _terminated;
+    private readonly SignalTarget _signals;
     private readonly CancellationTokenSource _linkLifetime = new();
     private TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private string? _sessionId;
@@ -27,7 +30,17 @@ internal sealed class WebKitGtkBrowserSession
         _dispatcher = dispatcher;
         _content = WebKit.UserContentManager.New();
         _content.RegisterScriptMessageHandler(BridgeName, null);
-        _messageHandler = OnScriptMessage;
+        // Gir.Core 0.8.1 keeps a handler after -=, so the native closures reach the session only through this box, which
+        // dispose empties; a handler holding the session would keep the web view and its web process alive.
+        var signals = _signals = new SignalTarget(this);
+        _messageHandler = (sender, args) => signals.Session?.OnScriptMessage(sender, args);
+        _decidePolicy = (sender, args) =>
+        {
+            if (signals.Session is { } session) return session.OnDecidePolicy(sender, args);
+            args.Decision.Ignore();
+            return true;
+        };
+        _terminated = (sender, args) => signals.Session?.OnWebProcessTerminated(sender, args);
         WebKit.UserContentManager.ScriptMessageReceivedSignal.Connect(_content, _messageHandler, false, BridgeName);
 
         // An ephemeral session keeps cookies, cache and storage in memory only, like the non-persistent store on Apple.
@@ -36,8 +49,13 @@ internal sealed class WebKitGtkBrowserSession
         Browser = WebKit.WebView.NewWithProperties([new GObject.ConstructArgument("network-session", session), new GObject.ConstructArgument("user-content-manager", content)]);
         var settings = Browser.GetSettings();
         settings.JavascriptCanOpenWindowsAutomatically = false;
-        Browser.OnDecidePolicy += OnDecidePolicy;
-        Browser.OnWebProcessTerminated += OnWebProcessTerminated;
+        Browser.OnDecidePolicy += _decidePolicy;
+        Browser.OnWebProcessTerminated += _terminated;
+    }
+
+    private sealed class SignalTarget(WebKitGtkBrowserSession session)
+    {
+        public WebKitGtkBrowserSession? Session = session;
     }
 
     public WebKit.WebView Browser { get; }
@@ -188,8 +206,9 @@ internal sealed class WebKitGtkBrowserSession
             _sessionId = null;
             _ready.TrySetCanceled();
             Browser.StopLoading();
-            Browser.OnDecidePolicy -= OnDecidePolicy;
-            Browser.OnWebProcessTerminated -= OnWebProcessTerminated;
+            _signals.Session = null;
+            Browser.OnDecidePolicy -= _decidePolicy;
+            Browser.OnWebProcessTerminated -= _terminated;
             WebKit.UserContentManager.ScriptMessageReceivedSignal.Disconnect(_content, _messageHandler);
             _content.UnregisterScriptMessageHandler(BridgeName, null);
             NavigationRequested = null; OperationFailed = null; LinkHovered = null; ContentProcessTerminated = null; Message = null;

@@ -12,6 +12,7 @@ internal sealed partial class MailListView
     partial void SetUpDrag();
     partial void SetUpSearch();
     partial void SetUpSearchFilters();
+    partial void SetUpDraftSelection();
 
     partial void ContextMenuCellSetup(MailRowCell cell);
     partial void HoverCellSetup(MailRowCell cell);
@@ -29,7 +30,7 @@ internal sealed partial class MailListView
     partial void SwipeCellTeardown(MailRowCell cell);
     partial void DragCellTeardown(MailRowCell cell);
 
-    private void SetUpFeatures() { SetUpContextMenu(); SetUpHoverActions(); SetUpSwipeActions(); SetUpDrag(); SetUpSearch(); SetUpSearchFilters(); }
+    private void SetUpFeatures() { SetUpContextMenu(); SetUpHoverActions(); SetUpSwipeActions(); SetUpDrag(); SetUpSearch(); SetUpSearchFilters(); SetUpDraftSelection(); }
     private void FeatureCellSetup(MailRowCell cell) { ContextMenuCellSetup(cell); HoverCellSetup(cell); SwipeCellSetup(cell); DragCellSetup(cell); }
     private void FeatureCellBound(MailRowCell cell, MailListRow row) { HoverCellBound(cell, row); SwipeCellBound(cell, row); DragCellBound(cell, row); }
     private void FeatureCellRefreshed(MailRowCell cell, WinoMailRowModel model) { HoverCellRefreshed(cell, model); }
