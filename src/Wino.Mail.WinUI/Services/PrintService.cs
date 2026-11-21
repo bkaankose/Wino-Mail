@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -7,18 +8,19 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using System.Threading;
 using Microsoft.Graphics.Canvas;
+using Microsoft.Graphics.Canvas.Effects;
 using Microsoft.Graphics.Canvas.Printing;
 using Windows.Data.Pdf;
 using Windows.Graphics.Printing;
 using Windows.Graphics.Printing.OptionDetails;
 using WinRT.Interop;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.ViewModels.Models.Printing;
-using DomainPrintCollation = Wino.Core.Domain.Enums.PrintCollation;
-using DomainPrintDuplex = Wino.Core.Domain.Enums.PrintDuplex;
+using DomainPrintColorMode = Wino.Core.Domain.Enums.PrintColorMode;
 using DomainPrintMediaSize = Wino.Core.Domain.Enums.PrintMediaSize;
 using DomainPrintOrientation = Wino.Core.Domain.Enums.PrintOrientation;
 using WinRT;
@@ -33,6 +35,18 @@ public class PrintService : IWindowsPrintService
     private const float PdfRenderDpi = 300f;
     private const float DefaultDpi = 96f;
 
+    private const string MarginsOptionId = "WinoMargins";
+    private const string ScaleOptionId = "WinoScale";
+    private const string BackgroundsOptionId = "WinoBackgrounds";
+    private const string HeadersAndFootersOptionId = "WinoHeadersAndFooters";
+
+    private const string MarginsNormal = "Normal";
+    private const string MarginsModerate = "Moderate";
+    private const string MarginsNarrow = "Narrow";
+    private const string MarginsNone = "None";
+    private const int DefaultScalePercentage = 100;
+    private static readonly int[] ScalePercentages = [50, 75, 90, 100, 110, 125, 150, 200];
+
     private readonly SemaphoreSlim _sessionGate = new(1, 1);
     private readonly SemaphoreSlim _renderGate = new(1, 1);
     private TaskCompletionSource<PrintingResult>? _taskCompletionSource;
@@ -46,13 +60,12 @@ public class PrintService : IWindowsPrintService
     private string _printTitle = string.Empty;
 
     private readonly List<CanvasBitmap> _bitmaps = new();
-    private readonly List<int> _pageIndexesToPrint = new();
-    private Vector2 _pageSize;
     private Windows.Foundation.Rect _imageableRect;
     private int _pagesPerSheet = 1;
     private int _columns = 1;
     private int _rows = 1;
     private int _sheetCount;
+    private bool _isGrayscale;
     private bool _previewFailed;
 
     [DllImport("user32.dll")]
@@ -188,7 +201,8 @@ public class PrintService : IWindowsPrintService
 
         _pdfDocument = null;
         ClearBitmaps();
-        _pageIndexesToPrint.Clear();
+        _sheetCount = 0;
+        _isGrayscale = false;
         _taskCompletionSource = null;
         _renderPdfStreamAsync = null;
         _printTitle = string.Empty;
@@ -220,16 +234,63 @@ public class PrintService : IWindowsPrintService
 
         _printTask.Completed += OnPrintTaskCompleted;
 
+        // The Pages option offers a custom set of pages only when the task allows it.
+        var pageRangeOptions = _printTask.Options.PageRangeOptions;
+        pageRangeOptions.AllowAllPages = true;
+        pageRangeOptions.AllowCustomSetOfPages = true;
+
         _printTaskOptionDetails = PrintTaskOptionDetails.GetFromPrintTaskOptions(_printTask.Options);
         _printTaskOptionDetails.DisplayedOptions.Clear();
+
+        // Windows leaves out the options that the selected printer does not support.
         TryAddDisplayedOption(StandardPrintTaskOptions.Copies);
+        TryAddDisplayedOption(StandardPrintTaskOptions.CustomPageRanges);
         TryAddDisplayedOption(StandardPrintTaskOptions.Orientation);
         TryAddDisplayedOption(StandardPrintTaskOptions.MediaSize);
-        TryAddDisplayedOption(StandardPrintTaskOptions.Collation);
+        TryAddDisplayedOption(StandardPrintTaskOptions.MediaType);
+        TryAddDisplayedOption(StandardPrintTaskOptions.InputBin);
+        TryAddDisplayedOption(StandardPrintTaskOptions.ColorMode);
+        TryAddDisplayedOption(StandardPrintTaskOptions.PrintQuality);
         TryAddDisplayedOption(StandardPrintTaskOptions.Duplex);
-        TryAddDisplayedOption(StandardPrintTaskOptions.CustomPageRanges);
+        TryAddDisplayedOption(StandardPrintTaskOptions.Collation);
         TryAddDisplayedOption(StandardPrintTaskOptions.NUp);
+        TryAddDisplayedOption(StandardPrintTaskOptions.Bordering);
+        TryAddDisplayedOption(StandardPrintTaskOptions.Binding);
+        TryAddDisplayedOption(StandardPrintTaskOptions.Staple);
+        TryAddDisplayedOption(StandardPrintTaskOptions.HolePunch);
+        AddCustomOptions(_printTaskOptionDetails);
+
         _printTaskOptionDetails.OptionChanged += OnPrintTaskOptionChanged;
+    }
+
+    private static void AddCustomOptions(PrintTaskOptionDetails optionDetails)
+    {
+        var defaults = new MailPrintOptions();
+
+        var margins = optionDetails.CreateItemListOption(MarginsOptionId, Translator.PrintOptions_Margins);
+        margins.AddItem(MarginsNormal, Translator.PrintOptions_MarginsNormal);
+        margins.AddItem(MarginsModerate, Translator.PrintOptions_MarginsModerate);
+        margins.AddItem(MarginsNarrow, Translator.PrintOptions_MarginsNarrow);
+        margins.AddItem(MarginsNone, Translator.PrintOptions_MarginsNone);
+        margins.TrySetValue(MarginsNormal);
+        optionDetails.DisplayedOptions.Add(MarginsOptionId);
+
+        var scale = optionDetails.CreateItemListOption(ScaleOptionId, Translator.PrintOptions_Scale);
+        foreach (var percentage in ScalePercentages)
+        {
+            scale.AddItem(percentage.ToString(CultureInfo.InvariantCulture), string.Format(CultureInfo.CurrentCulture, "{0}%", percentage));
+        }
+
+        scale.TrySetValue(DefaultScalePercentage.ToString(CultureInfo.InvariantCulture));
+        optionDetails.DisplayedOptions.Add(ScaleOptionId);
+
+        var backgrounds = optionDetails.CreateToggleOption(BackgroundsOptionId, Translator.PrintOptions_Backgrounds);
+        backgrounds.TrySetValue(defaults.ShouldPrintBackgrounds);
+        optionDetails.DisplayedOptions.Add(BackgroundsOptionId);
+
+        var headersAndFooters = optionDetails.CreateToggleOption(HeadersAndFootersOptionId, Translator.PrintOptions_HeadersAndFooters);
+        headersAndFooters.TrySetValue(defaults.ShouldPrintHeaderAndFooter);
+        optionDetails.DisplayedOptions.Add(HeadersAndFootersOptionId);
     }
 
     private void OnPrintTaskCompleted(PrintTask sender, PrintTaskCompletedEventArgs args)
@@ -259,6 +320,7 @@ public class PrintService : IWindowsPrintService
         try
         {
             var newSettings = CreateRenderSettings(args.PrintTaskOptions);
+            _isGrayscale = newSettings.ColorMode == DomainPrintColorMode.Grayscale;
 
             if (ShouldReloadPdf(newSettings))
             {
@@ -344,16 +406,13 @@ public class PrintService : IWindowsPrintService
             return;
         }
 
-        var pageDescription = printTaskOptions.GetPageDescription(1);
-        _pageSize = pageDescription.PageSize.ToVector2();
-        _imageableRect = pageDescription.ImageableRect;
+        _imageableRect = GetImageableRect(printTaskOptions);
 
         _pagesPerSheet = GetPagesPerSheet();
         (_columns, _rows) = GetGrid(_pagesPerSheet);
 
-        _pageIndexesToPrint.Clear();
-        _pageIndexesToPrint.AddRange(GetPageIndexesToPrint((int)_pdfDocument.PageCount));
-        _sheetCount = Math.Max(1, (int)Math.Ceiling(_pageIndexesToPrint.Count / (double)_pagesPerSheet));
+        // Page ranges count preview pages, which are sheets, so the numbers typed into Pages match the preview.
+        _sheetCount = Math.Max(1, (int)Math.Ceiling(_bitmaps.Count / (double)_pagesPerSheet));
 
         _printDocument?.SetPageCount((uint)_sheetCount);
     }
@@ -366,16 +425,54 @@ public class PrintService : IWindowsPrintService
         if (_pdfDocument == null || _sheetCount == 0)
             return;
 
-        for (uint i = 1; i <= _sheetCount; i++)
+        foreach (var sheetNumber in GetSheetsToPrint(args.PrintTaskOptions))
         {
             using var drawingSession = args.CreateDrawingSession();
-            DrawSheet(drawingSession, i);
+            DrawSheet(drawingSession, sheetNumber);
         }
+    }
+
+    private List<uint> GetSheetsToPrint(PrintTaskOptions printTaskOptions)
+    {
+        var sheets = new List<uint>();
+        var added = new HashSet<uint>();
+
+        IList<PrintPageRange>? ranges = null;
+        try
+        {
+            ranges = printTaskOptions.CustomPageRanges;
+        }
+        catch (COMException)
+        {
+        }
+
+        if (ranges != null)
+        {
+            foreach (var range in ranges)
+            {
+                var first = Math.Max(1, Math.Min(range.FirstPageNumber, range.LastPageNumber));
+                var last = Math.Min(_sheetCount, Math.Max(range.FirstPageNumber, range.LastPageNumber));
+
+                for (var sheet = first; sheet <= last; sheet++)
+                {
+                    if (added.Add((uint)sheet))
+                        sheets.Add((uint)sheet);
+                }
+            }
+        }
+
+        if (sheets.Count == 0)
+        {
+            for (uint sheet = 1; sheet <= _sheetCount; sheet++)
+                sheets.Add(sheet);
+        }
+
+        return sheets;
     }
 
     private void DrawSheet(CanvasDrawingSession drawingSession, uint pageNumber)
     {
-        if (_bitmaps.Count == 0 || _pageIndexesToPrint.Count == 0)
+        if (_bitmaps.Count == 0)
             return;
 
         var printableSize = new Vector2((float)_imageableRect.Width, (float)_imageableRect.Height);
@@ -388,54 +485,89 @@ public class PrintService : IWindowsPrintService
         {
             for (var column = 0; column < _columns; column++)
             {
-                if (pageIndex >= _pageIndexesToPrint.Count)
+                if (pageIndex >= _bitmaps.Count)
                     return;
 
-                var bitmap = _bitmaps[_pageIndexesToPrint[pageIndex]];
+                var bitmap = _bitmaps[pageIndex];
                 var cellTopLeft = topLeft + new Vector2(cellWidth * column, cellHeight * row);
-                DrawBitmapInCell(drawingSession, bitmap, cellTopLeft, new Vector2(cellWidth, cellHeight));
+                DrawBitmapInCell(drawingSession, bitmap, cellTopLeft, new Vector2(cellWidth, cellHeight), _isGrayscale);
                 pageIndex++;
             }
         }
     }
 
-    private static void DrawBitmapInCell(CanvasDrawingSession drawingSession, CanvasBitmap bitmap, Vector2 cellTopLeft, Vector2 cellSize)
+    private static void DrawBitmapInCell(CanvasDrawingSession drawingSession, CanvasBitmap bitmap, Vector2 cellTopLeft, Vector2 cellSize, bool grayscale)
     {
         var bitmapSize = bitmap.Size.ToVector2();
         var scale = Math.Min(cellSize.X / bitmapSize.X, cellSize.Y / bitmapSize.Y);
         var targetSize = bitmapSize * scale;
         var targetOffset = cellTopLeft + (cellSize - targetSize) / 2;
-        drawingSession.DrawImage(bitmap, new Windows.Foundation.Rect(targetOffset.X, targetOffset.Y, targetSize.X, targetSize.Y));
+        var destination = new Windows.Foundation.Rect(targetOffset.X, targetOffset.Y, targetSize.X, targetSize.Y);
+
+        if (!grayscale)
+        {
+            drawingSession.DrawImage(bitmap, destination);
+            return;
+        }
+
+        // Applied here as well, because not every driver honors the color mode in the print ticket.
+        using var effect = new GrayscaleEffect { Source = bitmap };
+        drawingSession.DrawImage(effect, destination, bitmap.Bounds);
+    }
+
+    private static Windows.Foundation.Rect GetImageableRect(PrintTaskOptions printTaskOptions)
+    {
+        var pageDescription = printTaskOptions.GetPageDescription(1);
+        var imageableRect = pageDescription.ImageableRect;
+
+        if (imageableRect.Width > 0 && imageableRect.Height > 0)
+            return imageableRect;
+
+        return new Windows.Foundation.Rect(0, 0, pageDescription.PageSize.Width, pageDescription.PageSize.Height);
     }
 
     private MailPrintOptions CreateRenderSettings(PrintTaskOptions printTaskOptions)
-        => new()
+    {
+        var imageableRect = GetImageableRect(printTaskOptions);
+        var margin = GetMargin();
+
+        // Each PDF page is rendered at the printable area of one sheet, so it fills the paper without being shrunk.
+        return new()
         {
             Orientation = GetOrientation(printTaskOptions),
             MediaSize = GetMediaSize(),
-            PageRanges = GetPageRanges(),
-            MarginTop = _currentRenderSettings.MarginTop,
-            MarginBottom = _currentRenderSettings.MarginBottom,
-            MarginLeft = _currentRenderSettings.MarginLeft,
-            MarginRight = _currentRenderSettings.MarginRight,
-            ShouldPrintBackgrounds = _currentRenderSettings.ShouldPrintBackgrounds,
+            ColorMode = IsGrayscale() ? DomainPrintColorMode.Grayscale : DomainPrintColorMode.Color,
+            PageWidth = imageableRect.Width / DefaultDpi,
+            PageHeight = imageableRect.Height / DefaultDpi,
+            MarginTop = margin,
+            MarginBottom = margin,
+            MarginLeft = margin,
+            MarginRight = margin,
+            ShouldPrintBackgrounds = GetToggleValue(BackgroundsOptionId, _currentRenderSettings.ShouldPrintBackgrounds),
             ShouldPrintSelectionOnly = _currentRenderSettings.ShouldPrintSelectionOnly,
-            ShouldPrintHeaderAndFooter = _currentRenderSettings.ShouldPrintHeaderAndFooter,
+            ShouldPrintHeaderAndFooter = GetToggleValue(HeadersAndFootersOptionId, _currentRenderSettings.ShouldPrintHeaderAndFooter),
             HeaderTitle = _currentRenderSettings.HeaderTitle,
             FooterUri = _currentRenderSettings.FooterUri,
-            ScaleFactor = _currentRenderSettings.ScaleFactor
+            ScaleFactor = GetScaleFactor()
         };
+    }
+
+    private static bool AreClose(double left, double right) => Math.Abs(left - right) < 0.01;
 
     private bool ShouldReloadPdf(MailPrintOptions newSettings)
         => newSettings.Orientation != _currentRenderSettings.Orientation
            || newSettings.MediaSize != _currentRenderSettings.MediaSize
+           || !AreClose(newSettings.PageWidth, _currentRenderSettings.PageWidth)
+           || !AreClose(newSettings.PageHeight, _currentRenderSettings.PageHeight)
+           || !AreClose(newSettings.MarginTop, _currentRenderSettings.MarginTop)
+           || !AreClose(newSettings.MarginBottom, _currentRenderSettings.MarginBottom)
+           || !AreClose(newSettings.MarginLeft, _currentRenderSettings.MarginLeft)
+           || !AreClose(newSettings.MarginRight, _currentRenderSettings.MarginRight)
+           || !AreClose(newSettings.ScaleFactor, _currentRenderSettings.ScaleFactor)
            || newSettings.ShouldPrintBackgrounds != _currentRenderSettings.ShouldPrintBackgrounds
            || newSettings.ShouldPrintHeaderAndFooter != _currentRenderSettings.ShouldPrintHeaderAndFooter
            || !string.Equals(newSettings.HeaderTitle, _currentRenderSettings.HeaderTitle, StringComparison.Ordinal)
            || !string.Equals(newSettings.FooterUri, _currentRenderSettings.FooterUri, StringComparison.Ordinal);
-
-    private int GetCopies()
-        => GetOptionValue(StandardPrintTaskOptions.Copies) as int? ?? 1;
 
     private DomainPrintOrientation GetOrientation(PrintTaskOptions printTaskOptions)
     {
@@ -470,39 +602,33 @@ public class PrintService : IWindowsPrintService
         return DomainPrintMediaSize.Default;
     }
 
-    private DomainPrintCollation GetCollation()
-    {
-        var optionValue = GetOptionValue(StandardPrintTaskOptions.Collation);
-        if (optionValue is DomainPrintCollation collation)
-            return collation;
-
-        if (optionValue is string collationString
-            && Enum.TryParse<DomainPrintCollation>(collationString, true, out var parsedCollation))
+    private double GetMargin()
+        => GetOptionValue(MarginsOptionId)?.ToString() switch
         {
-            return parsedCollation;
-        }
+            MarginsModerate => 0.5,
+            MarginsNarrow => 0.25,
+            MarginsNone => 0,
+            _ => new MailPrintOptions().MarginTop
+        };
 
-        return DomainPrintCollation.Default;
+    private double GetScaleFactor()
+    {
+        var value = GetOptionValue(ScaleOptionId)?.ToString();
+        var percentage = int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : DefaultScalePercentage;
+
+        return Math.Clamp(percentage / 100d, 0.1, 2.0);
     }
 
-    private DomainPrintDuplex GetDuplex()
+    private bool GetToggleValue(string optionId, bool fallback)
+        => GetOptionValue(optionId) is bool value ? value : fallback;
+
+    private bool IsGrayscale()
     {
-        var optionValue = GetOptionValue(StandardPrintTaskOptions.Duplex);
-        if (optionValue is DomainPrintDuplex duplex)
-            return duplex;
-
-        if (optionValue is string duplexString)
-        {
-            return duplexString switch
-            {
-                nameof(DomainPrintDuplex.Simplex) => DomainPrintDuplex.Simplex,
-                nameof(DomainPrintDuplex.DuplexShortEdge) => DomainPrintDuplex.DuplexShortEdge,
-                nameof(DomainPrintDuplex.DuplexLongEdge) => DomainPrintDuplex.DuplexLongEdge,
-                _ => DomainPrintDuplex.Default
-            };
-        }
-
-        return DomainPrintDuplex.Default;
+        var value = GetOptionValue(StandardPrintTaskOptions.ColorMode)?.ToString();
+        return string.Equals(value, nameof(Windows.Graphics.Printing.PrintColorMode.Grayscale), StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, nameof(Windows.Graphics.Printing.PrintColorMode.Monochrome), StringComparison.OrdinalIgnoreCase);
     }
 
     private int GetPagesPerSheet()
@@ -530,12 +656,6 @@ public class PrintService : IWindowsPrintService
         return 1;
     }
 
-    private string GetPageRanges()
-    {
-        var optionValue = GetOptionValue(StandardPrintTaskOptions.CustomPageRanges);
-        return optionValue?.ToString() ?? string.Empty;
-    }
-
     [DynamicWindowsRuntimeCast(typeof(PrintCopiesOptionDetails))]
     [DynamicWindowsRuntimeCast(typeof(PrintPageRangeOptionDetails))]
     private object? GetOptionValue(string optionId)
@@ -554,7 +674,7 @@ public class PrintService : IWindowsPrintService
                 PrintPageRangeOptionDetails pageRanges => pageRanges.Value,
                 IPrintItemListOptionDetails itemList => itemList.Value,
                 IPrintNumberOptionDetails number => number.Value,
-                _ => null
+                _ => option?.Value
             };
         }
         catch (COMException)
@@ -596,64 +716,6 @@ public class PrintService : IWindowsPrintService
         }
 
         return false;
-    }
-
-    private IEnumerable<int> GetPageIndexesToPrint(int totalPageCount)
-    {
-        if (string.IsNullOrWhiteSpace(_currentRenderSettings.PageRanges))
-            return GetAllPages(totalPageCount);
-
-        var pageIndexes = new List<int>();
-        var tokens = _currentRenderSettings.PageRanges.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var token in tokens)
-        {
-            if (token.Contains('-'))
-            {
-                var bounds = token.Split('-', StringSplitOptions.TrimEntries);
-                if (bounds.Length != 2
-                    || !int.TryParse(bounds[0], out var start)
-                    || !int.TryParse(bounds[1], out var end))
-                {
-                    continue;
-                }
-
-                if (end < start)
-                {
-                    (start, end) = (end, start);
-                }
-
-                for (var i = start; i <= end; i++)
-                {
-                    AddPageIndex(pageIndexes, i, totalPageCount);
-                }
-            }
-            else if (int.TryParse(token, out var pageNumber))
-            {
-                AddPageIndex(pageIndexes, pageNumber, totalPageCount);
-            }
-        }
-
-        return pageIndexes.Count > 0
-            ? pageIndexes
-            : GetAllPages(totalPageCount);
-    }
-
-    private static IEnumerable<int> GetAllPages(int totalPageCount)
-    {
-        for (var i = 0; i < totalPageCount; i++)
-        {
-            yield return i;
-        }
-    }
-
-    private static void AddPageIndex(ICollection<int> pageIndexes, int pageNumber, int totalPageCount)
-    {
-        var zeroBasedIndex = pageNumber - 1;
-        if (zeroBasedIndex >= 0 && zeroBasedIndex < totalPageCount)
-        {
-            pageIndexes.Add(zeroBasedIndex);
-        }
     }
 
     private static int NormalizePagesPerSheet(int pagesPerSheet)

@@ -189,7 +189,19 @@ public static class PrintSettingsExtensions
     {
         var settings = environment.CreatePrintSettings();
 
-        settings.Orientation = model.Orientation.ToCoreWebView2Orientation();
+        // PrintToPdf ignores MediaSize, so the printable area of the chosen paper is passed as the page size.
+        // The width and height are already oriented, so the renderer must not swap them again.
+        if (model.PageWidth > 0 && model.PageHeight > 0)
+        {
+            settings.Orientation = CoreWebView2PrintOrientation.Portrait;
+            settings.PageWidth = model.PageWidth;
+            settings.PageHeight = model.PageHeight;
+        }
+        else
+        {
+            settings.Orientation = model.Orientation.ToCoreWebView2Orientation();
+        }
+
         settings.ColorMode = model.ColorMode.ToCoreWebView2ColorMode();
         settings.MediaSize = model.MediaSize.ToCoreWebView2MediaSize();
         settings.MarginTop = model.MarginTop;

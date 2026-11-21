@@ -30,6 +30,14 @@ public partial class MailPrintOptions : ObservableObject
     [ObservableProperty]
     public partial int Copies { get; set; } = 1;
 
+    /// <summary>Rendered page width in inches. Zero keeps the renderer's default paper.</summary>
+    [ObservableProperty]
+    public partial double PageWidth { get; set; }
+
+    /// <summary>Rendered page height in inches. Zero keeps the renderer's default paper.</summary>
+    [ObservableProperty]
+    public partial double PageHeight { get; set; }
+
     [ObservableProperty]
     public partial double MarginTop { get; set; } = 1.0;
 
