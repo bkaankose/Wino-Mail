@@ -140,7 +140,7 @@ public partial class ToDoPageViewModel
             return;
         }
 
-        _dialogService.InfoBarMessage(
+        ShowNotice(
             Translator.ToDoPage_NextOccurrenceFailedTitle,
             string.Format(Translator.ToDoPage_NextOccurrenceFailedMessage, title),
             InfoBarMessageType.Warning);

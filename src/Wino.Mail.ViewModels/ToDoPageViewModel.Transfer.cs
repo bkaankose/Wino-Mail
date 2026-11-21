@@ -49,7 +49,7 @@ public partial class ToDoPageViewModel
         if (!await QueueRequestsAsync(destination.MailAccountId, requests).ConfigureAwait(false))
             return;
 
-        _dialogService.InfoBarMessage(
+        ShowNotice(
             Translator.ToDoPage_CopyListTo,
             string.Format(Translator.ToDoPage_CopyListStarted, tasks.Count, destination.Title),
             InfoBarMessageType.Information);
@@ -78,11 +78,11 @@ public partial class ToDoPageViewModel
         try
         {
             await File.WriteAllTextAsync(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: isCsv)).ConfigureAwait(false);
-            _dialogService.InfoBarMessage(Translator.ToDoPage_ExportTasks, string.Format(Translator.ToDoPage_ExportDone, tasks.Count, path), InfoBarMessageType.Success);
+            ShowNotice(Translator.ToDoPage_ExportTasks, string.Format(Translator.ToDoPage_ExportDone, tasks.Count, path), InfoBarMessageType.Success);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _dialogService.InfoBarMessage(Translator.ToDoPage_ExportTasks, ex.Message, InfoBarMessageType.Error);
+            ShowNotice(Translator.ToDoPage_ExportTasks, ex.Message, InfoBarMessageType.Error);
         }
     }
 
@@ -112,7 +112,7 @@ public partial class ToDoPageViewModel
 
         if (imported.Count == 0)
         {
-            _dialogService.InfoBarMessage(Translator.ToDoPage_ImportTasks, Translator.ToDoPage_ImportNothing, InfoBarMessageType.Warning);
+            ShowNotice(Translator.ToDoPage_ImportTasks, Translator.ToDoPage_ImportNothing, InfoBarMessageType.Warning);
             return;
         }
 
@@ -120,7 +120,7 @@ public partial class ToDoPageViewModel
         if (!await QueueRequestsAsync(destination.MailAccountId, BuildCopyRequests(imported, destination, capabilities)).ConfigureAwait(false))
             return;
 
-        _dialogService.InfoBarMessage(
+        ShowNotice(
             Translator.ToDoPage_ImportTasks,
             string.Format(Translator.ToDoPage_ImportStarted, imported.Count, destination.Title),
             InfoBarMessageType.Information);

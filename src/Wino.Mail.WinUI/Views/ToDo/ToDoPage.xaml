@@ -960,22 +960,32 @@
             </StackPanel>
 
             <!--  Undo for complete, delete and move: the server call waits until this closes.  -->
-            <InfoBar
-                Title="{x:Bind ViewModel.UndoBarTitle, Mode=OneWay}"
+            <StackPanel
                 Grid.Row="1"
                 Margin="20,0,20,8"
                 VerticalAlignment="Bottom"
-                AutomationProperties.AutomationId="ToDoUndoInfoBar"
-                CloseButtonCommand="{x:Bind ViewModel.CloseUndoBarCommand}"
-                IsOpen="{x:Bind ViewModel.IsUndoBarOpen, Mode=OneWay}"
-                Severity="Informational">
-                <InfoBar.ActionButton>
-                    <Button
-                        AutomationProperties.AutomationId="ToDoUndoButton"
-                        Command="{x:Bind ViewModel.UndoTaskActionCommand}"
-                        Content="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
-                </InfoBar.ActionButton>
-            </InfoBar>
+                Spacing="6">
+                <InfoBar
+                    Title="{x:Bind ViewModel.NoticeTitle, Mode=OneWay}"
+                    AutomationProperties.AutomationId="ToDoNoticeInfoBar"
+                    CloseButtonCommand="{x:Bind ViewModel.CloseNoticeCommand}"
+                    IsOpen="{x:Bind ViewModel.IsNoticeOpen, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.NoticeMessage, Mode=OneWay}"
+                    Severity="{x:Bind winuiHelpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.NoticeSeverity), Mode=OneWay}" />
+                <InfoBar
+                    Title="{x:Bind ViewModel.UndoBarTitle, Mode=OneWay}"
+                    AutomationProperties.AutomationId="ToDoUndoInfoBar"
+                    CloseButtonCommand="{x:Bind ViewModel.CloseUndoBarCommand}"
+                    IsOpen="{x:Bind ViewModel.IsUndoBarOpen, Mode=OneWay}"
+                    Severity="Informational">
+                    <InfoBar.ActionButton>
+                        <Button
+                            AutomationProperties.AutomationId="ToDoUndoButton"
+                            Command="{x:Bind ViewModel.UndoTaskActionCommand}"
+                            Content="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+            </StackPanel>
 
             <!--  Quick add. Enter submits from the text box; the pointer action stays on the same row.  -->
             <Border
