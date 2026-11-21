@@ -8,6 +8,7 @@ using Wino.Core.Domain.Models.Notifications;
 using Wino.Mail.ViewModels.Activation;
 using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Mail.ViewModels.Companion;
+using Wino.Mail.WinUI.Services;
 
 namespace Wino.Mail.WinUI;
 
@@ -87,7 +88,10 @@ public partial class App : IApplicationLifecycleHost, IApplicationShellHost
     }
 
     // Both complete synchronously, so StopAsync begins the runtime stop before ExitApplicationAsync starts the draft shutdown.
-    Task IApplicationLifecycleHook.StoppingAsync(bool runtimeStarted) => Task.CompletedTask;
+    // The one exception is a calendar change made in the last second: its reminder plan reaches Windows first, bounded to
+    // two seconds, so the reminder still fires after Wino exits.
+    Task IApplicationLifecycleHook.StoppingAsync(bool runtimeStarted)
+        => Services.GetService<CalendarReminderToastScheduler>()?.FlushPendingAsync(TimeSpan.FromSeconds(2)) ?? Task.CompletedTask;
 
     Task IApplicationLifecycleHost.StopNavigationAsync() => Task.CompletedTask;
 

@@ -25,6 +25,9 @@ public interface INotificationHostClient
     /// <summary>The tag and delivery time of every toast Wino scheduled for the application that has not been shown yet.</summary>
     IReadOnlyList<(string Tag, DateTimeOffset DeliveryTime)> GetScheduled(NotificationHostApplication application);
 
+    /// <summary>True when a toast with <paramref name="tag"/> is in the application's notification center.</summary>
+    bool IsInHistory(NotificationHostApplication application, string tag);
+
     /// <summary>Removes the scheduled toasts with <paramref name="tag"/> that have not been shown yet.</summary>
     void RemoveScheduled(NotificationHostApplication application, string tag);
 }

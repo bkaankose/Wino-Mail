@@ -86,6 +86,19 @@ internal sealed class NotificationHostClient : INotificationHostClient
         return scheduled;
     }
 
+    public bool IsInHistory(NotificationHostApplication application, string tag)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tag);
+
+        foreach (var toast in ToastNotificationManager.History.GetHistory(GetAppUserModelId(application)))
+        {
+            if (string.Equals(toast.Tag, tag, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
     public void RemoveScheduled(NotificationHostApplication application, string tag)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tag);

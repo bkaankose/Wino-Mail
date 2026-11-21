@@ -399,9 +399,24 @@ public class NotificationBuilder : INotificationBuilder
 
         var tag = CalendarReminderTags.Create(calendarItem.Id, reminderDurationInSeconds);
 
-        // Windows shows a reminder it was handed as a scheduled toast on its own.
+        // Windows may deliver a scheduled toast minutes after its time, so while Wino runs it shows the reminder on
+        // time itself and takes the scheduled copy back. One Windows already showed is not shown twice.
         if (_calendarReminderToastPlan.IsDeliveredBySchedule(tag, DateTimeOffset.Now))
-            return;
+        {
+            try
+            {
+                if (_notificationHostClient.IsInHistory(NotificationHostApplication.Calendar, tag))
+                    return;
+
+                _notificationHostClient.RemoveScheduled(NotificationHostApplication.Calendar, tag);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not take back the scheduled calendar reminder toast {Tag}.", tag);
+            }
+
+            _calendarReminderToastPlan.Remove(tag);
+        }
 
         var (builder, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, DateTime.Now).ConfigureAwait(false);
 
@@ -414,7 +429,8 @@ public class NotificationBuilder : INotificationBuilder
     /// </summary>
     internal async Task<AppNotification?> BuildScheduledCalendarReminderAsync(CalendarItem calendarItem, long reminderDurationInSeconds, DateTime triggerLocal)
     {
-        var (builder, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, triggerLocal).ConfigureAwait(false);
+        // The text is written now and shown later, possibly after the start, so it names the start time only.
+        var (builder, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, shownAtLocal: null).ConfigureAwait(false);
         var deliveryTime = new DateTimeOffset(DateTime.SpecifyKind(triggerLocal, DateTimeKind.Local));
 
         if (!_notificationPolicyService.Evaluate(NotificationKind.CalendarReminder, accountPreferences, deliveryTime).ShouldDeliver)
@@ -428,7 +444,7 @@ public class NotificationBuilder : INotificationBuilder
     private async Task<(AppNotificationBuilder Builder, MailAccountPreferences? AccountPreferences)> BuildCalendarReminderAsync(
         CalendarItem calendarItem,
         long reminderDurationInSeconds,
-        DateTime shownAtLocal)
+        DateTime? shownAtLocal)
     {
         // Resolved so the account's own calendar-reminder switch and quiet hours stance apply,
         // not just the app-wide default.
@@ -444,10 +460,10 @@ public class NotificationBuilder : INotificationBuilder
         else
         {
             var localStart = calendarItem.GetLocalStartDate();
-            var reminderContext = GetCalendarReminderContext(localStart, shownAtLocal);
-
             builder.AddText(calendarItem.Title);
-            builder.AddText($"{reminderContext} - {localStart:g}");
+            builder.AddText(shownAtLocal is { } shownAt
+                ? $"{GetCalendarReminderContext(localStart, shownAt)} - {localStart:g}"
+                : $"{localStart:g}");
 
             if (!string.IsNullOrWhiteSpace(calendarItem.Location))
                 builder.AddText(calendarItem.Location);

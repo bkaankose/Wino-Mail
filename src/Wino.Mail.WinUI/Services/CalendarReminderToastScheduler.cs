@@ -28,6 +28,12 @@ public sealed class CalendarReminderToastPlan
             _planned = new Dictionary<string, DateTimeOffset>(planned, StringComparer.Ordinal);
     }
 
+    public void Remove(string tag)
+    {
+        lock (_lock)
+            _planned.Remove(tag);
+    }
+
     /// <summary>True when Windows shows the toast with <paramref name="tag"/> around <paramref name="now"/>.</summary>
     public bool IsDeliveredBySchedule(string tag, DateTimeOffset now)
     {
@@ -49,8 +55,7 @@ public sealed class CalendarReminderToastScheduler :
 {
     private static readonly TimeSpan PlanningWindow = TimeSpan.FromDays(7);
     private static readonly TimeSpan PlanningLead = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan ChangeDebounce = TimeSpan.FromSeconds(3);
-    private static readonly TimeSpan DeliveryMatchTolerance = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan ChangeDebounce = TimeSpan.FromSeconds(1);
 
     // Windows keeps a limited number of scheduled toasts per application.
     private const int MaximumScheduledReminders = 200;
@@ -64,6 +69,7 @@ public sealed class CalendarReminderToastScheduler :
     private readonly SemaphoreSlim _planLock = new(1, 1);
     private CancellationTokenSource? _pendingReplan;
     private int _isStarted;
+    private (int Count, DateTimeOffset? Next) _lastLoggedPlan = (-1, null);
 
     public CalendarReminderToastScheduler(
         ICalendarService calendarService,
@@ -105,12 +111,27 @@ public sealed class CalendarReminderToastScheduler :
             try
             {
                 await Task.Delay(ChangeDebounce, pending.Token).ConfigureAwait(false);
-                await ReplanAsync().ConfigureAwait(false);
+                if (Interlocked.CompareExchange(ref _pendingReplan, null, pending) == pending)
+                    await ReplanAsync().ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
             }
         });
+    }
+
+    /// <summary>
+    /// Runs a replan that is still waiting for its debounce, so a change made right before Wino exits
+    /// reaches Windows before the process ends.
+    /// </summary>
+    public async Task FlushPendingAsync(TimeSpan timeout)
+    {
+        var pending = Interlocked.Exchange(ref _pendingReplan, null);
+        if (pending == null || pending.IsCancellationRequested)
+            return;
+
+        pending.Cancel();
+        await Task.WhenAny(ReplanAsync(), Task.Delay(timeout)).ConfigureAwait(false);
     }
 
     public async Task ReplanAsync()
@@ -139,46 +160,47 @@ public sealed class CalendarReminderToastScheduler :
                     wanted.TryAdd(notification.Tag, (notification, delivery));
             }
 
-            var scheduled = _notificationHostClient.GetScheduled(NotificationHostApplication.Calendar);
+            // Every planned toast is replaced, so a renamed or moved event never fires with its old text or time.
             var removed = 0;
-            foreach (var (tag, delivery) in scheduled)
+            foreach (var (tag, _) in _notificationHostClient.GetScheduled(NotificationHostApplication.Calendar))
             {
                 if (!CalendarReminderTags.IsCalendarReminder(tag))
-                    continue;
-
-                if (wanted.TryGetValue(tag, out var entry) && (entry.Delivery - delivery).Duration() <= DeliveryMatchTolerance)
                     continue;
 
                 _notificationHostClient.RemoveScheduled(NotificationHostApplication.Calendar, tag);
                 removed++;
             }
 
-            var kept = scheduled
-                .Where(value => wanted.TryGetValue(value.Tag, out var entry) && (entry.Delivery - value.DeliveryTime).Duration() <= DeliveryMatchTolerance)
-                .Select(value => value.Tag)
-                .ToHashSet(StringComparer.Ordinal);
-
             var planned = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
-            var added = 0;
+            Exception? scheduleFailure = null;
             foreach (var (tag, entry) in wanted)
             {
-                if (!kept.Contains(tag))
+                // A reminder that became due while this plan was built is the poll's to show.
+                if (entry.Delivery <= DateTimeOffset.Now.AddSeconds(5))
+                    continue;
+
+                try
                 {
-                    // A reminder that became due while this plan was built is the poll's to show.
-                    if (entry.Delivery <= DateTimeOffset.Now.AddSeconds(5))
-                        continue;
-
                     _notificationHostClient.Schedule(NotificationHostApplication.Calendar, entry.Notification, entry.Delivery);
-                    added++;
+                    planned[tag] = entry.Delivery;
                 }
-
-                planned[tag] = entry.Delivery;
+                catch (Exception ex)
+                {
+                    scheduleFailure ??= ex;
+                }
             }
 
             _plan.Replace(planned);
 
-            if (added > 0 || removed > 0)
-                _logger.Information("Calendar reminder toasts planned: {Added} added, {Removed} removed, {Total} ahead.", added, removed, wanted.Count);
+            if (scheduleFailure != null)
+                _logger.Warning(scheduleFailure, "Windows refused {Count} of {Total} calendar reminder toasts; the in-process poll delivers them while Wino runs.", wanted.Count - planned.Count, wanted.Count);
+
+            var signature = (planned.Count, Next: planned.Count == 0 ? (DateTimeOffset?)null : planned.Values.Min());
+            if (signature != _lastLoggedPlan)
+            {
+                _lastLoggedPlan = signature;
+                _logger.Information("Calendar reminder toasts planned with Windows: {Planned} ahead ({Removed} replaced), next at {Next}.", planned.Count, removed, signature.Next);
+            }
         }
         catch (Exception ex)
         {
