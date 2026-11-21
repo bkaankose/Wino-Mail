@@ -23,9 +23,13 @@ public partial class ToDoPageViewModel
     [ObservableProperty]
     public partial InfoBarMessageType NoticeSeverity { get; set; }
 
-    private void ShowNotice(string title, string message, InfoBarMessageType severity)
+    private System.Guid? _noticeListId;
+
+    /// <param name="listId">The list the notice is about; the notice closes when that list is deleted.</param>
+    private void ShowNotice(string title, string message, InfoBarMessageType severity, System.Guid? listId = null)
         => _ = ExecuteUIThread(() =>
         {
+            _noticeListId = listId;
             NoticeTitle = title ?? string.Empty;
             NoticeMessage = message ?? string.Empty;
             NoticeSeverity = severity;

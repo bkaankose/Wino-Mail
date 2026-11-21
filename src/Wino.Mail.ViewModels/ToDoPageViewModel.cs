@@ -733,6 +733,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             if (message.Task is not null)
             {
                 ReportFailedNextOccurrence(message);
+                TrackTransferRevert(message);
                 _pendingTaskStates.Remove(message.Task.Id);
                 _pendingDeletedTaskIds.Remove(message.Task.Id);
                 _deferredServerTaskStates.Remove(message.Task.Id);
@@ -817,6 +818,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             // A list delete removes its tasks on the server without a delete message for each task.
             RemoveListTasks(message.List.Id);
             _listMenuItems.Remove(message.List.Id);
+            CloseNoticesOfList(message.List.Id);
 
             // Staying on the same account keeps its lists open in the pane; My Day would collapse them.
             if (SelectedList?.Id == message.List.Id)
@@ -1052,6 +1054,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         {
             ClearPendingState(message.AccountId);
         }).ConfigureAwait(false);
+
+        await CompleteTransferIfDoneAsync(message.AccountId).ConfigureAwait(false);
     }
 
     private void ClearPendingState(Guid accountId)

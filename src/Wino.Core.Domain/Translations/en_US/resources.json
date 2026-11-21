@@ -4354,6 +4354,8 @@
   "ToDoPage_ImportTasks": "Import tasks",
   "ToDoPage_ImportNothing": "The file has no tasks Wino can read.",
   "ToDoPage_ImportStarted": "Adding {0} tasks to {1}.",
+  "ToDoPage_TransferDone": "Added {0} tasks to {1}.",
+  "ToDoPage_TransferPartial": "Added {0} of {1} tasks to {2}. The rest could not be created.",
   "ToDoPage_CopyListTo": "Copy list to",
   "ToDoPage_CopyListStarted": "Copying {0} tasks to {1}.",
   "ToDoPage_RepeatCustom": "Repeats",

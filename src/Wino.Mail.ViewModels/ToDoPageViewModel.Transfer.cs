@@ -9,6 +9,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Messaging.UI;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Requests.Tasks;
 
@@ -46,13 +47,19 @@ public partial class ToDoPageViewModel
         var capabilities = await _taskService.GetTaskCapabilitiesAsync(destination.Id).ConfigureAwait(false);
         var requests = BuildCopyRequests(tasks, destination, capabilities);
 
-        if (!await QueueRequestsAsync(destination.MailAccountId, requests).ConfigureAwait(false))
-            return;
-
+        // The notice goes up first: the result can arrive before the queue call returns.
+        StartTransfer(Translator.ToDoPage_CopyListTo, destination, requests);
         ShowNotice(
             Translator.ToDoPage_CopyListTo,
             string.Format(Translator.ToDoPage_CopyListStarted, tasks.Count, destination.Title),
-            InfoBarMessageType.Information);
+            InfoBarMessageType.Information,
+            destination.Id);
+
+        if (!await QueueRequestsAsync(destination.MailAccountId, requests).ConfigureAwait(false))
+        {
+            _pendingTransfer = null;
+            await ExecuteUIThread(() => IsNoticeOpen = false).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Saves the selected list, or every task when no list is selected, as "ics" or "csv".</summary>
@@ -117,13 +124,85 @@ public partial class ToDoPageViewModel
         }
 
         var capabilities = await _taskService.GetTaskCapabilitiesAsync(destination.Id).ConfigureAwait(false);
-        if (!await QueueRequestsAsync(destination.MailAccountId, BuildCopyRequests(imported, destination, capabilities)).ConfigureAwait(false))
-            return;
+        var requests = BuildCopyRequests(imported, destination, capabilities);
 
+        // The notice goes up first: the result can arrive before the queue call returns.
+        StartTransfer(Translator.ToDoPage_ImportTasks, destination, requests);
         ShowNotice(
             Translator.ToDoPage_ImportTasks,
             string.Format(Translator.ToDoPage_ImportStarted, imported.Count, destination.Title),
-            InfoBarMessageType.Information);
+            InfoBarMessageType.Information,
+            destination.Id);
+
+        if (!await QueueRequestsAsync(destination.MailAccountId, requests).ConfigureAwait(false))
+        {
+            _pendingTransfer = null;
+            await ExecuteUIThread(() => IsNoticeOpen = false).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>The creates of a copy or import that is under way, so its notice can report the result.</summary>
+    private sealed record PendingTransfer(string Title, Guid AccountId, Guid ListId, string ListTitle, HashSet<Guid> TaskIds, HashSet<Guid> FailedIds);
+
+    private PendingTransfer _pendingTransfer;
+
+    private void StartTransfer(string title, AccountTaskList destination, IEnumerable<TaskActionRequest> requests)
+        => _pendingTransfer = new PendingTransfer(
+            title,
+            destination.MailAccountId,
+            destination.Id,
+            destination.Title ?? string.Empty,
+            requests.Where(request => request.Operation == TaskSynchronizerOperation.CreateTask && request.Task is not null)
+                .Select(request => request.Task.Id)
+                .ToHashSet(),
+            []);
+
+    /// <summary>A create of the running copy or import was reverted: the server refused it.</summary>
+    private void TrackTransferRevert(TaskStateChanged message)
+    {
+        if (_pendingTransfer is { } transfer &&
+            message.Operation == TaskSynchronizerOperation.CreateTask &&
+            message.Task is { } task &&
+            transfer.TaskIds.Contains(task.Id))
+        {
+            transfer.FailedIds.Add(task.Id);
+        }
+    }
+
+    /// <summary>
+    /// After the destination account's requests ran, replaces the "Adding" notice with the result once every
+    /// create was either stored or refused. A sync that ran before the creates leaves the notice as it is.
+    /// </summary>
+    private async Task CompleteTransferIfDoneAsync(Guid accountId)
+    {
+        if (_pendingTransfer is not { } transfer || transfer.AccountId != accountId)
+            return;
+
+        var added = 0;
+        foreach (var taskId in transfer.TaskIds.Where(id => !transfer.FailedIds.Contains(id)))
+        {
+            if (await _taskService.GetTaskAsync(taskId).ConfigureAwait(false) is { PendingMutation: TaskPendingMutation.None })
+                added++;
+        }
+
+        if (added + transfer.FailedIds.Count < transfer.TaskIds.Count || !ReferenceEquals(_pendingTransfer, transfer))
+            return;
+
+        _pendingTransfer = null;
+        if (transfer.FailedIds.Count == 0)
+            ShowNotice(transfer.Title, string.Format(Translator.ToDoPage_TransferDone, added, transfer.ListTitle), InfoBarMessageType.Success, transfer.ListId);
+        else
+            ShowNotice(transfer.Title, string.Format(Translator.ToDoPage_TransferPartial, added, transfer.TaskIds.Count, transfer.ListTitle), InfoBarMessageType.Warning, transfer.ListId);
+    }
+
+    /// <summary>A notice about a list that no longer exists is closed, and its transfer is no longer followed.</summary>
+    private void CloseNoticesOfList(Guid listId)
+    {
+        if (_pendingTransfer?.ListId == listId)
+            _pendingTransfer = null;
+
+        if (_noticeListId == listId)
+            IsNoticeOpen = false;
     }
 
     private static string SanitizeFileName(string name)
