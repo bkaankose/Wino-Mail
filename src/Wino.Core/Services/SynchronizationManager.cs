@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Requests.Tasks;
 using Wino.Core.Domain.Messaging.Client.Navigation;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Messaging.Server;
@@ -45,6 +46,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _calendarSynchronizationProgress = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _contactSynchronizationProgress = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _taskSynchronizationProgress = new();
+    private const int TaskUndoIntervalInSeconds = 5;
     private readonly ConcurrentDictionary<Guid, PendingUndoActionPack> _pendingUndoActionPacks = new();
 
     // Accounts whose queued user actions were held back (attention gate, synchronizer teardown).
@@ -789,6 +791,18 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 Math.Clamp(_preferencesService?.UndoSendingDraftsIntervalInSeconds ?? 5, 1, 10));
         }
 
+        if (allRequests.All(request => request is TaskActionRequest { AllowUndo: true }))
+        {
+            var taskRequests = allRequests.Cast<TaskActionRequest>().ToList();
+            var title = taskRequests.All(request => request.Operation == TaskSynchronizerOperation.DeleteTask)
+                ? Translator.UndoActions_TaskDeleted
+                : taskRequests.Any(request => request.OriginalTask is { } original && request.Task is { } task && original.TaskListId != task.TaskListId)
+                    ? Translator.UndoActions_TaskMoved
+                    : Translator.UndoActions_TaskCompleted;
+
+            return new UndoActionSettings(title, string.Empty, InfoBarMessageType.Information, TaskUndoIntervalInSeconds, UndoableActionKind.Task);
+        }
+
         if (allRequests.All(IsDeleteMailRequest))
         {
             if (_preferencesService?.IsUndoDeletingMailsEnabled != true)
@@ -812,7 +826,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             undoActionSettings.Title,
             undoActionSettings.Severity,
             pack.ExpiresAt,
-            pack.IntervalInSeconds);
+            pack.IntervalInSeconds)
+        {
+            Kind = undoActionSettings.Kind
+        };
     }
 
     private static bool IsDeleteMailRequest(IRequestBase request)
@@ -1857,5 +1874,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         string Title,
         string Message,
         InfoBarMessageType Severity,
-        int IntervalInSeconds);
+        int IntervalInSeconds,
+        UndoableActionKind Kind = UndoableActionKind.Mail);
 }

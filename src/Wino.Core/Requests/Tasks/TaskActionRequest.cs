@@ -51,6 +51,9 @@ public sealed record TaskActionRequest : ITaskActionRequest
     public int ResynchronizationDelay => 0;
     public RequestTrace Trace { get; set; }
 
+    /// <summary>The request waits in the undo window before it reaches the server (complete, delete and move from To Do).</summary>
+    public bool AllowUndo { get; init; }
+
     public object GroupingKey() => (MailAccountId, TaskGroupId, TaskListId, TaskId, Operation);
 
     public void ApplyUIChanges(IUIMessageSender sender)

@@ -3825,7 +3825,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     public async void Receive(UndoableMailActionPackChanged message)
     {
-        if (message?.Pack == null)
+        if (message?.Pack == null || message.Pack.Kind != UndoableActionKind.Mail)
             return;
 
         await ExecuteUIThread(() =>

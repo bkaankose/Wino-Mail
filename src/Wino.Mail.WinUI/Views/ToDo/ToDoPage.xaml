@@ -922,6 +922,24 @@
                     TextWrapping="Wrap" />
             </StackPanel>
 
+            <!--  Undo for complete, delete and move: the server call waits until this closes.  -->
+            <InfoBar
+                Title="{x:Bind ViewModel.UndoBarTitle, Mode=OneWay}"
+                Grid.Row="1"
+                Margin="20,0,20,8"
+                VerticalAlignment="Bottom"
+                AutomationProperties.AutomationId="ToDoUndoInfoBar"
+                CloseButtonCommand="{x:Bind ViewModel.CloseUndoBarCommand}"
+                IsOpen="{x:Bind ViewModel.IsUndoBarOpen, Mode=OneWay}"
+                Severity="Informational">
+                <InfoBar.ActionButton>
+                    <Button
+                        AutomationProperties.AutomationId="ToDoUndoButton"
+                        Command="{x:Bind ViewModel.UndoTaskActionCommand}"
+                        Content="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+
             <!--  Quick add. Enter submits from the text box; the pointer action stays on the same row.  -->
             <Border
                 Grid.Row="2"

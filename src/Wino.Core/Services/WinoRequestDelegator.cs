@@ -373,6 +373,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
                 if (prepared != null)
                     prepared.Trace = taskRequest.Trace;
+                if (prepared is TaskActionRequest preparedTaskRequest && taskRequest.AllowUndo)
+                    prepared = preparedTaskRequest with { AllowUndo = true };
 
                 requestList.Add(prepared ?? taskRequest);
                 continue;

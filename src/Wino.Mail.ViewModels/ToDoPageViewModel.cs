@@ -611,6 +611,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Register<PreferenceChangedMessage>(this);
         Messenger.Register<ItemLinksChanged>(this);
         FlaggedMail?.Attach();
+        Messenger.Register<ToDoPageViewModel, UndoableMailActionPackChanged>(this, static (recipient, message) => recipient.ReceiveUndoPack(message));
     }
 
     protected override void UnregisterRecipients()
@@ -624,6 +625,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Unregister<PreferenceChangedMessage>(this);
         Messenger.Unregister<ItemLinksChanged>(this);
         FlaggedMail?.Detach();
+        Messenger.Unregister<UndoableMailActionPackChanged>(this);
         base.UnregisterRecipients();
     }
 
@@ -1590,7 +1592,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             desired.MailAccountId,
             TaskSynchronizerOperation.UpdateTask,
             Task: desired,
-            OriginalTask: original)).ConfigureAwait(false))
+            OriginalTask: original)
+        {
+            AllowUndo = desired.IsCompleted
+        }).ConfigureAwait(false))
         {
             return;
         }
@@ -1846,7 +1851,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             desired.MailAccountId,
             TaskSynchronizerOperation.UpdateTask,
             Task: desired,
-            OriginalTask: original)).ConfigureAwait(false);
+            OriginalTask: original)
+        {
+            AllowUndo = true
+        }).ConfigureAwait(false);
     }
 
     [RelayCommand]
@@ -1893,7 +1901,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             item.Task.MailAccountId,
             TaskSynchronizerOperation.DeleteTask,
             Task: item.Task,
-            OriginalTask: item.Task)).ConfigureAwait(false);
+            OriginalTask: item.Task)
+        {
+            AllowUndo = true
+        }).ConfigureAwait(false);
     }
 
     [RelayCommand]
@@ -1928,7 +1939,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                     desired.MailAccountId,
                     TaskSynchronizerOperation.UpdateTask,
                     Task: desired,
-                    OriginalTask: original);
+                    OriginalTask: original)
+                {
+                    AllowUndo = isCompleted
+                };
             })
             .ToList();
 
@@ -1976,17 +1990,16 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             return;
         }
 
-        foreach (var item in selected)
-        {
-            if (!await QueueMutationAsync(new TaskActionRequest(
+        await QueueMutationsAsync(selected
+            .Select(item => new TaskActionRequest(
                 item.Task.MailAccountId,
                 TaskSynchronizerOperation.DeleteTask,
                 Task: item.Task,
-                OriginalTask: item.Task)).ConfigureAwait(false))
+                OriginalTask: item.Task)
             {
-                return;
-            }
-        }
+                AllowUndo = true
+            })
+            .ToList()).ConfigureAwait(false);
     }
 
     [RelayCommand]
