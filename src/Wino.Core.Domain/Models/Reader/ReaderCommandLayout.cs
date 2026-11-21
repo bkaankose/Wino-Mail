@@ -50,7 +50,8 @@ public static class ReaderCommandLayout
         new(ReaderCommandAction.Print, false),
         new(ReaderCommandAction.ViewMessageSource, false),
         new(ReaderCommandAction.Junk, false),
-        new(ReaderCommandAction.CreateTask, false)
+        new(ReaderCommandAction.CreateTask, false),
+        new(ReaderCommandAction.CreateEvent, false)
     ];
 
     public static ReaderCommandLayoutEntry[] Parse(string value)
@@ -138,6 +139,7 @@ public static class ReaderCommandLayout
             ReaderCommandAction.Junk when context.FolderType == SpecialFolderType.Junk => MailOperation.MarkAsNotJunk,
             ReaderCommandAction.Junk when !context.IsDraft && context.FolderType != SpecialFolderType.Sent => MailOperation.MoveToJunk,
             ReaderCommandAction.CreateTask when !context.IsDraft => MailOperation.CreateTask,
+            ReaderCommandAction.CreateEvent when !context.IsDraft => MailOperation.CreateEvent,
             _ => MailOperation.None
         };
     }

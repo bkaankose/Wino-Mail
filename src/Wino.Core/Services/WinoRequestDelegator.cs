@@ -413,7 +413,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (_itemLinks is not null)
         {
             foreach (var link in composeResult.PendingLinks ?? [])
+            {
+                // The calendar may have been changed in the composer.
+                link.TargetAccountId = assignedCalendar.AccountId;
                 _itemLinks.ExpectLink(request.PreparedItem.Id, link);
+            }
         }
 
         return request;

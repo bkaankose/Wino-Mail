@@ -75,6 +75,7 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
         if (isSingleItem && !singleItem.IsDraft)
         {
             operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateTask));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateEvent));
             operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
         }
 

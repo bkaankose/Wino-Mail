@@ -31,6 +31,7 @@ public sealed partial class ConnectedItemsCoordinator(
     IAccountService accountService,
     ICalendarService calendarService,
     IMailService mailService,
+    IMimeFileService mimeFileService,
     IMailDialogService dialogService,
     IWinoRequestDelegator requestDelegator,
     IPreferencesService preferencesService,
@@ -55,6 +56,7 @@ public sealed partial class ConnectedItemsCoordinator(
         return operation switch
         {
             MailOperation.CreateTask => CreateTaskFromMailAsync(mail),
+            MailOperation.CreateEvent => CreateEventFromMailAsync(mail),
             _ => Task.CompletedTask
         };
     }

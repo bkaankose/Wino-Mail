@@ -53,6 +53,7 @@ public partial class ReaderCommandLayoutItemViewModel : ObservableObject
             ReaderCommandAction.ViewMessageSource => new ReaderCommandLayoutItemViewModel(entry.Action, Translator.MailOperation_ViewMessageSource, WinoIconGlyph.ViewMessageSource),
             ReaderCommandAction.Junk => new ReaderCommandLayoutItemViewModel(entry.Action, Translator.ReaderActions_JunkToggle, WinoIconGlyph.Blocked),
             ReaderCommandAction.CreateTask => new ReaderCommandLayoutItemViewModel(entry.Action, Translator.MailOperation_CreateTask, WinoIconGlyph.TaskList),
+            ReaderCommandAction.CreateEvent => new ReaderCommandLayoutItemViewModel(entry.Action, Translator.MailOperation_CreateEvent, WinoIconGlyph.Calendar),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry.Action, null)
         };
 

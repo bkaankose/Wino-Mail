@@ -21,5 +21,6 @@ public enum ReaderCommandAction
     Print,
     ViewMessageSource,
     Junk,
-    CreateTask
+    CreateTask,
+    CreateEvent
 }
