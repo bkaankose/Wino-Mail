@@ -169,7 +169,8 @@ public sealed partial class ToDoPageViewController
         _deleteRow = new WinoDrawerActionRow(WinoIconGlyph.Delete, Translator.ToDoPage_DeleteTask, WinoToDoStyle.Critical, WinoToDoStyle.Critical);
         _deleteRow.Clicked += (_, _) => { if (ViewModel.SelectedTask is { } task) Observe(ViewModel.DeleteTaskCommand.ExecuteAsync(task)); };
         var ruleRow = Indent(rule, 12);
-        var schedule = Section(scheduleLabel, Indent(_myDayRow), Indent(_dueRow), ruleRow, Indent(_deleteRow));
+        BuildTaskFieldRows();
+        var schedule = Section(scheduleLabel, Indent(_myDayRow), Indent(_dueRow), Indent(_reminderRow), Indent(_repeatRow), Indent(_priorityRow), Indent(_categoriesRow), ruleRow, Indent(_deleteRow));
         schedule.SetCustomSpacing(6, ruleRow);
 
         var notesLabel = Indent(WinoDrawerSection.Label(Translator.ToDoPage_Notes), 12);
@@ -331,6 +332,10 @@ public sealed partial class ToDoPageViewController
             if (!value && !_newStepRow.Hidden) CloseNewStepEditor();
             _myDayRow.Enabled = value;
             _dueRow.Enabled = value;
+            _reminderRow.Enabled = value;
+            _repeatRow.Enabled = value;
+            _priorityRow.Enabled = value;
+            _categoriesRow.Enabled = value;
             _deleteRow.Enabled = value;
             _notes.Editable = value;
         });
@@ -388,6 +393,11 @@ public sealed partial class ToDoPageViewController
             _notesPlaceholder.Hidden = !string.IsNullOrEmpty(value);
         });
         On(nameof(task.CreatedOnText), static item => item.CreatedOnText, value => _createdLabel.StringValue = value ?? string.Empty);
+        On(nameof(task.ReminderDisplayText), static item => item.ReminderDisplayText, _ => ApplyTaskFieldRows(task));
+        On(nameof(task.HasReminder), static item => item.HasReminder, _ => ApplyTaskFieldRows(task));
+        On(nameof(task.RecurrenceDisplayText), static item => item.RecurrenceDisplayText, _ => ApplyTaskFieldRows(task));
+        On(nameof(task.PriorityDisplayText), static item => item.PriorityDisplayText, _ => ApplyTaskFieldRows(task));
+        On(nameof(task.CategorySummaryText), static item => item.CategorySummaryText, _ => ApplyTaskFieldRows(task));
 
         NotifyCollectionChangedEventHandler stepsChanged = (_, _) => OnUI(() => { if (ViewModel.SelectedTask == task) RebuildSteps(task); });
         task.Steps.CollectionChanged += stepsChanged;
