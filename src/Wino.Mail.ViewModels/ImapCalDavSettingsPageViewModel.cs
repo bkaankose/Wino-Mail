@@ -863,6 +863,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (TryApplyKnownProviderSettingsIfNeeded(requireCompleteImapSettings: true, requireCompleteCalDavSettings: false))
             return;
 
+        // Adding an account on the servers step: the validation names the missing field. Discovery already ran, would
+        // ask for the sign-in step's password, which is empty when setup opened on the servers, and overwrite what was typed.
+        if (IsCreateMode && IsServersStepVisible)
+            return;
+
         var minimalSettings = BuildMinimalSettingsOrThrow();
         await AutoDiscoverAndApplySettingsAsync(minimalSettings);
 
