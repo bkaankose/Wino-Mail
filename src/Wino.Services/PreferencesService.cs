@@ -908,6 +908,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(CompanionTaskBehavior), Enum.IsDefined(value) ? value : CompanionTaskBehavior.MyDay);
     }
 
+    public bool ShowTasksInCalendar
+    {
+        get => _configurationService.Get(nameof(ShowTasksInCalendar), true);
+        set => SetPropertyAndSave(nameof(ShowTasksInCalendar), value);
+    }
+
     public bool ShowCalendarInCompanion
     {
         get => _configurationService.Get(nameof(ShowCalendarInCompanion), true);

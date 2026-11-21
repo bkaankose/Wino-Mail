@@ -154,6 +154,19 @@
         </controls:SettingsCard>
 
         <controls:SettingsCard
+            AutomationProperties.AutomationId="CalendarPreferenceShowTasksSettingsCard"
+            Description="{x:Bind domain:Translator.CalendarSettings_ShowTasks_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_ShowTasks_Header, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Checkmark" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="CalendarPreferenceShowTasksToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_ShowTasks_Header, Mode=OneTime}"
+                IsOn="{x:Bind ViewModel.ShowTasksInCalendar, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
             AutomationProperties.AutomationId="CalendarPreferenceAccountLayoutSettingsCard"
             Description="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Header, Mode=OneTime}">

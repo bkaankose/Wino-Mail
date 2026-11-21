@@ -211,6 +211,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     public partial VisibleDateRange CurrentVisibleRange { get; set; }
 
+    /// <summary>Open tasks due in the visible days; null where the head composes no tasks.</summary>
+    public CalendarDueTasksViewModel DueTasks { get; }
+
+    partial void OnCurrentVisibleRangeChanged(VisibleDateRange value)
+    {
+        if (DueTasks is not null)
+            _ = DueTasks.SetRangeAsync(value);
+    }
+
     [ObservableProperty]
     public partial string VisibleDateRangeText { get; set; } = string.Empty;
 
@@ -325,10 +334,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         ICalendarShellClient shellMenuProvider,
         IAppModeReadinessService appModeReadinessService = null,
         IMailShellClient mailShell = null,
-        Links.ConnectedItemsCoordinator connectedItems = null) : base(messenger)
+        Links.ConnectedItemsCoordinator connectedItems = null,
+        CalendarDueTasksViewModel dueTasks = null) : base(messenger)
     {
         _connectedItems = connectedItems;
         _synchronizationManager = synchronizationManager;
+        DueTasks = dueTasks;
+        DueTasks?.Initialize(action => ExecuteUIThread(action));
         Readiness = new Wino.Mail.ViewModels.Common.Data.ModeReadinessViewModel(
             WinoApplicationMode.Calendar,
             appModeReadinessService,

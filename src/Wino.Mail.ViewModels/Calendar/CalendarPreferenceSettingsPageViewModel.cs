@@ -80,6 +80,17 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
 
     public bool ShouldShowCalendarStartupAccount => !IsCalendarAccountsGrouped;
 
+    public bool ShowTasksInCalendar
+    {
+        get => PreferencesService.ShowTasksInCalendar;
+        set
+        {
+            if (PreferencesService.ShowTasksInCalendar == value) return;
+            PreferencesService.ShowTasksInCalendar = value;
+            OnPropertyChanged();
+        }
+    }
+
     public Task InitializationTask { get; }
 
     /// <summary>The calendar sync interval is a choice only where the app runs its own timer (not on mobile).</summary>

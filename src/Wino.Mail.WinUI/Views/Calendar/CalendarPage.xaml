@@ -7,6 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:winoControls="using:Wino.Mail.WinUI.Controls"
     xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
@@ -18,10 +19,56 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <winoControls:CalendarTitleBarContent
-            x:Name="CalendarToolbar"
-            Grid.Row="0"
-            Margin="4,0,7,8" />
+        <StackPanel Grid.Row="0">
+            <winoControls:CalendarTitleBarContent x:Name="CalendarToolbar" Margin="4,0,7,8" />
+
+            <!--  Open tasks due in the visible days. Ticking one completes it through the task pipeline.  -->
+            <ScrollViewer
+                Margin="4,0,7,8"
+                AutomationProperties.AutomationId="CalendarDueTasksStrip"
+                AutomationProperties.Name="{x:Bind domain:Translator.Calendar_DueTasks, Mode=OneTime}"
+                HorizontalScrollBarVisibility="Auto"
+                HorizontalScrollMode="Enabled"
+                VerticalScrollBarVisibility="Disabled"
+                VerticalScrollMode="Disabled"
+                Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.DueTasks.HasItems), Mode=OneWay}">
+                <ItemsRepeater ItemsSource="{x:Bind ViewModel.DueTasks.Items, Mode=OneWay}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Horizontal" Spacing="6" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="viewModelData:TaskItemViewModel">
+                            <Border
+                                Padding="8,2,10,2"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <CheckBox
+                                        MinWidth="0"
+                                        AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}"
+                                        Click="DueTaskCheckBox_Click"
+                                        IsChecked="{x:Bind IsCompleted, Mode=OneWay}"
+                                        IsEnabled="{x:Bind IsEditable, Mode=OneWay}"
+                                        Tag="{x:Bind}" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            MaxWidth="220"
+                                            Text="{x:Bind Title, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind DueDisplayText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+        </StackPanel>
 
         <Border
             Grid.Row="1"

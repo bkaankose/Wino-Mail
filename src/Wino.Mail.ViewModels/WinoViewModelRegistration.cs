@@ -53,6 +53,7 @@ public static class WinoViewModelRegistration
         services.AddSingleton<FlaggedMail.FlaggedMailListViewModel>();
         services.AddSingleton<ToDoPageViewModel>();
         services.AddSingleton<CalendarPageViewModel>();
+        services.AddSingleton<Calendar.CalendarDueTasksViewModel>();
         services.AddSingleton<IShellMenuProviderResolver>(provider => new ShellMenuProviderResolver(
             () => provider.GetRequiredService<IMailShellClient>(),
             () => provider.GetRequiredService<ICalendarShellClient>(),

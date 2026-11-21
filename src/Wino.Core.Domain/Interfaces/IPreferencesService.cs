@@ -66,6 +66,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     CompanionTaskBehavior CompanionTaskBehavior { get; set; }
 
     /// <summary>
+    /// Setting: Show open tasks with a due date on the calendar.
+    /// </summary>
+    bool ShowTasksInCalendar { get; set; }
+
+    /// <summary>
     /// Setting: Whether calendar events are shown in the companion flyout.
     /// </summary>
     bool ShowCalendarInCompanion { get; set; }
