@@ -188,7 +188,7 @@ public sealed partial class ToDoPageViewController
         ]);
         var notes = Section(notesLabel, Indent(notesCard));
 
-        _calendarRow = new WinoDrawerActionRow(WinoIconGlyph.Calendar, Translator.ToDoPage_CreateCalendarEvent, WinoStyle.Accent) { FollowsAccent = true };
+        _calendarRow = new WinoDrawerActionRow(WinoIconGlyph.Calendar, Translator.ToDoPage_ScheduleTime, WinoStyle.Accent) { FollowsAccent = true };
         _calendarRow.Clicked += (_, _) => Observe(ViewModel.CreateCalendarEventCommand.ExecuteAsync(null));
         _createdLabel = WinoToDoStyle.Caption(null, WinoStyle.SecondaryText);
 

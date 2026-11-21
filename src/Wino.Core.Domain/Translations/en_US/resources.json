@@ -5751,5 +5751,8 @@
   "ConnectedItems_ItemUnavailableTitle": "Linked item not found",
   "ConnectedItems_LinkedHeader": "Linked",
   "ConnectedItems_OpenLinkedItemFormat": "Open {0}",
-  "MailOperation_CreateEvent": "Create event"
+  "MailOperation_CreateEvent": "Create event",
+  "ConnectedItems_FollowUpTitleFormat": "Follow up: {0}",
+  "CalendarContextMenu_CreateTask": "Add follow-up task",
+  "ToDoPage_ScheduleTime": "Schedule time"
 }

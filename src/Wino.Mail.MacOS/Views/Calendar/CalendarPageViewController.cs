@@ -723,6 +723,7 @@ internal static class CalendarContextMenuLabels
             CalendarContextMenuActionType.ShowAs => Wino.Core.Domain.Translator.CalendarEventDetails_ShowAs,
             CalendarContextMenuActionType.Respond => Wino.Core.Domain.Translator.CalendarContextMenu_Respond,
             CalendarContextMenuActionType.Copy => Wino.Core.Domain.Translator.Buttons_Copy,
+            CalendarContextMenuActionType.CreateTask => Wino.Core.Domain.Translator.CalendarContextMenu_CreateTask,
             _ => Wino.Core.Domain.Translator.Buttons_Open
         };
     }
@@ -744,6 +745,7 @@ internal static class CalendarContextMenuLabels
         CalendarContextMenuActionType.Open => action.TargetType == CalendarEventTargetType.Series ? WinoIconGlyph.EventEditSeries : WinoIconGlyph.Calendar,
         CalendarContextMenuActionType.JoinOnline => WinoIconGlyph.EventJoinOnline,
         CalendarContextMenuActionType.Copy => WinoIconGlyph.Copy,
+            CalendarContextMenuActionType.CreateTask => WinoIconGlyph.TaskList,
         CalendarContextMenuActionType.Delete => action.TargetType is null ? WinoIconGlyph.Delete : WinoIconGlyph.None,
         CalendarContextMenuActionType.ShowAs => action.TargetType is null && action.ShowAs is null ? WinoIconGlyph.CalendarShowAs : WinoIconGlyph.None,
         CalendarContextMenuActionType.Respond => action.ResponseStatus switch

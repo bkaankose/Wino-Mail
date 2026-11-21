@@ -226,7 +226,7 @@ public sealed class TaskDetailFragment : WinoFragment
         notesParameters.TopMargin = WinoTokens.Px(context, Resource.Dimension.wino_space_l);
         content.AddView(_notes, notesParameters);
 
-        _calendar = TextButton(context, Translator.ToDoPage_CreateCalendarEvent, WinoIconGlyph.CalendarToday, () => PeopleViews.Observe(viewModel.CreateCalendarEventCommand.ExecuteAsync(null), ReportError));
+        _calendar = TextButton(context, Translator.ToDoPage_ScheduleTime, WinoIconGlyph.CalendarToday, () => PeopleViews.Observe(viewModel.CreateCalendarEventCommand.ExecuteAsync(null), ReportError));
         content.AddView(_calendar, Gutter(context));
 
         _created = WinoTokens.Style(new TextView(context), WinoTextStyle.Caption);

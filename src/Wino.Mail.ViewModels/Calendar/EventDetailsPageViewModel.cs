@@ -104,6 +104,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     partial void OnCurrentEventChanged(CalendarItemViewModel value)
     {
         RefreshCapabilitiesForCurrentEvent(value);
+        BeginLinkedItemsLoad(value);
 
         // Read-only also depends on the event's own calendar, not only the capabilities.
         NotifyCapabilityPropertiesChanged();
@@ -299,8 +300,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                                      IApplicationConfiguration applicationConfiguration,
                                      IAttachmentFileService attachmentFileService = null,
                                      ICalendarCapabilityService calendarCapabilityService = null,
-                                     ILinkBrowserService linkBrowserService = null) : base(messenger)
+                                     ILinkBrowserService linkBrowserService = null,
+                                     Links.ConnectedItemsCoordinator connectedItems = null) : base(messenger)
     {
+        _connectedItems = connectedItems;
         _synchronizationManager = synchronizationManager;
         _calendarService = calendarService;
         _externalLauncher = externalLauncher;
@@ -351,6 +354,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         base.RegisterRecipients();
 
         Messenger.Register<PreferenceChangedMessage>(this);
+        Messenger.Register<Wino.Core.Domain.Messaging.UI.ItemLinksChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -358,6 +362,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         base.UnregisterRecipients();
 
         Messenger.Unregister<PreferenceChangedMessage>(this);
+        Messenger.Unregister<Wino.Core.Domain.Messaging.UI.ItemLinksChanged>(this);
     }
 
     public void Receive(PreferenceChangedMessage message)

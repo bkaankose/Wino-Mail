@@ -7,5 +7,6 @@ public enum CalendarContextMenuActionType
     Delete,
     ShowAs,
     Respond,
-    Copy
+    Copy,
+    CreateTask
 }

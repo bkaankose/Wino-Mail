@@ -1334,7 +1334,7 @@
                                 FontSize="14"
                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                 Icon="Calendar" />
-                            <TextBlock Text="{x:Bind domain:Translator.ToDoPage_CreateCalendarEvent, Mode=OneTime}" />
+                            <TextBlock Text="{x:Bind domain:Translator.ToDoPage_ScheduleTime, Mode=OneTime}" />
                         </StackPanel>
                     </Button>
 

@@ -194,4 +194,10 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
             }
         ], FlyoutPlacementMode.Right);
     }
+
+    private void LinkedItem_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)
+            ViewModel.OpenLinkedItemCommand.Execute(item);
+    }
 }

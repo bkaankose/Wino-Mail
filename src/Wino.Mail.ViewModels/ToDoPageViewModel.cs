@@ -2617,6 +2617,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         var item = SelectedTask;
         if (item is null)
             return;
+        if (_connectedItems is not null)
+        {
+            await _connectedItems.ScheduleTimeForTaskAsync(item.Task).ConfigureAwait(false);
+            return;
+        }
         var calendars = await _calendarService.GetAccountCalendarsAsync(item.Task.MailAccountId).ConfigureAwait(false);
         var calendar = calendars.FirstOrDefault(entry => !entry.IsReadOnly);
         if (calendar is null)

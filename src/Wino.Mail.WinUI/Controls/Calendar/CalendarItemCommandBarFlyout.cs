@@ -148,6 +148,7 @@ public partial class CalendarItemCommandBarFlyout : WinoContextFlyout
             CalendarContextMenuActionType.ShowAs => Translator.CalendarEventDetails_ShowAs,
             CalendarContextMenuActionType.Respond => Translator.CalendarContextMenu_Respond,
             CalendarContextMenuActionType.Copy => Translator.Buttons_Copy,
+            CalendarContextMenuActionType.CreateTask => Translator.CalendarContextMenu_CreateTask,
             _ => Translator.Buttons_Open
         };
     }
@@ -159,6 +160,7 @@ public partial class CalendarItemCommandBarFlyout : WinoContextFlyout
             CalendarContextMenuActionType.Open => WinoIconGlyph.OpenInNewWindow,
             CalendarContextMenuActionType.JoinOnline => WinoIconGlyph.EventJoinOnline,
             CalendarContextMenuActionType.Copy => WinoIconGlyph.Copy,
+            CalendarContextMenuActionType.CreateTask => WinoIconGlyph.TaskList,
             CalendarContextMenuActionType.Delete => WinoIconGlyph.Delete,
             CalendarContextMenuActionType.ShowAs => WinoIconGlyph.CalendarShowAs,
             CalendarContextMenuActionType.Respond => WinoIconGlyph.EventRespond,

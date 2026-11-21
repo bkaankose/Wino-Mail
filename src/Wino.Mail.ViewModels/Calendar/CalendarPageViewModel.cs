@@ -306,6 +306,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public IShellMenuProvider ShellMenuProvider { get; }
 
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly Links.ConnectedItemsCoordinator _connectedItems;
 
     public CalendarPageViewModel(
         IMessenger messenger,
@@ -323,8 +324,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         ICalendarRangeTextFormatter calendarRangeTextFormatter,
         ICalendarShellClient shellMenuProvider,
         IAppModeReadinessService appModeReadinessService = null,
-        IMailShellClient mailShell = null) : base(messenger)
+        IMailShellClient mailShell = null,
+        Links.ConnectedItemsCoordinator connectedItems = null) : base(messenger)
     {
+        _connectedItems = connectedItems;
         _synchronizationManager = synchronizationManager;
         Readiness = new Wino.Mail.ViewModels.Common.Data.ModeReadinessViewModel(
             WinoApplicationMode.Calendar,
@@ -1725,6 +1728,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         {
             case CalendarContextMenuActionType.Copy:
                 await CopyCalendarItemAsync(calendarItemViewModel).ConfigureAwait(false);
+                break;
+            case CalendarContextMenuActionType.CreateTask when _connectedItems is not null:
+                await _connectedItems.CreateTaskFromEventAsync(calendarItemViewModel.CalendarItem).ConfigureAwait(false);
                 break;
             case CalendarContextMenuActionType.JoinOnline:
                 await JoinOnlineAsync(calendarItemViewModel).ConfigureAwait(false);

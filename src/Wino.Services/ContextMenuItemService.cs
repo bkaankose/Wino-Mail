@@ -285,6 +285,9 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
         }
 
         items.Add(new CalendarContextMenuItem(
+            new CalendarContextMenuAction(CalendarContextMenuActionType.CreateTask)));
+
+        items.Add(new CalendarContextMenuItem(
             new CalendarContextMenuAction(CalendarContextMenuActionType.Copy)));
 
         return items;
