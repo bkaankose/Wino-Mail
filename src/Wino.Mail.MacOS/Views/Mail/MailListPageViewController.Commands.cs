@@ -1,9 +1,11 @@
 ﻿using AppKit;
 using CommunityToolkit.Mvvm.Messaging;
+using Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.MacOS.Infrastructure;
@@ -217,26 +219,7 @@ public sealed partial class MailListPageViewController
         if (targets.Count == 0) return;
 
         NSView? anchor = _table.GetRowView(clicked, false);
-        bool previousWasSeparator = true;
-        foreach (var action in ViewModel.GetAvailableMailActions(targets))
-        {
-            if (action.Operation == MailOperation.Seperator)
-            {
-                if (!previousWasSeparator) menu.AddItem(NSMenuItem.SeparatorItem);
-                previousWasSeparator = true;
-                continue;
-            }
-            var title = MailOperationDisplay.GetTitle(action.Operation);
-            if (string.IsNullOrEmpty(title)) continue;
-            var operation = action.Operation;
-            var menuItem = new NSMenuItem(operation == MailOperation.Move ? $"{title}…" : title, (_, _) => RunOperation(operation, targets, item, anchor))
-            {
-                Enabled = action.IsEnabled
-            };
-            menuItem.Image = MailOperationPresentation.Image(operation);
-            menu.AddItem(menuItem);
-            previousWasSeparator = false;
-        }
+        bool previousWasSeparator = AddMailActions(menu, ViewModel.GetAvailableMailActions(targets).ToArray(), targets, item, anchor);
 
         bool allPinned = targets.All(static target => target.MailCopy.IsPinned);
         if (!previousWasSeparator) menu.AddItem(NSMenuItem.SeparatorItem);
@@ -267,6 +250,85 @@ public sealed partial class MailListPageViewController
             WeakReferenceMessenger.Default.Send(new Wino.Core.Domain.Messaging.UI.VoiceSelectionRequested(
                 Wino.Core.Domain.Models.Voice.VoiceLocalSelection.ForMails(targets.Select(static item => item.MailCopy).ToList())))));
 #endif
+    }
+
+    /// <summary>
+    /// Adds the shared actions in their order: the top row's groups (Reply, Reply all, Forward | Archive, Delete) at the
+    /// separators, then Move, then the Create submenu. Returns true when the menu ends with a separator or is empty.
+    /// </summary>
+    private bool AddMailActions(NSMenu menu, IReadOnlyList<MailOperationMenuItem> actions, IReadOnlyList<MailItemViewModel> targets,
+        MailItemViewModel item, NSView? anchor)
+    {
+        bool previousWasSeparator = true;
+        for (int index = 0; index < actions.Count; index++)
+        {
+            var action = actions[index];
+            if (action.Placement == MailOperationMenuPlacement.CreateSubmenu)
+            {
+                var children = new List<MailOperationMenuItem>();
+                while (index < actions.Count && actions[index].Placement == MailOperationMenuPlacement.CreateSubmenu) children.Add(actions[index++]);
+                index--;
+                if (CreateSubmenuItem(MailOperationMenuPlacement.CreateSubmenu, children, targets, item, anchor) is { } submenu)
+                {
+                    menu.AddItem(submenu);
+                    previousWasSeparator = false;
+                }
+                continue;
+            }
+
+            if (action.Operation == MailOperation.Seperator)
+            {
+                if (!previousWasSeparator) menu.AddItem(NSMenuItem.SeparatorItem);
+                previousWasSeparator = true;
+                continue;
+            }
+
+            var title = MailOperationDisplay.GetTitle(action.Operation);
+            if (string.IsNullOrEmpty(title)) continue;
+            menu.AddItem(ContextMenuItem(action, title, targets, item, anchor));
+            previousWasSeparator = false;
+        }
+        return previousWasSeparator;
+    }
+
+    private NSMenuItem? CreateSubmenuItem(MailOperationMenuPlacement placement, IReadOnlyList<MailOperationMenuItem> children,
+        IReadOnlyList<MailItemViewModel> targets, MailItemViewModel item, NSView? anchor)
+    {
+        var submenu = new NSMenu { AutoEnablesItems = false };
+        foreach (var child in children)
+        {
+            var title = MailOperationDisplay.GetSubmenuItemTitle(child.Operation);
+            if (string.IsNullOrEmpty(title)) continue;
+            submenu.AddItem(ContextMenuItem(child, title, targets, item, anchor));
+        }
+        if (submenu.Count == 0) return null;
+
+        return new NSMenuItem(MailOperationDisplay.GetSubmenuTitle(placement))
+        {
+            Submenu = submenu,
+            Enabled = children.Any(static child => child.IsEnabled),
+            Image = WinoIcons.Image(MailOperationDisplay.GetSubmenuGlyph(placement), 16)
+        };
+    }
+
+    private NSMenuItem ContextMenuItem(MailOperationMenuItem action, string title, IReadOnlyList<MailItemViewModel> targets,
+        MailItemViewModel item, NSView? anchor)
+    {
+        var operation = action.Operation;
+        var menuItem = new NSMenuItem(operation == MailOperation.Move ? $"{title}…" : title, (_, _) => RunOperation(operation, targets, item, anchor))
+        {
+            Enabled = action.IsEnabled,
+            Image = MailOperationPresentation.Image(operation)
+        };
+        if (operation is MailOperation.SoftDelete or MailOperation.HardDelete or MailOperation.DiscardLocalDraft)
+        {
+            menuItem.AttributedTitle = new NSAttributedString(menuItem.Title, new NSStringAttributes
+            {
+                ForegroundColor = NSColor.SystemRed,
+                Font = NSFont.MenuFontOfSize(0)
+            });
+        }
+        return menuItem;
     }
 
     // ---- Categories (Windows MailContextFlyoutBuilder.CreateCategoriesItem) ----
