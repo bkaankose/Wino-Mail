@@ -19,6 +19,12 @@ public static class WinoCssClass
     public const string GroupHeader = "wino-group-header";
     public const string SelectionPipe = "wino-selection-pipe";
     public const string Chip = "wino-chip";
+    public const string RecipientBox = "wino-recipient-box";
+    public const string RecipientEntry = "wino-recipient-entry";
+    public const string RecipientChip = "wino-recipient-chip";
+    public const string RecipientChipText = "wino-recipient-chip-text";
+    public const string RecipientChipRemove = "wino-recipient-chip-remove";
+    public const string RecipientSuggestions = "wino-recipient-suggestions";
     public const string Attachment = "wino-attachment";
     public const string ReaderHeader = "wino-reader-header";
     public const string Reader = "wino-reader";

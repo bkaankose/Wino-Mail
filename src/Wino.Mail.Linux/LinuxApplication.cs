@@ -106,6 +106,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.ReaderDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.EditorDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.ComposeDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.RecipientDebugActions.Register(application);
         }
 #endif
     }

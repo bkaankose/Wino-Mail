@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Mail.Controls.Linux.Compose;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.Linux;
 
@@ -9,110 +10,158 @@ namespace Wino.Mail.Linux.Views.Mail.Compose;
 
 internal sealed partial class ComposeView
 {
-    private static readonly char[] RecipientSeparators = [',', ';', '\n'];
-    private readonly Gtk.Entry _to = RecipientEntry(Translator.ComposerTo.Trim().TrimEnd(':'));
-    private readonly Gtk.Entry _cc = RecipientEntry("Cc");
-    private readonly Gtk.Entry _bcc = RecipientEntry("Bcc");
-    private bool _syncingRecipients;
+    private readonly RecipientBoxes _recipients = new();
+    private readonly List<Task> _pendingRecipients = [];
 
-    private Gtk.Widget ToField => _to;
-    private Gtk.Widget CcField => _cc;
-    private Gtk.Widget BccField => _bcc;
+    private Gtk.Widget ToField => _recipients.To.Root;
+    private Gtk.Widget CcField => _recipients.Cc.Root;
+    private Gtk.Widget BccField => _recipients.Bcc.Root;
+    internal WinoRecipientTokenBox ToBox => _recipients.To;
+    internal WinoRecipientTokenBox CcBox => _recipients.Cc;
+    internal WinoRecipientTokenBox BccBox => _recipients.Bcc;
 
-    private static Gtk.Entry RecipientEntry(string label)
+    private sealed class RecipientBoxes
     {
-        var entry = Gtk.Entry.New();
-        entry.SetHasFrame(false);
-        entry.SetHexpand(true);
-        WinoA11y.Label(entry, label);
-        return entry;
+        public RecipientBoxes()
+        {
+            var group = "wino-recipients:" + Guid.NewGuid().ToString("N");
+            To = new WinoRecipientTokenBox("to", Translator.ComposerTo.Trim().TrimEnd(':'), group);
+            Cc = new WinoRecipientTokenBox("cc", "Cc", group);
+            Bcc = new WinoRecipientTokenBox("bcc", "Bcc", group);
+        }
+
+        public WinoRecipientTokenBox To { get; }
+        public WinoRecipientTokenBox Cc { get; }
+        public WinoRecipientTokenBox Bcc { get; }
+        public WinoRecipientTokenBox[] All => [To, Cc, Bcc];
     }
 
     partial void InitializeRecipients()
     {
-        ObserveRecipients(ViewModel.ToItems, _to);
-        ObserveRecipients(ViewModel.CCItems, _cc);
-        ObserveRecipients(ViewModel.BCCItems, _bcc);
-        foreach (var entry in new[] { _to, _cc, _bcc })
-            Bindings.Own(GtkSignals.Connect<Gtk.Entry>(h => entry.OnActivate += h, h => entry.OnActivate -= h, (_, _) => Observe(SyncRecipientsAsync(entry, true))));
+        foreach (var box in _recipients.All)
+        {
+            var collection = CollectionFor(box);
+            box.Parse = static text => ComposeRecipientRules.TryParseTyped(text, out var address, out var name) ? new RecipientToken(address, name) : null;
+            box.Validate = (address, _) =>
+            {
+                if (!ComposePageViewModel.ContainsAddress(collection, address)) return true;
+                ViewModel.NotifyAddressExists();
+                return false;
+            };
+            box.Refused += (_, text) => ViewModel.NotifyInvalidEmail(text);
+            box.Committed += (sender, address, name) => TrackRecipient(AddRecipientAsync(CollectionFor(sender), address, name));
+            box.Removed += (sender, address) => RemoveRecipient(CollectionFor(sender), address);
+            box.MoveRequested += (sender, address, target) => MoveRecipient(sender, BoxFor(target), address);
+            box.DroppedFrom += (target, address, _, source) => MoveRecipient(BoxFor(source), target, address);
+            box.FocusLeft += static sender =>
+            {
+                if (ComposeRecipientRules.IsCompleteAddress(sender.TypedText)) sender.CommitTyped();
+            };
+            box.ChipMenuRequested += ShowChipMenu;
+            Bindings.Own(box);
+            ObserveRecipients(collection, box);
+        }
     }
 
-    private void FocusRecipients() => _to.GrabFocus();
+    private void FocusRecipients() => _recipients.To.FocusEntry();
 
-    private ObservableCollection<AccountContact> CollectionFor(Gtk.Entry entry)
-        => ReferenceEquals(entry, _cc) ? ViewModel.CCItems : ReferenceEquals(entry, _bcc) ? ViewModel.BCCItems : ViewModel.ToItems;
+    private ObservableCollection<AccountContact> CollectionFor(WinoRecipientTokenBox box)
+        => ReferenceEquals(box, _recipients.Cc) ? ViewModel.CCItems : ReferenceEquals(box, _recipients.Bcc) ? ViewModel.BCCItems : ViewModel.ToItems;
 
-    private void ObserveRecipients(ObservableCollection<AccountContact> collection, Gtk.Entry entry)
+    private WinoRecipientTokenBox BoxFor(string id) => id switch { "cc" => _recipients.Cc, "bcc" => _recipients.Bcc, _ => _recipients.To };
+
+    private void ObserveRecipients(ObservableCollection<AccountContact> collection, WinoRecipientTokenBox box)
     {
-        NotifyCollectionChangedEventHandler handler = (_, _) => RunOnUI(() => { if (!_syncingRecipients) WriteRecipients(entry, collection); });
+        NotifyCollectionChangedEventHandler handler = (_, _) => RunOnUI(() => WriteRecipients(box, collection));
         collection.CollectionChanged += handler;
         Bindings.Own(new ActionDisposable(() => collection.CollectionChanged -= handler));
-        WriteRecipients(entry, collection);
+        WriteRecipients(box, collection);
     }
 
-    private static void WriteRecipients(Gtk.Entry entry, IEnumerable<AccountContact> contacts)
+    private static void WriteRecipients(WinoRecipientTokenBox box, IEnumerable<AccountContact> contacts)
+        => box.SetRecipients([.. contacts.Where(static c => !string.IsNullOrWhiteSpace(c.Address)).Select(static c => new RecipientToken(c.Address.Trim(), c.Name))]);
+
+    private void TrackRecipient(Task add)
     {
-        var text = string.Join(", ", contacts.Where(static c => !string.IsNullOrWhiteSpace(c.Address)).Select(static c => c.Address));
-        if (entry.GetText() != text) entry.SetText(text);
+        _pendingRecipients.Add(add);
+        Observe(add);
+        ScheduleAutosave();
     }
 
+    private async Task AddRecipientAsync(ObservableCollection<AccountContact> collection, string address, string? name)
+    {
+        var recipient = await ViewModel.GetAddressInformationAsync(address, collection);
+        if (recipient is null) return;
+        if (string.IsNullOrWhiteSpace(recipient.Name) && name is not null) recipient.Name = name;
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (!IsReleased) ViewModel.TryAddRecipient(collection, recipient);
+        });
+    }
+
+    private void RemoveRecipient(ObservableCollection<AccountContact> collection, string address)
+    {
+        foreach (var contact in collection.ToArray())
+            if (string.Equals(contact.Address?.Trim(), address, StringComparison.OrdinalIgnoreCase)) collection.Remove(contact);
+        ScheduleAutosave();
+    }
+
+    private void MoveRecipient(WinoRecipientTokenBox source, WinoRecipientTokenBox target, string address)
+    {
+        if (ReferenceEquals(source, target)) return;
+        var from = CollectionFor(source);
+        var to = CollectionFor(target);
+        var contact = from.FirstOrDefault(item => string.Equals(item.Address?.Trim(), address, StringComparison.OrdinalIgnoreCase));
+        if (contact is null) return;
+        if (!ReferenceEquals(target, _recipients.To)) ViewModel.IsCCBCCVisible = true;
+        from.Remove(contact);
+        if (!ComposePageViewModel.ContainsAddress(to, address)) to.Add(contact);
+        ScheduleAutosave();
+    }
+
+    private void ShowChipMenu(WinoRecipientTokenBox box, WinoRecipientChip chip, double? x, double? y)
+    {
+        var index = Array.IndexOf(box.Addresses, chip.Address);
+        if (index < 0) return;
+        var menu = WinoMenus.Create()
+            .Item(Translator.Buttons_Copy, () => box.RunChipCommand(index, "copy"))
+            .Item(Translator.Buttons_Edit, () => box.RunChipCommand(index, "edit"))
+            .Separator();
+        foreach (var target in new[] { "to", "cc", "bcc" })
+        {
+            if (target == box.Id) continue;
+            var title = target == "to" ? Translator.ComposerTo.Trim().TrimEnd(':') : target == "cc" ? "Cc" : "Bcc";
+            menu.Item(string.Format(Translator.DragMoveToFolderCaption, title), () => box.RunChipCommand(index, target));
+        }
+        menu.Separator().Item(Translator.Buttons_Remove, () => box.RunChipCommand(index, "remove"));
+        ContextMenu.Show(chip.Root, menu.Build(), x, y);
+    }
+
+    /// <param name="includeTyped">
+    /// False for autosave: the address still being typed is not a recipient yet. Send and closing the page take it as typed.
+    /// </param>
     internal async Task SyncAllRecipientsAsync(bool includeTyped = true)
     {
-        await SyncRecipientsAsync(_to, includeTyped);
-        await SyncRecipientsAsync(_cc, includeTyped);
-        await SyncRecipientsAsync(_bcc, includeTyped);
-    }
-
-    private async Task SyncRecipientsAsync(Gtk.Entry entry, bool includeTyped)
-    {
-        string text = string.Empty;
-        await Dispatcher.ExecuteOnUIThread(() => text = entry.GetText());
-        var collection = CollectionFor(entry);
-        var parsed = new List<(string Address, string? Name)>();
-        var invalid = new List<string>();
-        foreach (var part in text.Split(RecipientSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        Task[] pending = [];
+        await Dispatcher.ExecuteOnUIThread(() =>
         {
-            if (ComposeRecipientRules.TryParseTyped(part, out var address, out var name) && (includeTyped || ComposeRecipientRules.IsCompleteAddress(part)))
-                parsed.Add((address, name));
-            else if (includeTyped) invalid.Add(part);
-        }
-
-        _syncingRecipients = true;
-        try
-        {
-            await Dispatcher.ExecuteOnUIThread(() =>
-            {
-                foreach (var contact in collection.ToArray())
-                    if (!parsed.Any(item => string.Equals(item.Address, contact.Address?.Trim(), StringComparison.OrdinalIgnoreCase))) collection.Remove(contact);
-            });
-            foreach (var (address, name) in parsed)
-            {
-                if (ComposePageViewModel.ContainsAddress(collection, address)) continue;
-                var recipient = await ViewModel.GetAddressInformationAsync(address, collection);
-                if (recipient is null) continue;
-                if (string.IsNullOrWhiteSpace(recipient.Name) && name is not null) recipient.Name = name;
-                await Dispatcher.ExecuteOnUIThread(() => ViewModel.TryAddRecipient(collection, recipient));
-            }
-        }
-        finally { _syncingRecipients = false; }
-
-        if (invalid.Count > 0)
-            await Dispatcher.ExecuteOnUIThread(() =>
-            {
-                foreach (var part in invalid) ViewModel.NotifyInvalidEmail(part);
-                WriteRecipients(entry, collection);
-            });
+            if (includeTyped && !IsReleased)
+                foreach (var box in _recipients.All) box.CommitTyped();
+            pending = [.. _pendingRecipients];
+            _pendingRecipients.Clear();
+        });
+        try { await Task.WhenAll(pending); }
+        catch (Exception exception) { if (!IsReleased) ReportError(exception); }
     }
 
 #if DEBUG
-    internal Task DebugSetRecipientsAsync(string field, string text)
+    internal async Task DebugSetRecipientsAsync(string field, string text)
     {
-        var entry = field switch { "cc" => _cc, "bcc" => _bcc, _ => _to };
-        if (!ReferenceEquals(entry, _to)) ViewModel.IsCCBCCVisible = true;
-        entry.SetText(text);
-        return SyncRecipientsAsync(entry, true);
+        var box = BoxFor(field);
+        if (!ReferenceEquals(box, _recipients.To)) ViewModel.IsCCBCCVisible = true;
+        box.Entry.SetText(text);
+        box.CommitTyped();
+        await SyncAllRecipientsAsync(false);
     }
-
-    internal string DebugRecipients(string field) => (field switch { "cc" => _cc, "bcc" => _bcc, _ => _to }).GetText();
 #endif
 }

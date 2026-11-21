@@ -307,3 +307,13 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-link-target { padding: 4px 10px; border-radius: 6px; background-color: @window_bg_color; border: 1px solid alpha(currentColor, 0.15); }
 .wino-privacy-button { padding: 0 4px; min-height: 22px; }
 .wino-privacy-item { padding: 6px 8px; font-weight: normal; }
+
+/* Composer recipient fields (ED-03) and suggestions (ED-04) */
+.wino-recipient-chip { border-radius: 999px; padding: 0 2px 0 4px; background-color: alpha(@accent_bg_color, 0.14); }
+.wino-recipient-chip.selected { background-color: alpha(@accent_bg_color, 0.42); }
+.wino-recipient-chip > button.wino-recipient-chip-text { padding: 0 4px; min-height: 22px; border-radius: 999px; }
+.wino-recipient-chip > button.wino-recipient-chip-remove { padding: 0; min-height: 20px; min-width: 20px; border-radius: 999px; }
+.wino-recipient-entry { min-height: 26px; }
+.wino-recipient-entry.error { color: @error_color; }
+.wino-recipient-suggestions row { padding: 4px 6px; }
+.wino-recipient-suggestions .wino-recipient-source { font-size: 0.8em; padding: 0 6px; border-radius: 999px; background-color: alpha(currentColor, 0.08); }

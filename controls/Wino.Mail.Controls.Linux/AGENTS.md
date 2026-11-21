@@ -19,7 +19,7 @@ GTK controls for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin
 
 ## Always
 
-- Feature folders as in the AppKit twin: `MailList`, `Shell`, `Common`, `Settings`, `Calendar`, `Contacts`, `ToDo`, `Intelligence`. The namespace follows the folder.
+- Feature folders as in the AppKit twin: `MailList`, `Shell`, `Common`, `Settings`, `Calendar`, `Contacts`, `ToDo`, `Intelligence`, `Compose`. The namespace follows the folder.
 - A control is a plain class that builds its widgets and exposes `Root`, unless the plan of its package says otherwise.
 - A row control (the sidebar's `WinoShellRow` in the head is the pattern) is built once and switched by `Apply`; it is never rebuilt for a content change.
 - A control only renders. Pages own menus, commands and navigation.
@@ -28,6 +28,7 @@ GTK controls for the [Linux head](../../src/Wino.Mail.Linux/AGENTS.md): the twin
 - Avatar colours come from `ContactPictureAppearance.PaletteIndex` and the `.wino-avatar-N` classes; `Adw.Avatar` is not used for people or accounts (its colours differ from the other platforms).
 - `Settings/WinoDragList` reorders caller-built rows by drag, Alt+Up / Alt+Down and optional Move up / Move down buttons, and across lists that share a `WinoDragGroup`. It never moves a row: it raises `Dropped` / `Reordered`, and the owner moves its collection and calls `SetRows`.
 - `Common/WinoChip` shows a text with an optional glyph or dot; colours come from `WinoTint.FillClassFor`. `MailList/WinoTileLine` puts chips (Medium, Spacious) or dots and badges (Compact) into the row's tile slots.
+- `Compose/WinoRecipientTokenBox` is a recipient field of `WinoRecipientChip`s and an entry; the head parses and validates through `Parse` and `Validate`, owns the recipients and builds the chip menu (`ChipMenuRequested`). Suggestions claim keys through `KeyFilter`, never a second key controller.
 - `Common/WinoInfoBar` is the inline banner of pages and the card of the window info bar; its text is never markup.
 - `MailList/WinoMailRow` takes a `WinoMailRowModel`; the page maps and subscribes (`MailRowCell`). Later packages extend the row through `TileSlot`, `CompactTileSlot`, `AddOverlay` and `ContentBox`, not by changing its tree.
 
