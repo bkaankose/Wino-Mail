@@ -51,6 +51,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.ThemeDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.AvatarDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.InfoBarDebugActions.Register(application, () => _services, () => _window);
+            Infrastructure.Diagnostics.ShellDebugActions.Register(application, () => _services, () => _window);
         }
 #endif
     }
@@ -64,7 +65,7 @@ internal sealed class LinuxApplication
         }
 
         Wino.Presentation.Linux.WinoIcons.Install();
-        _window = new MainWindow(_application);
+        _window = new MainWindow(_application, WindowStateStore.LoadPlacement(LinuxPaths.FromEnvironment().ApplicationDataRoot));
         _window.Window.OnCloseRequest += OnCloseRequest;
         _window.Window.Present();
         _ = StartAsync(_window);
@@ -122,6 +123,11 @@ internal sealed class LinuxApplication
     {
         if (_stopping || _services is null) return false;
         _stopping = true;
+        if (_window is { } window)
+        {
+            try { _services.GetRequiredService<WindowStateStore>().SavePlacement(window.CapturePlacement()); }
+            catch (Exception exception) { Serilog.Log.Error(exception, "The window placement could not be saved."); }
+        }
         sender.SetVisible(false);
         _ = StopAsync(_services);
         return true;

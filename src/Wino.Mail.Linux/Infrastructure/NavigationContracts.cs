@@ -13,6 +13,9 @@ internal enum LinuxPageHost
     SecondaryWindow
 }
 
+/// <summary>A shell content page shown beside the shell's reading pane. Other pages get the whole content area.</summary>
+internal interface IUsesReadingPane;
+
 internal interface IRenderingFrameHost
 {
     /// <summary>The host decides whether it reuses the view it already has for this page; it calls <paramref name="create"/> at most once.</summary>

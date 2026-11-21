@@ -1,75 +1,52 @@
-using System.Collections.Specialized;
-using System.ComponentModel;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.Linux.Views.Mail;
-using Wino.Mail.ViewModels.Data;
-using Wino.Mail.ViewModels.MenuItems.Contracts;
 using Wino.Mail.ViewModels.Shell;
 using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Views.Shell;
 
 /// <summary>
-/// The shell: the account and folder sidebar beside the mail list and the reader. It shows the shared shell menu as
-/// flat rows (<see cref="ShellMenuRowPresentation"/>) and hands every click to <see cref="WinoAppShellViewModel"/>.
-/// Mail is the only mode of the proof of concept.
+/// The shell: <see cref="ShellSidebarView"/> beside the content area that <see cref="ShellLayout"/> arranges, with the
+/// reading pane beside pages that use it. Mail is the only mode of the proof of concept.
 /// </summary>
 internal sealed class ShellView : WinoView<WinoAppShellViewModel>
 {
     private readonly GtkNavigationService _navigation;
     private readonly ShellModeActivator _modes;
     private readonly ReadingPaneHost _pane;
-    private readonly Gtk.ListBox _menu = Gtk.ListBox.New();
-    private readonly Adw.Bin _listHost = Adw.Bin.New();
-    private readonly List<IMenuItem> _rows = [];
-    private readonly List<Action> _subscriptions = [];
+    private readonly ShellReadingPane _reading;
+    private readonly ShellLayout _layout;
+    private readonly ShellSidebarView _sidebar;
+    private readonly Gtk.Button _back = Gtk.Button.NewFromIconName("go-previous-symbolic");
+    private readonly Gtk.ToggleButton _sidebarToggle = Gtk.ToggleButton.New();
     private IWinoView? _content;
     private int _contentVersion;
-    private bool _rebuildQueued;
+    private bool _applyingHeader;
 
-    public ShellView(WinoAppShellViewModel viewModel, WinoViewServices services, GtkNavigationService navigation) : base(viewModel, services)
+    public ShellView(WinoAppShellViewModel viewModel, WinoViewServices services, GtkNavigationService navigation, WindowStateStore store) : base(viewModel, services)
     {
         _navigation = navigation;
         _modes = new ShellModeActivator(ViewModel, ViewModel.StatePersistenceService, exception => Serilog.Log.Error(exception, "Shell mode activation failed."));
         _pane = new ReadingPaneHost(ReportError);
-
-        _menu.AddCssClass("navigation-sidebar");
-        _menu.SetSelectionMode(Gtk.SelectionMode.Single);
-        Bindings.Own(GtkSignals.Connect<Gtk.ListBox, Gtk.ListBox.RowActivatedSignalArgs>(
-            h => _menu.OnRowActivated += h, h => _menu.OnRowActivated -= h, (_, args) => Invoke(args.Row.GetIndex())));
-
-        var menuScroll = Gtk.ScrolledWindow.New();
-        menuScroll.SetPolicy(Gtk.PolicyType.Never, Gtk.PolicyType.Automatic);
-        menuScroll.SetChild(_menu);
-        var sidebar = Adw.ToolbarView.New();
-        sidebar.AddTopBar(Adw.HeaderBar.New());
-        sidebar.SetContent(menuScroll);
-
-        _listHost.SetSizeRequest(340, -1);
-        var content = Gtk.Paned.New(Gtk.Orientation.Horizontal);
-        content.SetStartChild(_listHost);
-        content.SetEndChild(_pane.Root);
-        content.SetResizeStartChild(false);
-        content.SetShrinkStartChild(false);
-        content.SetShrinkEndChild(false);
-        content.SetPosition(400);
-
-        var split = Adw.NavigationSplitView.New();
-        split.SetMinSidebarWidth(240);
-        split.SetMaxSidebarWidth(300);
-        split.SetSidebar(Adw.NavigationPage.New(sidebar, "Wino Mail"));
-        split.SetContent(Adw.NavigationPage.New(content, ShellModeActivator.ModeTitle(WinoApplicationMode.Mail)));
-        Root = split;
-
-        Bind.Bind(nameof(WinoAppShellViewModel.CurrentMenu), static vm => vm.CurrentMenu, _ => QueueRebuild());
-        Bind.Bind(nameof(WinoAppShellViewModel.SelectedMenuItem), static vm => vm.SelectedMenuItem, _ => QueueRebuild());
+        _layout = new ShellLayout(ViewModel.PreferencesService, ViewModel.StatePersistenceService, store);
+        _reading = new ShellReadingPane(_pane, _layout);
+        _sidebar = new ShellSidebarView(ViewModel, Bind);
+        _sidebar.ItemInvoked += _layout.DismissOverlaySidebar;
+        _layout.SetSidebar(_sidebar.Root);
+        _layout.ReadingPane = _pane.Root;
+        _layout.SetHeader(BuildBasicHeader());
+        _layout.StateChanged += RefreshHeader;
+        RefreshHeader();
     }
 
-    public override Gtk.Widget Root { get; }
+    public override Gtk.Widget Root => _layout.Root;
     public WinoApplicationMode? ActiveMode => _modes.ActiveMode;
     public object? ContentViewModel { get; private set; }
+    internal ShellLayout Layout => _layout;
+    internal ShellSidebarView Sidebar => _sidebar;
 
     public async Task SetContentAsync(IWinoView view, object? parameter)
     {
@@ -81,7 +58,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
 
         var version = ++_contentVersion;
         var previous = _content;
-        _listHost.SetChild(view.Root);
+        _layout.SetContent(view.Root, view is IUsesReadingPane);
         _content = view;
         ContentViewModel = view.AssociatedViewModel;
         if (previous is not null) await ReleaseContentAsync(previous);
@@ -95,7 +72,11 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         var previous = _content;
         _content = null;
         ContentViewModel = null;
-        if (!IsReleased) _listHost.SetChild(null);
+        if (!IsReleased)
+        {
+            _layout.SetContent(null, false);
+            _layout.ShowDetail(false);
+        }
         if (previous is not null) await ReleaseContentAsync(previous);
     }
 
@@ -108,7 +89,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
     {
         ViewModel.OnNavigatedTo(mode, null);
-        _navigation.AttachRenderingHost(_pane);
+        _navigation.AttachRenderingHost(_reading);
         _navigation.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame);
         return Task.CompletedTask;
     }
@@ -119,10 +100,12 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
 
     protected override async Task DeactivateAsync()
     {
-        _navigation.DetachRenderingHost(_pane);
-        ClearSubscriptions();
+        _navigation.DetachRenderingHost(_reading);
+        _layout.StateChanged -= RefreshHeader;
+        _sidebar.Dispose();
         await ClearContentAsync();
         await _pane.ReleaseAsync();
+        _layout.Dispose();
         ViewModel.OnNavigatedFrom(NavigationMode.Back, null);
         ViewModel.ShutdownProviders();
     }
@@ -133,85 +116,50 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         catch (Exception exception) { ReportError(exception); }
     }
 
-    // The menu changes in bursts (a folder load raises many notifications), so one rebuild runs per main-loop turn.
-    private void QueueRebuild()
+    private Gtk.Widget BuildBasicHeader()
     {
-        if (_rebuildQueued || IsReleased) return;
-        _rebuildQueued = true;
-        GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
+        WinoA11y.LabelWithTooltip(_back, Translator.Buttons_Back);
+        _sidebarToggle.SetIconName("sidebar-show-symbolic");
+        WinoA11y.LabelWithTooltip(_sidebarToggle, Translator.MacOSMenu_ToggleSidebar);
+        Bindings.Own(GtkSignals.OnClicked(_back, () => ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame)));
+        Bindings.Own(GtkSignals.OnToggled(_sidebarToggle, () =>
         {
-            _rebuildQueued = false;
-            if (!IsReleased) Rebuild();
-            return false;
-        });
+            if (!_applyingHeader && _sidebarToggle.GetActive() != _layout.IsSidebarVisible) _layout.ToggleSidebar();
+        }));
+
+        var title = Adw.WindowTitle.New(ViewModel.StatePersistenceService.AppModeTitle ?? string.Empty, string.Empty);
+        Bind.For(ViewModel.StatePersistenceService).Bind(nameof(ViewModel.StatePersistenceService.AppModeTitle),
+            static state => state.AppModeTitle, text => title.SetTitle(text ?? string.Empty));
+
+        var header = Adw.HeaderBar.New();
+        header.PackStart(_back);
+        header.PackStart(_sidebarToggle);
+        header.SetTitleWidget(title);
+        return header;
     }
 
-    private void Rebuild()
+    private void RefreshHeader()
     {
-        ClearSubscriptions();
-        _menu.RemoveAll();
-        _rows.Clear();
-        if (ViewModel.CurrentMenu is not { } menu) return;
-
-        Watch(menu.Items);
-        Gtk.ListBoxRow? selected = null;
-        foreach (var (item, depth) in ShellMenuRowPresentation.Flatten(menu.Items, includeNewItems: false))
-        {
-            Watch(item);
-            Watch(ShellMenuItemRules.Children(item));
-            var row = ShellMenuRow.Create(item, ShellMenuRowPresentation.Describe(item, depth, null));
-            _menu.Append(row);
-            _rows.Add(item);
-            if (ReferenceEquals(item, ViewModel.SelectedMenuItem)) selected = row;
-        }
-
-        if (selected is not null) _menu.SelectRow(selected);
-        else _menu.UnselectAll();
+        if (IsReleased) return;
+        _back.SetVisible(_layout.IsStacked && _layout.ShowsDetail);
+        _applyingHeader = true;
+        try { _sidebarToggle.SetActive(_layout.IsSidebarVisible); }
+        finally { _applyingHeader = false; }
     }
 
-    private async void Invoke(int index)
+    /// <summary>Tells the layout whether the reading pane has a page, so the stacked layout shows the reader or the list.</summary>
+    private sealed class ShellReadingPane(ReadingPaneHost inner, ShellLayout layout) : IRenderingFrameHost
     {
-        if (index < 0 || index >= _rows.Count) return;
-        var item = _rows[index];
-        try
+        public Task ShowAsync(WinoPage page, object? parameter, Func<IWinoView> create)
         {
-            if (!ShellMenuItemRules.IsEnabled(item)) return;
-            // Parents that only group their children (More) expand in place, as in the Android drawer. The rule is
-            // repeated here because the proof of concept leaves shared code unchanged; it belongs in ShellMenuItemRules.
-            if (ShellMenuRowPresentation.HasChildren(item) && item is not IAccountMenuItem && !ShellMenuItemRules.SelectsOnInvoked(item))
-            {
-                item.IsExpanded = !item.IsExpanded;
-                return;
-            }
-            // Folders select themselves when their navigation starts (MailAppShellViewModel.NavigateFolderAsync).
-            if (ViewModel.HandlesSelection && ShellMenuItemRules.SelectsOnInvoked(item) && item is not IBaseFolderMenuItem)
-                ViewModel.SelectedMenuItem = item;
-            await ViewModel.InvokeMenuItemAsync(item);
+            layout.ShowDetail(page != WinoPage.IdlePage);
+            return inner.ShowAsync(page, parameter, create);
         }
-        catch (Exception exception) { Serilog.Log.Error(exception, "A shell menu item failed."); }
-        // The list selected the clicked row itself; show the ViewModel's selection again.
-        finally { QueueRebuild(); }
-    }
 
-    private void Watch(object? source)
-    {
-        if (source is INotifyCollectionChanged collection)
+        public Task ClearAsync()
         {
-            NotifyCollectionChangedEventHandler handler = (_, _) => QueueRebuild();
-            collection.CollectionChanged += handler;
-            _subscriptions.Add(() => collection.CollectionChanged -= handler);
+            layout.ShowDetail(false);
+            return inner.ClearAsync();
         }
-        else if (source is INotifyPropertyChanged item)
-        {
-            PropertyChangedEventHandler handler = (_, _) => QueueRebuild();
-            item.PropertyChanged += handler;
-            _subscriptions.Add(() => item.PropertyChanged -= handler);
-        }
-    }
-
-    private void ClearSubscriptions()
-    {
-        foreach (var unsubscribe in _subscriptions) unsubscribe();
-        _subscriptions.Clear();
     }
 }

@@ -69,11 +69,7 @@ internal sealed class MailReaderView : WinoView<MailRenderingPageViewModel>, IRe
         message.Append(header);
         message.Append(Gtk.Separator.New(Gtk.Orientation.Horizontal));
         message.Append(body);
-
-        var view = Adw.ToolbarView.New();
-        view.AddTopBar(Adw.HeaderBar.New());
-        view.SetContent(message);
-        Root = view;
+        Root = message;
     }
 
     public override Gtk.Widget Root { get; }

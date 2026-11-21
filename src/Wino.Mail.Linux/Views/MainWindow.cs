@@ -1,6 +1,7 @@
 using Serilog;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Linux.Infrastructure;
+using Wino.Mail.Linux.Views.Shell;
 using Wino.Presentation.Linux;
 using Wino.Presentation.Linux.Style;
 
@@ -13,12 +14,14 @@ internal sealed class MainWindow
     private readonly ThemeBackdrop _backdrop = new();
     private readonly InfoBarHost _infoBars = new();
 
-    public MainWindow(Adw.Application application)
+    public MainWindow(Adw.Application application, WindowPlacement placement)
     {
         WinoStyle.Install(message => Log.Warning("Wino stylesheet: {Message}", message));
         Window = Adw.ApplicationWindow.New(application);
         Window.Title = "Wino Mail";
-        Window.SetDefaultSize(1360, 860);
+        Window.SetDefaultSize(placement.Width, placement.Height);
+        Window.SetSizeRequest(ShellMetrics.WindowMinimumWidth, ShellMetrics.WindowMinimumHeight);
+        if (placement.IsMaximized) Window.Maximize();
         Window.SetContent(_toasts);
         _infoBars.Child = _backdrop.Root;
         _toasts.SetChild(_infoBars.Root);
@@ -50,6 +53,13 @@ internal sealed class MainWindow
     }
 
     internal InfoBarHost InfoBars => _infoBars;
+
+    /// <summary>GTK keeps the default size at the last unmaximised size, which is the size to restore.</summary>
+    public WindowPlacement CapturePlacement()
+    {
+        Window.GetDefaultSize(out var width, out var height);
+        return new WindowPlacement(width, height, Window.IsMaximized());
+    }
 
     public void ShowMessage(string title, string message, InfoBarMessageType type, string? actionText, Action? action)
         => _infoBars.Show(title, message, type, actionText, action);

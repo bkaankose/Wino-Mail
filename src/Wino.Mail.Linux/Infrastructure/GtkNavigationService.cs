@@ -84,6 +84,7 @@ internal sealed class GtkNavigationService : INavigationService, INavigationHost
     }
 
     public bool IsShellShown => _shell is not null;
+    public ShellView? Shell => _shell;
     public bool HasMainContent => _main is not null;
     public bool MainContentHasPendingWork => _main is { HasPendingWork: true };
     public object? ShellContentViewModel => _shell?.ContentViewModel;

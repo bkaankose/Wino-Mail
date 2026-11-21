@@ -17,7 +17,7 @@ namespace Wino.Mail.Linux.Views.Mail;
 /// <see cref="MailRowPresentation"/> (texts); the selection goes back to <see cref="MailListPageViewModel"/> as a
 /// snapshot, and the ViewModel decides what opens.
 /// </summary>
-internal sealed class MailListView : WinoView<MailListPageViewModel>
+internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadingPane
 {
     private sealed record Entry(string Key, string? Header, MailListRow? Row);
 

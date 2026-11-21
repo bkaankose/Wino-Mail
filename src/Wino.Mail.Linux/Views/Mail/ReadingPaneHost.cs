@@ -23,11 +23,8 @@ internal sealed class ReadingPaneHost : IRenderingFrameHost
     {
         _error = error;
         _stack.SetTransitionType(Gtk.StackTransitionType.None);
-        // A header bar keeps the window controls at the end of the pane while it shows nothing.
-        var empty = Adw.ToolbarView.New();
-        empty.AddTopBar(Adw.HeaderBar.New());
-        _stack.AddNamed(empty, "empty");
-        _empty = empty;
+        _empty = Adw.Bin.New();
+        _stack.AddNamed(_empty, "empty");
     }
 
     public Gtk.Widget Root => _stack;
