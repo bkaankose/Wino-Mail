@@ -133,7 +133,8 @@
                     BorderBrush="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay, TargetNullValue='LightGray'}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    RowSpacing="12">
+                    RowSpacing="12"
+                    SizeChanged="QuickEventPopupContentSizeChanged">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />

@@ -44,6 +44,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private bool _hasAttachedNavigationLifetimeEvents;
     private UIElement? _quickEventDismissRoot;
     private double _quickEventHorizontalShift;
+    private double _quickEventAnchorX;
     private KeyEventHandler? _quickEventEscapeHandler;
     private PointerEventHandler? _quickEventDismissHandler;
 
@@ -201,14 +202,15 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         TeachingTipPositionerGrid.Width = 1;
         TeachingTipPositionerGrid.Height = 1;
 
-        Canvas.SetLeft(TeachingTipPositionerGrid, canvasPoint.X);
-        Canvas.SetTop(TeachingTipPositionerGrid, canvasPoint.Y);
+        // In the day view the popup opens below the click; dropping the anchor by one slot keeps the
+        // clicked slot visible above it.
+        var anchorDrop = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Day ? e.CellSize.Height : 0d;
 
-        _quickEventHorizontalShift = GetQuickEventHorizontalShift(CalendarSurface.TransformToVisual(null).TransformPoint(e.AnchorPoint).X);
-        if (QuickEventPopupDialog.DesiredPlacement is PopupPlacementMode.Bottom or PopupPlacementMode.Top)
-        {
-            QuickEventPopupDialog.HorizontalOffset = _quickEventHorizontalShift;
-        }
+        Canvas.SetLeft(TeachingTipPositionerGrid, canvasPoint.X);
+        Canvas.SetTop(TeachingTipPositionerGrid, canvasPoint.Y + anchorDrop);
+
+        _quickEventAnchorX = CalendarSurface.TransformToVisual(null).TransformPoint(e.AnchorPoint).X;
+        ApplyQuickEventHorizontalShift();
 
         _suppressSelectionResetOnPopupClose = true;
         QuickEventPopupDialog.IsOpen = false;
@@ -284,23 +286,41 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     }
 
     // Above or below the anchor the popup is centred on it, and the popup only flips vertically, so
-    // near the left or right window edge it is moved sideways to stay inside the window.
-    private double GetQuickEventHorizontalShift(double anchorX)
+    // near the left or right window edge it is moved sideways to stay inside the window. The width
+    // comes from the content's own layout (a manual measure here left the date line unmeasured),
+    // so the shift is applied again once the content has its real size.
+    private void ApplyQuickEventHorizontalShift()
     {
         const double edgeMargin = 8d;
+        const double fallbackWidth = 480d;
 
         var rootWidth = XamlRoot?.Size.Width ?? 0d;
+        var width = QuickEventPopupContent.ActualWidth > 0d ? QuickEventPopupContent.ActualWidth : fallbackWidth;
 
-        if (rootWidth <= 0d)
-            return 0d;
+        _quickEventHorizontalShift = 0d;
 
-        QuickEventPopupContent.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        if (rootWidth > 0d)
+        {
+            var left = _quickEventAnchorX - (width / 2d);
+            var clampedLeft = Math.Clamp(left, edgeMargin, Math.Max(edgeMargin, rootWidth - width - edgeMargin));
 
-        var width = QuickEventPopupContent.DesiredSize.Width;
-        var left = anchorX - (width / 2d);
-        var clampedLeft = Math.Clamp(left, edgeMargin, Math.Max(edgeMargin, rootWidth - width - edgeMargin));
+            _quickEventHorizontalShift = clampedLeft - left;
+        }
 
-        return clampedLeft - left;
+        if (QuickEventPopupDialog.ActualPlacement is PopupPlacementMode.Bottom or PopupPlacementMode.Top ||
+            (QuickEventPopupDialog.ActualPlacement == PopupPlacementMode.Auto &&
+             QuickEventPopupDialog.DesiredPlacement is PopupPlacementMode.Bottom or PopupPlacementMode.Top))
+        {
+            QuickEventPopupDialog.HorizontalOffset = _quickEventHorizontalShift;
+        }
+    }
+
+    private void QuickEventPopupContentSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (QuickEventPopupDialog.IsOpen)
+        {
+            ApplyQuickEventHorizontalShift();
+        }
     }
 
     private void QuickEventDismissPointerPressed(object sender, PointerRoutedEventArgs e)
