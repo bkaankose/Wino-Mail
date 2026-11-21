@@ -262,12 +262,13 @@ public abstract partial class AccountAppPageViewModelBase : CoreBaseViewModel, I
         }
     }
 
-    partial void OnSelectedSourceOptionChanged(AccountAppSourceOption? oldValue, AccountAppSourceOption? newValue)
+    // RadioButtons clears its selection before it selects the clicked item, so the previous value can be null.
+    partial void OnSelectedSourceOptionChanged(AccountAppSourceOption? value)
     {
-        if (_isApplyingSource || newValue == null || oldValue == null || State == null || newValue.Mode == State.Mode)
+        if (_isApplyingSource || value == null || State == null || value.Mode == State.Mode)
             return;
 
-        _ = ChangeSourceAsync(newValue);
+        _ = ChangeSourceAsync(value);
     }
 
     private async Task ChangeSourceAsync(AccountAppSourceOption option)

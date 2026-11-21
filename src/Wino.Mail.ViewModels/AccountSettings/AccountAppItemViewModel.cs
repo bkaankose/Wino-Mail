@@ -112,4 +112,7 @@ public sealed class AccountAppSourceOption(AccountCapabilityMode mode, string ti
     public AccountCapabilityMode Mode { get; } = mode;
     public string Title { get; } = title;
     public string Description { get; } = description;
+
+    /// <summary>The list control names each choice after its item, so screen readers read the title.</summary>
+    public override string ToString() => Title;
 }
