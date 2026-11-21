@@ -824,7 +824,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return new UndoActionSettings(
                 Translator.UndoActions_DeleteMailInfoBarTitle,
                 Translator.UndoActions_DeleteMailInfoBarMessage,
-                InfoBarMessageType.Error,
+                InfoBarMessageType.Information,
                 Math.Clamp(_preferencesService?.UndoDeletingMailsIntervalInSeconds ?? 5, 1, 10));
         }
 

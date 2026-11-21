@@ -1156,12 +1156,11 @@
                         IsOpen="{x:Bind ViewModel.IsUndoMailActionBarOpen, Mode=TwoWay}"
                         Severity="{x:Bind winuiHelpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.UndoMailActionBarSeverity), Mode=OneWay}">
                         <InfoBar.ActionButton>
-                            <Button AutomationProperties.AutomationId="MailListPageUndoMailActionButton" Command="{x:Bind ViewModel.UndoLatestQueuedActionCommand}">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <!--<coreControls:WinoFontIcon Icon="ArrowUndo" />-->
-                                    <TextBlock Text="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
-                                </StackPanel>
-                            </Button>
+                            <Button
+                                AutomationProperties.AutomationId="MailListPageUndoMailActionButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}"
+                                Command="{x:Bind ViewModel.UndoLatestQueuedActionCommand}"
+                                Content="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
                         </InfoBar.ActionButton>
                     </coreControls:WinoInfoBar>
 
