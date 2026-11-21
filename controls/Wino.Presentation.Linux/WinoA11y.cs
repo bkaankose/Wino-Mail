@@ -10,6 +10,16 @@ public static class WinoA11y
         return widget;
     }
 
+    /// <summary>
+    /// The accessible name of a widget whose name GTK derives from a child label (a labelled button, an Adw row): the
+    /// labelled-by relation outranks the label property, so it is dropped first.
+    /// </summary>
+    public static T Rename<T>(T widget, string label) where T : Gtk.Widget
+    {
+        widget.ResetRelation(Gtk.AccessibleRelation.LabelledBy);
+        return Label(widget, label);
+    }
+
     public static void Description(Gtk.Widget widget, string? description)
     {
         if (string.IsNullOrEmpty(description)) widget.ResetProperty(Gtk.AccessibleProperty.Description);

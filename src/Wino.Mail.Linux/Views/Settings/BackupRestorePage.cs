@@ -44,7 +44,7 @@ internal sealed class BackupRestorePage(BackupRestorePageViewModel viewModel, Wi
         var row = WinoSettingsRows.Action(title, description, glyph);
         var button = WinoSettingsRows.Suffix(row, Settings.Button(action, command));
         button.SetValign(Gtk.Align.Center);
-        WinoA11y.Label(button, $"{action}, {title}");
+        WinoA11y.Rename(button, $"{action}, {title}");
         if (account) Settings.Enabled(row, ViewModel, nameof(ViewModel.IsWinoAccountSignedIn), static s => s.IsWinoAccountSignedIn);
         return row;
     }
