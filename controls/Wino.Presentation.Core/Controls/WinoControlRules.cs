@@ -63,12 +63,11 @@ public static class WinoCalendarTileAppearance
         _ => 0xF44336
     };
 
-    /// <summary>Fill opacity: ghosts 0.2, busy tiles 0.55, multi-day month bars opaque, others 0.9; hover adds 0.08.</summary>
+    /// <summary>Fill opacity: busy tiles 0.55, multi-day month bars opaque, others 0.9; hover adds 0.08.</summary>
     public static double FillOpacity(CalendarPlacementKind kind, bool isBusy, bool isMultiDay, bool isHovered)
     {
-        bool ghost = kind == CalendarPlacementKind.MultiDayGhost;
-        double opacity = ghost ? 0.2 : isBusy ? 0.55 : kind == CalendarPlacementKind.MonthCell && isMultiDay ? 1 : 0.9;
-        return isHovered && !ghost ? Math.Min(1, opacity + 0.08) : opacity;
+        double opacity = isBusy ? 0.55 : kind == CalendarPlacementKind.MonthCell && isMultiDay ? 1 : 0.9;
+        return isHovered ? Math.Min(1, opacity + 0.08) : opacity;
     }
 
     /// <summary>Width the trailing repeat and multi-day glyphs take, including their gap to the text.</summary>

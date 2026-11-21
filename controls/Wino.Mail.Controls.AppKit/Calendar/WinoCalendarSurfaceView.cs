@@ -443,7 +443,6 @@ public sealed partial class WinoCalendarSurfaceView : NSView
 
         protected void SyncTiles(IEnumerable<CalendarItemPlacement> placements)
         {
-            bool attached = false;
             var seen = new HashSet<(ICalendarItem, DateOnly)>();
             foreach (var placement in placements)
             {
@@ -455,7 +454,6 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                     view.Hidden = false;
                     _active[key] = view;
                     if (view.Superview != this) AddSubview(view);
-                    attached = true;
                 }
                 view.Item = placement.Item;
                 view.Kind = placement.Kind;
@@ -474,10 +472,6 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 if (_spare.Count < 64) _spare.Push(view);
                 else { view.RemoveFromSuperview(); view.Dispose(); }
             }
-            // Ghosts behind real tiles: re-adding a subview moves it to the top. Only a pass that
-            // attached new tiles can change the order, so unchanged layouts skip the reordering.
-            if (attached && _active.Values.Any(v => v.Kind == CalendarPlacementKind.MultiDayGhost))
-                foreach (var view in _active.Values.Where(v => v.Kind != CalendarPlacementKind.MultiDayGhost)) AddSubview(view);
         }
 
         /// <summary>Recycles every tile (the strip is hidden for the current display type).</summary>
@@ -488,7 +482,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
 
         /// <summary>The tile currently showing <paramref name="item"/>, if any.</summary>
         internal WinoCalendarItemView? FindTile(ICalendarItem item)
-            => _active.FirstOrDefault(pair => ReferenceEquals(pair.Key.Item, item) && pair.Value.Kind != CalendarPlacementKind.MultiDayGhost).Value;
+            => _active.FirstOrDefault(pair => ReferenceEquals(pair.Key.Item, item)).Value;
 
         /// <summary>Whether a tile currently shows <paramref name="item"/> (including multi-day ghosts).</summary>
         internal bool Shows(ICalendarItem item)

@@ -100,8 +100,6 @@ public sealed class WinoCalendarItemView : NSView
     public override bool IsFlipped => true;
     public override bool AcceptsFirstMouse(NSEvent? theEvent) => true;
 
-    public override NSView? HitTest(CGPoint point) => _kind == CalendarPlacementKind.MultiDayGhost ? null : base.HitTest(point);
-
     public override void MouseDown(NSEvent theEvent)
     {
         _dragging = false;
@@ -214,20 +212,13 @@ public sealed class WinoCalendarItemView : NSView
     {
         if (_model is null) return;
         var bounds = Bounds;
-        bool ghost = _kind == CalendarPlacementKind.MultiDayGhost;
         bool compact = WinoCalendarTileAppearance.IsSingleLine(_kind);
         bool band = IsBand(_kind, _model);
         bool monthEntry = _kind == CalendarPlacementKind.MonthCell && !band;
         bool dark = WinoIcons.IsDark(EffectiveAppearance);
         var fill = _model.Fill;
 
-        var path = NSBezierPath.FromRoundedRect(bounds, (nfloat)(ghost ? 0 : CornerRadius), (nfloat)(ghost ? 0 : CornerRadius));
-        if (ghost)
-        {
-            fill.ColorWithAlphaComponent(0.12f).SetFill();
-            path.Fill();
-            return;
-        }
+        var path = NSBezierPath.FromRoundedRect(bounds, (nfloat)CornerRadius, (nfloat)CornerRadius);
 
         NSColor textColor;
         NSColor detailColor;

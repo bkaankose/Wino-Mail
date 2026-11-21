@@ -133,8 +133,6 @@ public sealed class WinoCalendarItemView : UIView
         set
         {
             _kind = value;
-            IsAccessibilityElement = value != CalendarPlacementKind.MultiDayGhost;
-            UserInteractionEnabled = value != CalendarPlacementKind.MultiDayGhost;
             SetNeedsDisplay();
         }
     }
@@ -182,13 +180,6 @@ public sealed class WinoCalendarItemView : UIView
         bool dark = traits.UserInterfaceStyle == UIUserInterfaceStyle.Dark;
         var calendar = _model.Fill.GetResolvedColor(traits);
         var surface = WinoStyle.ZoneFill.GetResolvedColor(traits);
-
-        if (_kind == CalendarPlacementKind.MultiDayGhost)
-        {
-            calendar.ColorWithAlpha((nfloat)(dark ? 0.16 : 0.10)).SetFill();
-            UIBezierPath.FromRect(bounds).Fill();
-            return;
-        }
 
         bool compact = WinoCalendarTileAppearance.IsSingleLine(_kind);
         bool narrow = bounds.Width < NarrowTileWidth && !compact;
