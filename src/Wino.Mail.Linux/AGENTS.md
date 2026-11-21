@@ -86,5 +86,6 @@ A build does not prove UI behavior.
 - The reader is `MailReaderView` (`Views/Mail`) plus one `MailReaderView.<Part>.cs` per feature, wired through the `partial void Build…/Initialize…` hooks and the `WhenRenavigating`/`WhenRendering`/`WhenWidthChanged` lists; a part never edits `MailReaderView.cs`.
 - The reader theme comes from the ViewModel (`IsDarkWebviewRenderer`); the style manager only reports the app theme through `ApplyApplicationTheme`.
 - The reader's width state (Wide, Narrow, Compact) comes from its own probe, never from a breakpoint, and its minimum width stays at or under `ShellMetrics.ReaderMinimumWidth`.
+- The reader's command bar (`MailReaderCommandBar`) takes its width from the reader's probe; commands that do not fit move into More. Its commands come from `MailReaderCommandLayout` over the ViewModel's menu (Settings > Reader actions), with Move next to Delete through `MoveFolderPopover`.
 - `IRenderingFrameHost.SetCover` covers the pane with a list page's widget while the reader stays alive underneath.
 - Sender pictures come from `LinuxSenderPictureProvider`; never decode an image in a cell bind.
