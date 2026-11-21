@@ -32,6 +32,7 @@ internal sealed class ShellLayout : IDisposable
     private readonly Adw.OverlaySplitView _split = Adw.OverlaySplitView.New();
     private readonly Adw.Bin _sidebarHost = Adw.Bin.New();
     private readonly Adw.Bin _headerHost = Adw.Bin.New();
+    private readonly Adw.ToolbarView _content;
     private readonly Gtk.Stack _pages = Gtk.Stack.New();
     private readonly Adw.Bin _listHost = Adw.Bin.New();
     private readonly Adw.Bin _readerHost = Adw.Bin.New();
@@ -92,6 +93,7 @@ internal sealed class ShellLayout : IDisposable
         _pages.SetVisibleChildName(EmptyPage);
 
         var content = Adw.ToolbarView.New();
+        _content = content;
         content.AddTopBar(_headerHost);
         content.SetContent(_pages);
         _split.SetContent(content);
@@ -126,6 +128,9 @@ internal sealed class ShellLayout : IDisposable
     public void SetSidebar(Gtk.Widget sidebar) => _sidebarHost.SetChild(sidebar);
 
     public void SetHeader(Gtk.Widget? header) => _headerHost.SetChild(header);
+
+    /// <summary>A bar under the header that spans the content area (the account attention banner).</summary>
+    public void AddTopBar(Gtk.Widget bar) => _content.AddTopBar(bar);
 
     public void SetContent(Gtk.Widget? page, bool usesReadingPane)
     {

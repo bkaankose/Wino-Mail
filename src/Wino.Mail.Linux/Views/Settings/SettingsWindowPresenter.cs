@@ -69,9 +69,21 @@ internal sealed class SettingsWindowPresenter : ISettingsWindowPresenter
         if (_stopping) return;
         await _dispatcher.ExecuteOnUIThread(() =>
         {
-            EnsureWindow().Present();
+            var window = EnsureWindow();
+            window.Present();
             _isVisible = true;
+            // A message sent right after the navigation (Fix account's hint) belongs to the window being presented, which
+            // becomes active only later.
+            Dialogs?.SetSurface(window);
         });
+
+        // The settings root with an activation context opens its page with its parameter (Fix account: Manage accounts >
+        // account > server settings).
+        if (page is WinoPage.SettingOptionsPage or WinoPage.SettingsPage && parameter is SettingsPageActivationContext activation)
+        {
+            page = activation.TargetPage;
+            parameter = activation.PageParameter;
+        }
 
         // The settings root with a page parameter is a deep link (the reader's Manage sender rules).
         if (page is WinoPage.SettingOptionsPage or WinoPage.SettingsPage && parameter is WinoPage deepLink

@@ -2,10 +2,12 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Messaging.Client.Mails;
 using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Messaging.UI;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.Controls.Linux.Shell;
@@ -32,6 +34,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     private readonly ShellSidebarMenuPresenter _sidebarMenus;
     private readonly ShellHeaderBar _header;
     private readonly WinoModeSwitcher _switcher = new();
+    private readonly AccountAttentionBanner _attention;
     private readonly Dictionary<WinoApplicationMode, Gtk.Widget> _placeholders = [];
     private readonly IServiceProvider _services;
     private readonly IDailyBriefingPresenter? _briefing;
@@ -73,6 +76,11 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         _layout.ReadingPane = _pane.Root;
         _header = new ShellHeaderBar(Translator.Buttons_Sync, ReportError);
         _layout.SetHeader(_header.Root);
+        _attention = new AccountAttentionBanner(serviceProvider.GetRequiredService<IAccountService>(), FixAccountAsync, ReportError);
+        _layout.AddTopBar(_attention.Root);
+        Subscribe<AccountUpdatedMessage>(_ => _attention.Invalidate());
+        Subscribe<AccountCreatedMessage>(_ => _attention.Invalidate());
+        Subscribe<AccountRemovedMessage>(_ => _attention.Invalidate());
         _layout.StateChanged += OnLayoutStateChanged;
         WireHeader();
         OnLayoutStateChanged();
@@ -86,6 +94,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     internal ShellSidebarView Sidebar => _sidebar;
     internal ShellSidebarMenuPresenter SidebarMenus => _sidebarMenus;
     internal ShellSidebarMenuContext SidebarMenuContext { get; }
+    internal AccountAttentionBanner Attention => _attention;
     internal IReadOnlyList<WinoApplicationMode>? VisibleModes => ViewModel.ModeVisibility?.VisibleModes;
 
     public async Task SetContentAsync(IWinoView view, object? parameter)
@@ -180,6 +189,9 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
     private Task FixAccountAsync(IAccountNavigationMenuItem account)
         => account.Account is { } mailAccount && MailClient() is { } mail ? mail.HandleAccountAttentionAsync(mailAccount) : ViewModel.InvokeMenuItemAsync(account);
 
+    private Task FixAccountAsync(MailAccount account)
+        => MailClient() is { } mail ? mail.HandleAccountAttentionAsync(account) : Task.CompletedTask;
+
     private static string ModeTitle(WinoApplicationMode mode) => mode switch
     {
         WinoApplicationMode.Calendar => "Wino " + Translator.KeyboardShortcuts_ModeCalendar,
@@ -209,6 +221,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         _navigation.AttachRenderingHost(_reading);
         _navigation.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame);
         Observe(RefreshWhatsNewAsync());
+        Observe(_attention.RefreshAsync());
         return Task.CompletedTask;
     }
 
@@ -228,6 +241,7 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         ViewModel.PreferencesService.PreferenceChanged -= _preferenceChanged;
         if (_briefing is not null) _briefing.UnseenItemsChanged -= _briefingChanged;
         _header.Dispose();
+        _attention.Dispose();
         _switcher.ModeSelected -= SwitchMode;
         _switcher.Dispose();
         _sidebarMenus.Dispose();
