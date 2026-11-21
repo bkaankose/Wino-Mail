@@ -136,6 +136,9 @@ internal sealed class ShellView : WinoView<WinoAppShellViewModel>
         if (!IsReleased) RefreshBack();
     }
 
+    /// <summary>Shows <paramref name="text"/> in the header search entry without notifying the search target.</summary>
+    internal void SetSearchText(string text) => _header.SetSearchText(text);
+
     internal void HandleAction(string name)
     {
         if (IsReleased) return;

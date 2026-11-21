@@ -405,8 +405,8 @@ internal sealed class ShellHeaderBar : IDisposable
             if (_applyingSearchText == text) _applyingSearchText = null;
             return;
         }
-        if (_target is not { } target) return;
-        Observe(text.Length == 0 ? target.SearchClearedAsync() : target.SearchTextChangedAsync(text));
+        // An emptied field is a text change, not a clear: the target keeps a filter-only search (macOS ShellToolbar).
+        if (_target is { } target) Observe(target.SearchTextChangedAsync(text));
     }
 
     private void SearchActivated()

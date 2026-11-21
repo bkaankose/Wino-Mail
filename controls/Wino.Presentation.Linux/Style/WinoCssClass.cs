@@ -102,4 +102,8 @@ public static class WinoCssClass
     public const string DragCaptionRefused = "wino-drag-caption-refused";
     public const string DragBanner = "wino-drag-banner";
     public const string DropTarget = "wino-drop-target";
+    public const string SearchScopeBar = "wino-search-scope-bar";
+    public const string SearchChip = "wino-search-chip";
+    public const string Active = "wino-active";
+    public const string OnlineSearchPanel = "wino-online-search-panel";
 }

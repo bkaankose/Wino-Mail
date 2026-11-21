@@ -54,6 +54,7 @@ internal static class AppActions
         application.SetAccelsForAction(Detailed(Quit), ["<Control>q"]);
         application.SetAccelsForAction(Detailed(Back), ["<Alt>Left"]);
         application.SetAccelsForAction(Detailed(ToggleSidebar), ["F9"]);
+        application.SetAccelsForAction(Detailed(Search), ["<Control>f"]);
     }
 
     public static void SetEnabled(Gio.Application? application, string name, bool enabled)

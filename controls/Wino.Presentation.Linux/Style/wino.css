@@ -275,3 +275,9 @@ row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
 .wino-drag-banner { margin: 6px; padding: 6px 10px; border-radius: 8px; background-color: @card_bg_color; color: @card_fg_color; box-shadow: 0 0 0 1px @card_shade_color, 0 2px 8px @shade_color; font-weight: 600; font-size: 0.9em; }
 .wino-mail-cell.wino-dragging { opacity: 0.45; }
 .wino-sidebar-list > row.wino-drop-target { background-color: alpha(@accent_bg_color, 0.30); box-shadow: inset 0 0 0 2px @accent_bg_color; }
+
+/* ML-11 search */
+.wino-search-scope-bar { padding: 10px 12px; border-bottom: 1px solid alpha(currentColor, 0.12); }
+.wino-search-chip { min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 0.9em; font-weight: normal; background-color: alpha(currentColor, 0.08); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.10); }
+.wino-search-chip.wino-active { background-color: alpha(@accent_bg_color, 0.22); box-shadow: inset 0 0 0 1px alpha(@accent_bg_color, 0.55); }
+.wino-online-search-panel { margin: 8px 12px 12px 12px; padding: 10px 12px; border-radius: 12px; background-color: alpha(currentColor, 0.06); font-weight: normal; }
