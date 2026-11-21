@@ -42,29 +42,11 @@ internal sealed partial class GtkDialogService
     public IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
         => new GtkAccountCreationDialog();
 
-    public Task<MailAccount?> PickAccountAsync(IReadOnlyList<MailAccount> accounts, string title)
-        => DismissAsync<MailAccount?>(nameof(PickAccountAsync), title, null);
-
     public Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService)
         => DismissAsync(nameof(HandleSystemFolderConfigurationDialogAsync), accountId.ToString());
 
     public Task<IMailItemFolder?> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
         => DismissAsync<IMailItemFolder?>(nameof(ShowMoveMailFolderDialogAsync), null, null);
-
-    public Task<MailAccount?> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
-        => DismissAsync<MailAccount?>(nameof(ShowAccountPickerDialogAsync), null, null);
-
-    public Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)
-        => DismissAsync(nameof(ShowSingleCalendarPickerDialogAsync), null, new AccountCalendarPickingResult(null, false));
-
-    public Task<ContactCreateDestination?> ShowContactDestinationPickerDialogAsync(IReadOnlyList<ContactCreateDestination> destinations)
-        => DismissAsync<ContactCreateDestination?>(nameof(ShowContactDestinationPickerDialogAsync), null, null);
-
-    public Task<ContactListCreationResult?> ShowNewContactListDialogAsync(IReadOnlyList<MailAccount> accounts, MailAccount? selectedAccount)
-        => DismissAsync<ContactListCreationResult?>(nameof(ShowNewContactListDialogAsync), null, null);
-
-    public Task<AccountTaskList?> ShowTaskListPickerDialogAsync(IReadOnlyList<AccountTaskList> taskLists, IReadOnlyList<MailAccount> accounts)
-        => DismissAsync<AccountTaskList?>(nameof(ShowTaskListPickerDialogAsync), null, null);
 
     public Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
         => DismissAsync(nameof(ShowAccountReorderDialogAsync));

@@ -60,4 +60,10 @@ public static class WinoCssClass
     public const string Floating = "wino-floating";
     public const string TintPrefix = "wino-tint-";
     public const string MailLoadingMore = "wino-mail-loading-more";
+    public const string FillPrefix = "wino-fill-";
+    public const string ColorDot = "wino-color-dot";
+    public const string DragHandle = "wino-drag-handle";
+    public const string Dragging = "wino-dragging";
+    public const string DropBefore = "wino-drop-before";
+    public const string DropAfter = "wino-drop-after";
 }

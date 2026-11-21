@@ -74,6 +74,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.ShortcutSettingsDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailSelectionDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.ThemeEditorDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.ListPickerDebugActions.Register(application, () => _services);
         }
 #endif
     }

@@ -192,3 +192,10 @@
 .wino-sidebar-list > row:selected { background-color: alpha(currentColor, 0.10); }
 .wino-sidebar-list > row.wino-row-plain, .wino-sidebar-list > row.wino-row-plain:hover { background: none; }
 
+
+/* DL-01 / DL-02 */
+.wino-color-dot { min-width: 12px; min-height: 12px; border-radius: 999px; }
+.wino-drag-handle { opacity: 0.55; padding: 0 2px; }
+.wino-dragging { opacity: 0.4; }
+row.wino-drop-before { box-shadow: inset 0 2px 0 0 @accent_bg_color; }
+row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
