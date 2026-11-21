@@ -49,6 +49,7 @@ public static class CoreContainerSetup
             provider.GetRequiredService<Wino.Services.Synchronization.TaskQuotaGate>(),
             provider.GetRequiredService<IWinoLogger>(),
             provider.GetRequiredService<Wino.Core.Domain.Models.MailItem.DraftUpdateRegistry>(),
+            provider.GetRequiredService<IFolderService>(),
             provider.GetService<IPlatformCapabilities>()));
         services.AddSingleton<ISynchronizationManager>(provider => provider.GetRequiredService<SynchronizationManager>());
         services.AddSingleton<IDraftUpdateCoordinator>(provider => provider.GetRequiredService<SynchronizationManager>().DraftUpdates);

@@ -63,6 +63,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private readonly INotificationBuilder _notificationBuilder;
     private readonly bool _notificationsEnabled;
     private readonly AnnouncedMessageIds _announcedMessageIds = new();
+    private readonly IFolderService _folderService;
     private readonly IPreferencesService _preferencesService;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
     private readonly DraftUpdateCoordinator _draftUpdateCoordinator;
@@ -87,6 +88,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                   TaskQuotaGate taskQuota,
                                   IWinoLogger winoLogger,
                                   DraftUpdateRegistry draftUpdateRegistry,
+                                  IFolderService folderService,
                                   IPlatformCapabilities platformCapabilities = null)
     {
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
@@ -101,6 +103,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         _draftSyncRetryService = draftSyncRetryService ?? throw new ArgumentNullException(nameof(draftSyncRetryService));
         _draftMailService = mailService ?? throw new ArgumentNullException(nameof(mailService));
         _taskQuota = taskQuota ?? throw new ArgumentNullException(nameof(taskQuota));
+        _folderService = folderService ?? throw new ArgumentNullException(nameof(folderService));
         _notificationsEnabled = platformCapabilities?.Notifications ?? true;
         _draftUpdateCoordinator = new DraftUpdateCoordinator(this, mailService, winoLogger, draftUpdateRegistry);
 
@@ -114,12 +117,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     internal static async Task PublishMailSynchronizationNotificationsAsync(
         MailSynchronizationResult result, MailAccount account, INotificationBuilder notifications, bool notificationsEnabled,
-        AnnouncedMessageIds announcedMessageIds)
+        AnnouncedMessageIds announcedMessageIds, bool hasSynchronizedBefore)
     {
         // An unavailable native integration must not turn successful provider work into failed sync.
         if (!notificationsEnabled) return;
 
-        var newMessages = GetNotifiableMessages(result.DownloadedMessages, account)
+        var newMessages = GetNotifiableMessages(result.DownloadedMessages, account, hasSynchronizedBefore)
             .Where(message => string.IsNullOrEmpty(message.MessageId) || announcedMessageIds.TryAdd(account.Id, message.MessageId))
             .ToList();
         if (newMessages.Count > 0)
@@ -133,7 +136,14 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// one, or a wider synchronization range downloads it, and none of it is new mail. Accounts created before the
     /// creation date was recorded have no date and keep every message.
     /// </summary>
-    internal static List<MailCopy> GetNotifiableMessages(IEnumerable<MailCopy> downloadedMessages, MailAccount account)
+    /// <remarks>
+    /// The account's creation time comes from this device's clock, a message's time from the server's. Once the
+    /// account has synchronized mail, a message up to <see cref="ClockSkewAllowance"/> older than the creation time
+    /// is still new: a device clock that runs ahead (a virtual machine, a dual-boot clock in local time) would
+    /// otherwise silence every notification until real time caught up. The first synchronization is all backfill,
+    /// so it keeps the exact comparison.
+    /// </remarks>
+    internal static List<MailCopy> GetNotifiableMessages(IEnumerable<MailCopy> downloadedMessages, MailAccount account, bool hasSynchronizedBefore)
     {
         if (downloadedMessages == null)
             return [];
@@ -142,10 +152,26 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return downloadedMessages.ToList();
 
         var accountCreatedAtUtc = createdAt.AsStoredUtc();
+        var newMailSinceUtc = hasSynchronizedBefore ? accountCreatedAtUtc - ClockSkewAllowance : accountCreatedAtUtc;
 
         return downloadedMessages
-            .Where(message => message.CreationDate >= accountCreatedAtUtc)
+            .Where(message => message.CreationDate >= newMailSinceUtc)
             .ToList();
+    }
+
+    internal static readonly TimeSpan ClockSkewAllowance = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// Whether any mail folder of the account finished a synchronization before, or the account holds a mailbox
+    /// delta (Gmail). A first pass is the initial download.
+    /// </summary>
+    private async Task<bool> HasSynchronizedMailBeforeAsync(MailAccount account)
+    {
+        if (!string.IsNullOrEmpty(account.SynchronizationDeltaIdentifier))
+            return true;
+
+        var folders = await _folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
+        return folders.Any(folder => folder.LastSynchronizedDate.HasValue);
     }
 
     /// <summary>
@@ -343,6 +369,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         try
         {
+            var hasSynchronizedBefore = await HasSynchronizedMailBeforeAsync(synchronizer.Account).ConfigureAwait(false);
             var result = await synchronizer.SynchronizeMailsAsync(options, linkedCancellationTokenSource.Token);
 
             _logger.Information("Mail synchronization completed for account {AccountId} with state {State}",
@@ -350,7 +377,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
             await PersistSignInAttentionIfRequiredAsync(synchronizer.Account, result.Exception, result.AllIssues).ConfigureAwait(false);
 
-            await PublishMailSynchronizationNotificationsAsync(result, synchronizer.Account, _notificationBuilder, _notificationsEnabled, _announcedMessageIds).ConfigureAwait(false);
+            await PublishMailSynchronizationNotificationsAsync(result, synchronizer.Account, _notificationBuilder, _notificationsEnabled, _announcedMessageIds, hasSynchronizedBefore).ConfigureAwait(false);
 
             return result;
         }
