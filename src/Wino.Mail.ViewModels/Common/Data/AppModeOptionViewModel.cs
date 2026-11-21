@@ -78,19 +78,26 @@ public sealed partial class AppModeOptionViewModel : ObservableObject
             IsAvailable = visibility.IsAvailable(Mode);
             IsShown = visibility.IsVisible(Mode) && IsAvailable;
             CanToggle = IsAvailable && (!IsShown || visibility.CanHide(Mode));
+            var visibilityDescription = !IsShown
+                ? Translator.SettingsPersonalization_AppModes_HiddenDescription
+                : CanToggle
+                    ? Translator.SettingsPersonalization_AppModes_ShownDescription
+                    : Translator.SettingsPersonalization_AppModes_LastVisibleDescription;
+
             Description = !IsAvailable
                 ? Translator.SettingsPersonalization_AppModes_UnavailableDescription
-                : !IsShown
-                    ? Translator.SettingsPersonalization_AppModes_HiddenDescription
-                    : CanToggle
-                        ? Translator.SettingsPersonalization_AppModes_ShownDescription
-                        : Translator.SettingsPersonalization_AppModes_LastVisibleDescription;
+                : GetProvidedByText(visibility.GetProviderCount(Mode)) + " · " + visibilityDescription;
         }
         finally
         {
             _isApplying = false;
         }
     }
+
+    /// <summary>Which accounts provide the mode, so the row says where to turn it on or off.</summary>
+    public static string GetProvidedByText(int accountCount) => accountCount == 1
+        ? Translator.SettingsPersonalization_AppModes_ProvidedByOne
+        : string.Format(Translator.SettingsPersonalization_AppModes_ProvidedByMany, accountCount);
 
     public static string GetDisplayName(WinoApplicationMode mode) => mode switch
     {
