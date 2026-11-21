@@ -26,7 +26,6 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
     private readonly Gtk.SingleSelection _selection;
     private readonly Gtk.ScrolledWindow _scroll = Gtk.ScrolledWindow.New();
     private readonly Gtk.Stack _stack = Gtk.Stack.New();
-    private readonly Adw.WindowTitle _title = Adw.WindowTitle.New(string.Empty, string.Empty);
     private readonly Dictionary<nint, MailRowCell> _cells = [];
     private List<Entry> _entries = [];
     private string _publishedSelection = string.Empty;
@@ -78,15 +77,6 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
         _stack.AddNamed(empty, "empty");
         _stack.AddNamed(_scroll, "list");
 
-        var header = Adw.HeaderBar.New();
-        header.SetTitleWidget(_title);
-        header.SetShowStartTitleButtons(false);
-        header.SetShowEndTitleButtons(false);
-        var view = Adw.ToolbarView.New();
-        view.AddTopBar(header);
-        view.SetContent(_stack);
-        Root = view;
-
         Bind.Bind(nameof(MailListPageViewModel.MailListOptions), static vm => vm.MailListOptions, options =>
         {
             if (!IsReleased) _projection.SetOptions(options ?? new MailListProjectionOptions());
@@ -94,7 +84,7 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
         Bind.BindAny(static vm => (vm.IsInitializingFolder, vm.IsEmpty, vm.IsFolderEmpty), _ => UpdateState());
     }
 
-    public override Gtk.Widget Root { get; }
+    public override Gtk.Widget Root => _stack;
 
     /// <summary>What a page does on every head: navigate the ViewModel, announce the folder, then wait for its first load.</summary>
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
@@ -103,7 +93,6 @@ internal sealed class MailListView : WinoView<MailListPageViewModel>, IUsesReadi
         Subscribe<ActiveMailItemChangedEvent>(OnActiveMailItemChanged);
         if (parameter is NavigateMailFolderEventArgs folder)
         {
-            _title.SetTitle(folder.BaseFolderMenuItem?.FolderName ?? string.Empty);
             Messenger.Send(new ActiveMailFolderChangedEvent(folder.BaseFolderMenuItem, folder.FolderInitLoadAwaitTask));
             await ViewModel.WaitForCurrentFolderInitializationAsync();
         }

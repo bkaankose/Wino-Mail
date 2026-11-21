@@ -56,6 +56,9 @@ internal sealed class GtkNavigationService : INavigationService, INavigationHost
     public bool RestoreShell(WinoApplicationMode mode) => _coordinator.RestoreShell(mode);
     public bool RestoreShell(WinoApplicationMode mode, ShellModeActivationContext activationContext) => _coordinator.RestoreShell(mode, activationContext);
     public bool CanGoBack() => _coordinator.CanGoBack();
+    public bool CanGoBackToPage() => _coordinator.CanGoBackToPage();
+    public Task PendingNavigation => _coordinator.PendingNavigation;
+    public WinoPage? BackPage => _coordinator.BackPage;
     public void GoBack(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight) => _coordinator.GoBack(slideEffect);
     public Task<bool> GoBackAsync(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight) => _coordinator.GoBackAsync(slideEffect);
     public void SetNavigationResult(NavigationResult result) => _coordinator.SetNavigationResult(result);
@@ -85,6 +88,7 @@ internal sealed class GtkNavigationService : INavigationService, INavigationHost
 
     public bool IsShellShown => _shell is not null;
     public ShellView? Shell => _shell;
+    public MainWindow? MainWindow => _window();
     public bool HasMainContent => _main is not null;
     public bool MainContentHasPendingWork => _main is { HasPendingWork: true };
     public object? ShellContentViewModel => _shell?.ContentViewModel;

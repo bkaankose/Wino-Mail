@@ -39,6 +39,7 @@ internal sealed class LinuxApplication
             ShowWindow();
             _ = RouteActivationsAsync();
         };
+        AppActions.Register(application, () => _services, () => _window);
 #if DEBUG
         if (options.DebugActions)
         {
@@ -52,6 +53,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.AvatarDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.InfoBarDebugActions.Register(application, () => _services, () => _window);
             Infrastructure.Diagnostics.ShellDebugActions.Register(application, () => _services, () => _window);
+            Infrastructure.Diagnostics.HeaderDebugActions.Register(application, () => _services);
         }
 #endif
     }
