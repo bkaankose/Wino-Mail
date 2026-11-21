@@ -58,6 +58,9 @@ public sealed class CompanionSettingsPageViewController(CompanionSettingsPageVie
             unreadBehaviorCard,
             Card(Translator.CompanionSettings_ShowTasks_Title, null, WinoIconGlyph.None,
                 Bind.Switch(vm, nameof(vm.ShowTasks), s => s.ShowTasks, (s, v) => s.ShowTasks = v, Translator.CompanionSettings_ShowTasks_Title)),
+            Bind.Enabled(Card(Translator.CompanionSettings_TaskBehavior_Title, null, WinoIconGlyph.None,
+                Bind.PopUp(vm, s => s.TaskBehaviorOptions, option => option.DisplayText, nameof(vm.SelectedTaskBehavior), s => s.SelectedTaskBehavior, (s, v) => s.SelectedTaskBehavior = v)),
+                vm, nameof(vm.ShowTasks), s => s.ShowTasks),
             Card(Translator.CompanionSettings_ShowFavoriteContacts_Title, null, WinoIconGlyph.None,
                 Bind.Switch(vm, nameof(vm.ShowFavoriteContacts), s => s.ShowFavoriteContacts, (s, v) => s.ShowFavoriteContacts = v, Translator.CompanionSettings_ShowFavoriteContacts_Title)));
         content.IsExpanded = true;
