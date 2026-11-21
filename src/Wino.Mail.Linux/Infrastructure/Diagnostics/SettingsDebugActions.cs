@@ -88,14 +88,64 @@ internal static class SettingsDebugActions
 
     private static string Preference(IPreferencesService preferences, string name, string? value)
     {
-        switch (name)
+        var p = preferences;
+        return name switch
         {
-            case nameof(IPreferencesService.IsLoggingEnabled):
-                if (value is not null) preferences.IsLoggingEnabled = bool.Parse(value);
-                return preferences.IsLoggingEnabled.ToString();
-            default:
-                throw new ArgumentException($"debug-settings-pref does not know '{name}'; add it to SettingsDebugActions.Preference.");
-        }
+            nameof(IPreferencesService.IsLoggingEnabled) => Flag(() => p.IsLoggingEnabled, v => p.IsLoggingEnabled = v, value),
+            nameof(IPreferencesService.MailItemDisplayMode) => Choice(() => p.MailItemDisplayMode, v => p.MailItemDisplayMode = v, value),
+            nameof(IPreferencesService.IsShowPreviewEnabled) => Flag(() => p.IsShowPreviewEnabled, v => p.IsShowPreviewEnabled = v, value),
+            nameof(IPreferencesService.IsShowSenderPicturesEnabled) => Flag(() => p.IsShowSenderPicturesEnabled, v => p.IsShowSenderPicturesEnabled = v, value),
+            nameof(IPreferencesService.IsThreadingEnabled) => Flag(() => p.IsThreadingEnabled, v => p.IsThreadingEnabled = v, value),
+            nameof(IPreferencesService.IsMailListGroupHeadersEnabled) => Flag(() => p.IsMailListGroupHeadersEnabled, v => p.IsMailListGroupHeadersEnabled = v, value),
+            nameof(IPreferencesService.MailTimeFormatPreference) => Choice(() => p.MailTimeFormatPreference, v => p.MailTimeFormatPreference = v, value),
+            nameof(IPreferencesService.EmailSyncIntervalMinutes) => Number(() => p.EmailSyncIntervalMinutes, v => p.EmailSyncIntervalMinutes = v, value),
+            nameof(IPreferencesService.MarkAsDelay) => Number(() => p.MarkAsDelay, v => p.MarkAsDelay = v, value),
+            nameof(IPreferencesService.MarkAsPreference) => Choice(() => p.MarkAsPreference, v => p.MarkAsPreference = v, value),
+            nameof(IPreferencesService.AutoSelectNextItem) => Flag(() => p.AutoSelectNextItem, v => p.AutoSelectNextItem = v, value),
+            nameof(IPreferencesService.ReaderFont) => Text(() => p.ReaderFont, v => p.ReaderFont = v, value),
+            nameof(IPreferencesService.ReaderFontSize) => Number(() => p.ReaderFontSize, v => p.ReaderFontSize = v, value),
+            nameof(IPreferencesService.RenderStyles) => Flag(() => p.RenderStyles, v => p.RenderStyles = v, value),
+            nameof(IPreferencesService.RenderPlaintextLinks) => Flag(() => p.RenderPlaintextLinks, v => p.RenderPlaintextLinks = v, value),
+            nameof(IPreferencesService.ReaderContentTheme) => Choice(() => p.ReaderContentTheme, v => p.ReaderContentTheme = v, value),
+            nameof(IPreferencesService.ReaderDarkModeMethod) => Choice(() => p.ReaderDarkModeMethod, v => p.ReaderDarkModeMethod = v, value),
+            nameof(IPreferencesService.ReaderCommandLayout) => p.ReaderCommandLayout ?? string.Empty,
+            nameof(IPreferencesService.IsShowActionLabelsEnabled) => Flag(() => p.IsShowActionLabelsEnabled, v => p.IsShowActionLabelsEnabled = v, value),
+            nameof(IPreferencesService.ComposerFont) => Text(() => p.ComposerFont, v => p.ComposerFont = v, value),
+            nameof(IPreferencesService.ComposerFontSize) => Number(() => p.ComposerFontSize, v => p.ComposerFontSize = v, value),
+            nameof(IPreferencesService.IsComposerSpellCheckEnabled) => Flag(() => p.IsComposerSpellCheckEnabled, v => p.IsComposerSpellCheckEnabled = v, value),
+            nameof(IPreferencesService.StripLinkTrackingParameters) => Flag(() => p.StripLinkTrackingParameters, v => p.StripLinkTrackingParameters = v, value),
+            nameof(IPreferencesService.ConfirmBeforeOpeningLinks) => Flag(() => p.ConfirmBeforeOpeningLinks, v => p.ConfirmBeforeOpeningLinks = v, value),
+            nameof(IPreferencesService.AlwaysShowSenderAddress) => Flag(() => p.AlwaysShowSenderAddress, v => p.AlwaysShowSenderAddress = v, value),
+            nameof(IPreferencesService.LoadRemoteContentFromContacts) => Flag(() => p.LoadRemoteContentFromContacts, v => p.LoadRemoteContentFromContacts = v, value),
+            nameof(IPreferencesService.LoadRemoteContentFromRecipients) => Flag(() => p.LoadRemoteContentFromRecipients, v => p.LoadRemoteContentFromRecipients = v, value),
+            nameof(IPreferencesService.WarnBeforeOpeningExecutableAttachments) => Flag(() => p.WarnBeforeOpeningExecutableAttachments, v => p.WarnBeforeOpeningExecutableAttachments = v, value),
+            nameof(IPreferencesService.RemoteContentMode) => Choice(() => p.RemoteContentMode, v => p.RemoteContentMode = v, value),
+            _ => throw new ArgumentException($"debug-settings-pref does not know '{name}'; add it to SettingsDebugActions.Preference."),
+        };
+    }
+
+    private static string Flag(Func<bool> get, Action<bool> set, string? value)
+    {
+        if (value is not null) set(bool.Parse(value));
+        return get().ToString();
+    }
+
+    private static string Number(Func<int> get, Action<int> set, string? value)
+    {
+        if (value is not null) set(int.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
+        return get().ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static string Text(Func<string?> get, Action<string> set, string? value)
+    {
+        if (value is not null) set(value);
+        return get() ?? string.Empty;
+    }
+
+    private static string Choice<T>(Func<T> get, Action<T> set, string? value) where T : struct, Enum
+    {
+        if (value is not null) set(Enum.Parse<T>(value));
+        return get().ToString();
     }
 
     private static string DescribeState(IServiceProvider services)
@@ -223,7 +273,8 @@ internal static class SettingsDebugActions
         }
 
         var row = Descendants(page).OfType<Adw.PreferencesRow>()
-            .Where(candidate => candidate.IsVisible() && string.Equals(candidate.GetTitle(), title, StringComparison.Ordinal))
+            // An expander row draws its title with an inner action row of the same title (CSS class "header"); skip that one.
+            .Where(candidate => candidate.IsVisible() && !candidate.HasCssClass("header") && string.Equals(candidate.GetTitle(), title, StringComparison.Ordinal))
             .Skip(occurrence - 1).FirstOrDefault() ?? throw new InvalidOperationException($"No visible row is titled '{titleSpec}'.");
         if (!row.IsSensitive()) throw new InvalidOperationException($"The row '{titleSpec}' is insensitive.");
 

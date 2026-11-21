@@ -101,6 +101,7 @@ public static class LinuxPlatformRegistration
         // No relay device info, push token or attestation is registered, so live notifications report an unsupported platform.
         // One capability per line, in alphabetical order, so that parallel changes merge.
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
+            ConfigurableSyncIntervals: true,
             GeneralActivation: true,
             Notifications: true,
             OAuthLoopbackRedirect: false,
