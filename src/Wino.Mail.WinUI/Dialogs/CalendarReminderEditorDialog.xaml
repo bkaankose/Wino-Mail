@@ -19,8 +19,8 @@
     mc:Ignorable="d">
 
     <ContentDialog.Resources>
-        <x:Double x:Key="ContentDialogMinWidth">560</x:Double>
-        <x:Double x:Key="ContentDialogMaxWidth">640</x:Double>
+        <x:Double x:Key="ContentDialogMinWidth">680</x:Double>
+        <x:Double x:Key="ContentDialogMaxWidth">760</x:Double>
     </ContentDialog.Resources>
 
     <StackPanel Spacing="12">
@@ -46,10 +46,10 @@
                     <DataTemplate x:DataType="calendar:CalendarReminderEditorRow">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="88" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" MinWidth="120" />
+                                <ColumnDefinition Width="*" MinWidth="140" />
+                                <ColumnDefinition Width="*" MinWidth="140" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 

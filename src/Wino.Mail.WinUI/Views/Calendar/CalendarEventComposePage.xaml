@@ -204,7 +204,8 @@
                                 <Flyout x:Name="ComposeReminderFlyout" Placement="Bottom">
                                     <StackPanel Spacing="4">
                                         <ListView
-                                            Width="240"
+                                            MinWidth="240"
+                                            MaxWidth="360"
                                             MaxHeight="300"
                                             AutomationProperties.AutomationId="CalendarEventComposeReminderOptionsList"
                                             ItemsSource="{x:Bind ViewModel.ReminderOptions}"
@@ -214,8 +215,9 @@
                                                     <CheckBox
                                                         AutomationProperties.AutomationId="{x:Bind AutomationId}"
                                                         AutomationProperties.Name="{x:Bind DisplayText}"
-                                                        Content="{x:Bind DisplayText}"
-                                                        IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
+                                                        IsChecked="{x:Bind IsSelected, Mode=TwoWay}">
+                                                        <TextBlock Text="{x:Bind DisplayText}" TextWrapping="Wrap" />
+                                                    </CheckBox>
                                                 </DataTemplate>
                                             </ListView.ItemTemplate>
                                         </ListView>
