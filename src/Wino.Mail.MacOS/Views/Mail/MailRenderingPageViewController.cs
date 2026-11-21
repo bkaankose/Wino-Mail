@@ -172,12 +172,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _intelligenceHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
         BuildIntelligenceHeader(_intelligenceHost);
 
-        var header = _header = WinoLayout.VStack(12, senderRow, _chips, _intelligenceHost, privacyBars, invitationCard);
+        var linkedRow = BuildLinkedItemsRow();
+        var header = _header = WinoLayout.VStack(12, senderRow, _chips, linkedRow, _intelligenceHost, privacyBars, invitationCard);
         header.EdgeInsets = new NSEdgeInsets(14, 24, 10, 24);
         foreach (var view in new NSView[] { senderRow, _intelligenceHost, privacyBars, invitationCard })
             _headerWidths.Add(view.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -48));
         // The tile row hugs its chips from the leading edge; it is only capped (and clips) at the header width.
         _headerWidths.Add(_chips.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor, 1, -48));
+        _headerWidths.Add(linkedRow.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor, 1, -48));
         NSLayoutConstraint.ActivateConstraints(_headerWidths.ToArray());
 
         // ---- Body card ----
