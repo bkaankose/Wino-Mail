@@ -242,6 +242,10 @@
       "material": "folder_managed",
       "framework7": "arrow_2_squarepath"
     },
+    "FolderShared": {
+      "material": "folder_shared",
+      "framework7": "folder_badge_person_crop"
+    },
     "FolderArrowUp": {
       "material": "drive_folder_upload",
       "framework7": "arrow_up_doc"

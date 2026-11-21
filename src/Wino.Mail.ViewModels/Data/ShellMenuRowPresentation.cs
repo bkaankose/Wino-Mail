@@ -160,7 +160,9 @@ public static class ShellMenuRowPresentation
             case IBaseFolderMenuItem folder:
                 return row with
                 {
-                    Glyph = SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType),
+                    Glyph = folder is FolderMenuItem { Parameter: { } single }
+                        ? SpecialFolderGlyphs.GetGlyphOrFolder(single)
+                        : SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType),
                     Title = folder.FolderName ?? string.Empty,
                     UnreadCount = folder.ShowUnreadCount ? folder.UnreadItemCount : 0
                 };

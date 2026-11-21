@@ -208,7 +208,7 @@ internal static class MailContextFlyoutBuilder
                 continue;
             }
 
-            var folderName = folder.ResolvedDisplayName ?? string.Empty;
+            var folderName = (folder.IsSticky ? folder.QualifiedDisplayName : folder.ResolvedDisplayName) ?? string.Empty;
             var childItems = new List<ContextFlyoutMenuEntry>();
             if (folder.ChildFolders?.Count > 0)
             {
@@ -257,7 +257,7 @@ internal static class MailContextFlyoutBuilder
             {
                 Text = folderName,
                 SearchKeywords = "folder destination",
-                Icon = CreateIcon(XamlHelpers.GetSpecialFolderPathIconGeometry(folder.SpecialFolderType)),
+                Icon = CreateIcon(XamlHelpers.GetFolderGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer)),
                 Items = groupItems,
                 AutomationId = $"MoveFolderGroup_{folder.Id:N}"
             });
@@ -273,7 +273,7 @@ internal static class MailContextFlyoutBuilder
         {
             Text = text,
             SearchKeywords = $"folder destination {folder.ResolvedDisplayName}",
-            Icon = CreateIcon(XamlHelpers.GetSpecialFolderPathIconGeometry(folder.SpecialFolderType)),
+            Icon = CreateIcon(XamlHelpers.GetFolderGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer)),
             Command = CreateCommand(() => selected(new MailContextFlyoutSelection(
                 Operation: moveAction,
                 MoveTargetFolder: folder))),

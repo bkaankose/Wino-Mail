@@ -278,7 +278,7 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind winuiHelpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind winuiHelpers:XamlHelpers.GetFolderGlyph(Parameter.SpecialFolderType, Parameter.Scope, Parameter.IsContainer)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge

@@ -1,5 +1,6 @@
 #nullable enable
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Presentation;
 
@@ -139,6 +140,23 @@ public static class SpecialFolderGlyphs
     /// <summary>The special folder's glyph, or the plain folder glyph for regular folders.</summary>
     public static WinoIconGlyph GetGlyphOrFolder(SpecialFolderType type)
         => GetGlyph(type) is var glyph && glyph != WinoIconGlyph.None ? glyph : WinoIconGlyph.Folder;
+
+    /// <summary>
+    /// A folder row's glyph: people for a level of a shared tree (a namespace or another user's mailbox), the shared
+    /// folder glyph for a folder outside the personal namespace, otherwise the special folder's glyph.
+    /// </summary>
+    public static WinoIconGlyph GetGlyph(IMailItemFolder folder)
+        => GetGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer);
+
+    /// <inheritdoc cref="GetGlyph(IMailItemFolder)"/>
+    public static WinoIconGlyph GetGlyph(SpecialFolderType type, MailFolderScope scope, bool isContainer)
+        => isContainer ? WinoIconGlyph.People
+            : scope != MailFolderScope.Personal ? WinoIconGlyph.FolderShared
+            : GetGlyph(type);
+
+    /// <inheritdoc cref="GetGlyph(IMailItemFolder)"/>
+    public static WinoIconGlyph GetGlyphOrFolder(IMailItemFolder folder)
+        => GetGlyph(folder) is var glyph && glyph != WinoIconGlyph.None ? glyph : WinoIconGlyph.Folder;
 }
 
 /// <summary>Brand glyphs for mail providers.</summary>

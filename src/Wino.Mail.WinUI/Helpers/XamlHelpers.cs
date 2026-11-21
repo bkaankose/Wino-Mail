@@ -848,6 +848,10 @@ public static class XamlHelpers
 
     public static WinoIconGlyph GetSpecialFolderPathIconGeometry(SpecialFolderType specialFolderType) => SpecialFolderGlyphs.GetGlyph(specialFolderType);
 
+    /// <summary>A folder row's glyph, with the shared glyphs for folders outside the personal namespace.</summary>
+    public static WinoIconGlyph GetFolderGlyph(SpecialFolderType specialFolderType, MailFolderScope scope, bool isContainer)
+        => SpecialFolderGlyphs.GetGlyph(specialFolderType, scope, isContainer);
+
 
     public static WinoIconGlyph GetProviderIcon(MailProviderType providerType, SpecialImapProvider specialImapProvider)
         => MailProviderGlyphs.GetGlyph(providerType, specialImapProvider);

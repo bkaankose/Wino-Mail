@@ -143,7 +143,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
         foreach (var item in PinnedFolders)
         {
-            if (!item.Folder.IsSticky)
+            if (!item.Folder.IsSticky && item.CanPinAndRename)
             {
                 item.Folder.IsSticky = true;
                 touchedFolders.Add(item.Folder);
@@ -187,7 +187,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
     public async Task RenameFolderAsync(FolderCustomizationItemViewModel item)
     {
-        if (item == null) return;
+        if (item == null || !item.CanPinAndRename) return;
 
         var folder = item.Folder;
         var canRenameOnServer = !folder.IsSystemFolder;
@@ -241,7 +241,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
     public async Task TogglePinAsync(FolderCustomizationItemViewModel item)
     {
-        if (item == null) return;
+        if (item == null || !item.CanPinAndRename) return;
 
         // Categories sub-items cannot be pinned individually; they always travel
         // with the virtual Categories group.

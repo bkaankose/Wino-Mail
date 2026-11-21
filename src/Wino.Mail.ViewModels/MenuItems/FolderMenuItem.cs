@@ -24,7 +24,6 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
     public bool IsSystemFolder => Parameter.IsSystemFolder;
 
 
-
     /// <summary>
     /// Display name of the folder. More and Category folders have localized display names.
     /// </summary>
@@ -39,7 +38,7 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
             else if (Parameter.SpecialFolderType == SpecialFolderType.Archive && ParentAccount.ProviderType == MailProviderType.Gmail)
                 return Translator.GmailArchiveFolderNameOverride;
             else
-                return Parameter.ResolvedDisplayName;
+                return Parameter.IsSticky ? Parameter.QualifiedDisplayName : Parameter.ResolvedDisplayName;
         }
         set => SetProperty(Parameter.FolderName, value, Parameter, (u, n) => u.FolderName = n);
     }

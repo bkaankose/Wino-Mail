@@ -2441,6 +2441,16 @@
       "codepoint": "E0D0",
       "svg": "Dialpad.svg",
       "source": "fluent:dialpad"
+    },
+    {
+      "name": "FolderShared",
+      "codepoint": "E0D1",
+      "svg": "FolderShared.svg",
+      "accent": {
+        "svg": "FolderShared.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:folder_people"
     }
   ]
 }
