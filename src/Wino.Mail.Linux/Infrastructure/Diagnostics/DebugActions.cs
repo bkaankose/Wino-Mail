@@ -74,6 +74,19 @@ internal static class DebugActions
         Serilog.Log.Warning("Debug actions are enabled.");
     }
 
+    /// <summary>Writes a PNG of <paramref name="target"/> (a window or a widget in it), like <c>debug-screenshot</c>.</summary>
+    internal static void Capture(Gtk.Widget target, string path) => Screenshot(target, path, 0);
+
+    /// <summary>What <c>debug-dump-tree</c> writes, for one window.</summary>
+    internal static string Describe(Gtk.Window window)
+    {
+        var text = new StringBuilder();
+        Dump(window, window, 0, text);
+        return text.ToString();
+    }
+
+    internal static void WriteText(string path, string text) => WriteAtomically(path, temporary => File.WriteAllText(temporary, text));
+
     private static void Add(Adw.Application application, string name, string parameterType, Action<GLib.Variant> handler)
     {
         var action = Gio.SimpleAction.New(name, GLib.VariantType.New(parameterType));

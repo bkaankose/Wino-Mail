@@ -16,10 +16,7 @@ internal sealed class GtkApplicationShellHost(IServiceProvider services) : IAppl
     public Task<bool> EnsureShellAsync(WinoApplicationMode mode, object? parameter = null) => Navigation.EnsureShellAsync(mode, parameter);
 
     public Task ShowSettingsAsync(WinoPage page, object? parameter)
-    {
-        Serilog.Log.Information("Settings are not available on Linux yet.");
-        return Task.CompletedTask;
-    }
+        => services.GetService<ISettingsWindowPresenter>() is { } presenter ? presenter.ShowAsync(page, parameter) : Task.CompletedTask;
 
     public Task<bool> OpenMailFileAsync(string path, byte[] content)
     {

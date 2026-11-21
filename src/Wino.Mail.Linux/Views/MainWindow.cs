@@ -8,7 +8,7 @@ using Wino.Presentation.Linux.Style;
 namespace Wino.Mail.Linux.Views;
 
 /// <summary>The one window: a toast overlay over the info bar host and the theme backdrop, which holds either a status page (startup, errors) or the shell.</summary>
-internal sealed class MainWindow
+internal sealed class MainWindow : IDialogSurface
 {
     private readonly Adw.ToastOverlay _toasts = Adw.ToastOverlay.New();
     private readonly ThemeBackdrop _backdrop = new();
@@ -60,6 +60,8 @@ internal sealed class MainWindow
         Window.GetDefaultSize(out var width, out var height);
         return new WindowPlacement(width, height, Window.IsMaximized());
     }
+
+    Gtk.Widget IDialogSurface.Owner => Window;
 
     public void ShowMessage(string title, string message, InfoBarMessageType type, string? actionText, Action? action)
         => _infoBars.Show(title, message, type, actionText, action);

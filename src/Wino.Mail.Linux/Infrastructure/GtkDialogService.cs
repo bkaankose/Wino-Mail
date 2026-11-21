@@ -16,11 +16,20 @@ namespace Wino.Mail.Linux.Infrastructure;
 /// </summary>
 internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<Views.MainWindow?> window, IConfigurationService configuration) : IMailDialogService
 {
+    private IDialogSurface? _surface;
+
+    /// <summary>The window the user works in when it is not the main window (Settings); null returns to the main window. Main thread.</summary>
+    public void SetSurface(IDialogSurface? surface) => _surface = surface;
+
+    public IDialogSurface? Surface => _surface;
+
     public void InfoBarMessage(string title, string message, InfoBarMessageType messageType)
-        => _ = dispatcher.ExecuteOnUIThread(() => window()?.ShowMessage(title, message, messageType, null, null));
+        => _ = dispatcher.ExecuteOnUIThread(() => MessageSurface()?.ShowMessage(title, message, messageType, null, null));
 
     public void InfoBarMessage(string title, string message, InfoBarMessageType messageType, string actionButtonText, Action action)
-        => _ = dispatcher.ExecuteOnUIThread(() => window()?.ShowMessage(title, message, messageType, actionButtonText, action));
+        => _ = dispatcher.ExecuteOnUIThread(() => MessageSurface()?.ShowMessage(title, message, messageType, actionButtonText, action));
+
+    private IDialogSurface? MessageSurface() => _surface ?? window();
 
     public Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt)
     {
@@ -50,11 +59,12 @@ internal sealed partial class GtkDialogService(IDispatcher dispatcher, Func<View
         }) == Primary;
 
     /// <summary>
-    /// The window a dialog hangs from: the application's active window while it is visible (a dialog raised from a
-    /// second window stays on it), else the main window. Main thread only.
+    /// The window a dialog hangs from: the surface window (Settings) while it is visible, then the application's active
+    /// window while it is visible (a dialog raised from a second window stays on it), else the main window. Main thread only.
     /// </summary>
     private Gtk.Window? ResolveOwner()
     {
+        if (_surface?.Owner is Gtk.Window surface && surface.GetVisible()) return surface;
         if ((Gio.Application.GetDefault() as Gtk.Application)?.GetActiveWindow() is { } active && active.GetVisible()) return active;
         return window()?.Window is { } main && main.GetVisible() ? main : null;
     }

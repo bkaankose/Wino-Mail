@@ -42,3 +42,10 @@ internal interface ISecondaryWindowPresenter
     Task ShowAsync(WinoPage page, IWinoView view, object? parameter, NavigationMode mode, Action committed);
     Task CloseAsync(bool closedByUser);
 }
+
+/// <summary>A window that owns dialogs and shows info bar messages. The main window is the default surface.</summary>
+internal interface IDialogSurface
+{
+    Gtk.Widget Owner { get; }
+    void ShowMessage(string title, string message, InfoBarMessageType type, string? actionText, Action? action);
+}
