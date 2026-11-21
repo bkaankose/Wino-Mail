@@ -35,7 +35,7 @@
                     <coreControls:WinoFontIcon
                         FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="20"
-                        Icon="{x:Bind winuiHelpers:XamlHelpers.GetFolderGlyph(SpecialFolderType, Scope, IsContainer)}" />
+                        Icon="{x:Bind winuiHelpers:XamlHelpers.GetFolderGlyph(SpecialFolderType, Scope, IsContainer, IsSharedOwnerNode)}" />
                     <TextBlock
                         Grid.Column="1"
                         Margin="12,0"

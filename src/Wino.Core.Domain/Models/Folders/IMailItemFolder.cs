@@ -15,6 +15,7 @@ public interface IMailItemFolder
     string OwnerName { get; set; }
     MailFolderScope Scope { get; set; }
     bool IsContainer { get; set; }
+    bool IsSharedOwnerNode { get; set; }
     long HighestModeSeq { get; set; }
     uint HighestKnownUid { get; set; }
     Guid Id { get; set; }

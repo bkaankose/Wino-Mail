@@ -42,6 +42,20 @@ public class MailItemFolder : IMailItemFolder
     [Ignore]
     public string OwnerName { get; set; }
 
+    /// <summary>
+    /// The level of a shared tree that stands for its owner's mailbox. It may be a container or, when the owner shares
+    /// the INBOX, that INBOX itself; either way it reads as the owner. Filled by the folder service.
+    /// </summary>
+    [Ignore]
+    public bool IsSharedOwnerNode { get; set; }
+
+    /// <summary>
+    /// A namespace level ("Shared Folders", "shared") the folder list skips because only one mailbox is below it.
+    /// Filled by the folder service.
+    /// </summary>
+    [Ignore]
+    public bool IsSkippedSharedLevel { get; set; }
+
     /// <remarks>Rows stored before this column existed read as <see cref="MailFolderScope.Personal"/>.</remarks>
     public MailFolderScope Scope { get; set; }
 

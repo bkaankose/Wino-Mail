@@ -257,7 +257,7 @@ internal static class MailContextFlyoutBuilder
             {
                 Text = folderName,
                 SearchKeywords = "folder destination",
-                Icon = CreateIcon(XamlHelpers.GetFolderGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer)),
+                Icon = CreateIcon(XamlHelpers.GetFolderGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer, folder.IsSharedOwnerNode)),
                 Items = groupItems,
                 AutomationId = $"MoveFolderGroup_{folder.Id:N}"
             });
@@ -273,7 +273,7 @@ internal static class MailContextFlyoutBuilder
         {
             Text = text,
             SearchKeywords = $"folder destination {folder.ResolvedDisplayName}",
-            Icon = CreateIcon(XamlHelpers.GetFolderGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer)),
+            Icon = CreateIcon(XamlHelpers.GetFolderGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer, folder.IsSharedOwnerNode)),
             Command = CreateCommand(() => selected(new MailContextFlyoutSelection(
                 Operation: moveAction,
                 MoveTargetFolder: folder))),

@@ -21,6 +21,7 @@ public partial class FolderCustomizationItemViewModel : ObservableObject
     public SpecialFolderType SpecialFolderType => Folder.SpecialFolderType;
     public MailFolderScope Scope => Folder.Scope;
     public bool IsContainer => Folder.IsContainer;
+    public bool IsSharedOwnerNode => Folder.IsSharedOwnerNode;
 
     /// <summary>A level of a shared tree can only be hidden, which hides everything below it.</summary>
     public bool CanPinAndRename => !Folder.IsContainer;

@@ -272,6 +272,8 @@ public class FolderService : BaseDatabaseService, IFolderService
             .ToListAsync()
             .ConfigureAwait(false);
 
+        AssignSharedFolderDetails(allFolders);
+
         var folders = includeHiddenFolders ? allFolders : FilterVisibleFolders(allFolders);
         var hierarchy = FolderHierarchy.Build(folders, pinnedFoldersAreRoots: false, accountId, _logger);
 
@@ -529,19 +531,28 @@ public class FolderService : BaseDatabaseService, IFolderService
     }
 
     /// <summary>
-    /// Fills <see cref="MailItemFolder.OwnerName"/> of every folder outside the personal namespace: the name of the
-    /// level below the namespace root (the owner's mailbox), or the root itself when it is a folder.
+    /// Fills what the folder lists need to show a shared tree: <see cref="MailItemFolder.OwnerName"/> (the name of the
+    /// level below the namespace root, the owner's mailbox, or the root itself when it is a folder),
+    /// <see cref="MailItemFolder.IsSharedOwnerNode"/> for that owner level when it groups folders, and
+    /// <see cref="MailItemFolder.IsSkippedSharedLevel"/> for a namespace level the navigation menu flattens away.
     /// </summary>
-    internal static void AssignOwnerNames(IReadOnlyCollection<MailItemFolder> folders)
+    internal static void AssignSharedFolderDetails(IReadOnlyCollection<MailItemFolder> folders)
     {
         if (folders.All(folder => folder.Scope == MailFolderScope.Personal))
             return;
 
         var foldersByRemoteId = GetFoldersByRemoteId(folders);
+        var childCounts = folders
+            .Where(folder => !folder.IsSticky && TryGetParentFolder(folder, foldersByRemoteId, out _))
+            .GroupBy(folder => folder.ParentRemoteFolderId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+        var sharedRoots = new List<MailItemFolder>();
 
         foreach (var folder in folders)
         {
             folder.OwnerName = null;
+            folder.IsSharedOwnerNode = false;
+            folder.IsSkippedSharedLevel = false;
 
             if (folder.Scope == MailFolderScope.Personal)
                 continue;
@@ -556,10 +567,25 @@ public class FolderService : BaseDatabaseService, IFolderService
                 path.Insert(0, parentFolder);
             }
 
+            if (path.Count == 1 && !folder.IsSticky)
+                sharedRoots.Add(folder);
+
             var owner = path[0].IsContainer ? (path.Count > 1 ? path[1] : null) : path[0];
 
-            if (owner != null && !ReferenceEquals(owner, folder))
+            if (owner == null)
+                continue;
+
+            if (ReferenceEquals(owner, folder))
+                folder.IsSharedOwnerNode = folder.IsContainer || childCounts.ContainsKey(folder.RemoteFolderId ?? string.Empty);
+            else
                 folder.OwnerName = owner.FolderName;
+        }
+
+        // The rule of FlattenSingleSharedMailbox, applied to every folder instead of the visible ones.
+        if (sharedRoots.Count == 1 && sharedRoots[0].IsContainer &&
+            childCounts.TryGetValue(sharedRoots[0].RemoteFolderId ?? string.Empty, out var rootChildren) && rootChildren == 1)
+        {
+            sharedRoots[0].IsSkippedSharedLevel = true;
         }
     }
 
@@ -795,7 +821,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         // is honored. SQLite's default ORDER BY is not culture-aware.
         const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
         var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
-        AssignOwnerNames(rows);
+        AssignSharedFolderDetails(rows);
         return ApplyFolderSort(rows).ToList();
     }
 
@@ -833,7 +859,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         // Visibility depends on the parent chain, so hidden rows are loaded too.
         const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
         var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
-        AssignOwnerNames(rows);
+        AssignSharedFolderDetails(rows);
         return ApplyFolderSort(FilterVisibleFolders(rows)).ToList();
     }
 

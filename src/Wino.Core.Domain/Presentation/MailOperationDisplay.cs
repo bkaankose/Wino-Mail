@@ -150,11 +150,12 @@ public static class SpecialFolderGlyphs
     /// folder glyph for a folder outside the personal namespace, otherwise the special folder's glyph.
     /// </summary>
     public static WinoIconGlyph GetGlyph(IMailItemFolder folder)
-        => GetGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer);
+        => GetGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer || folder.IsSharedOwnerNode);
 
     /// <inheritdoc cref="GetGlyph(IMailItemFolder)"/>
-    public static WinoIconGlyph GetGlyph(SpecialFolderType type, MailFolderScope scope, bool isContainer)
-        => isContainer ? WinoIconGlyph.People
+    /// <param name="isSharedTreeLevel">A container or the node of a mailbox owner.</param>
+    public static WinoIconGlyph GetGlyph(SpecialFolderType type, MailFolderScope scope, bool isSharedTreeLevel)
+        => isSharedTreeLevel ? WinoIconGlyph.People
             : scope != MailFolderScope.Personal ? WinoIconGlyph.FolderShared
             : GetGlyph(type);
 

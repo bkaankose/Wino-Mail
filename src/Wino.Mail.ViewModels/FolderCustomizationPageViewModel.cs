@@ -96,7 +96,8 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
         // Skip the Gmail "Categories" virtual bucket entity — Categories are rendered
         // as an inline section, not as a regular folder row.
-        foreach (var folder in allFolders.Where(f => f.SpecialFolderType != SpecialFolderType.Category))
+        // A namespace level the folder list skips (one shared mailbox below it) is not listed here either.
+        foreach (var folder in allFolders.Where(f => f.SpecialFolderType != SpecialFolderType.Category && !(f.IsSkippedSharedLevel && !f.IsHidden)))
         {
             var item = new FolderCustomizationItemViewModel(folder);
 
