@@ -536,6 +536,14 @@ public sealed partial class ToDoPageViewController
         var menu = new NSMenu { AutoEnablesItems = false };
         menu.AddItem(MenuItem(Translator.ToDoPage_RenameList, () => Observe(ViewModel.RenameSelectedListCommand.ExecuteAsync(null)), WinoIconGlyph.Rename, enabled: ViewModel.CanEditSelectedList));
         menu.AddItem(NSMenuItem.SeparatorItem);
+        menu.AddItem(MenuItem(Translator.ToDoPage_CopyListTo, () => Observe(ViewModel.CopySelectedListCommand.ExecuteAsync(null)), WinoIconGlyph.Copy));
+        var export = new NSMenu { AutoEnablesItems = false };
+        export.AddItem(MenuItem(Translator.ToDoPage_ExportIcs, () => Observe(ViewModel.ExportTasksCommand.ExecuteAsync("ics"))));
+        export.AddItem(MenuItem(Translator.ToDoPage_ExportCsv, () => Observe(ViewModel.ExportTasksCommand.ExecuteAsync("csv"))));
+        var exportItem = new NSMenuItem(Translator.ToDoPage_ExportTasks) { Submenu = export, Image = WinoIcons.Image(WinoIconGlyph.ArrowUpload, 14) };
+        menu.AddItem(exportItem);
+        menu.AddItem(MenuItem(Translator.ToDoPage_ImportTasks, () => Observe(ViewModel.ImportTasksCommand.ExecuteAsync(null)), WinoIconGlyph.ArrowDownload));
+        menu.AddItem(NSMenuItem.SeparatorItem);
         menu.AddItem(MenuItem(Translator.ToDoPage_PrintList, () => ViewModel.PrintListCommand.Execute(null), WinoIconGlyph.Print));
         menu.AddItem(MenuItem(Translator.ToDoPage_EmailList, () => ViewModel.EmailListCommand.Execute(null), WinoIconGlyph.Mail));
         if (ViewModel.CanDeleteSelectedList)
