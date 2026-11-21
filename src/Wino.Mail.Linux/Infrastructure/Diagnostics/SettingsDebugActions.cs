@@ -125,6 +125,16 @@ internal static class SettingsDebugActions
             nameof(IPreferencesService.AreCalendarRemindersEnabled) => Flag(() => p.AreCalendarRemindersEnabled, v => p.AreCalendarRemindersEnabled = v, value),
             nameof(IPreferencesService.AreTaskRemindersEnabled) => Flag(() => p.AreTaskRemindersEnabled, v => p.AreTaskRemindersEnabled = v, value),
             nameof(IPreferencesService.NotificationSnoozePreset) => p.NotificationSnoozePreset.ToString(),
+            nameof(IPreferencesService.DiagnosticId) => p.DiagnosticId ?? string.Empty,
+            nameof(IPreferencesService.ContactCreationBehavior) => Choice(() => p.ContactCreationBehavior, v => p.ContactCreationBehavior = v, value),
+            nameof(IPreferencesService.ContactNameDisplayFormat) => Choice(() => p.ContactNameDisplayFormat, v => p.ContactNameDisplayFormat = v, value),
+            nameof(IPreferencesService.ContactSortOrder) => Choice(() => p.ContactSortOrder, v => p.ContactSortOrder = v, value),
+            nameof(IPreferencesService.TaskCreationBehavior) => Choice(() => p.TaskCreationBehavior, v => p.TaskCreationBehavior = v, value),
+            nameof(IPreferencesService.ToDoStartView) => Choice(() => p.ToDoStartView, v => p.ToDoStartView = v, value),
+            nameof(IPreferencesService.CompletedTaskTreatment) => Choice(() => p.CompletedTaskTreatment, v => p.CompletedTaskTreatment = v, value),
+            nameof(IPreferencesService.CompletedTaskHideDelay) => Choice(() => p.CompletedTaskHideDelay, v => p.CompletedTaskHideDelay = v, value),
+            nameof(IPreferencesService.IsTaskCompletionSoundEnabled) => Flag(() => p.IsTaskCompletionSoundEnabled, v => p.IsTaskCompletionSoundEnabled = v, value),
+            nameof(IPreferencesService.IsTaskDeleteConfirmationEnabled) => Flag(() => p.IsTaskDeleteConfirmationEnabled, v => p.IsTaskDeleteConfirmationEnabled = v, value),
             _ => throw new ArgumentException($"debug-settings-pref does not know '{name}'; add it to SettingsDebugActions.Preference."),
         };
     }
