@@ -1886,15 +1886,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (item is null || item.IsReadOnly)
             return;
 
-        if (_preferencesService?.IsTaskDeleteConfirmationEnabled == true &&
-            !await _dialogService.ShowConfirmationDialogAsync(
-                Translator.ToDoSettings_DeleteTask_Message,
-                Translator.ToDoSettings_DeleteTask_Title,
-                Translator.Buttons_Delete))
-        {
-            return;
-        }
-
+        // No confirmation: the delete waits behind the Undo bar.
         await QueueMutationAsync(new TaskActionRequest(
             item.Task.MailAccountId,
             TaskSynchronizerOperation.DeleteTask,
@@ -1966,15 +1958,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         var selected = SelectedTasks.Where(item => !item.IsReadOnly).ToList();
         if (selected.Count == 0)
             return;
-
-        if (_preferencesService?.IsTaskDeleteConfirmationEnabled == true &&
-            !await _dialogService.ShowConfirmationDialogAsync(
-                string.Format(Translator.ToDoPage_DeleteSelectedTasksConfirmBody, selected.Count),
-                Translator.ToDoPage_DeleteSelectedTasksConfirmTitle,
-                Translator.Buttons_Delete))
-        {
-            return;
-        }
 
         await QueueMutationsAsync(selected
             .Select(item => new TaskActionRequest(

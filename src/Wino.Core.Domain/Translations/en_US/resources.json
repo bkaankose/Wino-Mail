@@ -4553,7 +4553,7 @@
   "ToDoSettings_Sound_Header": "Play completion sound",
   "ToDoSettings_Sound_Description": "Play a sound when you complete a task.",
   "ToDoSettings_DeleteConfirmation_Header": "Confirm before deleting",
-  "ToDoSettings_DeleteConfirmation_Description": "Ask before deleting a task or step.",
+  "ToDoSettings_DeleteConfirmation_Description": "Ask before deleting a step. A deleted task can be restored with Undo for a few seconds.",
   "PeopleSettings_DestinationPicker_Title": "Save contact to",
   "ToDoSettings_ListPicker_Title": "Add task to",
   "ToDoSettings_DeleteTask_Title": "Delete task?",
