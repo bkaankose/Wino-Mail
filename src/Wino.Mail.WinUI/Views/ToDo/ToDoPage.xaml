@@ -698,6 +698,15 @@
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
 
+                                <MenuFlyoutItem
+                                    AutomationProperties.AutomationId="ToDoCopyListMenuItem"
+                                    Command="{x:Bind ViewModel.CopySelectedListCommand}"
+                                    Text="{x:Bind domain:Translator.ToDoPage_CopyListTo, Mode=OneTime}">
+                                    <MenuFlyoutItem.Icon>
+                                        <coreControls:WinoFontIcon Icon="Copy" />
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+
                                 <MenuFlyoutSeparator />
 
                                 <MenuFlyoutItem

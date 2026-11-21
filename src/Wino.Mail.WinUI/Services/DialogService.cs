@@ -267,14 +267,23 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
-    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
+    public Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
         IReadOnlyList<AccountTaskList> taskLists,
         IReadOnlyList<MailAccount> accounts)
+        => ShowTaskListPickerDialogAsync(taskLists, accounts, null);
+
+    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
+        IReadOnlyList<AccountTaskList> taskLists,
+        IReadOnlyList<MailAccount> accounts,
+        string? title)
     {
         var dialog = new TaskListPickerDialog(taskLists, accounts)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
+        if (!string.IsNullOrWhiteSpace(title))
+            dialog.Title = title;
+
         await HandleDialogPresentationAsync(dialog);
         return dialog.PickedList;
     }

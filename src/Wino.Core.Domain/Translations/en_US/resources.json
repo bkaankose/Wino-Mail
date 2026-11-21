@@ -4339,6 +4339,8 @@
   "ToDoPage_DuePresetPickDate": "Pick a date",
   "ToDoPage_RemindMe": "Remind me",
   "ToDoPage_Repeat": "Repeat",
+  "ToDoPage_CopyListTo": "Copy list to",
+  "ToDoPage_CopyListStarted": "Copying {0} tasks to {1}.",
   "ToDoPage_RepeatCustom": "Repeats",
   "ToDoPage_RepeatEveryDay": "Every day",
   "ToDoPage_RepeatEveryNDays": "Every {0} days",

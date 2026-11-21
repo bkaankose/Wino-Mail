@@ -58,6 +58,13 @@ public interface IMailDialogService : IDialogServiceBase
         IReadOnlyList<AccountTaskList> taskLists,
         IReadOnlyList<MailAccount> accounts);
 
+    /// <summary>The task list picker with its own title. Heads that cannot retitle it show the default one.</summary>
+    Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
+        IReadOnlyList<AccountTaskList> taskLists,
+        IReadOnlyList<MailAccount> accounts,
+        string title)
+        => ShowTaskListPickerDialogAsync(taskLists, accounts);
+
     /// <summary>
     /// Shows a task prefilled from a mail or an event so the user can edit it and pick its list.
     /// A head without its own dialog asks only for the list and keeps the prefilled text.
