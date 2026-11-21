@@ -1443,30 +1443,142 @@
                                 TextChanged="CategoryBox_TextChanged" />
                         </StackPanel>
 
-                        <Grid
-                            Padding="12,10"
-                            ColumnSpacing="10"
-                            IsHitTestVisible="False">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <coreControls:WinoFontIcon
-                                Grid.Column="0"
-                                FontSize="14"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Icon="ArrowRepeatAll" />
-                            <TextBlock
-                                Grid.Column="1"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Text="{x:Bind domain:Translator.ToDoPage_Repeat, Mode=OneTime}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.ToDoPage_ComingSoon, Mode=OneTime}" />
-                        </Grid>
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="ToDoRepeatButton"
+                            AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.RecurrenceDisplayText, Mode=OneWay}"
+                            IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                            Style="{StaticResource TransparentActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <coreControls:WinoFontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Icon="ArrowRepeatAll" />
+                                <TextBlock AutomationProperties.AutomationId="ToDoRepeatText" Text="{x:Bind ViewModel.SelectedTask.RecurrenceDisplayText, Mode=OneWay}" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatDaily"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="daily"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetDaily, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatWeekdays"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="weekdays"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetWeekdays, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatWeekly"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="weekly"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetWeekly, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatMonthly"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="monthly"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetMonthly, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatYearly"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="yearly"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetYearly, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatCustom"
+                                        Click="CustomRepeatMenuItem_Click"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetCustom, Mode=OneTime}" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatNever"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="none"
+                                        IsEnabled="{x:Bind ViewModel.SelectedTask.IsRecurring, Mode=OneWay}"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatNever, Mode=OneTime}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+
+                        <!--  The custom repeat editor opens from the repeat menu.  -->
+                        <StackPanel
+                            x:Name="RepeatEditorPanel"
+                            Margin="12,4"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.ToDoPage_RepeatInterval, Mode=OneTime}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <NumberBox
+                                    x:Name="RepeatIntervalBox"
+                                    Width="90"
+                                    AutomationProperties.AutomationId="ToDoRepeatIntervalBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_RepeatInterval, Mode=OneTime}"
+                                    Maximum="999"
+                                    Minimum="1"
+                                    SpinButtonPlacementMode="Compact"
+                                    Value="1" />
+                                <ComboBox
+                                    x:Name="RepeatUnitComboBox"
+                                    MinWidth="120"
+                                    AutomationProperties.AutomationId="ToDoRepeatUnitComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_RepeatInterval, Mode=OneTime}"
+                                    SelectionChanged="RepeatUnitComboBox_SelectionChanged">
+                                    <ComboBoxItem x:Name="RepeatDaysItem" Content="{x:Bind domain:Translator.ToDoPage_RepeatUnitDays, Mode=OneTime}" />
+                                    <ComboBoxItem x:Name="RepeatWeeksItem" Content="{x:Bind domain:Translator.ToDoPage_RepeatUnitWeeks, Mode=OneTime}" />
+                                    <ComboBoxItem x:Name="RepeatMonthsItem" Content="{x:Bind domain:Translator.ToDoPage_RepeatUnitMonths, Mode=OneTime}" />
+                                    <ComboBoxItem x:Name="RepeatYearsItem" Content="{x:Bind domain:Translator.ToDoPage_RepeatUnitYears, Mode=OneTime}" />
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel x:Name="RepeatDaysPanel" Spacing="4">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.ToDoPage_RepeatOnDays, Mode=OneTime}" />
+                                <StackPanel
+                                    x:Name="RepeatDayToggles"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="1" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="2" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="3" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="4" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="5" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="6" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="0" />
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button
+                                    AutomationProperties.AutomationId="ToDoRepeatEditorCancel"
+                                    Click="RepeatEditorCancel_Click"
+                                    Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
+                                <Button
+                                    AutomationProperties.AutomationId="ToDoRepeatEditorSave"
+                                    Click="RepeatEditorSave_Click"
+                                    Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            </StackPanel>
+                        </StackPanel>
 
                         <!--  Delete closes the schedule group. A rule keeps the destructive row from reading as another toggle.  -->
                         <Border

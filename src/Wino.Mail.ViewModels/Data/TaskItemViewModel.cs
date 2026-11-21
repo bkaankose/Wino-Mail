@@ -332,6 +332,9 @@ public partial class TaskItemViewModel : ObservableObject
     public string Recurrence => TaskFields.NormalizeRecurrence(Task.Recurrence);
     public bool IsRecurring => Recurrence is not null;
 
+    /// <summary>"Every weekday", or "Repeat" without a rule.</summary>
+    public string RecurrenceDisplayText => TaskRecurrenceRule.Describe(Task.Recurrence);
+
     public void RefreshExtendedFields()
     {
         OnPropertyChanged(nameof(ReminderAtUtc));
@@ -345,6 +348,7 @@ public partial class TaskItemViewModel : ObservableObject
         OnPropertyChanged(nameof(CategorySummaryText));
         OnPropertyChanged(nameof(Recurrence));
         OnPropertyChanged(nameof(IsRecurring));
+        OnPropertyChanged(nameof(RecurrenceDisplayText));
     }
 
     public void RefreshStepSummary()

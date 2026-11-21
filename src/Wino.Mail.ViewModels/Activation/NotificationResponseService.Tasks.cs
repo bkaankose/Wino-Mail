@@ -3,8 +3,7 @@ using System;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Notifications;
-using Wino.Core.Requests;
-using Wino.Core.Requests.Tasks;
+using Wino.Mail.ViewModels.Helpers;
 
 namespace Wino.Mail.ViewModels.Activation;
 
@@ -44,12 +43,7 @@ public sealed partial class NotificationResponseService
             return;
         }
 
-        var original = RequestEntityCloner.Task(task);
-        var desired = RequestEntityCloner.Task(task);
-        desired.IsCompleted = true;
-        desired.CompletedAtUtc = DateTime.UtcNow;
-
-        await requestDelegator.ExecuteAsync(task.MailAccountId,
-            [new TaskActionRequest(task.MailAccountId, TaskSynchronizerOperation.UpdateTask, Task: desired, OriginalTask: original)]);
+        var plan = await TaskCompletionPlanner.BuildAsync(task, isCompleted: true, taskService);
+        await requestDelegator.ExecuteAsync(task.MailAccountId, TaskCompletionPlanner.Requests(plan));
     }
 }

@@ -16,6 +16,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels.Data;
@@ -508,6 +509,69 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             return;
 
         await ViewModel.SetTaskReminderAsync(task, ReminderDatePicker.Date.Date + ReminderTimePicker.Time);
+    }
+
+    private void CustomRepeatMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var task = ViewModel.SelectedTask;
+        if (task is null)
+            return;
+
+        var anchor = task.DueDate ?? DateTime.Now.Date;
+        var rule = TaskRecurrenceRule.Parse(task.Recurrence)
+                   ?? new TaskRecurrenceRule(TaskRecurrenceFrequency.Weekly, Days: [anchor.DayOfWeek]);
+
+        RepeatIntervalBox.Value = rule.Interval;
+        RepeatUnitComboBox.SelectedItem = rule.Frequency switch
+        {
+            TaskRecurrenceFrequency.Daily => RepeatDaysItem,
+            TaskRecurrenceFrequency.Monthly => RepeatMonthsItem,
+            TaskRecurrenceFrequency.Yearly => RepeatYearsItem,
+            _ => RepeatWeeksItem
+        };
+
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        foreach (var toggle in RepeatDayToggles.Children.OfType<Microsoft.UI.Xaml.Controls.Primitives.ToggleButton>())
+        {
+            var day = (DayOfWeek)int.Parse((string)toggle.Tag, System.Globalization.CultureInfo.InvariantCulture);
+            toggle.Content = culture.DateTimeFormat.GetShortestDayName(day);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(toggle, culture.DateTimeFormat.GetDayName(day));
+            toggle.IsChecked = rule.WeekDays.Contains(day);
+        }
+
+        RepeatDaysPanel.Visibility = rule.Frequency == TaskRecurrenceFrequency.Weekly ? Visibility.Visible : Visibility.Collapsed;
+        RepeatEditorPanel.Visibility = Visibility.Visible;
+    }
+
+    private void RepeatUnitComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => RepeatDaysPanel.Visibility = ReferenceEquals(RepeatUnitComboBox.SelectedItem, RepeatWeeksItem) ? Visibility.Visible : Visibility.Collapsed;
+
+    private void RepeatEditorCancel_Click(object sender, RoutedEventArgs e)
+        => RepeatEditorPanel.Visibility = Visibility.Collapsed;
+
+    private async void RepeatEditorSave_Click(object sender, RoutedEventArgs e)
+    {
+        RepeatEditorPanel.Visibility = Visibility.Collapsed;
+        if (ViewModel.SelectedTask is not { } task)
+            return;
+
+        var frequency = RepeatUnitComboBox.SelectedItem switch
+        {
+            var item when ReferenceEquals(item, RepeatDaysItem) => TaskRecurrenceFrequency.Daily,
+            var item when ReferenceEquals(item, RepeatMonthsItem) => TaskRecurrenceFrequency.Monthly,
+            var item when ReferenceEquals(item, RepeatYearsItem) => TaskRecurrenceFrequency.Yearly,
+            _ => TaskRecurrenceFrequency.Weekly
+        };
+
+        var days = frequency == TaskRecurrenceFrequency.Weekly
+            ? RepeatDayToggles.Children.OfType<Microsoft.UI.Xaml.Controls.Primitives.ToggleButton>()
+                .Where(toggle => toggle.IsChecked == true)
+                .Select(toggle => (DayOfWeek)int.Parse((string)toggle.Tag, System.Globalization.CultureInfo.InvariantCulture))
+                .ToList()
+            : [];
+        var interval = double.IsNaN(RepeatIntervalBox.Value) ? 1 : Math.Max(1, (int)RepeatIntervalBox.Value);
+
+        await ViewModel.SetTaskRecurrenceAsync(task, new TaskRecurrenceRule(frequency, interval, days).ToRule());
     }
 
     private async void CategoryChip_Click(object sender, RoutedEventArgs e)

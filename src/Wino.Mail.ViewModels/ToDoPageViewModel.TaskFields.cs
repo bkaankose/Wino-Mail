@@ -8,7 +8,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Messaging.UI;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Helpers;
 
 namespace Wino.Mail.ViewModels;
 
@@ -95,6 +98,52 @@ public partial class ToDoPageViewModel
             .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
             .Take(8)
             .ToList();
+    }
+
+    private readonly Dictionary<Guid, string> _pendingNextOccurrences = [];
+
+    [RelayCommand]
+    private Task SetRepeatPresetAsync(string preset)
+    {
+        if (SelectedTask is null || !CanEditSelectedTask)
+            return Task.CompletedTask;
+
+        var anchor = SelectedTask.DueDate ?? DateTime.Now.Date;
+        return SetTaskRecurrenceAsync(SelectedTask, TaskRecurrenceRule.Preset(preset, anchor));
+    }
+
+    /// <summary>
+    /// Sets or clears the repeat rule. A repeating task needs a due date to count from, so a task without one
+    /// becomes due today.
+    /// </summary>
+    public Task SetTaskRecurrenceAsync(TaskItemViewModel item, string rule)
+        => UpdateTaskFieldsAsync(item, desired =>
+        {
+            desired.Recurrence = TaskFields.NormalizeRecurrence(rule);
+            if (desired.Recurrence is not null && desired.DueDate is null)
+                desired.DueDate = DateTime.Now.Date;
+        });
+
+    private void TrackNextOccurrence(TaskCompletionPlanner.Plan plan)
+    {
+        if (plan.NextOccurrence?.Task is { } next)
+            _pendingNextOccurrences[next.Id] = next.Title ?? string.Empty;
+    }
+
+    /// <summary>A reverted create of a next occurrence failed on the server; the completed task stays completed.</summary>
+    private void ReportFailedNextOccurrence(TaskStateChanged message)
+    {
+        if (message.Operation != TaskSynchronizerOperation.CreateTask ||
+            message.Task is null ||
+            !_pendingNextOccurrences.Remove(message.Task.Id, out var title))
+        {
+            return;
+        }
+
+        _dialogService.InfoBarMessage(
+            Translator.ToDoPage_NextOccurrenceFailedTitle,
+            string.Format(Translator.ToDoPage_NextOccurrenceFailedMessage, title),
+            InfoBarMessageType.Warning);
     }
 
     private async Task UpdateTaskFieldsAsync(TaskItemViewModel item, Action<AccountTask> change)

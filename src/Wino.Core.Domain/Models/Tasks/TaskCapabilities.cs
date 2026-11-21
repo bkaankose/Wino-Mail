@@ -17,6 +17,12 @@ public sealed record TaskCapabilities
     public bool SupportsReminder { get; init; }
     public bool SupportsRecurrence { get; init; }
 
+    /// <summary>
+    /// Completing a recurring task on the server moves it to its next occurrence (Graph creates it, CalDAV
+    /// advances the VTODO). Elsewhere Wino creates the next occurrence itself.
+    /// </summary>
+    public bool ServerAdvancesRecurrence { get; init; }
+
     /// <summary>Low, normal and high, not just the importance star.</summary>
     public bool SupportsPriorityLevels { get; init; }
 
@@ -47,6 +53,7 @@ public sealed record TaskCapabilities
         Source = TaskSourceKind.Outlook,
         SupportsReminder = true,
         SupportsRecurrence = true,
+        ServerAdvancesRecurrence = true,
         SupportsPriorityLevels = true,
         SupportsImportance = true,
         SupportsCategories = true,
@@ -68,6 +75,7 @@ public sealed record TaskCapabilities
         Source = TaskSourceKind.CalDav,
         SupportsReminder = true,
         SupportsRecurrence = true,
+        ServerAdvancesRecurrence = true,
         SupportsPriorityLevels = true,
         SupportsImportance = true,
         SupportsCategories = true,

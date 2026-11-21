@@ -25,6 +25,7 @@ using Wino.Core.Domain.Misc;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Messaging.UI;
 using Wino.Mail.ViewModels.Common.Data;
@@ -727,6 +728,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         {
             if (message.Task is not null)
             {
+                ReportFailedNextOccurrence(message);
                 _pendingTaskStates.Remove(message.Task.Id);
                 _pendingDeletedTaskIds.Remove(message.Task.Id);
                 _deferredServerTaskStates.Remove(message.Task.Id);
@@ -1582,25 +1584,17 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (item is null || item.IsReadOnly)
             return;
 
-        var original = RequestEntityCloner.Task(item.Task);
-        var desired = RequestEntityCloner.Task(item.Task);
-        desired.IsCompleted = !desired.IsCompleted;
-        desired.CompletedAtUtc = desired.IsCompleted ? DateTime.UtcNow : null;
-        TrackCompletionInView(desired.Id, desired.IsCompleted);
+        var isCompleted = !item.Task.IsCompleted;
+        var plan = await TaskCompletionPlanner.BuildAsync(item.Task, isCompleted, _taskService, allowUndo: isCompleted).ConfigureAwait(false);
+        TrackCompletionInView(item.Task.Id, isCompleted);
+        TrackNextOccurrence(plan);
 
-        if (!await QueueMutationAsync(new TaskActionRequest(
-            desired.MailAccountId,
-            TaskSynchronizerOperation.UpdateTask,
-            Task: desired,
-            OriginalTask: original)
-        {
-            AllowUndo = desired.IsCompleted
-        }).ConfigureAwait(false))
+        if (!await QueueRequestsAsync(item.Task.MailAccountId, TaskCompletionPlanner.Requests(plan).ToArray<IRequestBase>()).ConfigureAwait(false))
         {
             return;
         }
 
-        if (desired.IsCompleted && _preferencesService?.IsTaskCompletionSoundEnabled == true)
+        if (isCompleted && _preferencesService?.IsTaskCompletionSoundEnabled == true)
             _taskCompletionSound?.Play();
     }
 
@@ -1925,26 +1919,14 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task SetSelectedTasksCompletionAsync(bool isCompleted)
     {
-        var requests = SelectedTasks
-            .Where(item => !item.IsReadOnly && item.IsCompleted != isCompleted)
-            .Select(item =>
-            {
-                var original = RequestEntityCloner.Task(item.Task);
-                var desired = RequestEntityCloner.Task(item.Task);
-                desired.IsCompleted = isCompleted;
-                desired.CompletedAtUtc = isCompleted ? DateTime.UtcNow : null;
-                TrackCompletionInView(desired.Id, isCompleted);
-
-                return new TaskActionRequest(
-                    desired.MailAccountId,
-                    TaskSynchronizerOperation.UpdateTask,
-                    Task: desired,
-                    OriginalTask: original)
-                {
-                    AllowUndo = isCompleted
-                };
-            })
-            .ToList();
+        var requests = new List<TaskActionRequest>();
+        foreach (var item in SelectedTasks.Where(item => !item.IsReadOnly && item.IsCompleted != isCompleted).ToList())
+        {
+            var plan = await TaskCompletionPlanner.BuildAsync(item.Task, isCompleted, _taskService, allowUndo: isCompleted).ConfigureAwait(false);
+            TrackCompletionInView(item.Task.Id, isCompleted);
+            TrackNextOccurrence(plan);
+            requests.AddRange(TaskCompletionPlanner.Requests(plan));
+        }
 
         await QueueMutationsAsync(requests).ConfigureAwait(false);
 

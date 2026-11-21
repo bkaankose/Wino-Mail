@@ -30,6 +30,9 @@ public partial class ToDoPageViewModel
         if (pack is null)
             return;
 
+        // An undone next occurrence is reverted on purpose, not a failed create.
+        _pendingNextOccurrences.Clear();
+
         foreach (var accountId in pack.AccountIds.Distinct())
             await _synchronizationManager.UndoLatestQueuedAction(accountId).ConfigureAwait(false);
 

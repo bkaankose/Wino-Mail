@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Mail.ViewModels.Requests;
 using Wino.Mail.ViewModels.Calendar.Data;
 using Wino.Services.Interfaces;
@@ -101,21 +102,13 @@ public sealed class CompanionActionHandler(
             return;
 
         cancellationToken.ThrowIfCancellationRequested();
-        var original = RequestEntityCloner.Task(stored);
-        var desired = RequestEntityCloner.Task(stored);
-        desired.IsCompleted = isCompleted;
-        desired.CompletedAtUtc = isCompleted ? DateTime.UtcNow : null;
-        var request = new TaskActionRequest(
-            stored.MailAccountId,
-            TaskSynchronizerOperation.UpdateTask,
-            Task: desired,
-            OriginalTask: original)
-        {
-            Trace = new RequestTrace(TraceSource, Guid.NewGuid())
-        };
+        var plan = await TaskCompletionPlanner.BuildAsync(stored, isCompleted, service).ConfigureAwait(false);
+        var requests = TaskCompletionPlanner.Requests(plan);
+        foreach (var request in requests)
+            request.Trace = new RequestTrace(TraceSource, Guid.NewGuid());
 
         await services.GetRequiredService<IWinoRequestDelegator>()
-            .ExecuteAsync(stored.MailAccountId, (IRequestBase[])[request])
+            .ExecuteAsync(stored.MailAccountId, requests)
             .ConfigureAwait(false);
     }
 
