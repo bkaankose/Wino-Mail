@@ -86,6 +86,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private bool _isPaneCompact;
     private volatile bool _isPreparedForShellShutdown;
     private bool _applyStartViewOnReload;
+
+    // The account whose lists were open in the pane when To Do was left; the start view reopens it.
+    private Guid? _openAccountIdAtLeave;
     private bool _isCompletionScopeExplicit;
     private readonly HashSet<Guid> _completedInViewTaskIds = [];
     private Guid? _emptyAccountId;
@@ -1109,6 +1112,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     {
         base.OnNavigatedFrom(mode, parameters);
         Readiness.Deactivate();
+        _openAccountIdAtLeave = _selectedAccountId;
 
         // The selection is kept. The list view keeps its own selected containers across a mode
         // switch, so clearing only this side left the row highlighted with an empty drawer.
@@ -1295,6 +1299,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (_isPreparedForShellShutdown)
             return;
         _isPreparedForShellShutdown = true;
+        _openAccountIdAtLeave = _selectedAccountId ?? _openAccountIdAtLeave;
         ShellMenu?.Items.Clear();
         ShellMenu?.FooterItems?.Clear();
         ShellMenu = null;
@@ -2776,7 +2781,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         }
 
         if (SelectedList is null)
-            _selectedAccountId = null;
+        {
+            _selectedAccountId = _openAccountIdAtLeave is { } openAccountId && Accounts.Any(account => account.Id == openAccountId)
+                ? openAccountId
+                : null;
+        }
     }
 
     private static bool RequiresLocalFallbackList(MailAccount account)
