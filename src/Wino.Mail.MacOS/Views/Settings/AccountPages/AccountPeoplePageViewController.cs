@@ -25,6 +25,5 @@ public sealed class AccountPeoplePageViewController(AccountPeopleSettingsPageVie
         Bind.Visible(categories, vm, nameof(vm.IsCategoriesVisible), s => s.IsCategoriesVisible);
         Add(categories);
 
-        Add(Caption(Translator.AccountApps_PeopleAppWideNote));
     }
 }

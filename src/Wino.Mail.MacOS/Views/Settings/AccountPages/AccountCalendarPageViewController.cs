@@ -36,7 +36,6 @@ public sealed class AccountCalendarPageViewController(AccountCalendarSettingsPag
         Add(_calendars);
         Bind.Collection(vm.CalendarItems, RebuildCalendars);
 
-        Add(Caption(Translator.AccountApps_CalendarAppWideNote));
     }
 
     private void RebuildCalendars()

@@ -21,6 +21,5 @@ public sealed class AccountToDoPageViewController(AccountToDoSettingsPageViewMod
         var lists = AddGroup(Translator.AccountApps_TaskListsHeader, empty);
         Bind.Collection(vm.TaskLists, () => AccountCollectionRows.Fill(lists, empty, vm.TaskLists.ToList(), WinoIconGlyph.Checkmark));
 
-        Add(Caption(Translator.AccountApps_ToDoAppWideNote));
     }
 }
