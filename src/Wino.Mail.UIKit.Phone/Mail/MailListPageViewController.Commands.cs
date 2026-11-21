@@ -4,6 +4,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.Core;
@@ -282,24 +283,34 @@ public sealed partial class MailListPageViewController
     }
 
     /// <summary>
-    /// The shared actions for <paramref name="targets"/> grouped at the separators, then Pin and the Category submenu.
-    /// The edit toolbar's More menu leaves out the actions the toolbar already shows.
+    /// The shared actions for <paramref name="targets"/> in the Windows context menu's order: the top row's groups at the
+    /// separators (Reply, Reply all, Forward | Archive, Delete in red), then Move and the Create submenu, then the rest,
+    /// then Pin and the Category submenu. Flag and Read stay out: the edit toolbar shows them as state buttons.
     /// </summary>
-    private UIMenuElement[] SelectionMenuElements(IReadOnlyList<MailItemViewModel> targets, MailItemViewModel? composeTarget = null, bool includeQuickActions = false)
+    private UIMenuElement[] SelectionMenuElements(IReadOnlyList<MailItemViewModel> targets, MailItemViewModel? composeTarget = null)
     {
         if (targets.Count == 0) return [];
         var elements = new List<UIMenuElement>();
         var group = new List<UIMenuElement>();
-        foreach (var available in ViewModel.GetAvailableMailActions(targets))
+        var actions = ViewModel.GetAvailableMailActions(targets).ToArray();
+        for (int index = 0; index < actions.Length; index++)
         {
+            var available = actions[index];
+            if (available.Placement == MailOperationMenuPlacement.CreateSubmenu)
+            {
+                var children = new List<MailOperationMenuItem>();
+                while (index < actions.Length && actions[index].Placement == MailOperationMenuPlacement.CreateSubmenu) children.Add(actions[index++]);
+                index--;
+                group.Add(CreateSubmenu(MailOperationMenuPlacement.CreateSubmenu, children, targets, composeTarget));
+                continue;
+            }
             if (available.Operation == MailOperation.Seperator)
             {
                 if (group.Count > 0) elements.Add(PhoneBarItems.Inline(group.ToArray()));
                 group = [];
                 continue;
             }
-            if (!includeQuickActions && available.Operation is MailOperation.Archive or MailOperation.UnArchive or MailOperation.SoftDelete
-                or MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.Move or MailOperation.MarkAsRead or MailOperation.MarkAsUnread) continue;
+            if (available.Operation is MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.MarkAsRead or MailOperation.MarkAsUnread) continue;
             var title = MailOperationDisplay.GetTitle(available.Operation);
             if (string.IsNullOrEmpty(title)) continue;
             var operation = available.Operation;
@@ -314,6 +325,22 @@ public sealed partial class MailListPageViewController
             () => Observe(ViewModel.ChangePinnedStatusAsync(targets, !allPinned)));
         elements.Add(PhoneBarItems.Inline(pin, CategoryMenu(targets)));
         return elements.ToArray();
+    }
+
+    /// <summary>The Create submenu (Task, Event) that sits below Move.</summary>
+    private UIMenu CreateSubmenu(MailOperationMenuPlacement placement, IReadOnlyList<MailOperationMenuItem> children,
+        IReadOnlyList<MailItemViewModel> targets, MailItemViewModel? composeTarget)
+    {
+        var actions = new List<UIMenuElement>(children.Count);
+        foreach (var child in children)
+        {
+            var title = MailOperationDisplay.GetSubmenuItemTitle(child.Operation);
+            if (string.IsNullOrEmpty(title)) continue;
+            var operation = child.Operation;
+            actions.Add(PhoneBarItems.Action(title, MailOperationDisplay.GetGlyph(operation), () => RunOperation(operation, targets, composeTarget), child.IsEnabled));
+        }
+        return UIMenu.Create(MailOperationDisplay.GetSubmenuTitle(placement), WinoIcons.TemplateImage(MailOperationDisplay.GetSubmenuGlyph(placement), 18),
+            UIMenuIdentifier.None, default, actions.ToArray());
     }
 
     /// <summary>The Category submenu; categories load when it opens and it says so while there are none.</summary>
