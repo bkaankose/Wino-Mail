@@ -19,8 +19,13 @@ namespace Wino.Mail.Linux.Views.Settings;
 internal sealed class RemoteContentRulesPage(RemoteContentRulesPageViewModel viewModel, WinoViewServices services)
     : SettingsPageView<RemoteContentRulesPageViewModel>(viewModel, services)
 {
-    private readonly WinoSettingsGroup _rules = new();
-    private SettingsBinder? _rowBinder;
+    // A boxed list of our own rather than the group's: the group can only append, and a change to one rule must not
+    // rebuild every row (300 rows took 417 ms). Rows are keyed by their ViewModel, which the ViewModel reuses across
+    // filters and single-rule refreshes; a row the filter hides is kept for the page's lifetime, so clearing a search
+    // only re-inserts rows (a deleted rule's row stays cached until the page is released).
+    private readonly Gtk.ListBox _rules = Gtk.ListBox.New();
+    private readonly List<RemoteContentRuleViewModel> _shown = [];
+    private readonly Dictionary<RemoteContentRuleViewModel, (Adw.ActionRow Row, SettingsBinder Binder)> _rows = new(ReferenceEqualityComparer.Instance);
 
     protected override void BuildPage()
     {
@@ -86,7 +91,12 @@ internal sealed class RemoteContentRulesPage(RemoteContentRulesPageViewModel vie
         toolbar.Append(search);
         Settings.Visible(AddGroup(null, WinoSettingsRows.Custom(toolbar)).Root, vm, nameof(vm.HasRules), static s => s.HasRules);
 
-        Page.Add(_rules);
+        _rules.AddCssClass("boxed-list");
+        _rules.SetSelectionMode(Gtk.SelectionMode.None);
+        _rules.SetVisible(false);
+        var rules = Adw.PreferencesGroup.New();
+        rules.Add(_rules);
+        Page.Page.Add(rules);
         Settings.Collection(vm.Rules, Rebuild);
 
         var empty = Gtk.Box.New(Gtk.Orientation.Vertical, 8);
@@ -119,14 +129,43 @@ internal sealed class RemoteContentRulesPage(RemoteContentRulesPageViewModel vie
             WinoSettingsRows.Custom(WinoSettingsRows.Caption(Translator.RemoteContentRules_Footer)));
     }
 
+    /// <summary>Takes out the rows that left the list, creates the new ones and moves the rest into the list's order.</summary>
     private void Rebuild()
     {
         var watch = Stopwatch.StartNew();
-        _rowBinder?.Scope.Dispose();
-        var binder = _rowBinder = Settings.Child();
-        _rules.Clear();
-        foreach (var rule in ViewModel.Rules.ToList()) _rules.Add(RuleRow(binder, rule));
-        Serilog.Log.Debug("Sender rules page rebuilt {Count} rows in {Elapsed} ms.", _rules.Count, watch.ElapsedMilliseconds);
+        var target = ViewModel.Rules.ToList();
+        var keep = new HashSet<RemoteContentRuleViewModel>(target, ReferenceEqualityComparer.Instance);
+        var created = 0;
+        for (var index = _shown.Count - 1; index >= 0; index--)
+        {
+            var rule = _shown[index];
+            if (keep.Contains(rule)) continue;
+            _rules.Remove(_rows[rule].Row);
+            _shown.RemoveAt(index);
+        }
+
+        for (var index = 0; index < target.Count; index++)
+        {
+            var rule = target[index];
+            if (index < _shown.Count && ReferenceEquals(_shown[index], rule)) continue;
+            if (_rows.TryGetValue(rule, out var entry))
+            {
+                _rules.Remove(entry.Row);
+                _shown.Remove(rule);
+            }
+            else
+            {
+                var binder = Settings.Child();
+                entry = (RuleRow(binder, rule), binder);
+                _rows[rule] = entry;
+                created++;
+            }
+            _rules.Insert(entry.Row, index);
+            _shown.Insert(index, rule);
+        }
+
+        _rules.SetVisible(_shown.Count > 0);
+        Serilog.Log.Debug("Sender rules page updated {Count} rows ({Created} new) in {Elapsed} ms.", _shown.Count, created, watch.ElapsedMilliseconds);
     }
 
     private static Adw.ActionRow RuleRow(SettingsBinder binder, RemoteContentRuleViewModel rule)
