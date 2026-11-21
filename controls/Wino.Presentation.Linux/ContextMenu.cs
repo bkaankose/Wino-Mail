@@ -57,6 +57,7 @@ public static class ContextMenu
             _popover = popover;
             _menu = menu;
             _onClosed = onClosed;
+            WinoLiveObjects.Track(this);
             _closed = GtkSignals.Connect<Gtk.Popover>(h => popover.OnClosed += h, h => popover.OnClosed -= h, (_, _) => OnClosed());
         }
 
@@ -96,6 +97,7 @@ public sealed class ContextMenuAttachment : IDisposable
     {
         _widget = widget;
         _populate = populate;
+        WinoLiveObjects.Track(this);
 
         _onClick = GtkSignals.Connect<Gtk.GestureClick, Gtk.GestureClick.PressedSignalArgs>(h => _click.OnPressed += h, h => _click.OnPressed -= h, (gesture, args) =>
         {

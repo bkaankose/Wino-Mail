@@ -183,6 +183,7 @@ public sealed class WinoMenu : IDisposable
         Model = model;
         _shared = shared;
         WinoMenus.Opened();
+        WinoLiveObjects.Track(this);
     }
 
     public Gio.Menu Model { get; }

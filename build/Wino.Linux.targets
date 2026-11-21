@@ -12,4 +12,31 @@
       <_Parameter1>linux</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
+
+  <!--
+    Native AOT link warnings, as in Wino.Windows.targets. ILC fails the publish on any warning, so every assembly
+    reports each trim and AOT warning in detail. Ical.Net and the EWS client (Exchange.WebServices.NETCore) alone
+    report a single summary warning, and only that summary code is ignored: both reflect over their own models, and
+    both whole assemblies are rooted here so the reflected members are preserved. A new first-party or package
+    warning still fails the publish. Do not add IL codes to NoWarn.
+  -->
+  <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true' and '$(OutputType)' == 'Exe'">
+    <TrimmerRootAssembly Include="Ical.Net" />
+    <TrimmerRootAssembly Include="Exchange.WebServices.NETCore" />
+  </ItemGroup>
+
+  <Target Name="WinoCollapseUpstreamTrimWarnings"
+          AfterTargets="PrepareForILLink"
+          Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
+    <ItemGroup>
+      <ManagedAssemblyToLink Condition="'%(Filename)' == 'Ical.Net' or '%(Filename)' == 'Exchange.WebServices.NETCore'">
+        <TrimmerSingleWarn>true</TrimmerSingleWarn>
+      </ManagedAssemblyToLink>
+    </ItemGroup>
+  </Target>
 </Project>
