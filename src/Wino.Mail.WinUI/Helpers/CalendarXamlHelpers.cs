@@ -55,6 +55,18 @@ public static class CalendarXamlHelpers
         var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType, settings.CultureInfo);
         var dateFormat = $"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo)} {timeFormat}";
 
+        // An all-day event ends at midnight after its last day, so it shows its days without times.
+        if (calendarItemViewModel.IsAllDayEvent)
+        {
+            var lastDay = end.Date > start.Date ? end.Date.AddDays(-1) : start.Date;
+
+            if (lastDay == start.Date)
+                return $"{start.ToString(DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo), settings.CultureInfo)} · {Translator.CalendarEventDetails_AllDay}";
+
+            var dayFormat = DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo, abbreviatedWeekday: true);
+            return $"{start.ToString(dayFormat, settings.CultureInfo)} - {lastDay.ToString(dayFormat, settings.CultureInfo)} · {Translator.CalendarEventDetails_AllDay}";
+        }
+
         if (calendarItemViewModel.IsMultiDayEvent)
         {
             return $"{start.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo, abbreviatedWeekday: true)} {timeFormat}", settings.CultureInfo)} - {end.ToString($"{DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(settings.CultureInfo, abbreviatedWeekday: true)} {timeFormat}", settings.CultureInfo)}";

@@ -451,6 +451,7 @@
   "CalendarContextMenu_Respond": "Respond",
   "CalendarContextMenu_Paste": "Paste",
   "CalendarEventDetails_Reminder": "Reminder",
+  "CalendarEventDetails_AllDay": "All day",
   "CalendarReminder_StartedHoursAgo": "Started {0} hours ago",
   "CalendarReminder_StartedMinutesAgo": "Started {0} minutes ago",
   "CalendarReminder_StartedNow": "Started just now",
