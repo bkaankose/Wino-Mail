@@ -221,7 +221,7 @@ public sealed class MailboxesViewController : UIViewController
         var actions = new List<UIMenuElement>();
         switch (item)
         {
-            case IBaseFolderMenuItem { IsMoveTarget: true } folder when item is FolderMenuItem or MergedAccountFolderMenuItem && mail is not null:
+            case IBaseFolderMenuItem { IsSelectable: true } folder when item is FolderMenuItem or MergedAccountFolderMenuItem && mail is not null:
                 var group = new List<UIMenuElement>();
                 foreach (var action in mail.GetFolderContextMenuActions(folder) ?? [])
                 {

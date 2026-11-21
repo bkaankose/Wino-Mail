@@ -49,7 +49,7 @@ internal static class ShellMenuActions
         var actions = new List<(string Title, Func<Task> Run, bool Enabled)?>();
         switch (item)
         {
-            case IBaseFolderMenuItem { IsMoveTarget: true } folder when item is FolderMenuItem or MergedAccountFolderMenuItem && mail is not null:
+            case IBaseFolderMenuItem { IsSelectable: true } folder when item is FolderMenuItem or MergedAccountFolderMenuItem && mail is not null:
                 foreach (var action in mail.GetFolderContextMenuActions(folder) ?? [])
                 {
                     if (action.Operation == FolderOperation.Seperator) { actions.Add(null); continue; }

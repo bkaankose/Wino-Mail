@@ -26,7 +26,10 @@ public sealed partial class UIKitDialogService
     {
         try
         {
-            var folders = await folderService.GetFoldersAsync(accountId) ?? [];
+            // Special-folder roles belong to the account's own folders only.
+            var folders = (await folderService.GetFoldersAsync(accountId) ?? [])
+                .Where(folder => folder.Scope == MailFolderScope.Personal && !folder.IsContainer)
+                .ToList();
             var configuration = await PresentAsync(presenter => ShowSystemFolderSheetAsync(presenter, folders), null);
             if (configuration is null) return;
 

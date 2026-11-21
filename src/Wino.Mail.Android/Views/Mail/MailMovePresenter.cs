@@ -174,7 +174,7 @@ internal static class MailMovePresenter
             if (holder is not Holder row) return;
             var (folder, depth) = _rows[position];
             row.View.Item = folder;
-            row.View.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.ResolvedDisplayName ?? string.Empty, 0, depth);
+            row.View.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder), folder.ResolvedDisplayName ?? string.Empty, 0, depth);
             bool enabled = selectable(folder);
             row.View.Alpha = enabled ? 1f : WinoColors.Fraction(row.View.RequireContext(), Resource.Fraction.wino_m3_disabled_alpha);
             row.View.Enabled = enabled;

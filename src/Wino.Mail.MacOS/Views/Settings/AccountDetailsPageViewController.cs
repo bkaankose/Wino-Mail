@@ -330,14 +330,14 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
     private NSView FolderRow(IMailItemFolder folder, int depth)
     {
-        var icon = new WinoIconView(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), 16);
+        var icon = new WinoIconView(SpecialFolderGlyphs.GetGlyphOrFolder(folder), 16);
         WinoLayout.Size(icon, 16, 16);
         var name = WinoStyle.Label(folder.ResolvedDisplayName, WinoStyle.Body, WinoStyle.PrimaryText);
         name.LineBreakMode = NSLineBreakMode.TruncatingTail;
         name.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         name.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
 
-        // Folders that cannot hold mail (IsMoveTarget false) have no checkboxes on Windows either.
+        // Folders that cannot hold mail (IsSelectable false) have no checkboxes on Windows either.
         var (_, sync) = FolderCheckbox(folder, Translator.SettingsFolderSynchronize_Title, folder.IsSynchronizationEnabled,
             isOn => ViewModel.FolderSyncToggledAsync(folder, isOn));
         var (dockCheckbox, dock) = FolderCheckbox(folder, Translator.SettingsFolderDockMenu_Title, folder.IsJumpListEnabled,
@@ -362,7 +362,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             try { await toggled(checkbox.State == NSCellStateValue.On); }
             catch (Exception ex) { ReportError(ex); }
         };
-        checkbox.Hidden = !folder.IsMoveTarget;
+        checkbox.Hidden = !folder.IsSelectable;
         WinoAccessibility.Label(checkbox, $"{folder.ResolvedDisplayName}, {column}");
         var host = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         host.AddSubview(checkbox);

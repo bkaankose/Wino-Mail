@@ -256,7 +256,9 @@ internal sealed class ShellPaneCell : NSTableCellView
                 _pill.Count = coloured.ShowUnreadCount ? coloured.UnreadItemCount : 0;
                 break;
             case IBaseFolderMenuItem folder:
-                GlyphRow(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 16, null);
+                GlyphRow(folder is FolderMenuItem { Parameter: { } single }
+                    ? SpecialFolderGlyphs.GetGlyph(single)
+                    : SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 16, null);
                 SetTitle(folder.FolderName, WinoStyle.Body);
                 _pill.Count = folder.ShowUnreadCount ? folder.UnreadItemCount : 0;
                 break;

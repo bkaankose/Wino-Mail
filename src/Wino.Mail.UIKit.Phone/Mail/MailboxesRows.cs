@@ -198,7 +198,7 @@ internal sealed class MailboxesRows : UITableViewSource
                 cell.ConfigureFolder(WinoIconGlyph.SpecialFolderMore, Translator.More, 0, ShellMenuItemRules.FolderIndent(more), more.IsExpanded);
                 break;
             case IBaseFolderMenuItem folder:
-                cell.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.FolderName ?? string.Empty,
+                cell.ConfigureFolder(folder is FolderMenuItem { Parameter: { } single } ? SpecialFolderGlyphs.GetGlyphOrFolder(single) : SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.FolderName ?? string.Empty,
                     folder.ShowUnreadCount ? folder.UnreadItemCount : 0, ShellMenuItemRules.FolderIndent(folder),
                     HasChildren(folder) ? folder.IsExpanded : null);
                 break;

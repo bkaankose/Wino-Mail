@@ -163,7 +163,7 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
         separator.TranslatesAutoresizingMaskIntoConstraints = false;
         row.AddSubview(separator);
 
-        var icon = new WinoIconView(SpecialFolderGlyphs.GetGlyphOrFolder(item.SpecialFolderType), 16);
+        var icon = new WinoIconView(SpecialFolderGlyphs.GetGlyphOrFolder(item.Folder), 16);
         WinoLayout.Size(icon, 16, 16);
         var name = WinoStyle.Label(item.FolderName, WinoStyle.Body, WinoStyle.PrimaryText);
         name.LineBreakMode = UILineBreakMode.TailTruncation;
@@ -176,9 +176,17 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
         if (item.IsHidden) content.AddArrangedSubview(SettingsRowParts.Tag(Translator.FolderCustomization_HiddenTag));
         else if (item.IsSystemFolder && TraitCollection.UserInterfaceIdiom != UIUserInterfaceIdiom.Phone) content.AddArrangedSubview(SettingsRowParts.Tag(Translator.FolderCustomization_SystemTag));
 
-        var rename = new SettingsGlyphButton(WinoIconGlyph.Rename, $"{Translator.FolderOperation_Rename}, {item.FolderName}");
-        rename.PrimaryActionTriggered += (_, _) => Run(ViewModel.RenameFolderAsync(item));
-        content.AddArrangedSubview(rename);
+        // A level of a shared tree can only be hidden; empty slots keep the buttons in their columns.
+        if (item.CanPinAndRename)
+        {
+            var rename = new SettingsGlyphButton(WinoIconGlyph.Rename, $"{Translator.FolderOperation_Rename}, {item.FolderName}");
+            rename.PrimaryActionTriggered += (_, _) => Run(ViewModel.RenameFolderAsync(item));
+            content.AddArrangedSubview(rename);
+        }
+        else
+        {
+            content.AddArrangedSubview(SettingsRowParts.Slot());
+        }
 
         var hide = new SettingsGlyphButton(WinoIconGlyph.EyeOff, $"{(item.IsHidden ? Translator.FolderCustomization_Show : Translator.FolderCustomization_Hide)}, {item.FolderName}")
         {
@@ -187,7 +195,7 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
         hide.PrimaryActionTriggered += (_, _) => ToggleHidden(key, item);
         content.AddArrangedSubview(hide);
 
-        if (key == CategoriesKey)
+        if (key == CategoriesKey || !item.CanPinAndRename)
         {
             content.AddArrangedSubview(SettingsRowParts.Slot());
         }

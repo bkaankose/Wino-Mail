@@ -285,7 +285,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         var picked = await PickAsync(Translator.MoveMailDialog_Title, null, availableFolders,
             folder => folder.ChildFolders ?? (IEnumerable<IMailItemFolder>)Array.Empty<IMailItemFolder>(),
             folder => folder.ResolvedDisplayName ?? string.Empty,
-            folder => WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 14),
+            folder => WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder), 14),
             folder => WinoStyle.FromHexString(folder.TextColorHex),
             folder => folder.IsMoveTarget,
             Translator.MailOperation_Move,

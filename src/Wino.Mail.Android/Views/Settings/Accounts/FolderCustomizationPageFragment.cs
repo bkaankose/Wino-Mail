@@ -119,7 +119,7 @@ public sealed class FolderCustomizationPageFragment : SettingsPageFragment<Folde
         var row = AccountSettingsParts.HRow(Ctx);
         row.SetMinimumHeight(WinoTokens.Px(Ctx, Resource.Dimension.wino_size_touch_large));
 
-        row.AddView(AccountSettingsParts.Glyph(Ctx, SpecialFolderGlyphs.GetGlyphOrFolder(item.SpecialFolderType), Resource.Dimension.wino_glyph_m));
+        row.AddView(AccountSettingsParts.Glyph(Ctx, SpecialFolderGlyphs.GetGlyphOrFolder(item.Folder), Resource.Dimension.wino_glyph_m));
 
         var text = AccountSettingsParts.HRow(Ctx);
         var name = AccountSettingsParts.Label(Ctx, item.FolderName, WinoTextStyle.Body, maxLines: 1);
@@ -138,6 +138,8 @@ public sealed class FolderCustomizationPageFragment : SettingsPageFragment<Folde
 
         var rename = AccountSettingsParts.GlyphButton(Ctx, WinoIconGlyph.Rename, $"{Translator.FolderOperation_Rename}, {item.FolderName}");
         rows.Views.Click(rename, () => AccountSettingsParts.Run(VM.RenameFolderAsync(item), ReportError));
+        // A level of a shared tree can only be hidden; invisible buttons keep the others in their columns.
+        rename.Visibility = item.CanPinAndRename ? ViewStates.Visible : ViewStates.Invisible;
         row.AddView(rename);
 
         var hide = AccountSettingsParts.GlyphButton(Ctx, WinoIconGlyph.EyeOff,
@@ -155,6 +157,7 @@ public sealed class FolderCustomizationPageFragment : SettingsPageFragment<Folde
             var pin = AccountSettingsParts.GlyphButton(Ctx, pinned ? WinoIconGlyph.UnPin : WinoIconGlyph.Pin,
                 $"{(pinned ? Translator.FolderCustomization_Unpin : Translator.FolderCustomization_Pin)}, {item.FolderName}");
             rows.Views.Click(pin, () => AccountSettingsParts.Run(VM.TogglePinAsync(item), ReportError));
+            pin.Visibility = item.CanPinAndRename ? ViewStates.Visible : ViewStates.Invisible;
             row.AddView(pin);
         }
 

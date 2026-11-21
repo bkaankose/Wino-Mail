@@ -153,7 +153,7 @@ public sealed class MoveFolderSheetViewController : UIViewController
         {
             var cell = (WinoShellRowCell)tableView.DequeueReusableCell(WinoShellRowCell.ReuseIdentifier, indexPath);
             var (folder, depth) = owner._visible[indexPath.Row];
-            cell.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.ResolvedDisplayName ?? string.Empty, 0, depth);
+            cell.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder), folder.ResolvedDisplayName ?? string.Empty, 0, depth);
             cell.BackgroundColor = UIColor.SecondarySystemGroupedBackground;
             bool selectable = owner.IsSelectable(folder);
             cell.ContentView.Alpha = selectable ? 1 : 0.4f;
