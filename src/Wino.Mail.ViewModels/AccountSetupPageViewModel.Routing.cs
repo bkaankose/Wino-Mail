@@ -157,6 +157,10 @@ public partial class AccountSetupPageViewModel
         if (!IsRouteFound || (resolution.Route == AccountRoute.Imap && resolution.Imap?.IsFound != true))
         {
             Phase = AccountSetupPhase.NotFound;
+
+            if (IsManualServerChoice(forcedChoice))
+                await OpenAdvancedSetupAsync();
+
             return;
         }
 
