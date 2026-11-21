@@ -56,6 +56,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.HeaderDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.SettingsDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.ListDebugActions.Register(application);
+            Infrastructure.Diagnostics.SettingsRowsDebugActions.Register(application, () => _services);
         }
 #endif
     }
