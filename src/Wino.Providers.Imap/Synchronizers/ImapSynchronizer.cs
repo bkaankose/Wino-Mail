@@ -1513,6 +1513,11 @@ IImapChangeProcessor imapChangeProcessor,
                         : SpecialFolderType.Other;
                     ApplyFolderRole(localFolder, resolvedRole);
 
+                    // Someone shared the folder for it to be read, so it synchronizes from the start. Only new rows
+                    // take this; a shared folder that exists already keeps its sync choice.
+                    if (scope != MailFolderScope.Personal && !isContainer)
+                        localFolder.IsSynchronizationEnabled = true;
+
                     localFolder.MailAccountId = Account.Id;
 
                     // Sometimes sub folders are parented under Inbox.
