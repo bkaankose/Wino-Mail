@@ -43,6 +43,10 @@ internal sealed class GtkApplicationLifecycleHost(IServiceProvider services, IDi
             Task show = Task.CompletedTask;
             await dispatcher.ExecuteOnUIThread(() => show = navigation.ShowShellAsync());
             await show;
+#if DEBUG
+            if (options.LabEnableDav && !string.IsNullOrWhiteSpace(options.LabLeasePath))
+                await LabAccountBootstrap.EnableDavAsync(services, dispatcher, options.LabLeasePath, options.LabServer ?? "stalwart");
+#endif
             return;
         }
 

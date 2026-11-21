@@ -62,11 +62,12 @@ The keyring password in that command protects throwaway development data only. U
 
 ### Debug-only commands
 
-Account setup has no screen yet. A Debug build adds one leased lab account on its first start:
+Account setup has no screen yet. A Debug build adds one leased lab account on its first start, with mail and with calendars, contacts and tasks through the lab server's CalDAV and CardDAV service:
 
 ```sh
 lease=$(scripts/lab/linux/lab.sh lease stalwart)     # prints the lease file path
 wino-mail --lab-lease "$lease" [--lab-server stalwart]
+wino-mail --lab-lease "$lease" --lab-enable-dav       # an account added before: turn on calendars, contacts and tasks
 scripts/lab/linux/lab.sh renew <lease id> [ttlHours]  # before it expires (default 24 hours)
 scripts/lab/linux/lab.sh release <lease id>          # when done
 ```
