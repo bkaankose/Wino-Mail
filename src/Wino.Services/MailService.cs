@@ -2968,19 +2968,24 @@ WHERE MailItemFolder.MailAccountId = ?
     {
         var mailCopies = new List<MailCopy>();
 
-        foreach (var idChunk in SqliteVariableLimit.Batch(downloadedMailCopyIds, fixedParameters: 3))
+        // Every folder: the account's notification scope decides which of them raise a notification.
+        foreach (var idChunk in SqliteVariableLimit.Batch(downloadedMailCopyIds, fixedParameters: 2))
         {
             var placeholders = string.Join(",", idChunk.Select(_ => "?"));
-            var sql = $"SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.MailAccountId = ? AND MailItemFolder.SpecialFolderType = ?";
+            var sql = $"SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.MailAccountId = ?";
             var parameters = new List<object>();
             parameters.AddRange(idChunk.Cast<object>());
             parameters.Add(false);
             parameters.Add(accountId);
-            parameters.Add((int)SpecialFolderType.Inbox);
 
             mailCopies.AddRange(await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false));
         }
-        return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
+
+        // A message stored in several folders (Gmail labels) is announced once, by its Inbox copy when it has one.
+        return (await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false))
+            .GroupBy(mail => mail.Id, StringComparer.Ordinal)
+            .Select(copies => copies.FirstOrDefault(mail => mail.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox) ?? copies.First())
+            .ToList();
     }
 
     public Task<MailAccount> GetMailAccountByUniqueIdAsync(Guid uniqueMailId)
