@@ -1,3 +1,5 @@
+using System.Globalization;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.FlaggedMail;
 using Wino.Mail.ViewModels.MenuItems;
@@ -19,6 +21,28 @@ public partial class ToDoPageViewModel
     public bool IsTaskSurfaceVisible => !IsFlaggedMailSelected;
 
     public bool IsTaskEmptyStateVisible => IsEmpty && !IsFlaggedMailSelected;
+
+    /// <summary>The Flagged mail header counts messages, not tasks.</summary>
+    private string FlaggedMailCountText
+    {
+        get
+        {
+            var count = FlaggedMail?.Items.Count ?? 0;
+            return string.Format(CultureInfo.CurrentCulture,
+                count == 1 ? Translator.ToDoPage_FlaggedMailCount_Singular : Translator.ToDoPage_FlaggedMailCount,
+                count);
+        }
+    }
+
+    private void OnFlaggedMailCountChanged()
+    {
+        _flaggedMailMenuItem.Count = FlaggedMail?.Items.Count ?? 0;
+        if (IsFlaggedMailSelected)
+        {
+            OnPropertyChanged(nameof(SelectedSurfaceSubtitle));
+            OnPropertyChanged(nameof(HasSurfaceSubtitle));
+        }
+    }
 
     private void OnFlaggedMailSurfaceChanged()
     {

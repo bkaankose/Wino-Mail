@@ -383,7 +383,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             ? string.Empty
             : IsMyDaySelected
                 ? $"{DateTime.Now.ToString(DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture)} • {TaskCountText}"
-                : TaskCountText;
+                : IsFlaggedMailSelected
+                    ? FlaggedMailCountText
+                    : TaskCountText;
 
     public bool HasSurfaceSubtitle => !string.IsNullOrEmpty(SelectedSurfaceSubtitle);
 
@@ -539,7 +541,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _taskTransferService = taskTransferService;
         FlaggedMail = flaggedMail;
         if (flaggedMail is not null)
-            flaggedMail.CountChanged += (_, _) => _flaggedMailMenuItem.Count = flaggedMail.Items.Count;
+            flaggedMail.CountChanged += (_, _) => OnFlaggedMailCountChanged();
         _synchronizationManager = synchronizationManager;
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;

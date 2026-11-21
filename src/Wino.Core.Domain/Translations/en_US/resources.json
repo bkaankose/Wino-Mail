@@ -5848,5 +5848,7 @@
   "ToDoPage_FlaggedMailEmptyTitle": "No flagged mail",
   "ToDoPage_FlaggedMailEmptyBody": "Flag a message in Mail and it shows up here. Completing it here clears the flag.",
   "ToDoPage_FlaggedMailComplete": "Complete and clear the flag",
-  "ToDoPage_FlaggedMailOpen": "Open message"
+  "ToDoPage_FlaggedMailOpen": "Open message",
+  "ToDoPage_FlaggedMailCount": "{0} flagged messages",
+  "ToDoPage_FlaggedMailCount_Singular": "{0} flagged message"
 }
