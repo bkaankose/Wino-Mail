@@ -105,6 +105,7 @@ public static class LinuxPlatformRegistration
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             AdditionalWindows: true,
             ConfigurableSyncIntervals: true,
+            FileBackup: true,
             GeneralActivation: true,
             KeyboardShortcuts: true,
             MailListDensity: true,

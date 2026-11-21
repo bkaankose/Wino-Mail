@@ -96,9 +96,6 @@ internal sealed partial class GtkDialogService
 
     public Task<bool> ShowWinoAccountExportDialogAsync() => DismissAsync(nameof(ShowWinoAccountExportDialogAsync), null, false);
 
-    public Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request)
-        => DismissAsync<string?>(nameof(ShowWinoAccountSyncSecretDialogAsync), null, null);
-
     public Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync()
         => DismissAsync<UnlimitedAccountsPurchaseChannel?>(nameof(ShowUnlimitedAccountsPurchaseChannelDialogAsync), null, null);
 
