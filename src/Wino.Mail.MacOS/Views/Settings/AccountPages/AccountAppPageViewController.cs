@@ -76,38 +76,50 @@ public abstract class AccountAppPageViewController<TViewModel>(TViewModel viewMo
     private NSView BuildSourceChoice()
     {
         var vm = ViewModel;
-        var options = WinoLayout.VStack(10);
-        options.Alignment = NSLayoutAttribute.Leading;
-        Bind.Visible(options, vm, nameof(vm.IsSourceChoiceVisible), s => s.IsSourceChoiceVisible);
+        var row = new NSStackView
+        {
+            Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+            Distribution = NSStackViewDistribution.FillEqually,
+            Alignment = NSLayoutAttribute.Top,
+            Spacing = (nfloat)WinoSettingsStyle.CardSpacing,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        Bind.Visible(row, vm, nameof(vm.IsSourceChoiceVisible), s => s.IsSourceChoiceVisible);
 
-        var buttons = new List<(AccountAppSourceOption Option, NSButton Button)>();
+        var cards = new List<(AccountAppSourceOption Option, WinoSourceChoiceCard Card)>();
         Bind.Collection(vm.SourceOptions, () =>
         {
-            foreach (var view in options.ArrangedSubviews) { options.RemoveArrangedSubview(view); view.RemoveFromSuperview(); }
-            buttons.Clear();
+            foreach (var view in row.ArrangedSubviews) { row.RemoveArrangedSubview(view); view.RemoveFromSuperview(); }
+            cards.Clear();
             foreach (var option in vm.SourceOptions.ToList())
             {
-                var radio = NSButton.CreateRadioButton(option.Title, () =>
+                var card = new WinoSourceChoiceCard(option.Title, option.Description,
+                    option.Mode == AccountCapabilityMode.Local ? WinoIconGlyph.Desktop : WinoIconGlyph.Globe)
                 {
-                    if (vm.SelectedSourceOption != option) vm.SelectedSourceOption = option;
-                });
-                radio.State = Equals(vm.SelectedSourceOption, option) ? NSCellStateValue.On : NSCellStateValue.Off;
-                WinoAccessibility.Label(radio, option.Title);
-                buttons.Add((option, radio));
-                var description = Caption(option.Description);
-                description.MaximumNumberOfLines = 0;
-                var row = WinoLayout.VStack(2, radio, description);
-                row.Alignment = NSLayoutAttribute.Leading;
-                options.AddArrangedSubview(row);
+                    IsSelected = Equals(vm.SelectedSourceOption, option),
+                    Enabled = !vm.IsChangingSource
+                };
+                card.Clicked += (_, _) =>
+                {
+                    if (!Equals(vm.SelectedSourceOption, option)) vm.SelectedSourceOption = option;
+                };
+                cards.Add((option, card));
+                row.AddArrangedSubview(card);
             }
+
+            if (cards.Count == 2) cards[0].Card.HeightAnchor.ConstraintEqualTo(cards[1].Card.HeightAnchor).Active = true;
         });
         Bind.Bind(vm, nameof(vm.SelectedSourceOption), s => s.SelectedSourceOption, selected =>
         {
-            foreach (var (option, button) in buttons)
-                button.State = Equals(selected, option) ? NSCellStateValue.On : NSCellStateValue.Off;
+            foreach (var (option, card) in cards)
+                card.IsSelected = Equals(selected, option);
         });
-        Bind.Enabled(options, vm, nameof(vm.IsChangingSource), s => !s.IsChangingSource);
-        return options;
+        Bind.Bind(vm, nameof(vm.IsChangingSource), s => s.IsChangingSource, changing =>
+        {
+            foreach (var (_, card) in cards)
+                card.Enabled = !changing;
+        });
+        return row;
     }
 
     private NSView BuildSourceText()
