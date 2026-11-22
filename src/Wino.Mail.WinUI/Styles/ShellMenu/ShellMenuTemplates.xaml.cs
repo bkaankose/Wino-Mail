@@ -140,6 +140,52 @@ public sealed partial class ShellMenuTemplates
         return MailClient.GetMailsToMove(folderMenuItem, ExtractMailCopies(dragPackage)).Count > 0;
     }
 
+    private void ItemDragOverAccount(object sender, DragEventArgs e)
+    {
+        if (sender is not WinoNavigationViewItem container)
+            return;
+
+        if (GetMailsToMoveToAccount(container, e) is not { Count: > 0 } || container.DataContext is not AccountMenuItem account)
+        {
+            container.IsDraggingItemOver = false;
+            e.AcceptedOperation = DataPackageOperation.None;
+            return;
+        }
+
+        e.Handled = true;
+        container.IsDraggingItemOver = true;
+        e.AcceptedOperation = DataPackageOperation.Move;
+        e.DragUIOverride.Caption = string.Format(Translator.DragMoveToFolderCaption, account.AccountName);
+    }
+
+    private async void ItemDroppedOnAccount(object sender, DragEventArgs e)
+    {
+        if (sender is not WinoNavigationViewItem container)
+            return;
+
+        container.IsDraggingItemOver = false;
+
+        if (GetMailsToMoveToAccount(container, e) is not { Count: > 0 } mails || container.DataContext is not AccountMenuItem account)
+            return;
+
+        e.Handled = true;
+        e.AcceptedOperation = DataPackageOperation.Move;
+
+        await MailClient.MoveMailsToAccountAsync(mails, account);
+    }
+
+    private static List<MailCopy>? GetMailsToMoveToAccount(WinoNavigationViewItem container, DragEventArgs args)
+    {
+        if (container.DataContext is not AccountMenuItem account ||
+            !args.DataView.Properties.TryGetValue(nameof(MailDragPackage), out var package) ||
+            package is not MailDragPackage dragPackage)
+        {
+            return null;
+        }
+
+        return MailClient.GetMailsToMoveToAccount(account, ExtractMailCopies(dragPackage));
+    }
+
     private static IEnumerable<MailCopy> ExtractMailCopies(MailDragPackage dragPackage)
     {
         foreach (var item in dragPackage.DraggingMails)

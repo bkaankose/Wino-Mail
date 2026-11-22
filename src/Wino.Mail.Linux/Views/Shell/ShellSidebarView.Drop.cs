@@ -3,6 +3,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Linux.Views.Mail;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.MenuItems;
 using Wino.Mail.ViewModels.MenuItems.Contracts;
 using Wino.Mail.ViewModels.Shell.Contracts;
 using Wino.Presentation.Linux;
@@ -216,6 +217,12 @@ internal sealed partial class ShellSidebarView
 
         public SidebarDropVerdict Validate(IMenuItem item, bool isSelected)
         {
+            if (item is AccountMenuItem account)
+            {
+                if (!ShellMenuItemRules.IsEnabled(item)) return SidebarDropVerdict.None;
+                if (!MailDragPayload.CanDropOn(account, MailDragPayload.Current, MailClient)) return new(default, Translator.DragCannotMoveHereCaption, true);
+                return new(Gdk.DragAction.Move, string.Format(Translator.DragMoveToFolderCaption, account.AccountName), false);
+            }
             if (item is not IBaseFolderMenuItem folder || !ShellMenuItemRules.IsEnabled(folder)) return SidebarDropVerdict.None;
             if (!MailDragPayload.CanDropOn(folder, isSelected, MailDragPayload.Current, MailClient)) return new(default, Translator.DragCannotMoveHereCaption, true);
             return new(Gdk.DragAction.Move, string.Format(Translator.DragMoveToFolderCaption, folder.FolderName), false);
@@ -225,6 +232,7 @@ internal sealed partial class ShellSidebarView
 
         public bool Drop(IMenuItem item, bool isSelected, string? text)
         {
+            if (item is IAccountMenuItem account) return DropOnAccount(account, text);
             if (MailDragPayload.Resolve(text) is not { } mails || item is not IBaseFolderMenuItem folder || MailClient is not { } mail
                 || !MailDragPayload.CanDropOn(folder, isSelected, mails, mail)) return false;
             var moving = mail.GetMailsToMove(folder, mails);
@@ -233,6 +241,23 @@ internal sealed partial class ShellSidebarView
             _ = MoveAsync(mail, moving, folder);
             MailDragPayload.End();
             return true;
+        }
+
+        private bool DropOnAccount(IAccountMenuItem account, string? text)
+        {
+            if (MailDragPayload.Resolve(text) is not { } mails || MailClient is not { } mail) return false;
+            var moving = mail.GetMailsToMoveToAccount(account, mails);
+            if (moving.Count == 0) return false;
+            Serilog.Log.Information("Mail drop: moving {Count} of {Total} mails to another account.", moving.Count, mails.Length);
+            _ = MoveToAccountAsync(mail, moving, account);
+            MailDragPayload.End();
+            return true;
+        }
+
+        private async Task MoveToAccountAsync(IMailShellClient mail, List<MailCopy> moving, IAccountMenuItem account)
+        {
+            try { await mail.MoveMailsToAccountAsync(moving, account); }
+            catch (Exception exception) { sidebar._error(exception); }
         }
 
         private async Task MoveAsync(IMailShellClient mail, List<MailCopy> moving, IBaseFolderMenuItem folder)

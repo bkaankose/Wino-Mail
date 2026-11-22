@@ -38,6 +38,25 @@ public static class MailDropRules
         return sameAccountMails.Concat(crossAccountMails).ToList();
     }
 
+    /// <summary>
+    /// The dragged mails a drop on another account's row moves into a folder of that account: mail of other accounts
+    /// that is not a draft. A merged account row takes no drop, and neither does an account known not to receive
+    /// moved mail.
+    /// </summary>
+    public static List<MailCopy> MailsForAccount(IAccountMenuItem account, IEnumerable<MailCopy> mails, Func<Guid, bool> mayReceiveMovedMail)
+    {
+        if (account is not AccountMenuItem { Parameter: { } targetAccount } || mails == null)
+            return [];
+
+        if (mayReceiveMovedMail?.Invoke(targetAccount.Id) == false)
+            return [];
+
+        return mails.Where(mail => mail?.AssignedAccount != null
+                                   && mail.AssignedAccount.Id != targetAccount.Id
+                                   && !mail.IsDraft
+                                   && !mail.IsLocalDraft).ToList();
+    }
+
     public static bool CanDropOn(IBaseFolderMenuItem folder, bool isSelectedFolder, IEnumerable<MailCopy> mails, Func<Guid, bool> mayReceiveMovedMail)
         => folder != null && !isSelectedFolder && folder.IsMoveTarget && MailsFor(folder, mails, mayReceiveMovedMail).Count > 0;
 }

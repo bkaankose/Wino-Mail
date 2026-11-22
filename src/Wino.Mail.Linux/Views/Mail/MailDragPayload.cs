@@ -74,4 +74,8 @@ internal static class MailDragPayload
     /// </summary>
     public static bool CanDropOn(IBaseFolderMenuItem folder, bool isSelectedFolder, IReadOnlyList<MailCopy> mails, IMailShellClient? mail)
         => mail is not null && mails.Count > 0 && !isSelectedFolder && folder.IsMoveTarget && mail.GetMailsToMove(folder, mails).Count > 0;
+
+    /// <summary>Windows <c>ItemDragOverAccount</c>: the shared drop rules move at least one dragged mail into another account.</summary>
+    public static bool CanDropOn(IAccountMenuItem account, IReadOnlyList<MailCopy> mails, IMailShellClient? mail)
+        => mail is not null && mails.Count > 0 && mail.GetMailsToMoveToAccount(account, mails).Count > 0;
 }

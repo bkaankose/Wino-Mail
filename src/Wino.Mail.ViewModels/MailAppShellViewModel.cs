@@ -889,6 +889,39 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
+    public List<MailCopy> GetMailsToMoveToAccount(IAccountMenuItem targetAccountMenuItem, IEnumerable<MailCopy> items)
+        => MailDropRules.MailsForAccount(targetAccountMenuItem, items, _mailTransferService.MayReceiveMovedMail);
+
+    public async Task MoveMailsToAccountAsync(IEnumerable<MailCopy> items, IAccountMenuItem targetAccountMenuItem)
+    {
+        var mails = GetMailsToMoveToAccount(targetAccountMenuItem, items);
+        if (mails.Count == 0 || targetAccountMenuItem is not AccountMenuItem { Parameter: { } targetAccount })
+            return;
+
+        try
+        {
+            var moveTargets = await _mailTransferService.GetMoveTargetsAsync(mails[0].AssignedAccount.Id, displayShape: false);
+            var accountFolders = moveTargets.FirstOrDefault(folder => folder.IsContainer && folder.Id == targetAccount.Id)?.ChildFolders;
+
+            if (accountFolders == null || accountFolders.Count == 0)
+            {
+                _requestCoordinator.ShowMailOperationError(new InvalidMoveTargetException(InvalidMoveTargetReason.CrossAccountNotSupported));
+                return;
+            }
+
+            var targetFolder = await _dialogService.ShowMoveMailFolderDialogAsync(accountFolders);
+            if (targetFolder == null)
+                return;
+
+            await _requestCoordinator.ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.Move, mails, false, targetFolder));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to move mails to account {AccountId}.", targetAccount.Id);
+            _requestCoordinator.ShowMailOperationError(ex);
+        }
+    }
+
     public async Task PerformFolderOperationAsync(FolderOperation operation, IBaseFolderMenuItem folderMenuItem)
     {
         if (folderMenuItem == null)
