@@ -211,6 +211,7 @@ IAuthenticator authenticator,
         _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
         _outlookTasksClient = new OutlookTasksClient(_graphClient.RequestAdapter);
         _substrateTokenProvider = authenticator as ISubstrateTaskTokenProvider;
+        _mailImportTokenProvider = authenticator as IMailImportTokenProvider;
         _outlookSubstrateTasksClient = new OutlookSubstrateTasksClient(
             SubstrateHttpClient,
             () => _substrateTokenProvider is null ? Task.FromResult<string>(null) : _substrateTokenProvider.GetSubstrateTaskTokenAsync(Account));

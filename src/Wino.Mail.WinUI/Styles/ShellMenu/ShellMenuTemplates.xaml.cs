@@ -116,7 +116,8 @@ public sealed partial class ShellMenuTemplates
 
         e.AcceptedOperation = DataPackageOperation.Move;
 
-        await MailClient.PerformMoveOperationAsync(ExtractMailCopies(dragPackage).ToList(), draggingFolder);
+        var mailClient = MailClient;
+        await mailClient.PerformMoveOperationAsync(mailClient.GetMailsToMove(draggingFolder, ExtractMailCopies(dragPackage)), draggingFolder);
     }
 
     private static bool CanContinueDragDrop(WinoNavigationViewItem interactingContainer, DragEventArgs args)
@@ -136,9 +137,7 @@ public sealed partial class ShellMenuTemplates
         if (interactingContainer.DataContext is not IBaseFolderMenuItem folderMenuItem || !folderMenuItem.IsMoveTarget)
             return false;
 
-        var draggedAccountIds = folderMenuItem.HandlingFolders.Select(folder => folder.MailAccountId).ToHashSet();
-
-        return ExtractMailCopies(dragPackage).Any(mail => mail.AssignedAccount is { } account && draggedAccountIds.Contains(account.Id));
+        return MailClient.GetMailsToMove(folderMenuItem, ExtractMailCopies(dragPackage)).Count > 0;
     }
 
     private static IEnumerable<MailCopy> ExtractMailCopies(MailDragPackage dragPackage)

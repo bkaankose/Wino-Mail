@@ -60,6 +60,24 @@ public interface ISynchronizationManager
     Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization);
 
     /// <summary>
+    /// Queues several requests of one account. Pass <paramref name="allowUndo"/> false when the requests must not wait
+    /// in an undo grace period.
+    /// </summary>
+    Task QueueRequestsAsync(IEnumerable<IRequestBase> requests, Guid accountId, bool triggerSynchronization, bool allowUndo = true);
+
+    /// <summary>Whether the account's synchronizer can store mail moved from another account.</summary>
+    Task<bool> CanImportMailAsync(Guid accountId);
+
+    /// <summary>Stores a message moved from another account through the account's synchronizer.</summary>
+    Task<MailImportResult> ImportMailAsync(Guid accountId, MailImportPackage package, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Records the Message-ID as already announced for the account, so the synchronization that brings a moved
+    /// message does not show it as new mail.
+    /// </summary>
+    void SuppressNewMailNotification(Guid accountId, string messageId);
+
+    /// <summary>
     /// Raised with the account id after change requests were added to that account's synchronizer queue
     /// (after any undo delay), on the queuing thread. Mobile heads use it to schedule a flush that survives
     /// the app leaving the foreground (<see cref="IApplicationRuntime.FlushQueuedRequestsAsync"/>).

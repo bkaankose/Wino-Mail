@@ -149,7 +149,10 @@ internal sealed partial class MailListView
         }
     }
 
-    /// <summary>The account's folder tree as the sidebar shapes it; null when the targets span accounts.</summary>
+    /// <summary>
+    /// The account's folder tree as the sidebar shapes it, then the other accounts that can receive the mail; null when
+    /// the targets span accounts.
+    /// </summary>
     private async Task<IMailItemFolder[]?> LoadMoveFoldersAsync(MailListTargets targets)
     {
         Guid? accountId = null;
@@ -160,7 +163,7 @@ internal sealed partial class MailListView
             accountId = id;
         }
         if (accountId is not { } account) return null;
-        try { return [.. await _folders.GetFolderStructureForDisplayAsync(account).ConfigureAwait(false)]; }
+        try { return [.. await ViewModel.GetMoveTargetFoldersAsync(account).ConfigureAwait(false)]; }
         catch (Exception exception)
         {
             ReportError(exception);

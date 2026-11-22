@@ -120,6 +120,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly WinoRequestCoordinator _requestCoordinator;
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IMailTransferService _mailTransferService;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
     private readonly IMailProviderRegistry _providers;
     private MailItemViewModel _activeMailItem;
@@ -385,6 +386,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
                                  IMailProviderRegistry providers,
+                                 IMailTransferService mailTransferService,
                                  IMailShellClient shellMenuProvider = null,
                                  IWinoAccountIntelligenceSnapshotService entitlementService = null,
                                  IAppLockService appLockService = null) : base(messenger)
@@ -403,6 +405,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _winoRequestDelegator = winoRequestDelegator;
         _requestCoordinator = requestCoordinator;
         _synchronizationManager = synchronizationManager;
+        _mailTransferService = mailTransferService;
         _draftSyncRetryService = draftSyncRetryService;
         _providers = providers;
         _entitlementService = entitlementService;
@@ -2797,11 +2800,19 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
+    /// <summary>
+    /// The folders a Move menu offers for mail of <paramref name="accountId"/>: its own, then other accounts that can
+    /// receive moved mail, shaped like the navigation menu.
+    /// </summary>
+    public Task<List<IMailItemFolder>> GetMoveTargetFoldersAsync(Guid accountId)
+        => _mailTransferService.GetMoveTargetsAsync(accountId, displayShape: true);
+
     private async Task<HashSet<Guid>> GetPendingOperationUniqueIdsForActiveFolderAccountsAsync(
         IReadOnlyList<IMailItemFolder> handlingFolders = null,
         CancellationToken cancellationToken = default)
     {
-        var pendingOperationUniqueIds = new HashSet<Guid>();
+        // Mail that is being moved to another account has no queued request until its copy is confirmed.
+        var pendingOperationUniqueIds = new HashSet<Guid>(_mailTransferService.GetPendingUniqueIds());
 
         var accountIds = handlingFolders?
             .Select(folder => folder.MailAccountId)

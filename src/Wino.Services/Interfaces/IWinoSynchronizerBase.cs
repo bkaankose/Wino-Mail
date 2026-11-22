@@ -41,6 +41,15 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     /// <param name="cancellationToken">Cancellation token.</param>
     Task DownloadMissingMimeMessageAsync(MailCopy mailItem, ITransferProgress transferProgress, CancellationToken cancellationToken = default);
 
+    /// <summary>Whether this account can store an exact copy of a message moved from another account.</summary>
+    bool SupportsMailImport { get; }
+
+    /// <summary>
+    /// Stores the message in the target folder on the server, outside the request queue. The database is not written:
+    /// the next synchronization of the folder brings the copy.
+    /// </summary>
+    Task<MailImportResult> ImportMailAsync(MailImportPackage package, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 1. Cancel active synchronization.
     /// 2. Stop all running tasks.

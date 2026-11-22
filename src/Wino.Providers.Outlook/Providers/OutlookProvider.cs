@@ -54,6 +54,7 @@ public sealed class OutlookProviderModule(
         SupportsProfileInfoSync = true,
         SupportsFocusedInbox = true,
         SupportsProviderMailFilters = true,
+        MailImportRequiresAuthorization = true,
         RemovesDeclinedEvents = true,
         AppliesMailSynchronizationRange = true,
         SupportsMailSynchronizationRangeChange = true,

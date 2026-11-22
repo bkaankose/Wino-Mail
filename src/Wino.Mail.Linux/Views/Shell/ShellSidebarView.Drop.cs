@@ -212,10 +212,12 @@ internal sealed partial class ShellSidebarView
     {
         public bool IsDragActive => MailDragPayload.Current.Count > 0;
 
+        private IMailShellClient? MailClient => sidebar._viewModel.GetProvider(WinoApplicationMode.Mail) as IMailShellClient;
+
         public SidebarDropVerdict Validate(IMenuItem item, bool isSelected)
         {
             if (item is not IBaseFolderMenuItem folder || !ShellMenuItemRules.IsEnabled(folder)) return SidebarDropVerdict.None;
-            if (!MailDragPayload.CanDropOn(folder, isSelected, MailDragPayload.Current)) return new(default, Translator.DragCannotMoveHereCaption, true);
+            if (!MailDragPayload.CanDropOn(folder, isSelected, MailDragPayload.Current, MailClient)) return new(default, Translator.DragCannotMoveHereCaption, true);
             return new(Gdk.DragAction.Move, string.Format(Translator.DragMoveToFolderCaption, folder.FolderName), false);
         }
 
@@ -223,9 +225,10 @@ internal sealed partial class ShellSidebarView
 
         public bool Drop(IMenuItem item, bool isSelected, string? text)
         {
-            if (MailDragPayload.Resolve(text) is not { } mails || item is not IBaseFolderMenuItem folder || !MailDragPayload.CanDropOn(folder, isSelected, mails)) return false;
-            var moving = MailDragPayload.MailsFor(folder, mails);
-            if (moving.Count == 0 || sidebar._viewModel.GetProvider(WinoApplicationMode.Mail) is not IMailShellClient mail) return false;
+            if (MailDragPayload.Resolve(text) is not { } mails || item is not IBaseFolderMenuItem folder || MailClient is not { } mail
+                || !MailDragPayload.CanDropOn(folder, isSelected, mails, mail)) return false;
+            var moving = mail.GetMailsToMove(folder, mails);
+            if (moving.Count == 0) return false;
             Serilog.Log.Information("Mail drop: moving {Count} of {Total} mails to a folder.", moving.Count, mails.Length);
             _ = MoveAsync(mail, moving, folder);
             MailDragPayload.End();

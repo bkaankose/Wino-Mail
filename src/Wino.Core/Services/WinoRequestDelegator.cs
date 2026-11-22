@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
@@ -41,6 +42,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IApplicationLocalRequestExecutor _applicationLocalRequestExecutor;
     private readonly IAppLockService _appLockService;
     private readonly IMailService _mailService;
+    private readonly IMailTransferService _mailTransferService;
 
     private readonly IMessenger _messenger;
 
@@ -57,9 +59,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                 IMailProviderRegistry providers,
                                 IAppLockService appLockService,
                                 IMailService mailService,
+                                IMailTransferService mailTransferService,
                                 IItemLinkService itemLinks = null)
     {
         _itemLinks = itemLinks;
+        _mailTransferService = mailTransferService ?? throw new ArgumentNullException(nameof(mailTransferService));
         _mailService = mailService ?? throw new ArgumentNullException(nameof(mailService));
         _providers = providers;
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
@@ -84,6 +88,46 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     {
         if (_appLockService.AreActionsRefused)
             return new WinoRequestDelegationResult(0, new AppLockedException());
+
+        // Mail of another account than the target folder's is copied into that account and then removed from its own.
+        var crossAccountItems = GetCrossAccountMoveItems(request);
+        if (crossAccountItems.Count > 0)
+        {
+            var sameAccountItems = request.MailItems.Where(item => item != null && !crossAccountItems.Contains(item)).ToList();
+
+            try
+            {
+                await _mailTransferService.ValidateMoveAsync(crossAccountItems, request.MoveTargetFolder).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                if (ex is not (UnavailableSpecialFolderException or InvalidMoveTargetException or MailOperationDecisionRequiredException))
+                    Log.Error(ex, "Cross-account move validation failed.");
+
+                return new WinoRequestDelegationResult(0, ex);
+            }
+
+            var sameAccountResult = sameAccountItems.Count == 0
+                ? new WinoRequestDelegationResult(0, null)
+                : await ExecuteWithResultAsync(request with { MailItems = sameAccountItems }).ConfigureAwait(false);
+
+            if (sameAccountResult.Error != null)
+                return sameAccountResult;
+
+            try
+            {
+                await _mailTransferService.StartMoveAsync(crossAccountItems, request.MoveTargetFolder).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                if (ex is not (UnavailableSpecialFolderException or InvalidMoveTargetException or MailOperationDecisionRequiredException or AppLockedException))
+                    Log.Error(ex, "Cross-account move failed to start.");
+
+                return new WinoRequestDelegationResult(sameAccountResult.QueuedCount, ex);
+            }
+
+            return new WinoRequestDelegationResult(sameAccountResult.QueuedCount + crossAccountItems.Count, null);
+        }
 
         List<IMailActionRequest> requests;
 
@@ -123,6 +167,16 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         }
 
         return new WinoRequestDelegationResult(requests.Count, null);
+    }
+
+    private static List<MailCopy> GetCrossAccountMoveItems(MailOperationPreperationRequest request)
+    {
+        if (request.Action != MailOperation.Move || request.MoveTargetFolder is not { } target || target.MailAccountId == Guid.Empty)
+            return [];
+
+        return request.MailItems?
+            .Where(item => item?.AssignedAccount != null && item.AssignedAccount.Id != target.MailAccountId)
+            .ToList() ?? [];
     }
 
     public async Task<WinoRequestDelegationResult> ExecuteAsync(FolderOperationPreperationRequest folderRequest)

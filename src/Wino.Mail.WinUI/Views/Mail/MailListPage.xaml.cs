@@ -421,8 +421,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         try
         {
             // The move menu mirrors the navigation menu, so it uses the same shaping: shell order,
-            // nested child folders, and the virtual Categories and More groups.
-            return await FolderService.GetFolderStructureForDisplayAsync(accountIds[0]!.Value);
+            // nested child folders, and the virtual Categories and More groups. Other accounts follow as groups.
+            return await ViewModel.GetMoveTargetFoldersAsync(accountIds[0]!.Value);
         }
         catch (Exception ex)
         {

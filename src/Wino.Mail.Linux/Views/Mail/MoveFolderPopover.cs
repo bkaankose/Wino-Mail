@@ -80,12 +80,15 @@ internal sealed class MoveFolderPopover : IDisposable
     /// the returned popover and disposes it before asking again.
     /// </summary>
     public static Task<MoveFolderPopover?> ShowForAsync(Gtk.Widget? anchor, IReadOnlyList<MailItemViewModel> items,
-        MailListPageViewModel viewModel, IFolderService folders, IDispatcher dispatcher)
-        => ShowForAsync(anchor, items, viewModel.ExecuteMailOperationAsync, folders, dispatcher);
+        MailListPageViewModel viewModel, IDispatcher dispatcher)
+        => ShowForAsync(anchor, items, viewModel.ExecuteMailOperationAsync, viewModel.GetMoveTargetFoldersAsync, dispatcher);
 
-    /// <summary>The same for a caller without a list ViewModel (the reader): <paramref name="execute"/> runs the move.</summary>
+    /// <summary>
+    /// The same for a caller without a list ViewModel (the reader): <paramref name="execute"/> runs the move and
+    /// <paramref name="loadTargets"/> lists the account's folders and the other accounts that can receive the mail.
+    /// </summary>
     public static async Task<MoveFolderPopover?> ShowForAsync(Gtk.Widget? anchor, IReadOnlyList<MailItemViewModel> items,
-        Func<MailOperationPreperationRequest, Task> execute, IFolderService folders, IDispatcher dispatcher)
+        Func<MailOperationPreperationRequest, Task> execute, Func<Guid, Task<List<IMailItemFolder>>> loadTargets, IDispatcher dispatcher)
     {
         if (items.Count == 0) return null;
         var mails = items.Select(static item => item.MailCopy).ToArray();
@@ -97,7 +100,7 @@ internal sealed class MoveFolderPopover : IDisposable
             await execute(new MailOperationPreperationRequest(MailOperation.Move, mails));
             return null;
         }
-        var tree = await folders.GetFolderStructureForDisplayAsync(accountId);
+        var tree = await loadTargets(accountId);
         var sources = items.Select(static item => item.MailCopy.AssignedFolder?.Id).OfType<Guid>().ToHashSet();
         MoveFolderPopover? popover = null;
         await dispatcher.ExecuteOnUIThread(() =>

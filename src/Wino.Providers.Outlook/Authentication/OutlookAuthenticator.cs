@@ -20,11 +20,15 @@ using Wino.Authentication;
 
 namespace Wino.Providers.Outlook.Authentication;
 
-public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, ISubstrateTaskTokenProvider
+public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, ISubstrateTaskTokenProvider, IMailImportTokenProvider
 {
     // Exchange Online, not Graph. MSAL issues one token per resource, so this can never be
     // folded into GetScope and has to be acquired on its own.
     private static readonly string[] SubstrateTaskScopes = ["https://outlook.office.com/Tasks.ReadWrite"];
+
+    // Exchange Online IMAP, for mail moved in from other accounts (ProviderFeature.CrossAccountMoveImport). Another
+    // resource than Graph again, so it is acquired in its own request with the same account and client.
+    private static readonly string[] MailImportScopes = ["https://outlook.office.com/IMAP.AccessAsUser.All", "offline_access"];
     private static readonly HttpClient GraphProfileHttpClient = new();
 
     // Reuse an access token until shortly before it expires.
@@ -215,6 +219,64 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
         await _host.AcquireTokenInteractiveAsync(clientId, SubstrateTaskScopes, storedAccount,
             GetAuthenticationAddress(account), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<string> GetMailImportTokenAsync(MailAccount account, CancellationToken cancellationToken = default)
+    {
+        if (account is null)
+            return null;
+
+        var clientId = ResolveClientId(account);
+        await _host.EnsureTokenCacheAttachedAsync(clientId, cancellationToken).ConfigureAwait(false);
+
+        var client = _host.GetClient(clientId);
+        var cachedAccounts = (await client.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
+        var storedAccount = FindStoredAccount(cachedAccounts, account);
+
+        if (storedAccount is null)
+            return null;
+
+        try
+        {
+            var authResult = await client
+                .AcquireTokenSilent(MailImportScopes, storedAccount)
+                .ExecuteAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            return authResult.AccessToken;
+        }
+        catch (MsalUiRequiredException ex)
+        {
+            Logger.Information("The mail import token needs consent. ErrorCode: {ErrorCode}, Classification: {Classification}",
+                ex.ErrorCode, ex.Classification);
+            return null;
+        }
+    }
+
+    public async Task AuthorizeMailImportAsync(MailAccount account, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+
+        if (!string.IsNullOrEmpty(await GetMailImportTokenAsync(account, cancellationToken).ConfigureAwait(false)))
+            return;
+
+        if (!_host.CanAuthenticateInteractively)
+            throw new AuthenticationAttentionException(account);
+
+        var clientId = ResolveClientId(account);
+        var cachedAccounts = (await _host.GetClient(clientId).GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
+        var storedAccount = FindStoredAccount(cachedAccounts, account);
+
+        try
+        {
+            await _host.AcquireTokenInteractiveAsync(clientId, MailImportScopes, storedAccount,
+                GetAuthenticationAddress(account), cancellationToken).ConfigureAwait(false);
+        }
+        catch (MsalException ex) when (ex.ErrorCode is "authentication_canceled" or "access_denied")
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new AccountSetupCanceledException();
+        }
     }
 
     public async Task DeleteTokenInformationAsync(MailAccount account, CancellationToken cancellationToken = default)

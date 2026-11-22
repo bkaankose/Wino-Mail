@@ -123,6 +123,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly AccountGroupPaneItems _accountGroupItems;
 
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IMailTransferService _mailTransferService;
 
     public MailAppShellViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                              INavigationService navigationService,
@@ -145,9 +146,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IUnreadBadgeService unreadBadgeService,
                              IStatePersistanceService statePersistanceService,
                              IConfigurationService configurationService,
-                             IAccountReauthenticationService accountReauthenticationService) : base(messenger)
+                             IAccountReauthenticationService accountReauthenticationService,
+                             IMailTransferService mailTransferService) : base(messenger)
     {
         _synchronizationManager = synchronizationManager;
+        _mailTransferService = mailTransferService;
         StatePersistenceService = statePersistanceService;
 
         PreferencesService = preferencesService;
@@ -833,6 +836,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             Log.Error(ex, "Failed to navigate to Inbox.");
         }
     }
+
+    public List<MailCopy> GetMailsToMove(IBaseFolderMenuItem targetFolderMenuItem, IEnumerable<MailCopy> items)
+        => MailDropRules.MailsFor(targetFolderMenuItem, items, _mailTransferService.MayReceiveMovedMail);
 
     /// <summary>
     /// Performs move operation for given items to target folder.

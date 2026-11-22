@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services.Interfaces;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.ViewModels;
@@ -206,8 +207,9 @@ internal sealed partial class MailReaderView
     private async Task ShowMoveAsync(Gtk.Widget anchor, MailItemViewModel item)
     {
         var coordinator = _provider.GetRequiredService<WinoRequestCoordinator>();
+        var transfers = _provider.GetRequiredService<IMailTransferService>();
         var popover = await MoveFolderPopover.ShowForAsync(anchor, [item], request => coordinator.ExecuteMailOperationAsync(request),
-            _provider.GetRequiredService<IFolderService>(), Dispatcher);
+            accountId => transfers.GetMoveTargetsAsync(accountId, displayShape: true), Dispatcher);
         if (IsReleased)
         {
             popover?.Dispose();

@@ -35,6 +35,9 @@ public interface IMailShellClient : IShellMenuProvider
     /// </summary>
     Task MarkAccountInboxesAsReadAsync(IAccountMenuItem accountMenuItem);
     Task PerformMoveOperationAsync(IEnumerable<MailCopy> items, IBaseFolderMenuItem targetFolderMenuItem);
+
+    /// <summary>The dragged mails a drop on the folder moves (<see cref="MenuItems.MailDropRules"/>); empty when the drop is refused.</summary>
+    List<MailCopy> GetMailsToMove(IBaseFolderMenuItem targetFolderMenuItem, IEnumerable<MailCopy> items);
     Task CreateRootFolderAsync(IAccountMenuItem accountMenuItem);
     Task CreateNewMailForAsync(MailAccount account);
 

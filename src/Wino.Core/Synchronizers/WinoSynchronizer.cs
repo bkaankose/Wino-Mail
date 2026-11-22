@@ -1094,6 +1094,10 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <param name="cancellationToken">Cancellation token.</param>
     public virtual Task DownloadMissingMimeMessageAsync(MailCopy mailItem, ITransferProgress transferProgress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
+    public virtual bool SupportsMailImport => false;
+
+    public virtual Task<MailImportResult> ImportMailAsync(MailImportPackage package, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
     /// <summary>
     /// Downloads a calendar attachment from the provider.
     /// </summary>

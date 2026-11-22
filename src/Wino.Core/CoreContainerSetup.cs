@@ -83,6 +83,7 @@ public static class CoreContainerSetup
 
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
+        services.AddSingleton<IMailTransferService, MailTransferService>();
         // One executor per app: the platform sets its window host on it (AgentPlanExecutor.Host) when the shell is up.
         services.AddSingleton<Services.Assistant.AgentPlanExecutor>();
         services.AddSingleton<Wino.Agent.Runtime.Ports.IAgentPlanExecutor>(provider => provider.GetRequiredService<Services.Assistant.AgentPlanExecutor>());

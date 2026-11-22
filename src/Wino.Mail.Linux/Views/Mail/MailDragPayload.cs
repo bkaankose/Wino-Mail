@@ -1,5 +1,6 @@
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Mail.ViewModels.MenuItems.Contracts;
+using Wino.Mail.ViewModels.Shell.Contracts;
 
 namespace Wino.Mail.Linux.Views.Mail;
 
@@ -68,20 +69,9 @@ internal static class MailDragPayload
     }
 
     /// <summary>
-    /// Windows <c>CanContinueDragDrop</c>: the folder is a move target, not the selected folder, and at least one dragged
-    /// mail belongs to one of its accounts.
+    /// Windows <c>CanContinueDragDrop</c>: the folder is a move target, not the selected folder, and the shared drop
+    /// rules (<see cref="IMailShellClient.GetMailsToMove"/>) move at least one dragged mail there.
     /// </summary>
-    public static bool CanDropOn(IBaseFolderMenuItem folder, bool isSelectedFolder, IReadOnlyList<MailCopy> mails)
-    {
-        if (mails.Count == 0 || isSelectedFolder || !folder.IsMoveTarget) return false;
-        var accounts = folder.HandlingFolders.Select(static handling => handling.MailAccountId).ToHashSet();
-        return mails.Any(mail => mail.AssignedAccount is { } account && accounts.Contains(account.Id));
-    }
-
-    /// <summary>The dragged mails that belong to the folder's accounts (the ones a drop moves).</summary>
-    public static List<MailCopy> MailsFor(IBaseFolderMenuItem folder, IReadOnlyList<MailCopy> mails)
-    {
-        var accounts = folder.HandlingFolders.Select(static handling => handling.MailAccountId).ToHashSet();
-        return mails.Where(mail => mail.AssignedAccount is { } account && accounts.Contains(account.Id)).ToList();
-    }
+    public static bool CanDropOn(IBaseFolderMenuItem folder, bool isSelectedFolder, IReadOnlyList<MailCopy> mails, IMailShellClient? mail)
+        => mail is not null && mails.Count > 0 && !isSelectedFolder && folder.IsMoveTarget && mail.GetMailsToMove(folder, mails).Count > 0;
 }

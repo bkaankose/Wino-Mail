@@ -430,7 +430,7 @@ internal sealed partial class MailListView
         {
             _movePopover?.Dispose();
             _movePopover = null;
-            var popover = await MoveFolderPopover.ShowForAsync(anchor, [.. ViewModel.SelectedItems], ViewModel, _folders, Dispatcher);
+            var popover = await MoveFolderPopover.ShowForAsync(anchor, [.. ViewModel.SelectedItems], ViewModel, Dispatcher);
             if (IsReleased) popover?.Dispose();
             else _movePopover = popover;
         }

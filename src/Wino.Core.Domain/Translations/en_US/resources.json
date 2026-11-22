@@ -6034,5 +6034,13 @@
   "Linux_Shortcuts_ViewAll": "View all shortcuts",
   "Linux_Shortcuts_ViewAllDescription": "Navigation, window and single-key shortcuts as well as the ones listed here.",
   "Linux_SingleKeyShortcuts_Title": "Single-key shortcuts",
-  "Linux_SingleKeyShortcuts_Description": "Use letters such as J, K, R and E for mail while the message list or the reader has the focus. On by default on tiling desktops."
+  "Linux_SingleKeyShortcuts_Description": "Use letters such as J, K, R and E for mail while the message list or the reader has the focus. On by default on tiling desktops.",
+  "Info_CrossAccountMovePartialFailureTitle": "Some mail was not moved",
+  "Info_CrossAccountMovePartialFailureMessage": "{0} of {1} message(s) could not be moved to {2}. They are still in their original folder.",
+  "Info_CrossAccountMoveSignInRejectedMessage": "{0} did not accept the IMAP sign-in Wino uses to add mail to it. IMAP may be turned off for this mailbox by its administrator. The mail stays in its original folder.",
+  "Info_CrossAccountMoveAuthorizationRequiredMessage": "Wino no longer has permission to add mail to {0}. Move the mail again to grant it. The mail stays in its original folder.",
+  "Info_CrossAccountMoveSourceKeptMessage": "{0} message(s) were copied to {1} but could not be removed from their original folder, so they are in both accounts now.",
+  "Info_CrossAccountMoveNotSupportedMessage": "Mail can't be moved into this account or folder. Drafts can't be moved between accounts, and mail can't be moved into another account's Drafts folder.",
+  "DialogMessage_AuthorizeMailImportTitle": "Allow moving mail into {0}",
+  "DialogMessage_AuthorizeMailImportMessage": "To add mail from your other accounts to {0}, Wino needs one more permission for this Outlook account. You'll sign in to Microsoft once to grant it. If you don't, the mail stays where it is."
 }

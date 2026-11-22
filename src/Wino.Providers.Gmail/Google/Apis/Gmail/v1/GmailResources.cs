@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Wino.Providers.Gmail.Google.Apis.Gmail.v1.Data;
 
 namespace Wino.Providers.Gmail.Google.Apis.Gmail.v1;
@@ -329,6 +331,46 @@ public sealed class UsersResource
             => new(_httpClient, _service, body, userId);
 
         public GetRequest Get(string userId, string id) => new(_httpClient, _service, userId, id);
+
+        /// <summary>
+        /// <c>users.messages.insert</c> through the media upload endpoint: stores the raw RFC 822 message in the mailbox
+        /// with the given labels, like IMAP APPEND, without sending it and without the spam scanning of <c>import</c>.
+        /// </summary>
+        public InsertRequest Insert(Message body, byte[] rawMessage, string userId) => new(_httpClient, _service, body, rawMessage, userId);
+
+        public sealed class InsertRequest : GoogleApiRequest<Message>
+        {
+            private const string UploadBaseUri = "https://gmail.googleapis.com/upload/gmail/v1/users";
+
+            internal InsertRequest(HttpClient httpClient, object service, Message body, byte[] rawMessage, string userId)
+                : base(
+                    httpClient,
+                    service,
+                    HttpMethod.Post,
+                    () => string.Empty,
+                    GoogleApiJsonContext.Default.Message,
+                    () => CreateMultipartContent(body, rawMessage))
+            {
+                RequestUriFactory = () => GoogleUrl.AddQuery(
+                    $"{UploadBaseUri}/{GoogleUrl.Segment(userId)}/messages",
+                    ("uploadType", "multipart"),
+                    ("internalDateSource", InternalDateSource));
+            }
+
+            /// <summary><c>dateHeader</c> keeps the message's own Date as its Gmail date; <c>receivedTime</c> uses now.</summary>
+            public string InternalDateSource { get; set; } = "dateHeader";
+
+            private static HttpContent CreateMultipartContent(Message body, byte[] rawMessage)
+            {
+                var metadata = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(body, GoogleApiJsonContext.Default.Message));
+                metadata.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "UTF-8" };
+
+                var media = new ByteArrayContent(rawMessage);
+                media.Headers.ContentType = new MediaTypeHeaderValue("message/rfc822");
+
+                return new MultipartContent("related") { metadata, media };
+            }
+        }
 
         public ListRequest List(string userId) => new(_httpClient, _service, userId);
 

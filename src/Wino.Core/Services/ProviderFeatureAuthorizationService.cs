@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,9 +19,12 @@ public class ProviderFeatureAuthorizationService(
     IMailProviderRegistry providers) : IProviderFeatureAuthorizationService
 {
     public bool IsSupported(MailAccount account, ProviderFeature feature)
-        => feature == ProviderFeature.MailFilters
-           && account != null
-           && providers.GetTraits(account.ProviderType).SupportsProviderMailFilters;
+        => account != null && feature switch
+        {
+            ProviderFeature.MailFilters => providers.GetTraits(account.ProviderType).SupportsProviderMailFilters,
+            ProviderFeature.CrossAccountMoveImport => providers.GetTraits(account.ProviderType).MailImportRequiresAuthorization,
+            _ => false
+        };
 
     public Task<AccountProviderFeature> GetFeatureAsync(
         Guid accountId,
@@ -39,6 +43,19 @@ public class ProviderFeatureAuthorizationService(
             throw new NotSupportedException("This provider does not support the requested optional feature.");
 
         var existingFeatures = await featureService.GetFeaturesAsync(accountId, cancellationToken).ConfigureAwait(false);
+
+        if (feature == ProviderFeature.CrossAccountMoveImport)
+        {
+            // Its token is for another resource than the account's synchronization token, so it is authorized in a
+            // request of its own and never added to the account's sign-in scopes.
+            if (authenticationProvider.GetAuthenticator(account.ProviderType) is not IMailImportTokenProvider importTokens)
+                throw new NotSupportedException("This provider does not support the requested optional feature.");
+
+            await importTokens.AuthorizeMailImportAsync(account, cancellationToken).ConfigureAwait(false);
+            await UpsertActiveAsync(accountId, feature, existingFeatures, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         var requestedFeatures = existingFeatures
             .Select(item => item.Feature)
             .Append(feature)
@@ -67,9 +84,20 @@ public class ProviderFeatureAuthorizationService(
             await mailFilterService.ReplaceProviderFiltersAsync(accountId, filters, cancellationToken).ConfigureAwait(false);
         }
 
+        await UpsertActiveAsync(accountId, feature, existingFeatures, cancellationToken).ConfigureAwait(false);
+
+        await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+    }
+
+    private Task UpsertActiveAsync(
+        Guid accountId,
+        ProviderFeature feature,
+        IReadOnlyList<AccountProviderFeature> existingFeatures,
+        CancellationToken cancellationToken)
+    {
         var now = DateTime.UtcNow;
         var existing = existingFeatures.FirstOrDefault(item => item.Feature == feature);
-        await featureService.UpsertAsync(new AccountProviderFeature
+        return featureService.UpsertAsync(new AccountProviderFeature
         {
             Id = existing?.Id ?? Guid.NewGuid(),
             MailAccountId = accountId,
@@ -77,9 +105,7 @@ public class ProviderFeatureAuthorizationService(
             AuthorizationState = ProviderFeatureAuthorizationState.Active,
             EnabledAtUtc = existing?.EnabledAtUtc ?? now,
             LastAuthorizedAtUtc = now
-        }, cancellationToken).ConfigureAwait(false);
-
-        await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+        }, cancellationToken);
     }
 
     public Task DisableAsync(

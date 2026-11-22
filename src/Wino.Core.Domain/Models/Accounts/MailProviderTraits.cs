@@ -54,6 +54,9 @@ public sealed record MailProviderTraits
 
     public bool SupportsProviderMailFilters { get; init; }
 
+    /// <summary>Receiving mail moved from another account needs the opt-in <see cref="ProviderFeature.CrossAccountMoveImport"/>.</summary>
+    public bool MailImportRequiresAuthorization { get; init; }
+
     /// <summary>The server removes an event from the calendar once the user declines it.</summary>
     public bool RemovesDeclinedEvents { get; init; }
 

@@ -491,6 +491,33 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization)
         => QueueRequestPackAsync(requestsByAccount, triggerSynchronization, allowUndo: true);
 
+    public async Task<bool> CanImportMailAsync(Guid accountId)
+        => (await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false))?.SupportsMailImport == true;
+
+    public async Task<MailImportResult> ImportMailAsync(Guid accountId, MailImportPackage package, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(package);
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"A synchronizer is not available for account {accountId}.");
+
+        if (!synchronizer.SupportsMailImport)
+            throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, synchronizer.GetType()));
+
+        return await synchronizer.ImportMailAsync(package, cancellationToken).ConfigureAwait(false);
+    }
+
+    public void SuppressNewMailNotification(Guid accountId, string messageId)
+    {
+        var normalized = MailHeaderExtensions.NormalizeMessageId(messageId);
+        if (string.IsNullOrEmpty(normalized))
+            return;
+
+        // Providers store the Message-ID with or without angle brackets.
+        _announcedMessageIds.TryAdd(accountId, normalized);
+        _announcedMessageIds.TryAdd(accountId, MailHeaderExtensions.ToHeaderMessageId(normalized));
+    }
+
     private async Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization, bool allowUndo)
     {
         var normalizedRequestsByAccount = requestsByAccount?

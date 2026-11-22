@@ -62,7 +62,7 @@ internal static class MailFolderPickerDebugActions
                 {
                     var view = MailListView.DebugCurrent ?? throw new InvalidOperationException("No mail list is shown.");
                     _popover?.Dispose();
-                    _popover = await MoveFolderPopover.ShowForAsync(view.List, [.. view.ViewModel.SelectedItems], view.ViewModel, folders, provider.GetRequiredService<IDispatcher>());
+                    _popover = await MoveFolderPopover.ShowForAsync(view.List, [.. view.ViewModel.SelectedItems], view.ViewModel, provider.GetRequiredService<IDispatcher>());
                     Serilog.Log.Information("Debug action: folders popover {Result}", _popover is null ? "shared path" : "shown");
                     return;
                 }
