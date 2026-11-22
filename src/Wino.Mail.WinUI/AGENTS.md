@@ -60,7 +60,7 @@ public abstract class AccountUnreadBadgePageAbstract : SettingsPageBase<AccountU
 - Register services in [CoreUWPContainerSetup.cs](CoreUWPContainerSetup.cs) or `ConfigureServices` in [App.xaml.cs](App.xaml.cs). A class that implements several interfaces is registered once and each interface forwards to it, so there is one instance.
 - Wire `Loaded`, `Unloaded` and input events in XAML. Keep visual composition out of `.xaml.cs`.
 - Use `XamlHelpers` functions where a converter would go, `WinoFontIcon` for every icon, and `{ThemeResource}` for brushes.
-- Format changed XAML before building: `pwsh -File scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
+- Format changed XAML before building. In Claude Code the project hook in `.claude/settings.json` formats every `.xaml` file right after it is written (not `.xaml.cs`); other editors run `pwsh -File scripts/maintenance/windows/format-xaml.ps1 -Changed`. Run it with `-Check` before handoff.
 
 ## Check your change
 

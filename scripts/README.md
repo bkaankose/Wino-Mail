@@ -27,6 +27,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 | Lab | `lab/linux/lab.sh` | Linux | Bash with `curl` and `jq` | Lease and release lab accounts through the control API, in the lease-file shape `lab.ps1` writes |
 | Lab | `lab/windows/exchange-lab.ps1` | Windows | PowerShell 7 | Build and manage the Hyper-V Exchange Server SE lab VM (AD forest, mailboxes, trusted certificate, mail-flow and Autodiscover checks) |
 | Maintenance | `maintenance/windows/format-xaml.ps1` | Windows | PowerShell 7 | Format WinUI XAML or check formatting with the pinned XAML Styler |
+| Maintenance | `maintenance/windows/format-xaml-hook.ps1` | Any (Claude Code hook) | PowerShell 7 | Formats the `.xaml` file a Claude Code edit just wrote; wired in `.claude/settings.json` |
 | Maintenance | `maintenance/windows/audit-xaml-accessibility.ps1` | Windows | PowerShell | Report XAML controls without accessible labels |
 | Maintenance | `maintenance/windows/audit-xaml-icons.ps1` | Windows | PowerShell | Check use of the Wino icon system in WinUI code |
 | Maintenance | `maintenance/windows/build-notification-icons.ps1` | Windows | PowerShell | Render toast button icons with theme, contrast, and scale variants; `-AttributionLogos` adds missing app logo target sizes to the app and the beta artwork |

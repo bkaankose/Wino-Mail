@@ -119,7 +119,7 @@ if (-not (Test-Path -LiteralPath $toolManifestPath)) {
 $toolManifest = Get-Content -LiteralPath $toolManifestPath -Raw | ConvertFrom-Json
 $toolVersion = $toolManifest.tools.'xamlstyler.console'.version
 $nugetPackagesPath = if ([string]::IsNullOrWhiteSpace($env:NUGET_PACKAGES)) {
-    Join-Path $env:USERPROFILE ".nuget\packages"
+    Join-Path ([Environment]::GetFolderPath("UserProfile")) ".nuget/packages"
 }
 else {
     $env:NUGET_PACKAGES

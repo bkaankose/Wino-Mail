@@ -38,7 +38,7 @@ dotnet build WinoMail.MacOS.slnx -c Debug -p:WinoTargetPlatform=MacOS -p:EnableW
 ```
 
 Output is `src/Wino.Mail.MacOS/bin/Debug/net10.0-macos/<RID>/Wino Mail.app`. The bundle's native launcher is `Contents/MacOS/Wino.Mail.MacOS`.
-Debug and Release use CoreCLR (`UseMonoRuntime=false`); the bundle contains `libcoreclr.dylib`. The AppKit head is exempt from the shared Native AOT gate (`build/Wino.MacOS.targets`); portable libraries keep their Release AOT and trimming analyzers.
+Debug runs on CoreCLR (`UseMonoRuntime=false`); the bundle contains `libcoreclr.dylib`. Release is published with Native AOT: `Contents/MacOS/Wino.Mail.MacOS` is the whole app compiled to one native executable. `build/Wino.MacOS.targets` makes any trim or AOT warning fail the publish and roots Ical.Net and the EWS client, as Windows and Linux do. The AppKit libraries stay outside the shared Release analyzer gate; portable libraries keep their Release AOT and trimming analyzers.
 
 ## Identity, signing, and sandbox
 
@@ -73,12 +73,12 @@ Historical identities: experimental builds before 7 October 2026 used `com.winom
 
 ## VS Code F5
 
-1. Open [WinoMail.MacOS.code-workspace](../../WinoMail.MacOS.code-workspace). It selects `WinoMail.MacOS.slnx` and adds the Mac tasks and launch configuration.
+1. Open the repository folder and pick `WinoMail.MacOS.slnx` with **.NET: Open Solution**. `.vscode` holds the tasks and launch configurations for every platform.
 2. Select **Debug Wino Mail (macOS, arm64)** and press **F5**.
 
-**Ctrl+Shift+B** runs **Build Wino Mail (macOS, arm64)**, a plain `dotnet build` that does not need the debugger. **Build Wino Mail (macOS, x64)** builds the Intel bundle.
+**Tasks: Run Build Task** offers **Build Wino Mail (macOS, arm64)**, a plain `dotnet build` that does not need the debugger. **Build Wino Mail (macOS, x64)** builds the Intel bundle.
 F5 runs **Prepare and build Wino Mail (macOS, arm64)**: it first runs [setup-macos-debugger.sh](../../scripts/maintenance/macos/setup-macos-debugger.sh), then the same build.
-The repository folder's own `.vscode` configuration is the Windows workflow. VS Code also loads it in the Mac workspace, so its Windows entries appear there; if **Ctrl+Shift+B** offers both default build tasks, choose the macOS one.
+The default build task (**Ctrl+Shift+B**) is the Windows build; pick the macOS task from the list instead.
 
 The C# debugger launches the bundle's native executable under `Wino Mail.app/Contents/MacOS/Wino.Mail.MacOS`. Both the application environment and `pipeTransport.pipeEnv` set `TMPDIR` to `~/Library/Containers/com.winomail.macos/Data/tmp`. Setting only `launch.env` does not change the debugger's environment. The supported [C# pipe transport](https://github.com/dotnet/vscode-csharp/blob/main/docs/debugger/Attaching-to-remote-processes.md) uses `/bin/zsh -c` to start the prepared debugger on the same machine.
 

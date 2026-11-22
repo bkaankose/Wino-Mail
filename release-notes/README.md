@@ -2,7 +2,7 @@
 
 Each stable Windows release has one notes file, `release-notes/<major.minor.build>.md`. It is the only file the maintainer edits.
 `scripts/release/release.ps1 notes` drafts it, and every public text is rendered from it: the GitHub release, the Microsoft Store "What's new in this version" text, and the short social post.
-The in-app What's New window uses only the **Highlights** section, through the [whatsnew skill](../.claude/skills/whatsnew/SKILL.md).
+The in-app What's New window uses only the **Highlights** section, through the maintainer's `whatsnew` skill.
 
 See the [release guide](../docs/releases.md) for the full flow.
 

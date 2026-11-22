@@ -42,7 +42,7 @@ winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
 The SDK handles restore and compilation. F5 uses one PowerShell helper to skip compilation when inputs and output are unchanged.
 The Windows app is [`src/Wino.Mail.WinUI`](src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj).
 See the [Windows development guide](docs/harness/development-windows.md) for debugger behavior and package troubleshooting.
-On a Mac, open [`WinoMail.MacOS.code-workspace`](WinoMail.MacOS.code-workspace) and follow the [macOS development guide](docs/harness/development-macos.md).
+On a Mac, open the repository folder in VS Code and follow the [macOS development guide](docs/harness/development-macos.md).
 
 ## Testing and maintenance
 

@@ -57,7 +57,7 @@ Keep manual lab verification separate: successful compilation and generated acce
 
 ## VS Code F5
 
-1. Open the repository folder, or [WinoMail.Windows.code-workspace](../../WinoMail.Windows.code-workspace), in VS Code. Both select `WinoMail.slnx`.
+1. Open the repository folder in VS Code. It selects `WinoMail.slnx`.
 2. Select **Debug Wino Mail (packaged, x64)** in Run and Debug.
 3. Press **F5**.
 
@@ -252,7 +252,7 @@ Use manual interaction for UI verification; successful activation alone does not
 
 ## XAML formatting
 
-Format changed XAML with the repository-pinned XAML Styler before building, and run the passive check before handoff:
+Format changed XAML with the repository-pinned XAML Styler before building, and run the passive check before handoff. Claude Code does the formatting itself: the PostToolUse hook in `.claude/settings.json` runs [format-xaml-hook.ps1](../../scripts/maintenance/windows/format-xaml-hook.ps1) on every `.xaml` file an agent writes.
 
 ```powershell
 pwsh -File scripts/maintenance/windows/format-xaml.ps1 -Changed

@@ -171,7 +171,7 @@ Debug commands (`adb shell am start -n com.winomail.android/com.winomail.android
 
 ## VS Code
 
-Open [WinoMail.Android.code-workspace](../../WinoMail.Android.code-workspace). It selects `WinoMail.Android.slnx`. **Ctrl+Shift+B** runs **Build Wino Mail (Android, Debug)**; **Install and run Wino Mail (Android emulator)** deploys and launches on the running emulator; **Build Wino Mail Android solution** builds `WinoMail.Android.slnx`. The workspace has no debugger launch configuration yet.
+Open the repository folder and pick `WinoMail.Android.slnx` with **.NET: Open Solution**. **Tasks: Run Build Task** offers **Build Wino Mail (Android, Debug)**; **Install and run Wino Mail (Android emulator)** deploys and launches on the running emulator; **Build Wino Mail Android solution** builds `WinoMail.Android.slnx`. There is no Android debugger launch configuration yet.
 
 ## Verification
 

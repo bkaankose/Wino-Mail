@@ -5,7 +5,7 @@ Progress of [the plan](wino-assistant-plan.md) on `feature/wino-assistant`.
 ## How the work runs
 
 - One session on the Windows PC writes all code: the contracts and API, the shared client layer, and the Windows and macOS heads.
-- The Mac (`burak-mac`) is only the build machine for the macOS head. It pulls this branch into `~/Desktop/Wino-Mail-assistant` and builds Debug arm64 there (ad hoc signing over SSH). No code is written on the Mac.
+- The Mac is only the build machine for the macOS head. It pulls this branch into `~/Desktop/Wino-Mail-assistant` and builds Debug arm64 there (ad hoc signing over SSH). No code is written on the Mac.
 - iOS and Android follow later, on the same shared layer.
 
 ## Phase 1: Wino Assistant bubble (done on Windows, 8 Nov)
@@ -33,7 +33,7 @@ Goal: the voice bubble becomes Wino Assistant with a text mode (plan section 2) 
 - Preferences: the existing voice shortcut stays; a new text shortcut preference. Each platform registers both through its existing hot-key path and shows both on its settings page.
 - User-facing name "Wino Assistant" in translations; type and namespace renames (`VoiceBubble*` to `AssistantBubble*`) in one mechanical commit across all heads.
 
-### macOS head (written here, built on burak-mac)
+### macOS head (written here, built on the Mac)
 
 - AppKit `Composing` state in the Mac bubble view, the text shortcut and its settings row, "Wino Assistant" naming.
 - Audit of the Mac voice code against plan section 0; logic that belongs in the shared layer moves there.
@@ -78,6 +78,6 @@ Plan section 5. The interactions in the app are still deferred; only a debug ent
 ## Log
 
 - 8 Nov: branch created from `7b3add0d` (macOS voice port merged with the Windows work); plan and this file added. A headless agent briefly started on the Mac was stopped before making changes; all work now runs from the Windows session.
-- 8 Nov: API 45d73e3 deployed (typed requests, assistant 200 and voice 50 allowances, 1-hour prompt cache, planner accuracy fixes). Phase 1 checked in the Windows Debug app on production: typing shortcut opens the bubble focused, typed text uses the transcript style and scrolls past two lines, Enter sends a typed request (assistant allowance only, no transcription), the microphone switch keeps the typed text and returns to typing when nothing is said, cancelled voice attempts are refunded. The macOS head compiles against the new contract (built on burak-mac); further macOS work is paused.
+- 8 Nov: API 45d73e3 deployed (typed requests, assistant 200 and voice 50 allowances, 1-hour prompt cache, planner accuracy fixes). Phase 1 checked in the Windows Debug app on production: typing shortcut opens the bubble focused, typed text uses the transcript style and scrolls past two lines, Enter sends a typed request (assistant allowance only, no transcription), the microphone switch keeps the typed text and returns to typing when nothing is said, cancelled voice attempts are refunded. The macOS head compiles against the new contract (built on the Mac); further macOS work is paused.
 
 - 14 Nov (Mac): the macOS head implements the text mode (`Composing`, `ComposedText`, `InputNotice`, mic switch), both shortcuts and their settings rows, and `IAgentPlanHost`; it builds on the current contract. Not yet run end to end on a profile-signed build. iOS and Android: no assistant for now (owner decision); their Intelligence pages hide assistant content.

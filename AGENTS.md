@@ -5,7 +5,7 @@ Wino Mail is a native mail, calendar, contacts, and To Do client with four appli
 | Platform | Application | Solution | Guide |
 | --- | --- | --- | --- |
 | Windows | `src/Wino.Mail.WinUI` (WinUI 3, MSIX, Native AOT) | `WinoMail.slnx` | [Windows development](docs/harness/development-windows.md) |
-| macOS | `src/Wino.Mail.MacOS` (AppKit, CoreCLR) | `WinoMail.MacOS.slnx` | [macOS development](docs/harness/development-macos.md) |
+| macOS | `src/Wino.Mail.MacOS` (AppKit, CoreCLR in Debug, Native AOT in Release) | `WinoMail.MacOS.slnx` | [macOS development](docs/harness/development-macos.md) |
 | iOS and iPadOS | `src/Wino.Mail.iOS` (UIKit, Mono), UI projects `Wino.Mail.UIKit` and `.Phone` (the shell for iPhone and iPad) | `WinoMail.iOS.slnx` | [iOS development](docs/harness/development-ios.md) |
 | Android | `src/Wino.Mail.Android` (Android Views with XML layouts, AndroidX, Material, Mono) | `WinoMail.Android.slnx` | [Android development](docs/harness/development-android.md) |
 
@@ -64,21 +64,20 @@ Each platform has a project file in the guidance map and a development guide. Re
 - Report the result, verification evidence, and remaining limits. A build alone does not prove runtime behavior.
 - Run checks on the available host. Report the other platform's exact pending checks as a handoff; do not claim cross-platform completion without that evidence.
 - Any machine may change any code, including a head it cannot build. Verify everything the machine allows, follow that project's `AGENTS.md` for the rest, and report its build and UI check as pending.
-- Development runs on two machines that stay in sync through the remote. The Windows PC develops the Windows application and coordinates all work; the Mac (`burak-mac`) develops the macOS, iOS and Android applications, through a headless Claude Code that the Windows coordinator starts. Shared code can change on either machine.
-- Commit finished, verified work and push it to the working branch so the other machine can pull it, and pull before you start. When a pull on the Mac conflicts, the Mac resolves the conflict, commits the resolution as its own commit and pushes; the Windows PC then pulls it back. Never force-push a shared branch, and push to `main` only when `main` is the working branch.
+- Contributors work on a branch and open a pull request. Never force-push a shared branch. The maintainer's machine setup and sync rules come from the `wino-maintainer` Claude plugin, not from this repository.
 
 ## Commits and release notes
 
 The maintainer commits straight to `main`, and release notes are drafted from those commits (`scripts/release/release.ps1 notes`). Every commit you make must carry what the notes need:
 
 - Write the subject as the user-visible change ("Show an info bar when creating a draft fails"), not the implementation. Internal work says so plainly ("Build: …", "Docs: …").
-- Add one `Refs: #N` trailer per GitHub issue the commit addresses, and run `scripts/release/release.ps1 mark N` for each, which adds the `pending release` label.
+- Add one `Refs: #N` trailer per GitHub issue the commit addresses. The maintainer also runs `scripts/release/release.ps1 mark N` for each, which adds the `pending release` label; it needs write access to the repository.
 - When the user describes a bug without an issue number, search `gh issue list --search "<keywords>" --state all` and ask the user to confirm the matches before adding them.
 - Add `Highlight: yes` only when the user calls the change a headline feature.
 - Never use closing keywords (`Fixes #N`, `Closes #N`). Issues close when the release is published, not when the fix reaches `main`.
 - Commit one issue per commit, also during bug bashes, so each fix becomes its own release-notes entry.
 - Name every worktree branch after the issue it works on, so the branch shows which `Refs: #N` its commits will carry: `<type>/<N>-<short-slug>` with `fix` or `feature` as the type, for example `fix/1073-sync-range-backfill`. Work on several issues lists each number (`fix/1186-1199-context-menu`). Work without an issue first goes through the issue search above; only work that confirmedly has none gets a plain descriptive name (`build/…`, `docs/…`, `feature/…`).
-- For user-visible work in another repository (API, relay, website), run `scripts/release/release.ps1 add "<user-facing text>"` when the user asks for it in the notes.
+- Maintainer only: for user-visible work in another repository (API, relay, website), run `scripts/release/release.ps1 add "<user-facing text>"` when the user asks for it in the notes.
 
 ## Shared coding rules
 
@@ -90,7 +89,7 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
 - The database changes only after the server confirms a change. The UI change is applied in memory and reverted on failure, through the request pipeline in [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md). Add no offline queue and no retry queue.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
-- Shared Release builds keep their Native AOT, trimming, and warnings-as-errors gates. Only projects that target `-macos`, `-ios`, or `-android` (the AppKit, UIKit, and Android projects and the Apple shared layer) are exempt from the AOT gate.
+- Shared Release builds keep their Native AOT, trimming, and warnings-as-errors gates. Only projects that target `-macos`, `-ios`, or `-android` (the AppKit, UIKit, and Android projects and the Apple shared layer) are exempt from the AOT analyzer gate. The macOS app itself is still published with Native AOT in Release.
 - `WinoTargetPlatform` (`Windows`, `MacOS`, `iOS`, `Android`, or `Linux`) and `WinoTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. The host never selects `iOS`, `Android` or `Linux`; the iOS and Android builds pass it explicitly, and the Linux projects set it in their project files. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
 
 ## Running backend code without an app
@@ -139,8 +138,7 @@ Read only references that apply to the task:
 | Push relay, live notifications, sync method, or relay privacy acceptance | [push relay design](docs/push-relay-design.md) |
 | Linux port status, skipped features, open handoffs and packages | [Linux port plan](docs/linux-port-plan.md) |
 | Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md); Linux in the [Linux release guide](docs/releases-linux.md) |
-| Release notes, GitHub releases, or marking issues for a release | [release skill](.claude/skills/release/SKILL.md) and [release notes format](release-notes/README.md) |
-| What's New notes and illustrations | [whatsnew skill](.claude/skills/whatsnew/SKILL.md) |
+| Release notes, GitHub releases, or marking issues for a release (maintainer only) | [release guide](docs/releases.md) and [release notes format](release-notes/README.md); the maintainer's personal `release` and `whatsnew` skills live outside the repository |
 | Lab accounts, endpoints, or the lab password | [mail lab](tools/lab/README.md) |
 | Scripts | [script index](scripts/README.md) |
 

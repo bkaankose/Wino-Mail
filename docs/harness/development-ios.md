@@ -150,7 +150,7 @@ The Windows host has no iOS toolchain; iOS builds run on the Mac. When the Mac b
 
 ## VS Code
 
-Open [WinoMail.iOS.code-workspace](../../WinoMail.iOS.code-workspace) on the Mac. It selects `WinoMail.iOS.slnx`. **Ctrl+Shift+B** runs **Build Wino Mail (iOS Simulator, arm64)**; **Build Wino Mail iOS solution** builds `WinoMail.iOS.slnx`. The workspace has no launch configuration yet: install and launch with the Simulator commands above.
+Open the repository folder on the Mac and pick `WinoMail.iOS.slnx` with **.NET: Open Solution**. **Tasks: Run Build Task** offers **Build Wino Mail (iOS Simulator, arm64)**; **Build Wino Mail iOS solution** builds `WinoMail.iOS.slnx`. There is no iOS launch configuration yet: install and launch with the Simulator commands above.
 
 ## Verification
 
