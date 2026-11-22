@@ -48,6 +48,7 @@ public partial class AccountMailSettingsPageViewModel : AccountAppPageViewModelB
         INotificationBuilder notificationBuilder,
         ISynchronizationManager synchronizationManager,
         IMailProviderRegistry providers,
+        IMailSynchronizationRangeService rangeService,
         IWinoAccountIntelligenceSnapshotService? entitlementService = null)
         : base(messenger, WinoApplicationMode.Mail, accountService, dialogService, capabilityService, appChanges)
     {
@@ -57,7 +58,10 @@ public partial class AccountMailSettingsPageViewModel : AccountAppPageViewModelB
         _providers = providers;
         _entitlementService = entitlementService;
         CanAccessWinoIntelligence = entitlementService?.CurrentEntitlement.CanAccessSurfaces == true;
+        SyncRange = new MailSynchronizationRangeSettingViewModel(messenger, rangeService, ExecuteUIThread);
     }
+
+    public MailSynchronizationRangeSettingViewModel SyncRange { get; }
 
     public ObservableCollection<IMailItemFolder> CurrentFolders { get; } = [];
 
@@ -114,7 +118,8 @@ public partial class AccountMailSettingsPageViewModel : AccountAppPageViewModelB
     public string Address => Account?.Address ?? string.Empty;
 
     public bool IsInitialSynchronizationSummaryVisible => Account?.CreatedAt.HasValue == true &&
-                                                          Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything;
+                                                          Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything &&
+                                                          _providers.GetTraits(Account.ProviderType).AppliesMailSynchronizationRange;
 
     public string InitialSynchronizationSummary => Account?.CreatedAt is not DateTime createdAtUtc
         ? string.Empty
@@ -128,6 +133,7 @@ public partial class AccountMailSettingsPageViewModel : AccountAppPageViewModelB
     {
         base.RegisterRecipients();
         Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
+        SyncRange.RegisterRecipients();
 
         if (_entitlementService is not null)
             _ = RefreshEntitlementAsync();
@@ -136,6 +142,7 @@ public partial class AccountMailSettingsPageViewModel : AccountAppPageViewModelB
     protected override void UnregisterRecipients()
     {
         Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
+        SyncRange.UnregisterRecipients();
         base.UnregisterRecipients();
     }
 
@@ -169,6 +176,7 @@ public partial class AccountMailSettingsPageViewModel : AccountAppPageViewModelB
         OnPropertyChanged(nameof(Address));
         OnPropertyChanged(nameof(IsInitialSynchronizationSummaryVisible));
         OnPropertyChanged(nameof(InitialSynchronizationSummary));
+        _ = SyncRange.LoadAsync(account);
     }
 
     protected override async Task LoadContentAsync(MailAccount account)

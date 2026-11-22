@@ -431,6 +431,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 return FinalizeMailResult(MailSynchronizationResult.Canceled);
             }
 
+            if (options.RangeBackfillTarget.HasValue && !_providerTraits.SupportsMailSynchronizationRangeChange)
+                return FinalizeMailResult(MailSynchronizationResult.Failed(new NotSupportedException("The mail synchronization range of this account cannot be changed.")));
+
             requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             if (!PendingSynchronizationRequest.TryAdd(options, requestCancellation))
                 return FinalizeMailResult(MailSynchronizationResult.Canceled);
@@ -715,7 +718,18 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             PublishUnreadItemChanges();
             OnMailSynchronizationCompleted(synchronizationResult);
 
-            return FinalizeMailResult(synchronizationResult);
+            var finalResult = FinalizeMailResult(synchronizationResult);
+
+            if (options.RangeBackfillTarget is { } backfillTarget)
+            {
+                // Set while the semaphore is held, so the next pass (Gmail's archive mapping) already uses the wider range.
+                if (finalResult.CompletedState == SynchronizationCompletedState.Success)
+                    Account.InitialSynchronizationRange = backfillTarget;
+
+                finalResult.DownloadedMessages = Array.Empty<MailCopy>();
+            }
+
+            return finalResult;
         }
         catch (OperationCanceledException)
         {

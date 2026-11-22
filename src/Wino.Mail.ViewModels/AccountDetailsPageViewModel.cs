@@ -28,6 +28,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Core.Domain.Messaging.Client.Navigation;
 using Wino.Core.Domain.Messaging.Server;
 using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.AccountSettings;
 using Wino.Mail.ViewModels.Calendar;
 using Wino.Mail.ViewModels.Common.Data;
 using Wino.Services.Interfaces;
@@ -221,7 +222,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             ? $"Assets/Providers/{Account?.SpecialImapProvider}.png"
             : $"Assets/Providers/{Account?.ProviderType}.png").ToString();
     public string Address => Account?.Address ?? string.Empty;
-    public bool IsInitialSynchronizationSummaryVisible => Account?.CreatedAt.HasValue == true && Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything;
+    public bool IsInitialSynchronizationSummaryVisible => Account?.CreatedAt.HasValue == true
+                                                          && Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything
+                                                          && _providers.GetTraits(Account.ProviderType).AppliesMailSynchronizationRange;
+
+    public MailSynchronizationRangeSettingViewModel SyncRange { get; }
     public string InitialSynchronizationSummary => Account?.CreatedAt is not DateTime createdAtUtc
         ? string.Empty
         : Account.InitialSynchronizationRange.ToCutoffDateUtc(createdAtUtc) is not DateTime cutoffDateUtc
@@ -273,6 +278,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IAccountCapabilityService accountCapabilityService,
         ISynchronizationManager synchronizationManager,
         IMailProviderRegistry providers,
+        IMailSynchronizationRangeService rangeService,
         IWinoAccountIntelligenceSnapshotService? entitlementService = null,
         IExchangeConnectionTester? exchangeConnectionTester = null,
         IAccountReauthenticationService? reauthenticationService = null,
@@ -300,6 +306,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _exchangeConnectionTester = exchangeConnectionTester;
         _reauthenticationService = reauthenticationService;
         CanAccessWinoIntelligence = entitlementService?.CurrentEntitlement.CanAccessSurfaces == true;
+        SyncRange = new MailSynchronizationRangeSettingViewModel(messenger, rangeService, ExecuteUIThread);
 
         var colorHexList = _themeService.GetAvailableAccountColors();
         AvailableColors = colorHexList.Select(a => new AppColorViewModel(a)).ToList();
@@ -356,6 +363,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     {
         base.RegisterRecipients();
         Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
+        SyncRange.RegisterRecipients();
         if (_entitlementService is not null)
             _ = RefreshEntitlementAsync();
     }
@@ -363,6 +371,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     protected override void UnregisterRecipients()
     {
         Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
+        SyncRange.UnregisterRecipients();
         base.UnregisterRecipients();
     }
 
@@ -1133,6 +1142,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         OnPropertyChanged(nameof(Address));
         OnPropertyChanged(nameof(IsInitialSynchronizationSummaryVisible));
         OnPropertyChanged(nameof(InitialSynchronizationSummary));
+        _ = SyncRange.LoadAsync(value);
         OnPropertyChanged(nameof(IsImapServer));
         OnPropertyChanged(nameof(HasMailAccess));
         OnPropertyChanged(nameof(HasCalendarAccess));

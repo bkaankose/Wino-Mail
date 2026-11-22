@@ -48,6 +48,8 @@ public sealed class ImapProviderModule(
         SupportsDavIntegration = true,
         ArchiveRequiresArchiveFolder = true,
         MovesJunkAsFolderMove = true,
+        AppliesMailSynchronizationRange = true,
+        SupportsMailSynchronizationRangeChange = true,
         LiveCoverage = LiveCoverageKind.ImapIdle
     };
 
@@ -96,7 +98,8 @@ public sealed class Pop3ProviderModule(
     {
         ManagesProviderContactCollections = true,
         ManagesProviderTaskSteps = true,
-        ArchiveRequiresArchiveFolder = true
+        ArchiveRequiresArchiveFolder = true,
+        AppliesMailSynchronizationRange = true
     };
 
     public IAuthenticator CreateAuthenticator() => null;

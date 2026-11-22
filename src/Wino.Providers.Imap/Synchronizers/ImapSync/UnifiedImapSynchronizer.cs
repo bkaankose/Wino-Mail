@@ -333,6 +333,8 @@ public class UnifiedImapSynchronizer
 
     /// <summary>
     /// Main synchronization entry point. Automatically selects the best strategy.
+    /// A <paramref name="rangeOverride"/> runs the repair pass with that wider range, which downloads only the UIDs
+    /// the folder does not store yet.
     /// </summary>
     public async Task<FolderSyncResult> SynchronizeFolderAsync(
         IImapClient client,
@@ -340,7 +342,8 @@ public class UnifiedImapSynchronizer
         IImapSynchronizer synchronizer,
         string serverHost,
         CancellationToken cancellationToken = default,
-        bool suppressMatchingLocalFilters = false)
+        bool suppressMatchingLocalFilters = false,
+        InitialSynchronizationRange? rangeOverride = null)
     {
         var strategy = DetermineSyncStrategy(client, serverHost);
         _logger.Verbose("Using {Strategy} sync strategy for folder {FolderName}", strategy, folder.FolderName);
@@ -354,7 +357,7 @@ public class UnifiedImapSynchronizer
         {
             var changes = new MailboxChanges();
             await SynchronizeMailboxAsync(
-                client, folder, synchronizer, strategy, changes, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false);
+                client, folder, synchronizer, strategy, changes, cancellationToken, suppressMatchingLocalFilters, rangeOverride).ConfigureAwait(false);
 
             bool highestModeSeqChanged = folder.HighestModeSeq != originalHighestModeSeq;
             bool requiresFullFolderUpdate =
@@ -530,7 +533,8 @@ public class UnifiedImapSynchronizer
         ImapSyncStrategy strategy,
         MailboxChanges changes,
         CancellationToken cancellationToken,
-        bool suppressMatchingLocalFilters)
+        bool suppressMatchingLocalFilters,
+        InitialSynchronizationRange? rangeOverride)
     {
         var localMails = await _mailService.GetImapSynchronizationMailsAsync(folder.Id).ConfigureAwait(false) ?? [];
         var known = CreateExistingMailLookup(localMails.Where(mail => !mail.IsLocalDraft));
@@ -614,12 +618,12 @@ public class UnifiedImapSynchronizer
             }
 
             var initial = folder.HighestKnownUid == 0;
-            var repair = initial || !_repairedFolders.ContainsKey(folder.Id) || ShouldRunUidReconcile(folder);
+            var repair = rangeOverride.HasValue || initial || !_repairedFolders.ContainsKey(folder.Id) || ShouldRunUidReconcile(folder);
             IList<UniqueId> discovered = new List<UniqueId>();
             if (repair)
             {
                 // Also repairs rows missing below an old checkpoint, including legacy deduplication losses.
-                discovered = await remote.SearchAsync(BuildInitialSyncQuery(synchronizer).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
+                discovered = await remote.SearchAsync(BuildInitialSyncQuery(synchronizer, rangeOverride).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
                 var flaggedDeleted = await remote.SearchAsync(SearchQuery.Deleted, cancellationToken).ConfigureAwait(false);
                 lock (deletedFlagUids)
                 {
@@ -739,7 +743,7 @@ public class UnifiedImapSynchronizer
             lock (deletedFlagUids)
                 deletedFlagUidsBefore.UnionWith(deletedFlagUids);
             var restored = await RestoreUndeletedMessagesAsync(client, remote, folder, synchronizer, unknownUndeletedUids,
-                deletedFlagUidsBefore, discovered, changes, cancellationToken).ConfigureAwait(false);
+                deletedFlagUidsBefore, discovered, changes, rangeOverride, cancellationToken).ConfigureAwait(false);
             lock (deletedFlagUids)
                 deletedFlagUids.ExceptWith(unknownUndeletedUids.Concat(restored));
 
@@ -767,7 +771,7 @@ public class UnifiedImapSynchronizer
             remote.MessageFlagsChanged -= OnFlags;
 
             await SynchronizeMailboxAsync(client, folder, synchronizer, ImapSyncStrategy.Condstore,
-                changes, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false);
+                changes, cancellationToken, suppressMatchingLocalFilters, rangeOverride).ConfigureAwait(false);
         }
         finally
         {
@@ -790,12 +794,11 @@ public class UnifiedImapSynchronizer
 
     #region Shared Helpers
 
-    private static SearchQuery BuildInitialSyncQuery(IImapSynchronizer synchronizer)
+    private static SearchQuery BuildInitialSyncQuery(IImapSynchronizer synchronizer, InitialSynchronizationRange? rangeOverride)
     {
         if (synchronizer is IBaseSynchronizer { Account: { } account })
         {
-            var referenceDateUtc = account.CreatedAt ?? DateTime.UtcNow;
-            var cutoffDateUtc = account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
+            var cutoffDateUtc = account.GetMailSynchronizationCutoffUtc(rangeOverride ?? account.InitialSynchronizationRange);
 
             if (cutoffDateUtc.HasValue)
             {
@@ -1124,6 +1127,7 @@ public class UnifiedImapSynchronizer
         ISet<uint> deletedFlagUids,
         IList<UniqueId> discovered,
         MailboxChanges changes,
+        InitialSynchronizationRange? rangeOverride,
         CancellationToken cancellationToken)
     {
         var alreadyDiscovered = discovered.Select(uid => uid.Id).ToHashSet();
@@ -1135,7 +1139,7 @@ public class UnifiedImapSynchronizer
             return [];
 
         var present = await remote.SearchAsync(SearchQuery.Uids(new UniqueIdSet(candidates, SortOrder.Ascending))
-            .And(BuildInitialSyncQuery(synchronizer)).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
+            .And(BuildInitialSyncQuery(synchronizer, rangeOverride)).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
         if (present.Count == 0)
             return [];
 

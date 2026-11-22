@@ -1127,7 +1127,8 @@ IImapChangeProcessor imapChangeProcessor,
                 // queue; extra workers only join when a spare connection already exists in the pool.
                 // Only an initial sync with long FETCH streams justifies opening more sockets.
                 // Folders synchronized before this stamp existed have no date but do carry a UID checkpoint.
-                var isInitialSync = synchronizationFolders.Any(folder =>
+                var backfillRange = options.RangeBackfillTarget;
+                var isInitialSync = backfillRange.HasValue || synchronizationFolders.Any(folder =>
                     !folder.LastSynchronizedDate.HasValue && folder.HighestKnownUid == 0);
                 var workerCount = Math.Min(maxParallelFolderSyncClients, Math.Max(1, totalFolders));
 
@@ -1170,7 +1171,7 @@ IImapChangeProcessor imapChangeProcessor,
                 {
                     try
                     {
-                        var wasPreviouslySynchronized = folder.LastSynchronizedDate.HasValue;
+                        var runsMailFilters = folder.LastSynchronizedDate.HasValue && !backfillRange.HasValue;
                         var folderResult = await _unifiedSynchronizer
                             .SynchronizeFolderAsync(
                                 client,
@@ -1178,7 +1179,8 @@ IImapChangeProcessor imapChangeProcessor,
                                 this,
                                 Account.ServerInformation?.IncomingServer,
                                 linkedToken,
-                                suppressMatchingLocalFilters: wasPreviouslySynchronized)
+                                suppressMatchingLocalFilters: runsMailFilters,
+                                rangeOverride: backfillRange)
                             .ConfigureAwait(false);
 
                         List<string> folderDownloadedIds = null;
@@ -1194,7 +1196,7 @@ IImapChangeProcessor imapChangeProcessor,
                             if (folderDownloadedIds != null && folderDownloadedIds.Count > 0)
                             {
                                 downloadedMessageIds.AddRange(folderDownloadedIds);
-                                if (wasPreviouslySynchronized)
+                                if (runsMailFilters)
                                     filterCandidateIds.AddRange(folderDownloadedIds);
                             }
                         }

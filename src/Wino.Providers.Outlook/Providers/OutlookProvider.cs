@@ -55,6 +55,8 @@ public sealed class OutlookProviderModule(
         SupportsFocusedInbox = true,
         SupportsProviderMailFilters = true,
         RemovesDeclinedEvents = true,
+        AppliesMailSynchronizationRange = true,
+        SupportsMailSynchronizationRangeChange = true,
         LiveCoverage = LiveCoverageKind.RelayMailbox
     };
 

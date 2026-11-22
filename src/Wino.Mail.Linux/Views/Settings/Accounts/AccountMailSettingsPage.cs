@@ -39,6 +39,18 @@ internal sealed class AccountMailSettingsPage(AccountMailSettingsPageViewModel v
         });
         initialSync.Closed += (_, _) => initialGroup.Root.SetVisible(false);
 
+        var syncRange = vm.SyncRange;
+        var rangeRow = Settings.Choice(syncRange, Translator.AccountMail_SyncRange_Title, Translator.AccountMail_SyncRange_Description, WinoIconGlyph.ArrowDownload,
+            static s => s.Ranges, static option => option.DisplayText,
+            nameof(syncRange.SelectedRange), static s => s.SelectedRange, static (s, v) => s.SelectedRange = v,
+            itemsCollection: syncRange.Ranges);
+        Settings.Subtitle(rangeRow, syncRange, nameof(syncRange.StatusText),
+            static s => s.IsStatusVisible ? s.StatusText : Translator.AccountMail_SyncRange_Description);
+        Settings.Enabled(rangeRow, syncRange, nameof(syncRange.IsEnabled), static s => s.IsEnabled);
+        WinoSettingsRows.Suffix(rangeRow, Settings.Button(Translator.AccountMail_SyncRange_Apply, syncRange.ApplyCommand, suggested: true));
+        var rangeGroup = Page.AddGroup(null, null, rangeRow);
+        Settings.Visible(rangeGroup.Root, syncRange, nameof(syncRange.IsVisible), static s => s.IsVisible);
+
         var providerManaged = new WinoInfoBar(WinoInfoBarSeverity.Informational, null, Translator.AccountDetailsPage_SenderNameProviderManagedNote) { IsClosable = false };
         Settings.Own(providerManaged);
         var providerGroup = NonRowGroup(providerManaged.Root);

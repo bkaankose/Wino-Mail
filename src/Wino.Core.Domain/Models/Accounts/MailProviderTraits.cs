@@ -63,6 +63,15 @@ public sealed record MailProviderTraits
     /// <summary>Automatic To Do and contact synchronization from the provider runs inside the quota window.</summary>
     public bool UsesQuotaWindowForTasksAndContacts { get; init; }
 
+    /// <summary>The account's mail synchronization range limits what its first synchronization downloads.</summary>
+    public bool AppliesMailSynchronizationRange { get; init; }
+
+    /// <summary>The mail synchronization range can be widened after the first synchronization.</summary>
+    public bool SupportsMailSynchronizationRangeChange { get; init; }
+
+    /// <summary>Mail changes are tracked for the whole mailbox (the account's delta identifier), not per folder.</summary>
+    public bool TracksMailChangesPerAccount { get; init; }
+
     /// <summary>What delivers live mail updates on desktop.</summary>
     public LiveCoverageKind LiveCoverage { get; init; }
 }

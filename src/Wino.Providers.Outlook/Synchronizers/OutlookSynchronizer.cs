@@ -115,6 +115,8 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     private const string DRAFTS_NAME = "drafts";
     private const string ARCHIVE_NAME = "archive";
 
+    private const int BackfillStateUpdateBatchSize = 100;
+
     private readonly string[] outlookMessageSelectParameters =
     [
         "InferenceClassification",
@@ -1787,9 +1789,9 @@ IAuthenticator authenticator,
 
                     try
                     {
-                        var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
+                        var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, options.RangeBackfillTarget, cancellationToken).ConfigureAwait(false);
                         downloadedMessageIds.AddRange(folderDownloadedMessageIds);
-                        if (isIncrementalSync)
+                        if (isIncrementalSync && !options.RangeBackfillTarget.HasValue)
                             filterCandidateIds.AddRange(folderDownloadedMessageIds);
 
                         folderResults.Add(FolderSyncResult.Successful(folder.Id, folder.FolderName, folderDownloadedMessageIds.Count()));
@@ -1974,7 +1976,7 @@ IAuthenticator authenticator,
         existingMessageIds?.Add(messageId);
     }
 
-    private async Task<IEnumerable<string>> SynchronizeFolderAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
+    private async Task<IEnumerable<string>> SynchronizeFolderAsync(MailItemFolder folder, InitialSynchronizationRange? backfillRange, CancellationToken cancellationToken = default)
     {
         var downloadedMessageIds = new List<string>();
 
@@ -1982,13 +1984,18 @@ IAuthenticator authenticator,
 
         _logger.Debug("Synchronizing {FolderName} using delta API", folder.FolderName);
 
-        // Check if we have a delta token
-        if (string.IsNullOrEmpty(folder.DeltaToken))
+        if (backfillRange is { } range)
+        {
+            // Catch up with the stored link first; the wider pass replaces it only after the whole folder completed.
+            await ProcessDeltaChangesAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
+            await DownloadMailsForInitialSyncAsync(folder, downloadedMessageIds, range, isBackfill: true, cancellationToken).ConfigureAwait(false);
+        }
+        else if (string.IsNullOrEmpty(folder.DeltaToken))
         {
             _logger.Debug("No delta token for folder {FolderName}. Starting initial sync.", folder.FolderName);
 
             // Download mails for initial sync using the account's configured cutoff date.
-            await DownloadMailsForInitialSyncAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
+            await DownloadMailsForInitialSyncAsync(folder, downloadedMessageIds, Account.InitialSynchronizationRange, isBackfill: false, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -2009,17 +2016,19 @@ IAuthenticator authenticator,
     }
 
     /// <summary>
-    /// Downloads mails for initial synchronization using Delta API with the account's configured cutoff date.
+    /// Downloads mails for initial synchronization using Delta API with the range's cutoff date.
     /// Downloads metadata only (no MIME content) for messages received after that date.
+    /// A backfill only refreshes the read and flag state of messages already stored, and keeps the folder's delta
+    /// link when it fails.
     /// </summary>
-    private async Task DownloadMailsForInitialSyncAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken)
+    private async Task DownloadMailsForInitialSyncAsync(MailItemFolder folder, List<string> downloadedMessageIds, InitialSynchronizationRange range,
+        bool isBackfill, CancellationToken cancellationToken)
     {
         _logger.Debug("Starting initial mail download for folder {FolderName}", folder.FolderName);
 
         try
         {
-            var referenceDateUtc = Account.CreatedAt ?? DateTime.UtcNow;
-            var initialSynchronizationCutoffDateUtc = Account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
+            var initialSynchronizationCutoffDateUtc = Account.GetMailSynchronizationCutoffUtc(range);
             var filterDate = initialSynchronizationCutoffDateUtc.HasValue
                 ? FormatGraphUtcDateTimeOffset(initialSynchronizationCutoffDateUtc.Value)
                 : null;
@@ -2055,6 +2064,8 @@ IAuthenticator authenticator,
             var totalProcessed = 0;
             var existingMails = await _outlookChangeProcessor.GetMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
             var remoteIds = new HashSet<string>(StringComparer.Ordinal);
+            var storedIds = isBackfill ? new HashSet<string>(existingMails.Select(mail => mail.Id), StringComparer.Ordinal) : null;
+            var pendingStateUpdates = new List<MailCopyStateUpdate>();
 
             // Use PageIterator to process all messages
             var messageIterator = PageIterator<Message, DeltaGetResponse>.CreatePageIterator(_graphClient, messageCollectionPage, async (message) =>
@@ -2066,6 +2077,20 @@ IAuthenticator authenticator,
                     {
                         remoteIds.Remove(message.Id);
                         await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, message.Id, folder.RemoteFolderId).ConfigureAwait(false);
+                    }
+                    else if (storedIds?.Contains(message.Id) == true)
+                    {
+                        remoteIds.Add(message.Id);
+                        pendingStateUpdates.Add(new MailCopyStateUpdate(
+                            message.Id,
+                            message.IsRead,
+                            message.Flag?.FlagStatus is { } flagStatus ? flagStatus == FollowupFlagStatus.Flagged : null));
+
+                        if (pendingStateUpdates.Count >= BackfillStateUpdateBatchSize)
+                        {
+                            await _outlookChangeProcessor.ApplyMailStateUpdatesAsync(pendingStateUpdates).ConfigureAwait(false);
+                            pendingStateUpdates.Clear();
+                        }
                     }
                     else if (!IsNotRealMessageType(message))
                     {
@@ -2157,6 +2182,9 @@ IAuthenticator authenticator,
 
             await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
 
+            if (pendingStateUpdates.Count > 0)
+                await _outlookChangeProcessor.ApplyMailStateUpdatesAsync(pendingStateUpdates).ConfigureAwait(false);
+
             await ReconcileFolderMembershipAsync(folder, existingMails, remoteIds, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -2177,6 +2205,12 @@ IAuthenticator authenticator,
             }
 
             _logger.Information("Initial sync completed for folder {FolderName}. Downloaded {Count} messages", folder.FolderName, totalProcessed);
+        }
+        catch (ApiException apiException) when (isBackfill)
+        {
+            // The error handler would clear the folder's delta link, which the catch-up just advanced and which stays valid.
+            _logger.Error(apiException, "API error while downloading older mail for folder {FolderName}. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
+            throw;
         }
         catch (ApiException apiException)
         {
@@ -2751,7 +2785,7 @@ IAuthenticator authenticator,
             if (handled && apiException.ResponseStatusCode == 410)
             {
                 folder.DeltaToken = string.Empty;
-                await DownloadMailsForInitialSyncAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
+                await DownloadMailsForInitialSyncAsync(folder, downloadedMessageIds, Account.InitialSynchronizationRange, isBackfill: false, cancellationToken).ConfigureAwait(false);
                 return;
             }
 

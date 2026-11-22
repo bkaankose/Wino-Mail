@@ -92,6 +92,7 @@ public static class CoreContainerSetup
         services.AddTransient<IMigrationAccountAuthorizationService, MigrationAccountAuthorizationService>();
         services.AddTransient<IAccountReauthenticationService, AccountReauthenticationService>();
         services.AddTransient<IAccountCapabilityService, AccountCapabilityService>();
+        services.AddSingleton<IMailSynchronizationRangeService, MailSynchronizationRangeService>();
         services.AddSingleton<IAppModeReadinessService, AppModeReadinessService>();
         services.AddTransient<IDraftSaveService, DraftSaveService>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();

@@ -111,6 +111,17 @@ public class AccountService : BaseDatabaseService, IAccountService
         return syncIdentifier;
     }
 
+    public async Task UpdateInitialSynchronizationRangeAsync(Guid accountId, InitialSynchronizationRange range)
+    {
+        await Connection.ExecuteAsync(
+            $"UPDATE {nameof(MailAccount)} SET {nameof(MailAccount.InitialSynchronizationRange)} = ? WHERE {nameof(MailAccount.Id)} = ?",
+            (int)range, accountId).ConfigureAwait(false);
+
+        var account = await GetAccountAsync(accountId).ConfigureAwait(false);
+        if (account != null)
+            ReportUIChange(new AccountUpdatedMessage(account));
+    }
+
     public async Task UnlinkMergedInboxAsync(Guid mergedInboxId)
     {
         var mergedInbox = await Connection.Table<MergedInbox>().FirstOrDefaultAsync(a => a.Id == mergedInboxId).ConfigureAwait(false);

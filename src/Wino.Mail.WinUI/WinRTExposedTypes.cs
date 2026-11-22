@@ -68,6 +68,8 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountAppItemViewModel>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AccountAppSourceOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountAppSourceOption>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(Wino.Core.Domain.Models.Accounts.InitialSynchronizationRangeOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<Wino.Core.Domain.Models.Accounts.InitialSynchronizationRangeOption>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AccountCollectionItem))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountCollectionItem>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AccountCalendarSettingsItemViewModel))]

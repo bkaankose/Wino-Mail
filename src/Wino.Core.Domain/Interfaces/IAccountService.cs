@@ -265,6 +265,11 @@ public interface IAccountService
     /// <param name="syncIdentifier">Represents the new synchronization identifier to be set for the specified account.</param>
     Task<string> UpdateSyncIdentifierRawAsync(Guid accountId, string syncIdentifier);
 
+    /// <summary>
+    /// Stores a widened mail synchronization range once its backfill finished, and reports the reloaded account.
+    /// </summary>
+    Task UpdateInitialSynchronizationRangeAsync(Guid accountId, InitialSynchronizationRange range);
+
 
     /// <summary>
     /// Gets whether the notifications are enabled for the given account id.

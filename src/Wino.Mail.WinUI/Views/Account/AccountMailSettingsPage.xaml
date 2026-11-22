@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -82,6 +83,53 @@
                 IsOpen="{x:Bind ViewModel.IsInitialSynchronizationSummaryVisible, Mode=OneWay}"
                 Message="{x:Bind ViewModel.InitialSynchronizationSummary, Mode=OneWay}"
                 Severity="Informational" />
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountMailSyncRangeCard"
+                Header="{x:Bind domain:Translator.AccountMail_SyncRange_Title, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.SyncRange.IsVisible, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="ArrowDownload" />
+                </controls:SettingsCard.HeaderIcon>
+                <controls:SettingsCard.Description>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{x:Bind domain:Translator.AccountMail_SyncRange_Description, Mode=OneTime}" TextWrapping="Wrap" />
+                        <TextBlock
+                            AutomationProperties.AutomationId="AccountMailSyncRangeStatusText"
+                            AutomationProperties.LiveSetting="Polite"
+                            Text="{x:Bind ViewModel.SyncRange.StatusText, Mode=OneWay}"
+                            TextWrapping="Wrap"
+                            Visibility="{x:Bind ViewModel.SyncRange.IsStatusVisible, Mode=OneWay}" />
+                        <ProgressBar
+                            AutomationProperties.AutomationId="AccountMailSyncRangeProgressBar"
+                            AutomationProperties.Name="{x:Bind domain:Translator.AccountMail_SyncRange_Running, Mode=OneTime}"
+                            IsIndeterminate="{x:Bind ViewModel.SyncRange.IsProgressIndeterminate, Mode=OneWay}"
+                            Maximum="100"
+                            Visibility="{x:Bind ViewModel.SyncRange.IsRunning, Mode=OneWay}"
+                            Value="{x:Bind ViewModel.SyncRange.ProgressPercentage, Mode=OneWay}" />
+                    </StackPanel>
+                </controls:SettingsCard.Description>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ComboBox
+                        MinWidth="160"
+                        AutomationProperties.AutomationId="AccountMailSyncRangeComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.AccountMail_SyncRange_Title, Mode=OneTime}"
+                        IsEnabled="{x:Bind ViewModel.SyncRange.IsEnabled, Mode=OneWay}"
+                        ItemsSource="{x:Bind ViewModel.SyncRange.Ranges, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SyncRange.SelectedRange, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
+                                <TextBlock Text="{x:Bind DisplayText}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button
+                        AutomationProperties.AutomationId="AccountMailSyncRangeApplyButton"
+                        Command="{x:Bind ViewModel.SyncRange.ApplyCommand}"
+                        Content="{x:Bind domain:Translator.AccountMail_SyncRange_Apply, Mode=OneTime}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                </StackPanel>
+            </controls:SettingsCard>
 
             <!--  Sending  -->
             <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.AccountMail_SendingHeader, Mode=OneTime}" />
