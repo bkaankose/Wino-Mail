@@ -18,6 +18,7 @@ Commands use paths relative to the repository root unless stated otherwise.
 | [macOS design decisions](macos-design-decisions.md) | macOS | Authoritative AppKit shell, workflow, and control decisions. |
 | [iOS design decisions](ios-design-decisions.md) | iOS, iPadOS | iPhone and iPad shell decisions, differences from the Mac, project map, and implementation status. |
 | [Android design decisions](android-design-decisions.md) | Android | Size classes, control mapping, background model, deferred features, and open review items. |
+| [Linux design decisions](linux-design-decisions.md) | Linux | Tiling desktop profile, the Omarchy theme, and small-tile rules. |
 | [Android port investigation](android-port-investigation.md) | Android | Background study of 10 Oct 2026; the Android design decisions supersede it where they differ. |
 | [macOS shared-logic roadmap](macos-shared-logic-roadmap.md) | All | Phased plan for moving duplicated Mac logic into shared code. |
 | [Visual design reference](design-prototypes/wino-design-guideline.html) | Windows | Browser presentation of the design conventions. The Markdown guideline is the primary reference. |

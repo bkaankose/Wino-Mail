@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>app.winomail.Mail</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>Wino Mail</name>
+  <summary>Mail, calendar, contacts and To Do in one app</summary>
+  <description>
+    <p>
+      Wino Mail is a native mail client with a calendar, contacts and To Do. It works with Outlook, Gmail, IMAP
+      and Exchange accounts, and with calendars and address books over CalDAV and CardDAV.
+    </p>
+    <ul>
+      <li>Unified inbox, threads, rules and categories</li>
+      <li>Rich composer with signatures and templates</li>
+      <li>Calendar with invitations and reminders</li>
+      <li>Contacts and tasks next to your mail</li>
+    </ul>
+  </description>
+  <developer id="app.winomail">
+    <name>Burak Kaan Köse</name>
+  </developer>
+  <launchable type="desktop-id">app.winomail.Mail.desktop</launchable>
+  <url type="homepage">https://winomail.app</url>
+  <url type="vcs-browser">https://github.com/bkaankose/Wino-Mail</url>
+  <provides>
+    <mediatype>message/rfc822</mediatype>
+    <mediatype>text/calendar</mediatype>
+    <mediatype>text/vcard</mediatype>
+    <mediatype>text/x-vcard</mediatype>
+  </provides>
+  <categories>
+    <category>Network</category>
+    <category>Email</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+</component>

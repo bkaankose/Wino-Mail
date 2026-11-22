@@ -1,0 +1,512 @@
+/* Lengths come from the --wino-* variables WinoStyle generates from WinoTokens. Colours are libadwaita named colours
+   only, so light, dark, high contrast and the accent (system or a theme provider at a higher priority) follow. */
+
+.wino-zone {
+  background-color: @view_bg_color;
+  color: @view_fg_color;
+}
+
+.wino-has-backdrop .wino-zone {
+  margin: var(--wino-zone-gutter);
+  border-radius: var(--wino-zone-radius);
+  box-shadow: 0 0 0 1px @card_shade_color, 0 2px 10px @shade_color;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wino-has-backdrop .wino-zone {
+    background-color: alpha(@view_bg_color, 0.82);
+  }
+}
+
+.wino-has-backdrop .sidebar-pane {
+  background-color: transparent;
+}
+
+.wino-group-header {
+  padding: 14px var(--wino-space-3) var(--wino-space-1) var(--wino-space-3);
+  font-weight: 700;
+  font-size: 0.85em;
+  opacity: 0.65;
+}
+
+.wino-has-backdrop .wino-group-header {
+  background-color: alpha(currentColor, 0.05);
+  opacity: 1;
+}
+
+/* Mail list and mail row (ML-01). Lengths are WinoMailRowMetrics: RowGap 2, ContentLeading 4, PillInset 3, PillWidth 3, InnerLeading 12, InnerTrailing 10. */
+.wino-mail-list { background: none; }
+.wino-mail-list > row { padding: 0; background: none; outline-offset: -4px; }
+.wino-mail-list > header { padding: 0; margin: 0; min-height: 0; background: none; }
+.wino-mail-row { margin: 2px 4px; padding: 7px 10px 7px 0; min-height: 58px; border-radius: var(--wino-control-radius); }
+.wino-density-compact .wino-mail-row { padding-top: 6px; padding-bottom: 6px; min-height: 40px; }
+.wino-density-spacious .wino-mail-row { padding-top: 10px; padding-bottom: 10px; min-height: 64px; }
+.wino-mail-row.wino-thread-child { margin-left: 24px; }
+.wino-density-compact .wino-mail-row.wino-thread-child { margin-left: 20px; }
+.wino-mail-list > row:hover .wino-mail-row { background-color: alpha(currentColor, 0.05); }
+.wino-mail-list > row:selected .wino-mail-row { background-color: alpha(@accent_bg_color, 0.16); }
+.wino-mail-row-pill { min-width: 3px; min-height: 16px; margin: 0 6px 0 3px; border-radius: 999px; background-color: @accent_bg_color; opacity: 0; }
+.wino-mail-list > row:selected .wino-mail-row-pill { opacity: 1; }
+.wino-mail-row .wino-mail-sender.wino-unread { font-weight: 700; }
+.wino-mail-row .wino-mail-subject.wino-unread { font-weight: 600; color: @accent_color; }
+.wino-unread-dot { min-width: 6px; min-height: 6px; border-radius: 999px; background-color: @accent_bg_color; }
+.wino-mail-draft { color: @error_color; }
+.wino-mail-flag { color: @red_3; }
+.wino-mail-attachment { color: @yellow_5; }
+.wino-mail-nickname { padding: 0 6px; border-radius: 4px; font-size: 0.8em; font-weight: 600; color: @accent_color; background-color: alpha(currentColor, 0.16); }
+.wino-mail-chevron { min-width: 12px; min-height: 16px; padding: 0; }
+.wino-group-header.wino-floating { background-color: @view_bg_color; opacity: 1; }
+.wino-mail-loading-more { padding: 6px; border-radius: 999px; }
+
+.wino-selection-pipe {
+  min-width: 3px;
+  min-height: var(--wino-space-4);
+  border-radius: 999px;
+  background-color: @accent_bg_color;
+}
+
+.wino-unread-badge {
+  font-size: 0.8em;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.wino-unread-pill {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+  font-size: 0.8em;
+  font-weight: 700;
+}
+
+.wino-chip,
+.wino-attachment {
+  padding: var(--wino-space-1) 10px;
+  border-radius: var(--wino-control-radius);
+  background-color: alpha(currentColor, 0.08);
+}
+
+.wino-avatar {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.wino-reader-header {
+  padding: 14px 20px 10px 20px;
+}
+
+/* Contact picture and account icon */
+
+.wino-avatar.wino-avatar-square {
+  border-radius: 7px;
+}
+
+.wino-avatar.wino-avatar-photo {
+  background: none;
+}
+
+.wino-avatar-badge {
+  border-radius: 999px;
+  background-color: @window_bg_color;
+  padding: 1px;
+}
+
+.wino-avatar-s16, .wino-avatar-s20, .wino-avatar-s22, .wino-avatar-s24 { font-size: 9px; }
+.wino-avatar-s26 { font-size: 10px; }
+.wino-avatar-s28 { font-size: 11px; }
+.wino-avatar-s32 { font-size: 12px; }
+.wino-avatar-s36 { font-size: 14px; }
+.wino-avatar-s40 { font-size: 15px; }
+.wino-avatar-s48 { font-size: 18px; }
+.wino-avatar-s56 { font-size: 21px; }
+.wino-avatar-s64 { font-size: 24px; }
+.wino-avatar-s72 { font-size: 27px; }
+.wino-avatar-s96 { font-size: 36px; }
+.wino-avatar-s128 { font-size: 49px; }
+
+/* Info bar */
+
+.wino-info-bar {
+  padding: 10px 8px 10px 12px;
+  border-radius: var(--wino-control-radius);
+  border: 1px solid alpha(currentColor, 0.12);
+  background-color: alpha(@accent_bg_color, 0.10);
+}
+
+.wino-info-bar-informational .wino-info-bar-glyph { color: @accent_color; }
+.wino-info-bar-success { background-color: alpha(@success_bg_color, 0.14); }
+.wino-info-bar-success .wino-info-bar-glyph { color: @success_color; }
+.wino-info-bar-warning { background-color: alpha(@warning_bg_color, 0.16); }
+.wino-info-bar-warning .wino-info-bar-glyph { color: @warning_color; }
+.wino-info-bar-error { background-color: alpha(@error_bg_color, 0.14); }
+.wino-info-bar-error .wino-info-bar-glyph { color: @error_color; }
+
+.wino-info-bar-floating {
+  background-color: @window_bg_color;
+  border-radius: var(--wino-control-radius);
+  box-shadow: 0 0 0 1px @card_shade_color, 0 4px 14px @shade_color;
+}
+
+.wino-mode-switcher togglebutton,
+.wino-mode-switcher button {
+  min-height: 32px;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.wino-mode-switcher togglebutton:checked {
+  color: @accent_color;
+  background-color: alpha(@accent_bg_color, 0.14);
+}
+
+.wino-has-backdrop .wino-mode-switcher {
+  padding: 5px;
+  border-radius: 9px;
+  background-color: alpha(@card_bg_color, 0.78);
+  box-shadow: 0 0 0 1px @card_shade_color;
+}
+
+.wino-shell-row { min-height: var(--wino-sidebar-row-height); }
+.wino-shell-row-account { min-height: 44px; }
+.wino-shell-row-account.wino-shell-row-compact { min-height: var(--wino-sidebar-row-height); }
+.wino-shell-row-new { min-height: 40px; }
+.wino-shell-row-header { min-height: 28px; margin-top: 6px; }
+.wino-shell-row-attention { min-height: 58px; }
+.wino-shell-sync { min-height: 2px; }
+.wino-shell-sync trough, .wino-shell-sync progress { min-height: 2px; }
+.wino-shell-title-chip { border-radius: 3px; padding: 1px 4px; }
+.wino-weight-medium { font-weight: 500; }
+.wino-weight-semibold { font-weight: 600; }
+.wino-sidebar-pill {
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background-color: alpha(currentColor, 0.10);
+  font-size: 0.8em;
+  font-weight: 600;
+}
+.wino-sidebar-list > row { padding: 0; margin: 1px 6px; border-radius: var(--wino-control-radius); }
+.wino-sidebar-list > row:selected { background-color: alpha(currentColor, 0.10); }
+.wino-sidebar-list > row.wino-row-plain, .wino-sidebar-list > row.wino-row-plain:hover { background: none; }
+
+
+/* DL-01 / DL-02 */
+.wino-color-dot { min-width: 12px; min-height: 12px; border-radius: 999px; }
+.wino-drag-handle { opacity: 0.55; padding: 0 2px; }
+.wino-dragging { opacity: 0.4; }
+row.wino-drop-before { box-shadow: inset 0 2px 0 0 @accent_bg_color; }
+row.wino-drop-after { box-shadow: inset 0 -2px 0 0 @accent_bg_color; }
+.wino-category-preview { padding: 2px 10px; border-radius: 4px; }
+.wino-category-chip { border-radius: 6px; box-shadow: inset 0 0 0 1px alpha(currentColor, 0.25); }
+.wino-category-chip-empty { background-color: alpha(currentColor, 0.08); }
+/* Mail filter tiles */
+.wino-filter-tile { min-width: 32px; min-height: 32px; border-radius: 6px; background-color: alpha(currentColor, 0.12); }
+
+/* ML-04 mail list header */
+.wino-pivot { padding: 4px 8px; border-radius: 0; font-weight: 600; background: none; box-shadow: inset 0 -2px transparent; opacity: 0.7; }
+.wino-pivot:hover { opacity: 1; }
+.wino-pivot:checked { opacity: 1; box-shadow: inset 0 -2px @accent_bg_color; background: none; }
+.wino-link { padding: 2px 4px; font-weight: 400; }
+
+/* ML-06 hover actions */
+.wino-hover-actions {
+  padding: 4px;
+  border-radius: var(--wino-control-radius);
+  background-color: @popover_bg_color;
+  color: @popover_fg_color;
+  box-shadow: 0 0 0 1px alpha(currentColor, 0.14), 0 1px 4px @shade_color;
+  opacity: 0;
+  transition: opacity 90ms cubic-bezier(0.7, 0, 1, 0.5), transform 90ms cubic-bezier(0.7, 0, 1, 0.5);
+}
+.wino-hover-actions.wino-hover-shown {
+  opacity: 1;
+  transform: none;
+  transition: opacity 150ms cubic-bezier(0.1, 0.9, 0.2, 1), transform 150ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+.wino-hover-actions.wino-hover-popup:not(.wino-hover-shown) { transform: scale(0.85); }
+.wino-hover-actions.wino-hover-slide.wino-hover-from-right:not(.wino-hover-shown) { transform: translate(24px, 0); }
+.wino-hover-actions.wino-hover-slide.wino-hover-from-top:not(.wino-hover-shown) { transform: translate(0, -24px); }
+.wino-hover-actions.wino-hover-slide.wino-hover-from-bottom:not(.wino-hover-shown) { transform: translate(0, 24px); }
+.wino-hover-actions.wino-hover-none, .wino-hover-actions.wino-hover-instant { transition: none; }
+.wino-hover-button { min-width: 24px; min-height: 24px; padding: 0; }
+.wino-hover-medium .wino-hover-button { min-width: 32px; min-height: 32px; }
+.wino-hover-large .wino-hover-button { min-width: 40px; min-height: 40px; }
+.wino-hover-button:hover { color: @accent_color; }
+
+/* ML-09 folder picker */
+.wino-folder-picker-row { min-height: 32px; padding: 0 8px; border-radius: var(--wino-control-radius); font-weight: normal; }
+
+/* AC-04 account setup */
+.wino-setup-shelf-item { min-width: 36px; min-height: 36px; border-radius: 999px; background-color: alpha(currentColor, 0.08); }
+.wino-setup-shelf-item.wino-setup-shelf-label { padding: 0 12px; }
+.wino-setup-shelf-item.wino-setup-matched { box-shadow: inset 0 0 0 2px @accent_bg_color; }
+.wino-setup-known { padding: 6px 16px 6px 6px; border-radius: 22px; }
+.wino-setup-known-mark { border-radius: 999px; background-color: alpha(currentColor, 0.08); }
+.wino-setup-provider-choice { padding: 6px 8px; font-weight: normal; }
+.wino-setup-choice { padding: 10px 12px; font-weight: normal; }
+.wino-setup-choice:checked { box-shadow: inset 0 0 0 2px @accent_bg_color; background-color: alpha(@accent_bg_color, 0.08); color: inherit; }
+.wino-setup-step-number { border-radius: 999px; background-color: alpha(currentColor, 0.1); font-size: 0.85em; font-weight: 700; }
+.wino-setup-step-number.wino-setup-step-accent { background-color: @accent_bg_color; color: @accent_fg_color; }
+.wino-setup-card-accent, .wino-setup-card-success { padding: 14px; }
+.wino-setup-card-accent { box-shadow: inset 0 0 0 1px @accent_bg_color; background-color: alpha(@accent_bg_color, 0.06); }
+.wino-setup-card-success { box-shadow: inset 0 0 0 1px @success_color; background-color: alpha(@success_color, 0.06); }
+
+/* ML-08 mail row tiles */
+.wino-chip-tile { padding: 0 7px; border-radius: 4px; font-size: 0.85em; }
+.wino-chip-accent { background-color: alpha(@accent_bg_color, 0.16); }
+.wino-chip-glyph, .wino-tile-badge label { opacity: 0.7; }
+.wino-chip-warning .wino-chip-glyph, .wino-tile-badge.wino-chip-warning label { color: @warning_color; opacity: 1; }
+.wino-chip-dot { min-width: 6px; min-height: 6px; border-radius: 999px; background-color: alpha(currentColor, 0.55); }
+.wino-tile-dot { min-width: 8px; min-height: 8px; border-radius: 4px; }
+.wino-tile-dot.wino-chip-accent { background-color: @accent_bg_color; }
+.wino-tile-badge { min-width: 18px; min-height: 18px; border-radius: 999px; background-color: alpha(currentColor, 0.08); border: 1px solid alpha(currentColor, 0.10); }
+
+/* ML-10 mail drag */
+.wino-drag-card-root { padding: 12px 16px 8px 4px; }
+.wino-drag-card { border-radius: 8px; background-color: @card_bg_color; color: @card_fg_color; box-shadow: 0 0 0 1px @card_shade_color, 0 4px 12px @shade_color; }
+.wino-drag-card.wino-drag-card-2 { box-shadow: 0 0 0 1px @card_shade_color, 4px 4px 0 0 @card_bg_color, 4px 4px 0 1px @card_shade_color, 0 4px 12px @shade_color; }
+.wino-drag-card.wino-drag-card-3 { box-shadow: 0 0 0 1px @card_shade_color, 4px 4px 0 0 @card_bg_color, 4px 4px 0 1px @card_shade_color, 8px 8px 0 0 @card_bg_color, 8px 8px 0 1px @card_shade_color, 0 4px 12px @shade_color; }
+.wino-drag-badge { min-width: 22px; min-height: 22px; margin: -8px -8px 0 0; padding: 0 6px; border-radius: 999px; background-color: @accent_bg_color; color: @accent_fg_color; font-weight: 700; font-size: 0.85em; }
+.wino-drag-caption { padding: 3px 12px; border-radius: 999px; background-color: @accent_bg_color; color: @accent_fg_color; font-weight: 600; font-size: 0.9em; }
+.wino-drag-caption.wino-drag-caption-refused { background-color: alpha(@window_fg_color, 0.55); color: @window_bg_color; }
+.wino-drag-banner { margin: 6px; padding: 6px 10px; border-radius: 8px; background-color: @card_bg_color; color: @card_fg_color; box-shadow: 0 0 0 1px @card_shade_color, 0 2px 8px @shade_color; font-weight: 600; font-size: 0.9em; }
+.wino-mail-cell.wino-dragging { opacity: 0.45; }
+.wino-sidebar-list > row.wino-drop-target { background-color: alpha(@accent_bg_color, 0.30); box-shadow: inset 0 0 0 2px @accent_bg_color; }
+
+/* ML-11 search */
+.wino-search-scope-bar { padding: 10px 12px; border-bottom: 1px solid alpha(currentColor, 0.12); }
+.wino-search-chip { min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 0.9em; font-weight: normal; background-color: alpha(currentColor, 0.08); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.10); }
+.wino-search-chip.wino-active { background-color: alpha(@accent_bg_color, 0.22); box-shadow: inset 0 0 0 1px alpha(@accent_bg_color, 0.55); }
+.wino-online-search-panel { margin: 8px 12px 12px 12px; padding: 10px 12px; border-radius: 12px; background-color: alpha(currentColor, 0.06); font-weight: normal; }
+
+/* Reader (RD-01) */
+.wino-reader-toolbar { min-height: 46px; padding: 2px 6px 2px 20px; }
+.wino-reader-narrow .wino-reader-toolbar { padding-left: 14px; }
+.wino-reader-subject { font-weight: 600; font-size: 1.15em; }
+.wino-reader-narrow .wino-reader-header { padding: 12px 14px 10px 14px; }
+.wino-reader-sender { padding: 0; min-height: 0; }
+.wino-recipient { padding: 0 2px; min-height: 0; font-size: 0.9em; color: @accent_color; font-weight: normal; }
+.wino-recipient.heading { font-weight: 600; }
+.wino-status-dot { min-width: 8px; min-height: 8px; border-radius: 999px; background-color: currentColor; }
+.wino-status-dot.success { color: @success_color; }
+.wino-status-dot.warning { color: @warning_color; }
+.wino-reader-body { border-top: 1px solid alpha(currentColor, 0.12); }
+.wino-has-backdrop .wino-reader-body { margin: 6px 20px 20px 20px; border: 1px solid alpha(currentColor, 0.12); border-radius: var(--wino-zone-radius); }
+.wino-reader-loading { background-color: @view_bg_color; }
+
+/* Attachment strip (RD-03) */
+.wino-attachment-strip { padding: 0 20px; margin-bottom: 16px; margin-top: 10px; }
+.wino-reader-narrow .wino-attachment-strip { padding: 0 14px; }
+.wino-attachment-strip .wino-attachment { padding: 0 12px 0 8px; border: 1px solid alpha(currentColor, 0.12); font-weight: normal; }
+.wino-attachment-name { font-weight: 600; font-size: 0.9em; }
+
+/* Reader privacy (RD-04) */
+.wino-link-target { padding: 4px 10px; border-radius: 6px; background-color: @window_bg_color; border: 1px solid alpha(currentColor, 0.15); }
+.wino-privacy-button { padding: 0 4px; min-height: 22px; }
+.wino-privacy-item { padding: 6px 8px; font-weight: normal; }
+
+/* Composer recipient fields (ED-03) and suggestions (ED-04) */
+.wino-recipient-chip { border-radius: 999px; padding: 0 2px 0 4px; background-color: alpha(@accent_bg_color, 0.14); }
+.wino-recipient-chip.selected { background-color: alpha(@accent_bg_color, 0.42); }
+.wino-recipient-chip > button.wino-recipient-chip-text { padding: 0 4px; min-height: 22px; border-radius: 999px; }
+.wino-recipient-chip > button.wino-recipient-chip-remove { padding: 0; min-height: 20px; min-width: 20px; border-radius: 999px; }
+.wino-recipient-entry { min-height: 26px; }
+.wino-recipient-entry.error { color: @error_color; }
+.wino-recipient-suggestions row { padding: 4px 6px; }
+.wino-recipient-suggestions .wino-recipient-source { font-size: 0.8em; padding: 0 6px; border-radius: 999px; background-color: alpha(currentColor, 0.08); }
+
+/* Composer format toolbar (ED-05) */
+.wino-editor-toolbar button.wino-editor-tool, .wino-editor-toolbar menubutton.wino-editor-tool > button { min-width: 28px; min-height: 28px; padding: 0 3px; }
+.wino-editor-toolbar dropdown > button { min-height: 28px; padding: 0 6px; }
+.wino-editor-toolbar stackswitcher > button { min-height: 24px; padding: 0 12px; font-size: 0.9em; }
+.wino-color-swatch { border-radius: 4px; box-shadow: inset 0 0 0 1px alpha(currentColor, 0.2); }
+
+/* Composer attachments and drop zones (ED-07) */
+.wino-compose-attachment { border-radius: 8px; border: 1px solid alpha(currentColor, 0.12); padding: 0 4px 0 0; }
+.wino-compose-attachment > button.flat { padding: 4px 6px; font-weight: normal; }
+.wino-compose-drop { background-color: alpha(@window_bg_color, 0.88); padding: 24px; }
+.wino-compose-drop-zone { border-radius: 12px; border: 2px dashed alpha(currentColor, 0.3); background-color: @view_bg_color; padding: 16px; }
+.wino-compose-drop-zone.hovered { border-color: @accent_color; background-color: mix(@view_bg_color, @accent_bg_color, 0.12); }
+
+/* Composer find bar (ED-08) */
+.wino-compose-find button.flat { min-width: 28px; min-height: 28px; padding: 0 6px; }
+
+/* Invitation card (RD-06) */
+.wino-invitation-header:hover { background-color: alpha(currentColor, 0.04); }
+.wino-invitation-facts { background-color: alpha(currentColor, 0.05); border-radius: 4px; padding: 8px 10px; }
+.wino-invitation button.flat { min-height: 24px; }
+.wino-invitation .wino-invitation-header > button:not(.flat) { min-height: 26px; padding: 0 8px; }
+
+/* Calendar mode (CA-01) */
+.wino-calendar-range { font-size: 18px; font-weight: 600; }
+.wino-calendar-arrow { transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+.wino-calendar-arrow.wino-calendar-arrow-month { transform: rotate(90deg); }
+.wino-calendar-details-floating { box-shadow: -2px 2px 14px alpha(black, 0.22); background-color: @window_bg_color; }
+.wino-calendar-group-name { font-size: 12px; font-weight: 600; }
+.wino-calendar-sync-bar trough, .wino-calendar-sync-bar progress { min-height: 2px; }
+
+/* Mini calendar (CA-02) */
+.wino-mini-calendar { padding: 10px; }
+.wino-mini-title { font-size: 12px; font-weight: 600; }
+.wino-mini-weekday { font-size: 10px; opacity: 0.78; }
+.wino-mini-button { min-width: 16px; min-height: 16px; padding: 2px; }
+.wino-mini-day { min-height: 22px; min-width: 0; padding: 0; margin: 1px 0; border-radius: 0; font-size: 11px; background: none; box-shadow: none; }
+.wino-mini-day:hover { background-color: alpha(currentColor, 0.07); border-radius: 6px; }
+.wino-mini-day.wino-other-month .wino-mini-day-label { opacity: 0.4; }
+.wino-mini-day.wino-selected { background-color: alpha(@accent_bg_color, 0.16); border-radius: 0; }
+.wino-mini-day.wino-selected.wino-range-start:dir(ltr), .wino-mini-day.wino-selected.wino-range-end:dir(rtl) { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+.wino-mini-day.wino-selected.wino-range-end:dir(ltr), .wino-mini-day.wino-selected.wino-range-start:dir(rtl) { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+.wino-mini-day-label { min-width: 22px; min-height: 22px; border-radius: 11px; }
+.wino-mini-day.wino-today .wino-mini-day-label { background-color: @accent_bg_color; color: @accent_fg_color; font-weight: 600; opacity: 1; }
+.wino-mini-day:focus-visible { outline: 2px solid alpha(@accent_color, 0.6); outline-offset: -2px; border-radius: 6px; }
+
+/* Quick event, event details and the event composer (CA-07, CA-09, CA-10) */
+.wino-quick-event > contents { padding: 0; }
+.wino-quick-event-header { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+.wino-pill { padding: 1px 6px; border-radius: 4px; background-color: @accent_bg_color; color: @accent_fg_color; }
+.wino-event-title { background: none; box-shadow: none; outline: none; border-bottom: 1px solid alpha(currentColor, 0.15); border-radius: 0; padding-left: 0; }
+
+/* Calendar surface (CA-03) */
+.wino-calendar-tile:focus-visible { outline: 2px solid alpha(@accent_color, 0.7); outline-offset: 1px; border-radius: 5px; }
+.wino-calendar-more { font-size: 11px; font-weight: 600; color: @accent_color; padding: 0 4px; min-height: 0; min-width: 0; }
+.wino-due-chip { padding: 4px 10px 4px 6px; border-radius: 5px; border: 1px solid alpha(currentColor, 0.08); background-color: alpha(currentColor, 0.03); }
+
+/* Menus (MN-01) */
+popover.wino-menu > contents { padding: 6px; min-width: 180px; }
+.wino-menu-item { min-height: 32px; padding: 0 10px; border-radius: 6px; font-weight: 400; }
+.wino-menu-item:hover, .wino-menu-item.wino-menu-current, .wino-menu-item.wino-menu-open { background-color: alpha(currentColor, 0.10); }
+.wino-menu-item:active { background-color: alpha(currentColor, 0.16); }
+.wino-menu-item:disabled { opacity: 0.5; }
+.wino-menu-item:focus-visible { outline: none; }
+.wino-menu-destructive { color: @destructive_color; }
+.wino-menu-accel { font-size: 0.9em; }
+
+/* Swipe actions (ML-07) */
+.wino-swipe-backdrop > box { opacity: 0.75; transition: opacity 120ms; }
+.wino-swipe-backdrop.wino-swipe-armed > box { opacity: 1; font-weight: 700; }
+.wino-swipe-accent { background-color: @accent_bg_color; color: @accent_fg_color; }
+.wino-swipe-destructive { background-color: @destructive_bg_color; color: @destructive_fg_color; }
+.wino-swipe-success { background-color: @success_bg_color; color: @success_fg_color; }
+.wino-swipe-warning { background-color: @warning_bg_color; color: @warning_fg_color; }
+.wino-swipe-card { background-color: @view_bg_color; color: @view_fg_color; }
+.wino-has-backdrop .wino-swipe-card { background-color: @card_bg_color; }
+
+/* Mail list action bar (ML-13) */
+.wino-action-bar { padding: 2px 8px; border-radius: var(--wino-control-radius); background-color: alpha(currentColor, 0.05); }
+
+/* Contacts list (CT-01) */
+.wino-contact-list { background: none; }
+.wino-contact-list > row { padding: 0 12px; background: none; }
+.wino-contact-row { padding: 6px 8px; min-height: 46px; border-radius: 6px; }
+.wino-contact-list > row:hover .wino-contact-row { background-color: alpha(currentColor, 0.05); }
+.wino-contact-list > row:selected .wino-contact-row { background-color: alpha(currentColor, 0.08); }
+.wino-contact-name { font-weight: 600; }
+.wino-contact-list > header { padding: 0 12px; background: none; }
+.wino-contact-group-header { padding: 12px 12px 4px 12px; color: @accent_color; }
+.wino-has-backdrop .wino-contact-group-header { margin: 6px 0 2px 0; padding: 8px 12px; border-radius: 6px; background-color: alpha(currentColor, 0.06); }
+.wino-favorite-on { color: @warning_color; }
+.wino-contact-empty { padding: 24px; }
+
+/* Contact editor (CT-03) */
+.wino-contact-edit-hero { padding: 0; }
+
+/* To Do page (TD-01) */
+.wino-todo-drawer { background-color: alpha(currentColor, 0.03); }
+
+/* To Do task card (TD-02) */
+.wino-task-list { background: none; }
+.wino-task-list > row { padding: 2px 16px; background: none; }
+.wino-task-list > header { padding: 0 16px; background: none; }
+.wino-task-card { padding: 10px 12px; min-height: 34px; border-radius: 6px; border: 1px solid alpha(currentColor, 0.08); background-color: alpha(currentColor, 0.03); }
+.wino-task-list > row:hover .wino-task-card { background-color: alpha(currentColor, 0.06); }
+.wino-task-list > row:selected .wino-task-card { background-color: alpha(currentColor, 0.08); border-color: @accent_color; }
+.wino-task-completed { opacity: 0.55; }
+.wino-task-star { min-width: 28px; min-height: 28px; padding: 0; color: alpha(currentColor, 0.6); }
+.wino-task-star.wino-important-on { color: @warning_color; }
+.wino-task-list-dot { min-width: 8px; min-height: 8px; border-radius: 999px; background-color: currentColor; }
+.wino-task-group-header { padding: 12px 8px 4px 8px; }
+.wino-round-check { min-width: 18px; min-height: 18px; padding: 5px; background: none; box-shadow: none; }
+.wino-round-check > label { min-width: 16px; min-height: 16px; border-radius: 999px; border: 1.5px solid alpha(@window_fg_color, 0.55); color: transparent; }
+.wino-round-check:hover > label { border-color: @accent_color; }
+.wino-round-check.wino-checked > label { background-color: @accent_bg_color; border-color: @accent_bg_color; color: @accent_fg_color; }
+.wino-chip-button { min-height: 30px; padding: 0 10px; border-radius: 6px; }
+.wino-chip-button.wino-chip-checked { color: @accent_color; background-color: alpha(@accent_bg_color, 0.16); }
+.wino-quick-add { padding: 8px 12px; }
+.wino-quick-add entry { background: none; box-shadow: none; outline: none; }
+
+/* Search suggestions (CA-12) */
+.wino-suggestion { padding: 4px 10px; border-radius: 6px; }
+.wino-suggestion-highlighted { background-color: alpha(currentColor, 0.1); }
+
+/* TD-04 drawer */
+.wino-drawer-header { padding: 10px 8px 10px 12px; border-bottom: 1px solid alpha(currentColor, 0.08); }
+.wino-drawer-header entry { font-weight: 600; font-size: 1.15em; background: none; box-shadow: none; }
+.wino-drawer-section-label { margin: 0 12px 2px 12px; font-size: 0.9em; }
+.wino-drawer-row { min-height: 40px; padding: 0 12px; border-radius: 8px; font-weight: normal; }
+.wino-drawer-row.wino-drawer-row-accent { color: @accent_color; }
+.wino-drawer-row.wino-drawer-row-overdue { color: @error_color; }
+.wino-drawer-row.wino-drawer-row-destructive { color: @destructive_color; }
+.wino-drawer-notes { border-radius: 6px; background-color: alpha(currentColor, 0.04); }
+.wino-drawer-notes textview, .wino-drawer-notes textview text { background: none; }
+.wino-step-row { padding: 0 8px 0 4px; min-height: 36px; }
+.wino-step-row entry { background: none; box-shadow: none; }
+.wino-step-row.wino-step-completed entry { opacity: 0.55; }
+
+/* TD-05 reorder */
+.wino-task-insert-line { min-height: 2px; border-radius: 1px; background-color: @accent_bg_color; }
+
+/* Wino Intelligence settings (AC-15) */
+.wino-intelligence-pill { border-radius: 999px; min-height: 22px; padding: 0; }
+.wino-intelligence-tile { border-radius: 10px; background-color: alpha(currentColor, 0.06); }
+.wino-intelligence-chip { padding: 1px 8px; border-radius: 999px; background-color: alpha(currentColor, 0.07); }
+.wino-intelligence-dot { min-width: 8px; min-height: 8px; border-radius: 999px; }
+.wino-dot-success { background-color: @success_color; }
+.wino-dot-warning { background-color: @warning_color; }
+.wino-dot-error { background-color: @error_color; }
+.wino-dot-accent { background-color: @accent_bg_color; }
+levelbar.wino-bar-error block.filled { background-color: @error_color; }
+.wino-coverage-dot { min-width: 7px; min-height: 7px; border-radius: 999px; }
+.wino-coverage-indexed { background-color: @success_color; }
+.wino-coverage-to-index { background-color: @accent_bg_color; }
+.wino-coverage-outside { background-color: alpha(currentColor, 0.23); }
+.wino-coverage-band { padding: 12px; border-radius: 6px; background-color: alpha(currentColor, 0.05); }
+.wino-coverage-tree { padding: 4px; }
+.wino-coverage-folder { padding: 4px 8px; font-weight: 400; }
+.wino-coverage-folder-selected { background-color: alpha(@accent_bg_color, 0.16); font-weight: 600; }
+.wino-coverage-preset { min-width: 96px; }
+.wino-coverage-preset-active { color: @accent_color; background-color: alpha(@accent_bg_color, 0.18); font-weight: 600; }
+.wino-intelligence-link { color: @accent_color; }
+
+/* IN-01 intelligence header */
+.wino-intelligence-header { border-radius: 12px; border: 1px solid alpha(@accent_bg_color, 0.35); background-color: alpha(@accent_bg_color, 0.04); }
+.wino-intelligence-header-row { min-height: 40px; padding: 5px 8px 5px 12px; }
+.wino-intelligence-header-body { padding: 12px; }
+.wino-intelligence-header-button { min-height: 26px; padding: 0 8px; font-size: 0.9em; }
+.wino-intelligence-inner-card { padding: 8px 10px; border-radius: 6px; background-color: alpha(currentColor, 0.05); border: 1px solid alpha(currentColor, 0.08); }
+
+/* IN-02 briefing */
+.wino-briefing-panel { background-color: @sidebar_bg_color; border-left: 1px solid alpha(currentColor, 0.1); }
+.wino-briefing-header { min-height: 48px; padding: 0 8px 0 16px; }
+.wino-date-pager { min-height: 40px; padding: 0 4px; border-top: 1px solid alpha(currentColor, 0.08); border-bottom: 1px solid alpha(currentColor, 0.08); }
+.wino-briefing-card { padding: 10px 12px; border-radius: 6px; background-color: alpha(@card_bg_color, 0.85); border: 1px solid alpha(currentColor, 0.08); }
+.wino-briefing-new { min-width: 6px; min-height: 6px; border-radius: 999px; background-color: @accent_bg_color; }
+.wino-briefing-action { min-height: 26px; padding: 0 8px; font-size: 0.9em; }
+
+/* IN-03 rewrite */
+.wino-rewrite-strip { min-height: 34px; margin: 6px 16px; padding: 0 6px 0 8px; border-radius: 6px; background-color: alpha(currentColor, 0.05); border: 1px solid alpha(currentColor, 0.1); }
+.wino-rewrite-button { min-height: 24px; padding: 0 8px; font-size: 0.9em; }
+
+/* Settings breadcrumb: libadwaita pads text buttons by 17 px; the root crumb's text lines up with the description below. */
+button.text-button.wino-settings-crumb { padding-left: 6px; padding-right: 6px; margin-left: -6px; }
+button.text-button.wino-inline-link { padding-left: 6px; padding-right: 6px; margin-left: -6px; }
+/* MP-02 "Syncs with" source cards */
+button.wino-source-card { padding: 12px; border-radius: 12px; background: @card_bg_color; color: @card_fg_color; box-shadow: inset 0 0 0 1px alpha(currentColor, 0.15); font-weight: normal; }
+button.wino-source-card:hover { background: mix(@card_bg_color, @card_fg_color, 0.04); }
+button.wino-source-card:checked { background: mix(@card_bg_color, @accent_bg_color, 0.08); color: @card_fg_color; box-shadow: inset 0 0 0 2px @accent_bg_color; }
+button.wino-source-card .wino-source-card-glyph { color: @accent_color; }
+
+/* Keyboard pane focus: while the window shows keyboard focus, the pane that holds it gets an inner accent line. */
+.wino-keyboard .wino-pane:focus-within { outline: 2px solid alpha(@accent_color, 0.55); outline-offset: -2px; }

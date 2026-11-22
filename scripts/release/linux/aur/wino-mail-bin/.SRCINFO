@@ -1,0 +1,37 @@
+pkgbase = wino-mail-bin
+	pkgdesc = Mail, calendar, contacts and To Do in one app (beta)
+	pkgver = 2.2.15beta263261654
+	pkgrel = 1
+	url = https://www.winomail.app
+	arch = x86_64
+	license = GPL-3.0-only AND Apache-2.0 AND BSD-3-Clause AND MIT
+	depends = gtk4>=1:4.20
+	depends = libadwaita>=1:1.8
+	depends = webkitgtk-6.0
+	depends = libsecret
+	depends = libcanberra
+	depends = icu
+	depends = openssl
+	depends = glibc>=2.38
+	depends = gcc-libs
+	depends = ca-certificates
+	depends = hicolor-icon-theme
+	optdepends = gnome-keyring: Secret Service provider; the app needs one with an unlocked default collection
+	optdepends = sound-theme-freedesktop: notification and reminder sounds
+	optdepends = xdg-desktop-portal: file pickers and opening links
+	optdepends = noto-fonts-emoji: color emoji
+	optdepends = noto-fonts-cjk: Chinese, Japanese and Korean text
+	optdepends = enchant: spell checking in the composer
+	optdepends = hunspell-en_us: English dictionary for spell checking
+	optdepends = krb5: Kerberos (GSSAPI) sign-in
+	provides = wino-mail=2.2.15beta263261654
+	conflicts = wino-mail
+	options = !strip
+	options = !debug
+	options = !zipman
+	options = !emptydirs
+	options = !lto
+	source = https://download.winomail.app/linux/beta/wino-mail-2.2.15beta263261654-1-x86_64.pkg.tar.zst
+	sha256sums = bd5292794e19c6eebb8761051611373266f123308a16bbb41a84d191f06689a1
+
+pkgname = wino-mail-bin

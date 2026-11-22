@@ -9,8 +9,10 @@ Wino Mail is a native mail, calendar, contacts, and To Do client with four appli
 | iOS and iPadOS | `src/Wino.Mail.iOS` (UIKit, Mono), UI projects `Wino.Mail.UIKit` and `.Phone` (the shell for iPhone and iPad) | `WinoMail.iOS.slnx` | [iOS development](docs/harness/development-ios.md) |
 | Android | `src/Wino.Mail.Android` (Android Views with XML layouts, AndroidX, Material, Mono) | `WinoMail.Android.slnx` | [Android development](docs/harness/development-android.md) |
 
+A fifth head, Linux (issue #1216), is the GTK 4 and libadwaita application `src/Wino.Mail.Linux` (Gir.Core, WebKitGTK, CoreCLR) with Mail, Calendar, Contacts, To Do and Settings, solution `WinoMail.Linux.slnx`, guide [Linux development](docs/harness/development-linux.md). It is released as a beta for amd64 as a `.deb`, an Arch Linux package (also for Omarchy and the AUR) and a Fedora RPM ([Linux release guide](docs/releases-linux.md)).
+
 All applications use the shared backend: `Wino.Core.Domain` (contracts, entities and the message records under `Messaging/`), `Wino.Services`, `Wino.Core`, `Wino.Authentication`, the five provider projects `Wino.Providers.Outlook`, `.Gmail`, `.Imap`, `.Exchange` and `.Dav`, `Wino.Core.ML`, `Wino.Mail.ViewModels`, `controls/Wino.Mail.Controls.Core`, and `controls/Wino.Editor.Core`.
-Platform services live in `Wino.Platform.Windows`, `Wino.Platform.MacOS`, `Wino.Platform.iOS`, and `Wino.Platform.Android`. The Apple apps share `Wino.Platform.Apple` (Foundation-level services: paths, configuration, Keychain, StoreKit, notifications), `Wino.Core.Apple.Bindings`, and `controls/Wino.Editor.WebKit`; `Wino.Platform.MacOS` and `Wino.Platform.iOS` hold only AppKit-only and UIKit-only services.
+Platform services live in `Wino.Platform.Windows`, `Wino.Platform.MacOS`, `Wino.Platform.iOS`, `Wino.Platform.Android`, and `Wino.Platform.Linux` (freedesktop services). The Apple apps share `Wino.Platform.Apple` (Foundation-level services: paths, configuration, Keychain, StoreKit, notifications), `Wino.Core.Apple.Bindings`, and `controls/Wino.Editor.WebKit`; `Wino.Platform.MacOS` and `Wino.Platform.iOS` hold only AppKit-only and UIKit-only services.
 
 ## Guidance map
 
@@ -32,6 +34,10 @@ Before you edit under one of these folders, read its `AGENTS.md`. It is binding 
 | `src/Wino.Mail.MacOS`, `src/Wino.Platform.MacOS`, Apple signing or entitlements | [src/Wino.Mail.MacOS/AGENTS.md](src/Wino.Mail.MacOS/AGENTS.md) |
 | `src/Wino.Mail.UIKit`, `src/Wino.Mail.UIKit.Phone`, `src/Wino.Mail.iOS`, `src/Wino.Platform.iOS` | [src/Wino.Mail.UIKit/AGENTS.md](src/Wino.Mail.UIKit/AGENTS.md) |
 | `src/Wino.Mail.Android`, `src/Wino.Platform.Android` | [src/Wino.Mail.Android/AGENTS.md](src/Wino.Mail.Android/AGENTS.md) |
+| `src/Wino.Mail.Linux` | [src/Wino.Mail.Linux/AGENTS.md](src/Wino.Mail.Linux/AGENTS.md) |
+| `src/Wino.Platform.Linux` | [src/Wino.Platform.Linux/AGENTS.md](src/Wino.Platform.Linux/AGENTS.md) |
+| `controls/Wino.Presentation.Linux` | [controls/Wino.Presentation.Linux/AGENTS.md](controls/Wino.Presentation.Linux/AGENTS.md) |
+| `controls/Wino.Mail.Controls.Linux` | [controls/Wino.Mail.Controls.Linux/AGENTS.md](controls/Wino.Mail.Controls.Linux/AGENTS.md) |
 | `src/Wino.Platform.Apple` | [src/Wino.Platform.Apple/AGENTS.md](src/Wino.Platform.Apple/AGENTS.md) |
 | `controls/` | [controls/AGENTS.md](controls/AGENTS.md) |
 
@@ -45,6 +51,7 @@ Each platform has a project file in the guidance map and a development guide. Re
 - **macOS change** (AppKit head, Mac platform services, AppKit controls, entitlements, `build/Wino.MacOS.*`, Mac scripts): read the [macOS guide](docs/harness/development-macos.md).
 - **iOS change** (iOS head, `Wino.Mail.UIKit*`, iOS platform services, UIKit controls, `Info.plist`, entitlements, `build/Wino.iOS.*`): read the [iOS guide](docs/harness/development-ios.md).
 - **Android change** (Android head, `Wino.Platform.Android`, `controls/*.Android`, `AndroidManifest.xml`, Android resources and layouts, `build/Wino.Android.*`): read the [Android guide](docs/harness/development-android.md).
+- **Linux change** (Linux head, `Wino.Platform.Linux`, `controls/Wino.Editor.WebKitGtk`, `controls/Wino.Presentation.Linux`, `controls/Wino.Mail.Controls.Linux`, the `.desktop` file, `build/Wino.Linux.*`, `scripts/development/linux`): read the [Linux guide](docs/harness/development-linux.md).
 - **Apple shared change** (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`): it affects the macOS and iOS applications. Read both Apple guides.
 - **Shared change** (shared projects above, translations, `Directory.Build.*`, `Directory.Packages.props`, `global.json`): it affects all four applications. Read every guide's verification section, and keep shared code free of platform UI references.
 
@@ -84,7 +91,7 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 - The database changes only after the server confirms a change. The UI change is applied in memory and reverted on failure, through the request pipeline in [src/Wino.Core/AGENTS.md](src/Wino.Core/AGENTS.md). Add no offline queue and no retry queue.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
 - Shared Release builds keep their Native AOT, trimming, and warnings-as-errors gates. Only projects that target `-macos`, `-ios`, or `-android` (the AppKit, UIKit, and Android projects and the Apple shared layer) are exempt from the AOT gate.
-- `WinoTargetPlatform` (`Windows`, `MacOS`, `iOS`, or `Android`) and `WinoTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. The host never selects `iOS` or `Android`; those builds pass it explicitly. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
+- `WinoTargetPlatform` (`Windows`, `MacOS`, `iOS`, `Android`, or `Linux`) and `WinoTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. The host never selects `iOS`, `Android` or `Linux`; the iOS and Android builds pass it explicitly, and the Linux projects set it in their project files. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
 
 ## Running backend code without an app
 
@@ -118,17 +125,20 @@ Read only references that apply to the task:
 | macOS build, signing, F5, or runtime verification | [macOS development](docs/harness/development-macos.md) |
 | iOS build, signing, Simulator, or runtime verification | [iOS development](docs/harness/development-ios.md) |
 | Android build, emulators, sign-in registration, or runtime verification | [Android development](docs/harness/development-android.md) |
+| Linux build, the Secret Service, headless GNOME sessions, or runtime verification | [Linux development](docs/harness/development-linux.md) |
 | New Windows UI feature or visual pattern | [Wino design guideline](docs/wino-design-guideline.md) |
 | New macOS UI feature or visual pattern | [macOS design decisions](docs/macos-design-decisions.md), then the [Wino design guideline](docs/wino-design-guideline.md) for shared naming and order |
 | New iOS or iPadOS UI feature or visual pattern | [iOS design decisions](docs/ios-design-decisions.md), then the [macOS design decisions](docs/macos-design-decisions.md) and the [Wino design guideline](docs/wino-design-guideline.md) |
 | New Android UI feature or visual pattern | [Android design decisions](docs/android-design-decisions.md), then the [iOS design decisions](docs/ios-design-decisions.md) and the [Wino design guideline](docs/wino-design-guideline.md) |
+| New Linux UI feature or visual pattern | [Linux design decisions](docs/linux-design-decisions.md), then the [macOS design decisions](docs/macos-design-decisions.md) and the [Wino design guideline](docs/wino-design-guideline.md) |
 | Moving duplicated Mac or iOS logic into shared code | [macOS shared-logic roadmap](docs/macos-shared-logic-roadmap.md) |
 | Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
 | Icons, icon fonts, or the colorful icon style | [icons/README.md](icons/README.md) and the Icons section of the [implementation rules](docs/harness/implementation-rules.md) |
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
 | Calendar period navigation, the rail model, or the loaded event window | [calendar rail navigation](docs/calendar-rail-navigation.md) |
 | Push relay, live notifications, sync method, or relay privacy acceptance | [push relay design](docs/push-relay-design.md) |
-| Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md) |
+| Linux port status, skipped features, open handoffs and packages | [Linux port plan](docs/linux-port-plan.md) |
+| Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md); Linux in the [Linux release guide](docs/releases-linux.md) |
 | Release notes, GitHub releases, or marking issues for a release | [release skill](.claude/skills/release/SKILL.md) and [release notes format](release-notes/README.md) |
 | What's New notes and illustrations | [whatsnew skill](.claude/skills/whatsnew/SKILL.md) |
 | Lab accounts, endpoints, or the lab password | [mail lab](tools/lab/README.md) |
@@ -154,6 +164,7 @@ Mac F5 prepares the debugger, then runs a plain `dotnet build`. The iOS workspac
 | AppKit views, navigation, activation, or controls | Native Debug arm64 and x64 builds and manual checks on the Mac |
 | UIKit views, navigation, activation, or controls | iOS Debug Simulator build and manual checks on iPhone and iPad simulators |
 | Android views, navigation, activation, or controls | Android Debug build and manual checks on the phone and tablet emulators |
+| GTK views, navigation, activation, or the WebKitGTK reader | Linux Debug build, the Release build of the Linux projects, and manual checks in a GNOME Wayland session |
 | Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) | Mac native Debug arm64 and x64 builds and the iOS Debug Simulator build |
 | Localization | English source only, generated output build, other locales untouched |
 | Windows package, trimming, or Native AOT | Windows Release build without launch |
@@ -187,7 +198,8 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
 - Gmail mailboxes on macOS and iOS use the Wino Mail iOS client (`WinoAuthenticationClientIds.Google.Apple`) in an
   `ASWebAuthenticationSession` (`WebSessionGoogleAuthorizationCodeReceiver`). Each stored Google token records the client
   that issued it and refreshes with that client; tokens without one came from the UWP client. Android uses Play
-  services' `AuthorizationClient` and falls back to the UWP client's loopback flow.
+  services' `AuthorizationClient` and falls back to the UWP client's loopback flow. Linux, like Android's fallback, uses the UWP
+  client's loopback flow through the shared `WinoGmailCodeReceiver`; the client itself is never modified.
 - Wino Account sign-in with Microsoft, Google and Apple on Windows always uses the API's browser flow: the shared
   `WinoAccountExternalSignInService` (`Wino.Services`) opens `WinoAccountExternalAuth.StartUri` in the default browser
   through `WindowsBrowserAuthBroker` (`Wino.Platform.Windows`), and the `wino://auth-complete` protocol activation

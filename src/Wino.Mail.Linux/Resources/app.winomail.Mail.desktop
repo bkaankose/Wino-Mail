@@ -1,0 +1,35 @@
+[Desktop Entry]
+Type=Application
+Name=Wino Mail
+GenericName=Mail Client
+Comment=Mail, calendar, contacts and To Do
+Exec=@WINO_EXEC@ %U
+Icon=app.winomail.Mail
+Terminal=false
+Categories=Network;Email;
+Keywords=mail;email;calendar;contacts;tasks;todo;
+MimeType=x-scheme-handler/wino;x-scheme-handler/mailto;message/rfc822;text/calendar;text/vcard;text/x-vcard;
+StartupNotify=true
+StartupWMClass=app.winomail.Mail
+DBusActivatable=false
+Actions=new-mail;new-event;calendar;contacts;todo;
+
+[Desktop Action new-mail]
+Name=New Mail
+Exec=@WINO_EXEC@ --compose
+
+[Desktop Action new-event]
+Name=New Event
+Exec=@WINO_EXEC@ --new-event
+
+[Desktop Action calendar]
+Name=Calendar
+Exec=@WINO_EXEC@ --mode calendar
+
+[Desktop Action contacts]
+Name=Contacts
+Exec=@WINO_EXEC@ --mode contacts
+
+[Desktop Action todo]
+Name=To Do
+Exec=@WINO_EXEC@ --mode todo

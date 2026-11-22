@@ -1,0 +1,10 @@
+# rpmlint findings build-rpm.sh accepts, one check name per line; any other error or warning fails the build.
+# The beta packages are unsigned: integrity rests on HTTPS to download.winomail.app and the feed's SHA-256.
+no-signature
+# AutoReqProv is off so the bundled libraries never become Provides of the system; the libraries the app loads by
+# name at run time are therefore required by package name.
+explicit-lib-dependency
+# Ubuntu's rpmlint ships openSUSE's defaults (a Group tag, bzip2 man pages, no SPDX license list); Fedora needs none.
+no-group-tag
+manpage-not-compressed
+invalid-license

@@ -1,0 +1,13 @@
+Package: wino-mail
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: @MAINTAINER@
+Installed-Size: @INSTALLED_SIZE@
+Depends: @SHLIBS@, libgtk-4-1 (>= 4.20), libadwaita-1-0 (>= 1.8), libwebkitgtk-6.0-4, libsecret-1-0, libcanberra0, libicu78 | libicu76 | libicu74, libssl3t64 | libssl3, ca-certificates
+Recommends: gnome-keyring, sound-theme-freedesktop, xdg-desktop-portal, libgssapi-krb5-2, fonts-noto-color-emoji
+Suggests: fonts-noto-cjk
+Section: mail
+Priority: optional
+Homepage: https://www.winomail.app
+Description: Mail, calendar, contacts and To Do in one app (beta)
+@DESCRIPTION@

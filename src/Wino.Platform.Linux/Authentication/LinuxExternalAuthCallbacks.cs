@@ -1,0 +1,91 @@
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Authorization;
+
+namespace Wino.Platform.Linux.Authentication;
+
+/// <summary>
+/// The redirect side of the browser sign-in flows on Linux. A broker registers a wait before it opens the browser;
+/// GApplication hands a <c>wino://auth-complete</c> address that reached the running instance to <see cref="Deliver"/>.
+/// A callback on the <see cref="OAuthRedirect.CallbackPath"/> path completes only an OAuth wait and every other callback
+/// only a Wino Account wait, so a provider's code never reaches the Wino Account flow. Same behaviour as Windows and Android.
+/// </summary>
+public sealed class LinuxExternalAuthCallbacks
+{
+    private readonly Lock _gate = new();
+    private TaskCompletionSource<Uri>? _pending;
+    private TaskCompletionSource<Uri>? _pendingOAuth;
+
+    /// <summary>True while a Wino Account browser sign-in is waiting for its redirect.</summary>
+    public bool IsWaiting
+    {
+        get { lock (_gate) return _pending is { Task.IsCompleted: false }; }
+    }
+
+    /// <summary>Waits for the next Wino Account callback. Throws <see cref="InvalidOperationException"/> while another wait is pending.</summary>
+    public async Task<Uri> WaitAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var completion = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            if (_pending is { Task.IsCompleted: false })
+                throw new InvalidOperationException("A browser sign-in is already waiting for its redirect.");
+            _pending = completion;
+        }
+
+        try
+        {
+            using var registration = cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
+            return await completion.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(_pending, completion)) _pending = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Waits for the next OAuth callback. Throws <see cref="OAuthSignInException"/> with
+    /// <see cref="OAuthSignInFailureKind.AnotherSignInInProgress"/> while any browser sign-in is waiting.
+    /// </summary>
+    public async Task<Uri> WaitForOAuthAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var completion = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            if (_pending is { Task.IsCompleted: false } || _pendingOAuth is { Task.IsCompleted: false })
+                throw new OAuthSignInException(OAuthSignInFailureKind.AnotherSignInInProgress, "Another sign-in is in progress.");
+            _pendingOAuth = completion;
+        }
+
+        try
+        {
+            using var registration = cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
+            return await completion.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(_pendingOAuth, completion)) _pendingOAuth = null;
+            }
+        }
+    }
+
+    /// <summary>Completes the matching wait with <paramref name="uri"/>; false when it is not a callback or nothing waits.</summary>
+    public bool Deliver(Uri? uri)
+    {
+        if (!WinoAccountExternalAuth.IsCallback(uri) || uri is null) return false;
+
+        var isOAuth = OAuthRedirect.IsOAuthCallback(uri);
+        TaskCompletionSource<Uri>? pending;
+        lock (_gate) pending = isOAuth ? _pendingOAuth : _pending;
+        return pending?.TrySetResult(uri) == true;
+    }
+}

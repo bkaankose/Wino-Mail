@@ -7,6 +7,7 @@ Configure only the variables required for the task and platform. Store packaging
 | --- | --- | --- |
 | Windows | Windows Store local-update signing, Windows sideload signing, Windows release output, Windows publication | Windows **Environment Variables**, under the developer's user account or system settings |
 | macOS | macOS notarization and App Store Connect | The shell profile, such as `~/.zprofile`, with `export KEY=value` |
+| Linux | Publication to download.winomail.app | The shell profile (`~/.profile`), or on the Windows PC the Windows variables passed into WSL2 through `WSLENV` |
 | Both | Translations | Either of the above, on the host that runs the script |
 
 Restart the terminal and its parent application after changes. Existing processes keep their previous environment.
@@ -77,12 +78,13 @@ The key needs the **Developer** role or higher. The script passes the key to `no
 `build-macos-appstore.sh` uses the same variables to validate and upload the Mac App Store package with `xcrun altool`.
 `WINO_RELEASES_ROOT` also applies on the Mac. Its default there is `~/Wino Releases`.
 
-## Publication to download.winomail.app (Windows Beta and sideload, macOS DMG)
+## Publication to download.winomail.app (Windows Beta and sideload, macOS DMG, Linux beta)
 
-`publish-releases.ps1` on Windows and `publish-macos-release.sh` on the Mac upload to the `wino-downloads` Cloudflare R2
-bucket that serves `https://download.winomail.app`. Both use R2's S3-compatible API, because packages exceed the 300 MB
+`publish-releases.ps1` on Windows, `publish-macos-release.sh` on the Mac and `publish-linux-release.sh` on Linux or in
+WSL2 upload to the `wino-downloads` Cloudflare R2 bucket that serves `https://download.winomail.app`. Both use R2's S3-compatible API, because packages exceed the 300 MB
 single-request limit of the Cloudflare API. Set the same three variables on each host that publishes; on the Mac, in the
-shell profile with `export KEY=value`.
+shell profile with `export KEY=value`. In WSL2 the Windows variables reach the Linux script through `WSLENV` (see the
+[Linux release guide](releases-linux.md#from-the-windows-pc-wsl2)). The token must cover the `linux/` prefix of the bucket.
 
 | Key | Value | Purpose and source |
 | --- | --- | --- |

@@ -4,7 +4,7 @@ This file provides guidance for agents working in `controls/`, Wino Mail's reusa
 
 ## Scope
 
-The directory has five groups. Read the rules for each group you change:
+The directory has six groups. Read the rules for each group you change:
 
 | Group | Projects | Platform guide |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ The directory has five groups. Read the rules for each group you change:
 | AppKit and WKWebView | `Wino.Presentation.AppKit`, `Wino.Mail.Controls.AppKit`, `Wino.Editor.WebKit` (macOS and iOS) | [macOS](../docs/harness/development-macos.md); `Wino.Editor.WebKit` also [iOS](../docs/harness/development-ios.md) |
 | UIKit (iOS and iPadOS) | `Wino.Presentation.UIKit`, `Wino.Mail.Controls.UIKit` | [iOS](../docs/harness/development-ios.md) |
 | Android Views and WebView | `Wino.Presentation.Android`, `Wino.Mail.Controls.Android`, `Wino.Editor.Android` | [Android](../docs/harness/development-android.md) |
+| GTK and WebKitGTK (Linux) | `Wino.Presentation.Linux`, `Wino.Mail.Controls.Linux`, `Wino.Editor.WebKitGtk` | [Linux](../docs/harness/development-linux.md) |
 
 The projects:
 
@@ -26,6 +27,8 @@ The projects:
 - `Wino.Presentation.UIKit` and `Wino.Mail.Controls.UIKit` (`net10.0-ios`, iOS 17.0) are the UIKit twins of the AppKit libraries, with the same member names and feature folders (`MailList`, `Shell`, `Common`, `Settings`, `Calendar`, `Extras`, `ToDo`, `Contacts`, `Intelligence`). `Wino.Presentation.UIKit` provides `WinoLayout`, `WinoIcons`/`WinoIconView` (registers the bundled WinoIcons fonts; use `WinoIcons.TemplateImage` for bars, tabs, and menus), `WinoStyle` with Dynamic Type fonts, `WinoZoneView`, `ThemeBackdropView`, and `WinoBarBackdropView`. Pages own swipe actions and context menus; cells only render. Logic both twins need belongs in `Wino.Mail.Controls.Core` (pure math) or `Wino.Presentation.Core/Controls` (rules that use Domain types). Verify them in the production iOS head; there is no UIKit playground.
 - `Wino.Presentation.Android` and `Wino.Mail.Controls.Android` (`net10.0-android`, minSdk 23) are the Android twins of the UIKit libraries, built from code and XML layouts over AndroidX and Material Components. `Wino.Presentation.Android` provides units, insets, the WinoIcons typeface, colours and tokens (`WinoTokens`, resources under `Resources/values`), zones, and wallpaper and bar backdrops; `Wino.Mail.Controls.Android` provides mail and shell rows, the list adapter, settings cards, calendar surfaces, and contact and task rows. Views that layouts name by Java name (`[Register]`) and nothing references in code must be listed in the library's `ILLink.Descriptors.xml`, or Release trimming removes them. Verify them in the production Android head; the Debug-only `ControlsGallery` activity shows every control in light and dark.
 - `Wino.Editor.Android` (`net10.0-android`) contains the Android `WebView` reader and editor sessions over `Wino.Editor.Core`, with assets served by `WebViewAssetLoader` and the `winoMail` message bridge (a Java `WinoJavaScriptBridge` fallback where `WebMessageListener` is missing).
+- `Wino.Editor.WebKitGtk` (`net10.0`, Gir.Core) contains the WebKitGTK 6.0 reader and editor sessions over `Wino.Editor.Core` for the Linux app: an ephemeral network session, the `winoMail` script message handler and the same navigation guard as the WebKit host. The editor session reads clipboard images itself, because WebKitGTK does not hand them to the page. The reader session prunes the web context menu to the stock actions in `AllowedContextActions` (Copy, Copy Link, Copy Image and Select All; the editor keeps WebKit's menu until it sets its own list), and the reader session sets the dark-mode method again after every load. Build it through the Linux head.
+- `Wino.Presentation.Linux` and `Wino.Mail.Controls.Linux` (`net10.0`, Gir.Core) are the GTK 4 and libadwaita twins of the AppKit libraries: binding glue (`GtkBinder`), main-loop scheduling, accessibility (`WinoA11y`), weak events and live objects in the first, controls in the second. Their root namespaces are the project names, and no folder in them is named after a Gir.Core namespace (`Gtk`, `Gio`, `Adw` and the others): a namespace segment of that name hides the Gir.Core namespace. Build them through the Linux head; there is no playground. Each has its own `AGENTS.md`.
 - `Wino.Mail.Controls.Playground.WinUI` is the development and verification app. It must demonstrate every public UI control.
 
 Projects here reference `Wino.Core.Domain` and each other only. Never reference `Wino.Services`, `Wino.Core`, `Wino.Authentication` or anything that synchronizes; the playground runs on sample data.

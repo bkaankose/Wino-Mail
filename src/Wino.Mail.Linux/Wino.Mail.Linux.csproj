@@ -1,0 +1,84 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Linux app: GTK 4 and libadwaita through Gir.Core over the shared services and ViewModels. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Platforms>x64;arm64</Platforms>
+    <WinoTargetPlatform>Linux</WinoTargetPlatform>
+    <RootNamespace>Wino.Mail.Linux</RootNamespace>
+    <AssemblyName>wino-mail</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+  <!-- The Windows manifest version names every build like the Apple and Android heads (2.2.15.0 becomes 2.2.15).
+       No prerelease suffix: the update check and What's New parse a plain a.b.c. -->
+  <PropertyGroup>
+    <WinoManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../Wino.Mail.WinUI/Package.appxmanifest')), '(?&lt;=&lt;Identity[^&gt;]*\sVersion=")\d+\.\d+\.\d+'))</WinoManifestVersion>
+    <Version Condition="'$(Version)' == ''">$(WinoManifestVersion)</Version>
+  </PropertyGroup>
+  <!-- Publish experiments. PublishTrimmed and PublishAot given on the command line would flow into every referenced
+       project, including the netstandard2.0 source generators, so the head maps one property of its own to them:
+       -p:WinoLinuxPublish=Trimmed or -p:WinoLinuxPublish=Aot. -->
+  <PropertyGroup Condition="'$(WinoLinuxPublish)' == 'Trimmed'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(WinoLinuxPublish)' == 'Aot'">
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="GirCore.Adw-1" />
+    <PackageReference Include="GirCore.Gtk-4.0" />
+    <PackageReference Include="GirCore.WebKit-6.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <!-- SkiaSharp ships no Linux native library by default. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+    <ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
+    <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Outlook\Wino.Providers.Outlook.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Gmail\Wino.Providers.Gmail.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Imap\Wino.Providers.Imap.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Exchange\Wino.Providers.Exchange.csproj" />
+    <ProjectReference Include="..\Wino.Providers.Dav\Wino.Providers.Dav.csproj" />
+    <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+    <ProjectReference Include="..\Wino.Platform.Linux\Wino.Platform.Linux.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Presentation.Core\Wino.Presentation.Core.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Editor.Core\Wino.Editor.Core.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Editor.WebKitGtk\Wino.Editor.WebKitGtk.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Presentation.Linux\Wino.Presentation.Linux.csproj" />
+    <ProjectReference Include="..\..\controls\Wino.Mail.Controls.Linux\Wino.Mail.Controls.Linux.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\app.winomail.Mail.desktop" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="Resources\app.winomail.Mail.metainfo.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- The app icon is the macOS one (no separate source exists); icons/ is a hicolor theme root that the app adds to its
+       icon search path and install-desktop-entry.sh copies to $XDG_DATA_HOME/icons. -->
+  <PropertyGroup>
+    <WinoAppIconSet>..\Wino.Mail.MacOS\Assets.xcassets\AppIcon.appiconset</WinoAppIconSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(WinoAppIconSet)\icon_16x16.png" Link="icons\hicolor\16x16\apps\app.winomail.Mail.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(WinoAppIconSet)\icon_32x32.png" Link="icons\hicolor\32x32\apps\app.winomail.Mail.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(WinoAppIconSet)\icon_32x32@2x.png" Link="icons\hicolor\64x64\apps\app.winomail.Mail.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(WinoAppIconSet)\icon_128x128.png" Link="icons\hicolor\128x128\apps\app.winomail.Mail.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(WinoAppIconSet)\icon_256x256.png" Link="icons\hicolor\256x256\apps\app.winomail.Mail.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(WinoAppIconSet)\icon_512x512.png" Link="icons\hicolor\512x512\apps\app.winomail.Mail.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- What's New release notes and illustrations, shared with Windows. WhatsNewService reads them beside the assembly. -->
+  <ItemGroup>
+    <None Include="..\Wino.Mail.WinUI\Assets\WhatsNew\*.json;..\Wino.Mail.WinUI\Assets\WhatsNew\*.png" Link="Assets\WhatsNew\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- Predefined theme wallpapers and gallery previews, shared with Windows (BackgroundImages). -->
+  <ItemGroup>
+    <None Include="..\Wino.Mail.WinUI\BackgroundImages\*.jpg" Exclude="..\Wino.Mail.WinUI\BackgroundImages\Acrylic.jpg;..\Wino.Mail.WinUI\BackgroundImages\Mica.jpg" Link="Themes\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

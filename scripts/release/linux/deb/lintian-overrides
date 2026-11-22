@@ -1,0 +1,7 @@
+# The app ships the native libraries of its NuGet packages as built and tested upstream, not the distribution's copies:
+# SkiaSharp (freetype, libjpeg), ONNX Runtime (curl, mbedtls) and the Native AOT runtime in the executable (zlib).
+wino-mail: embedded-library curl [usr/lib/wino-mail/libonnxruntime.so]
+wino-mail: embedded-library mbedtls [usr/lib/wino-mail/libonnxruntime.so]
+wino-mail: embedded-library freetype [usr/lib/wino-mail/libSkiaSharp.so]
+wino-mail: embedded-library libjpeg [usr/lib/wino-mail/libSkiaSharp.so]
+wino-mail: embedded-library zlib [usr/lib/wino-mail/wino-mail]

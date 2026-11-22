@@ -1,0 +1,33 @@
+.TH WINO-MAIL 1 "" "Wino Mail" "User Commands"
+.SH NAME
+wino-mail \- mail, calendar, contacts and To Do
+.SH SYNOPSIS
+.B wino-mail
+[\fIOPTION\fR]... [\fIFILE\fR|\fIURI\fR]...
+.SH DESCRIPTION
+Wino Mail is a mail client with a calendar, contacts and To Do. It works with Outlook, Gmail, IMAP and Exchange
+accounts, and with calendars and address books over CalDAV and CardDAV.
+.PP
+Only one instance runs per user; a second start hands its options and files to the running one.
+Files (\fI.eml\fR messages) and \fImailto:\fR or \fIwino:\fR addresses given on the command line are opened.
+.SH OPTIONS
+.TP
+.B \-\-compose
+Open a new message.
+.TP
+.B \-\-new\-event
+Open a new calendar event.
+.TP
+.BI \-\-mode " mode"
+Open the app in \fImail\fR, \fIcalendar\fR, \fIcontacts\fR or \fItodo\fR.
+.TP
+.B \-\-background
+Start without a window, as the launch at sign-in setting does. The window opens on the next start.
+.SH FILES
+.TP
+.I ~/.local/share/wino-mail
+Accounts, messages and settings. Removing the package keeps them.
+.PP
+The protection key of the stored credentials is kept in the Secret Service (GNOME Keyring).
+.SH SEE ALSO
+https://www.winomail.app

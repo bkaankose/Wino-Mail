@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- GTK controls for the Linux head: the twin of Wino.Mail.Controls.AppKit.
+       AllowUnsafeBlocks is for the code the GObject subclass generator emits. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Platforms>x64;arm64</Platforms>
+    <WinoTargetPlatform>Linux</WinoTargetPlatform>
+    <RootNamespace>Wino.Mail.Controls.Linux</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="GirCore.Adw-1" />
+    <PackageReference Include="GirCore.Gtk-4.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Presentation.Linux/Wino.Presentation.Linux.csproj" />
+    <ProjectReference Include="../Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />
+  </ItemGroup>
+</Project>

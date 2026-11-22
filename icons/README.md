@@ -104,11 +104,11 @@ Each platform draws every Wino icon in its own design language with one fixed se
 
 | Set | Source | Platform | Fonts |
 | --- | --- | --- | --- |
-| Classic | `manifest.json` and `svg/` | Windows | `src/Wino.Mail.WinUI/Assets/WinoIcons*.ttf` |
+| Classic | `manifest.json` and `svg/` | Windows, Linux | `src/Wino.Mail.WinUI/Assets/WinoIcons*.ttf` |
 | Framework7 | Framework7 Icons, SF Symbols style (MIT) | macOS, iOS | `icons/fonts/WinoIconsFramework7*.ttf` |
 | MaterialRounded | Material Symbols Rounded, weight 400 (Apache 2.0) | Android | `icons/fonts/WinoIconsMaterialRounded*.ttf` |
 
-`sets.json` maps every icon except the brand marks to a glyph name in each library and pins each package by version and integrity hash. Brand marks keep their `manifest.json` artwork in every set. The Mac, iOS and Android projects bundle their set under the Classic file names (`Fonts/WinoIcons.ttf`, `Fonts/WinoIconsColor-Light.ttf`, `Fonts/WinoIconsColor-Dark.ttf`), so their `WinoIcons` code does not know which set it draws.
+`sets.json` maps every icon except the brand marks to a glyph name in each library and pins each package by version and integrity hash. Brand marks keep their `manifest.json` artwork in every set. The Mac, iOS and Android projects bundle their set under the Classic file names (`Fonts/WinoIcons.ttf`, `Fonts/WinoIconsColor-Light.ttf`, `Fonts/WinoIconsColor-Dark.ttf`), so their `WinoIcons` code does not know which set it draws. Linux links the Classic fonts from `src/Wino.Mail.WinUI/Assets` (`controls/Wino.Presentation.Linux`).
 
 To change a mapping, edit `sets.json`, then import and build:
 

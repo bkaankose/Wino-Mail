@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- WebKitGTK 6.0 reader sessions over Wino.Editor.Core: the Linux twin of controls/Wino.Editor.WebKit.
+       The head hosts the WebView widget; a session owns its script bridge and the document generations. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Platforms>x64;arm64</Platforms>
+    <WinoTargetPlatform>Linux</WinoTargetPlatform>
+    <RootNamespace>Wino.Editor.WebKitGtk</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../Wino.Editor.Core/Wino.Editor.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="GirCore.WebKit-6.0" />
+  </ItemGroup>
+</Project>
