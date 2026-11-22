@@ -70,7 +70,7 @@ public static class StoreListingDebugSeed
                 "Order 48213 is on its way. Track your package for delivery updates.",
                 ["Good news!", "Order 48213 is on its way and should arrive on Tuesday. You can track your package for delivery updates.", "Fabrikam Tools"],
                 30),
-            new("Sam Kim", "sam.kim@outlook.com", "Photos from the weekend",
+            new("Sam Kim", "sam.kim@example.com", "Photos from the weekend",
                 "Finally sorted them. The one from the lookout is my favorite.",
                 ["Hi Alex,", "Finally sorted the photos from the hike. The one from the lookout is my favorite. The rest are in the shared album.", "Sam"],
                 76, Attachment: "Lookout.jpg"),
@@ -108,7 +108,7 @@ public static class StoreListingDebugSeed
         ]);
         mails += await SeedMailAsync(services, icloud,
         [
-            new("Mom", "linda.morgan@icloud.com", "Sunday dinner",
+            new("Mom", "linda.morgan@example.net", "Sunday dinner",
                 "Dad is making his lasagna. Bring Sam if she's free!",
                 ["Hi sweetheart,", "Dad is making his lasagna on Sunday. Come around 6, and bring Sam if she's free!", "Love,<br>Mom"],
                 6, IsRead: false),
@@ -116,7 +116,7 @@ public static class StoreListingDebugSeed
                 "The winter concert starts at 18:00 in the main hall.",
                 ["Dear parents,", "The winter concert starts at 18:00 in the main hall. Doors open at 17:30.", "Oak Street School"],
                 45),
-            new("Noah Fischer", "noah.fischer@icloud.com", "Cabin weekend",
+            new("Noah Fischer", "noah.fischer@example.net", "Cabin weekend",
                 "The cabin is free on the 12th. Should I book it for all of us?",
                 ["Hey Alex,", "The cabin is free the weekend of the 12th. Should I book it for all of us?", "Noah"],
                 80)
@@ -329,9 +329,9 @@ public static class StoreListingDebugSeed
             ("Lucas", "Becker", "lucas@adatum.example", "+49 30 555 0144", "Adatum", "Brand designer", null, null, false),
             ("Mika", "Okafor", "mika@tailspin.example", "+1 555 0120", "Tailspin Toys", "Design director", 5, 30, false),
             ("Morgan", "Patel", "morgan.patel@woodgrove.example", "+1 555 0131", "Woodgrove", "Researcher", 11, 4, true),
-            ("Noah", "Fischer", "noah.fischer@icloud.com", "+1 555 0185", "Family", "Brother", 2, 9, false),
+            ("Noah", "Fischer", "noah.fischer@example.net", "+1 555 0185", "Family", "Brother", 2, 9, false),
             ("Riley", "Santos", "riley.santos@contoso.example", "+1 555 0109", "Contoso", "Finance analyst", null, null, false),
-            ("Sam", "Kim", "sam.kim@outlook.com", "+1 555 0156", "Family", "Partner", 6, 18, true),
+            ("Sam", "Kim", "sam.kim@example.com", "+1 555 0156", "Family", "Partner", 6, 18, true),
             ("Sasha", "Novak", "sasha@adventure-works.example", "+1 555 0193", "Adventure Works", "Photographer", null, null, false)
         };
         var seeded = people.Select(person =>

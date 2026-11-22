@@ -42,7 +42,7 @@ internal sealed class VoiceBubbleScenario
             Spoken = "Move this month's invoices to Finance and tell Ahmet I'll be back in thirty minutes because I'm stuck in the budget meeting",
             Steps =
             [
-                new(VoiceBubbleText.FromMarked("Find mails with **invoice** from **this month**"), "7 found in kaan@bkaan.dev"),
+                new(VoiceBubbleText.FromMarked("Find mails with **invoice** from **this month**"), "7 found in alex@contoso.example"),
                 new(VoiceBubbleText.FromMarked("Move them to **Finance**")),
                 new(VoiceBubbleText.FromMarked("Reply to **Ahmet**"), "“I’ll be back in thirty minutes, I’m stuck in the budget meeting.”"),
             ],
@@ -54,11 +54,11 @@ internal sealed class VoiceBubbleScenario
             Spoken = "Delete all mails in my personal account and archive the latest mail in my Gmail inbox",
             Groups =
             [
-                new(VoiceBubbleStepGroupKind.Account, "Personal", "kaan@bkaan.dev", new IAccountIconInfo[] { new AccountIconInfo(AccountIconProvider.Microsoft, AccountColorHex: "#0078D4") },
+                new(VoiceBubbleStepGroupKind.Account, "Personal", "alex@contoso.example", new IAccountIconInfo[] { new AccountIconInfo(AccountIconProvider.Microsoft, AccountColorHex: "#0078D4") },
                 new VoiceBubbleStep[] {
                     new(VoiceBubbleText.FromMarked("**Delete** all mails"), "Inbox", 1),
                 }),
-                new(VoiceBubbleStepGroupKind.Account, "Gmail", "burak@gmail.com", new IAccountIconInfo[] { new AccountIconInfo(AccountIconProvider.Google, AccountColorHex: "#EA4335") },
+                new(VoiceBubbleStepGroupKind.Account, "Gmail", "alex.morgan@example.com", new IAccountIconInfo[] { new AccountIconInfo(AccountIconProvider.Google, AccountColorHex: "#EA4335") },
                 new VoiceBubbleStep[] {
                     new(VoiceBubbleText.FromMarked("**Archive** the latest mail"), "Inbox", 2),
                 },
