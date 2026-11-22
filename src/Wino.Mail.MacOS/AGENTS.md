@@ -1,6 +1,6 @@
 # Wino.Mail.MacOS
 
-The macOS app: AppKit views written in C# over the shared services and ViewModels. It runs on CoreCLR and is exempt from the Native AOT gate. This file is binding for `src/Wino.Mail.MacOS` and `src/Wino.Platform.MacOS`.
+The macOS app: AppKit views written in C# over the shared services and ViewModels. Debug runs on CoreCLR; Release is published with Native AOT, and a trim or AOT warning in the app fails the publish. This file is binding for `src/Wino.Mail.MacOS` and `src/Wino.Platform.MacOS`.
 
 ## Read first
 

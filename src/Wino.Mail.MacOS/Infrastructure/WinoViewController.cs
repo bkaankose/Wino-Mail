@@ -23,7 +23,7 @@ public interface IViewModelHost
 public abstract class WinoViewController<TViewModel> : NSViewController, IWinoViewController, IViewModelHost where TViewModel : CoreBaseViewModel
 {
     protected TViewModel ViewModel { get; }
-    object IViewModelHost.AssociatedViewModel => ViewModel;
+    public object AssociatedViewModel => ViewModel;
     protected IDispatcher Dispatcher { get; }
     protected IWinoLogger Logger { get; }
     protected BindingScope Bindings { get; } = new();

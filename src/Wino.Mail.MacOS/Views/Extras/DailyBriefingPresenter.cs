@@ -41,7 +41,12 @@ public sealed class DailyBriefingPresenter : IDailyBriefingPresenter,
         _logger = logger;
         _localIntelligence = localIntelligence;
         _entitlements = entitlements;
-        WeakReferenceMessenger.Default.RegisterAll(this);
+        WeakReferenceMessenger.Default.Register<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
         _ = RefreshStateAsync(refreshEntitlement: true);
 #if DEBUG
         ShellExtrasDebug.Services ??= services;

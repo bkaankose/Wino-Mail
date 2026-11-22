@@ -14,7 +14,7 @@
     <!-- Team 4VB7YWRAQ9 development identity and profile for com.winomail.macos. Pass -p:CodesignKey=- -p:CodesignProvision= to sign ad hoc. -->
     <CodesignKey Condition="'$(CodesignKey)' == ''">Apple Development</CodesignKey>
     <CodesignProvision Condition="'$(CodesignProvision)' == ''">Wino Mail macOS Development</CodesignProvision>
-    <PublishAot>false</PublishAot>
+    <PublishAot Condition="'$(WinoIsReleaseBuild)' == 'true'">true</PublishAot>
   </PropertyGroup>
   <!-- Every Mac build carries the Windows manifest version (2.2.0.0 becomes 2.2.0). The release
        scripts pass their own ApplicationVersion (build number) and a version plist on top. -->

@@ -63,7 +63,7 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
         => _paneChild is ComposePageViewController composer && composer.ViewLoaded
             && responder is NSView view && view.IsDescendantOf(composer.View);
 
-    bool IReadingPaneHost.IsAvailable => !_released;
+    public bool IsAvailable => !_released;
 
     public async Task ShowAsync(NSViewController controller, object? parameter)
     {

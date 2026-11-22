@@ -320,7 +320,7 @@ public sealed partial class ContactsPageViewController
         catch (OperationCanceledException) { }
     }
 
-    string? IShellSearchTarget.SearchPlaceholder => Translator.ContactsPage_SearchPlaceholder;
+    public string? SearchPlaceholder => Translator.ContactsPage_SearchPlaceholder;
 
     public Task SearchTextChangedAsync(string text) => RunSearchAsync(text, select: false);
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Wino.Presentation.AppKit;
@@ -42,7 +43,7 @@ public static class WinoLiveObjects
     }
 
     /// <summary>Delegate targets subscribed to an event on <paramref name="owner"/> (null owner for static events), by type name.</summary>
-    public static IEnumerable<string> EventTargets(Type declaring, object? owner, string eventName)
+    public static IEnumerable<string> EventTargets([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)] Type declaring, object? owner, string eventName)
     {
         var field = declaring.GetField(eventName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
         if (field?.GetValue(owner) is not Delegate handler) return Array.Empty<string>();
