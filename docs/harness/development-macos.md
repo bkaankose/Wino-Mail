@@ -13,7 +13,7 @@ Presentation decisions are in [macOS design decisions](../macos-design-decisions
 - The Xcode version that the installed workload requires, selected with `xcode-select`.
 - VS Code with Microsoft's C# extension, running on the Mac (locally or as a remote extension host on the Mac).
 
-Last verified combination (2026-10-07): macOS 26.7 on Apple Silicon, .NET SDK 10.0.401 (runtime 10.0.12), macOS workload 27.0.10722, Xcode 27.0 (27A266a).
+Last verified combination (2026-11-23): macOS 27.2.1 on Apple Silicon, .NET SDK 10.0.404 (runtime 10.0.15, workload set 10.0.404), macOS workload 27.2.10000, Xcode 27.2 (27B52). Debug arm64 and x64 built, and the signed Native AOT Release ran against a real Outlook account; the F5 breakpoint check was not repeated.
 After an SDK, workload, or Xcode update, rebuild arm64 and x64 and repeat the F5 breakpoint check below.
 
 ## Platform selection

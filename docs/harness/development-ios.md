@@ -14,7 +14,7 @@ Presentation decisions are in [iOS design decisions](../ios-design-decisions.md)
 - The Xcode version that the installed workload requires, selected with `xcode-select`, with the iOS SDK.
 - An iOS Simulator runtime. A fresh Xcode has none: `xcodebuild -downloadPlatform iOS` (several GB). Check with `xcrun simctl list runtimes`.
 
-Last verified combination (2026-10-13): .NET SDK 10.0.401, iOS workload 27.0.10722, Xcode 27.0 (27A266a), iOS 27.0 Simulator runtime (iPhone 18 Pro, iPad Pro 11-inch and 13-inch (M5)).
+Last verified combination (2026-11-23): .NET SDK 10.0.404 (workload set 10.0.404), iOS workload 27.2.10000, Xcode 27.2 (27B52), iOS 27.0 Simulator runtime. The Simulator Debug build passed; it was not run in a Simulator on this combination.
 
 ## Platform selection
 
