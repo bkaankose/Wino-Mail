@@ -1959,11 +1959,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                IsMailMatchingLocalSearch(mail);
     }
 
+    // A mail retained after reading and a draft being composed are not filter seeds, but they
+    // anchor their conversation: dropping the thread would remove the retained mail and close
+    // the composer that is editing the draft.
     private bool ThreadHasActiveSeed(MailItemViewModel anchor) =>
         !string.IsNullOrWhiteSpace(anchor.ThreadKey) &&
         ((IEnumerable<MailItemViewModel>)MailCollection.Items).Any(item =>
             string.Equals(item.ThreadKey, anchor.ThreadKey, StringComparison.Ordinal) &&
-            MatchesActiveListSeed(item.MailCopy));
+            (MatchesActiveListSeed(item.MailCopy) ||
+             item.IsDraft ||
+             readWhileSelectedUniqueIds.Contains(item.UniqueId)));
 
     [RelayCommand]
     public void RemoveFirst()
