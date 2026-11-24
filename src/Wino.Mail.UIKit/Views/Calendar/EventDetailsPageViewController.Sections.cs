@@ -176,6 +176,13 @@ public sealed partial class EventDetailsPageViewController
     private void UpdateDescriptionHeight()
     {
         if (_descriptionHeight is null || _readerDisposed) return;
+        // Exchange sends an empty HTML document for an event without notes; nothing is shown then.
+        if (_renderedDescription is not null && _descriptionWeb.Reader is { } shown && string.IsNullOrWhiteSpace(shown.GetPlainText())
+            && !_renderedDescription.Contains("<img", StringComparison.OrdinalIgnoreCase))
+        {
+            _descriptionCard.Hidden = true;
+            return;
+        }
         var height = Math.Max(MinDescriptionHeight, Math.Ceiling(_descriptionWeb.IntrinsicContentSize.Height));
         if (Math.Abs(_descriptionHeight.Constant - height) < 1) return;
         _descriptionHeight.Constant = (nfloat)height;

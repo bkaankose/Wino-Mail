@@ -23,7 +23,8 @@ namespace Wino.Mail.MacOS.Views.Calendar;
 /// calendar colour, detail rows with Wino glyphs, the people card with RSVP glyphs, the
 /// description and attachments. Driven by the shared EventDetailsPageViewModel.
 /// </summary>
-public sealed class EventDetailsPageViewController(EventDetailsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
+public sealed class EventDetailsPageViewController(EventDetailsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
+    Wino.Mail.Rendering.MailEngineHost engineHost)
     : WinoViewController<EventDetailsPageViewModel>(viewModel, dispatcher, logger)
 {
     private static readonly NSColor CardFill = WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));
@@ -54,8 +55,12 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     private WinoSurfaceView _peopleCard = null!;
     private NSTextField _peopleTitle = null!;
     private NSStackView _peopleList = null!;
-    private NSTextView _description = null!;
-    private NSScrollView _descriptionScroll = null!;
+    private Wino.Renderer.AppKit.MailView _descriptionScroll = null!;
+    private readonly Wino.Mail.Rendering.EngineReaderPresentation _descriptionPresentation = new();
+    private Wino.Mail.Rendering.EngineHtmlReaderSession? _descriptionReader;
+    private Task _descriptionReady = Task.CompletedTask;
+    private string? _renderedDescription;
+    private bool _descriptionDark;
     private WinoSurfaceView _attachmentsCard = null!;
     private NSStackView _attachmentList = null!;
     private BindingScope? _eventBindings;
@@ -179,12 +184,12 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         AddRow(_peopleCard);
 
         // Description
-        _description = new NSTextView { Editable = false, Selectable = true, DrawsBackground = false, BackgroundColor = NSColor.Clear, TextContainerInset = new CoreGraphics.CGSize(0, 0) };
-        _description.TextContainer!.WidthTracksTextView = true;
-        _description.VerticallyResizable = true;
-        _description.HorizontallyResizable = false;
-        _description.AutoresizingMask = NSViewResizingMask.WidthSizable;
-        _descriptionScroll = new NSScrollView { DocumentView = _description, DrawsBackground = false, HasVerticalScroller = true, AutohidesScrollers = true, BorderType = NSBorderType.NoBorder, TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
+        // The description through the native mail renderer; it scrolls itself past its maximum height.
+        _descriptionScroll = new Wino.Renderer.AppKit.MailView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
+        _descriptionScroll.ContentChanged += (_, _) => UpdateDescriptionHeight();
+        _descriptionReader = new Wino.Mail.Rendering.EngineHtmlReaderSession(_descriptionScroll, engineHost, _descriptionPresentation);
+        _descriptionReader.NavigationRequested += DescriptionNavigationRequested;
+        _descriptionPresentation.Viewport = _descriptionPresentation.Viewport with { FitToWidth = true };
         _descriptionScroll.HeightAnchor.ConstraintGreaterThanOrEqualTo(80).Active = true;
         _descriptionScroll.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Vertical);
         AddRow(_descriptionScroll);
@@ -582,47 +587,67 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
 
     private void ApplyDescription(string? html)
     {
-        if (string.IsNullOrWhiteSpace(html))
+        if (string.IsNullOrWhiteSpace(html) || _descriptionReader is not { } reader)
         {
+            _renderedDescription = null;
             _descriptionScroll.Hidden = true;
             return;
         }
-        NSAttributedString? attributed = null;
-        try
-        {
-            string document = html.Contains('<') ? html : $"<p>{System.Net.WebUtility.HtmlEncode(html).Replace("\n", "<br>")}</p>";
-            var preferences = ViewModel.PreferencesService;
-            var font = preferences.ReaderFont.Replace("\"", string.Empty).Replace("<", string.Empty);
-            var styled = $"<meta charset=\"utf-8\"><style>body{{font-family:\"{font}\",-apple-system,sans-serif;font-size:{Math.Clamp(preferences.ReaderFontSize, 8, 72)}px;color:{(WinoIcons.IsDark(View.EffectiveAppearance) ? "#e6e6e6" : "#1b1b1b")};}}</style>{document}";
-            attributed = NSAttributedString.CreateWithHTML(NSData.FromString(styled, NSStringEncoding.UTF8), out NSDictionary _);
-        }
-        catch (Exception exception) { ReportError(exception); }
-        attributed ??= new NSAttributedString(html, new NSStringAttributes { Font = NSFont.SystemFontOfSize(Math.Clamp(ViewModel.PreferencesService.ReaderFontSize, 8, 72)), ForegroundColor = WinoStyle.PrimaryText });
-        attributed = TrimEdges(attributed);
-        // Drop baked-in foreground colours so the text follows light/dark through the view's TextColor; links keep their own style.
-        var mutable = new NSMutableAttributedString(attributed);
-        var whole = new NSRange(0, (nint)mutable.Length);
-        mutable.RemoveAttribute(NSStringAttributeKey.ForegroundColor, whole);
-        mutable.AddAttribute(NSStringAttributeKey.ForegroundColor, WinoStyle.PrimaryText, whole);
-        _description.TextStorage?.SetString(mutable);
+
         _descriptionScroll.Hidden = false;
-        _description.LayoutManager?.EnsureLayoutForTextContainer(_description.TextContainer!);
-        var height = Math.Min(260, Math.Max(80, _description.LayoutManager?.GetUsedRect(_description.TextContainer!).Height ?? 80) + 8);
+        var dark = WinoIcons.IsDark(View.EffectiveAppearance);
+        if (html == _renderedDescription && dark == _descriptionDark) return;
+        _renderedDescription = html;
+        _descriptionDark = dark;
+        string document = html.Contains('<') ? html : $"<p>{System.Net.WebUtility.HtmlEncode(html).Replace("\n", "<br>")}</p>";
+        Observe(RenderDescriptionAsync(reader, document, dark));
+    }
+
+    private async Task RenderDescriptionAsync(Wino.Mail.Rendering.EngineHtmlReaderSession reader, string document, bool dark)
+    {
+        if (_descriptionReady.IsCompleted && !_descriptionInitialized)
+        {
+            _descriptionInitialized = true;
+            _descriptionReady = reader.InitializeAsync();
+        }
+
+        await _descriptionReady;
+        if (_released) return;
+        await reader.SetThemeAsync(dark);
+        await reader.SetReaderTypographyAsync(ViewModel.PreferencesService.ReaderFont, ViewModel.PreferencesService.ReaderFontSize);
+        await reader.RenderAsync(new Wino.Editor.HtmlMailReaderRequest(document, Wino.Editor.RemoteContentPolicy.ImagesAndFontsAllowed));
+        UpdateDescriptionHeight();
+    }
+
+    private bool _descriptionInitialized;
+
+    /// <summary>As tall as the description, between 80 and 260 points; a longer one scrolls inside.</summary>
+    private void UpdateDescriptionHeight()
+    {
+        if (_released) return;
+        // Exchange sends an empty HTML document for an event without notes; nothing is shown then.
+        _descriptionScroll.Hidden = _renderedDescription is null
+            || (_descriptionScroll.Reader is { } shown && string.IsNullOrWhiteSpace(shown.GetPlainText()) && !_renderedDescription.Contains("<img", StringComparison.OrdinalIgnoreCase));
+        var height = Math.Min(260, Math.Max(80, Math.Ceiling(_descriptionScroll.Controller.ContentSize.Height) + 2));
         _descriptionHeight ??= _descriptionScroll.HeightAnchor.ConstraintEqualTo((nfloat)height);
         _descriptionHeight.Constant = (nfloat)height;
         _descriptionHeight.Active = true;
     }
 
+    private async void DescriptionNavigationRequested(object? sender, Wino.Editor.RendererNavigationRequestedEventArgs args)
+    {
+        try { (await ViewModel.OpenLinkAsync(args.Uri)).ThrowIfNotSucceeded(); }
+        catch (Exception exception) { ReportError(exception); }
+    }
+
     private NSLayoutConstraint? _descriptionHeight;
 
-    /// <summary>HTML import leaves blank paragraphs at both ends; drop them.</summary>
-    private static NSAttributedString TrimEdges(NSAttributedString text)
+    private void DisposeDescriptionReader()
     {
-        var value = text.Value ?? string.Empty;
-        int start = 0, end = value.Length;
-        while (start < end && char.IsWhiteSpace(value[start])) start++;
-        while (end > start && char.IsWhiteSpace(value[end - 1])) end--;
-        return start == 0 && end == value.Length ? text : text.Substring(start, end - start);
+        if (_descriptionReader is not { } reader) return;
+        _descriptionReader = null;
+        reader.NavigationRequested -= DescriptionNavigationRequested;
+        _ = reader.DisposeAsync();
     }
 
     /// <summary>
@@ -709,6 +734,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _eventBindings = null;
         _attachmentBindings?.Dispose();
         _attachmentBindings = null;
+        DisposeDescriptionReader();
         return base.DeactivateAsync();
     }
 
@@ -721,6 +747,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
             ContentHeightChanged = null;
             _eventBindings?.Dispose(); _eventBindings = null;
             _attachmentBindings?.Dispose(); _attachmentBindings = null;
+            DisposeDescriptionReader();
         }
         base.Dispose(disposing);
     }
