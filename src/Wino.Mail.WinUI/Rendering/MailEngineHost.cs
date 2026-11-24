@@ -11,7 +11,7 @@ namespace Wino.Mail.WinUI.Rendering;
 /// <summary>
 /// Owns the one platform backend and the one mail engine of the process. Every reader and composer view shares them.
 /// </summary>
-public sealed class MailEngineHost : IDisposable
+public sealed partial class MailEngineHost : IDisposable
 {
     private readonly Lock _gate = new();
     private IPlatformBackend? _backend;
