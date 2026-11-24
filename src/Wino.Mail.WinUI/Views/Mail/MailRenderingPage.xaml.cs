@@ -477,6 +477,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     public Visibility GetPlainPrivacyIconVisibility(PrivacyButtonState state)
         => state is PrivacyButtonState.Plain or PrivacyButtonState.Count ? Visibility.Visible : Visibility.Collapsed;
 
+    public Visibility GetRemoteContentBarVisibility(bool isJunkBlocked, bool isSenderBlockedByRule)
+        => isJunkBlocked || isSenderBlockedByRule ? Visibility.Visible : Visibility.Collapsed;
+
     public async Task ClearRenderedContentAsync()
     {
         if (Volatile.Read(ref _activeRenderCount) == 0)

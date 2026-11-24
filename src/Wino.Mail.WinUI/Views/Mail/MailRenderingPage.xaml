@@ -1,4 +1,4 @@
-﻿<viewsAbstract:MailRenderingPageAbstract
+<viewsAbstract:MailRenderingPageAbstract
     x:Class="Wino.Mail.WinUI.Views.Mail.MailRenderingPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -713,26 +713,8 @@
         </Border>
 
         <StackPanel Grid.Row="1" Spacing="7">
-            <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsRemoteContentBarVisible, Mode=OneWay}">
-                <InfoBar
-                    x:Name="RemoteContentWithheldBar"
-                    Title="{x:Bind domain:Translator.Reader_Privacy_WithheldTitle, Mode=OneTime}"
-                    HorizontalContentAlignment="Stretch"
-                    x:Load="{x:Bind ViewModel.IsRemoteContentWithheld, Mode=OneWay}"
-                    AutomationProperties.AutomationId="RemoteContentWithheldBar"
-                    IsClosable="False"
-                    IsOpen="True"
-                    Message="{x:Bind ViewModel.WithheldBarMessage, Mode=OneWay}"
-                    Severity="Informational">
-                    <InfoBar.ActionButton>
-                        <Button
-                            HorizontalAlignment="Right"
-                            AutomationProperties.AutomationId="RemoteContentWithheldLoadOnceButton"
-                            Command="{x:Bind ViewModel.LoadOnceCommand}"
-                            Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}"
-                            Style="{ThemeResource AccentButtonStyle}" />
-                    </InfoBar.ActionButton>
-                </InfoBar>
+            <!--  Withheld remote content has no bar here: the privacy shield in the command bar says it and offers Load once.  -->
+            <StackPanel Spacing="4" Visibility="{x:Bind GetRemoteContentBarVisibility(ViewModel.IsJunkBlocked, ViewModel.IsSenderBlockedByRule), Mode=OneWay}">
 
                 <InfoBar
                     x:Name="RemoteContentJunkBar"
