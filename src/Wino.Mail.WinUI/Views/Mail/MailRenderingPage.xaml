@@ -6,7 +6,6 @@
     xmlns:customcontrols="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:intelligenceControls="using:Wino.Mail.Controls.IntelligenceHeader"
@@ -223,7 +222,7 @@
         </DataTemplate>
     </Page.Resources>
 
-    <!--  Attachments and WebView2  -->
+    <!--  Attachments and the message body  -->
     <Grid
         x:Name="RendererGridFrame"
         Margin="0,2,0,0"
@@ -883,26 +882,48 @@
             CornerRadius="8">
             <Grid Margin="1" CornerRadius="8">
 
-                <editor:WinoMailRenderer
-                    x:Name="MailRenderer"
-                    AutomationProperties.AutomationId="MailMessageRenderer"
-                    AutomationProperties.HelpText="{x:Bind domain:Translator.Reader_MessageBodyAutomationHelpText, Mode=OneTime}"
-                    AutomationProperties.Name="{x:Bind domain:Translator.Reader_MessageBodyAutomationName, Mode=OneTime}"
-                    DarkModeMethod="{x:Bind ToRendererDarkModeMethod(ViewModel.ReaderDarkModeMethod), Mode=OneWay}"
-                    InitializationFailed="MailRenderer_InitializationFailed"
-                    IsDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
-                    NavigationRequested="MailRenderer_NavigationRequested"
-                    ProtectedLinkFormat="{x:Bind domain:Translator.Reader_ProtectedLinkFormat, Mode=OneTime}">
-                    <editor:WinoMailRenderer.KeyboardAccelerators>
+                <!--
+                    Hosts the mail view, which the page creates in code. The host carries the reader's
+                    own theme, so its opaque fill is the surface the message is drawn on.
+                -->
+                <Grid
+                    x:Name="MailRendererHost"
+                    ActualThemeChanged="MailRendererHost_ActualThemeChanged"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    CornerRadius="8"
+                    Loaded="MailRendererHost_Loaded"
+                    RequestedTheme="{x:Bind GetReaderElementTheme(ViewModel.IsDarkWebviewRenderer), Mode=OneWay}"
+                    Unloaded="MailRendererHost_Unloaded">
+                    <Grid.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
-                    </editor:WinoMailRenderer.KeyboardAccelerators>
-                </editor:WinoMailRenderer>
+                    </Grid.KeyboardAccelerators>
+                </Grid>
+
+                <!--  Shows where the link under the pointer leads.  -->
+                <Border
+                    x:Name="ReaderLinkTargetBar"
+                    MaxWidth="640"
+                    Margin="6"
+                    Padding="8,3"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.AccessibilityView="Raw"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    IsHitTestVisible="False"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        x:Name="ReaderLinkTargetText"
+                        MaxLines="1"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        TextTrimming="CharacterEllipsis" />
+                </Border>
 
                 <!--
                     Fully opaque, so the previously rendered message never shows through while the
-                    next one loads: the reading pane brush is a translucent layer fill over the
-                    window backdrop, which the WebView2 is happy to show through. The renderer itself
-                    stays visible - collapsing it stalls WebView2's first initialization.
+                    next one loads. The mail view stays visible underneath and keeps drawing.
                 -->
                 <Grid
                     x:Name="BodyLoadingSkeleton"

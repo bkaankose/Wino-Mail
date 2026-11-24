@@ -529,10 +529,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 // Dispose active rendering if there is any and go to composer.
                 if (IsRenderingPageActive())
                 {
-                    // Prepare WebView2 animation from Rendering to Composing page.
-                    PrepareRenderingPageWebViewTransition();
-
-                    // Dispose existing HTML content from rendering page webview.
+                    // Remove the message from the reader before the composer replaces it.
                     if (RenderingFrame.Content is MailRenderingPage renderingPage)
                     {
                         _ = renderingPage.ClearRenderedContentAsync();
@@ -688,36 +685,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private void PrepareRenderingPageWebViewTransition()
-    {
-        var webView = GetRenderingPageWebView();
-
-        if (webView != null)
-        {
-            var animation = ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("WebViewConnectedAnimation", webView);
-            animation.Configuration = new BasicConnectedAnimationConfiguration();
-        }
-    }
-
     #region Connected Animation Helpers
 
     // The connected animation is cosmetic. A page whose WebView2 is already disposed simply
     // skips it instead of failing the selection change that triggered it.
-    private WebView2? GetRenderingPageWebView()
-    {
-        try
-        {
-            if (RenderingFrame.Content is MailRenderingPage renderingPage)
-                return renderingPage.GetWebView();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            Log.Debug(ex, "Rendering page WebView2 was disposed before the connected animation.");
-        }
-
-        return null;
-    }
-
     private WebView2? GetComposerPageWebView()
     {
         try
@@ -806,10 +777,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (IsRenderingPageActive())
         {
-            // Prepare WebView2 animation from Rendering to Composing page.
-            PrepareRenderingPageWebViewTransition();
-
-            // Dispose existing HTML content from rendering page webview.
+            // Remove the message from the reader before the composer replaces it.
             if (RenderingFrame.Content is MailRenderingPage renderingPage)
             {
                 _ = renderingPage.ClearRenderedContentAsync();

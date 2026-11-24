@@ -84,6 +84,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     /// </summary>
     public IMailMessageReader? MessageReader { get; set; }
 
+    /// <summary>Creates the S/MIME context a message reader verifies and decrypts with.</summary>
+    public Func<SecureMimeContext> SecureMimeContextFactory => _mimeFileService.SecureMimeContextFactory;
+
     #region Properties
 
     public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);

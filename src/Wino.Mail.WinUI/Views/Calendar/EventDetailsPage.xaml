@@ -10,7 +10,6 @@
     xmlns:ctControls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:editor="using:Wino.Editor"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:links="using:Wino.Mail.ViewModels.Links"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
@@ -510,14 +509,20 @@
                             </ItemsControl>
                         </StackPanel>
 
-                        <!--  WebView  -->
-                        <editor:WinoMailRenderer
-                            x:Name="EventDetailsRenderer"
+                        <!--
+                            Hosts the description view, which the page creates in code. The view scrolls its own
+                            content and has no height of its own, so the row gives it one.
+                        -->
+                        <Grid
+                            x:Name="EventDescriptionHost"
                             Grid.Row="4"
-                            AutomationProperties.AutomationId="CalendarEventDescriptionRenderer"
-                            InitializationFailed="EventDetailsRenderer_InitializationFailed"
-                            NavigationRequested="EventDetailsRenderer_NavigationRequested"
-                            ProtectedLinkFormat="{x:Bind domain:Translator.Reader_ProtectedLinkFormat, Mode=OneTime}" />
+                            MinHeight="240"
+                            ActualThemeChanged="EventDescriptionHost_ActualThemeChanged"
+                            Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                            CornerRadius="6"
+                            Loaded="EventDescriptionHost_Loaded"
+                            RequestedTheme="{x:Bind GetDescriptionElementTheme(ViewModel.IsDarkWebviewRenderer), Mode=OneWay}"
+                            Unloaded="EventDescriptionHost_Unloaded" />
                     </Grid>
                 </Grid>
 
