@@ -1,6 +1,5 @@
 using System;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.System;
 using Microsoft.UI.Xaml;
 using Windows.UI;
 using Wino.Renderer;
@@ -20,12 +19,12 @@ public sealed partial class EngineReaderPresentation
     private const string DefaultFontFamily = "Segoe UI";
     private const float DefaultFontSizePx = 15;
 
-    private readonly DispatcherQueue _dispatcherQueue;
-    private ThemeSettings? _themeSettings;
+    private readonly WindowHighContrastWatcher _highContrast;
 
     public EngineReaderPresentation(DispatcherQueue dispatcherQueue)
     {
-        _dispatcherQueue = dispatcherQueue;
+        _highContrast = new WindowHighContrastWatcher(dispatcherQueue);
+        _highContrast.Changed += (_, _) => HighContrastChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public bool IsDark { get; set; }
@@ -60,7 +59,7 @@ public sealed partial class EngineReaderPresentation
         IsDark = IsDark,
         Method = Method,
         SurfaceColor = SurfaceColor,
-        ForcedColors = IsHighContrast()
+        ForcedColors = _highContrast.IsHighContrast
     };
 
     public TypographyOptions CreateTypography() => new(FontFamily, FontSizePx);
@@ -87,44 +86,11 @@ public sealed partial class EngineReaderPresentation
             reader.Typography = typography;
     }
 
-    private bool IsHighContrast() => _themeSettings?.HighContrast ?? false;
-
     /// <summary>
     /// Follows the high contrast state of the window that shows the view. Paired with <see cref="StopWatching"/>
-    /// when the view leaves the tree, because the system object keeps its subscribers alive.
+    /// when the view leaves the tree.
     /// </summary>
-    public void StartWatching(XamlRoot? xamlRoot)
-    {
-        StopWatching();
+    public void StartWatching(XamlRoot? xamlRoot) => _highContrast.Start(xamlRoot);
 
-        if (xamlRoot?.ContentIslandEnvironment is not { } environment)
-            return;
-
-        try
-        {
-            _themeSettings = ThemeSettings.CreateForWindowId(environment.AppWindowId);
-            _themeSettings.Changed += OnThemeSettingsChanged;
-        }
-        catch (Exception ex)
-        {
-            _themeSettings = null;
-            Serilog.Log.Debug(ex, "High contrast state is unavailable for the mail reader.");
-        }
-    }
-
-    public void StopWatching()
-    {
-        if (_themeSettings is not { } themeSettings)
-            return;
-
-        _themeSettings = null;
-        themeSettings.Changed -= OnThemeSettingsChanged;
-    }
-
-    private void OnThemeSettingsChanged(ThemeSettings sender, object args)
-        => _dispatcherQueue.TryEnqueue(() =>
-        {
-            if (ReferenceEquals(sender, _themeSettings))
-                HighContrastChanged?.Invoke(this, EventArgs.Empty);
-        });
+    public void StopWatching() => _highContrast.Stop();
 }

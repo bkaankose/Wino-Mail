@@ -43,6 +43,7 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
     private ComposeTypography _typography = new(DefaultFontFamily, 14);
     private string? _spellCheckLanguage;
     private bool _isDarkMode;
+    private bool _isHighContrast;
     private bool _isSpellCheckEnabled = true;
     private bool _isAutoCorrectEnabled;
     private bool _blockRemoteContent;
@@ -381,7 +382,8 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
     {
         IsDark = _isDarkMode,
         RootIsSurface = true,
-        SurfaceColor = DarkSurfaceColor
+        SurfaceColor = DarkSurfaceColor,
+        ForcedColors = _isHighContrast
     };
 
     private void ApplySettings()
@@ -401,6 +403,17 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
         _isDarkMode = isDarkMode;
         _view.Composer?.Theme = CreateTheme();
         RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Windows high contrast of the window that shows the editor. Called on the UI thread by the editor element.
+    /// </summary>
+    internal void SetHighContrast(bool isHighContrast)
+    {
+        if (_disposed || _isHighContrast == isHighContrast) return;
+
+        _isHighContrast = isHighContrast;
+        _view.Composer?.Theme = CreateTheme();
     }
 
     private void ApplySpelling()

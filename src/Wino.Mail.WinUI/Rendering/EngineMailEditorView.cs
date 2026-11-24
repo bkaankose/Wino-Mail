@@ -18,6 +18,7 @@ namespace Wino.Mail.WinUI.Rendering;
 public sealed partial class EngineMailEditorView : UserControl
 {
     private readonly MailView _view = new();
+    private readonly WindowHighContrastWatcher _highContrast;
     private bool _isApplyingSessionTheme;
 
     public EngineMailEditorView()
@@ -33,7 +34,10 @@ public sealed partial class EngineMailEditorView : UserControl
         Session.LinkOpenRequested += Session_LinkOpenRequested;
         _view.FilesReceived += View_FilesReceived;
         _view.ContextMenuRequested += View_ContextMenuRequested;
+        _highContrast = new WindowHighContrastWatcher(DispatcherQueue);
+        _highContrast.Changed += HighContrast_Changed;
         Loaded += EngineMailEditorView_Loaded;
+        Unloaded += EngineMailEditorView_Unloaded;
     }
 
     [GeneratedDependencyProperty]
@@ -94,5 +98,13 @@ public sealed partial class EngineMailEditorView : UserControl
 
         if (AutomationProperties.GetName(this) is { Length: > 0 } name)
             AutomationProperties.SetName(_view, name);
+
+        // Loaded runs again in every window the editor is moved to, and high contrast is a state of the window.
+        _highContrast.Start(XamlRoot);
+        Session.SetHighContrast(_highContrast.IsHighContrast);
     }
+
+    private void EngineMailEditorView_Unloaded(object sender, RoutedEventArgs e) => _highContrast.Stop();
+
+    private void HighContrast_Changed(object? sender, EventArgs e) => Session.SetHighContrast(_highContrast.IsHighContrast);
 }
