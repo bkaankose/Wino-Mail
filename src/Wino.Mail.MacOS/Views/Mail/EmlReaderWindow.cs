@@ -172,6 +172,19 @@ internal sealed class EmlReaderWindow
                 result = Open.Count == 0 ? "none" : string.Join(" | ", Open.Values.Select(window => $"'{window._window.Title}' {Path.GetFileName(window._path)}")));
             return result;
         });
+        // "eml-miniaturize on|off" minimizes the message windows to the Dock or brings them back.
+        MacDebugBridge.Register("eml-miniaturize", async args =>
+        {
+            await dispatcher.ExecuteOnUIThread(() =>
+            {
+                foreach (var window in Open.Values.ToList())
+                {
+                    if (args.Length > 0 && args[0] == "off") window._window.Deminiaturize(null);
+                    else window._window.Miniaturize(null);
+                }
+            });
+            return "ok";
+        });
         MacDebugBridge.Register("eml-close", async _ =>
         {
             await dispatcher.ExecuteOnUIThread(() =>

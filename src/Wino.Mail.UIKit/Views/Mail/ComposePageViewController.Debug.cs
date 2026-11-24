@@ -63,6 +63,18 @@ public sealed partial class ComposePageViewController
             await Dispatcher.ExecuteOnUIThread(() => Observe(editor.InsertImagesAsync([new Wino.Editor.EditorImageInfo($"data:{type};base64,{Convert.ToBase64String(data)}", Path.GetFileName(path))])));
             return "ok";
         });
+        // "compose-drop PATH…" drops files on the body as a drag from Photos or Files does (item providers over file URLs).
+        UIKitDebugBridge.Register("compose-drop", async args =>
+        {
+            Task drop = Task.CompletedTask;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                var items = args.Select(path => new Foundation.NSItemProvider(Foundation.NSUrl.FromFilename(path))).ToArray();
+                drop = _webView.DropItemsAsync(items, new CoreGraphics.CGPoint(40, 20));
+            });
+            await drop;
+            return "dropped " + args.Length;
+        });
         UIKitDebugBridge.Register("compose-body", async _ => await GetHtmlBodyAsync());
         UIKitDebugBridge.Register("compose-discard", _ => OnUIAsync(() => { Observe(DiscardAsync()); return "ok"; }));
         // The bar's "Open in new window" (iPad, docked in the reader column).

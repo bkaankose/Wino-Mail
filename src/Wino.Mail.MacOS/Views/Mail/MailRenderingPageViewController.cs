@@ -657,6 +657,9 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             if (args.Length > 0 && args[0] == "card" && _senderLink is not null) ShowContactCard(ViewModel.FromName, ViewModel.FromAddress, _senderLink);
             return _recipientRows.Dump() + $" card={_contactCard?.Shown == true}";
         }));
+        // "reader-frames": frames drawn so far and whether the view counts as visible (animations run only then).
+        MacDebugBridge.Register("reader-frames", _ => ReaderDebugAsync(() =>
+            $"frames={_mailView.Controller.FrameCount} visible={_mailView.Controller.IsVisible} lastFrameMs={_mailView.Controller.LastFrameMs:F1}"));
         MacDebugBridge.Register("reader-pointer", args => ReaderDebugAsync(() =>
         {
             var point = new Wino.Renderer.Primitives.PxPoint(float.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture), float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
