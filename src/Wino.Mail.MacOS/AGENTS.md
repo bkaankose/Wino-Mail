@@ -21,6 +21,17 @@ The macOS app: AppKit views written in C# over the shared services and ViewModel
 - Keep `Entitlements.plist` and `Entitlements.AppStore.plist` in step. After touching either Apple sign-in path, also build Debug with `-p:WinoAppleSignIn=false`.
 - Keep the user's app data, Keychain items and bundle id. Inspect and repair data through the app, inside the sandbox.
 
+## Mail renderer
+
+Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebKit. `build/Wino.Renderer.Apple.props` references the engine, its Core Graphics and Core Text backend (`Wino.Renderer.Platform.Apple`) and the AppKit view (`Wino.Renderer.AppKit`) from the checkout `WINO_RENDERER_ROOT` names; set it before every build.
+
+- The glue shared with the other heads is in [src/Wino.Mail.Rendering](../Wino.Mail.Rendering/AGENTS.md) (`MailEngineHost`, `EngineMailMessageReader`, `EngineMailEditorSession`, `EngineReaderPresentation`, print documents, spell-check languages); the Apple parts (backend factory, PDF export, memory pressure) are in `src/Wino.Mail.Rendering.Apple`. Change them there.
+- [Composition.cs](Composition.cs) registers the one backend (`AppKitBackend.Create()`) and calls `AddMailRendering()`. Never create a second engine.
+- The engine's `MailView` (an `NSView` over the shared `MailViewController`) is created in code: the reader in `MailRenderingPageViewController`, the composer and the signature, template and event-notes editors through `Views/Mail/Compose/MacEngineEditor` and `Views/Dialogs/WinoRichTextEditorView`. `Infrastructure/MacEngineMailPrintPresenter` prints through the engine's print panel sheet and exports PDF.
+- Links, remote content, tracking parameters, find, zoom, the caret, IME and spelling are the engine's. Keep this head to wiring and AppKit chrome; an engine fault is fixed in the renderer repository.
+- A closing window clears its content controller with `ClearContentViewController()` (the binding refuses null) before the page is disposed; otherwise the page and the engine view stay alive.
+- Debug bridge: `compose-type`, `compose-key`, `compose-ime`, `compose-body`, `compose-discard`, `reader-pointer X Y [click]`, `reader-print`, `reader-pdf`, `eml-open`, `eml-close`, `gc` and `live` drive and measure the renderer in the running app.
+
 ## How a view consumes a ViewModel
 
 A page is a `WinoViewController<TViewModel>` ([Infrastructure/WinoViewController.cs](Infrastructure/WinoViewController.cs)). The base class owns the contract with the shared ViewModel, so a page only declares bindings:
