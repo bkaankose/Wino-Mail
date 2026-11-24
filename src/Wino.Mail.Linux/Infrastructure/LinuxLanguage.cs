@@ -109,14 +109,7 @@ internal static class LinuxLanguage
         }
     }
 
-    private static void Load(AppLanguage language)
-    {
-        using var stream = WinoTranslationDictionary.GetLanguageStream(language)
-                           ?? throw new InvalidOperationException($"The {language} strings are not embedded.");
-        var values = JsonSerializer.Deserialize(stream, BasicTypesJsonContext.Default.DictionaryStringString)
-                     ?? throw new InvalidOperationException($"The {language} strings are empty.");
-        foreach (var pair in values) Translator.Resources[pair.Key] = pair.Value;
-    }
+    private static void Load(AppLanguage language) => Translator.Resources.Load(language);
 }
 
 /// <summary>Keeps the text direction on the app language: once the shared service applied the stored preference, and on every change.</summary>
