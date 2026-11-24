@@ -13,7 +13,6 @@ namespace Wino.Mail.WinUI.Rendering;
 /// </summary>
 public sealed partial class EngineReaderPresentation
 {
-    private const float ContentInsetPx = 16;
     private const string DefaultFontFamily = "Segoe UI";
     private const float DefaultFontSizePx = 15;
 
@@ -61,7 +60,7 @@ public sealed partial class EngineReaderPresentation
     {
         Theme = CreateTheme(),
         Typography = CreateTypography(),
-        Viewport = new ViewportOptions { Fit = FitMode.ReflowThenShrink, ContentInset = ContentInsetPx },
+        Viewport = new ViewportOptions { Fit = FitMode.ReflowThenShrink },
         BackgroundUpdates = true
     };
 
