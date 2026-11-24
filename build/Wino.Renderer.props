@@ -1,0 +1,17 @@
+<Project>
+  <!--
+    The native mail renderer is referenced from a local checkout by absolute path until it ships as a package.
+    WINO_RENDERER_ROOT (environment) or -p:WinoRendererRoot overrides the location.
+  -->
+  <PropertyGroup>
+    <WinoRendererRoot Condition="'$(WinoRendererRoot)' == '' and '$(WINO_RENDERER_ROOT)' != ''">$(WINO_RENDERER_ROOT)</WinoRendererRoot>
+    <WinoRendererRoot Condition="'$(WinoRendererRoot)' == ''">D:\Wino-Mail-Renderer.worktrees\wino-integration</WinoRendererRoot>
+    <WinoRendererRoot>$([MSBuild]::EnsureTrailingSlash('$(WinoRendererRoot)'))</WinoRendererRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(WinoRendererRoot)src\Wino.Renderer\Wino.Renderer.csproj" />
+    <ProjectReference Include="$(WinoRendererRoot)src\Wino.Renderer.Mime\Wino.Renderer.Mime.csproj" />
+    <ProjectReference Include="$(WinoRendererRoot)platforms\Wino.Renderer.Platform.Windows\Wino.Renderer.Platform.Windows.csproj" />
+    <ProjectReference Include="$(WinoRendererRoot)platforms\Wino.Renderer.WinUI\Wino.Renderer.WinUI.csproj" />
+  </ItemGroup>
+</Project>

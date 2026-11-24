@@ -296,6 +296,7 @@
 	<PackageReference Include="WinUIEx" />
 	<PackageReference Include="Wino.Mail.Contracts" />
   </ItemGroup>
+  <Import Project="..\..\build\Wino.Renderer.props" />
   <ItemGroup>
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Editor.WinUI\Wino.Editor.WinUI.csproj" />
