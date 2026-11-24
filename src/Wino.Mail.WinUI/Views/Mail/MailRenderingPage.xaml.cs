@@ -66,8 +66,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IMailMessageReader,
     IRecipient<ApplicationThemeChanged>
 {
-    private const string OutlookSafeLinksHostSuffix = ".safelinks.protection.outlook.com";
-
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
     private readonly MailView _mailView;
     private readonly EngineReaderPresentation _readerPresentation;
@@ -352,9 +350,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         if (link is null || link.Kind == LinkKind.Blocked)
             return string.Empty;
 
-        if (link.RedirectTarget is { Length: > 0 } redirectTarget
-            && Uri.TryCreate(link.Original, UriKind.Absolute, out var original)
-            && original.Host.EndsWith(OutlookSafeLinksHostSuffix, StringComparison.OrdinalIgnoreCase))
+        if (link.Protection == LinkProtection.OutlookSafeLinks && link.RedirectTarget is { Length: > 0 } redirectTarget)
         {
             return string.Format(Translator.Reader_ProtectedLinkFormat, redirectTarget);
         }
