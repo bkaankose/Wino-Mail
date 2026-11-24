@@ -3,14 +3,14 @@ using CommunityToolkit.Mvvm.Messaging;
 using CoreGraphics;
 using Foundation;
 using MimeKit;
-using WebKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
-using Wino.Editor.WebKit;
-using AppKitHtmlMailEditorSession = Wino.Editor.WebKit.WebKitHtmlMailEditorSession;
+using Wino.Mail.Rendering;
+using AppKitHtmlMailEditorSession = Wino.Mail.MacOS.Views.Mail.Compose.MacEngineEditor;
+using EngineMailView = Wino.Renderer.AppKit.MailView;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Mail.Compose;
@@ -43,7 +43,9 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
     private readonly IKeyboardShortcutService _shortcuts;
     private readonly IPictureStorageService _pictures;
     private AppKitHtmlMailEditorSession? _editor;
-    private WKWebView _webView = null!;
+    private EngineMailView _webView = null!;
+    private readonly MailEngineHost _engineHost;
+    private readonly IMailDialogService _dialogs;
     private WinoInfoBar _syncFailedBar = null!;
     private NSButton _sendButton = null!;
     private NSButton _sendToServerButton = null!;
@@ -66,9 +68,12 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
     private bool _docking;
 
     public ComposePageViewController(ComposePageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IExternalLauncher launcher, AppKitNavigationService navigation,
-        ITranslationService translations, IKeyboardShortcutService shortcuts, IPictureStorageService pictures)
+        ITranslationService translations, IKeyboardShortcutService shortcuts, IPictureStorageService pictures, MailEngineHost engineHost,
+        IMailDialogService dialogs)
         : base(viewModel, dispatcher, logger)
     {
+        _engineHost = engineHost;
+        _dialogs = dialogs;
         _launcher = launcher;
         _navigation = navigation;
         _translations = translations;
@@ -191,8 +196,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         var editorToolbar = BuildEditorToolbar();
 
         // ---- Editor ----
-        _webView = new WKWebView(CGRect.Empty, new WKWebViewConfiguration()) { TranslatesAutoresizingMaskIntoConstraints = false };
-        _webView.SetValueForKey(NSNumber.FromBoolean(false), new NSString("drawsBackground"));
+        _webView = new EngineMailView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoAccessibility.Label(_webView, Translator.Reader_MessageBodyAutomationName);
         var editorHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(_webView, editorHost, 6, 12, 0, 12);
@@ -288,10 +292,12 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
-        _editor = new AppKitHtmlMailEditorSession(_webView);
+        _editor = new AppKitHtmlMailEditorSession(_webView, Dispatcher, _engineHost, _dialogs);
         _editor.Configure(_launcher);
         _editor.OperationFailed += (_, exception) => ReportError(exception);
         _editor.ContentChanged += (_, _) => ScheduleAutosave();
+        _editor.FilesReceived += (_, files) => AttachPastedFiles(files);
+        ViewModel.BodyWriter = _editor.Engine;
         _formatToolbar.Attach(_editor);
         _darkEditor = WinoIcons.IsDark(View.EffectiveAppearance);
         _appearanceDark = _darkEditor;
@@ -389,6 +395,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         finally
         {
             ViewModel.GetHTMLBodyFunction = null;
+            ViewModel.BodyWriter = null;
             await DisposeEditorAsync();
             ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         }
@@ -629,7 +636,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
             CloseSuggestions();
             _docking = true;
             window.WillClose -= WindowWillClose;
-            window.ContentViewController = null!;
+            window.ClearContentViewController();
             window.Close();
             _window = null;
             Detached.Remove(this);
@@ -654,7 +661,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         finally
         {
             Detached.Remove(this);
-            if (window is not null) window.ContentViewController = null!;
+            if (window is not null) window.ClearContentViewController();
             Dispose();
         }
     }

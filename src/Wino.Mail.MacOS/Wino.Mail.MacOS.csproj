@@ -74,7 +74,6 @@
     <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.AppKit/Wino.Presentation.AppKit.csproj" />
     <ProjectReference Include="../../controls/Wino.Mail.Controls.AppKit/Wino.Mail.Controls.AppKit.csproj" />
-    <ProjectReference Include="../../controls/Wino.Editor.WebKit/Wino.Editor.WebKit.csproj" />
     <ProjectReference Include="../Wino.Mail.Rendering/Wino.Mail.Rendering.csproj" />
     <ProjectReference Include="../Wino.Mail.Rendering.Apple/Wino.Mail.Rendering.Apple.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />

@@ -2,7 +2,6 @@ using AppKit;
 using Foundation;
 using ObjCRuntime;
 using Wino.Core.Domain;
-using Wino.Editor.WebKit;
 using Wino.Mail.MacOS.Views.Mail.Compose;
 
 namespace Wino.Mail.MacOS.Views.Mail;

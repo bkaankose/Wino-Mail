@@ -621,7 +621,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     /// Debug-bridge commands for the reader (DEBUG builds only): <c>reader-badges</c> (unsubscribe
     /// and S/MIME state with the status row), <c>reader-print</c> (opens the print panel sheet and
     /// returns at once so <c>snap</c> can capture it), <c>reader-pdf PATH</c> (exports the message;
-    /// a relative path lands in the debug folder) and <c>reader-source</c> (opens the message source sheet).
+    /// a relative path lands in the debug folder), <c>reader-source</c> (opens the message source sheet) and
+    /// <c>reader-pointer X Y [click]</c> (moves the pointer to a point of the mail view, and clicks there, as the mouse does).
     /// </summary>
     private void RegisterReaderDebugCommands()
     {
@@ -655,6 +656,23 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             // "reader-recipients card" opens the sender's contact card.
             if (args.Length > 0 && args[0] == "card" && _senderLink is not null) ShowContactCard(ViewModel.FromName, ViewModel.FromAddress, _senderLink);
             return _recipientRows.Dump() + $" card={_contactCard?.Shown == true}";
+        }));
+        MacDebugBridge.Register("reader-pointer", args => ReaderDebugAsync(() =>
+        {
+            var point = new Wino.Renderer.Primitives.PxPoint(float.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture), float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+            string? hovered = null;
+            void OnHover(object? sender, Wino.Renderer.LinkHoverEventArgs e) => hovered = e.Link?.Effective ?? "none";
+            _mailView.LinkHoverChanged += OnHover;
+            var controller = _mailView.Controller;
+            controller.PointerMoved(point, Wino.Renderer.Platform.KeyModifiers.None);
+            if (args.Length > 2 && args[2] == "click")
+            {
+                controller.PointerPressed(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Mouse, 1);
+                controller.PointerReleased(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None);
+            }
+
+            _mailView.LinkHoverChanged -= OnHover;
+            return $"hover={hovered ?? "unchanged"} targetBar={(_linkTarget.Hidden ? "hidden" : "shown")}";
         }));
         MacDebugBridge.Register("reader-source", _ => ReaderDebugAsync(() =>
         {

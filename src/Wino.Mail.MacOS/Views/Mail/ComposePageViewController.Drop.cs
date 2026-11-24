@@ -44,6 +44,22 @@ public sealed partial class ComposePageViewController
         ViewModel.IsDraggingOverImagesDropZone = _dropOverlay.HoveredZone == ComposeDropZone.Images;
     }
 
+    /// <summary>Files pasted or dropped into the body that are not inline images become attachments.</summary>
+    private void AttachPastedFiles(IReadOnlyList<string> paths)
+    {
+        foreach (var path in paths)
+        {
+            try
+            {
+                ViewModel.AddAttachment(new SharedFile(path, File.ReadAllBytes(path)));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                ReportError(exception);
+            }
+        }
+    }
+
     private void AttachDroppedFiles(IReadOnlyList<SharedFile> files)
     {
         foreach (var file in files) ViewModel.AddAttachment(file);
