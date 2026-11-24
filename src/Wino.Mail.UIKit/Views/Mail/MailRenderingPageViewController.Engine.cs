@@ -40,6 +40,12 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
         _mailView.LinkHoverChanged += MailView_LinkHoverChanged;
         _mailView.ContextMenuRequested += MailView_ContextMenuRequested;
         WinoTraits.OnAppearanceChanged(_mailView, _ => AppearanceChanged());
+        // Increase Contrast (Darker System Colors) changes the mail's colours while it is open.
+        var contrast = Foundation.NSNotificationCenter.DefaultCenter.AddObserver(UIView.DarkerSystemColorsStatusDidChangeNotification, _ =>
+        {
+            if (!_disposedReader) ApplyReaderPresentation();
+        });
+        Bindings.Own(new ActionDisposable(contrast.Dispose));
         _reader.Attach();
     }
 

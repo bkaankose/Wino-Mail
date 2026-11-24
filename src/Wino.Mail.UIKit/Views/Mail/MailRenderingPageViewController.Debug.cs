@@ -73,7 +73,7 @@ public sealed partial class MailRenderingPageViewController
         {
             var controller = _mailView.Controller;
             return $"dark={_dark} appearanceDark={IsDarkAppearance()} bodyHeight={_webHeight?.Constant} content={controller.ContentSize.Width}x{controller.ContentSize.Height} " +
-                $"frames={controller.FrameCount} lastFrameMs={controller.LastFrameMs:F1} zoom={controller.ZoomFactor}";
+                $"frames={controller.FrameCount} lastFrameMs={controller.LastFrameMs:F1} zoom={controller.ZoomFactor} highContrast={_presentation.IsHighContrast}";
         }));
         UIKitDebugBridge.Register("reader-scroll", args => ReaderDebugAsync(() =>
         {
@@ -96,6 +96,20 @@ public sealed partial class MailRenderingPageViewController
             controller.PointerPressed(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Touch);
             controller.PointerReleased(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Touch);
             return "tapped";
+        }));
+        // "reader-ax": the accessibility elements VoiceOver walks in the body (traits, label, frame on screen).
+        UIKitDebugBridge.Register("reader-ax", _ => ReaderDebugAsync(() =>
+        {
+            var elements = _mailView.AccessibilityElementsForVoiceOver;
+            if (elements is null) return "single element: " + _mailView.AccessibilityLabel;
+            var lines = new List<string>();
+            for (nuint i = 0; i < elements.Count && i < 40; i++)
+            {
+                var e = elements.GetItem<UIAccessibilityElement>(i);
+                var traits = (UIAccessibilityTrait)e.AccessibilityTraits;
+                lines.Add($"{traits}: '{e.AccessibilityLabel}' screen {e.AccessibilityFrame} in view {e.AccessibilityFrameInContainerSpace}");
+            }
+            return $"{elements.Count} elements\n" + string.Join("\n", lines);
         }));
         UIKitDebugBridge.Register("reader-bar", args => ReaderDebugAsync(() =>
         {
