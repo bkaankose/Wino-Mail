@@ -49,6 +49,8 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
         _presentation.Method = ViewModel.ReaderDarkModeMethod == MailDarkModeMethod.Inverted ? DarkModeMethod.Inverted : DarkModeMethod.Adaptive;
         _presentation.IsHighContrast = UIAccessibility.DarkerSystemColorsEnabled;
         _presentation.SetTypography(ViewModel.PreferencesService.ReaderFont, ViewModel.PreferencesService.ReaderFontSize);
+        // Dynamic Type zooms the mail's text as the system zooms every other text.
+        _presentation.TextScale = EngineHost.Backend.System.TextScale;
         // A mail's phone layout applies on the device it is read on, and a wide mail is fitted to the card.
         var screen = UIScreen.MainScreen.Bounds.Size;
         _presentation.Viewport = _presentation.Viewport with

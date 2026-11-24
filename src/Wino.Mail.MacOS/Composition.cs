@@ -106,6 +106,7 @@ internal static class Composition
         services.AddSingleton<Wino.Mail.Rendering.IMailEngineBackendFactory>(_ =>
             new Wino.Mail.Rendering.Apple.AppleMailEngineBackendFactory(() => Wino.Renderer.AppKit.AppKitBackend.Create()));
         Wino.Mail.Rendering.MailRenderingRegistration.AddMailRendering(services);
+        services.AddSingleton<Wino.Mail.Rendering.Apple.MailEngineMemoryPressure>();
         services.AddSingleton<IStartupIntegrationService, MacStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, MacSmimeCertificateService>();
         services.AddSingleton<IAppLockPlatform, UnavailableAppLockPlatform>();
@@ -187,7 +188,10 @@ internal static class Composition
         services.AddSingleton<AppKitNavigationService>(provider => new(provider, dispatcher, host));
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<AppKitNavigationService>());
         services.RegisterMacViewModels();
-        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        // The engine gives its decoded images back when the system runs short of memory.
+        provider.GetRequiredService<Wino.Mail.Rendering.Apple.MailEngineMemoryPressure>();
+        return provider;
     }
 
     /// <summary>A string value from the main bundle's Info.plist; empty when missing.</summary>

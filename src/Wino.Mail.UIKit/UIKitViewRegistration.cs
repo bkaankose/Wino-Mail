@@ -80,6 +80,7 @@ public static partial class UIKitViewRegistration
         services.AddSingleton<Wino.Mail.Rendering.IMailEngineBackendFactory>(_ =>
             new Wino.Mail.Rendering.Apple.AppleMailEngineBackendFactory(() => Wino.Renderer.UIKit.UIKitBackend.Create()));
         Wino.Mail.Rendering.MailRenderingRegistration.AddMailRendering(services);
+        services.AddSingleton<Wino.Mail.Rendering.Apple.MailEngineMemoryPressure>();
         return services;
     }
 }
