@@ -75,7 +75,7 @@ public sealed class UIKitFilePresenter(IDispatcher dispatcher, IUIKitShellHost h
 }
 
 /// <summary>
-/// Reader-owned print and PDF presentation (Windows WindowsMailPrintPresenter, Mac MacMailPrintPresenter). Printing
+/// Reader-owned print and PDF presentation (Windows EngineMailPrintPresenter, Mac MacMailPrintPresenter). Printing
 /// presents UIPrintInteractionController with the web view's print formatter; PDF export writes
 /// <c>WKWebView.CreatePdf</c> to the chosen path. Both use the message exactly as the reader renders it. The reader
 /// creates one per page with a function that returns its web view while the page is alive.

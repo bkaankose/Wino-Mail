@@ -30,7 +30,6 @@ public static class CoreUWPContainerSetup
 
         services.AddSingleton<IWinoWindowManager, WinoWindowManager>();
         services.AddSingleton<IWindowsMainWindowHost, WindowsMainWindowHost>();
-        services.AddSingleton<IWindowsPrintService, PrintService>();
         services.AddSingleton<Rendering.MailEngineHost>();
         // Capture the host UI dispatcher before background initialization resolves it.
         var platformDispatcher = DispatcherQueue.GetForCurrentThread();

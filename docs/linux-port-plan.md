@@ -481,7 +481,7 @@ Format: `### ID · title · size`, then Scope (survey rows), Mirror (Windows and
 ### RD-05 · Print, PDF, .eml and message source · M
 
 - Scope: `LinuxMailPrintPresenter` (`WebKit.PrintOperation`: dialog for print, print settings with output URI for PDF export), `Printing: true`, `PdfExport: true`; Save as .eml through the path picker; message source dialog (monospace, read only, Copy). S02 1.5 "Print and Save as PDF", "Save as .eml, view message source"; S03 "Printing".
-- Mirror: `M:Infrastructure/MacMailPrintPresenter.cs`, `M:Infrastructure/AppKitDialogService.MessageSource.cs`, `W:Services/WindowsMailPrintPresenter.cs`, `W:Dialogs/MessageSourceDialog.xaml`.
+- Mirror: `M:Infrastructure/MacMailPrintPresenter.cs`, `M:Infrastructure/AppKitDialogService.MessageSource.cs`, `W:Rendering/EngineMailPrintPresenter.cs`, `W:Dialogs/MessageSourceDialog.xaml`.
 - Shared: `IMailPrintPresenter`, `MailPrintRequest`, `PrintingResult`, `SaveAsPdfAsync`, `SaveAsEmlAsync`, `ShowMessageSourceDialogAsync`.
 - Files: new `H:Infrastructure/LinuxMailPrintPresenter.cs`, `H:Views/Dialogs/MessageSourceDialog.cs`, `H:Infrastructure/GtkDialogService.MessageSource.cs`; modify `P:LinuxPlatformRegistration.cs`, `GtkDialogService.Dismissed.cs`, `H:LinuxComposition.cs` (through its partial).
 - Deps: RD-02, F-07. Parallel: ML-10, ML-11.

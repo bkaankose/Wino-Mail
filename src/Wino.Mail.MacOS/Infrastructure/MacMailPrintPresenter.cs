@@ -10,7 +10,7 @@ using Wino.Core.Domain.Models.Printing;
 namespace Wino.Mail.MacOS.Infrastructure;
 
 /// <summary>
-/// Reader-owned print and PDF presentation (Windows WindowsMailPrintPresenter). Printing runs the
+/// Reader-owned print and PDF presentation (Windows EngineMailPrintPresenter). Printing runs the
 /// web view's NSPrintOperation as a sheet on the reader's window, so the system print panel offers
 /// printers, preview and "Save as PDF". PDF export runs the same operation without panels and saves
 /// the job to the chosen path, so it is paginated like the print dialog's PDF. Like Windows, both use the message exactly as the reader renders it (current theme).

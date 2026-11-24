@@ -51,6 +51,7 @@ using Wino.Renderer;
 using Wino.Renderer.Accessibility;
 using Wino.Renderer.Policy;
 using Wino.Renderer.Primitives;
+using Wino.Renderer.Print;
 using Wino.Renderer.Theme;
 using Wino.Renderer.WinUI;
 using Wino.Services.Models.Reader;
@@ -113,6 +114,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         InitializeWinoIntelligenceHeader();
 
+        ViewModel.PrintPresenter = CreatePrintPresenter();
         ViewModel.MessageReader = this;
         ViewModel.CloseRequested += ViewModel_CloseRequested;
         ViewModel.ComposeRequested += ViewModel_ComposeRequested;
@@ -160,6 +162,44 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         Bindings.Update();
         RendererCommandBar.InvalidateCommands();
     }
+
+    private IMailPrintPresenter CreatePrintPresenter()
+    {
+        var windowManager = App.Current.Services.GetRequiredService<IWinoWindowManager>();
+
+        return new EngineMailPrintPresenter(
+            App.Current.Services.GetRequiredService<MailEngineHost>(),
+            () =>
+            {
+                var owner = windowManager.GetWindows()
+                    .FirstOrDefault(window => XamlRoot != null && ReferenceEquals(window.Content?.XamlRoot, XamlRoot));
+                return owner == null ? IntPtr.Zero : WinRT.Interop.WindowNative.GetWindowHandle(owner);
+            },
+            () => _messageReader.HasMessage ? _mailView.Reader : null,
+            CreatePrintHeader);
+    }
+
+    private PrintHeader CreatePrintHeader()
+    {
+        var sender = string.IsNullOrWhiteSpace(ViewModel.FromName)
+            ? ViewModel.FromAddress
+            : string.IsNullOrWhiteSpace(ViewModel.FromAddress)
+                ? ViewModel.FromName
+                : $"{ViewModel.FromName} <{ViewModel.FromAddress}>";
+
+        return new PrintHeader(
+            string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject,
+            sender,
+            FormatPrintRecipients(ViewModel.ToItems),
+            FormatPrintRecipients(ViewModel.CcItems),
+            XamlHelpers.GetCreationDateString(ViewModel.CreationDate, _preferencesService.MailTimeFormatPreference));
+    }
+
+    private static string FormatPrintRecipients(IEnumerable<AccountContactViewModel> recipients)
+        => string.Join("; ", recipients.Select(recipient =>
+            string.IsNullOrWhiteSpace(recipient.Name) || string.Equals(recipient.Name, recipient.Address, StringComparison.OrdinalIgnoreCase)
+                ? recipient.Address
+                : $"{recipient.Name} <{recipient.Address}>"));
 
     async Task<MailRenderModel> IMailMessageReader.RenderAsync(MailMessageRenderRequest request, CancellationToken cancellationToken)
     {
@@ -548,6 +588,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _currentMailItem = e.Parameter as MailItemViewModel;
         _intelligence.BeginMailItem(_currentMailItem);
         _messageReader.Attach();
+        ViewModel.PrintPresenter = CreatePrintPresenter();
         ViewModel.MessageReader = this;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
         RendererCommandBar.PopOutClicked += RendererCommandBar_PopOutClicked;
