@@ -151,9 +151,6 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
 
         _descriptionPresentation.IsDark = ViewModel.IsDarkWebviewRenderer;
 
-        if (EventDescriptionHost.Background is SolidColorBrush surface)
-            _descriptionPresentation.SetSurfaceColor(surface.Color);
-
         _descriptionPresentation.SetTypography(_preferencesService.ReaderFont, _preferencesService.ReaderFontSize);
         _descriptionPresentation.ApplyTo(_descriptionView);
     }

@@ -641,10 +641,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             ? DarkModeMethod.Inverted
             : DarkModeMethod.Adaptive;
 
-        // The host's brush is the opaque fill the loading skeleton uses, resolved for the reader's own theme.
-        if (MailRendererHost.Background is SolidColorBrush surface)
-            _readerPresentation.SetSurfaceColor(surface.Color);
-
         _readerPresentation.SetTypography(_preferencesService.ReaderFont, _preferencesService.ReaderFontSize);
         _readerPresentation.ApplyTo(_mailView);
     }

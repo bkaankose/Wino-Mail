@@ -1,9 +1,7 @@
 using System;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
-using Windows.UI;
 using Wino.Renderer;
-using Wino.Renderer.Primitives;
 using Wino.Renderer.Theme;
 using Wino.Renderer.WinUI;
 
@@ -31,16 +29,12 @@ public sealed partial class EngineReaderPresentation
 
     public DarkModeMethod Method { get; set; }
 
-    public Rgba SurfaceColor { get; set; } = new(32, 32, 32, 255);
-
     public string FontFamily { get; private set; } = DefaultFontFamily;
 
     public float FontSizePx { get; private set; } = DefaultFontSizePx;
 
     /// <summary>Raised on the UI thread when Windows turns high contrast on or off.</summary>
     public event EventHandler? HighContrastChanged;
-
-    public void SetSurfaceColor(Color color) => SurfaceColor = new Rgba(color.R, color.G, color.B, 255);
 
     public void SetTypography(string? fontFamily, double fontSize)
     {
@@ -58,7 +52,6 @@ public sealed partial class EngineReaderPresentation
     {
         IsDark = IsDark,
         Method = Method,
-        SurfaceColor = SurfaceColor,
         ForcedColors = _highContrast.IsHighContrast
     };
 

@@ -28,7 +28,6 @@ namespace Wino.Mail.WinUI.Rendering;
 internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IComposeBodyWriter
 {
     private const string DefaultFontFamily = "Calibri";
-    private static readonly Rgba DarkSurfaceColor = new(31, 31, 31, 255);
     private static readonly ShortcutGesture LinkDialogGesture = new(Key.K, Control: true, Alt: false, Shift: false, Command: false);
 
     private readonly MailView _view;
@@ -382,7 +381,6 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
     {
         IsDark = _isDarkMode,
         RootIsSurface = true,
-        SurfaceColor = DarkSurfaceColor,
         ForcedColors = _isHighContrast
     };
 
