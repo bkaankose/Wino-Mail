@@ -235,7 +235,7 @@ public sealed partial class ComposePageViewController
     {
         if (responder is NSTextView textView) return textView.HasMarkedText;
         if (responder is null || !responder.RespondsToSelector(HasMarkedTextSelector)) return false;
-        // WKWebView answers NSTextInputClient's hasMarkedText; read the BOOL through key-value coding.
+        // NSTextInputClient views (the mail view, a web view) answer hasMarkedText; read the BOOL through key-value coding.
         try { return responder.ValueForKey(new NSString("hasMarkedText")) is NSNumber { BoolValue: true }; }
         catch (ObjCException) { return false; }
     }

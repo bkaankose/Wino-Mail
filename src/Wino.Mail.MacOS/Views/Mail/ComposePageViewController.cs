@@ -24,7 +24,7 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// Composer in the reading pane (design boards "Compose" and "Compose window"): the draft-upload failure
 /// bar, the command row with the filled Send button, From pop-up, To/Cc/Bcc token fields with Cc/Bcc
 /// reveal and the recipient suggestion popup, Subject, the shared Format / Insert / Options editor toolbar
-/// driving the HTML editor in a WKWebView, and the attachment tray. "Open in new window" moves this same
+/// driving the native mail renderer's editor, and the attachment tray. "Open in new window" moves this same
 /// controller and draft into a 960x720 window and back; closing that window keeps the draft.
 /// Partials: Toolbar (editor toolbar, theme, Send shortcut), Recipients, Attachments, Rewrite (Wino
 /// Intelligence), Extras (templates and signature), Options (S/MIME and read receipt), Find (find and

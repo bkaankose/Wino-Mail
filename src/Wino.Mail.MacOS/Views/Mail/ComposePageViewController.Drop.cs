@@ -13,7 +13,7 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// <summary>
 /// Files dropped on the composer (Windows ComposePage file and image drop zones). A transparent
 /// overlay above the composer registers only for file URLs, so text and HTML drags inside the
-/// WKWebView editor keep working, while Finder files land here: the overlay shows a files zone
+/// mail view editor keep working, while Finder files land here: the overlay shows a files zone
 /// (any file becomes an attachment) and an images zone (JPG and PNG are inserted inline at the caret).
 /// Dropped file URLs are readable only during the drag, so their bytes are read immediately.
 /// </summary>
