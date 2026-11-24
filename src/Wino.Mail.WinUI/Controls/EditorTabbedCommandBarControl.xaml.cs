@@ -12,10 +12,10 @@ using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Translations;
 using Wino.Editor;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Rendering;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
@@ -171,8 +171,8 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         EnsureSpellCheckLanguages();
     }
 
-    // Hosts may configure the languages themselves. Every other host gets the saved composer choice,
-    // so the split button menu is never empty.
+    // A host may configure the languages itself. Every other host gets the saved composer choice,
+    // so the split button menu is never left unconfigured.
     private void EnsureSpellCheckLanguages()
     {
         if (_areSpellCheckLanguagesConfigured)
@@ -180,18 +180,10 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
             return;
         }
 
-        var services = WinoApplication.Current?.Services;
-        var translationService = services?.GetService<ITranslationService>();
-        var preferencesService = services?.GetService<IPreferencesService>();
-
-        if (translationService == null || preferencesService == null)
+        if (GetPreferencesService() is { } preferencesService)
         {
-            return;
+            ConfigureSpellCheckLanguages(preferencesService.ComposerSpellCheckLanguageCode);
         }
-
-        ConfigureSpellCheckLanguages(
-            translationService.GetAvailableLanguages(),
-            preferencesService.ComposerSpellCheckLanguageCode);
     }
 
     private static IPreferencesService? GetPreferencesService()
@@ -578,10 +570,16 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         await ExecuteAsync(EditorCommand.SetTextColor(color.Value));
     }
 
-    public void ConfigureSpellCheckLanguages(
-        IReadOnlyList<AppLanguageModel> languages,
-        string selectedLanguageCode)
+    /// <summary>
+    /// Fills the language menu with the spell-check languages installed in Windows and checks the one the saved
+    /// choice stands for. Nothing is checked when Windows has no checker for it; the editor then uses the system language.
+    /// </summary>
+    public void ConfigureSpellCheckLanguages(string savedLanguageCode)
     {
+        var languages = EngineSpellCheckLanguages.GetInstalled();
+        var selectedLanguageCode = EngineSpellCheckLanguages.Resolve(savedLanguageCode, languages.Select(language => language.Code).ToArray())
+            ?? string.Empty;
+
         _selectedSpellCheckLanguageCode = selectedLanguageCode;
         _areSpellCheckLanguagesConfigured = true;
         SpellCheckLanguageFlyout.Items.Clear();

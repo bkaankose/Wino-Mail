@@ -511,16 +511,24 @@ public partial class PreferencesService(IConfigurationService configurationServi
                 nameof(ComposerSpellCheckLanguageCode),
                 TranslationService.DefaultLanguageCode);
 
-            return TranslationService.IsSupportedLanguageCode(languageCode)
+            return IsLanguageTag(languageCode)
                 ? languageCode
                 : TranslationService.DefaultLanguageCode;
         }
         set => SetPropertyAndSave(
             nameof(ComposerSpellCheckLanguageCode),
-            TranslationService.IsSupportedLanguageCode(value)
+            IsLanguageTag(value)
                 ? value
                 : TranslationService.DefaultLanguageCode);
     }
+
+    // The composer checks spelling in the languages the platform has installed, which need not be app languages,
+    // so any well-formed tag is kept (en-GB, pt-PT, sr-Latn-RS).
+    private static bool IsLanguageTag(string? value)
+        => value is { Length: >= 2 and <= 35 } &&
+           char.IsAsciiLetter(value[0]) &&
+           char.IsAsciiLetterOrDigit(value[^1]) &&
+           value.All(character => char.IsAsciiLetterOrDigit(character) || character == '-');
 
     public bool IsNavigationPaneOpened
     {

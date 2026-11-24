@@ -82,7 +82,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private readonly List<IDisposable> _disposables = [];
     private readonly IKeyboardShortcutService _keyboardShortcutService = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
     private readonly IWinoLogger _logger = WinoApplication.Current.Services.GetRequiredService<IWinoLogger>();
-    private readonly ITranslationService _translationService = WinoApplication.Current.Services.GetRequiredService<ITranslationService>();
 
     public ComposePage()
     {
@@ -420,9 +419,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         base.OnNavigatedTo(e);
 
-        EditorCommandBar.ConfigureSpellCheckLanguages(
-            _translationService.GetAvailableLanguages(),
-            _spellCheckLanguageCode);
+        EditorCommandBar.ConfigureSpellCheckLanguages(_spellCheckLanguageCode);
 
         _disposables.Add(GetSuggestionBoxDisposable(ToBox));
         _disposables.Add(GetSuggestionBoxDisposable(CCBox));

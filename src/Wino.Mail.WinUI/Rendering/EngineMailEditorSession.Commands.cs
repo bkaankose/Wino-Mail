@@ -47,10 +47,12 @@ internal sealed partial class EngineMailEditorSession
                 ApplySpelling();
                 RaiseStateChanged();
                 return true;
+            // The saved choice may name a language Windows cannot check here: a preference from before the list came
+            // from Windows, or one made on another device.
             case EditorCommandKind.SetSpellCheckLanguage:
-                _spellCheckLanguage = command.Value is string { Length: > 0 } language && !string.IsNullOrWhiteSpace(language)
-                    ? language.Trim()
-                    : null;
+                _spellCheckLanguage = EngineSpellCheckLanguages.Resolve(
+                    command.Value as string,
+                    EngineSpellCheckLanguages.GetInstalledCodes());
                 ApplySpelling();
                 return true;
             case EditorCommandKind.ToggleAutoCorrect:

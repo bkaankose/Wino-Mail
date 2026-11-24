@@ -184,8 +184,4 @@ public class TranslationService : ITranslationService
             new AppLanguageModel(AppLanguage.Ukrainian, "Ukrainian", "uk-UA"),
             new AppLanguageModel(AppLanguage.Vietnamese, "Vietnamese", "vi-VN")
         ];
-
-    public static bool IsSupportedLanguageCode(string? languageCode)
-        => CreateAvailableLanguages().Any(language =>
-            string.Equals(language.Code, languageCode, System.StringComparison.OrdinalIgnoreCase));
 }
