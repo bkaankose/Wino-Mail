@@ -40,6 +40,7 @@ using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.Rendering;
 using Wino.Mail.WinUI.Rendering;
 using Wino.Mail.WinUI.Services;
 using Wino.Core.Domain.Messaging.Client.Mails;
@@ -99,7 +100,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         InitializeComponent();
 
-        _readerPresentation = new EngineReaderPresentation(DispatcherQueue);
+        _readerPresentation = new EngineReaderPresentation();
         _mailView = CreateMailView();
         MailRendererHost.Children.Add(_mailView);
         _messageReader = new EngineMailMessageReader(

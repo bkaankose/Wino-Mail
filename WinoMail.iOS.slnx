@@ -25,6 +25,7 @@
     <Project Path="src/Wino.Services/Wino.Services.csproj" />
     <Project Path="src/Wino.Authentication/Wino.Authentication.csproj" />
     <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
+    <Project Path="src/Wino.Mail.Rendering/Wino.Mail.Rendering.csproj" />
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
     <Project Path="controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
     <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />

@@ -7,7 +7,7 @@ using DomainUnsubscribeInfo = Wino.Core.Domain.Models.Reader.UnsubscribeInfo;
 using DomainUnsubscribeMethod = Wino.Core.Domain.Enums.UnsubscribeMethod;
 using DomainUnsubscribeOption = Wino.Core.Domain.Models.Reader.UnsubscribeOption;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>
 /// Unsubscribe information from the mail engine, for code that has a message but no reader (the assistant).

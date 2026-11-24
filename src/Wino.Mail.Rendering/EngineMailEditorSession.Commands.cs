@@ -1,15 +1,13 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
 using Wino.Renderer.Editing;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
-internal sealed partial class EngineMailEditorSession
+public sealed partial class EngineMailEditorSession
 {
     private const string DefaultEmoji = "😊";
 
@@ -31,7 +29,7 @@ internal sealed partial class EngineMailEditorSession
 
         // A toolbar button took the focus; typing continues in the editor.
         if (!_disposed)
-            _view.Focus(FocusState.Programmatic);
+            _view.RequestFocus();
     }
 
     /// <summary>The commands that change how the editor behaves, not its content. They need no loaded document.</summary>
@@ -47,12 +45,12 @@ internal sealed partial class EngineMailEditorSession
                 ApplySpelling();
                 RaiseStateChanged();
                 return true;
-            // The saved choice may name a language Windows cannot check here: a preference from before the list came
-            // from Windows, or one made on another device.
+            // The saved choice may name a language the system cannot check here: a preference from before the list came
+            // from the system, or one made on another device.
             case EditorCommandKind.SetSpellCheckLanguage:
                 _spellCheckLanguage = EngineSpellCheckLanguages.Resolve(
                     command.Value as string,
-                    EngineSpellCheckLanguages.GetInstalledCodes());
+                    EngineSpellCheckLanguages.GetInstalledCodes(_engineHost));
                 ApplySpelling();
                 return true;
             case EditorCommandKind.ToggleAutoCorrect:
@@ -144,12 +142,11 @@ internal sealed partial class EngineMailEditorSession
 
     private async Task PickAndInsertImagesAsync()
     {
-        var dialogService = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
-        var files = await dialogService.PickFilesAsync(".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp");
+        var files = await _dialogService.PickFilesAsync(".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp");
 
         foreach (var file in files)
         {
-            var args = await EngineEditorImages.CreateAsync(file.Data, file.FileName);
+            var args = EngineEditorImages.Create(file.Data, file.FileName, _engineHost.Backend.Images);
             if (_disposed || !_view.IsEditing) return;
 
             if (args is not null)

@@ -5,7 +5,10 @@ using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
+using Wino.Mail.Rendering;
 using Wino.Renderer.WinUI;
 
 namespace Wino.Mail.WinUI.Rendering;
@@ -29,7 +32,9 @@ public sealed partial class EngineMailEditorView : UserControl
         VerticalContentAlignment = VerticalAlignment.Stretch;
         Content = _view;
 
-        Session = new EngineMailEditorSession(_view);
+        var services = WinoApplication.Current.Services;
+        Session = new EngineMailEditorSession(_view, new WinUIDispatcher(DispatcherQueue), services.GetRequiredService<MailEngineHost>(),
+            services.GetRequiredService<IMailDialogService>());
         Session.StateChanged += Session_StateChanged;
         Session.LinkOpenRequested += Session_LinkOpenRequested;
         _view.FilesReceived += View_FilesReceived;

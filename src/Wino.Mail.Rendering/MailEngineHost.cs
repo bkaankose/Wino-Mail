@@ -3,20 +3,26 @@ using System.Threading;
 using Serilog;
 using Wino.Renderer;
 using Wino.Renderer.Platform;
-using Wino.Renderer.Platform.Windows;
 using Wino.Renderer.Primitives;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>
 /// Owns the one platform backend and the one mail engine of the process. Every reader and composer view shares them.
+/// The head supplies the backend through its <see cref="IMailEngineBackendFactory"/>.
 /// </summary>
 public sealed partial class MailEngineHost : IDisposable
 {
+    private readonly IMailEngineBackendFactory _backendFactory;
     private readonly Lock _gate = new();
     private IPlatformBackend? _backend;
     private MailEngine? _engine;
     private bool _disposed;
+
+    public MailEngineHost(IMailEngineBackendFactory backendFactory)
+    {
+        _backendFactory = backendFactory;
+    }
 
     public MailEngine Engine
     {
@@ -51,12 +57,12 @@ public sealed partial class MailEngineHost : IDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_engine is not null) return;
 
-            var backend = WindowsBackend.Create();
+            var backend = _backendFactory.Create();
             try
             {
                 _engine = new MailEngine(backend, new MailEngineOptions { Diagnostics = new SerilogEngineDiagnostics() });
                 _backend = backend;
-                Log.Information("Mail engine started: {Backend}", WindowsBackend.Describe(backend));
+                Log.Information("Mail engine started: {Backend}", _backendFactory.Describe(backend));
             }
             catch
             {

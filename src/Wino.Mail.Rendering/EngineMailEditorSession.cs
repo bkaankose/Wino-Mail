@@ -2,11 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml;
 using MimeKit;
 using Serilog;
+using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
 using Wino.Mail.ViewModels;
 using Wino.Renderer;
@@ -16,23 +14,25 @@ using Wino.Renderer.Platform;
 using Wino.Renderer.Policy;
 using Wino.Renderer.Primitives;
 using Wino.Renderer.Theme;
-using Wino.Renderer.WinUI;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>
-/// The editor contract over a <see cref="MailView"/> in composer mode. Every load opens a new composer session in the
+/// The editor contract over an <see cref="IMailView"/> in composer mode. Every load opens a new composer session in the
 /// view, so the session keeps the settings (theme, typography, spelling, shortcuts) and applies them to each one.
-/// Members may be called from any thread; they run on the view's UI thread.
+/// Members may be called from any thread; they run on the view's UI thread through the head's dispatcher.
 /// </summary>
-internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IComposeBodyWriter
+public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IComposeBodyWriter
 {
     private const string DefaultFontFamily = "Calibri";
     private static readonly ShortcutGesture LinkDialogGesture = new(Key.K, Control: true, Alt: false, Shift: false, Command: false);
 
-    private readonly MailView _view;
-    private readonly DispatcherQueue _dispatcher;
+    private readonly IMailView _view;
+    private readonly IDispatcher _dispatcher;
+    private readonly MailEngineHost _engineHost;
+    private readonly IMailDialogService _dialogService;
     private readonly TaskCompletionSource _loaded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly CancellationTokenSource _attachCancellation = new();
     private readonly Dictionary<ShortcutGesture, EditorApplicationShortcutGesture> _applicationShortcuts = [];
     private MailComposerSession? _subscribedComposer;
     private Task _loadTask = Task.CompletedTask;
@@ -48,18 +48,28 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
     private bool _blockRemoteContent;
     private bool _disposed;
 
-    public EngineMailEditorSession(MailView view)
+    public EngineMailEditorSession(IMailView view, IDispatcher dispatcher, MailEngineHost engineHost, IMailDialogService dialogService)
     {
         _view = view;
-        _dispatcher = view.DispatcherQueue;
+        _dispatcher = dispatcher;
+        _engineHost = engineHost;
+        _dialogService = dialogService;
 
         _view.EditStateChanged += View_EditStateChanged;
         _view.LinkActivated += View_LinkActivated;
+        _ = WaitAttachedAsync();
+    }
 
-        if (_view.IsLoaded)
+    private async Task WaitAttachedAsync()
+    {
+        try
+        {
+            await _view.WhenAttachedAsync(_attachCancellation.Token);
             _loaded.TrySetResult();
-        else
-            _view.Loaded += View_Loaded;
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     public EditorState CurrentState { get; private set; } = new();
@@ -152,7 +162,7 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
         => RunAsync(async () =>
         {
             await WhenIdleAsync(cancellationToken);
-            _view.Focus(FocusState.Programmatic);
+            _view.RequestFocus();
         });
 
     /// <summary>
@@ -185,7 +195,7 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
 
             foreach (var image in images)
             {
-                var args = await EngineEditorImages.CreateAsync(image);
+                var args = EngineEditorImages.Create(image, _engineHost.Backend.Images);
                 if (_disposed || !_view.IsEditing) return;
 
                 if (args is not null)
@@ -215,26 +225,17 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
             return Task.CompletedTask;
         });
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (_dispatcher.HasThreadAccess)
+        try
         {
-            DisposeCore();
-            return ValueTask.CompletedTask;
+            await _dispatcher.ExecuteOnUIThread(DisposeCore);
         }
-
-        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var enqueued = _dispatcher.TryEnqueue(() =>
+        catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
         {
-            DisposeCore();
-            completion.TrySetResult();
-        });
-
-        // The UI thread is gone, and the view with it.
-        if (!enqueued)
+            // The UI thread is gone, and the view with it.
             _disposed = true;
-
-        return enqueued ? new ValueTask(completion.Task) : ValueTask.CompletedTask;
+        }
     }
 
     private void DisposeCore()
@@ -246,7 +247,7 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
         if (_loaded.TrySetException(new ObjectDisposedException(nameof(EngineMailEditorSession))))
             _ = _loaded.Task.Exception;
 
-        _view.Loaded -= View_Loaded;
+        _attachCancellation.Cancel();
         _view.EditStateChanged -= View_EditStateChanged;
         _view.LinkActivated -= View_LinkActivated;
         SubscribeComposer(null);
@@ -279,7 +280,7 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
         await WaitLoadedAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        _view.Engine ??= WinoApplication.Current.Services.GetRequiredService<MailEngineHost>().Engine;
+        _view.Engine ??= _engineHost.Engine;
 
         var result = await start(CreateComposerOptions());
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -404,9 +405,10 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
     }
 
     /// <summary>
-    /// Windows high contrast of the window that shows the editor. Called on the UI thread by the editor element.
+    /// The system's high contrast state for the window that shows the editor. Called on the UI thread by the head's
+    /// editor element.
     /// </summary>
-    internal void SetHighContrast(bool isHighContrast)
+    public void SetHighContrast(bool isHighContrast)
     {
         if (_disposed || _isHighContrast == isHighContrast) return;
 
@@ -461,7 +463,7 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
     {
         try
         {
-            return WinoApplication.Current.Services.GetRequiredService<MailEngineHost>().Backend;
+            return _engineHost.Backend;
         }
         catch (Exception exception)
         {
@@ -469,8 +471,6 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
             return null;
         }
     }
-
-    private void View_Loaded(object sender, RoutedEventArgs e) => _loaded.TrySetResult();
 
     private void View_EditStateChanged(object? sender, EventArgs e) => RaiseStateChanged();
 
@@ -505,36 +505,41 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
             return true;
         });
 
+    // The head's dispatcher runs the action at once when already on the UI thread, else queues it.
     private Task<T> RunAsync<T>(Func<Task<T>> operation)
     {
-        if (_dispatcher.HasThreadAccess)
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task scheduled;
+        try
         {
-            try
-            {
-                return operation();
-            }
-            catch (Exception exception)
-            {
-                return Task.FromException<T>(exception);
-            }
+            scheduled = _dispatcher.ExecuteOnUIThread(() => _ = CompleteAsync(operation, completion));
+        }
+        catch (Exception exception)
+        {
+            completion.TrySetException(exception);
+            return completion.Task;
         }
 
-        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var enqueued = _dispatcher.TryEnqueue(async () =>
-        {
-            try
-            {
-                completion.TrySetResult(await operation());
-            }
-            catch (Exception exception)
-            {
-                completion.TrySetException(exception);
-            }
-        });
-
-        if (!enqueued)
-            completion.TrySetException(new ObjectDisposedException(nameof(EngineMailEditorSession)));
+        scheduled.ContinueWith(
+            static (task, state) => ((TaskCompletionSource<T>)state!).TrySetException(
+                new ObjectDisposedException(nameof(EngineMailEditorSession), task.Exception)),
+            completion,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
 
         return completion.Task;
+    }
+
+    private static async Task CompleteAsync<T>(Func<Task<T>> operation, TaskCompletionSource<T> completion)
+    {
+        try
+        {
+            completion.TrySetResult(await operation());
+        }
+        catch (Exception exception)
+        {
+            completion.TrySetException(exception);
+        }
     }
 }

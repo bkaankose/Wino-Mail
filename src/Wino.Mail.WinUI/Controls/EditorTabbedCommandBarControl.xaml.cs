@@ -15,7 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
-using Wino.Mail.WinUI.Rendering;
+using Wino.Mail.Rendering;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
@@ -576,7 +576,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     /// </summary>
     public void ConfigureSpellCheckLanguages(string savedLanguageCode)
     {
-        var languages = EngineSpellCheckLanguages.GetInstalled();
+        var languages = EngineSpellCheckLanguages.GetInstalled(WinoApplication.Current.Services.GetRequiredService<MailEngineHost>());
         var selectedLanguageCode = EngineSpellCheckLanguages.Resolve(savedLanguageCode, languages.Select(language => language.Code).ToArray())
             ?? string.Empty;
 

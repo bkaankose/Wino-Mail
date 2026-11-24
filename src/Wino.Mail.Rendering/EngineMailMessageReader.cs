@@ -16,23 +16,22 @@ using Wino.Renderer;
 using Wino.Renderer.Mime;
 using Wino.Renderer.Policy;
 using Wino.Renderer.Primitives;
-using Wino.Renderer.WinUI;
 using Wino.Services.Extensions;
 using Wino.Services.Models.Reader;
 using DomainBlockedResourceReason = Wino.Core.Domain.Enums.BlockedResourceReason;
 using DomainRemoteContentMode = Wino.Core.Domain.Enums.RemoteContentMode;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>
-/// Shows a parsed message in a <see cref="MailView"/> and reports what the reader page needs from it.
+/// Shows a parsed message in an <see cref="IMailView"/> and reports what the reader page needs from it.
 /// </summary>
 public sealed class EngineMailMessageReader : IMailMessageReader
 {
     private static readonly TimeSpan FirstFrameTimeout = TimeSpan.FromMilliseconds(750);
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
-    private readonly MailView _view;
+    private readonly IMailView _view;
     private readonly MailEngineHost _engineHost;
     private readonly EngineReaderPresentation _presentation;
     private readonly Func<SecureMimeContext> _secureMimeContextFactory;
@@ -46,7 +45,7 @@ public sealed class EngineMailMessageReader : IMailMessageReader
     private bool _isReaderView;
     private int _loadVersion;
 
-    public EngineMailMessageReader(MailView view,
+    public EngineMailMessageReader(IMailView view,
                                    MailEngineHost engineHost,
                                    EngineReaderPresentation presentation,
                                    Func<SecureMimeContext> secureMimeContextFactory,
@@ -349,7 +348,7 @@ public sealed class EngineMailMessageReader : IMailMessageReader
 
     private async Task<double> WaitForFirstFrameAsync(Stopwatch stopwatch)
     {
-        if (!_view.IsLoaded)
+        if (!_view.IsAttached)
             return -1;
 
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

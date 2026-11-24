@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Wino.Renderer.Primitives;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>
 /// Moves inline images between the two forms the composer's HTML takes: <c>cid:</c> references with the bytes beside

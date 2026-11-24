@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Windows.System;
+using System.Globalization;
 using Wino.Editor;
 using Wino.Renderer;
 using Wino.Renderer.Editing;
 using Wino.Renderer.Platform;
 using Wino.Renderer.Primitives;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>
 /// Translates between the editor contract the command bar speaks (<c>Wino.Editor</c>) and the engine's editing types.
@@ -57,7 +57,7 @@ internal static class EngineEditorMapping
 
             return fonts is { Length: > 0 } ? fonts : FallbackFonts;
         }
-        catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException or System.Runtime.InteropServices.COMException)
+        catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException or System.Runtime.InteropServices.ExternalException)
         {
             return FallbackFonts;
         }
@@ -143,8 +143,8 @@ internal static class EngineEditorMapping
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
 
-        var color = Controls.EditorColorOption.ParseColorValue(value);
-        return color.A == 0 ? null : new Rgba(color.R, color.G, color.B, color.A);
+        var color = EditorColors.Parse(value);
+        return color.A == 0 ? null : color;
     }
 
     private static string? FirstFontFamily(string? fontFamily)
@@ -156,37 +156,80 @@ internal static class EngineEditorMapping
     }
 
     /// <summary>
-    /// The engine key for a shortcut key name as the keyboard shortcut service stores it (a <see cref="VirtualKey"/>
-    /// name); <see cref="Key.Unknown"/> when the engine has no such key.
+    /// The engine key for a shortcut key as the keyboard shortcut service stores it: a Windows virtual-key name
+    /// (<c>A</c>, <c>Number5</c>, <c>F2</c>, <c>PageUp</c>) or its numeric code; <see cref="Key.Unknown"/> when the
+    /// engine has no such key. The names are the stored format on every platform, so the table is spelled out here.
     /// </summary>
     public static Key ToKey(string? keyName)
     {
-        if (string.IsNullOrWhiteSpace(keyName) || !Enum.TryParse(keyName, true, out VirtualKey key)) return Key.Unknown;
+        if (string.IsNullOrWhiteSpace(keyName)) return Key.Unknown;
 
-        return key switch
+        var name = keyName.Trim();
+        if (int.TryParse(name, NumberStyles.Integer, CultureInfo.InvariantCulture, out var code))
+            return FromVirtualKeyCode(code);
+
+        if (name.Length == 1 && char.IsAsciiLetter(name[0]))
+            return (Key)((int)Key.A + (char.ToUpperInvariant(name[0]) - 'A'));
+
+        if (TryDigit(name, "NumberPad", out var pad)) return (Key)((int)Key.D0 + pad);
+        if (TryDigit(name, "Number", out var digit)) return (Key)((int)Key.D0 + digit);
+
+        if (name.Length is 2 or 3 && (name[0] is 'F' or 'f') && int.TryParse(name.AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out var function)
+            && function is >= 1 and <= 12)
+            return (Key)((int)Key.F1 + function - 1);
+
+        return name.ToLowerInvariant() switch
         {
-            >= VirtualKey.A and <= VirtualKey.Z => (Key)((int)Key.A + (key - VirtualKey.A)),
-            >= VirtualKey.Number0 and <= VirtualKey.Number9 => (Key)((int)Key.D0 + (key - VirtualKey.Number0)),
-            >= VirtualKey.NumberPad0 and <= VirtualKey.NumberPad9 => (Key)((int)Key.D0 + (key - VirtualKey.NumberPad0)),
-            >= VirtualKey.F1 and <= VirtualKey.F12 => (Key)((int)Key.F1 + (key - VirtualKey.F1)),
-            VirtualKey.Enter => Key.Enter,
-            VirtualKey.Tab => Key.Tab,
-            VirtualKey.Back => Key.Backspace,
-            VirtualKey.Delete => Key.Delete,
-            VirtualKey.Escape => Key.Escape,
-            VirtualKey.Space => Key.Space,
-            VirtualKey.Left => Key.Left,
-            VirtualKey.Right => Key.Right,
-            VirtualKey.Up => Key.Up,
-            VirtualKey.Down => Key.Down,
-            VirtualKey.Home => Key.Home,
-            VirtualKey.End => Key.End,
-            VirtualKey.PageUp => Key.PageUp,
-            VirtualKey.PageDown => Key.PageDown,
-            VirtualKey.Insert => Key.Insert,
+            "enter" => Key.Enter,
+            "tab" => Key.Tab,
+            "back" => Key.Backspace,
+            "delete" => Key.Delete,
+            "escape" => Key.Escape,
+            "space" => Key.Space,
+            "left" => Key.Left,
+            "right" => Key.Right,
+            "up" => Key.Up,
+            "down" => Key.Down,
+            "home" => Key.Home,
+            "end" => Key.End,
+            "pageup" => Key.PageUp,
+            "pagedown" => Key.PageDown,
+            "insert" => Key.Insert,
             _ => Key.Unknown
         };
     }
+
+    private static bool TryDigit(string name, string prefix, out int digit)
+    {
+        digit = 0;
+        return name.Length == prefix.Length + 1 && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && char.IsAsciiDigit(name[^1])
+            && (digit = name[^1] - '0') >= 0;
+    }
+
+    // Windows virtual-key codes, for a shortcut stored as a number.
+    private static Key FromVirtualKeyCode(int code) => code switch
+    {
+        >= 65 and <= 90 => (Key)((int)Key.A + code - 65),
+        >= 48 and <= 57 => (Key)((int)Key.D0 + code - 48),
+        >= 96 and <= 105 => (Key)((int)Key.D0 + code - 96),
+        >= 112 and <= 123 => (Key)((int)Key.F1 + code - 112),
+        13 => Key.Enter,
+        9 => Key.Tab,
+        8 => Key.Backspace,
+        46 => Key.Delete,
+        27 => Key.Escape,
+        32 => Key.Space,
+        37 => Key.Left,
+        39 => Key.Right,
+        38 => Key.Up,
+        40 => Key.Down,
+        36 => Key.Home,
+        35 => Key.End,
+        33 => Key.PageUp,
+        34 => Key.PageDown,
+        45 => Key.Insert,
+        _ => Key.Unknown
+    };
 
     /// <summary>
     /// Keys the editor keeps for itself, so a host gesture on one of them never replaces typing or a standard command.

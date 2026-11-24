@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Core.Domain.Models.Printing;
+using Wino.Mail.Rendering;
 using Wino.Renderer;
 using Wino.Renderer.Platform.Windows;
 using Wino.Renderer.Print;
@@ -27,8 +27,6 @@ public sealed partial class EngineMailPrintPresenter(
     Func<MailReaderSession?> getReader,
     Func<PrintHeader> createHeader) : IMailPrintPresenter
 {
-    private const float MarginPx = 96;
-
     // Windows shows one print dialog per process at a time.
     private static readonly SemaphoreSlim PrintSessionGate = new(1, 1);
 
@@ -96,7 +94,7 @@ public sealed partial class EngineMailPrintPresenter(
         try
         {
             var header = createHeader();
-            var document = reader.CreatePrintDocument(CreateOptions(header.Subject, header));
+            var document = reader.CreatePrintDocument(EnginePrintDocuments.CreateOptions(header.Subject, header));
             var result = await WindowsPrint.ExportPdfAsync(engineHost.Backend, document, path, header.Subject, cancellationToken: cancellationToken);
 
             if (cancellationToken.IsCancellationRequested)
@@ -119,16 +117,7 @@ public sealed partial class EngineMailPrintPresenter(
         }
     }
 
-    private PrintOptions CreateOptions(string? title) => CreateOptions(title, createHeader());
-
-    // The print dialog replaces the paper with the printer's; this size is only the default it opens with and the
-    // paper of a PDF export.
-    private static PrintOptions CreateOptions(string? title, PrintHeader header)
-        => new(RegionInfo.CurrentRegion.IsMetric ? PrintOptions.A4 : PrintOptions.Letter, PrintOptions.UniformMargins(MarginPx), 1, Backgrounds: false)
-        {
-            Header = header,
-            MarginBoxes = PrintOptions.StandardMarginBoxes(title, header.Date, Translator.Reader_Print_PageWord, Translator.Reader_Print_OfWord)
-        };
+    private PrintOptions CreateOptions(string? title) => EnginePrintDocuments.CreateOptions(title, createHeader());
 
     private static bool IsPrinterInstalled(string printerName)
     {

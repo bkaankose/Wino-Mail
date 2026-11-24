@@ -2,27 +2,25 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>A language the composer can check spelling in: the tag the engine takes and the name the menu shows.</summary>
-internal sealed record SpellCheckLanguageOption(string Code, string DisplayName);
+public sealed record SpellCheckLanguageOption(string Code, string DisplayName);
 
 /// <summary>
-/// The spell-check languages installed in Windows, as the mail engine reports them. They are not the app languages:
-/// Windows may check a language Wino is not translated into, and lack one it is.
+/// The spell-check languages installed on the system, as the mail engine's spell checker reports them. They are not
+/// the app languages: the system may check a language Wino is not translated into, and lack one it is.
 /// </summary>
-internal static class EngineSpellCheckLanguages
+public static class EngineSpellCheckLanguages
 {
-    /// <summary>Language tags the engine can check. Empty when the engine or the Windows spell checker is unavailable.</summary>
-    public static IReadOnlyList<string> GetInstalledCodes()
+    /// <summary>Language tags the engine can check. Empty when the engine or the system spell checker is unavailable.</summary>
+    public static IReadOnlyList<string> GetInstalledCodes(MailEngineHost engineHost)
     {
         try
         {
-            var backend = WinoApplication.Current.Services.GetRequiredService<MailEngineHost>().Backend;
-            return backend.SpellChecker?.GetLanguages() ?? [];
+            return engineHost.Backend.SpellChecker?.GetLanguages() ?? [];
         }
         catch (Exception exception)
         {
@@ -31,8 +29,8 @@ internal static class EngineSpellCheckLanguages
         }
     }
 
-    public static SpellCheckLanguageOption[] GetInstalled()
-        => GetInstalledCodes()
+    public static SpellCheckLanguageOption[] GetInstalled(MailEngineHost engineHost)
+        => GetInstalledCodes(engineHost)
             .Where(code => !string.IsNullOrWhiteSpace(code))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(code => new SpellCheckLanguageOption(code, GetDisplayName(code)))
@@ -41,7 +39,7 @@ internal static class EngineSpellCheckLanguages
 
     /// <summary>
     /// The installed language a saved code stands for: the language itself, else another region of it. Null when
-    /// Windows has no checker for the language at all; the engine then checks in the system language.
+    /// the system has no checker for the language at all; the engine then checks in the system language.
     /// </summary>
     public static string? Resolve(string? savedCode, IReadOnlyList<string> installedCodes)
     {
@@ -58,7 +56,7 @@ internal static class EngineSpellCheckLanguages
         return installedCodes.FirstOrDefault(installed => string.Equals(PrimaryLanguage(installed), language, StringComparison.OrdinalIgnoreCase));
     }
 
-    public static string? Resolve(string? savedCode) => Resolve(savedCode, GetInstalledCodes());
+    public static string? Resolve(string? savedCode, MailEngineHost engineHost) => Resolve(savedCode, GetInstalledCodes(engineHost));
 
     private static string PrimaryLanguage(string code)
     {
@@ -81,10 +79,10 @@ internal static class EngineSpellCheckLanguages
 }
 
 /// <summary>The Settings page lists the same installed languages as the composer's language menu.</summary>
-internal sealed class EngineSpellCheckLanguageSource : Wino.Mail.ViewModels.ISpellCheckLanguageSource
+public sealed class EngineSpellCheckLanguageSource(MailEngineHost engineHost) : Wino.Mail.ViewModels.ISpellCheckLanguageSource
 {
     public IReadOnlyList<(string Code, string DisplayName)> GetLanguages()
-        => EngineSpellCheckLanguages.GetInstalled().Select(language => (language.Code, language.DisplayName)).ToArray();
+        => EngineSpellCheckLanguages.GetInstalled(engineHost).Select(language => (language.Code, language.DisplayName)).ToArray();
 
-    public string? Resolve(string? savedCode) => EngineSpellCheckLanguages.Resolve(savedCode);
+    public string? Resolve(string? savedCode) => EngineSpellCheckLanguages.Resolve(savedCode, engineHost);
 }

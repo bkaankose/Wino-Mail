@@ -42,7 +42,7 @@ using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
-using Wino.Mail.WinUI.Rendering;
+using Wino.Mail.Rendering;
 using Wino.Core.Domain.Messaging.Client.Mails;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Messaging.UI;

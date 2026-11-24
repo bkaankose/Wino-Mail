@@ -1,28 +1,20 @@
 using System;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml;
 using Wino.Renderer;
 using Wino.Renderer.Theme;
-using Wino.Renderer.WinUI;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>
 /// Theme, typography and viewport of one reader view. A load takes them through <see cref="CreateOptions"/>;
-/// <see cref="ApplyTo"/> moves a view that already shows a message to the current values.
+/// <see cref="ApplyTo"/> moves a view that already shows a message to the current values. The head reports the
+/// system's high contrast state through <see cref="IsHighContrast"/>.
 /// </summary>
-public sealed partial class EngineReaderPresentation
+public sealed class EngineReaderPresentation
 {
     private const string DefaultFontFamily = "Segoe UI";
     private const float DefaultFontSizePx = 15;
 
-    private readonly WindowHighContrastWatcher _highContrast;
-
-    public EngineReaderPresentation(DispatcherQueue dispatcherQueue)
-    {
-        _highContrast = new WindowHighContrastWatcher(dispatcherQueue);
-        _highContrast.Changed += (_, _) => HighContrastChanged?.Invoke(this, EventArgs.Empty);
-    }
+    private bool _isHighContrast;
 
     public bool IsDark { get; set; }
 
@@ -32,7 +24,23 @@ public sealed partial class EngineReaderPresentation
 
     public float FontSizePx { get; private set; } = DefaultFontSizePx;
 
-    /// <summary>Raised on the UI thread when Windows turns high contrast on or off.</summary>
+    /// <summary>The viewport a load starts with; a phone head sets its screen size here.</summary>
+    public ViewportOptions Viewport { get; set; } = new() { Fit = FitMode.ReflowThenShrink };
+
+    public bool IsHighContrast
+    {
+        get => _isHighContrast;
+        set
+        {
+            if (_isHighContrast == value)
+                return;
+
+            _isHighContrast = value;
+            HighContrastChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Raised on the UI thread when the system turns high contrast on or off.</summary>
     public event EventHandler? HighContrastChanged;
 
     public void SetTypography(string? fontFamily, double fontSize)
@@ -51,7 +59,7 @@ public sealed partial class EngineReaderPresentation
     {
         IsDark = IsDark,
         Method = Method,
-        ForcedColors = _highContrast.IsHighContrast
+        ForcedColors = IsHighContrast
     };
 
     public TypographyOptions CreateTypography() => new(FontFamily, FontSizePx);
@@ -60,11 +68,11 @@ public sealed partial class EngineReaderPresentation
     {
         Theme = CreateTheme(),
         Typography = CreateTypography(),
-        Viewport = new ViewportOptions { Fit = FitMode.ReflowThenShrink },
+        Viewport = Viewport,
         BackgroundUpdates = true
     };
 
-    public void ApplyTo(MailView view)
+    public void ApplyTo(IMailView view)
     {
         if (view.Reader is not { } reader)
             return;
@@ -77,12 +85,4 @@ public sealed partial class EngineReaderPresentation
         if (reader.Typography != typography)
             reader.Typography = typography;
     }
-
-    /// <summary>
-    /// Follows the high contrast state of the window that shows the view. Paired with <see cref="StopWatching"/>
-    /// when the view leaves the tree.
-    /// </summary>
-    public void StartWatching(XamlRoot? xamlRoot) => _highContrast.Start(xamlRoot);
-
-    public void StopWatching() => _highContrast.Stop();
 }

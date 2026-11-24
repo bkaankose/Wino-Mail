@@ -1,0 +1,11 @@
+<Project>
+  <!-- The platform-neutral engine: what the shared rendering glue and every head reference. Import it once. -->
+  <Import Project="Wino.Renderer.Root.props" Condition="'$(WinoRendererRootImported)' != 'true'" />
+  <PropertyGroup>
+    <WinoRendererEngineImported>true</WinoRendererEngineImported>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(WinoRendererDirectory)' != ''">
+    <ProjectReference Include="$(WinoRendererDirectory)src\Wino.Renderer\Wino.Renderer.csproj" />
+    <ProjectReference Include="$(WinoRendererDirectory)src\Wino.Renderer.Mime\Wino.Renderer.Mime.csproj" />
+  </ItemGroup>
+</Project>

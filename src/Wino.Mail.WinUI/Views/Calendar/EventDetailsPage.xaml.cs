@@ -22,6 +22,7 @@ using Wino.Core.Domain.Messaging.Client.Calendar;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Mail.ViewModels.Calendar.Data;
 using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.Rendering;
 using Wino.Mail.WinUI.Rendering;
 using Wino.Renderer.WinUI;
 
@@ -47,7 +48,7 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         AutomationProperties.SetAutomationId(_descriptionView, "CalendarEventDescriptionRenderer");
         EventDescriptionHost.Children.Add(_descriptionView);
 
-        _descriptionPresentation = new EngineReaderPresentation(DispatcherQueue);
+        _descriptionPresentation = new EngineReaderPresentation();
         _descriptionSession = new EngineHtmlReaderSession(
             _descriptionView,
             App.Current.Services.GetRequiredService<MailEngineHost>(),

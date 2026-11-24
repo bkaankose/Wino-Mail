@@ -7,22 +7,21 @@ using Wino.Renderer.Accessibility;
 using Wino.Renderer.Policy;
 using Wino.Renderer.Primitives;
 using Wino.Renderer.Theme;
-using Wino.Renderer.WinUI;
 
-namespace Wino.Mail.WinUI.Rendering;
+namespace Wino.Mail.Rendering;
 
 /// <summary>
-/// Shows an HTML string in a <see cref="MailView"/>, for surfaces that have no message (a calendar event description).
+/// Shows an HTML string in an <see cref="IMailView"/>, for surfaces that have no message (a calendar event description).
 /// </summary>
 public sealed class EngineHtmlReaderSession : IHtmlMailReaderSession
 {
-    private readonly MailView _view;
+    private readonly IMailView _view;
     private readonly MailEngineHost _engineHost;
     private readonly EngineReaderPresentation _presentation;
     private string _html = string.Empty;
     private bool _disposed;
 
-    public EngineHtmlReaderSession(MailView view, MailEngineHost engineHost, EngineReaderPresentation presentation)
+    public EngineHtmlReaderSession(IMailView view, MailEngineHost engineHost, EngineReaderPresentation presentation)
     {
         _view = view;
         _engineHost = engineHost;
