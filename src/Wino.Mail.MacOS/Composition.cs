@@ -101,6 +101,11 @@ internal static class Composition
         services.AddSingleton<IShortcutPlatformService, MacShortcutPlatformService>();
         services.AddSingleton<IAttachmentPlatformService, MacAttachmentPlatformService>();
         services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
+        // The native mail renderer: one engine per process over Core Text and Core Graphics, with the Mac's spell
+        // checker and settings; its unsubscribe reader replaces the header reader of the web view path.
+        services.AddSingleton<Wino.Mail.Rendering.IMailEngineBackendFactory>(_ =>
+            new Wino.Mail.Rendering.Apple.AppleMailEngineBackendFactory(() => Wino.Renderer.AppKit.AppKitBackend.Create()));
+        Wino.Mail.Rendering.MailRenderingRegistration.AddMailRendering(services);
         services.AddSingleton<IStartupIntegrationService, MacStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, MacSmimeCertificateService>();
         services.AddSingleton<IAppLockPlatform, UnavailableAppLockPlatform>();
