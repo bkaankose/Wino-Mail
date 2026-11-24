@@ -47,6 +47,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
     <ProjectReference Include="..\Wino.Mail.Controls.WinUI\Wino.Mail.Controls.WinUI.csproj" />
-    <ProjectReference Include="..\Wino.Editor.WinUI\Wino.Editor.WinUI.csproj" />
   </ItemGroup>
 </Project>

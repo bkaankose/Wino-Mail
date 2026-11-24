@@ -44,14 +44,6 @@
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItem
-                AutomationProperties.AutomationId="EditorNavigationItem"
-                Content="Compose editor"
-                Tag="editor">
-                <NavigationViewItem.Icon>
-                    <accountIcon:WinoFontIcon Glyph="&#xF3DC;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem
                 AutomationProperties.AutomationId="SearchBarNavigationItem"
                 Content="Search bar"
                 Tag="searchBar">

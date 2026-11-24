@@ -6,7 +6,7 @@ using Wino.Mail.WinUI.Interfaces;
 namespace Wino.Mail.WinUI.Navigation.Rules;
 
 /// <summary>
-/// Reading pane pages are expensive (each owns a WebView2). When the rendering frame already
+/// Reading pane pages are expensive (each owns a mail view). When the rendering frame already
 /// shows the requested page type, the page absorbs the new parameter instead of being
 /// replaced. Navigating a page to itself with nothing new is a no-op.
 /// </summary>

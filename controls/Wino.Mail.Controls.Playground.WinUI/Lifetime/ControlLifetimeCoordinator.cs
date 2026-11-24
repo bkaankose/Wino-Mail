@@ -16,7 +16,6 @@ internal sealed class ControlLifetimeCoordinator(Action<string> trace)
     private static readonly HashSet<string> TrackedAssemblies =
     [
         "Wino.Mail.Controls",
-        "Wino.Editor",
     ];
 
     private readonly Action<string> _trace = trace;
@@ -73,9 +72,6 @@ internal sealed class ControlLifetimeCoordinator(Action<string> trace)
     public async Task<LifetimeCheckResult> VerifyReleasedAsync(LifetimeSnapshot snapshot, CancellationToken cancellationToken)
     {
         IReadOnlyList<LifetimeReference> retained = snapshot.References;
-        var containsWebView = snapshot.References.Any(static item =>
-            item.Description.StartsWith("WinoMailEditor", StringComparison.Ordinal) ||
-            item.Description.StartsWith("WinoMailRenderer", StringComparison.Ordinal));
 
         // Let the remaining Unloaded handlers finish before asking the GC to inspect
         // reachability. Async disposable controls have already completed above.
@@ -85,14 +81,7 @@ internal sealed class ControlLifetimeCoordinator(Action<string> trace)
         {
             cancellationToken.ThrowIfCancellationRequested();
             await Task.Yield();
-            if (containsWebView)
-            {
-                InduceCollectionPressure();
-            }
-            else
-            {
-                RequestFullCollection();
-            }
+            RequestFullCollection();
             await Task.Delay(400, cancellationToken);
             retained = snapshot.References.Where(static item => item.Reference.IsAlive).ToArray();
             if (retained.Count == 0)
@@ -229,20 +218,6 @@ internal sealed class ControlLifetimeCoordinator(Action<string> trace)
         // active during the preceding route's check, so an ephemeral-only collection
         // would report a false retention.
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: false, compacting: false);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void InduceCollectionPressure()
-    {
-        // Explicit GC.Collect calls can deadlock WinUI while WebView2 releases its
-        // native controller. Allocation pressure lets the runtime schedule the same
-        // ephemeral collections at a safe point without keeping the tested page alive.
-        for (var index = 0; index < 16; index++)
-        {
-            var buffer = GC.AllocateUninitializedArray<byte>(1024 * 1024);
-            buffer[0] = (byte)index;
-            GC.KeepAlive(buffer);
-        }
     }
 
     private void Write(string message)
