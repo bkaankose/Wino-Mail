@@ -5,8 +5,8 @@
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:editor="using:Wino.Editor"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:rendering="using:Wino.Mail.WinUI.Rendering"
     xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:winuiControls="using:Wino.Mail.WinUI.Controls"
     mc:Ignorable="d">
@@ -61,20 +61,17 @@
         <StackPanel Grid.Row="3" Spacing="8">
             <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsEmailTemplates_ContentTitle}" />
             <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.SettingsEmailTemplates_ContentDescription}" />
-            <winuiControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind WebViewEditor}" />
+            <winuiControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind TemplateEditor.Session}" />
             <Border
-                MinHeight="420"
+                Height="420"
                 Background="{ThemeResource WinoContentZoneBackgroud}"
                 BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="7">
-                <editor:WinoMailEditor
-                    x:Name="WebViewEditor"
+                <rendering:EngineMailEditorView
+                    x:Name="TemplateEditor"
                     AutomationProperties.AutomationId="TemplateMailEditor"
-                    IsEditorWebViewEditor="False"
-                    LinkOpenRequested="EditorLinkOpenRequested"
-                    OpenLinkLabel="{x:Bind domain:Translator.Composer_OpenLink, Mode=OneTime}"
-                    RemoveLinkLabel="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}" />
+                    LinkOpenRequested="EditorLinkOpenRequested" />
             </Border>
         </StackPanel>
 

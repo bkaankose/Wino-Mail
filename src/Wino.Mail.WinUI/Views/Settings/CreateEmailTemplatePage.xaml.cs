@@ -14,7 +14,7 @@ public sealed partial class CreateEmailTemplatePage : CreateEmailTemplatePageAbs
     public CreateEmailTemplatePage()
     {
         InitializeComponent();
-        WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
+        TemplateEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
     }
 
     protected async override void OnNavigatedTo(NavigationEventArgs e)
@@ -23,8 +23,21 @@ public sealed partial class CreateEmailTemplatePage : CreateEmailTemplatePageAbs
 
         var htmlContent = await ViewModel.LoadAsync(e.Parameter);
         var preferences = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
-        await WebViewEditor.SetDefaultTypographyAsync(preferences.ComposerFont, preferences.ComposerFontSize);
-        await WebViewEditor.RenderHtmlAsync(htmlContent);
+
+        try
+        {
+            await TemplateEditor.Session.SetDefaultTypographyAsync(preferences.ComposerFont, preferences.ComposerFontSize);
+            await TemplateEditor.Session.RenderHtmlAsync(htmlContent ?? string.Empty);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The page was left before the editor showed the template.
+            return;
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "The template editor failed to load the template.");
+        }
 
         if (!ViewModel.IsExistingTemplate)
         {
@@ -32,15 +45,27 @@ public sealed partial class CreateEmailTemplatePage : CreateEmailTemplatePageAbs
         }
     }
 
-    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+    protected override async void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
         base.OnNavigatingFrom(e);
-        WebViewEditor.Dispose();
+        await TemplateEditor.Session.DisposeAsync();
     }
 
     private async void SaveClicked(object sender, RoutedEventArgs e)
     {
-        await ViewModel.SaveAsync(await WebViewEditor.GetHtmlBodyAsync() ?? string.Empty);
+        string htmlContent;
+
+        try
+        {
+            htmlContent = await TemplateEditor.Session.GetHtmlBodyAsync() ?? string.Empty;
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or InvalidOperationException)
+        {
+            // The editor never showed the template, so its content would replace the saved one with nothing.
+            return;
+        }
+
+        await ViewModel.SaveAsync(htmlContent);
     }
 
     private async void DeleteClicked(object sender, RoutedEventArgs e)
