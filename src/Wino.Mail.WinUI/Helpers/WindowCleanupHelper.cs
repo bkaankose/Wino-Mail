@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -9,6 +10,22 @@ namespace Wino.Mail.WinUI.Helpers;
 
 internal static class WindowCleanupHelper
 {
+    private static readonly ConditionalWeakTable<Frame, List<BasePage>> RetainedPages = new();
+
+    /// <summary>
+    /// Records a page cached as <c>NavigationCacheMode.Required</c>. The frame keeps it until the
+    /// frame itself goes away, so a mode switch only prepares it for close; <see cref="CleanupFrame"/>
+    /// releases it with the frame.
+    /// </summary>
+    public static void RetainPage(Frame frame, BasePage page)
+    {
+        var pages = RetainedPages.GetOrCreateValue(frame);
+        if (!pages.Contains(page))
+        {
+            pages.Add(page);
+        }
+    }
+
     public static void CleanupFrame(Frame? frame)
     {
         if (frame == null)
@@ -19,6 +36,38 @@ internal static class WindowCleanupHelper
 
         frame.Content = null;
 
+        if (RetainedPages.TryGetValue(frame, out var pages))
+        {
+            RetainedPages.Remove(frame);
+            foreach (var page in pages)
+            {
+                CleanupObject(page);
+            }
+        }
+
+        EvictCachedPages(frame);
+    }
+
+    /// <summary>
+    /// Clears a frame whose next content is another mode's page. A retained page is only
+    /// prepared for close, because the frame shows the same instance again on the next visit.
+    /// </summary>
+    public static void ReleaseModeContent(Frame? frame)
+    {
+        if (frame == null)
+            return;
+
+        if (frame.Content is BasePage page && RetainedPages.TryGetValue(frame, out var pages) && pages.Contains(page))
+        {
+            page.PrepareForClose();
+        }
+        else
+        {
+            CleanupObject(frame.Content);
+        }
+
+        ClearNavigationStack(frame);
+        frame.Content = null;
         EvictCachedPages(frame);
     }
 
@@ -26,7 +75,7 @@ internal static class WindowCleanupHelper
     /// The frame's page cache survives clearing the content and the back stack. Collapsing
     /// the cache size and restoring it drops pages cached as <c>NavigationCacheMode.Enabled</c>.
     /// It does not drop <c>Required</c> pages: the frame keeps those until it is destroyed
-    /// itself, which is why no page under the shell is cached as Required.
+    /// itself. Pages cached as Required register with <see cref="RetainPage"/>.
     /// </summary>
     private static void EvictCachedPages(Frame frame)
     {

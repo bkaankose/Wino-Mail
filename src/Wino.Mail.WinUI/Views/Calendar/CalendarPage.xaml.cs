@@ -34,7 +34,7 @@ using WinRT;
 
 namespace Wino.Mail.WinUI.Views.Calendar;
 
-public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearchHost
+public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearchHost, IDisposable
 {
     private const int PopupDialogOffset = 12;
     private ICalendarShellClient CalendarShellClient { get; } = WinoApplication.Current.Services.GetRequiredService<ICalendarShellClient>();
@@ -55,6 +55,10 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     public CalendarPage()
     {
+        // Built once per shell: rebuilding the page on each visit left native memory behind
+        // every time the calendar was opened.
+        NavigationCacheMode = NavigationCacheMode.Required;
+
         InitializeComponent();
         QuickEventPopupContent.AddHandler(KeyDownEvent, new KeyEventHandler(QuickEventPopupContentKeyDown), true);
         RefreshCalendarToolbar();
@@ -72,9 +76,17 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         base.PrepareForClose();
     }
 
+    public void Dispose() => CalendarSurface.Dispose();
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+
+        if (Frame != null)
+        {
+            WindowCleanupHelper.RetainPage(Frame, this);
+        }
+
         Bindings.Update();
         AttachNavigationLifetimeEvents();
         RefreshCalendarToolbar();

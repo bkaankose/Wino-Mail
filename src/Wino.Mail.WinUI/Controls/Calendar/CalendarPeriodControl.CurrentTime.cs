@@ -14,6 +14,11 @@ public sealed partial class CalendarPeriodControl
 
     private void StartCurrentTimeTimer()
     {
+        if (_currentTimeTimer is not null)
+        {
+            return;
+        }
+
         _currentTimeTimer = DispatcherQueue.CreateTimer();
         _currentTimeTimer.Interval = CurrentTimeRefreshInterval;
         _currentTimeTimer.IsRepeating = true;

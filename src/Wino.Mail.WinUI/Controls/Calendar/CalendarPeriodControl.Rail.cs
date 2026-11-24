@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Numerics;
-using Microsoft.Graphics.Canvas;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -81,7 +80,7 @@ public sealed partial class CalendarPeriodControl
     private DataTemplate? _timedTemplate;
     private DataTemplate? _monthTemplate;
 
-    // The window start each structure canvas was last drawn for. A Win2D canvas redraws on a later
+    // The window start each structure canvas was last drawn for. A canvas redraws on a later
     // frame than the window shift, so until it does, its host is offset to keep the old drawing
     // aligned with the units. The draw handler resets the offset in the frame it draws.
     private int _timedHeaderCanvasStart;
@@ -345,12 +344,11 @@ public sealed partial class CalendarPeriodControl
     /// </summary>
     private void SizeStructureCanvases()
     {
-        var maximumExtent = GetMaximumCanvasExtent();
-        var span = Math.Min(_windowCount * _unitSize, maximumExtent);
+        var span = _windowCount * _unitSize;
 
         if (IsMonthRail)
         {
-            MonthStructureCanvasHost.Width = Math.Min(_monthRowWidth, maximumExtent);
+            MonthStructureCanvasHost.Width = _monthRowWidth;
             MonthStructureCanvasHost.Height = span;
             return;
         }
@@ -360,25 +358,7 @@ public sealed partial class CalendarPeriodControl
         TimedAllDayCanvasHost.Width = span;
         TimedAllDayCanvasHost.Height = TimedAllDayHeight;
         TimedStructureCanvasHost.Width = span;
-        TimedStructureCanvasHost.Height = Math.Min(TimelineHeight, maximumExtent);
-    }
-
-    // A Win2D canvas larger than the device's bitmap limit throws while drawing, which crashes the app
-    // on wide or high-DPI windows. The farthest spare days lose their grid lines instead.
-    private double GetMaximumCanvasExtent()
-    {
-        int maximumPixels;
-        try
-        {
-            maximumPixels = CanvasDevice.GetSharedDevice().MaximumBitmapSizeInPixels;
-        }
-        catch (Exception)
-        {
-            maximumPixels = 8192;
-        }
-
-        var scale = Math.Max(1d, XamlRoot?.RasterizationScale ?? 1d);
-        return Math.Floor((maximumPixels - 2) / scale);
+        TimedStructureCanvasHost.Height = TimelineHeight;
     }
 
     private void UpdateAllDayHeight()
