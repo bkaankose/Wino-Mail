@@ -65,6 +65,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     // The editor session lives as long as the page instance, so a disposed editor stays disposed even if the page is navigated to again.
     private bool _isEditorDisposed;
     private int _isExecutingEditorShortcut;
+    private bool _isApplicationThemeDark;
     private bool _isSpellCheckEnabled;
     private string _spellCheckLanguageCode = string.Empty;
     private CancellationTokenSource? _editorLifecycleCancellationSource;
@@ -86,7 +87,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public ComposePage()
     {
         InitializeComponent();
-        ComposeEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
+        _isApplicationThemeDark = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
+        ComposeEditor.IsEditorDarkMode = _isApplicationThemeDark;
         ViewModel.CloseRequested += ViewModel_CloseRequested;
         BuildRewriteModesFlyout();
     }
@@ -829,7 +831,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     async void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
-        if (IsEditorUnavailable) return;
+        // The theme service also announces the theme whenever a window opens, the composer's own pop-out window
+        // included. Only a change of the app theme replaces the editor theme the user chose.
+        if (IsEditorUnavailable || message.IsUnderlyingThemeDark == _isApplicationThemeDark) return;
+
+        _isApplicationThemeDark = message.IsUnderlyingThemeDark;
 
         try { await EditorSession.SetThemeAsync(message.IsUnderlyingThemeDark); }
         catch (ObjectDisposedException) when (IsEditorUnavailable) { }
