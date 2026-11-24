@@ -172,6 +172,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Mode switches clear Frame.Content without OnNavigatedFrom. The generated
         // listeners otherwise retain this ViewModel through the singleton preferences.
         Bindings.StopTracking();
+
+        // The reading page is reused by the next mail list page, so its pop-out events would
+        // keep this page, its ViewModel and every loaded mail alive.
+        DetachPopoutClient();
     }
 
     protected override void ReleasePageResources()
