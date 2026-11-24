@@ -125,9 +125,11 @@ public class MimeFileService : IMimeFileService
         return File.Exists(completeFilePath);
     }
 
+    public Func<SecureMimeContext> SecureMimeContextFactory => () => _smimeCertificateService.CreateContext();
+
     public HtmlPreviewVisitor CreateHTMLPreviewVisitor(MimeMessage message, string _)
     {
-        var visitor = new HtmlPreviewVisitor(() => _smimeCertificateService.CreateContext());
+        var visitor = new HtmlPreviewVisitor(SecureMimeContextFactory);
 
         message.Accept(visitor);
 

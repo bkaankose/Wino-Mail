@@ -381,16 +381,8 @@ public class NotificationBuilder : INotificationBuilder
         QueueShowNotification(NotificationHostApplication.Mail, builder, kindOverride: NotificationKind.Other);
     }
 
-    public void CreateWebView2RuntimeMissingNotification()
-    {
-        var builder = CreateBuilder();
-        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Title);
-        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Message);
-        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-        builder.AddButton(CreateDismissButton());
-
-        QueueShowNotification(NotificationHostApplication.Mail, builder, kindOverride: NotificationKind.Other);
-    }
+    // The Windows reader runs in-process and has no runtime that can be missing.
+    public void CreateReaderRuntimeMissingNotification() { }
 
     public async Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
     {

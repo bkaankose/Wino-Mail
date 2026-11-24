@@ -282,7 +282,7 @@ public sealed class LinuxNotificationBuilder : INotificationBuilder
             }), NotificationKind.Other), "account attention");
     }
 
-    public void CreateWebView2RuntimeMissingNotification() { }
+    public void CreateReaderRuntimeMissingNotification() { }
 
     #endregion
 

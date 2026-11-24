@@ -482,7 +482,7 @@ public sealed class AndroidNotificationBuilder : INotificationBuilder
             ]));
     }
 
-    public void CreateWebView2RuntimeMissingNotification()
+    public void CreateReaderRuntimeMissingNotification()
     {
         if (!ShouldDeliver(NotificationKind.Other, null, "reader runtime")) return;
         Post(new Request(
@@ -490,9 +490,9 @@ public sealed class AndroidNotificationBuilder : INotificationBuilder
             Id: GenericId,
             Channel: AndroidNotificationChannels.Account,
             Category: "wino.generic",
-            Title: Translator.Exception_WebView2RuntimeMissing_Title,
+            Title: Translator.Exception_ReaderRuntimeMissing_Title,
             Subtitle: null,
-            Body: Translator.Exception_WebView2RuntimeMissing_Message,
+            Body: Translator.Exception_ReaderRuntimeMissing_Message,
             Values: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
             SmallIcon: Resource.Drawable.wino_notification_mail));
     }

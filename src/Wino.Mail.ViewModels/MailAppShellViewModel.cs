@@ -357,7 +357,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await RefreshAccountSynchronizationProgressAsync();
         await ProcessLaunchOptionsAsync(activationContext?.Parameter as MailFolderLaunchRequest, shouldProcessDefaultLaunch);
         await HandlePendingShareRequestAsync();
-        await ValidateWebView2RuntimeAsync();
+        await ValidateReaderRuntimeAsync();
 
         if (shouldRunStartupFlows &&
             !Debugger.IsAttached &&
@@ -397,13 +397,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _hasRegisteredPersistentRecipients = false;
     }
 
-    private async Task ValidateWebView2RuntimeAsync()
+    private async Task ValidateReaderRuntimeAsync()
     {
         var isRuntimeAvailable = await _readerRuntimeService.IsAvailableAsync();
 
         if (!isRuntimeAvailable)
         {
-            await ExecuteUIThread(() => _notificationBuilder.CreateWebView2RuntimeMissingNotification());
+            await ExecuteUIThread(() => _notificationBuilder.CreateReaderRuntimeMissingNotification());
         }
     }
 

@@ -426,12 +426,12 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             NotificationKind.Other), "account attention");
     }
 
-    public void CreateWebView2RuntimeMissingNotification()
+    public void CreateReaderRuntimeMissingNotification()
         => Observe(ShowAsync(new NotificationRequest(
             Identifier: "reader-runtime-missing",
-            Title: Translator.Exception_WebView2RuntimeMissing_Title,
+            Title: Translator.Exception_ReaderRuntimeMissing_Title,
             Subtitle: null,
-            Body: Translator.Exception_WebView2RuntimeMissing_Message,
+            Body: Translator.Exception_ReaderRuntimeMissing_Message,
             Category: AppleNotificationCategories.Generic,
             ThreadIdentifier: null,
             UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail }),

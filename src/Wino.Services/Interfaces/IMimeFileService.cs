@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MimeKit;
+using MimeKit.Cryptography;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Services.Models.MailItem;
@@ -60,6 +61,12 @@ public interface IMimeFileService
     /// <param name="message">Mime</param>
     /// <param name="mimeLocalPath">File path that mime is located to load resources.</param>
     HtmlPreviewVisitor CreateHTMLPreviewVisitor(MimeMessage message, string mimeLocalPath);
+
+    /// <summary>
+    /// Creates the S/MIME context that <see cref="CreateHTMLPreviewVisitor"/> decrypts and verifies with, for a
+    /// reader that parses the message itself. The caller disposes each context it creates.
+    /// </summary>
+    Func<SecureMimeContext> SecureMimeContextFactory { get; }
 
     /// <summary>
     /// Deletes the given mime file from the disk.

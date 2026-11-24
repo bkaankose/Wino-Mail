@@ -466,7 +466,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         catch (Exception)
         {
             // TODO: Debug object disposal.
-            // throw new InvalidOperationException(Translator.Exception_WebView2RuntimeMissing_Message, ex);
+            // throw new InvalidOperationException(Translator.Exception_ReaderRuntimeMissing_Message, ex);
         }
     }
 

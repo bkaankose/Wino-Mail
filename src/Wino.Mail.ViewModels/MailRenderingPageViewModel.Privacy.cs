@@ -606,6 +606,10 @@ public partial class MailRenderingPageViewModel
         {
             await RenderAsync(mimeMessageInformation, transientMode);
         }
+        catch (OperationCanceledException)
+        {
+            Log.Information("Canceled re-rendering the message after a privacy change.");
+        }
         catch (Exception ex)
         {
             if (loadVersion != _loadVersion)

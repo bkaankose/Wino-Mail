@@ -34,7 +34,7 @@ internal sealed class HostNotificationBuilder(HostInteractionLog log) : INotific
 
     public void CreateAttentionRequiredNotification(MailAccount account) => Record(nameof(CreateAttentionRequiredNotification), account?.Address);
 
-    public void CreateWebView2RuntimeMissingNotification() => Record(nameof(CreateWebView2RuntimeMissingNotification));
+    public void CreateReaderRuntimeMissingNotification() => Record(nameof(CreateReaderRuntimeMissingNotification));
 
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
         => Record(nameof(CreateCalendarReminderNotificationAsync), calendarItem?.Title);

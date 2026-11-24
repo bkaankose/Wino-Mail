@@ -53,9 +53,9 @@ public interface INotificationBuilder
     void CreateAttentionRequiredNotification(MailAccount account);
 
     /// <summary>
-    /// Shows a notification when WebView2 runtime is unavailable.
+    /// Shows a notification when the component that shows message content is unavailable.
     /// </summary>
-    void CreateWebView2RuntimeMissingNotification();
+    void CreateReaderRuntimeMissingNotification();
 
     /// <summary>
     /// Creates a calendar reminder toast for the specified calendar item.
