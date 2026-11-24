@@ -111,6 +111,10 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         ApplyDescriptionPresentation();
 
         var description = ViewModel.CurrentEvent.CalendarItem.Description ?? string.Empty;
+
+        // The view has no height of its own, so an event without a description would show an empty block.
+        EventDescriptionHost.Visibility = string.IsNullOrWhiteSpace(description) ? Visibility.Collapsed : Visibility.Visible;
+
         await _descriptionSession.RenderAsync(new HtmlMailReaderRequest(description, RemoteContentPolicy.ImagesAndFontsAllowed));
     }
 
@@ -160,7 +164,7 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     {
         _descriptionPresentation.HighContrastChanged -= DescriptionPresentation_HighContrastChanged;
         _descriptionPresentation.HighContrastChanged += DescriptionPresentation_HighContrastChanged;
-        _descriptionPresentation.StartWatching();
+        _descriptionPresentation.StartWatching(EventDescriptionHost.XamlRoot);
         ApplyDescriptionPresentation();
     }
 

@@ -5,7 +5,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -212,6 +211,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         try
         {
             ApplyReaderPresentation();
+            HideLinkTargetBar();
             UpdateAccessibleMailContext(string.Empty);
 
             // Read before the load starts: the engine's worker owns the message until the load ends.
@@ -388,7 +388,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             {
                 Text = Translator.Reader_ContextMenu_CopyImage,
                 Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Image)),
-                Command = new RelayCommand(() => CopyImageToClipboard(image)),
+                Command = new AsyncRelayCommand(() => CopyImageToClipboardAsync(image)),
                 AutomationId = "MailRenderingCopyImage"
             });
         }
@@ -406,15 +406,17 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         WinoContextFlyoutHelper.Show(_mailView, new Windows.Foundation.Point(request.ViewPoint.X, request.ViewPoint.Y), entries);
     }
 
-    private static void CopyImageToClipboard(MailResource image)
+    private static async Task CopyImageToClipboardAsync(MailResource image)
     {
         try
         {
+            // The clipboard reads the stream later, so it is handed over open.
             var stream = new InMemoryRandomAccessStream();
-            using (var output = stream.AsStreamForWrite())
+            using (var writer = new DataWriter(stream))
             {
-                output.Write(image.Bytes.Span);
-                output.Flush();
+                writer.WriteBytes(image.Bytes.ToArray());
+                await writer.StoreAsync();
+                writer.DetachStream();
             }
 
             stream.Seek(0);
@@ -641,8 +643,13 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(ViewModel.IsDarkWebviewRenderer) or nameof(ViewModel.ReaderDarkModeMethod))
+        if (e.PropertyName is not (nameof(ViewModel.IsDarkWebviewRenderer) or nameof(ViewModel.ReaderDarkModeMethod)))
+            return;
+
+        if (DispatcherQueue.HasThreadAccess)
             ApplyReaderPresentation();
+        else
+            DispatcherQueue.TryEnqueue(ApplyReaderPresentation);
     }
 
     private void MailRendererHost_ActualThemeChanged(FrameworkElement sender, object args) => ApplyReaderPresentation();
@@ -651,7 +658,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         _readerPresentation.HighContrastChanged -= ReaderPresentation_HighContrastChanged;
         _readerPresentation.HighContrastChanged += ReaderPresentation_HighContrastChanged;
-        _readerPresentation.StartWatching();
+        _readerPresentation.StartWatching(MailRendererHost.XamlRoot);
         ApplyReaderPresentation();
     }
 
