@@ -102,8 +102,11 @@ public class NewThemeService : INewThemeService
         set
         {
             var rootContent = TryGetShellRootContent();
+            var requestedTheme = ContrastThemeHelper.IsActive ? ElementTheme.Default : value.ToWindowsElementTheme();
             if (rootContent != null)
-                rootContent.RequestedTheme = ContrastThemeHelper.IsActive ? ElementTheme.Default : value.ToWindowsElementTheme();
+                rootContent.RequestedTheme = requestedTheme;
+
+            ApplyRequestedThemeToOtherWindows(rootContent, requestedTheme);
 
             _configurationService.Set(UnderlyingThemeService.SelectedAppThemeKey, value);
 
@@ -1265,6 +1268,32 @@ public class NewThemeService : INewThemeService
     }
 
     private WindowEx? GetThemeWindow() => _windowManager.ActiveWindow ?? WinoApplication.MainWindow;
+
+    // The theme is applied to the active window, but pop-outs and other windows that are open at the same time
+    // must follow a theme change too; each window only reads the theme once, when it is shown.
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    private void ApplyRequestedThemeToOtherWindows(FrameworkElement? appliedRoot, ElementTheme requestedTheme)
+    {
+        foreach (var window in _windowManager.GetWindows())
+        {
+            try
+            {
+                var root = window is IWinoShellWindow shellWindow
+                    ? shellWindow.GetRootContent()
+                    : window.Content as FrameworkElement;
+
+                if (root == null || ReferenceEquals(root, appliedRoot))
+                    continue;
+
+                root.RequestedTheme = requestedTheme;
+                SystemCaptionButtonColorHelper.Apply(window.AppWindow.TitleBar, root.ActualTheme == ElementTheme.Dark);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Skipping theme update for a closed window: {ex.Message}");
+            }
+        }
+    }
 
     [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private FrameworkElement? TryGetShellRootContent()
