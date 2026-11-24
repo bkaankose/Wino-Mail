@@ -234,11 +234,12 @@ public sealed partial class AppDelegate
         };
     }
 
-    /// <summary>Text input: a text view or field editor, an edited text or search field, or anything inside a web view.</summary>
+    /// <summary>Text input: a text view or field editor, an edited text or search field, a composing mail view, or anything inside a web view.</summary>
     private static bool IsTextInput(NSResponder? responder)
     {
         if (responder is NSText) return true;
         if (responder is NSTextField field && (field.Editable || field.CurrentEditor is not null)) return true;
+        if (responder is Wino.Renderer.AppKit.MailView { IsEditing: true }) return true;
         for (var view = responder as NSView; view is not null; view = view.Superview)
             if (view is WebKit.WKWebView) return true;
         return false;

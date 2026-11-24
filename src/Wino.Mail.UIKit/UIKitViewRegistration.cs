@@ -74,6 +74,13 @@ public static partial class UIKitViewRegistration
         services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new UIKitEmbeddedBrowserAuthBroker(dispatcher,
             provider.GetRequiredService<UIKitAuthenticationPresenter>()));
         services.AddSingleton<IIOSFilePresenter, UIKitFilePresenter>();
+
+        // The native mail renderer: one engine per process over Core Text and Core Graphics, with the device's spell
+        // checker and settings; its unsubscribe reader replaces the header reader of the web view path.
+        services.AddSingleton<Wino.Mail.Rendering.IMailEngineBackendFactory>(_ =>
+            new Wino.Mail.Rendering.Apple.AppleMailEngineBackendFactory(() => Wino.Renderer.UIKit.UIKitBackend.Create()));
+        Wino.Mail.Rendering.MailRenderingRegistration.AddMailRendering(services);
+        services.AddSingleton<Wino.Mail.Rendering.Apple.MailEngineMemoryPressure>();
         return services;
     }
 }

@@ -68,23 +68,48 @@ public sealed partial class MailRenderingPageViewController
             command.Invoke(_commandBar);
             return $"invoked {command.Title} enabled={command.IsEnabled}";
         }));
-        // "reader-theme": the reader's appearance and what the document applied (theme, surface, inset, mail padding).
-        UIKitDebugBridge.Register("reader-theme", async _ =>
+        // "reader-theme": the reader's appearance, the engine view's size and what the controller drew last.
+        UIKitDebugBridge.Register("reader-theme", _ => ReaderDebugAsync(() =>
         {
-            var native = string.Empty;
-            await Dispatcher.ExecuteOnUIThread(() => native = $"dark={_dark} appearanceDark={IsDarkAppearance()} webHeight={_webHeight?.Constant}");
-            var result = new TaskCompletionSource<string>();
-            await Dispatcher.ExecuteOnUIThread(() => _webView.EvaluateJavaScript(
-                "(() => { const r = document.getElementById('wino-reader'); const h = r && r.shadowRoot && r.shadowRoot.querySelector('.wino-mail-html'); " +
-                "return [document.documentElement.dataset.theme, document.documentElement.dataset.surface, r && r.hasAttribute('data-inset'), h ? getComputedStyle(h).paddingLeft : 'none'].join(' '); })()",
-                (value, error) => result.TrySetResult(error is null ? value?.ToString() ?? "null" : "js error " + error.LocalizedDescription)));
-            return native + " | " + await result.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        });
+            var controller = _mailView.Controller;
+            return $"dark={_dark} appearanceDark={IsDarkAppearance()} bodyHeight={_webHeight?.Constant} content={controller.ContentSize.Width}x{controller.ContentSize.Height} " +
+                $"frames={controller.FrameCount} lastFrameMs={controller.LastFrameMs:F1} zoom={controller.ZoomFactor} highContrast={_presentation.IsHighContrast}";
+        }));
         UIKitDebugBridge.Register("reader-scroll", args => ReaderDebugAsync(() =>
         {
             if (args.Length > 0 && double.TryParse(args[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y))
                 _scroll.SetContentOffset(new CoreGraphics.CGPoint(0, y - _scroll.AdjustedContentInset.Top), false);
             return $"offset={_scroll.ContentOffset.Y} barSubject={_barSubject.Alpha}";
+        }));
+        // "reader-touch X Y [long]" taps (or long-presses) the body at a point of the mail view, as a finger does.
+        UIKitDebugBridge.Register("reader-touch", args => ReaderDebugAsync(() =>
+        {
+            var point = new Wino.Renderer.Primitives.PxPoint(float.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture),
+                float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+            var controller = _mailView.Controller;
+            if (args.Length > 2 && args[2] == "long")
+            {
+                controller.PointerPressed(point, Wino.Renderer.Platform.PointerButtons.Right, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Mouse, 1);
+                return "long press";
+            }
+
+            controller.PointerPressed(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Touch);
+            controller.PointerReleased(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Touch);
+            return "tapped";
+        }));
+        // "reader-ax": the accessibility elements VoiceOver walks in the body (traits, label, frame on screen).
+        UIKitDebugBridge.Register("reader-ax", _ => ReaderDebugAsync(() =>
+        {
+            var elements = _mailView.AccessibilityElementsForVoiceOver;
+            if (elements is null) return "single element: " + _mailView.AccessibilityLabel;
+            var lines = new List<string>();
+            for (nuint i = 0; i < elements.Count && i < 40; i++)
+            {
+                var e = elements.GetItem<UIAccessibilityElement>(i);
+                var traits = (UIAccessibilityTrait)e.AccessibilityTraits;
+                lines.Add($"{traits}: '{e.AccessibilityLabel}' screen {e.AccessibilityFrame} in view {e.AccessibilityFrameInContainerSpace}");
+            }
+            return $"{elements.Count} elements\n" + string.Join("\n", lines);
         }));
         UIKitDebugBridge.Register("reader-bar", args => ReaderDebugAsync(() =>
         {

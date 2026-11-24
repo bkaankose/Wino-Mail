@@ -148,6 +148,8 @@ public sealed class EngineMailMessageReader : IMailMessageReader
         ArgumentNullException.ThrowIfNull(request);
 
         var stopwatch = Stopwatch.StartNew();
+        // Watched from the start: a view may draw the new mail before the load's continuation runs.
+        using var firstFrame = new FirstFrameWatch(_view, stopwatch);
         var version = Interlocked.Increment(ref _loadVersion);
         var message = request.Message;
         var options = request.Options;
@@ -222,7 +224,7 @@ public sealed class EngineMailMessageReader : IMailMessageReader
         _loadOptions = CreateLoadOptions(options, false);
         _isVariantShown = false;
 
-        var firstFrameMilliseconds = await WaitForFirstFrameAsync(stopwatch);
+        var firstFrameMilliseconds = await firstFrame.WaitAsync(FirstFrameTimeout);
 
         LogRender(request.MimePath, result, content, loadMilliseconds, firstFrameMilliseconds);
 
@@ -346,25 +348,31 @@ public sealed class EngineMailMessageReader : IMailMessageReader
         return model;
     }
 
-    private async Task<double> WaitForFirstFrameAsync(Stopwatch stopwatch)
+    private sealed class FirstFrameWatch : IDisposable
     {
-        if (!_view.IsAttached)
-            return -1;
+        private readonly IMailView _view;
+        private readonly Stopwatch _stopwatch;
+        private readonly TaskCompletionSource<double> _frame = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        void OnFrameRendered(object? sender, EventArgs e) => completion.TrySetResult(true);
-
-        _view.FrameRendered += OnFrameRendered;
-
-        try
+        public FirstFrameWatch(IMailView view, Stopwatch stopwatch)
         {
-            var finished = await Task.WhenAny(completion.Task, Task.Delay(FirstFrameTimeout));
-            return ReferenceEquals(finished, completion.Task) ? stopwatch.Elapsed.TotalMilliseconds : -1;
+            _view = view;
+            _stopwatch = stopwatch;
+            _view.FrameRendered += OnFrameRendered;
         }
-        finally
+
+        private void OnFrameRendered(object? sender, EventArgs e) => _frame.TrySetResult(_stopwatch.Elapsed.TotalMilliseconds);
+
+        public async Task<double> WaitAsync(TimeSpan timeout)
         {
-            _view.FrameRendered -= OnFrameRendered;
+            if (!_frame.Task.IsCompleted && !_view.IsAttached)
+                return -1;
+
+            var finished = await Task.WhenAny(_frame.Task, Task.Delay(timeout));
+            return ReferenceEquals(finished, _frame.Task) ? _frame.Task.Result : -1;
         }
+
+        public void Dispose() => _view.FrameRendered -= OnFrameRendered;
     }
 
     private static void LogRender(string? mimePath, MailLoadResult result, MimeMailContent content, double loadMilliseconds, double firstFrameMilliseconds)

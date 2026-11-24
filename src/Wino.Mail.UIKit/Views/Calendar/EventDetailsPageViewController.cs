@@ -18,14 +18,15 @@ namespace Wino.Mail.UIKit.Views.Calendar;
 /// Event details (Mac EventDetailsPageViewController, Windows EventDetailsPage), idiom-neutral. One vertical scroll with
 /// the read-only notice, the action card (Join online, RSVP, Delete, Edit series; Show as and Reminder menus), the RSVP
 /// panel, the title with the calendar colour, the detail rows with Wino glyphs, the people card with RSVP glyphs, the
-/// HTML description (shared WebKit reader session) and the attachments. Driven by the shared
+/// HTML description (the native mail renderer) and the attachments. Driven by the shared
 /// <see cref="EventDetailsPageViewModel"/>; the parameter is a <see cref="CalendarItemTarget"/>.
 /// Hosting: pushed on a navigation controller (iPhone) the content sits in a Wino zone inside the safe area; hosted as a
 /// child of the iPad reader-column frame (which draws the zone) it fills the clear root.
 /// Partials: .Actions (action card, RSVP, Show as, reminders, saving), .Sections (people, description, attachments,
 /// helper views), .Debug (debug bridge hooks).
 /// </summary>
-public sealed partial class EventDetailsPageViewController(EventDetailsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
+public sealed partial class EventDetailsPageViewController(EventDetailsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
+    Wino.Mail.Rendering.MailEngineHost engineHost)
     : WinoViewController<EventDetailsPageViewModel>(viewModel, dispatcher, logger)
 {
     private static readonly UIColor CardFill = WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));

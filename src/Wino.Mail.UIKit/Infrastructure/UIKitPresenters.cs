@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using Foundation;
 using QuickLook;
 using UIKit;
-using WebKit;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
@@ -71,86 +70,6 @@ public sealed class UIKitFilePresenter(IDispatcher dispatcher, IUIKitShellHost h
     {
         public override NSUrl PreviewItemUrl => url;
         public override string PreviewItemTitle => url.LastPathComponent ?? string.Empty;
-    }
-}
-
-/// <summary>
-/// Reader-owned print and PDF presentation (Windows EngineMailPrintPresenter, Mac MacMailPrintPresenter). Printing
-/// presents UIPrintInteractionController with the web view's print formatter; PDF export writes
-/// <c>WKWebView.CreatePdf</c> to the chosen path. Both use the message exactly as the reader renders it. The reader
-/// creates one per page with a function that returns its web view while the page is alive.
-/// </summary>
-public sealed class UIKitMailPrintPresenter(Func<WKWebView?> webView, IDispatcher dispatcher) : IMailPrintPresenter
-{
-    public async Task<PrintingResult> PrintAsync(MailPrintRequest request, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        Task<PrintingResult> operation = Task.FromResult(PrintingResult.Unavailable);
-        await dispatcher.ExecuteOnUIThread(() => operation = BeginPrint(request));
-        return await operation;
-    }
-
-    private Task<PrintingResult> BeginPrint(MailPrintRequest request)
-    {
-        if (webView() is not { Window: not null } view) return Task.FromResult(PrintingResult.Unavailable);
-        if (!UIPrintInteractionController.PrintingAvailable) return Task.FromResult(PrintingResult.Unavailable);
-        var controller = UIPrintInteractionController.SharedPrintController;
-        // One print panel at a time; a second request while it is open is abandoned, like the Mac sheet check.
-        if (IsPresenting) return Task.FromResult(PrintingResult.Abandoned);
-        var info = UIPrintInfo.PrintInfo;
-        info.OutputType = UIPrintInfoOutputType.General;
-        info.JobName = string.IsNullOrWhiteSpace(request.Title) ? "Wino Mail" : request.Title;
-        controller.PrintInfo = info;
-        controller.PrintFormatter = view.ViewPrintFormatter;
-        var completion = new TaskCompletionSource<PrintingResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        IsPresenting = true;
-        void Completed(UIPrintInteractionController? printController, bool completed, NSError? error)
-        {
-            IsPresenting = false;
-            completion.TrySetResult(error is not null ? PrintingResult.Failed : completed ? PrintingResult.Submitted : PrintingResult.Canceled);
-        }
-        bool presented = UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Pad
-            ? controller.PresentFromRectInView(view.Bounds, view, true, Completed)
-            : controller.Present(true, Completed);
-        if (!presented)
-        {
-            IsPresenting = false;
-            completion.TrySetResult(PrintingResult.Failed);
-        }
-        return completion.Task;
-    }
-
-    private static bool IsPresenting { get; set; }
-
-    public async Task<PlatformOperationResult> ExportPdfAsync(string path, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(path))
-            return new PlatformOperationResult(PlatformOperationStatus.Failed, "No PDF path was given.");
-
-        Task<NSData>? operation = null;
-        await dispatcher.ExecuteOnUIThread(() =>
-        {
-            if (webView() is { } view) operation = view.CreatePdfAsync(new WKPdfConfiguration());
-        });
-        if (operation is null) return new PlatformOperationResult(PlatformOperationStatus.Unavailable);
-        try
-        {
-            using var data = await operation;
-            if (cancellationToken.IsCancellationRequested) return new PlatformOperationResult(PlatformOperationStatus.Cancelled);
-            var directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-            await File.WriteAllBytesAsync(path, data.ToArray(), cancellationToken);
-            return new PlatformOperationResult(PlatformOperationStatus.Succeeded);
-        }
-        catch (OperationCanceledException)
-        {
-            return new PlatformOperationResult(PlatformOperationStatus.Cancelled);
-        }
-        catch (Exception exception)
-        {
-            return new PlatformOperationResult(PlatformOperationStatus.Failed, exception.Message);
-        }
     }
 }
 

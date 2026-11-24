@@ -11,7 +11,7 @@
   <Folder Name="/Apple/">
     <Project Path="src/Wino.Platform.Apple/Wino.Platform.Apple.csproj" />
     <Project Path="src/Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
-    <Project Path="controls/Wino.Editor.WebKit/Wino.Editor.WebKit.csproj" />
+    <Project Path="src/Wino.Mail.Rendering.Apple/Wino.Mail.Rendering.Apple.csproj" />
   </Folder>
   <Folder Name="/Shared/">
     <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />

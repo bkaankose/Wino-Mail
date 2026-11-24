@@ -10,7 +10,9 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
-using Wino.Editor.WebKit;
+using Microsoft.Extensions.DependencyInjection;
+using Wino.Mail.Rendering;
+using EngineMailView = Wino.Renderer.UIKit.MailView;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
@@ -28,8 +30,8 @@ namespace Wino.Mail.UIKit.Views.Calendar;
 /// root of a navigation controller: Cancel on the left, Save / Send on the right. One scroll of inset cards on the
 /// grouped background: the title with the calendar and location (always open); When (dates on one date-and-time wheel
 /// each, all day, time zone, repeat with the custom editor); Attendees with contact suggestions inside the card; Details
-/// (reminder, show as, private, online meeting); Attachments; then the rich-text notes (the mail composer's WKWebView
-/// editor with its Format / Insert / Options bar above the keyboard). A closed card shows its state in one line; one
+/// (reminder, show as, private, online meeting); Attachments; then the rich-text notes (the mail composer's editor on the
+/// native mail renderer, with its Format / Insert / Options bar above the keyboard). A closed card shows its state in one line; one
 /// card is open at a time. Partials: Attendees, Recurrence, Drop and Debug.
 /// </summary>
 public sealed partial class CalendarEventComposePageViewController(CalendarEventComposePageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
@@ -141,10 +143,10 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
     private UIView? _customRecurrenceRow;
 
     // ---- Notes (Windows WinoMailEditor): untouched notes are saved exactly as they arrived ----
-    private readonly ComposeEditorWebView _notesWebView = new();
+    private readonly EngineMailView _notesWebView = new() { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UIView _notesHost = new() { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UIActivityIndicatorView _notesSpinner = new(UIActivityIndicatorViewStyle.Medium) { HidesWhenStopped = true, TranslatesAutoresizingMaskIntoConstraints = false };
-    private WebKitHtmlMailEditorSession? _notesEditor;
+    private UIKitEngineEditor? _notesEditor;
     private EditorFormatToolbar? _formatToolbar;
     private EditorToolbarButton? _themeButton;
     private string _originalNotesHtml = string.Empty;
@@ -458,7 +460,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         _originalNotesHtml = args?.NotesHtml ?? string.Empty;
         ViewModel.GetHtmlNotesAsync = GetNotesHtmlAsync;
 
-        var editor = new WebKitHtmlMailEditorSession(_notesWebView);
+        var editor = new UIKitEngineEditor(_notesWebView, Dispatcher, services.GetRequiredService<MailEngineHost>(), services.GetRequiredService<IMailDialogService>());
         _notesEditor = editor;
         editor.Configure(_launcher);
         editor.OperationFailed += NotesOperationFailed;
@@ -550,7 +552,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         {
             ReleaseInvite();
             _formatToolbar?.Detach();
-            _notesWebView.Accessory = null;
+            _notesWebView.InputAccessory = null;
         });
         await DisposeNotesEditorAsync();
         await base.DeactivateAsync();
@@ -563,7 +565,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
             _released = true;
             ReleaseInvite();
             _formatToolbar?.Detach();
-            _notesWebView.Accessory = null;
+            _notesWebView.InputAccessory = null;
             if (_notesEditor is not null && !_notesDisposed) Observe(DisposeNotesEditorAsync());
         }
         base.Dispose(disposing);
@@ -620,7 +622,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
             new EditorToolbarItem(_themeButton),
             new EditorToolbarItem(new EditorToolbarButton(WinoIconGlyph.ArrowUndo, Translator.MacOSMenu_Undo, () => toolbar.Run(EditorCommand.Undo()))),
             new EditorToolbarItem(new EditorToolbarButton(WinoIconGlyph.ArrowRedo, Translator.MacOSMenu_Redo, () => toolbar.Run(EditorCommand.Redo()))));
-        _notesWebView.Accessory = toolbar;
+        _notesWebView.InputAccessory = toolbar;
     }
 
     private UIViewController Presenter => PresentedViewController is { IsBeingDismissed: false } presented ? presented : this;

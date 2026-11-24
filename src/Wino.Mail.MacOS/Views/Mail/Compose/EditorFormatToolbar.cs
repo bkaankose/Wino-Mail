@@ -6,8 +6,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
-using Wino.Editor.WebKit;
-using AppKitHtmlMailEditorSession = Wino.Editor.WebKit.WebKitHtmlMailEditorSession;
+using AppKitHtmlMailEditorSession = Wino.Mail.MacOS.Views.Mail.Compose.MacEngineEditor;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Mail.Compose;

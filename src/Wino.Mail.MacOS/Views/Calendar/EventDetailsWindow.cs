@@ -140,7 +140,7 @@ internal sealed class EventDetailsWindow
         catch (Exception exception) { Serilog.Log.Warning(exception, "Releasing the event details window failed."); }
         finally
         {
-            _window.ContentViewController = null!;
+            _window.ClearContentViewController();
             _page.Dispose();
             _window.Dispose();
         }

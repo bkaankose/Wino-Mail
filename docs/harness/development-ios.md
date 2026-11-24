@@ -5,7 +5,7 @@ One app bundle serves iPhone and iPad. `Composition.cs` registers the UI project
 The app uses the shared .NET services, ViewModels, translations, and editor engine through explicit UIKit adapters. It does not use Uno, MAUI, Mac Catalyst, or XAML.
 
 Shared rules for every platform are in [AGENTS.md](../../AGENTS.md) and the [implementation rules](implementation-rules.md).
-Presentation decisions are in [iOS design decisions](../ios-design-decisions.md). The Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) is also used by the Mac app; see [macOS development](development-macos.md).
+Presentation decisions are in [iOS design decisions](../ios-design-decisions.md). The Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Mail.Rendering.Apple`) is also used by the Mac app; see [macOS development](development-macos.md).
 
 ## Requirements
 
@@ -40,7 +40,7 @@ dotnet build WinoMail.iOS.slnx -c Debug -p:WinoTargetPlatform=iOS -p:EnableWindo
 
 Output is `src/Wino.Mail.iOS/bin/Debug/net10.0-ios/iossimulator-arm64/Wino.Mail.iOS.app`; the display name is "Wino Mail". A single library builds the same way, for example `dotnet build src/Wino.Platform.Apple/Wino.Platform.Apple.csproj -f net10.0-ios -p:WinoTargetPlatform=iOS`.
 
-`WinoMail.iOS.slnx` has four folders: `/iOS/` (head, UIKit projects, `Wino.Platform.iOS`, UIKit controls), `/Apple/` (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`), and `/Shared/`.
+`WinoMail.iOS.slnx` has four folders: `/iOS/` (head, UIKit projects, `Wino.Platform.iOS`, UIKit controls), `/Apple/` (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Mail.Rendering.Apple`), and `/Shared/`.
 
 Device builds need the signing identity and profile below, which do not exist yet:
 
@@ -158,7 +158,7 @@ Open the repository folder on the Mac and pick `WinoMail.iOS.slnx` with **.NET: 
 | --- | --- |
 | UIKit views, controls, navigation, or activation | iOS Debug Simulator build, plus manual checks on iPhone and iPad simulators |
 | iOS platform services | iOS Debug Simulator build, plus manual checks of the affected service; sign-in, Keychain, notifications, and background refresh need a signed device build |
-| Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) | iOS Debug Simulator build and the Mac native Debug arm64 and x64 builds |
+| Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Mail.Rendering.Apple`) | iOS Debug Simulator build and the Mac native Debug arm64 and x64 builds |
 | StoreKit 2 Swift bridge | `./build-native.sh StoreKit2` and `plutil -p` showing the `macos`, `ios`, and `ios-simulator` slices ([bindings README](../../src/Wino.Core.Apple.Bindings/README.md)) |
 | Signing, entitlements, `Info.plist`, or bundle identity | Signed device build, `codesign --verify`, and the effective entitlements and bundle identifier |
 | Shared code used by the iOS app | The iOS build above, plus the Mac and Windows checks in [AGENTS.md](../../AGENTS.md) |

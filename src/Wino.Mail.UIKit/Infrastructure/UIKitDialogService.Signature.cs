@@ -16,11 +16,9 @@ public sealed partial class UIKitDialogService
     public async Task<AccountSignature?> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)
     {
         var accountLine = await AccountLineAsync(signatureModel?.MailAccountId);
-        var launcher = services.GetService<IExternalLauncher>();
-        var preferences = services.GetService<IPreferencesService>();
 
         var result = await PresentAsync(presenter =>
-            new SignatureEditorSheet(accountLine, signatureModel?.Name, signatureModel?.HtmlBody, launcher, preferences, SignatureEditorFailed).PresentAsync(presenter), null);
+            new SignatureEditorSheet(accountLine, signatureModel?.Name, signatureModel?.HtmlBody, services, SignatureEditorFailed).PresentAsync(presenter), null);
         if (result is not { } saved) return null;
 
         if (signatureModel is null)

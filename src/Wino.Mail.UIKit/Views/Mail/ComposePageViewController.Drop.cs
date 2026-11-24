@@ -7,8 +7,8 @@ namespace Wino.Mail.UIKit.Views.Mail;
 
 /// <summary>
 /// Files dropped on the composer (Mac Drop partial, Windows ComposePage drop zones). A drop interaction on the header
-/// area accepts file items from Files and other apps and attaches them; text and HTML drags inside the WKWebView body
-/// keep WebKit's own handling. Dropped files are only readable during the drop, so their bytes are read at once.
+/// and the body accepts file items from Files and other apps and attaches them. Dropped files are only readable during
+/// the drop, so their bytes are read at once; files pasted into the body come from the editor (AttachPastedFiles).
 /// The Mac "images zone" (inline pictures) is not offered: pictures go in through Insert › Picture.
 /// </summary>
 public sealed partial class ComposePageViewController
@@ -28,6 +28,18 @@ public sealed partial class ComposePageViewController
         ViewModel.IsDraggingOverFilesDropZone = active;
         ViewModel.IsDraggingOverImagesDropZone = false;
         _zone.Alpha = active ? 0.85f : 1;
+    }
+
+    /// <summary>Files pasted into the body that are not inline images become attachments.</summary>
+    private void AttachPastedFiles(IReadOnlyList<string> paths)
+    {
+        var files = new List<SharedFile>();
+        foreach (var path in paths)
+        {
+            try { files.Add(new SharedFile(path, File.ReadAllBytes(path))); }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { ReportError(exception); }
+        }
+        AttachDroppedFiles(files);
     }
 
     private void AttachDroppedFiles(IReadOnlyList<SharedFile> files)
@@ -97,11 +109,8 @@ public sealed partial class ComposePageViewController
 
         public override UIDropProposal SessionDidUpdate(UIDropInteraction interaction, IUIDropSession session)
         {
-            // Over the body WebKit handles the drop itself.
-            var location = session.LocationInView(owner._webView);
-            var overBody = owner._webView.PointInside(location, null);
-            owner.SyncDropState(!overBody);
-            return new UIDropProposal(overBody ? UIDropOperation.Cancel : UIDropOperation.Copy);
+            owner.SyncDropState(true);
+            return new UIDropProposal(UIDropOperation.Copy);
         }
 
         public override void SessionDidExit(UIDropInteraction interaction, IUIDropSession session) => owner.SyncDropState(false);

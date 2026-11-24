@@ -7,7 +7,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
-using Wino.Editor.WebKit;
+using Wino.Mail.Rendering;
+using EngineMailView = Wino.Renderer.UIKit.MailView;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Views.Mail.Compose;
@@ -24,7 +25,7 @@ namespace Wino.Mail.UIKit.Views.Mail;
 /// local draft that failed to upload), Attach and More (Cc/Bcc, find, rewrite, templates, signature, importance,
 /// S/MIME, read receipt, editor theme, discard). Inside one Wino zone: the draft-upload failure bar, From, To / Cc /
 /// Bcc token fields with the recipient suggestion list, Subject, the Wino Intelligence rewrite strip, the attachment
-/// tray, the find bar and the HTML body in a WKWebView whose keyboard accessory is the Format / Insert / Options bar.
+/// tray, the find bar and the body in the native mail renderer's editor, whose keyboard accessory is the Format / Insert / Options bar.
 /// Partials: Toolbar, Recipients, Attachments, Rewrite, Extras, Options, Find, Drop and Debug.
 /// </summary>
 public sealed partial class ComposePageViewController(ComposePageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IServiceProvider services)
@@ -37,7 +38,8 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
     private readonly IMailDialogService? _dialogs = services.GetService<IMailDialogService>();
     private readonly IUIKitShellHost? _shellHost = services.GetService<IUIKitShellHost>();
 
-    private readonly ComposeEditorWebView _webView = new();
+    private readonly EngineMailView _webView = new() { TranslatesAutoresizingMaskIntoConstraints = false };
+    private readonly MailEngineHost _engineHost = services.GetRequiredService<MailEngineHost>();
     private readonly WinoZoneView _zone = new();
     private readonly UIStackView _content = WinoLayout.VStack(0);
     private readonly WinoInfoBar _syncFailedBar = new(WinoInfoBarSeverity.Warning, Translator.Draft_SyncFailedInfoBarTitle) { IsClosable = false, ActionTitle = Translator.Draft_RetryUpload };
@@ -65,7 +67,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
     private ComposeRecipientField? _toField;
     private ComposeRecipientField? _ccField;
     private ComposeRecipientField? _bccField;
-    private WebKitHtmlMailEditorSession? _editor;
+    private UIKitEngineEditor? _editor;
     private bool _editorDisposed;
     private bool _closing;
     private bool _sendEnabled;
@@ -317,8 +319,10 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
-        var editor = new WebKitHtmlMailEditorSession(_webView);
+        var editor = new UIKitEngineEditor(_webView, Dispatcher, _engineHost, services.GetRequiredService<IMailDialogService>());
         _editor = editor;
+        editor.FilesReceived += (_, files) => AttachPastedFiles(files);
+        ViewModel.BodyWriter = editor.Engine;
         if (_launcher is not null) editor.Configure(_launcher);
         editor.OperationFailed += (_, exception) => ReportError(exception);
         editor.Restarted += EditorRestarted;
@@ -414,7 +418,8 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         await Dispatcher.ExecuteOnUIThread(() =>
         {
             _formatToolbar?.Detach();
-            _webView.Accessory = null;
+            _webView.InputAccessory = null;
+            ViewModel.BodyWriter = null;
         });
         try { await editor.DisposeAsync(); }
         catch (Exception exception) { ReportError(exception); }

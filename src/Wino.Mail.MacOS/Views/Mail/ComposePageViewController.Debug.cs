@@ -115,6 +115,64 @@ public sealed partial class ComposePageViewController
             Observe(_formatToolbar.EditImagePropertiesAsync());
             return "ok";
         }));
+        // "compose-type TEXT" types at the caret as the keyboard would; "compose-key KEY [cmd|alt|shift…]" presses a key;
+        // "compose-ime MARKED|FINAL" sets marked text as an input method does and commits FINAL;
+        // "compose-body" prints the body HTML the editor hands out; "compose-discard" discards the draft.
+        Infrastructure.MacDebugBridge.Register("compose-type", async args =>
+        {
+            var typed = false;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                Window()?.MakeFirstResponder(_webView);
+                typed = _webView.Controller.InsertText(string.Join(' ', args));
+            });
+            return typed ? "ok" : "not editing";
+        });
+        Infrastructure.MacDebugBridge.Register("compose-key", async args =>
+        {
+            var handled = false;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                var key = Enum.Parse<Wino.Renderer.Platform.Key>(args[0], true);
+                var modifiers = Wino.Renderer.Platform.KeyModifiers.None;
+                foreach (var name in args.Skip(1))
+                {
+                    modifiers |= name switch
+                    {
+                        "cmd" => Wino.Renderer.Platform.KeyModifiers.Command,
+                        "alt" => Wino.Renderer.Platform.KeyModifiers.Alt,
+                        "shift" => Wino.Renderer.Platform.KeyModifiers.Shift,
+                        "ctrl" => Wino.Renderer.Platform.KeyModifiers.Control,
+                        _ => Wino.Renderer.Platform.KeyModifiers.None
+                    };
+                }
+
+                handled = _webView.Controller.KeyDown(key, modifiers);
+            });
+            return handled ? "ok" : "not handled";
+        });
+        Infrastructure.MacDebugBridge.Register("compose-body", async _ => await GetHtmlBodyAsync());
+        Infrastructure.MacDebugBridge.Register("compose-discard", async _ =>
+        {
+            await Dispatcher.ExecuteOnUIThread(() => Observe(ViewModel.DiscardCommand.ExecuteAsync(null)));
+            return "ok";
+        });
+        Infrastructure.MacDebugBridge.Register("compose-ime", async args =>
+        {
+            var parts = string.Join(' ', args).Split('|', 2);
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                Window()?.MakeFirstResponder(_webView);
+                var none = new Foundation.NSRange(Foundation.NSRange.NotFound, 0);
+                for (var i = 1; i <= parts[0].Length; i++)
+                {
+                    _webView.SetMarkedText(new Foundation.NSString(parts[0][..i]), new Foundation.NSRange(i, 0), none);
+                }
+
+                _webView.InsertText(new Foundation.NSString(parts.Length > 1 ? parts[1] : parts[0]), none);
+            });
+            return "ok";
+        });
     }
 
     private void ShowRewriteMenuForDebug()

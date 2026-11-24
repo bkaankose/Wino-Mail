@@ -68,6 +68,8 @@ internal static class Composition
 #endif
 
         provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        // The engine gives its decoded images back on a memory warning, before the system ends the app.
+        provider.GetRequiredService<Wino.Mail.Rendering.Apple.MailEngineMemoryPressure>();
         return provider;
     }
 }

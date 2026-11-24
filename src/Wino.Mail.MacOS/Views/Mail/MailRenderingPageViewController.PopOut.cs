@@ -4,6 +4,7 @@ using CoreGraphics;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Models;
+using Wino.Mail.MacOS.Infrastructure;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 
@@ -120,7 +121,7 @@ public sealed partial class MailRenderingPageViewController : IReadingPaneChild
         catch (Exception exception) { ReportError(exception); }
         finally
         {
-            if (window is not null) window.ContentViewController = null!;
+            if (window is not null) window.ClearContentViewController();
             Dispose();
         }
     }

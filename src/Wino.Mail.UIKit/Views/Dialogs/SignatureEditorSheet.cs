@@ -27,7 +27,7 @@ internal sealed class SignatureEditorSheet
     private bool _presented;
     private bool _disposed;
 
-    public SignatureEditorSheet(string? accountLine, string? name, string? html, IExternalLauncher? launcher, IPreferencesService? preferences, Action<Exception>? error)
+    public SignatureEditorSheet(string? accountLine, string? name, string? html, IServiceProvider services, Action<Exception>? error)
     {
         _html = html ?? string.Empty;
         _error = error;
@@ -57,7 +57,7 @@ internal sealed class SignatureEditorSheet
         nameStack.Alignment = UIStackViewAlignment.Fill;
 
         // ---- Format toolbar and editor (the composer's HTML editor session) ----
-        _editor = new WinoRichTextEditorView(Translator.SettingsSignature_Title, launcher, preferences, error);
+        _editor = new WinoRichTextEditorView(Translator.SettingsSignature_Title, services, error);
         _editor.EditorSurface.HeightAnchor.ConstraintGreaterThanOrEqualTo(160).Active = true;
         _editor.ReadyChanged += (_, _) => Refresh();
         _editor.SetContentHuggingPriority(1, UILayoutConstraintAxis.Vertical);

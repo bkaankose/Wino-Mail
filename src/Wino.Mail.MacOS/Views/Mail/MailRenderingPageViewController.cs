@@ -3,15 +3,14 @@ using AppKit;
 using CommunityToolkit.Mvvm.Messaging;
 using CoreGraphics;
 using Microsoft.Extensions.DependencyInjection;
-using WebKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
-using Wino.Editor.WebKit;
-using AppKitHtmlMailReaderSession = Wino.Editor.WebKit.WebKitHtmlMailReaderSession;
+using Wino.Mail.Rendering;
+using EngineMailView = Wino.Renderer.AppKit.MailView;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.MailList;
 using Wino.Mail.MacOS.Infrastructure;
@@ -30,9 +29,10 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// read, Pop out, More at the trailing edge), the sender block (40pt avatar; name, address and the
 /// To, Cc and Bcc rows; the date with Unsubscribe and the S/MIME indicators at the top right),
 /// category chips, the Wino Intelligence header, the
-/// remote content bars (MailRenderingPageViewController.Privacy.cs), the HTML body in a card through the shared reader engine, the attachment
+/// remote content bars (MailRenderingPageViewController.Privacy.cs), the body in a card through the native mail renderer
+/// (MailRenderingPageViewController.Engine.cs), the attachment
 /// strip with Save all, and the loading skeleton. Print and Save as PDF go through
-/// <see cref="MacMailPrintPresenter"/> while the reader is active.
+/// <see cref="MacEngineMailPrintPresenter"/> while the reader is active.
 /// The controller is reused across selections; <see cref="RenavigateAsync"/> loads the next message.
 /// Pop out moves it into its own window (MailRenderingPageViewController.PopOut.cs).
 /// The Wino Intelligence header lives in MailRenderingPageViewController.Intelligence.cs, the calendar invitation
@@ -52,9 +52,10 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private MailReaderStatusRow _statusRow = null!;
     private NSStackView _chips = null!;
     private NSView _intelligenceHost = null!;
-    private WKWebView _webView = null!;
+    private EngineMailView _mailView = null!;
     private readonly ReaderLinkTargetBar _linkTarget = new();
-    private AppKitHtmlMailReaderSession? _reader;
+    private readonly EngineReaderPresentation _presentation = new();
+    private EngineMailMessageReader? _reader;
     private NSStackView _attachmentTiles = null!;
     private NSView _attachmentStrip = null!;
     private NSButton _saveAllButton = null!;
@@ -183,17 +184,15 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         NSLayoutConstraint.ActivateConstraints(_headerWidths.ToArray());
 
         // ---- Body card ----
-        _webView = new WKWebView(CGRect.Empty, new WKWebViewConfiguration()) { TranslatesAutoresizingMaskIntoConstraints = false };
-        _webView.SetValueForKey(Foundation.NSNumber.FromBoolean(false), new Foundation.NSString("drawsBackground"));
-        WinoAccessibility.Label(_webView, Translator.Reader_MessageBodyAutomationName);
-        WinoAccessibility.Help(_webView, Translator.Reader_MessageBodyAutomationHelpText);
+        _mailView = new EngineMailView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoAccessibility.Help(_mailView, Translator.Reader_MessageBodyAutomationHelpText);
         var card = new WinoSurfaceView
         {
             CornerRadius = WinoStyle.GroupRadius,
             Fill = WinoStyle.Dynamic(NSColor.White, WinoStyle.Hex(0x1F1F22)),
             Stroke = WinoStyle.ZoneStroke
         };
-        WinoLayout.Fill(_webView, card, 1, 1, 1, 1);
+        WinoLayout.Fill(_mailView, card, 1, 1, 1, 1);
         _linkTarget.Attach(card);
         var body = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         card.TranslatesAutoresizingMaskIntoConstraints = false;
@@ -282,22 +281,15 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         _currentItem = parameter as MailItemViewModel;
         IntelligenceBeginItem(_currentItem);
-        _reader = new AppKitHtmlMailReaderSession(_webView);
-        _reader.Configure(ViewModel.ExternalLauncher);
-        _reader.OperationFailed += (_, exception) => ReportError(exception);
-        _reader.LinkHovered += (_, args) => _linkTarget.Show(args);
-        _reader.NavigationRequested += (_, _) => _linkTarget.Clear();
-        // Links go through the ViewModel: tracking parameters are stripped and the link is confirmed when asked.
-        _reader.LinkOpener = (uri, text) => ViewModel.OpenLinkAsync(uri, text);
+        InitializeEngineReader();
         _commandBar.ShowsLabels = ViewModel.PreferencesService.IsShowActionLabelsEnabled;
         ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
         ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
         UpdateCommandBar();
-        ViewModel.RenderHtmlAsyncFunc = RenderAsync;
-        ViewModel.ClearRenderedHtmlAsyncFunc = ClearAsync;
-        ViewModel.PrintPresenter = new MacMailPrintPresenter(() => _disposedReader ? null : _webView, Dispatcher);
+        ViewModel.MessageReader = this;
+        ViewModel.PrintPresenter = CreatePrintPresenter();
         ViewModel.CloseRequested += CloseRequested;
         ViewModel.ComposeRequested += ComposeRequested;
 
@@ -340,8 +332,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ObserveCollection(ViewModel.Attachments, attachments: true);
         UpdateChips();
 
-        await _reader.InitializeAsync();
-        await _reader.SetThemeAsync(_dark);
+        ApplyReaderPresentation();
         await ViewModel.InitializeNavigationAsync(mode, parameter!);
     }
 
@@ -494,7 +485,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         if (_reader is null || _disposedReader) return;
         ViewModel.IsReaderViewEnabled = !ViewModel.IsReaderViewEnabled;
-        if (!string.IsNullOrWhiteSpace(_currentRenderedHtml)) Observe(RenderActiveContentAsync());
+        _reader.IsReaderView = ViewModel.IsReaderViewEnabled;
     }
 
     private string ThemeLabel => _dark ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme;
@@ -505,7 +496,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _dark = !_dark;
         ViewModel.IsDarkWebviewRenderer = _dark;
         UpdateCommandBar();
-        Observe(_reader.SetThemeAsync(_dark));
+        ApplyReaderPresentation();
     }
 
     // ---- Attachments ----
@@ -564,45 +555,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
     // ---- Rendering ----
 
-    private async Task RenderAsync(string html)
-    {
-        if (_reader is null || _disposedReader) return;
-        _linkTarget.Clear();
-        _currentRenderedHtml = html ?? string.Empty;
-        await _reader.SetThemeAsync(_dark);
-        await _reader.SetReaderTypographyAsync($"{ViewModel.PreferencesService.ReaderFont}, sans-serif", ViewModel.PreferencesService.ReaderFontSize);
-        // The intelligence context loads while the body renders, like the Windows reader.
-        var intelligence = IntelligenceHtmlRendered(_currentRenderedHtml);
-        await RenderActiveContentAsync();
-        await _reader.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
-            string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject,
-            string.IsNullOrWhiteSpace(ViewModel.FromName) ? ViewModel.FromAddress : $"{ViewModel.FromName} <{ViewModel.FromAddress}>",
-            MailRowMapper.FormatReaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference),
-            Translator.Reader_MessageBodyAutomationName,
-            Translator.Reader_PlainTextFallbackAutomationName,
-            ViewModel.CurrentRenderModel?.AccessibleText ?? string.Empty));
-        await intelligence;
-    }
-
-    /// <summary>Renders the current message body, or its translation while one is shown.</summary>
-    private async Task RenderActiveContentAsync()
-    {
-        if (_reader is null || _disposedReader) return;
-        var html = await ResolveActiveHtmlAsync(_currentRenderedHtml);
-        var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = options?.RemoteContent == RemoteContentMode.BlockAll ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed;
-        await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
-            ViewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
-    }
-
-    private Task ClearAsync()
-    {
-        _currentRenderedHtml = string.Empty;
-        _linkTarget.Clear();
-        IntelligenceContentCleared();
-        return _reader is null || _disposedReader ? Task.CompletedTask : _reader.ClearAsync();
-    }
-
     private bool IsDarkAppearance()
         => View.EffectiveAppearance.FindBestMatch([NSAppearance.NameAqua.ToString(), NSAppearance.NameDarkAqua.ToString()]) == NSAppearance.NameDarkAqua.ToString();
 
@@ -616,7 +568,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _dark = dark;
         ViewModel.IsDarkWebviewRenderer = dark;
         UpdateCommandBar();
-        Observe(_reader.SetThemeAsync(dark));
+        ApplyReaderPresentation();
     }
 
     /// <summary>
@@ -669,7 +621,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     /// Debug-bridge commands for the reader (DEBUG builds only): <c>reader-badges</c> (unsubscribe
     /// and S/MIME state with the status row), <c>reader-print</c> (opens the print panel sheet and
     /// returns at once so <c>snap</c> can capture it), <c>reader-pdf PATH</c> (exports the message;
-    /// a relative path lands in the debug folder) and <c>reader-source</c> (opens the message source sheet).
+    /// a relative path lands in the debug folder), <c>reader-source</c> (opens the message source sheet) and
+    /// <c>reader-pointer X Y [click]</c> (moves the pointer to a point of the mail view, and clicks there, as the mouse does).
     /// </summary>
     private void RegisterReaderDebugCommands()
     {
@@ -703,6 +656,26 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             // "reader-recipients card" opens the sender's contact card.
             if (args.Length > 0 && args[0] == "card" && _senderLink is not null) ShowContactCard(ViewModel.FromName, ViewModel.FromAddress, _senderLink);
             return _recipientRows.Dump() + $" card={_contactCard?.Shown == true}";
+        }));
+        // "reader-frames": frames drawn so far and whether the view counts as visible (animations run only then).
+        MacDebugBridge.Register("reader-frames", _ => ReaderDebugAsync(() =>
+            $"frames={_mailView.Controller.FrameCount} visible={_mailView.Controller.IsVisible} lastFrameMs={_mailView.Controller.LastFrameMs:F1}"));
+        MacDebugBridge.Register("reader-pointer", args => ReaderDebugAsync(() =>
+        {
+            var point = new Wino.Renderer.Primitives.PxPoint(float.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture), float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+            string? hovered = null;
+            void OnHover(object? sender, Wino.Renderer.LinkHoverEventArgs e) => hovered = e.Link?.Effective ?? "none";
+            _mailView.LinkHoverChanged += OnHover;
+            var controller = _mailView.Controller;
+            controller.PointerMoved(point, Wino.Renderer.Platform.KeyModifiers.None);
+            if (args.Length > 2 && args[2] == "click")
+            {
+                controller.PointerPressed(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Mouse, 1);
+                controller.PointerReleased(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None);
+            }
+
+            _mailView.LinkHoverChanged -= OnHover;
+            return $"hover={hovered ?? "unchanged"} targetBar={(_linkTarget.Hidden ? "hidden" : "shown")}";
         }));
         MacDebugBridge.Register("reader-source", _ => ReaderDebugAsync(() =>
         {
@@ -740,8 +713,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ViewModel.ComposeRequested -= ComposeRequested;
         CloseContactCard();
         ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
-        ViewModel.RenderHtmlAsyncFunc = null;
-        ViewModel.ClearRenderedHtmlAsyncFunc = null;
+        ViewModel.MessageReader = null;
         ViewModel.PrintPresenter = null!;
         ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         IntelligenceDispose();
@@ -761,7 +733,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _disposedReader = true;
         _linkTarget.Clear();
         ViewModel.PrintPresenter = null!;
-        try { await _reader.DisposeAsync(); }
+        try { await _reader.ClearAsync(); _reader.Detach(); }
         catch (Exception exception) { ReportError(exception); }
     }
 
