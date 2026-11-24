@@ -11,7 +11,7 @@ The platform-neutral contracts between a head and its mail reader and composer: 
 
 ## Always
 
-- A change to a contract here changes every head. Update each implementation (`Wino.Editor.WinUI`, `Wino.Editor.WebKit`, `Wino.Editor.Android`, `Wino.Editor.WebKitGtk`) in the same change, including the ones you cannot build, and report those builds as pending.
+- A change to a contract here changes every head. Update each implementation (`src/Wino.Mail.WinUI/Rendering` on Windows, `Wino.Editor.WebKit`, `Wino.Editor.Android`, `Wino.Editor.WebKitGtk`) in the same change, including the ones you cannot build, and report those builds as pending.
 - The bridge message record (`RendererMessage`), the operation queue and the document assets belong to `Wino.Editor.Core`, not here.
 
 ## Running a change

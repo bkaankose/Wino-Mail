@@ -29,6 +29,27 @@ The Windows app: WinUI 3 pages in XAML over the shared services and ViewModels, 
 - A runtime `{Binding}` must never pass through a shared type: it fails silently in Release. Use compiled `x:Bind`, or mirror the value onto a dependency property of the view, as `ApplicationThemeEditorPage` does.
 - A class in `Wino.Platform.Windows` that implements a WinRT interface or is handed to WinRT must be `partial`; CsWinRT reports `CsWinRT1028` in Release otherwise.
 
+## Mail renderer
+
+Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebView2. The engine is a separate repository, referenced as four projects by `build/Wino.Renderer.props`; `WinoRendererRoot` or `WINO_RENDERER_ROOT` names its checkout.
+
+- `Rendering/MailEngineHost` owns the one platform backend and the one `MailEngine` of the process. It is a singleton registered in [CoreUWPContainerSetup.cs](CoreUWPContainerSetup.cs) and creates the engine on first use. Never create a second engine.
+- Everything that talks to the engine is in `Rendering/`. It implements the shared seams, so ViewModels never see an engine type:
+
+  | Class | Seam |
+  | --- | --- |
+  | `EngineMailMessageReader` | `IMailMessageReader` (reading pane, from the MIME) |
+  | `EngineHtmlReaderSession` | `IHtmlMailReaderSession` (HTML-only surfaces: the event description) |
+  | `EngineMailEditorSession`, hosted by the `EngineMailEditorView` element | `IHtmlMailEditorSession`, `IComposeBodyWriter` (composer, signature dialog, template page, event notes) |
+  | `EngineMailPrintPresenter` | `IMailPrintPresenter` (print and Save as PDF) |
+  | `EngineReaderPresentation` | Theme, typography and high contrast of a reader view |
+
+- The engine's `MailView` is created in code and placed into a host element: the reader pages create it themselves, the editor through `EngineMailEditorView`. It is not declared in XAML.
+- Links, remote content and tracking-parameter stripping on Windows are the engine's. `LinkSanitizer` and the HTML string pipeline (`GetMailRenderModel`) serve the other heads.
+- Never bring WebView2 back for reading or composing, and add no fallback reader. WebView2 remains only in `EmbeddedBrowserSignInDialog` and the two policy dialogs, which load web pages.
+- The Windows app must not reference `Wino.Editor.Core`; it references `controls/Wino.Editor.Abstractions` only.
+- An engine fault is fixed in the renderer repository (zero warnings there), not hidden in this head.
+
 ## How a page consumes a ViewModel
 
 A page derives from `BasePage<TViewModel>` ([BasePage.cs](BasePage.cs)) through a small abstract class in `Views/Abstract`, because XAML cannot name a generic base:

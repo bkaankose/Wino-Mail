@@ -7,8 +7,8 @@ Reusable presentation lives here. Windows uses WinUI 3, macOS uses AppKit, iOS a
 - `Wino.Mail.Controls.AppKit` presents observable collections with native table rows.
 - `Wino.Presentation.Core` provides typed bindings, disposable scopes, command error handling, design tokens, and Domain-aware control rules for the Apple and Android heads, without a UI framework.
 - `Wino.Presentation.AppKit` provides Auto Layout helpers, WinoIcons, styles, surfaces, and zones for AppKit.
-- `Wino.Editor.Core` owns portable sessions, JSON contracts, operation queues, document policies, and the sole embedded reader/editor asset tree in `Editor/`.
-- `Wino.Editor.WinUI` provides WebView2 controls and Windows session adapters.
+- `Wino.Editor.Core` owns the bridge messages, JSON serialization, operation queues, document policies, and the sole embedded reader/editor asset tree in `Editor/` for the macOS, iOS, Android and Linux apps.
+- `Wino.Editor.Abstractions` holds the reader and editor session contracts every head implements. The Windows app implements them over the native mail renderer in `src/Wino.Mail.WinUI/Rendering`; there is no Windows editor project here.
 - `Wino.Editor.WebKit` implements WKWebView sessions for macOS and iOS with generation-correlated messages and native delegate ownership.
 - `Wino.Presentation.UIKit` and `Wino.Mail.Controls.UIKit` are the UIKit twins of the AppKit presentation and control libraries, with the same member names.
 - `Wino.Presentation.Android` and `Wino.Mail.Controls.Android` are the Android Views twins of the UIKit libraries, with tokens in Android resources and an `ILLink.Descriptors.xml` for views that only XML layouts name.

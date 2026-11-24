@@ -213,8 +213,9 @@ To work on the welcome window or account setup, select **Run Wino Mail (Sandbox,
 `-NoAccounts`. It skips seeding, releases the Sandbox lease, and removes the guest's Wino database, credentials and
 seeding marker before Wino starts, so the next launch without the switch leases and seeds lab accounts again.
 
-Windows Sandbox has no WebView2 Runtime, so mail rendering and the composer need a fixed-version runtime, and the
-guest never downloads one. Download the x64 fixed-version `.cab` once from Microsoft's
+Windows Sandbox has no WebView2 Runtime. Mail is read and composed with the native renderer and does not need one;
+the Exchange sign-in dialog and the policy dialogs do, so they need a fixed-version runtime, and the guest never
+downloads one. Download the x64 fixed-version `.cab` once from Microsoft's
 [WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/) and extract it on the host:
 
 ```powershell
