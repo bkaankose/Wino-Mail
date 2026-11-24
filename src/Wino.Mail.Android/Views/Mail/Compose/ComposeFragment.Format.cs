@@ -8,7 +8,7 @@ using Google.Android.Material.TextField;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Editor;
-using Wino.Editor.Android;
+using Wino.Mail.Rendering;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Presentation.Android;
 
@@ -65,7 +65,7 @@ public sealed partial class ComposeFragment
     /// Runs the command between two restarts of the keyboard's input connection: a command changes the document under
     /// the keyboard's composing text and caret, and a keyboard that kept its old offsets would type at the wrong place.
     /// </summary>
-    private async Task RunAsync(AndroidHtmlMailEditorSession editor, EditorCommand command)
+    private async Task RunAsync(EngineMailEditorSession editor, EditorCommand command)
     {
         // The word being composed is committed first, so the command and the keyboard agree on the caret afterwards.
         await RestartKeyboardInputAsync();

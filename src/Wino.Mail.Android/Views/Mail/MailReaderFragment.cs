@@ -2,7 +2,6 @@ using System.Collections.Specialized;
 using Android.Content;
 using Android.OS;
 using Android.Views;
-using Android.Webkit;
 using Android.Widget;
 using AndroidX.CoordinatorLayout.Widget;
 using CommunityToolkit.Mvvm.Messaging;
@@ -17,9 +16,14 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Presentation;
-using Wino.Editor;
-using Wino.Editor.Android;
+using Wino.Mail.Rendering;
+using Wino.Services.Models.Reader;
+using Wino.Renderer;
+using Wino.Renderer.Android;
+using Wino.Renderer.Policy;
+using Wino.Renderer.Theme;
 using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.Android.Rendering;
 using Wino.Mail.Android.Views.Shell;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels;
@@ -33,13 +37,13 @@ namespace Wino.Mail.Android.Views.Mail;
 
 /// <summary>
 /// The message reader (canvas boards Reader, Landscape and Tablet; Windows MailRenderingPage, the iOS and Mac readers)
-/// over the shared <see cref="MailRenderingPageViewModel"/>. The body is the shared reader document in a WebView
-/// through <see cref="AndroidHtmlMailReaderSession"/> (Wino.Editor.Android): remote content by the message's policy,
-/// links through the ViewModel's OpenLinkAsync. Commands come from the shared <see cref="MailReaderCommandLayout"/>: on compact
+/// over the shared <see cref="MailRenderingPageViewModel"/>. The body is drawn by Wino's own mail renderer: the shared
+/// <see cref="EngineMailMessageReader"/> shows the message from its MIME in a <see cref="MailView"/>; remote content,
+/// tracker stripping and links come from the engine, links open through the ViewModel's OpenLinkAsync. Commands come from the shared <see cref="MailReaderCommandLayout"/>: on compact
 /// widths the bottom app bar carries Archive, Delete, Move, Flag and Unread with Reply anchored and the rest in More; in
 /// the reader pane the Windows command bar sits at the top. Attachments open through the attachment platform service
 /// (ACTION_VIEW). The ViewModel renders through a <see cref="ReaderBridge"/> that lives with the page, so a rotation
-/// recreates the WebView and renders the same message again.
+/// recreates the view and shows the same message again.
 /// </summary>
 public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageViewModel>
 {
@@ -53,8 +57,9 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
     private const int TopBarMoreId = -1;
     private const int BottomBarSlots = 5;
 
-    private AndroidHtmlMailReaderSession? _reader;
-    private WebView? _web;
+    private readonly EngineReaderPresentation _presentation = new();
+    private MailView? _mailView;
+    private EngineMailMessageReader? _messageReader;
     private ReaderBridge? _bridge;
     private AndroidSenderPictureProvider? _pictures;
     private MaterialToolbar? _toolbar;
@@ -75,12 +80,10 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
     private View? _content;
     private global::Android.Animation.ObjectAnimator? _loadingPulse;
     private TextView? _linkTarget;
-    private bool _lastInputWasTouch;
     private MailReaderCommandPlan? _plan;
     private bool _compact;
     private bool _dark;
     private bool _disposed;
-    private int _measureGeneration;
 
     protected override int LayoutResource => Resource.Layout.fragment_mail_reader;
 
@@ -127,10 +130,17 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         }));
     }
 
-    /// <summary>The reader content is hidden behind the pulsing skeleton until the message is rendered.</summary>
+    /// <summary>
+    /// The reader content is hidden behind the pulsing skeleton until the message is rendered. It stays laid out and
+    /// drawn (transparent, not invisible): the renderer's load waits for the body's first frame.
+    /// </summary>
     private void ApplyLoading(bool ready)
     {
-        if (_content is not null) _content.Visibility = ready ? ViewStates.Visible : ViewStates.Invisible;
+        if (_content is not null)
+        {
+            _content.Visibility = ViewStates.Visible;
+            _content.Alpha = ready ? 1 : 0;
+        }
         if (_loading is null) return;
         _loading.Visibility = ready ? ViewStates.Gone : ViewStates.Visible;
         if (ready)
@@ -200,7 +210,6 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _saveAll = view.FindViewById<MaterialButton>(Resource.Id.reader_save_all);
         _loading = view.FindViewById(Resource.Id.reader_loading);
         _content = view.FindViewById(Resource.Id.reader_scroll);
-        _web = view.FindViewById<WebView>(Resource.Id.reader_web);
         _linkTarget = view.FindViewById<TextView>(Resource.Id.reader_link_target);
         // The page scrolls the reader, not the document, so the document never reports this scroll itself.
         if (view.FindViewById<AndroidX.Core.Widget.NestedScrollView>(Resource.Id.reader_scroll) is { } scroll)
@@ -444,12 +453,12 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
             {
                 case ReaderViewId:
                     viewModel.IsReaderViewEnabled = !viewModel.IsReaderViewEnabled;
-                    if (_bridge?.Html is { } html) Observe(RenderAsync(html));
+                    _bridge?.RenderAgain();
                     break;
                 case ThemeId:
                     _dark = !_dark;
                     viewModel.IsDarkWebviewRenderer = _dark;
-                    if (_reader is not null) Observe(_reader.SetThemeAsync(_dark));
+                    ApplyReaderPresentation();
                     break;
                 case int index when index >= 0 && index < entries.Count:
                     if (entries[index].Operation == MailOperation.Move && TryShowMove()) break;
@@ -608,73 +617,95 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
 
     // ---- Body ----
 
+    /// <summary>
+    /// The body is the native mail renderer's view, created in code and as tall as its mail, so the page scroll owns
+    /// vertical scrolling while the view takes pinches and horizontal pans of a wide or zoomed mail.
+    /// </summary>
     private void BuildBody(View view, MailRenderingPageViewModel viewModel)
     {
-        if (_web is null) return;
-        _web.ContentDescription = Translator.Reader_MessageBodyAutomationName;
-        _web.VerticalScrollBarEnabled = false;
-        _web.OverScrollMode = OverScrollMode.Never;
-        var reader = _reader = new AndroidHtmlMailReaderSession(_web) { FitContentToWidth = true };
-        reader.Configure(viewModel.ExternalLauncher, OpenLinkAsync);
-        reader.OperationFailed += (_, exception) => ReportError(exception);
-        reader.NavigationRequested += (_, _) => _web?.Post(HideLinkTarget);
-        reader.LinkHovered += (_, args) => _web?.Post(() => ShowLinkTarget(args));
-        reader.BrowserLost += (_, _) => Entry?.Dispatcher.ExecuteOnUIThread(() => Observe(ReplaceBrowserAsync(reader)));
-        // A finger tap also reports its link (compatibility mouse events and focus); only a mouse, a stylus or the
-        // keyboard shows the address, as hovering does on Windows. The listeners observe and never consume input.
-        _web.Touch += (_, args) =>
+        if (view.FindViewById<FrameLayout>(Resource.Id.reader_body_card) is not { } card || MainApplication.Services is not { } services) return;
+        var context = view.RequireContext();
+        var mailView = _mailView = new MailView(context)
         {
-            _lastInputWasTouch = args.Event?.GetToolType(0) == MotionEventToolType.Finger;
-            args.Handled = false;
+            AutoHeight = true,
+            ContentDescription = Translator.Reader_MessageBodyAutomationName,
         };
-        _web.Hover += (_, args) =>
-        {
-            _lastInputWasTouch = false;
-            args.Handled = false;
-        };
-        _web.KeyPress += (_, args) =>
-        {
-            _lastInputWasTouch = false;
-            args.Handled = false;
-        };
-        Observe(InitializeReaderAsync(reader));
+        mailView.SetMinimumHeight(WinoTokens.Px(context, Resource.Dimension.wino_m3_reader_body_min_height));
+        card.AddView(mailView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+        _messageReader = new EngineMailMessageReader(mailView, services.GetRequiredService<MailEngineHost>(), _presentation,
+            viewModel.SecureMimeContextFactory, () => viewModel.ShouldStripLinkTrackingParameters);
+        _messageReader.Attach();
+        viewModel.PrintPresenter = new AndroidMailPrintPresenter(services.GetRequiredService<MailEngineHost>(), () => Activity,
+            () => _messageReader?.HasMessage == true ? _mailView?.Reader : null, () => CreatePrintHeader(viewModel));
+        mailView.LinkActivated += (_, args) => Observe(OpenLinkAsync(args));
+        mailView.LinkHoverChanged += (_, args) => ShowLinkTarget(args.Link);
+        mailView.ContextMenuRequested += (_, args) => ShowBodyMenu(mailView, args);
     }
 
-    /// <summary>
-    /// Windows WinoMailRenderer recovery: a WebView whose renderer ended cannot be reused, so a new one takes its place
-    /// and the current message is rendered again instead of leaving a blank body.
-    /// </summary>
-    private async Task ReplaceBrowserAsync(AndroidHtmlMailReaderSession lost)
+    private static Wino.Renderer.Print.PrintHeader CreatePrintHeader(MailRenderingPageViewModel viewModel)
     {
-        if (_disposed || !ReferenceEquals(_reader, lost) || _web is not { Context: { } context } old
-            || old.Parent is not ViewGroup parent || View is not { } root || ViewModel is not { } viewModel) return;
-        _reader = null;
-        var fresh = new WebView(context) { Id = old.Id };
-        int index = parent.IndexOfChild(old);
-        var layout = old.LayoutParameters;
-        parent.RemoveView(old);
-        if (layout is null) parent.AddView(fresh, index);
-        else parent.AddView(fresh, index, layout);
-        _web = fresh;
-        try { await lost.DisposeAsync(); }
-        catch (Exception exception) { ReportError(exception); }
-        old.Destroy();
-        BuildBody(root, viewModel);
-        if (_bridge?.Html is { } html) await RenderAsync(html);
+        var sender = string.IsNullOrWhiteSpace(viewModel.FromName) ? viewModel.FromAddress
+            : string.IsNullOrWhiteSpace(viewModel.FromAddress) ? viewModel.FromName : $"{viewModel.FromName} <{viewModel.FromAddress}>";
+        static string Recipients(IEnumerable<AccountContactViewModel> recipients) => string.Join("; ", recipients.Select(recipient =>
+            string.IsNullOrWhiteSpace(recipient.Name) || string.Equals(recipient.Name, recipient.Address, StringComparison.OrdinalIgnoreCase)
+                ? recipient.Address
+                : $"{recipient.Name} <{recipient.Address}>"));
+        return new Wino.Renderer.Print.PrintHeader(string.IsNullOrWhiteSpace(viewModel.Subject) ? Translator.MailItemNoSubject : viewModel.Subject,
+            sender, Recipients(viewModel.ToItems), Recipients(viewModel.CcItems),
+            MailRowPresentation.FormatReaderDate(viewModel.CreationDate, viewModel.PreferencesService.MailTimeFormatPreference));
     }
 
-    /// <summary>Shows the hovered or focused link's address (Windows WinoMailRenderer link bar); a Safe Links address shows where it leads.</summary>
-    private void ShowLinkTarget(RendererLinkHoverEventArgs args)
+    private void ApplyReaderPresentation()
+    {
+        if (ViewModel is not { } viewModel) return;
+        _presentation.IsDark = _dark;
+        _presentation.Method = viewModel.ReaderDarkModeMethod == MailDarkModeMethod.Inverted ? DarkModeMethod.Inverted : DarkModeMethod.Adaptive;
+        _presentation.SetTypography(viewModel.PreferencesService.ReaderFont, viewModel.PreferencesService.ReaderFontSize);
+        _presentation.TextScale = Context?.Resources?.Configuration?.FontScale ?? 1;
+        if (_mailView is not null) _presentation.ApplyTo(_mailView);
+    }
+
+    /// <summary>Long press in the body: the word is selected; Copy, Select all, and for a link Open and Copy link.</summary>
+    private void ShowBodyMenu(MailView view, ContextMenuRequest request)
+    {
+        if (Context is not { } context) return;
+        var popup = new PopupMenu(context, view, (int)GravityFlags.NoGravity);
+        const int CopyId = 1;
+        const int SelectAllId = 2;
+        const int CopyLinkId = 3;
+        if (request.HasSelection) popup.Menu.Add(0, CopyId, 0, Translator.Buttons_Copy);
+        popup.Menu.Add(0, SelectAllId, 1, Translator.Reader_ContextMenu_SelectAll);
+        if (request.LinkUrl is { Length: > 0 }) popup.Menu.Add(0, CopyLinkId, 2, Translator.Reader_ContextMenu_CopyLink);
+        popup.MenuItemClick += (_, args) =>
+        {
+            switch (args.Item?.ItemId)
+            {
+                case CopyId:
+                    view.CopySelection();
+                    break;
+                case SelectAllId:
+                    view.SelectAll();
+                    break;
+                case CopyLinkId when request.LinkUrl is { } url && context.GetSystemService(Context.ClipboardService) is ClipboardManager clipboard:
+                    clipboard.PrimaryClip = ClipData.NewPlainText("link", url);
+                    break;
+            }
+        };
+        popup.Show();
+    }
+
+    /// <summary>The hovered link's address under a mouse or stylus (Windows link bar); a Safe Links address shows where it leads.</summary>
+    private void ShowLinkTarget(ResolvedLink? link)
     {
         if (_linkTarget is null || _disposed) return;
-        if (args.Uri is null || _lastInputWasTouch)
+        if (link is null || string.IsNullOrEmpty(link.Effective))
         {
             HideLinkTarget();
             return;
         }
-        _linkTarget.Text = args.SafeLinkTarget is { } target
+        _linkTarget.Text = link.RedirectTarget is { } target
             ? Translator.Reader_ProtectedLinkFormat.Replace("{0}", target, StringComparison.Ordinal)
-            : args.Uri;
+            : link.Effective;
         _linkTarget.Visibility = ViewStates.Visible;
     }
 
@@ -685,84 +716,56 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _linkTarget.Text = string.Empty;
     }
 
-    private async Task InitializeReaderAsync(AndroidHtmlMailReaderSession reader)
+    /// <summary>Shows the message (the bridge calls this for the ViewModel and when a new view attaches).</summary>
+    internal async Task<MailRenderModel> RenderAsync(MailMessageRenderRequest request, CancellationToken cancellationToken)
     {
-        await reader.SetThemeAsync(_dark);
-        await reader.InitializeAsync();
-    }
-
-    /// <summary>Renders the message (the bridge calls this for the ViewModel and when a new view attaches).</summary>
-    internal async Task RenderAsync(string html)
-    {
-        try { await RenderCoreAsync(html); }
-        // Switching messages quickly tears this view's session down mid-render; the next view renders.
-        catch (Exception exception) when (_disposed && exception is ObjectDisposedException or System.OperationCanceledException) { }
-    }
-
-    private async Task RenderCoreAsync(string html)
-    {
-        if (_reader is not { } reader || _disposed || ViewModel is not { } viewModel) return;
+        if (_messageReader is not { } reader || _disposed || ViewModel is not { } viewModel)
+            throw new System.OperationCanceledException(cancellationToken);
         HideLinkTarget();
-        if (_web is not null) SetWebHeight(120);
-        var options = viewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = ResourcePolicy(viewModel);
-        await reader.SetThemeAsync(_dark);
-        await reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
-            viewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
-        await reader.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
-            string.IsNullOrWhiteSpace(viewModel.Subject) ? Translator.MailItemNoSubject : viewModel.Subject,
-            string.IsNullOrWhiteSpace(viewModel.FromName) ? viewModel.FromAddress : $"{viewModel.FromName} <{viewModel.FromAddress}>",
-            MailRowPresentation.FormatReaderDate(viewModel.CreationDate, viewModel.PreferencesService.MailTimeFormatPreference),
-            Translator.Reader_MessageBodyAutomationName,
-            Translator.Reader_PlainTextFallbackAutomationName,
-            viewModel.CurrentRenderModel?.AccessibleText ?? string.Empty));
-        _ = MeasureAsync(++_measureGeneration);
+        ApplyReaderPresentation();
+        reader.IsReaderView = viewModel.IsReaderViewEnabled;
+
+        // Read before the load starts: the engine's worker owns the message until the load ends.
+        string html = EngineMailMessageReader.GetBodyHtml(request.Message);
+        UpdateAccessibleMailContext(viewModel, string.Empty);
+        var model = await reader.RenderAsync(request, cancellationToken);
+        UpdateAccessibleMailContext(viewModel, model.AccessibleText);
+        if (html.Length == 0 && reader.GetLoadedBodyHtml() is { Length: > 0 } decrypted) html = decrypted;
         Observe(IntelligenceHtmlRenderedAsync(html));
+        return model;
+    }
+
+    /// <summary>What a screen reader says for the body: subject, sender, date and the text when nothing could be drawn.</summary>
+    private void UpdateAccessibleMailContext(MailRenderingPageViewModel viewModel, string accessibleText)
+    {
+        if (_mailView is null) return;
+        _mailView.AccessibilityContext = new Wino.Renderer.Accessibility.AccessibilityContext
+        {
+            Subject = string.IsNullOrWhiteSpace(viewModel.Subject) ? Translator.MailItemNoSubject : viewModel.Subject,
+            Sender = string.IsNullOrWhiteSpace(viewModel.FromName) ? viewModel.FromAddress : $"{viewModel.FromName} <{viewModel.FromAddress}>",
+            Date = MailRowPresentation.FormatReaderDate(viewModel.CreationDate, viewModel.PreferencesService.MailTimeFormatPreference),
+            BodyName = Translator.Reader_MessageBodyAutomationName,
+            PlainTextFallbackName = Translator.Reader_PlainTextFallbackAutomationName,
+            FallbackText = accessibleText,
+        };
     }
 
     internal async Task ClearAsync()
     {
-        if (_reader is not { } reader || _disposed) return;
+        if (_messageReader is not { } reader || _disposed) return;
         HideLinkTarget();
         IntelligenceContentCleared();
-        try { await reader.ClearAsync(); }
-        catch (Exception exception) when (_disposed && exception is ObjectDisposedException or System.OperationCanceledException) { }
+        await reader.ClearAsync();
     }
 
-    /// <summary>
-    /// The body is as tall as its document so the page scroll owns vertical scrolling; it is measured again while late
-    /// images and fonts change the layout.
-    /// </summary>
-    private async Task MeasureAsync(int generation)
+    private Task DisposeReaderAsync()
     {
-        foreach (var delay in new[] { 0, 250, 750, 1500, 3000 })
-        {
-            if (delay > 0) await Task.Delay(delay);
-            if (_disposed || generation != _measureGeneration || _reader is null) return;
-            var height = await _reader.MeasureContentHeightAsync();
-            if (height > 0) Entry?.Dispatcher.ExecuteOnUIThread(() => { if (!_disposed && generation == _measureGeneration) SetWebHeight(height); });
-        }
-    }
-
-    private void SetWebHeight(double dp)
-    {
-        if (_web is null || _web.Context is not { } context || _web.LayoutParameters is not { } layout) return;
-        int pixels = Math.Max(WinoTokens.Px(context, Resource.Dimension.wino_m3_reader_body_min_height), WinoUnits.Dp(context, dp)) + WinoTokens.Px(context, Resource.Dimension.wino_space_s);
-        if (Math.Abs(layout.Height - pixels) < 2) return;
-        layout.Height = pixels;
-        _web.LayoutParameters = layout;
-    }
-
-    private async Task DisposeReaderAsync()
-    {
-        if (_disposed) return;
+        if (_disposed) return Task.CompletedTask;
         _disposed = true;
-        var reader = _reader;
-        var web = _web;
-        _reader = null;
-        try { if (reader is not null) await reader.DisposeAsync(); }
-        catch (Exception exception) { ReportError(exception); }
-        web?.Destroy();
+        _messageReader?.Detach();
+        _messageReader = null;
+        _mailView = null;
+        return Task.CompletedTask;
     }
 
     private void Observe(Task? task)
@@ -780,31 +783,33 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
     }
 
     /// <summary>
-    /// The ViewModel's render and close hooks for the page's lifetime: it keeps the last message HTML and hands it to the
-    /// reader view that is on screen, so a view created later (rotation, returning to the pane) renders it too.
+    /// The ViewModel's message reader for the page's lifetime: it keeps the last message and hands it to the reader view
+    /// that is on screen, so a view created later (rotation, returning to the pane) shows it too.
     /// </summary>
-    internal sealed class ReaderBridge : IDisposable
+    internal sealed class ReaderBridge : IMailMessageReader, IDisposable
     {
         public const string StateKey = "mail-reader";
 
         private readonly MailRenderingPageViewModel _viewModel;
         private MailReaderFragment? _view;
+        private TaskCompletionSource<MailReaderFragment>? _waiting;
 
         public ReaderBridge(MailRenderingPageViewModel viewModel)
         {
             _viewModel = viewModel;
-            viewModel.RenderHtmlAsyncFunc = RenderAsync;
-            viewModel.ClearRenderedHtmlAsyncFunc = ClearAsync;
+            viewModel.MessageReader = this;
             viewModel.CloseRequested += CloseRequested;
         }
 
-        public string? Html { get; private set; }
+        public MailMessageRenderRequest? Request { get; private set; }
 
         public void Attach(MailReaderFragment view)
         {
             _view = view;
             view.UpdateCommands();
-            if (Html is { } html) view.Observe(view.RenderAsync(html));
+            _waiting?.TrySetResult(view);
+            _waiting = null;
+            if (Request is { } request) view.Observe(view.RenderAsync(request, CancellationToken.None));
         }
 
         public void Detach(MailReaderFragment view)
@@ -812,15 +817,29 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
             if (ReferenceEquals(_view, view)) _view = null;
         }
 
-        private Task RenderAsync(string html)
+        /// <summary>The same message again with the view's current presentation (theme, reader view).</summary>
+        public void RenderAgain()
         {
-            Html = html;
-            return _view?.RenderAsync(html) ?? Task.CompletedTask;
+            if (_view is { } view && Request is { } request) view.Observe(view.RenderAsync(request, CancellationToken.None));
         }
 
-        private Task ClearAsync()
+        async Task<MailRenderModel> IMailMessageReader.RenderAsync(MailMessageRenderRequest request, CancellationToken cancellationToken)
         {
-            Html = null;
+            Request = request;
+            var view = _view;
+            if (view is null)
+            {
+                // The ViewModel can load before the page's first view is bound.
+                _waiting ??= new TaskCompletionSource<MailReaderFragment>(TaskCreationOptions.RunContinuationsAsynchronously);
+                view = await _waiting.Task.WaitAsync(cancellationToken);
+            }
+
+            return await view.RenderAsync(request, cancellationToken);
+        }
+
+        Task IMailMessageReader.ClearAsync()
+        {
+            Request = null;
             return _view?.ClearAsync() ?? Task.CompletedTask;
         }
 
@@ -829,8 +848,8 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         public void Dispose()
         {
             _viewModel.CloseRequested -= CloseRequested;
-            _viewModel.RenderHtmlAsyncFunc = static _ => Task.CompletedTask;
-            _viewModel.ClearRenderedHtmlAsyncFunc = static () => Task.CompletedTask;
+            if (ReferenceEquals(_viewModel.MessageReader, this)) _viewModel.MessageReader = null;
+            _waiting?.TrySetCanceled();
             _view = null;
         }
     }

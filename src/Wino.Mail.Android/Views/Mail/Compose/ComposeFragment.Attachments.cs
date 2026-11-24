@@ -7,7 +7,6 @@ using Google.Android.Material.Button;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Editor.Android;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -120,7 +119,7 @@ public sealed partial class ComposeFragment
         if (uris.Count == 0) return;
         var images = await Task.Run(() => uris.Select(uri =>
         {
-            try { return AndroidHtmlMailEditorSession.ReadImage(resolver, uri); }
+            try { return ReadImage(resolver, uri); }
             catch (Exception exception) when (exception is IOException or Java.Lang.Exception)
             {
                 Serilog.Log.Warning(exception, "A picked picture could not be read.");
@@ -128,5 +127,26 @@ public sealed partial class ComposeFragment
             }
         }).OfType<Wino.Editor.EditorImageInfo>().ToList());
         if (images.Count > 0 && !_editorDisposed) await editor.InsertImagesAsync(images);
+    }
+
+    private const long MaximumInlineImageBytes = 10L * 1024 * 1024;
+
+    /// <summary>Reads an image from a content URI as an inline data URI; null when it is not an image or too large.</summary>
+    private static Wino.Editor.EditorImageInfo? ReadImage(ContentResolver resolver, global::Android.Net.Uri uri)
+    {
+        var type = resolver.GetType(uri);
+        if (type is null || !type.StartsWith("image/", StringComparison.OrdinalIgnoreCase)) return null;
+        using var input = resolver.OpenInputStream(uri);
+        if (input is null) return null;
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = input.Read(chunk, 0, chunk.Length)) > 0)
+        {
+            buffer.Write(chunk, 0, read);
+            if (buffer.Length > MaximumInlineImageBytes) return null;
+        }
+        return new Wino.Editor.EditorImageInfo($"data:{type};base64,{Convert.ToBase64String(buffer.GetBuffer(), 0, (int)buffer.Length)}",
+            uri.LastPathSegment ?? "image");
     }
 }

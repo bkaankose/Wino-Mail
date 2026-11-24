@@ -206,8 +206,8 @@
         </LinearLayout>
       </com.winomail.android.ComposeHeaderScrollView>
 
-      <WebView
-          android:id="@+id/compose_web"
+      <FrameLayout
+          android:id="@+id/compose_body"
           style="@style/Widget.Wino.Compose.Body"
           android:layout_width="match_parent"
           android:layout_height="0dp"

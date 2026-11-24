@@ -4,7 +4,6 @@
     <Project Path="src/Wino.Platform.Android/Wino.Platform.Android.csproj" />
     <Project Path="controls/Wino.Presentation.Android/Wino.Presentation.Android.csproj" />
     <Project Path="controls/Wino.Mail.Controls.Android/Wino.Mail.Controls.Android.csproj" />
-    <Project Path="controls/Wino.Editor.Android/Wino.Editor.Android.csproj" />
   </Folder>
   <Folder Name="/Shared/">
     <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />

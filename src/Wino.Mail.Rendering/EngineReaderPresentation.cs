@@ -62,7 +62,10 @@ public sealed class EngineReaderPresentation
         ForcedColors = IsHighContrast
     };
 
-    public TypographyOptions CreateTypography() => new(FontFamily, FontSizePx);
+    /// <summary>The system's font scale (Android, iOS Dynamic Type): the mail's text is zoomed by it. 1 on Windows.</summary>
+    public float TextScale { get; set; } = 1;
+
+    public TypographyOptions CreateTypography() => new(FontFamily, FontSizePx) { TextScale = TextScale };
 
     public ReaderOptions CreateOptions() => new()
     {

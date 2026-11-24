@@ -8,7 +8,7 @@ namespace Wino.Mail.Android.Views.Mail.Compose;
 
 /// <summary>
 /// The composer ViewModel's body hooks for the page's lifetime (the compose twin of the reader's ReaderBridge). A
-/// fragment and its WebView are recreated on rotation, dark mode and resize, so the bridge keeps the last known body
+/// fragment and its body view are recreated on rotation, dark mode and resize, so the bridge keeps the last known body
 /// HTML: the ViewModel's render goes to the view on screen (or waits for the next one), saving reads the body from the
 /// editor on screen, and a view that goes away (<see cref="Pause"/>) hands its body back before its editor is disposed,
 /// then saves the draft so the app never sits in the background without it.
