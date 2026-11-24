@@ -31,6 +31,8 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IWinoWindowManager, WinoWindowManager>();
         services.AddSingleton<IWindowsMainWindowHost, WindowsMainWindowHost>();
         services.AddSingleton<Rendering.MailEngineHost>();
+        // Replaces the header reader that the heads still rendering with a web view use.
+        services.AddSingleton<Wino.Services.Interfaces.IMailUnsubscribeReader, Rendering.EngineUnsubscribeReader>();
         services.AddSingleton<Wino.Mail.ViewModels.ISpellCheckLanguageSource, Rendering.EngineSpellCheckLanguageSource>();
         // Capture the host UI dispatcher before background initialization resolves it.
         var platformDispatcher = DispatcherQueue.GetForCurrentThread();

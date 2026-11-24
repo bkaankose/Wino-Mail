@@ -21,7 +21,6 @@ using Wino.Services.Extensions;
 using Wino.Services.Models.Reader;
 using DomainBlockedResourceReason = Wino.Core.Domain.Enums.BlockedResourceReason;
 using DomainRemoteContentMode = Wino.Core.Domain.Enums.RemoteContentMode;
-using DomainUnsubscribeInfo = Wino.Core.Domain.Models.Reader.UnsubscribeInfo;
 
 namespace Wino.Mail.WinUI.Rendering;
 
@@ -179,6 +178,9 @@ public sealed class EngineMailMessageReader : IMailMessageReader
                     content = MimeMailContent.Create(message, contentOptions);
                     workerToken.ThrowIfCancellationRequested();
                     accessibleText = GetAccessibleText(message, content);
+
+                    // Worked out here so a message without a List-Unsubscribe header has its body searched off the UI thread.
+                    _ = content.Analysis.Unsubscribe;
                     return content;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -337,15 +339,7 @@ public sealed class EngineMailMessageReader : IMailMessageReader
 
         model.Attachments.AddRange(analysis.Attachments.OfType<MimePart>().Where(MailAttachmentExtensions.IsMailAttachment));
 
-        if (analysis.Unsubscribe is { } unsubscribe)
-        {
-            model.UnsubscribeInfo = new DomainUnsubscribeInfo
-            {
-                HttpLink = unsubscribe.HttpLink,
-                MailToLink = unsubscribe.MailtoLink,
-                IsOneClick = unsubscribe.IsOneClick
-            };
-        }
+        model.UnsubscribeInfo = EngineUnsubscribeReader.ToDomain(analysis.Unsubscribe);
 
         foreach (var blocked in result.BlockedResources)
         {

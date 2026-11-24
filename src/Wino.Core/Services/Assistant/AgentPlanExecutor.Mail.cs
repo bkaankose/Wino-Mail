@@ -612,14 +612,15 @@ public sealed partial class AgentPlanExecutor
             return NothingMatched(step, Translator.VoiceIssue_NoMails);
 
         var service = services.GetService<IUnsubscriptionService>();
+        var reader = services.GetService<IMailUnsubscribeReader>();
         var unsubscribed = new List<MailCopy>();
         foreach (var mail in mails.DistinctBy(static mail => mail.FromAddress?.Trim().ToLowerInvariant()))
         {
-            if (service is null || await ReadMimeInformationAsync(mail, ct).ConfigureAwait(false) is not { MimeMessage: { } message } mime)
+            if (service is null || reader is null || await ReadMimeInformationAsync(mail, ct).ConfigureAwait(false) is not { MimeMessage: { } message })
                 continue;
 
-            var info = mimeFileService.GetMailRenderModel(message, mime.Path ?? string.Empty)?.UnsubscribeInfo;
-            if (info is not { IsOneClick: true, HttpLink: { } link } || !Uri.IsWellFormedUriString(link, UriKind.Absolute))
+            var info = reader.Read(message);
+            if (info is not { IsOneClick: true, OneClickUrl: { } link } || !Uri.IsWellFormedUriString(link, UriKind.Absolute))
                 continue;
 
             try

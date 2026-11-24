@@ -376,24 +376,15 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         // Selecting another mail while a confirmation or request is pending replaces the render model,
         // so the target and sender name are captured before the first await.
         var unsubscribeInfo = CurrentRenderModel?.UnsubscribeInfo;
-        if (unsubscribeInfo == null || !unsubscribeInfo.CanUnsubscribe) return;
+        if (unsubscribeInfo?.Preferred is not { } method) return;
 
         var senderName = FromName;
         bool confirmed;
 
-        // Try to unsubscribe by http first.
-        if (unsubscribeInfo.HttpLink is not null)
+        // The renderer decided the method: the one-click POST (RFC 8058), the list's web page, or a mail to the list.
+        switch (method.Method)
         {
-            if (!Uri.IsWellFormedUriString(unsubscribeInfo.HttpLink, UriKind.RelativeOrAbsolute))
-            {
-                _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
-                return;
-            }
-
-            // Support for List-Unsubscribe-Post header. It can be done without launching browser.
-            // https://datatracker.ietf.org/doc/html/rfc8058
-            if (unsubscribeInfo.IsOneClick)
-            {
+            case UnsubscribeMethod.OneClick:
                 confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, senderName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
                 if (!confirmed) return;
 
@@ -407,24 +398,39 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 {
                     _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Info_UnsubscribeErrorMessage, InfoBarMessageType.Error);
                 }
-            }
-            else
-            {
+
+                break;
+            case UnsubscribeMethod.Website:
+                if (!Uri.TryCreate(method.Uri, UriKind.Absolute, out var webUri))
+                {
+                    _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
+                    return;
+                }
+
                 confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, senderName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
                 if (!confirmed) return;
 
-                (await OpenLinkAsync(new Uri(unsubscribeInfo.HttpLink))).ThrowIfNotSucceeded();
-            }
-        }
-        else if (unsubscribeInfo.MailToLink is not null)
-        {
-            confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, senderName, new string(unsubscribeInfo.MailToLink.Skip(7).ToArray())), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+                (await OpenLinkAsync(webUri)).ThrowIfNotSucceeded();
+                break;
+            case UnsubscribeMethod.Mail:
+                if (!Uri.TryCreate(method.Uri, UriKind.Absolute, out var mailUri))
+                {
+                    _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
+                    return;
+                }
 
-            if (!confirmed) return;
+                var recipients = method.MailRecipients.Count > 0
+                    ? string.Join(", ", method.MailRecipients)
+                    : new string(method.Uri.Skip(7).TakeWhile(c => c != '?').ToArray());
 
-            // TODO: Implement automatic mail send after user confirms the action.
-            // Currently it will launch compose page and user should manually press send button.
-            (await ExternalLauncher.LaunchUriAsync(new Uri(unsubscribeInfo.MailToLink))).ThrowIfNotSucceeded();
+                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, senderName, recipients), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+
+                if (!confirmed) return;
+
+                // TODO: Implement automatic mail send after user confirms the action.
+                // Currently it will launch compose page and user should manually press send button.
+                (await ExternalLauncher.LaunchUriAsync(mailUri)).ThrowIfNotSucceeded();
+                break;
         }
     }
 
