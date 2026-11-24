@@ -87,7 +87,7 @@ The composer is a rendering-frame route. The calendar page attaches itself as th
 | `controls/Wino.Presentation.Core` | `net10.0` | Typed bindings, design tokens, `WinoThemeSurface`, control rules that use Domain types |
 | `controls/Wino.Presentation.UIKit` | `net10.0-ios` | UIKit twin of `Wino.Presentation.AppKit`: `WinoLayout`, `WinoIcons`, `WinoStyle`, zones, `ThemeBackdropView`, `WinoBarBackdropView` |
 | `controls/Wino.Mail.Controls.UIKit` | `net10.0-ios` | UIKit twin of `Wino.Mail.Controls.AppKit`: mail, shell, contact and task cells, avatars, pills, chips, info bar, settings cards and binder, mode switcher, mini-calendar, calendar surface, briefing card |
-| `controls/Wino.Editor.WebKit` | `net10.0-macos;net10.0-ios` | WKWebView reader and editor sessions for both Apple heads (renamed from `Wino.Editor.AppKit`) |
+| `src/Wino.Mail.Rendering.Apple` | `net10.0-macos;net10.0-ios` | The native mail renderer's Apple glue for both heads (backend factory, PDF export, memory pressure); the UIKit view comes from the renderer repository |
 
 `Wino.Platform.*` never references presentation projects. Logic both UIKit and AppKit need goes to `controls/Wino.Mail.Controls.Core` (pure math) or `Wino.Presentation.Core/Controls` (rules that use Domain types).
 

@@ -9,7 +9,7 @@ Presentation decisions are in [macOS design decisions](../macos-design-decisions
 ## Requirements
 
 - A Mac with Apple Silicon for F5 debugging. Intel Macs can run the x64 and universal builds.
-- The .NET SDK selected by `global.json`, with the matching `macos` and `ios` workloads: `dotnet workload install macos ios`. The Apple shared libraries (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) also target `net10.0-ios`, and builds without a RID, such as the solution build, restore that target too.
+- The .NET SDK selected by `global.json`, with the matching `macos` and `ios` workloads: `dotnet workload install macos ios`. The Apple shared libraries (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Mail.Rendering.Apple`) also target `net10.0-ios`, and builds without a RID, such as the solution build, restore that target too.
 - The Xcode version that the installed workload requires, selected with `xcode-select`.
 - VS Code with Microsoft's C# extension, running on the Mac (locally or as a remote extension host on the Mac).
 
@@ -122,7 +122,7 @@ On 2026-10-07, the production arm64 app hit a source breakpoint at `Program.cs:9
 | Change | Required evidence |
 | --- | --- |
 | AppKit head, AppKit controls, or Mac platform services | Native Debug arm64 and x64 builds, plus manual checks on the Mac |
-| Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) | The native Debug builds above and the iOS Debug Simulator build in [iOS development](development-ios.md) |
+| Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Mail.Rendering.Apple`) | The native Debug builds above and the iOS Debug Simulator build in [iOS development](development-ios.md) |
 | Shared code used by the Mac | The Mac builds above and the Windows checks in [AGENTS.md](../../AGENTS.md) |
 | Signing, entitlements, bundle identity, or release inputs | Native Release builds for arm64 and x64, `codesign --verify --deep --strict`, effective entitlements and bundle identifier; universal architecture selection when release inputs change |
 | Debugger tooling or workspace | The F5 acceptance steps above on Apple Silicon |
