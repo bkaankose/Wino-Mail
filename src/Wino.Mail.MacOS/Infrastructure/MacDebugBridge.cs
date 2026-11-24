@@ -180,6 +180,13 @@ public static class MacDebugBridge
             var rss = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
             return Task.FromResult($"rss={rss}MB managed={GC.GetTotalMemory(false) / (1024 * 1024)}MB " + string.Join(' ', lines));
         });
+        Register("gc", _ =>
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            return Task.FromResult($"managed={GC.GetTotalMemory(false) / (1024 * 1024)}MB");
+        });
         Register("chain", args =>
         {
             var report = new System.Text.StringBuilder();

@@ -128,7 +128,7 @@ internal sealed class EmlReaderWindow
         catch (Exception exception) { Serilog.Log.Warning(exception, "Releasing the message window failed."); }
         finally
         {
-            _window.ContentViewController = null!;
+            _window.ClearContentViewController();
             _page.Dispose();
             _window.Dispose();
             var folder = _workingFolder;
@@ -150,7 +150,8 @@ internal sealed class EmlReaderWindow
 
 #if DEBUG
     /// <summary>
-    /// "eml-open PATH" opens a message file as Finder would; "eml-windows" lists the open message windows.
+    /// "eml-open PATH" opens a message file as Finder would; "eml-windows" lists the open message windows;
+    /// "eml-close" closes them all.
     /// The reader's own debug commands (readerbar, reader-*) follow the most recently loaded reader.
     /// </summary>
     public static void RegisterDebugCommands(MacActivationCoordinator coordinator, IDispatcher dispatcher)
@@ -170,6 +171,17 @@ internal sealed class EmlReaderWindow
             await dispatcher.ExecuteOnUIThread(() =>
                 result = Open.Count == 0 ? "none" : string.Join(" | ", Open.Values.Select(window => $"'{window._window.Title}' {Path.GetFileName(window._path)}")));
             return result;
+        });
+        MacDebugBridge.Register("eml-close", async _ =>
+        {
+            await dispatcher.ExecuteOnUIThread(() =>
+            {
+                foreach (var window in Open.Values.ToList())
+                {
+                    window._window.PerformClose(null);
+                }
+            });
+            return "ok";
         });
     }
 #endif
