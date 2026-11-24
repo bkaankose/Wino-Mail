@@ -178,9 +178,6 @@ public sealed class EngineMailMessageReader : IMailMessageReader
                     content = MimeMailContent.Create(message, contentOptions);
                     workerToken.ThrowIfCancellationRequested();
                     accessibleText = GetAccessibleText(message, content);
-
-                    // Worked out here so a message without a List-Unsubscribe header has its body searched off the UI thread.
-                    _ = content.Analysis.Unsubscribe;
                     return content;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)

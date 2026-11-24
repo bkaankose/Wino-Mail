@@ -6,7 +6,6 @@ using Wino.Services.Interfaces;
 using DomainUnsubscribeInfo = Wino.Core.Domain.Models.Reader.UnsubscribeInfo;
 using DomainUnsubscribeMethod = Wino.Core.Domain.Enums.UnsubscribeMethod;
 using DomainUnsubscribeOption = Wino.Core.Domain.Models.Reader.UnsubscribeOption;
-using DomainUnsubscribeSource = Wino.Core.Domain.Enums.UnsubscribeSource;
 
 namespace Wino.Mail.WinUI.Rendering;
 
@@ -32,13 +31,11 @@ public sealed class EngineUnsubscribeReader : IMailUnsubscribeReader
 
         var info = new DomainUnsubscribeInfo
         {
-            Source = unsubscribe.Source == UnsubscribeSource.Body ? DomainUnsubscribeSource.Body : DomainUnsubscribeSource.Header,
             IsOneClick = unsubscribe.OneClickAllowed,
             OneClickUrl = unsubscribe.OneClickUrl,
             OneClickHeadersSigned = unsubscribe.OneClickSignature == UnsubscribeSignature.Covered,
             HttpLink = unsubscribe.WebUrl,
             MailToLink = unsubscribe.MailtoUri,
-            BodyLinkText = unsubscribe.BodyLinkText,
             ListId = unsubscribe.ListId
         };
 
