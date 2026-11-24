@@ -81,6 +81,22 @@ public sealed partial class MailRenderingPageViewController
                 _scroll.SetContentOffset(new CoreGraphics.CGPoint(0, y - _scroll.AdjustedContentInset.Top), false);
             return $"offset={_scroll.ContentOffset.Y} barSubject={_barSubject.Alpha}";
         }));
+        // "reader-touch X Y [long]" taps (or long-presses) the body at a point of the mail view, as a finger does.
+        UIKitDebugBridge.Register("reader-touch", args => ReaderDebugAsync(() =>
+        {
+            var point = new Wino.Renderer.Primitives.PxPoint(float.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture),
+                float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+            var controller = _mailView.Controller;
+            if (args.Length > 2 && args[2] == "long")
+            {
+                controller.PointerPressed(point, Wino.Renderer.Platform.PointerButtons.Right, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Mouse, 1);
+                return "long press";
+            }
+
+            controller.PointerPressed(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Touch);
+            controller.PointerReleased(point, Wino.Renderer.Platform.PointerButtons.Left, Wino.Renderer.Platform.KeyModifiers.None, Wino.Renderer.Platform.PointerKind.Touch);
+            return "tapped";
+        }));
         UIKitDebugBridge.Register("reader-bar", args => ReaderDebugAsync(() =>
         {
             if (args.Length > 0) ShowsCommandBar = args[0] == "on";
