@@ -15,14 +15,13 @@ namespace Wino.Mail.UIKit.Views.Settings;
 /// Settings › Email templates › template (Windows CreateEmailTemplatePage). The title follows the template name, with
 /// "Edit template" (or "Create a new e-mail template") under it. Name and Description cards carry full-width fields;
 /// the Template content header precedes the rich text editor (<see cref="WinoRichTextEditorView"/>: the format
-/// toolbar over the composer's WKWebView editor session, at least 270pt tall, as in the signature editor). The footer
+/// toolbar over the composer's editor, at least 270pt tall, as in the signature editor). The footer
 /// holds Delete (existing templates only) and the primary Save, which pass the editor HTML to the ViewModel; both
 /// return to the list. Navigation parameter: the template id, or none.
 /// </summary>
 public sealed class CreateEmailTemplatePageViewController(
     CreateEmailTemplatePageViewModel viewModel,
-    IExternalLauncher launcher,
-    IPreferencesService preferences,
+    IServiceProvider services,
     IDispatcher dispatcher,
     IWinoLogger logger)
     : SettingsPageViewController<CreateEmailTemplatePageViewModel>(viewModel, dispatcher, logger), ISettingsPageTitleSource
@@ -123,7 +122,7 @@ public sealed class CreateEmailTemplatePageViewController(
     /// <summary>The rich text editor (format toolbar and editor surface) at the composer's preferred height.</summary>
     private UIView BuildEditor()
     {
-        var editor = new WinoRichTextEditorView(Translator.SettingsEmailTemplates_ContentTitle, launcher, preferences, ReportError);
+        var editor = new WinoRichTextEditorView(Translator.SettingsEmailTemplates_ContentTitle, services, ReportError);
         var preferred = editor.EditorSurface.HeightAnchor.ConstraintEqualTo((nfloat)PreferredEditorHeight);
         preferred.Priority = 750;
         NSLayoutConstraint.ActivateConstraints(

@@ -68,18 +68,13 @@ public sealed partial class MailRenderingPageViewController
             command.Invoke(_commandBar);
             return $"invoked {command.Title} enabled={command.IsEnabled}";
         }));
-        // "reader-theme": the reader's appearance and what the document applied (theme, surface, inset, mail padding).
-        UIKitDebugBridge.Register("reader-theme", async _ =>
+        // "reader-theme": the reader's appearance, the engine view's size and what the controller drew last.
+        UIKitDebugBridge.Register("reader-theme", _ => ReaderDebugAsync(() =>
         {
-            var native = string.Empty;
-            await Dispatcher.ExecuteOnUIThread(() => native = $"dark={_dark} appearanceDark={IsDarkAppearance()} webHeight={_webHeight?.Constant}");
-            var result = new TaskCompletionSource<string>();
-            await Dispatcher.ExecuteOnUIThread(() => _webView.EvaluateJavaScript(
-                "(() => { const r = document.getElementById('wino-reader'); const h = r && r.shadowRoot && r.shadowRoot.querySelector('.wino-mail-html'); " +
-                "return [document.documentElement.dataset.theme, document.documentElement.dataset.surface, r && r.hasAttribute('data-inset'), h ? getComputedStyle(h).paddingLeft : 'none'].join(' '); })()",
-                (value, error) => result.TrySetResult(error is null ? value?.ToString() ?? "null" : "js error " + error.LocalizedDescription)));
-            return native + " | " + await result.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        });
+            var controller = _mailView.Controller;
+            return $"dark={_dark} appearanceDark={IsDarkAppearance()} bodyHeight={_webHeight?.Constant} content={controller.ContentSize.Width}x{controller.ContentSize.Height} " +
+                $"frames={controller.FrameCount} lastFrameMs={controller.LastFrameMs:F1} zoom={controller.ZoomFactor}";
+        }));
         UIKitDebugBridge.Register("reader-scroll", args => ReaderDebugAsync(() =>
         {
             if (args.Length > 0 && double.TryParse(args[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y))

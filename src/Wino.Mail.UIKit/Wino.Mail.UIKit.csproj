@@ -23,7 +23,10 @@
     <ProjectReference Include="../../controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.UIKit/Wino.Presentation.UIKit.csproj" />
     <ProjectReference Include="../../controls/Wino.Mail.Controls.UIKit/Wino.Mail.Controls.UIKit.csproj" />
-    <ProjectReference Include="../../controls/Wino.Editor.WebKit/Wino.Editor.WebKit.csproj" />
+    <ProjectReference Include="../Wino.Mail.Rendering/Wino.Mail.Rendering.csproj" />
+    <ProjectReference Include="../Wino.Mail.Rendering.Apple/Wino.Mail.Rendering.Apple.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
+  <!-- The native mail renderer: the engine, the Apple backend and the UIKit view (WINO_RENDERER_ROOT names the checkout). -->
+  <Import Project="../../build/Wino.Renderer.Apple.props" />
 </Project>

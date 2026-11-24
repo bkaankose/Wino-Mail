@@ -2,12 +2,12 @@ using System.Net;
 using CoreGraphics;
 using Foundation;
 using UIKit;
-using WebKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Editor;
-using Wino.Editor.WebKit;
+using Wino.Mail.Rendering;
+using EngineMailView = Wino.Renderer.UIKit.MailView;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.Bindings;
@@ -17,7 +17,7 @@ using Wino.Mail.ViewModels.Calendar.Data;
 namespace Wino.Mail.UIKit.Views.Calendar;
 
 /// <summary>
-/// The people card (organizer first, RSVP glyphs), the HTML description through the shared WebKit reader session (as
+/// The people card (organizer first, RSVP glyphs), the HTML description through the native mail renderer (as
 /// tall as its document; the page scroll owns vertical scrolling) and the attachment rows (tap opens, the inline buttons
 /// and the context menu offer Open and Save, a spinner replaces the buttons while busy).
 /// </summary>
@@ -28,7 +28,8 @@ public sealed partial class EventDetailsPageViewController
     private readonly UILabel _peopleTitle = WinoStyle.Label(Translator.CalendarEventDetails_People, WinoStyle.Caption, WinoStyle.SecondaryText);
     private readonly UIStackView _peopleList = WinoLayout.VStack(2);
     private readonly WinoSurfaceView _peopleCard = new() { Fill = CardFill, CornerRadius = WinoStyle.ControlRadius, Hidden = true };
-    private readonly DescriptionWebView _descriptionWeb = new();
+    private readonly EngineMailView _descriptionWeb = new() { TranslatesAutoresizingMaskIntoConstraints = false, SizesToContent = true };
+    private readonly EngineReaderPresentation _descriptionPresentation = new();
     private readonly WinoSurfaceView _descriptionCard = new()
     {
         CornerRadius = WinoStyle.GroupRadius,
@@ -40,8 +41,7 @@ public sealed partial class EventDetailsPageViewController
     private readonly WinoSurfaceView _attachmentsCard = new() { Fill = CardFill, CornerRadius = WinoStyle.ControlRadius, Hidden = true };
 
     private NSLayoutConstraint? _descriptionHeight;
-    private IDisposable? _contentSizeObserver;
-    private WebKitHtmlMailReaderSession? _descriptionReader;
+    private EngineHtmlReaderSession? _descriptionReader;
     private Task _readerReady = Task.CompletedTask;
     private bool _readerDisposed;
     private bool _dark;
@@ -115,28 +115,34 @@ public sealed partial class EventDetailsPageViewController
         WinoLayout.Fill(_descriptionWeb, _descriptionCard, 1, 1, 1, 1);
         _descriptionHeight = _descriptionWeb.HeightAnchor.ConstraintEqualTo((nfloat)MinDescriptionHeight);
         _descriptionHeight.Active = true;
-        _contentSizeObserver = _descriptionWeb.ScrollView.AddObserver("contentSize", NSKeyValueObservingOptions.New, _ => UpdateDescriptionHeight());
+        _descriptionWeb.ContentHeightChanged += (_, _) => UpdateDescriptionHeight();
         return _descriptionCard;
     }
 
     private void PrepareDescriptionReader()
     {
-        var reader = _descriptionReader = new WebKitHtmlMailReaderSession(_descriptionWeb) { FitContentToWidth = true };
-        reader.Configure(ViewModel.ExternalLauncher);
-        reader.OperationFailed += (_, exception) => ReportError(exception);
+        var reader = _descriptionReader = new EngineHtmlReaderSession(_descriptionWeb, engineHost, _descriptionPresentation);
+        reader.NavigationRequested += DescriptionNavigationRequested;
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
         _readerReady = PrepareReaderAsync(reader);
     }
 
-    private async Task PrepareReaderAsync(WebKitHtmlMailReaderSession reader)
+    private async Task PrepareReaderAsync(EngineHtmlReaderSession reader)
     {
         try
         {
+            _descriptionPresentation.Viewport = _descriptionPresentation.Viewport with { FitToWidth = true };
             await reader.InitializeAsync();
             await reader.SetThemeAsync(_dark);
-            await reader.SetReaderTypographyAsync($"{ViewModel.PreferencesService.ReaderFont}, sans-serif", ViewModel.PreferencesService.ReaderFontSize);
+            await reader.SetReaderTypographyAsync(ViewModel.PreferencesService.ReaderFont, ViewModel.PreferencesService.ReaderFontSize);
         }
+        catch (Exception exception) { ReportError(exception); }
+    }
+
+    private async void DescriptionNavigationRequested(object? sender, Wino.Editor.RendererNavigationRequestedEventArgs args)
+    {
+        try { (await ViewModel.OpenLinkAsync(args.Uri)).ThrowIfNotSucceeded(); }
         catch (Exception exception) { ReportError(exception); }
     }
 
@@ -162,29 +168,15 @@ public sealed partial class EventDetailsPageViewController
         await _readerReady;
         if (version != _descriptionVersion || _readerDisposed || _descriptionReader is not { } reader) return;
         string document = html.Contains('<') ? html : $"<p>{WebUtility.HtmlEncode(html).Replace("\n", "<br>")}</p>";
-        // A shorter description must be able to shrink the view: measure from a small frame again.
-        if (_descriptionHeight is not null) _descriptionHeight.Constant = (nfloat)MinDescriptionHeight;
         await reader.RenderAsync(new HtmlMailReaderRequest(document, RemoteContentPolicy.ImagesAndFontsAllowed));
         UpdateDescriptionHeight();
-        Observe(RemeasureDescriptionAfterLoadAsync());
     }
 
-    /// <summary>Fitting a wide description can make it shorter after images load, which the scroll view never reports.</summary>
-    private async Task RemeasureDescriptionAfterLoadAsync()
+    /// <summary>The description is as tall as its laid-out content, at least the card's minimum.</summary>
+    private void UpdateDescriptionHeight()
     {
-        await Task.Delay(300);
-        UpdateDescriptionHeight();
-    }
-
-    private void UpdateDescriptionHeight() => Observe(UpdateDescriptionHeightAsync());
-
-    /// <summary>The scroll view's content size never drops below the web view's height, so the reader measures the description.</summary>
-    private async Task UpdateDescriptionHeightAsync()
-    {
-        if (_descriptionHeight is null || _readerDisposed || _descriptionReader is not { } reader) return;
-        var measured = await reader.MeasureContentHeightAsync();
         if (_descriptionHeight is null || _readerDisposed) return;
-        var height = Math.Max(MinDescriptionHeight, measured > 0 ? measured : (double)_descriptionWeb.ScrollView.ContentSize.Height);
+        var height = Math.Max(MinDescriptionHeight, Math.Ceiling(_descriptionWeb.IntrinsicContentSize.Height));
         if (Math.Abs(_descriptionHeight.Constant - height) < 1) return;
         _descriptionHeight.Constant = (nfloat)height;
     }
@@ -202,8 +194,7 @@ public sealed partial class EventDetailsPageViewController
     {
         if (_descriptionReader is not { } reader || _readerDisposed) return;
         _readerDisposed = true;
-        _contentSizeObserver?.Dispose();
-        _contentSizeObserver = null;
+        reader.NavigationRequested -= DescriptionNavigationRequested;
         try { await reader.DisposeAsync(); }
         catch (Exception exception) { ReportError(exception); }
     }
@@ -345,30 +336,6 @@ public sealed partial class EventDetailsPageViewController
                 Hidden = string.IsNullOrWhiteSpace(value);
             }
         }
-    }
-
-    /// <summary>The description web view: transparent over its card, as tall as its document (the page scroll owns vertical scrolling), horizontal panning kept for wide content.</summary>
-    private sealed class DescriptionWebView : WKWebView
-    {
-        public DescriptionWebView() : base(CGRect.Empty, WebKitMailConfiguration.Create())
-        {
-            TranslatesAutoresizingMaskIntoConstraints = false;
-            Opaque = false;
-            BackgroundColor = UIColor.Clear;
-            ScrollView.BackgroundColor = UIColor.Clear;
-            ScrollView.Bounces = false;
-            ScrollView.AlwaysBounceVertical = false;
-            ScrollView.DirectionalLockEnabled = true;
-            ScrollView.ShowsVerticalScrollIndicator = false;
-            ScrollView.ContentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentBehavior.Never;
-            if (OperatingSystem.IsIOSVersionAtLeast(16, 4)) Inspectable = IsDebugBuild;
-        }
-
-#if DEBUG
-        private const bool IsDebugBuild = true;
-#else
-        private const bool IsDebugBuild = false;
-#endif
     }
 
     /// <summary>The attachment row's Open and Save context menu.</summary>

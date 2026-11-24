@@ -4,7 +4,6 @@ using CoreGraphics;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
-using WebKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -12,7 +11,8 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Presentation;
 using Wino.Editor;
-using Wino.Editor.WebKit;
+using Wino.Mail.Rendering;
+using EngineMailView = Wino.Renderer.UIKit.MailView;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.Controls.UIKit.MailList;
@@ -30,9 +30,9 @@ namespace Wino.Mail.UIKit.Views.Mail;
 /// on top (iPad; on iPhone the phone shell shows the same <see cref="IMailReaderCommands"/> in its bottom toolbar), then
 /// one vertical scroll with the header (subject, sender avatar and name, recipients, date, the status row with
 /// Unsubscribe and S/MIME, category chips, the Wino Intelligence header, the remote content bars), the HTML body in a
-/// card through the shared WebKit reader session (remote content by CSP, links through the ViewModel's OpenLinkAsync),
+/// card through the native mail renderer (MailRenderingPageViewController.Engine.cs; links through the ViewModel's OpenLinkAsync),
 /// and the attachment strip with Save all; the loading skeleton covers the content while the message downloads. Print
-/// and PDF go through <see cref="UIKitMailPrintPresenter"/>. The controller is reused across selections
+/// and PDF go through <see cref="UIKitEngineMailPrintPresenter"/>. The controller is reused across selections
 /// (<see cref="RenavigateAsync"/>). Recipients and the contact card live in the .Recipients partial, the intelligence
 /// header in .Intelligence, the calendar invitation card in .Invitation, the privacy button and bars in .Privacy, debug commands in .Debug.
 /// </summary>
@@ -46,7 +46,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private static readonly double CardMargin = IsPhone ? 12 : Gutter;
 
     /// <summary>CSS pixels between the card edge and the mail text, kept when the mail zeroes its own body padding.</summary>
-    private const double BodyInset = 16;
+    private const float BodyInset = 16;
 
     private readonly IServiceProvider _services = services;
     private readonly UIKitSenderPictureProvider _pictures = services.GetRequiredService<UIKitSenderPictureProvider>();
@@ -61,7 +61,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private readonly MailReaderStatusRow _statusRow = new();
     private readonly UIStackView _chips = WinoLayout.HStack(8);
     private readonly UIView _intelligenceHost = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
-    private readonly ReaderWebView _webView = new();
+    private readonly EngineMailView _mailView = new() { TranslatesAutoresizingMaskIntoConstraints = false, SizesToContent = true };
     private readonly ReaderLinkTargetBar _linkTarget = new();
     private readonly UIStackView _attachmentTiles = WinoLayout.HStack(10);
     private readonly UIView _attachmentStrip = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
@@ -70,8 +70,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private readonly UIView _loadingHost = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
     private readonly UIScrollView _scroll = new() { TranslatesAutoresizingMaskIntoConstraints = false, AlwaysBounceVertical = true };
     private NSLayoutConstraint? _webHeight;
-    private IDisposable? _contentSizeObserver;
-    private WebKitHtmlMailReaderSession? _reader;
+    private readonly EngineReaderPresentation _presentation = new();
+    private EngineMailMessageReader? _reader;
     private MailItemViewModel? _currentItem;
     private string _currentRenderedHtml = string.Empty;
     private IReadOnlyList<MailReaderCommand?> _primaryCommands = [];
@@ -159,8 +159,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _chips.Distribution = UIStackViewDistribution.Fill;
 
         // ---- Body card ----
-        WinoAccessibility.Label(_webView, Translator.Reader_MessageBodyAutomationName);
-        WinoAccessibility.Help(_webView, Translator.Reader_MessageBodyAutomationHelpText);
+        WinoAccessibility.Help(_mailView, Translator.Reader_MessageBodyAutomationHelpText);
         var card = new WinoSurfaceView
         {
             CornerRadius = WinoStyle.GroupRadius,
@@ -168,14 +167,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             Stroke = WinoStyle.ZoneStroke,
             StrokeWidth = 0.5
         };
-        WinoLayout.Fill(_webView, card, 1, 1, 1, 1);
-        _webHeight = _webView.HeightAnchor.ConstraintEqualTo(320);
+        WinoLayout.Fill(_mailView, card, 1, 1, 1, 1);
+        _webHeight = _mailView.HeightAnchor.ConstraintEqualTo(320);
         _webHeight.Active = true;
         var body = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(card, body, 6, CardMargin, 16, CardMargin);
-        // The body is as tall as its document; the page scroll owns vertical scrolling, the web view keeps horizontal
-        // panning for wide messages.
-        _contentSizeObserver = _webView.ScrollView.AddObserver("contentSize", NSKeyValueObservingOptions.New, _ => UpdateWebHeight());
+        // The body is as tall as its mail; the page scroll owns vertical scrolling, and the mail view draws the part
+        // the page shows.
+        _mailView.ContentHeightChanged += (_, _) => UpdateBodyHeight();
 
         // ---- Attachments ----
         var tileScroll = new UIScrollView { TranslatesAutoresizingMaskIntoConstraints = false, ShowsHorizontalScrollIndicator = false, AlwaysBounceHorizontal = true };
@@ -224,7 +223,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             column.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
         ]);
         // The page scrolls the reader, not the document, so the bar sits on the visible scroll frame and hides on scroll.
-        _linkTarget.Attach(root, _scroll, _webView);
+        _linkTarget.Attach(root, _scroll, _mailView);
         _scroll.Scrolled += (_, _) =>
         {
             _linkTarget.Clear();
@@ -254,18 +253,11 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         _currentItem = parameter as MailItemViewModel;
         IntelligenceBeginItem(_currentItem);
-        var reader = _reader = new WebKitHtmlMailReaderSession(_webView) { ContentInset = BodyInset, FitContentToWidth = true };
-        reader.Configure(ViewModel.ExternalLauncher);
-        reader.OperationFailed += (_, exception) => ReportError(exception);
-        reader.LinkHovered += (_, args) => _linkTarget.Show(args);
-        reader.NavigationRequested += (_, _) => _linkTarget.Clear();
-        // Links go through the ViewModel: tracking parameters are stripped and the link is confirmed when asked.
-        reader.LinkOpener = (uri, text) => ViewModel.OpenLinkAsync(uri, text);
+        InitializeEngineReader();
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
-        ViewModel.RenderHtmlAsyncFunc = RenderAsync;
-        ViewModel.ClearRenderedHtmlAsyncFunc = ClearAsync;
-        ViewModel.PrintPresenter = new UIKitMailPrintPresenter(() => _disposedReader ? null : _webView, Dispatcher);
+        ViewModel.MessageReader = this;
+        ViewModel.PrintPresenter = CreatePrintPresenter();
         ViewModel.CloseRequested += CloseRequested;
 
         Bind(nameof(ViewModel.Subject), vm => vm.Subject, subject =>
@@ -304,8 +296,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ObserveCollection(ViewModel.Attachments, attachments: true);
         UpdateChips();
 
-        await reader.InitializeAsync();
-        await reader.SetThemeAsync(_dark);
+        ApplyReaderPresentation();
         // Nothing to load without a message (a debug or empty activation): the reader stays on its skeleton-free empty body.
         if (parameter is not null) await ViewModel.InitializeNavigationAsync(mode, parameter);
     }
@@ -481,7 +472,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         if (_reader is null || _disposedReader) return;
         ViewModel.IsReaderViewEnabled = !ViewModel.IsReaderViewEnabled;
-        if (!string.IsNullOrWhiteSpace(_currentRenderedHtml)) Observe(RenderActiveContentAsync());
+        _reader.IsReaderView = ViewModel.IsReaderViewEnabled;
     }
 
     private void ToggleTheme()
@@ -489,7 +480,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (_reader is null || _disposedReader) return;
         _dark = !_dark;
         ViewModel.IsDarkWebviewRenderer = _dark;
-        Observe(_reader.SetThemeAsync(_dark));
+        ApplyReaderPresentation();
     }
 
     // ---- Attachments ----
@@ -538,69 +529,11 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
     // ---- Rendering ----
 
-    private async Task RenderAsync(string html)
+    /// <summary>The body is as tall as the laid-out mail, at least the height of a short message's card.</summary>
+    private void UpdateBodyHeight()
     {
-        if (_reader is null || _disposedReader) return;
-        _linkTarget.Clear();
-        _currentRenderedHtml = html ?? string.Empty;
-        // A shorter message must be able to shrink the body: measure from a small frame again.
-        if (_webHeight is not null) _webHeight.Constant = 120;
-        await _reader.SetThemeAsync(_dark);
-        await _reader.SetReaderTypographyAsync($"{ViewModel.PreferencesService.ReaderFont}, sans-serif", ViewModel.PreferencesService.ReaderFontSize);
-        var intelligence = IntelligenceHtmlRendered(_currentRenderedHtml);
-        await RenderActiveContentAsync();
-        await _reader.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
-            string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject,
-            string.IsNullOrWhiteSpace(ViewModel.FromName) ? ViewModel.FromAddress : $"{ViewModel.FromName} <{ViewModel.FromAddress}>",
-            MailRowPresentation.FormatReaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference),
-            Translator.Reader_MessageBodyAutomationName,
-            Translator.Reader_PlainTextFallbackAutomationName,
-            ViewModel.CurrentRenderModel?.AccessibleText ?? string.Empty));
-        await intelligence;
-    }
-
-    /// <summary>Renders the current message body, or its translation while one is shown.</summary>
-    private async Task RenderActiveContentAsync()
-    {
-        if (_reader is null || _disposedReader) return;
-        var html = await ResolveActiveHtmlAsync(_currentRenderedHtml);
-        var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = options?.RemoteContent == RemoteContentMode.BlockAll ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed;
-        await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
-            ViewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
-        UpdateWebHeight();
-        Observe(RemeasureAfterLoadAsync());
-    }
-
-    /// <summary>Fitting a wide mail can make it shorter after images and fonts load, which the scroll view never reports.</summary>
-    private async Task RemeasureAfterLoadAsync()
-    {
-        await Task.Delay(300);
-        UpdateWebHeight();
-        await Task.Delay(1200);
-        UpdateWebHeight();
-    }
-
-    private Task ClearAsync()
-    {
-        _currentRenderedHtml = string.Empty;
-        _linkTarget.Clear();
-        IntelligenceContentCleared();
-        return _reader is null || _disposedReader ? Task.CompletedTask : _reader.ClearAsync();
-    }
-
-    private void UpdateWebHeight() => Observe(UpdateWebHeightAsync());
-
-    /// <summary>
-    /// Sizes the body to the mail. The scroll view's content size never drops below the web view's own height, so
-    /// the reader measures the mail itself and falls back to the content size while no document is ready.
-    /// </summary>
-    private async Task UpdateWebHeightAsync()
-    {
-        if (_webHeight is null || _disposedReader || _reader is null) return;
-        var measured = await _reader.MeasureContentHeightAsync();
         if (_webHeight is null || _disposedReader) return;
-        var height = Math.Max(120, measured > 0 ? measured : (double)_webView.ScrollView.ContentSize.Height);
+        var height = Math.Max(120, Math.Ceiling(_mailView.IntrinsicContentSize.Height));
         if (Math.Abs(_webHeight.Constant - height) < 1) return;
         _webHeight.Constant = (nfloat)height;
     }
@@ -635,7 +568,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (dark == _dark || _reader is null || _disposedReader) return;
         _dark = dark;
         ViewModel.IsDarkWebviewRenderer = dark;
-        Observe(_reader.SetThemeAsync(dark));
+        ApplyReaderPresentation();
     }
 
     // ---- Wino Intelligence hooks (MailRenderingPageViewController.Intelligence.cs) ----
@@ -667,6 +600,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         ViewModel.CloseRequested -= CloseRequested;
         CloseContactCard();
+        ViewModel.MessageReader = null;
         ViewModel.RenderHtmlAsyncFunc = static _ => Task.CompletedTask;
         ViewModel.ClearRenderedHtmlAsyncFunc = static () => Task.CompletedTask;
         await base.DeactivateAsync();
@@ -678,12 +612,10 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private async Task DisposeReaderAsync()
     {
         if (_reader is not { } reader || _disposedReader) return;
-        // The print presenter's web view getter returns null from here on, so print and PDF report Unavailable.
+        // The print presenter's reader getter returns null from here on, so print and PDF report Unavailable.
         _disposedReader = true;
         _linkTarget.Clear();
-        _contentSizeObserver?.Dispose();
-        _contentSizeObserver = null;
-        try { await reader.DisposeAsync(); }
+        try { await reader.ClearAsync(); reader.Detach(); }
         catch (Exception exception) { ReportError(exception); }
     }
 
@@ -695,38 +627,9 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             CommandsChanged = null;
             IntelligenceDispose();
             InvitationDispose();
-            _contentSizeObserver?.Dispose();
-            _contentSizeObserver = null;
             if (!_disposedReader && _reader is not null) _ = DisposeReaderAsync();
         }
         base.Dispose(disposing);
-    }
-
-    /// <summary>
-    /// The body web view: transparent over the card, vertical scrolling handed to the page scroll (the view is as tall
-    /// as its document), horizontal panning kept for wide messages.
-    /// </summary>
-    private sealed class ReaderWebView : WKWebView
-    {
-        public ReaderWebView() : base(CGRect.Empty, WebKitMailConfiguration.Create())
-        {
-            TranslatesAutoresizingMaskIntoConstraints = false;
-            Opaque = false;
-            BackgroundColor = UIColor.Clear;
-            ScrollView.BackgroundColor = UIColor.Clear;
-            ScrollView.Bounces = false;
-            ScrollView.AlwaysBounceVertical = false;
-            ScrollView.DirectionalLockEnabled = true;
-            ScrollView.ShowsVerticalScrollIndicator = false;
-            ScrollView.ContentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentBehavior.Never;
-            if (OperatingSystem.IsIOSVersionAtLeast(16, 4)) Inspectable = IsDebugBuild;
-        }
-
-#if DEBUG
-        private const bool IsDebugBuild = true;
-#else
-        private const bool IsDebugBuild = false;
-#endif
     }
 }
 

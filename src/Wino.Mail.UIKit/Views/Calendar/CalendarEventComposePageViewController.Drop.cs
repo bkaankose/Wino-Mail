@@ -6,8 +6,7 @@ namespace Wino.Mail.UIKit.Views.Calendar;
 
 /// <summary>
 /// Files dropped on the event composer become attachments (Mac Drop partial, Windows CalendarEventComposePage AllowDrop).
-/// A drop interaction on the zone accepts file items from Files and other apps; drags over the notes keep WebKit's own
-/// handling. A dropped file is readable only during the drop, and the ViewModel reads attachment files when the event is
+/// A drop interaction on the zone, the notes included, accepts file items from Files and other apps. A dropped file is readable only during the drop, and the ViewModel reads attachment files when the event is
 /// saved, so each one is copied into the app's temporary folder first.
 /// </summary>
 public sealed partial class CalendarEventComposePageViewController
@@ -91,11 +90,8 @@ public sealed partial class CalendarEventComposePageViewController
 
         public override UIDropProposal SessionDidUpdate(UIDropInteraction interaction, IUIDropSession session)
         {
-            // Over the notes WebKit handles the drop itself.
-            var location = session.LocationInView(owner._notesWebView);
-            var overNotes = !owner._notesWebView.Hidden && owner._notesWebView.PointInside(location, null);
-            owner.SyncDropState(!overNotes);
-            return new UIDropProposal(overNotes ? UIDropOperation.Cancel : UIDropOperation.Copy);
+            owner.SyncDropState(true);
+            return new UIDropProposal(UIDropOperation.Copy);
         }
 
         public override void SessionDidExit(UIDropInteraction interaction, IUIDropSession session) => owner.SyncDropState(false);
