@@ -8,7 +8,7 @@ The directory has six groups. Read the rules for each group you change:
 
 | Group | Projects | Platform guide |
 | --- | --- | --- |
-| Shared contracts and editor engine | `Wino.Mail.Controls.Core`, `Wino.Editor.Core`, `Wino.Presentation.Core` | All: [Windows](../docs/harness/development-windows.md), [macOS](../docs/harness/development-macos.md), [iOS](../docs/harness/development-ios.md), and [Android](../docs/harness/development-android.md) |
+| Shared contracts and editor engine | `Wino.Mail.Controls.Core`, `Wino.Editor.Abstractions`, `Wino.Editor.Core`, `Wino.Presentation.Core` | All: [Windows](../docs/harness/development-windows.md), [macOS](../docs/harness/development-macos.md), [iOS](../docs/harness/development-ios.md), and [Android](../docs/harness/development-android.md) |
 | WinUI 3 and WebView2 | `Wino.Mail.Controls.WinUI`, `Wino.Editor.WinUI`, `Wino.Mail.Controls.Playground.WinUI` | [Windows](../docs/harness/development-windows.md) |
 | AppKit and WKWebView | `Wino.Presentation.AppKit`, `Wino.Mail.Controls.AppKit`, `Wino.Editor.WebKit` (macOS and iOS) | [macOS](../docs/harness/development-macos.md); `Wino.Editor.WebKit` also [iOS](../docs/harness/development-ios.md) |
 | UIKit (iOS and iPadOS) | `Wino.Presentation.UIKit`, `Wino.Mail.Controls.UIKit` | [iOS](../docs/harness/development-ios.md) |
@@ -19,7 +19,8 @@ The projects:
 
 - `Wino.Mail.Controls.Core` contains platform-neutral models, interfaces, projections, and collection logic. Keep this project free of WinUI dependencies so its `net10.0` target remains usable outside Windows UI code.
 - `Wino.Mail.Controls.WinUI` contains reusable WinUI 3 controls. Public controls belong in a matching feature folder and namespace, such as `MailListView/WinoMailListView.cs` in `Wino.Mail.Controls.MailListView`.
-- `Wino.Editor.Core` owns portable sessions, serialization, operation queues, document policies, and the sole embedded HTML, CSS, and JavaScript bundle.
+- `Wino.Editor.Abstractions` (`net10.0`, namespace `Wino.Editor`, no references) holds the reader and editor session contracts, the editor command contract and the reader link event arguments that every head implements. It has its own [AGENTS.md](Wino.Editor.Abstractions/AGENTS.md).
+- `Wino.Editor.Core` references `Wino.Editor.Abstractions` and owns the bridge message record, serialization, operation queues, document policies, and the sole embedded HTML, CSS, and JavaScript bundle.
 - `Wino.Presentation.Core` (`net10.0`) holds platform-neutral presentation helpers for the native Apple and Android heads: typed bindings (`Wino.Presentation.Bindings`, including `AnyPropertyBinding`), design tokens (`WinoTokens`, `WinoRgba`), `WinoThemeSurface`, and control rules that need Domain types (`Controls/WinoControlRules.cs`: mode segments, provider glyphs, calendar tile appearance, intelligence header text, contact row rules). It references `Wino.Core.Domain` and `Wino.Mail.Controls.Core` but no UI framework. WinUI does not reference it.
 - `Wino.Editor.WinUI` adapts these contracts to WebView2.
 - `Wino.Presentation.AppKit` and `Wino.Mail.Controls.AppKit` contain native macOS layout helpers and reusable controls. Verify them in the production Mac head; do not create an AppKit playground.

@@ -109,6 +109,11 @@
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
   </Folder>
   <Folder Name="/controls/">
+    <Project Path="controls/Wino.Editor.Abstractions/Wino.Editor.Abstractions.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />

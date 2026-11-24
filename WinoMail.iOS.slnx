@@ -28,6 +28,7 @@
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
     <Project Path="controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
     <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />
+    <Project Path="controls/Wino.Editor.Abstractions/Wino.Editor.Abstractions.csproj" />
     <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj" />
   </Folder>
 </Solution>
