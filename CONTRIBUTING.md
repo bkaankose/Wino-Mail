@@ -151,7 +151,7 @@ Platforms and applications:
 - [`Wino.Mail.WinUI`](src/Wino.Mail.WinUI) contains the Windows shell, pages, dialogs, styles, activation routes, and package manifest. [`Wino.NotificationHost`](src/Wino.NotificationHost) and [`Wino.WidgetHost`](src/Wino.WidgetHost) are its small companion executables.
 - [`Wino.Mail.MacOS`](src/Wino.Mail.MacOS), [`Wino.Mail.iOS`](src/Wino.Mail.iOS) with [`Wino.Mail.UIKit`](src/Wino.Mail.UIKit) and [`Wino.Mail.UIKit.Phone`](src/Wino.Mail.UIKit.Phone), and [`Wino.Mail.Android`](src/Wino.Mail.Android) are the other application heads.
 - [`controls`](controls) contains highly customized controls shared by Wino applications. It is not a general-purpose control library. [`controls/AGENTS.md`](controls/AGENTS.md) lists its projects.
-- [`Wino.Editor.Core`](controls/Wino.Editor.Core) contains the HTML, CSS, and JavaScript assets for mail reading and composition. `Wino.Editor.WebKit`, `Wino.Editor.Android`, and `Wino.Editor.WebKitGtk` host them on macOS, iOS, Android and Linux.
+- [`Wino.Editor.Core`](controls/Wino.Editor.Core) contains the HTML, CSS, and JavaScript assets for mail reading and composition. `Wino.Editor.WebKit` and `Wino.Editor.WebKitGtk` host them on macOS, iOS and Linux. Windows and Android read and compose with the native mail renderer instead.
 - [`Wino.Mail.Controls.Playground.WinUI`](controls/Wino.Mail.Controls.Playground.WinUI) is the quick test application for controls before full application integration.
 
 `WinoMail.slnx` holds the Windows solution. The other applications have `WinoMail.MacOS.slnx`, `WinoMail.iOS.slnx`, and `WinoMail.Android.slnx`.

@@ -2,7 +2,7 @@
 
 This is the guide for the Android application in `src/Wino.Mail.Android` and its solution `WinoMail.Android.slnx`.
 One APK serves phones, tablets, and foldables. Layouts follow the window size class, not the device type or orientation.
-The app uses the shared .NET services, ViewModels, translations, and editor engine through explicit adapters over Android Views with XML layouts, AndroidX, and Material Components. It does not use Compose, MAUI, or Uno.
+The app uses the shared .NET services, ViewModels, translations, and the native mail renderer through explicit adapters over Android Views with XML layouts, AndroidX, and Material Components. It does not use Compose, MAUI, or Uno.
 
 Shared rules for every platform are in [AGENTS.md](../../AGENTS.md) and the [implementation rules](implementation-rules.md).
 Presentation decisions are in [Android design decisions](../android-design-decisions.md). The background study is the [Android port investigation](../android-port-investigation.md); where they differ, the design decisions and this guide win.
@@ -73,13 +73,14 @@ Runtime identifiers: Debug builds of the head use `android-arm64` (the Apple sil
 | `src/Wino.Platform.Android` | Platform services: paths, Keystore protector, secure item store, dispatcher, launcher, clipboard, authentication hosts; no presentation references |
 | `controls/Wino.Presentation.Android` | Units, insets, WinoIcons typeface and glyph drawables, colours, zones, wallpaper and bar backdrops, view bindings |
 | `controls/Wino.Mail.Controls.Android` | Mail and group rows, list adapter, swipes, shell rows, settings cards and expander, avatars, pills, chips, info bar, calendar week strip, month grid and surface, contact and task rows |
-| `controls/Wino.Editor.Android` | `WebView` reader and editor sessions over `Wino.Editor.Core`: assets through `WebViewAssetLoader`, the `winoMail` `WebMessageListener` bridge with a Java `WinoJavaScriptBridge` fallback, remote-content policy in `shouldInterceptRequest` |
 
 `WinoMail.Android.slnx` has two folders: `/Android/` (the projects above) and `/Shared/`.
 
 **Views named only in XML.** Release builds trim with `TrimMode=full`, which removes a view that only a layout names. Every new `[Register]`ed view in `controls/Wino.Presentation.Android` or `controls/Wino.Mail.Controls.Android` that is used only from XML must be listed in that library's `ILLink.Descriptors.xml`; otherwise Debug works and the Release app fails with `ClassNotFoundException` while inflating.
 
 ## Build and run
+
+Every build needs the native mail renderer's checkout: `export WINO_RENDERER_ROOT=<path to Wino-Mail-Renderer>` (or pass `-p:WinoRendererRoot=`).
 
 ```sh
 dotnet build src/Wino.Mail.Android/Wino.Mail.Android.csproj -c Debug -p:WinoTargetPlatform=Android

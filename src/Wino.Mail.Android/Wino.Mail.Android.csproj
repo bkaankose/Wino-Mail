@@ -46,7 +46,6 @@
     <ProjectReference Include="../../controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.Android/Wino.Presentation.Android.csproj" />
     <ProjectReference Include="../../controls/Wino.Mail.Controls.Android/Wino.Mail.Controls.Android.csproj" />
-    <ProjectReference Include="../../controls/Wino.Editor.Android/Wino.Editor.Android.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Xamarin.AndroidX.Activity" />

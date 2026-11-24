@@ -21,6 +21,13 @@ The Android app: Android Views with XML layouts, AndroidX and Material Component
 - Google matches the package `com.winomail.android` and the signing certificate; Android client ids are never named in code. Each signing key needs its own registrations.
 - The browser sign-in callback scheme must equal the API's `AppCallbackUri`. It is read from `WinoAccountExternalAuth` in `Wino.Core.Domain`.
 - There is no ONNX on Android (`WINO_ML_UNSUPPORTED`).
+- Mail is read, printed and composed with the native mail renderer, never a `WebView`. `WINO_RENDERER_ROOT` (or `-p:WinoRendererRoot`) must name the renderer checkout for every build; without it the build fails. `WebView` remains only in `EmbeddedBrowserSignInDialog`, the embedded browser auth broker and the intelligence policy sheet, which load web pages.
+
+## Mail renderer
+
+- `build/Wino.Renderer.Android.props` references the engine, the Android backend (`Wino.Renderer.Platform.Android`) and the Android view (`Wino.Renderer.Android`). `AndroidComposition` registers `AndroidMailEngineBackendFactory` and calls `AddMailRendering()`: one `MailEngine` per process (`MailEngineHost`).
+- The reader page creates the renderer's `MailView` in code (auto height inside the page's scroll view) and shows the message through the shared `EngineMailMessageReader`; the composer page hosts a self-scrolling `MailView` behind the shared `EngineMailEditorSession`. `AndroidMailPrintPresenter` prints through the system print dialog with the renderer's `MailPrintAdapter`.
+- Links, remote content, tracker stripping, dark mode and the text scale (the system font size) come from the engine and `EngineReaderPresentation`. An engine fault is fixed in the renderer repository, not hidden here.
 
 ## How a view consumes a ViewModel
 
