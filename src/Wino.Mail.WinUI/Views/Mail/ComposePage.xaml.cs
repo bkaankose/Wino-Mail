@@ -398,15 +398,26 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
-        base.OnNavigatedTo(e);
-
         _isNavigatingFrom = false;
         _editorLifecycleCancellationSource = new CancellationTokenSource();
         _shouldApplyInitialFocus = ConsumeInitialFocusRequest(e.Parameter as MailItemViewModel);
         _isInitialFocusHandled = false;
-
         _isSpellCheckEnabled = ViewModel.PreferencesService.IsComposerSpellCheckEnabled;
         _spellCheckLanguageCode = ViewModel.PreferencesService.ComposerSpellCheckLanguageCode;
+
+        // The ViewModel starts loading the draft inside base.OnNavigatedTo and continues on a background thread, so
+        // the editor functions are in place before that call. The engine opens the draft's MIME and writes the
+        // outgoing body itself. The HTML string functions stay for what still passes one around: the rewrite
+        // session, templates and signatures.
+        var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
+        ViewModel.BodyWriter = EditorSession;
+        ViewModel.RenderDraftAsyncFunc = request => RenderComposeDraftAsync(request, editorLifecycleToken);
+        ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
+        ViewModel.RenderHtmlBodyAsyncFunc = html => RenderComposeHtmlAsync(html, editorLifecycleToken);
+        ViewModel.ApplySignatureHtmlFunc = ApplySignatureHtmlAsync;
+
+        base.OnNavigatedTo(e);
+
         EditorCommandBar.ConfigureSpellCheckLanguages(
             _translationService.GetAvailableLanguages(),
             _spellCheckLanguageCode);
@@ -421,15 +432,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         EditorSession.ApplicationShortcutRequested += ComposeEditor_ApplicationShortcutRequested;
         _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
         _keyboardShortcutService.KeyboardShortcutsChanged += KeyboardShortcutService_KeyboardShortcutsChanged;
-
-        // The engine opens the draft's MIME and writes the outgoing body itself. The HTML string functions stay for
-        // what still passes one around: the rewrite session, templates and signatures.
-        var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
-        ViewModel.BodyWriter = EditorSession;
-        ViewModel.RenderDraftAsyncFunc = request => RenderComposeDraftAsync(request, editorLifecycleToken);
-        ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
-        ViewModel.RenderHtmlBodyAsyncFunc = html => RenderComposeHtmlAsync(html, editorLifecycleToken);
-        ViewModel.ApplySignatureHtmlFunc = ApplySignatureHtmlAsync;
 
         _ = ViewModel.RefreshRewriteAvailabilityAsync();
     }
