@@ -306,7 +306,7 @@ public sealed class EngineMailMessageReader : IMailMessageReader
 
         foreach (var blocked in result.BlockedResources)
         {
-            if (ToDomainReason(blocked.Reason) is { } reason)
+            if (ToDomainReason(blocked) is { } reason)
                 model.BlockedResources.Add(new BlockedRemoteResource(blocked.Host, blocked.Url, reason));
         }
 
@@ -387,17 +387,23 @@ public sealed class EngineMailMessageReader : IMailMessageReader
         _ => RemoteContentMode.BlockAll
     };
 
-    // The engine also reports what its own policy refuses (kind, scheme, limits). Those are not privacy decisions
-    // the reader page explains, so they are left out.
-    private static DomainBlockedResourceReason? ToDomainReason(BlockedResourceReason reason) => reason switch
+    // A remote resource the engine refuses for its kind or because a limit was reached stays unloaded like any other
+    // blocked remote content, so the reader page counts it as such. A refused scheme is not remote content.
+    private static DomainBlockedResourceReason? ToDomainReason(BlockedResource blocked) => blocked.Reason switch
     {
         BlockedResourceReason.HiddenImage => DomainBlockedResourceReason.HiddenImage,
         BlockedResourceReason.TinyImage => DomainBlockedResourceReason.TinyImage,
         BlockedResourceReason.KnownTracker => DomainBlockedResourceReason.KnownTracker,
         BlockedResourceReason.TrackingPath => DomainBlockedResourceReason.TrackingPath,
         BlockedResourceReason.RemoteContent => DomainBlockedResourceReason.RemoteContent,
+        BlockedResourceReason.DisallowedKind or BlockedResourceReason.LimitReached when IsWebUrl(blocked.Url)
+            => DomainBlockedResourceReason.RemoteContent,
         _ => null
     };
+
+    private static bool IsWebUrl(string url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+           (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 
     /// <summary>Another body for a loaded message: inline resources still come from the message.</summary>
     private sealed class MessageHtmlVariantContent(HtmlMailContent body, IMailContent original) : IMailContent
