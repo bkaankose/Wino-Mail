@@ -553,11 +553,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
             {
                 // Find the MIME and go to rendering page.
 
-                if (IsComposingPageActive())
-                {
-                    PrepareComposePageWebViewTransition();
-                }
-
                 ViewModel.NavigationService.Navigate(WinoPage.MailRenderingPage, selectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame);
             }
         }
@@ -677,17 +672,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         UpdateAdaptiveness();
     }
 
-    private void PrepareComposePageWebViewTransition()
-    {
-        var webView = GetComposerPageWebView();
-
-        if (webView != null)
-        {
-            var animation = ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("WebViewConnectedAnimation", webView);
-            animation.Configuration = new BasicConnectedAnimationConfiguration();
-        }
-    }
-
     private void PrepareRenderingPageWebViewTransition()
     {
         var webView = GetRenderingPageWebView();
@@ -713,21 +697,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         catch (ObjectDisposedException ex)
         {
             Log.Debug(ex, "Rendering page WebView2 was disposed before the connected animation.");
-        }
-
-        return null;
-    }
-
-    private WebView2? GetComposerPageWebView()
-    {
-        try
-        {
-            if (RenderingFrame.Content is ComposePage composePage)
-                return composePage.GetWebView();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            Log.Debug(ex, "Compose page WebView2 was disposed before the connected animation.");
         }
 
         return null;

@@ -8,7 +8,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
@@ -16,6 +15,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
+    xmlns:rendering="using:Wino.Mail.WinUI.Rendering"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
@@ -272,7 +272,7 @@
                 <!--  Format  -->
                 <coreControls:EditorTabbedCommandBarControl
                     x:Name="EditorCommandBar"
-                    CommandTarget="{x:Bind WebViewEditor}"
+                    CommandTarget="{x:Bind ComposeEditor.Session}"
                     SpellCheckEnabledChanged="EditorCommandBar_SpellCheckEnabledChanged"
                     SpellCheckLanguageChanged="EditorCommandBar_SpellCheckLanguageChanged">
                     <coreControls:EditorTabbedCommandBarControl.PaneCustomContent>
@@ -352,12 +352,12 @@
                             <AppBarButton
                                 MinWidth="40"
                                 AutomationProperties.AutomationId="XBindGetEditorThemeToolTipWebViewEditorIsEditorDarkModeModeOneWay"
-                                AutomationProperties.Name="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}"
+                                AutomationProperties.Name="{x:Bind GetEditorThemeToolTip(ComposeEditor.IsEditorDarkMode), Mode=OneWay}"
                                 Click="ToggleEditorThemeClicked"
                                 LabelPosition="Collapsed"
-                                ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
+                                ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(ComposeEditor.IsEditorDarkMode), Mode=OneWay}">
                                 <AppBarButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
+                                    <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(ComposeEditor.IsEditorDarkMode), Mode=OneWay}" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
@@ -958,14 +958,11 @@
             BorderThickness="1"
             CornerRadius="{ThemeResource ControlCornerRadius}">
             <Grid CornerRadius="{ThemeResource ControlCornerRadius}">
-                <editor:WinoMailEditor
-                    x:Name="WebViewEditor"
+                <rendering:EngineMailEditorView
+                    x:Name="ComposeEditor"
                     AutomationProperties.AutomationId="ComposeMailEditor"
-                    IsEditorWebViewEditor="False"
-                    IsTabStop="True"
+                    FilesReceived="ComposeEditor_FilesReceived"
                     LinkOpenRequested="EditorLinkOpenRequested"
-                    OpenLinkLabel="{x:Bind domain:Translator.Composer_OpenLink, Mode=OneTime}"
-                    RemoveLinkLabel="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}"
                     TabIndex="6" />
 
                 <!--  Dropzone for images  -->

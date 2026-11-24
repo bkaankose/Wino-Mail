@@ -233,6 +233,10 @@ internal sealed partial class KeyboardShortcutController : IDisposable
         if (focusedElement is TextBox or AutoSuggestBox or PasswordBox or RichEditBox or ComboBox)
             return true;
 
+        // The mail engine's view takes typed text only while it edits; as a reader it is not a text input.
+        if (focusedElement is Wino.Renderer.WinUI.MailView { IsEditing: true })
+            return true;
+
         return focusedElement is FrameworkElement element &&
                element.GetType().Name.Contains("WebView", StringComparison.OrdinalIgnoreCase);
     }
