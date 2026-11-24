@@ -97,10 +97,7 @@ public sealed partial class ComposePageViewController
     private async Task InsertTemplateAsync(EmailTemplate template)
     {
         if (_editor is null || _editorDisposed) return;
-        // Same as Windows EmailTemplateSelectionChanged: the template replaces the body.
-        await _editor.RenderHtmlAsync(template.HtmlContent ?? string.Empty);
-        await ViewModel.ReapplySignatureAsync();
-        ViewModel.ApplyTemplateSubject(template);
+        await ViewModel.ApplyTemplateAsync(template, html => _editor.RenderHtmlAsync(html));
         await _editor.FocusEditorAsync(true);
         ScheduleAutosave();
     }

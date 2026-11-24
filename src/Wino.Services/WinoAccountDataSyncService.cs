@@ -302,10 +302,38 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
         var templates = await _templateService.GetEmailTemplatesAsync().ConfigureAwait(false);
 
-        return templates
-            .Where(a => !string.IsNullOrWhiteSpace(a.Name))
-            .Select(a => new SnapshotTemplate { Name = a.Name.Trim(), Description = a.Description ?? string.Empty, HtmlContent = a.HtmlContent ?? string.Empty, Subject = a.Subject ?? string.Empty })
-            .ToList();
+        var result = new List<SnapshotTemplate>();
+        foreach (var template in templates.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
+        {
+            result.Add(new SnapshotTemplate
+            {
+                Name = template.Name.Trim(),
+                Description = template.Description ?? string.Empty,
+                HtmlContent = template.HtmlContent ?? string.Empty,
+                Subject = template.Subject ?? string.Empty,
+                ToRecipients = template.ToRecipients ?? string.Empty,
+                SignatureName = await ResolveTemplateSignatureNameAsync(template.SignatureId).ConfigureAwait(false)
+            });
+        }
+
+        return result;
+    }
+
+    private async Task<string?> ResolveTemplateSignatureNameAsync(Guid? signatureId)
+    {
+        if (signatureId is not Guid id || id == Guid.Empty)
+            return null;
+
+        try
+        {
+            var signature = await _signatureService.GetSignatureAsync(id).ConfigureAwait(false);
+            return string.IsNullOrWhiteSpace(signature?.Name) ? null : signature.Name.Trim();
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Template signature {SignatureId} could not be named for export.", id);
+            return null;
+        }
     }
 
     private async Task<List<SnapshotShortcut>?> ExportShortcutsAsync()
@@ -711,11 +739,20 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
         var applied = 0;
         var local = await _templateService.GetEmailTemplatesAsync().ConfigureAwait(false);
+        var signatureByName = await BuildSignatureNameLookupAsync().ConfigureAwait(false);
 
         foreach (var template in templates.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
         {
             try
             {
+                Guid? resolvedSignatureId = null;
+                var hasSignatureName = template.SignatureName != null;
+                if (hasSignatureName && !string.IsNullOrWhiteSpace(template.SignatureName)
+                    && signatureByName.TryGetValue(template.SignatureName.Trim(), out var matchedSignatureId))
+                {
+                    resolvedSignatureId = matchedSignatureId;
+                }
+
                 var existing = local.FirstOrDefault(a => string.Equals(a.Name?.Trim(), template.Name.Trim(), StringComparison.OrdinalIgnoreCase));
                 if (existing == null)
                 {
@@ -725,7 +762,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                         Name = template.Name.Trim(),
                         Description = template.Description ?? string.Empty,
                         HtmlContent = template.HtmlContent ?? string.Empty,
-                        Subject = template.Subject ?? string.Empty
+                        Subject = template.Subject ?? string.Empty,
+                        ToRecipients = template.ToRecipients ?? string.Empty,
+                        SignatureId = resolvedSignatureId
                     }).ConfigureAwait(false);
 
                     local.Add(created);
@@ -733,12 +772,18 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 }
                 else if (!string.Equals(existing.HtmlContent, template.HtmlContent, StringComparison.Ordinal)
                     || !string.Equals(existing.Description, template.Description, StringComparison.Ordinal)
-                    || (template.Subject != null && !string.Equals(existing.Subject ?? string.Empty, template.Subject, StringComparison.Ordinal)))
+                    || (template.Subject != null && !string.Equals(existing.Subject ?? string.Empty, template.Subject, StringComparison.Ordinal))
+                    || (template.ToRecipients != null && !string.Equals(existing.ToRecipients ?? string.Empty, template.ToRecipients, StringComparison.Ordinal))
+                    || (hasSignatureName && existing.SignatureId != resolvedSignatureId))
                 {
                     existing.HtmlContent = template.HtmlContent ?? string.Empty;
                     existing.Description = template.Description ?? string.Empty;
                     if (template.Subject != null)
                         existing.Subject = template.Subject;
+                    if (template.ToRecipients != null)
+                        existing.ToRecipients = template.ToRecipients;
+                    if (hasSignatureName)
+                        existing.SignatureId = resolvedSignatureId;
                     await _templateService.UpdateEmailTemplateAsync(existing).ConfigureAwait(false);
                     applied++;
                 }
@@ -750,6 +795,24 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         }
 
         return applied;
+    }
+
+    private async Task<Dictionary<string, Guid>> BuildSignatureNameLookupAsync()
+    {
+        var lookup = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        foreach (var account in accounts)
+        {
+            var signatures = await _signatureService.GetSignaturesAsync(account.Id).ConfigureAwait(false);
+            foreach (var signature in signatures.Where(s => !string.IsNullOrWhiteSpace(s.Name)))
+            {
+                var key = signature.Name.Trim();
+                if (!lookup.ContainsKey(key))
+                    lookup[key] = signature.Id;
+            }
+        }
+
+        return lookup;
     }
 
     /// <summary>

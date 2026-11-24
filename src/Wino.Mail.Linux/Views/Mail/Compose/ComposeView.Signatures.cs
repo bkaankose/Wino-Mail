@@ -86,9 +86,7 @@ internal sealed partial class ComposeView
     internal async Task InsertTemplateAsync(EmailTemplate template)
     {
         if (Editor is not { } editor || _editorDisposed) return;
-        await editor.RenderHtmlAsync(template.HtmlContent ?? string.Empty);
-        await ViewModel.ReapplySignatureAsync();
-        await Dispatcher.ExecuteOnUIThread(() => ViewModel.ApplyTemplateSubject(template));
+        await ViewModel.ApplyTemplateAsync(template, html => editor.RenderHtmlAsync(html));
         if (IsReleased) return;
         await editor.FocusEditorAsync(true);
         ScheduleAutosave();

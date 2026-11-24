@@ -156,11 +156,13 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         try
         {
-            await EditorSession.RenderHtmlAsync(template.HtmlContent);
-            await ViewModel.ReapplySignatureAsync();
-            ViewModel.ApplyTemplateSubject(template);
+            await ViewModel.ApplyTemplateAsync(template, html => EditorSession.RenderHtmlAsync(html));
         }
         catch (ObjectDisposedException) when (IsEditorUnavailable) { }
+        catch (Exception exception)
+        {
+            _logger.CaptureException(exception, "Applying email template failed.");
+        }
 
         comboBox.SelectedItem = null;
     }

@@ -51,6 +51,14 @@ internal sealed class SnapshotTemplate
 
     /// <summary>Null in snapshots written before templates had a subject; such an import keeps the local subject.</summary>
     public string? Subject { get; set; }
+
+    /// <summary>Null in snapshots written before templates had recipients; such an import keeps the local value.</summary>
+    public string? ToRecipients { get; set; }
+
+    /// <summary>
+    /// Bound signature name. Null in older snapshots keeps the local binding; resolved by name on import.
+    /// </summary>
+    public string? SignatureName { get; set; }
 }
 
 internal sealed class SnapshotShortcut

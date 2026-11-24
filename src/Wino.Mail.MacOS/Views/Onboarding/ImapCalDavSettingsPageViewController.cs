@@ -76,6 +76,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         _form.Visible(pop3, nameof(vm.IsPop3), s => s.IsPop3);
         Add(pop3);
 
+        Add(BuildProtocolStep());
         Add(BuildFeaturesStep());
         Add(BuildSignInStep());
         Add(BuildEditSignIn());
@@ -365,6 +366,22 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         return row;
     }
 
+    /// <summary>IMAP / POP3 choice before Features / Sign in / Servers (Windows ImapSetupProtocolCard).</summary>
+    private NSView BuildProtocolStep()
+    {
+        var vm = ViewModel;
+        var popup = _form.PopUp(vm.AvailableProtocolDisplayNames,
+            nameof(vm.SelectedProtocolIndex), s => s.SelectedProtocolIndex,
+            (s, v) => s.SelectedProtocolIndex = v, Translator.ImapSetup_ProtocolTitle);
+        var description = WinoStyle.Label(Translator.ImapSetup_ProtocolDescription, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        var column = WinoLayout.VStack(WinoStyle.Space2, description, popup);
+        column.Alignment = NSLayoutAttribute.Leading;
+        foreach (var view in column.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
+        var group = OnboardingPageView.Section(Translator.ImapSetup_ProtocolTitle, column);
+        _form.Visible(group, nameof(vm.IsProtocolSelectionVisible), s => s.IsProtocolSelectionVisible);
+        return group;
+    }
+
     /// <summary>
     /// Adding an account before its apps were chosen (Windows ImapCalDavSettingsPage Features step): the capability
     /// cards, shown only while the setup starts on Features.
@@ -372,7 +389,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
     private NSView BuildFeaturesStep()
     {
         var vm = ViewModel;
-        var picker = new AccountCapabilityPicker(vm.Capabilities, () => Translator.ProviderSelection_ModeImap, null, Bindings, Dispatcher, ReportError);
+        var picker = new AccountCapabilityPicker(vm.Capabilities, () => vm.IsPop3 ? Translator.ProviderSelection_ModePop3 : Translator.ProviderSelection_ModeImap, null, Bindings, Dispatcher, ReportError);
         var missing = WinoStyle.Label(Translator.ProviderSelection_CapabilityValidationMessage, WinoStyle.Caption, WinoStyle.Critical, 0);
         var capabilities = new FormBinder<AccountCapabilitySelection>(vm.Capabilities, Bindings, Dispatcher, ReportError);
         capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);

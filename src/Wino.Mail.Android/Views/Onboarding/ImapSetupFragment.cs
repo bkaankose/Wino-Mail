@@ -79,6 +79,7 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         oauthNotice.Closed += oauthClosed;
         binder.Scope.Own(new Wino.Presentation.Android.Bindings.ActionDisposable(() => oauthNotice.Closed -= oauthClosed));
 
+        form.Group(() => BuildProtocol(form, viewModel), nameof(viewModel.IsProtocolSelectionVisible), vm => vm.IsProtocolSelectionVisible);
         form.Group(() => BuildSignIn(form, viewModel), nameof(viewModel.IsSignInStepVisible), vm => vm.IsSignInStepVisible);
         form.Group(() => BuildEditSignIn(form, viewModel), nameof(viewModel.IsEditSignInVisible), vm => vm.IsEditSignInVisible);
         var advanced = (Entry?.State.TryGetValue(AdvancedStateKey, out var stored) == true && stored is AdvancedState state) ? state : new AdvancedState();
@@ -132,6 +133,16 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         }
         if (view.FindViewById<AndroidX.Core.Widget.NestedScrollView>(Resource.Id.onboarding_scroll) is { } formScroll)
             binder.Bind(viewModel, nameof(viewModel.CurrentSetupStep), vm => vm.CurrentSetupStep, _ => formScroll.ScrollTo(0, 0));
+    }
+
+    /// <summary>IMAP / POP3 choice before Sign in / Servers (Windows ImapSetupProtocolCard).</summary>
+    private static void BuildProtocol(OnboardingForm<ImapCalDavSettingsPageViewModel> form, ImapCalDavSettingsPageViewModel viewModel)
+    {
+        form.Help(Translator.ImapSetup_ProtocolDescription);
+        form.Dropdown(Translator.ImapSetup_ProtocolTitle, viewModel.AvailableProtocolDisplayNames,
+            nameof(viewModel.SelectedProtocolIndex),
+            vm => vm.SelectedProtocolIndex,
+            (vm, value) => vm.SelectedProtocolIndex = value);
     }
 
     /// <summary>

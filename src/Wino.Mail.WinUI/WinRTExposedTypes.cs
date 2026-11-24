@@ -60,6 +60,13 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(AliasManagementItem))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AliasManagementItemList))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AliasCertificateList))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(EmailTemplateSignaturePickerItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<EmailTemplateSignaturePickerItem>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountContact))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountContact>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(RecipientSuggestion))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<RecipientSuggestion>))]
+
 [assembly: GeneratedWinRTExposedExternalType(typeof(ContactGroup))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(TaskGroup))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailItemViewModel))]

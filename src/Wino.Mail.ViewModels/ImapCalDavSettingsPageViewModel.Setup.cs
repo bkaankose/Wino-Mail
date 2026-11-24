@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -164,6 +165,28 @@ public partial class ImapCalDavSettingsPageViewModel : IConfirmBackNavigation
 
     public bool IsFeaturesStepVisible => IsCreateMode && CurrentSetupStep == ImapSetupStep.Features;
     public bool IsFeaturesStepCurrent => CurrentSetupStep == ImapSetupStep.Features;
+
+    /// <summary>Create-only protocol picker; hidden for known IMAP presets and when editing.</summary>
+    public bool IsProtocolSelectionVisible => IsCreateMode && _editingSpecialImapProvider == SpecialImapProvider.None;
+
+    public List<string> AvailableProtocolDisplayNames { get; } =
+    [
+        Translator.ProviderSelection_ModeImap,
+        Translator.ProviderSelection_ModePop3
+    ];
+
+    public int SelectedProtocolIndex
+    {
+        get => IsPop3 ? 1 : 0;
+        set
+        {
+            var next = value == 1 ? MailProviderType.POP3 : MailProviderType.IMAP4;
+            if (_providerType == next)
+                return;
+
+            ApplyProtocolSelection(next);
+        }
+    }
 
     public bool IsEditSignInVisible => IsEditMode && Capabilities.RequiresRemoteService;
 
@@ -860,6 +883,55 @@ public partial class ImapCalDavSettingsPageViewModel : IConfirmBackNavigation
         }
     }
 
+    private void ApplyProtocolSelection(MailProviderType providerType)
+    {
+        if (providerType is not (MailProviderType.IMAP4 or MailProviderType.POP3))
+            return;
+
+        var wasPop3 = IsPop3;
+        _providerType = providerType;
+
+        var incomingPort = IncomingServerPort?.Trim() ?? string.Empty;
+        if (wasPop3 && !IsPop3 && incomingPort == "995")
+            IncomingServerPort = "993";
+        else if (!wasPop3 && IsPop3 && (string.IsNullOrWhiteSpace(incomingPort) || incomingPort == "993"))
+            IncomingServerPort = "995";
+
+        if (IsPop3)
+        {
+            SelectedCalendarSupportMode = IsCalendarSupportEnabled
+                ? ImapCalendarSupportMode.LocalOnly
+                : ImapCalendarSupportMode.Disabled;
+            ShouldAppendMessagesToSentFolder = false;
+            _isCardDavEnabled = false;
+        }
+
+        ResetConnectionStates();
+        SyncWizardProviderForProtocol();
+
+        OnPropertyChanged(nameof(IsPop3));
+        OnPropertyChanged(nameof(SelectedProtocolIndex));
+        OnPropertyChanged(nameof(MailValidationFailedTitle));
+        OnPropertyChanged(nameof(IsCalendarModeSelectionVisible));
+        OnPropertyChanged(nameof(IsProtocolSelectionVisible));
+        NotifySetupLayoutChanged();
+    }
+
+    private void SyncWizardProviderForProtocol()
+    {
+        var providers = _knownImapProviderCatalog?.GetAvailableProviders();
+        if (providers == null)
+            return;
+
+        var match = IsPop3
+            ? providers.FirstOrDefault(provider => provider.Type == MailProviderType.POP3)
+            : providers.FirstOrDefault(provider =>
+                provider.Type == MailProviderType.IMAP4 && provider.SpecialImapProvider == SpecialImapProvider.None);
+
+        if (match != null)
+            _wizardContext.SelectedProvider = match;
+    }
+
     private void NotifySetupLayoutChanged()
     {
         OnPropertyChanged(nameof(IsSignInStepVisible));
@@ -883,6 +955,8 @@ public partial class ImapCalDavSettingsPageViewModel : IConfirmBackNavigation
         OnPropertyChanged(nameof(IsCardDavCredentialsOptionVisible));
         OnPropertyChanged(nameof(IsCardDavCredentialsVisible));
         OnPropertyChanged(nameof(IncomingSettingsTitle));
+        OnPropertyChanged(nameof(IsProtocolSelectionVisible));
+        OnPropertyChanged(nameof(SelectedProtocolIndex));
         NotifySecureSignInLayoutChanged();
         NotifyAccountSettingsLayoutChanged();
     }

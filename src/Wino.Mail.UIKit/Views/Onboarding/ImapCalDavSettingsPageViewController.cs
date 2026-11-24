@@ -69,6 +69,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         Form.Visible(pop3, nameof(vm.IsPop3), s => s.IsPop3);
         content.AddArrangedSubview(pop3);
 
+        content.AddArrangedSubview(BuildProtocolStep());
         content.AddArrangedSubview(BuildSignInStep());
         content.AddArrangedSubview(BuildEditFeatures());
         content.AddArrangedSubview(BuildEditSignIn());
@@ -358,13 +359,29 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         return spinner;
     }
 
+    /// <summary>IMAP / POP3 choice before Sign in / Servers (Windows ImapSetupProtocolCard).</summary>
+    private UIView BuildProtocolStep()
+    {
+        var vm = ViewModel;
+        var popup = Form.PopUp(vm.AvailableProtocolDisplayNames,
+            nameof(vm.SelectedProtocolIndex), s => s.SelectedProtocolIndex,
+            (s, v) => s.SelectedProtocolIndex = v, Translator.ImapSetup_ProtocolTitle);
+        popup.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
+        var description = WinoStyle.Label(Translator.ImapSetup_ProtocolDescription, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        var column = WinoLayout.VStack(WinoStyle.Space2, description, popup);
+        column.Alignment = UIStackViewAlignment.Fill;
+        var group = OnboardingPageView.Group(Translator.ImapSetup_ProtocolTitle, column);
+        Form.Visible(group, nameof(vm.IsProtocolSelectionVisible), s => s.IsProtocolSelectionVisible);
+        return group;
+    }
+
     /// <summary>Editing an account: what it is used for, as capability menus.</summary>
     private UIView BuildEditFeatures()
     {
         var vm = ViewModel;
         var capabilities = new FormBinder<AccountCapabilitySelection>(vm.Capabilities, Bindings, Dispatcher, ReportError);
         var grid = new FormGrid();
-        foreach (var (label, control) in FormBinder<AccountCapabilitySelection>.CapabilityRows(capabilities, () => Translator.ProviderSelection_ModeImap))
+        foreach (var (label, control) in FormBinder<AccountCapabilitySelection>.CapabilityRows(capabilities, () => vm.IsPop3 ? Translator.ProviderSelection_ModePop3 : Translator.ProviderSelection_ModeImap))
             grid.Row(label, control);
         var missing = WinoStyle.Label(Translator.ProviderSelection_CapabilityValidationMessage, WinoStyle.Caption, WinoStyle.Critical, 0);
         capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);
