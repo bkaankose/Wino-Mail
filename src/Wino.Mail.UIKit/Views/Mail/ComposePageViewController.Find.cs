@@ -3,7 +3,6 @@ using ObjCRuntime;
 using UIKit;
 using Wino.Core.Domain;
 using Wino.Mail.UIKit.Views.Mail.Compose;
-using Wino.Mail.UIKit.Views.Mail.Compose;
 
 namespace Wino.Mail.UIKit.Views.Mail;
 
