@@ -645,6 +645,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _presentation.IsDark = _dark;
         _presentation.Method = viewModel.ReaderDarkModeMethod == MailDarkModeMethod.Inverted ? DarkModeMethod.Inverted : DarkModeMethod.Adaptive;
         _presentation.SetTypography(viewModel.PreferencesService.ReaderFont, viewModel.PreferencesService.ReaderFontSize);
+        _presentation.TextScale = Context?.Resources?.Configuration?.FontScale ?? 1;
         if (_mailView is not null) _presentation.ApplyTo(_mailView);
     }
 
