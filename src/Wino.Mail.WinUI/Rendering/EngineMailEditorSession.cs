@@ -189,7 +189,7 @@ internal sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, 
                 if (_disposed || !_view.IsEditing) return;
 
                 if (args is not null)
-                    _view.Execute(Wino.Renderer.Editing.EditCommandKind.InsertImage, args);
+                    _view.InsertImages(new[] { args });
             }
         });
 

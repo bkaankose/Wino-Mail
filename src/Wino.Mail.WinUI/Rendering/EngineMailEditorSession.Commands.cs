@@ -151,7 +151,7 @@ internal sealed partial class EngineMailEditorSession
             if (_disposed || !_view.IsEditing) return;
 
             if (args is not null)
-                _view.Execute(EditCommandKind.InsertImage, args);
+                _view.InsertImages(new[] { args });
         }
     }
 
