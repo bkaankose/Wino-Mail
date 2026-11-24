@@ -1,0 +1,8 @@
+<Project>
+  <!-- The Android app: the engine, the Android backend and the Android view. -->
+  <Import Project="Wino.Renderer.Engine.props" Condition="'$(WinoRendererEngineImported)' != 'true'" />
+  <ItemGroup Condition="'$(WinoRendererDirectory)' != ''">
+    <ProjectReference Include="$(WinoRendererDirectory)platforms\Wino.Renderer.Platform.Android\Wino.Renderer.Platform.Android.csproj" />
+    <ProjectReference Include="$(WinoRendererDirectory)platforms\Wino.Renderer.Android\Wino.Renderer.Android.csproj" />
+  </ItemGroup>
+</Project>

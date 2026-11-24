@@ -11,6 +11,8 @@ using Wino.Mail.ViewModels.Activation;
 using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Platform.Android;
 using Wino.Platform.Android.Notifications;
+using Wino.Mail.Android.Rendering;
+using Wino.Mail.Rendering;
 using Wino.Services;
 using Wino.Services.Themes;
 using Wino.Providers.Dav.Providers;
@@ -47,6 +49,10 @@ internal static class AndroidComposition
 
         services.RegisterWinoViewModels();
         services.RegisterAndroidHead(activities);
+
+        // The native mail renderer: one engine for the process over the Android backend.
+        services.AddSingleton<IMailEngineBackendFactory, AndroidMailEngineBackendFactory>();
+        services.AddMailRendering();
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
