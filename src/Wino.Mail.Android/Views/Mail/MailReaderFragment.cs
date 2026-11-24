@@ -23,6 +23,7 @@ using Wino.Renderer.Android;
 using Wino.Renderer.Policy;
 using Wino.Renderer.Theme;
 using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.Android.Rendering;
 using Wino.Mail.Android.Views.Shell;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels;
@@ -634,9 +635,24 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _messageReader = new EngineMailMessageReader(mailView, services.GetRequiredService<MailEngineHost>(), _presentation,
             viewModel.SecureMimeContextFactory, () => viewModel.ShouldStripLinkTrackingParameters);
         _messageReader.Attach();
+        viewModel.PrintPresenter = new AndroidMailPrintPresenter(services.GetRequiredService<MailEngineHost>(), () => Activity,
+            () => _messageReader?.HasMessage == true ? _mailView?.Reader : null, () => CreatePrintHeader(viewModel));
         mailView.LinkActivated += (_, args) => Observe(OpenLinkAsync(args));
         mailView.LinkHoverChanged += (_, args) => ShowLinkTarget(args.Link);
         mailView.ContextMenuRequested += (_, args) => ShowBodyMenu(mailView, args);
+    }
+
+    private static Wino.Renderer.Print.PrintHeader CreatePrintHeader(MailRenderingPageViewModel viewModel)
+    {
+        var sender = string.IsNullOrWhiteSpace(viewModel.FromName) ? viewModel.FromAddress
+            : string.IsNullOrWhiteSpace(viewModel.FromAddress) ? viewModel.FromName : $"{viewModel.FromName} <{viewModel.FromAddress}>";
+        static string Recipients(IEnumerable<AccountContactViewModel> recipients) => string.Join("; ", recipients.Select(recipient =>
+            string.IsNullOrWhiteSpace(recipient.Name) || string.Equals(recipient.Name, recipient.Address, StringComparison.OrdinalIgnoreCase)
+                ? recipient.Address
+                : $"{recipient.Name} <{recipient.Address}>"));
+        return new Wino.Renderer.Print.PrintHeader(string.IsNullOrWhiteSpace(viewModel.Subject) ? Translator.MailItemNoSubject : viewModel.Subject,
+            sender, Recipients(viewModel.ToItems), Recipients(viewModel.CcItems),
+            MailRowPresentation.FormatReaderDate(viewModel.CreationDate, viewModel.PreferencesService.MailTimeFormatPreference));
     }
 
     private void ApplyReaderPresentation()
