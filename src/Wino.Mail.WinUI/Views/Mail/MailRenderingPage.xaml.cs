@@ -228,6 +228,15 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
                 UpdateAccessibleMailContext(renderModel.AccessibleText);
 
             await intelligenceLoadingTask;
+
+            // An encrypted message has no readable body until the engine decrypted it, so the header gets it now.
+            if (_currentRenderedHtml.Length == 0 && !IsStaleRender(renderVersion) &&
+                _messageReader.GetLoadedBodyHtml() is { Length: > 0 } resolvedHtml)
+            {
+                _currentRenderedHtml = resolvedHtml;
+                await LoadIntelligenceContextAsync();
+            }
+
             return renderModel;
         }
         catch

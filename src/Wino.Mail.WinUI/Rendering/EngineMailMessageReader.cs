@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MimeKit;
@@ -30,6 +31,7 @@ namespace Wino.Mail.WinUI.Rendering;
 public sealed class EngineMailMessageReader : IMailMessageReader
 {
     private static readonly TimeSpan FirstFrameTimeout = TimeSpan.FromMilliseconds(750);
+    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private readonly MailView _view;
     private readonly MailEngineHost _engineHost;
@@ -100,6 +102,47 @@ public sealed class EngineMailMessageReader : IMailMessageReader
         return message.TextBody is { Length: > 0 } text
             ? new TextToHtml().Convert(text)
             : string.Empty;
+    }
+
+    /// <summary>
+    /// The body the engine shows for the loaded message, as HTML: the same string as <see cref="GetBodyHtml"/> for a
+    /// message that is readable as it is, and the decrypted body for an encrypted one. Empty when nothing is loaded.
+    /// It reads the bytes the engine already decoded, never the message's parts, which the engine may still be reading.
+    /// </summary>
+    public string GetLoadedBodyHtml()
+    {
+        if (_content?.Body is not { Kind: not MailBodyKind.None, Bytes.IsEmpty: false } body)
+            return string.Empty;
+
+        var text = DecodeBody(body).TrimStart('﻿');
+
+        return body.Kind == MailBodyKind.Html ? text : new TextToHtml().Convert(text);
+    }
+
+    private static string DecodeBody(MailBody body)
+    {
+        var bytes = body.Bytes.Span;
+
+        if (body.DeclaredCharset is { Length: > 0 } charset)
+        {
+            try
+            {
+                return Encoding.GetEncoding(charset).GetString(bytes);
+            }
+            catch (ArgumentException ex)
+            {
+                Log.Debug(ex, "The message body declares a character set that is not available.");
+            }
+        }
+
+        try
+        {
+            return StrictUtf8.GetString(bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            return Encoding.Latin1.GetString(bytes);
+        }
     }
 
     public async Task<MailRenderModel> RenderAsync(MailMessageRenderRequest request, CancellationToken cancellationToken)
