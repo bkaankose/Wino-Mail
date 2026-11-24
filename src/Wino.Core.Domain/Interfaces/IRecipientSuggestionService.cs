@@ -13,7 +13,8 @@ public interface IRecipientSuggestionService
 {
     /// <summary>
     /// Suggestions for the typed text. Contact lists come first, then people by score.
-    /// Returns an empty list for fewer than two characters.
+    /// Returns an empty list for fewer than two characters. With <paramref name="includeWithoutAddress"/>, contacts
+    /// that have no email address are suggested too, with an empty address; they cannot be recipients.
     /// </summary>
-    Task<List<RecipientSuggestion>> SuggestAsync(Guid? accountId, string query, int limit = 8, bool includeLists = true);
+    Task<List<RecipientSuggestion>> SuggestAsync(Guid? accountId, string query, int limit = 8, bool includeLists = true, bool includeWithoutAddress = false);
 }

@@ -61,6 +61,32 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial int SelectedReaderDarkModeMethodIndex { get; set; }
 
+    private static readonly ComposerMentionRecipient[] MentionRecipients =
+        [ComposerMentionRecipient.None, ComposerMentionRecipient.To, ComposerMentionRecipient.Cc, ComposerMentionRecipient.Bcc];
+    private static readonly ComposerMentionFormat[] MentionFormats =
+        [ComposerMentionFormat.NameAndAddress, ComposerMentionFormat.Name, ComposerMentionFormat.Address];
+
+    public List<string> MentionRecipientOptions { get; } =
+    [
+        Translator.SettingsComposerMentions_AddToNone,
+        Translator.SettingsComposerMentions_AddToTo,
+        Translator.SettingsComposerMentions_AddToCc,
+        Translator.SettingsComposerMentions_AddToBcc
+    ];
+
+    public List<string> MentionFormatOptions { get; } =
+    [
+        Translator.SettingsComposerMentions_FormatNameAndAddress,
+        Translator.SettingsComposerMentions_FormatName,
+        Translator.SettingsComposerMentions_FormatAddress
+    ];
+
+    [ObservableProperty]
+    public partial int SelectedMentionRecipientIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedMentionFormatIndex { get; set; }
+
     public ReadComposePanePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                     IPreferencesService preferencesService,
                                     ITranslationService translationService,
@@ -96,6 +122,24 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
 
         SelectedReaderContentThemeIndex = Math.Max(0, Array.IndexOf(ReaderContentThemes, preferencesService.ReaderContentTheme));
         SelectedReaderDarkModeMethodIndex = Math.Max(0, Array.IndexOf(ReaderDarkModeMethods, preferencesService.ReaderDarkModeMethod));
+        SelectedMentionRecipientIndex = Math.Max(0, Array.IndexOf(MentionRecipients, preferencesService.ComposerMentionRecipient));
+        SelectedMentionFormatIndex = Math.Max(0, Array.IndexOf(MentionFormats, preferencesService.ComposerMentionFormat));
+    }
+
+    partial void OnSelectedMentionRecipientIndexChanged(int value)
+    {
+        if (value < 0 || value >= MentionRecipients.Length) return;
+
+        if (PreferencesService.ComposerMentionRecipient != MentionRecipients[value])
+            PreferencesService.ComposerMentionRecipient = MentionRecipients[value];
+    }
+
+    partial void OnSelectedMentionFormatIndexChanged(int value)
+    {
+        if (value < 0 || value >= MentionFormats.Length) return;
+
+        if (PreferencesService.ComposerMentionFormat != MentionFormats[value])
+            PreferencesService.ComposerMentionFormat = MentionFormats[value];
     }
 
     partial void OnSelectedReaderContentThemeIndexChanged(int value)

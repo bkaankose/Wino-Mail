@@ -561,6 +561,24 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsDraftMessageSizeCheckEnabled), value);
     }
 
+    public bool IsComposerMentionSuggestionEnabled
+    {
+        get => _configurationService.Get(nameof(IsComposerMentionSuggestionEnabled), true);
+        set => SetPropertyAndSave(nameof(IsComposerMentionSuggestionEnabled), value);
+    }
+
+    public ComposerMentionRecipient ComposerMentionRecipient
+    {
+        get => _configurationService.Get(nameof(ComposerMentionRecipient), ComposerMentionRecipient.To);
+        set => SetPropertyAndSave(nameof(ComposerMentionRecipient), value);
+    }
+
+    public ComposerMentionFormat ComposerMentionFormat
+    {
+        get => _configurationService.Get(nameof(ComposerMentionFormat), ComposerMentionFormat.NameAndAddress);
+        set => SetPropertyAndSave(nameof(ComposerMentionFormat), value);
+    }
+
     public string ComposerSpellCheckLanguageCode
     {
         get

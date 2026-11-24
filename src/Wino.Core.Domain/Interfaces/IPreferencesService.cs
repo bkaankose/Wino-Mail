@@ -585,6 +585,15 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// <summary>Automatically correct unambiguous spelling errors while composing.</summary>
     bool IsComposerAutoCorrectEnabled { get; set; }
 
+    /// <summary>Suggest people when "@" and a name are typed in the message body.</summary>
+    bool IsComposerMentionSuggestionEnabled { get; set; }
+
+    /// <summary>The recipient field a mentioned person with an address is added to.</summary>
+    ComposerMentionRecipient ComposerMentionRecipient { get; set; }
+
+    /// <summary>What a mention reads in the message body.</summary>
+    ComposerMentionFormat ComposerMentionFormat { get; set; }
+
     /// <summary>
     /// Setting: BCP-47 language code used by the composer spellchecker.
     /// </summary>

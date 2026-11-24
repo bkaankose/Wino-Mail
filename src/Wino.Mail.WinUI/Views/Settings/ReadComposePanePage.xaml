@@ -278,6 +278,45 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="RenderingMentionsExpander"
+            Description="{x:Bind domain:Translator.SettingsComposerMentions_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsComposerMentions_Title, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="PersonTag" />
+            </controls:SettingsExpander.HeaderIcon>
+            <ToggleSwitch
+                x:Name="MentionsToggle"
+                AutomationProperties.AutomationId="RenderingMentionsToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.SettingsComposerMentions_Title, Mode=OneTime}"
+                IsOn="{x:Bind ViewModel.PreferencesService.IsComposerMentionSuggestionEnabled, Mode=TwoWay}" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="RenderingMentionRecipientCard"
+                    Description="{x:Bind domain:Translator.SettingsComposerMentions_AddTo_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsComposerMentions_AddTo, Mode=OneTime}"
+                    IsEnabled="{x:Bind MentionsToggle.IsOn, Mode=OneWay}">
+                    <ComboBox
+                        AutomationProperties.AutomationId="RenderingMentionRecipientComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SettingsComposerMentions_AddTo, Mode=OneTime}"
+                        ItemsSource="{x:Bind ViewModel.MentionRecipientOptions}"
+                        SelectedIndex="{x:Bind ViewModel.SelectedMentionRecipientIndex, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="RenderingMentionFormatCard"
+                    Description="{x:Bind domain:Translator.SettingsComposerMentions_Format_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsComposerMentions_Format, Mode=OneTime}"
+                    IsEnabled="{x:Bind MentionsToggle.IsOn, Mode=OneWay}">
+                    <ComboBox
+                        AutomationProperties.AutomationId="RenderingMentionFormatComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SettingsComposerMentions_Format, Mode=OneTime}"
+                        ItemsSource="{x:Bind ViewModel.MentionFormatOptions}"
+                        SelectedIndex="{x:Bind ViewModel.SelectedMentionFormatIndex, Mode=TwoWay}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
         <controls:SettingsCard
             AutomationProperties.AutomationId="RenderingPasteFormattingCard"
             Description="{x:Bind domain:Translator.SettingsRendering_PasteFormatting_Description, Mode=OneTime}"

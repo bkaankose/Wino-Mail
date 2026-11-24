@@ -433,6 +433,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         EditorSession.ApplicationShortcutRequested -= ComposeEditor_ApplicationShortcutRequested;
         EditorSession.ApplicationShortcutRequested += ComposeEditor_ApplicationShortcutRequested;
+        SubscribeMentions();
         _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
         _keyboardShortcutService.KeyboardShortcutsChanged += KeyboardShortcutService_KeyboardShortcutsChanged;
 
@@ -822,6 +823,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 state.Owner.ItemsSource = state.Items;
         }
 
+        RemoveMentionSuggestion(suggestion);
+
         try
         {
             await ViewModel.SuppressSuggestionAsync(suggestion);
@@ -1066,6 +1069,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         finally
         {
             EditorSession.ApplicationShortcutRequested -= ComposeEditor_ApplicationShortcutRequested;
+            UnsubscribeMentions();
             _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
             ViewModel.BodyWriter = null;
             ViewModel.DraftChecks = null;

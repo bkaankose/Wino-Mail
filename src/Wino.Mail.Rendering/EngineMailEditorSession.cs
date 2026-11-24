@@ -263,6 +263,8 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
         _view.Engine = null;
 
         StateChanged = null;
+        MentionQueryChanged = null;
+        MentionKeyPressed = null;
         ShortcutRequested = null;
         ContentChanged = null;
         ApplicationShortcutRequested = null;
@@ -381,6 +383,7 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
             AutoCorrect = _isSpellCheckEnabled && _isAutoCorrectEnabled,
             SpellCheckLanguage = _spellCheckLanguage,
             PasteAsHtml = _pasteAsHtml,
+            Mentions = _mentionOptions,
             Policy = _blockRemoteContent && policy is not null
                 ? policy with { Resources = policy.Resources with { Mode = RemoteContentMode.BlockAll } }
                 : null
@@ -444,6 +447,8 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
         {
             previous.ContentChanged -= Composer_ContentChanged;
             previous.ApplicationShortcutRequested -= Composer_ApplicationShortcutRequested;
+            previous.MentionContextChanged -= Composer_MentionContextChanged;
+            previous.MentionKeyPressed -= Composer_MentionKeyPressed;
         }
 
         _subscribedComposer = composer;
@@ -452,6 +457,8 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
         {
             composer.ContentChanged += Composer_ContentChanged;
             composer.ApplicationShortcutRequested += Composer_ApplicationShortcutRequested;
+            composer.MentionContextChanged += Composer_MentionContextChanged;
+            composer.MentionKeyPressed += Composer_MentionKeyPressed;
         }
     }
 

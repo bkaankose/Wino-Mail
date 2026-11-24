@@ -110,7 +110,7 @@ public class ContactService : BaseDatabaseService, IContactService
             .ToList();
     }
 
-    public async Task<List<AccountContact>> ResolveRecipientCandidatesAsync(Guid? accountId, string queryText, int limit = 20)
+    public async Task<List<AccountContact>> ResolveRecipientCandidatesAsync(Guid? accountId, string queryText, int limit = 20, bool includeWithoutAddress = false)
     {
         if (string.IsNullOrWhiteSpace(queryText) || queryText.Trim().Length < 2)
             return null;
@@ -128,12 +128,14 @@ public class ContactService : BaseDatabaseService, IContactService
         await LoadChildrenAsync(contacts).ConfigureAwait(false);
 
         return contacts
-            .Where(contact => !string.IsNullOrWhiteSpace(contact.PrimaryEmailAddress))
+            .Where(contact => includeWithoutAddress || !string.IsNullOrWhiteSpace(contact.PrimaryEmailAddress))
             .OrderByDescending(contact => accountId.HasValue && contact.MailAccountId == accountId.Value)
             .ThenByDescending(contact => contact.SourceKind != ContactSourceKind.Local)
             .ThenBy(contact => contact.SourceKind == ContactSourceKind.Local && contact.IsAutoCollected)
             .ThenBy(contact => contact.DisplayValue, StringComparer.OrdinalIgnoreCase)
-            .GroupBy(contact => ContactEmailAddress.Normalize(contact.PrimaryEmailAddress), StringComparer.Ordinal)
+            .GroupBy(contact => string.IsNullOrWhiteSpace(contact.PrimaryEmailAddress)
+                ? "card:" + contact.Id.ToString("N")
+                : ContactEmailAddress.Normalize(contact.PrimaryEmailAddress), StringComparer.Ordinal)
             .Select(group => group.First())
             .Take(Math.Max(1, limit))
             .ToList();

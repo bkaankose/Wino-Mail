@@ -12,7 +12,11 @@ public interface IContactService : IContactQueryService
 {
     Task<List<AccountContact>> GetContactsByAddressBookAsync(Guid addressBookId);
     Task<ContactAddressBook> GetOrCreateProviderAddressBookAsync(Guid accountId, ContactSourceKind sourceKind, string remoteId, string displayName, bool isDefault, string parentRemoteId = null, bool? isReadOnly = null);
-    Task<List<AccountContact>> ResolveRecipientCandidatesAsync(Guid? accountId, string queryText, int limit = 20);
+    /// <summary>
+    /// Contact cards that match the text, one per primary address. With <paramref name="includeWithoutAddress"/>,
+    /// cards that have no email address are kept too.
+    /// </summary>
+    Task<List<AccountContact>> ResolveRecipientCandidatesAsync(Guid? accountId, string queryText, int limit = 20, bool includeWithoutAddress = false);
 
     /// <summary>
     /// Local contact lists whose name matches the query, each carrying its members so the

@@ -964,7 +964,43 @@
                     AutomationProperties.AutomationId="ComposeMailEditor"
                     FilesReceived="ComposeEditor_FilesReceived"
                     LinkOpenRequested="EditorLinkOpenRequested"
+                    LostFocus="ComposeEditor_LostFocus"
                     TabIndex="6" />
+
+                <!--  People for an @mention typed in the body. Nothing in it takes focus, so the caret stays in the editor and the editor hands over the list keys.  -->
+                <Popup
+                    x:Name="MentionPopup"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    IsLightDismissEnabled="False">
+                    <Border
+                        x:Name="MentionPopupContent"
+                        Width="320"
+                        Padding="4"
+                        Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <ListView
+                            x:Name="MentionSuggestionList"
+                            MaxHeight="320"
+                            AllowFocusOnInteraction="False"
+                            AutomationProperties.AutomationId="ComposeMentionSuggestionList"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Composer_MentionSuggestions, Mode=OneTime}"
+                            IsItemClickEnabled="True"
+                            IsTabStop="False"
+                            ItemClick="MentionSuggestionClicked"
+                            ItemTemplate="{StaticResource RecipientSuggestionTemplate}"
+                            SelectionMode="Single">
+                            <ListView.ItemContainerStyle>
+                                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                    <Setter Property="AllowFocusOnInteraction" Value="False" />
+                                    <Setter Property="IsTabStop" Value="False" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                        </ListView>
+                    </Border>
+                </Popup>
 
                 <!--  Dropzone for images  -->
                 <Grid
