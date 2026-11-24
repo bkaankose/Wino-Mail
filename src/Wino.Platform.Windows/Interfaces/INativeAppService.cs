@@ -30,11 +30,6 @@ public interface INativeAppService
     Task<StartupBehaviorResult> ToggleStartupBehavior(bool isEnabled);
 
     /// <summary>
-    /// Validates whether WebView2 runtime is installed and available for use.
-    /// </summary>
-    Task<bool> IsWebView2RuntimeAvailableAsync();
-
-    /// <summary>
     /// Plays the sound that confirms a task completion.
     /// </summary>
     void PlayTaskCompletionSound();

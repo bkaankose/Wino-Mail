@@ -35,8 +35,7 @@ public static class CoreUWPContainerSetup
         var platformDispatcher = DispatcherQueue.GetForCurrentThread();
         services.AddWindowsPlatformServices(new NativeAppService(
             platformDispatcher == null ? null : new DispatcherQueueThreadQueue(platformDispatcher),
-            SessionStartActivation.SyncRegistrationAsync,
-            WebViewExtensions.GetSharedEnvironmentAsync));
+            SessionStartActivation.SyncRegistrationAsync));
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<WindowsShellPreferences>();
         services.AddSingleton<WidgetsAndTilesService>();

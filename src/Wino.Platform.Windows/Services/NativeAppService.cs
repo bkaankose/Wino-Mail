@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Platform;
 using Microsoft.UI.Input;
-using Microsoft.Web.WebView2.Core;
 using Serilog;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.DataTransfer;
@@ -31,25 +30,21 @@ namespace Wino.Platform.Windows.Services;
 
 /// <summary>
 /// Single owner of the stateless Windows platform capabilities the app needs: launching, clipboard,
-/// keyboard state, startup task, WebView2 probe, notification sound, taskbar and shell presence state.
+/// keyboard state, startup task, notification sound, taskbar and shell presence state.
 /// </summary>
 public partial class NativeAppService : INativeAppService, IAppMetadataService, IUserPresenceStateProvider, IExternalLauncher, IClipboardService, IShortcutPlatformService, ITaskCompletionSound,
     IStartupIntegrationService, IReaderRuntimeService
 {
     private readonly IWindowsThreadQueue? _platformDispatcher;
     private readonly Func<Task> _syncSessionStartRegistrationAsync;
-    private readonly Func<Task> _prepareWebView2EnvironmentAsync;
 
     /// <param name="platformDispatcher">The queue of the thread that constructs the service, or null when that thread has none.</param>
     /// <param name="syncSessionStartRegistrationAsync">Makes the session-start trigger follow the startup task's state.</param>
-    /// <param name="prepareWebView2EnvironmentAsync">Creates the shared WebView2 environment the reader uses.</param>
     public NativeAppService(IWindowsThreadQueue? platformDispatcher,
-                            Func<Task> syncSessionStartRegistrationAsync,
-                            Func<Task> prepareWebView2EnvironmentAsync)
+                            Func<Task> syncSessionStartRegistrationAsync)
     {
         _platformDispatcher = platformDispatcher;
         _syncSessionStartRegistrationAsync = syncSessionStartRegistrationAsync;
-        _prepareWebView2EnvironmentAsync = prepareWebView2EnvironmentAsync;
     }
 
     public ModifierKeys PrimaryCommandModifier => ModifierKeys.Control;
@@ -71,7 +66,7 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
     Task<bool> IReaderRuntimeService.IsAvailableAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return IsWebView2RuntimeAvailableAsync();
+        return Task.FromResult(true);
     }
 
     async Task<PlatformOperationResult> IExternalLauncher.LaunchFileAsync(string path, CancellationToken cancellationToken)
@@ -283,27 +278,6 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
             Log.Error(ex, "Error getting startup behavior");
 
             return StartupBehaviorResult.Fatal;
-        }
-    }
-
-    public async Task<bool> IsWebView2RuntimeAvailableAsync()
-    {
-        try
-        {
-            var version = CoreWebView2Environment.GetAvailableBrowserVersionString();
-            if (string.IsNullOrWhiteSpace(version))
-            {
-                return false;
-            }
-
-            await _prepareWebView2EnvironmentAsync();
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "WebView2 runtime validation failed.");
-            return false;
         }
     }
 
