@@ -28,13 +28,16 @@ public class MimeFileService : IMimeFileService
     private ILogger _logger = Log.ForContext<MimeFileService>();
 
     private readonly DraftUpdateRegistry _draftUpdates;
+    private readonly IMailUnsubscribeReader _unsubscribeReader;
     private readonly ConcurrentDictionary<(Guid, Guid), SemaphoreSlim> _writeLocks = new();
 
-    public MimeFileService(IApplicationConfiguration applicationConfiguration, ISmimeCertificateService smimeCertificateService, DraftUpdateRegistry draftUpdates = null)
+    public MimeFileService(IApplicationConfiguration applicationConfiguration, ISmimeCertificateService smimeCertificateService, DraftUpdateRegistry draftUpdates = null,
+        IMailUnsubscribeReader unsubscribeReader = null)
     {
         _applicationConfiguration = applicationConfiguration;
         _smimeCertificateService = smimeCertificateService ?? throw new ArgumentNullException(nameof(smimeCertificateService));
         _draftUpdates = draftUpdates;
+        _unsubscribeReader = unsubscribeReader ?? new HeaderUnsubscribeReader();
     }
 
     public async Task<MimeMessageInformation> GetMimeMessageInformationAsync(Guid fileId, Guid accountId, CancellationToken cancellationToken = default)
@@ -276,22 +279,7 @@ public class MimeFileService : IMimeFileService
             renderingModel.Attachments.Add(attachment);
         }
 
-        if (message.Headers.Contains(HeaderId.ListUnsubscribe))
-        {
-            var unsubscribeLinks = message.Headers[HeaderId.ListUnsubscribe]
-                .Normalize()
-                .Split([','], StringSplitOptions.RemoveEmptyEntries)
-                .Select(x => x.Trim().Trim(['<', '>']));
-
-            // Only two types of unsubscribe links are possible.
-            // So each has it's own property to simplify the usage.
-            renderingModel.UnsubscribeInfo = new UnsubscribeInfo()
-            {
-                HttpLink = unsubscribeLinks.FirstOrDefault(x => x.StartsWith("http", StringComparison.OrdinalIgnoreCase)),
-                MailToLink = unsubscribeLinks.FirstOrDefault(x => x.StartsWith("mailto", StringComparison.OrdinalIgnoreCase)),
-                IsOneClick = message.Headers.Contains(HeaderId.ListUnsubscribePost)
-            };
-        }
+        renderingModel.UnsubscribeInfo = _unsubscribeReader.Read(message);
 
         return renderingModel;
     }

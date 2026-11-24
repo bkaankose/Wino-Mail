@@ -47,6 +47,8 @@ public static class ServicesContainerSetup
         // Every head registers an IAppLockPlatform; the lock stays off where that platform is not available.
         services.AddSingleton<IAppLockService, AppLockService>();
         services.AddSingleton<IActivationStateService, ActivationStateService>();
+        // The Windows head replaces it with the mail engine's reader.
+        services.AddSingleton<IMailUnsubscribeReader, HeaderUnsubscribeReader>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
         services.AddSingleton<IContentTypeClassificationModel, MagikaContentTypeClassificationModel>();
         services.AddSingleton<IContentTypeDetectionService, ContentTypeDetectionService>();

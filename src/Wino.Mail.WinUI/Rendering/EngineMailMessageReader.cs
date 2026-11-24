@@ -21,7 +21,6 @@ using Wino.Services.Extensions;
 using Wino.Services.Models.Reader;
 using DomainBlockedResourceReason = Wino.Core.Domain.Enums.BlockedResourceReason;
 using DomainRemoteContentMode = Wino.Core.Domain.Enums.RemoteContentMode;
-using DomainUnsubscribeInfo = Wino.Core.Domain.Models.Reader.UnsubscribeInfo;
 
 namespace Wino.Mail.WinUI.Rendering;
 
@@ -337,15 +336,7 @@ public sealed class EngineMailMessageReader : IMailMessageReader
 
         model.Attachments.AddRange(analysis.Attachments.OfType<MimePart>().Where(MailAttachmentExtensions.IsMailAttachment));
 
-        if (analysis.Unsubscribe is { } unsubscribe)
-        {
-            model.UnsubscribeInfo = new DomainUnsubscribeInfo
-            {
-                HttpLink = unsubscribe.HttpLink,
-                MailToLink = unsubscribe.MailtoLink,
-                IsOneClick = unsubscribe.IsOneClick
-            };
-        }
+        model.UnsubscribeInfo = EngineUnsubscribeReader.ToDomain(analysis.Unsubscribe);
 
         foreach (var blocked in result.BlockedResources)
         {
