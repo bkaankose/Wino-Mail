@@ -47,7 +47,7 @@
             <Setter Property="MaxHeight" Value="184" />
         </Style>
 
-        <DataTemplate x:Key="ColorSwatchTemplate" x:DataType="editor:EditorColorOption">
+        <DataTemplate x:Key="ColorSwatchTemplate" x:DataType="controls:EditorColorOption">
             <Grid
                 Width="28"
                 Height="28"

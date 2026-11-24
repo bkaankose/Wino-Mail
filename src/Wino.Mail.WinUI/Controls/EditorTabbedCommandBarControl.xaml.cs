@@ -353,7 +353,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     }
 
     // Capabilities carry font names as strings. Each name becomes a ComboBoxItem previewed in its own typeface;
-    // a template typed for EditorFontFamilyOption cannot cast those strings and rendered blank rows in Native AOT.
+    // a template typed for a font option class cannot cast those strings and rendered blank rows in Native AOT.
     private void ApplyFontItems(IEnumerable<string> fontNames)
     {
         FontFamilyComboBox.Items.Clear();
@@ -482,13 +482,10 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         {
             // The composer closed the editor while the command was pending.
         }
-        catch (Exception exception) when (WinoMailEditor.IsStartupFailure(exception))
+        catch (Exception exception)
         {
-            // Toolbar handlers are async void, so a WebView2 that failed to start must not escape.
-            if (target is WinoMailEditor editor)
-            {
-                editor.ReportInitializationFailure(exception);
-            }
+            // Toolbar handlers are async void, so a command the editor could not run must not escape.
+            Serilog.Log.Error(exception, "Editor command {Command} failed.", command.Kind);
         }
     }
 

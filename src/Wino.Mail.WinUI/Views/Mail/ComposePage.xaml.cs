@@ -42,6 +42,7 @@ using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.WinUI.Rendering;
 using Wino.Core.Domain.Messaging.Client.Mails;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Messaging.UI;
@@ -55,13 +56,13 @@ public sealed partial class ComposePage : ComposePageAbstract,
     IRecipient<WinoIntelligenceAccessChanged>
 {
     private const int InitialFocusRetryCount = 3;
-    public IHtmlMailEditorSession EditorSession { get; private set; } = null!;
+    private EngineMailEditorSession EditorSession => ComposeEditor.Session;
 
     private bool _isPoppedOut;
     private bool _isInitialFocusHandled;
     private bool _shouldApplyInitialFocus;
     private bool _isNavigatingFrom;
-    // EditorSession is created once per page instance, so a disposed editor stays disposed even if the page is navigated to again.
+    // The editor session lives as long as the page instance, so a disposed editor stays disposed even if the page is navigated to again.
     private bool _isEditorDisposed;
     private int _isExecutingEditorShortcut;
     private bool _isSpellCheckEnabled;
@@ -71,11 +72,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     public bool SupportsPopOut => !_isPoppedOut;
     private bool IsEditorUnavailable => _isNavigatingFrom || _isEditorDisposed;
-    public bool HasEditorKeyboardFocus => WebViewEditor.FocusState != FocusState.Unfocused;
+    public bool HasEditorKeyboardFocus => ComposeEditor.HasKeyboardFocus;
     public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
     public event EventHandler<PopoutHostActionRequestedEventArgs>? HostActionRequested;
-
-    public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
     public Visibility GetPopOutButtonVisibility() => SupportsPopOut ? Visibility.Visible : Visibility.Collapsed;
 
@@ -87,8 +86,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public ComposePage()
     {
         InitializeComponent();
-        EditorSession = new WindowsHtmlMailEditorSession(WebViewEditor);
-        WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
+        ComposeEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
         ViewModel.CloseRequested += ViewModel_CloseRequested;
         BuildRewriteModesFlyout();
     }
@@ -137,7 +135,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private async void ToggleEditorThemeClicked(object sender, RoutedEventArgs e)
     {
-        try { await EditorSession.SetThemeAsync(!WebViewEditor.IsEditorDarkMode); }
+        try { await EditorSession.SetThemeAsync(!ComposeEditor.IsEditorDarkMode); }
         catch (ObjectDisposedException) when (IsEditorUnavailable)
         {
             // The click raced the composer closing; the editor is already gone.
@@ -400,43 +398,38 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
-        base.OnNavigatedTo(e);
-
         _isNavigatingFrom = false;
         _editorLifecycleCancellationSource = new CancellationTokenSource();
         _shouldApplyInitialFocus = ConsumeInitialFocusRequest(e.Parameter as MailItemViewModel);
         _isInitialFocusHandled = false;
-
         _isSpellCheckEnabled = ViewModel.PreferencesService.IsComposerSpellCheckEnabled;
         _spellCheckLanguageCode = ViewModel.PreferencesService.ComposerSpellCheckLanguageCode;
+
+        // The ViewModel starts loading the draft inside base.OnNavigatedTo and continues on a background thread, so
+        // the editor functions are in place before that call. The engine opens the draft's MIME and writes the
+        // outgoing body itself. The HTML string functions stay for what still passes one around: the rewrite
+        // session, templates and signatures.
+        var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
+        ViewModel.BodyWriter = EditorSession;
+        ViewModel.RenderDraftAsyncFunc = request => RenderComposeDraftAsync(request, editorLifecycleToken);
+        ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
+        ViewModel.RenderHtmlBodyAsyncFunc = html => RenderComposeHtmlAsync(html, editorLifecycleToken);
+        ViewModel.ApplySignatureHtmlFunc = ApplySignatureHtmlAsync;
+
+        base.OnNavigatedTo(e);
+
         EditorCommandBar.ConfigureSpellCheckLanguages(
             _translationService.GetAvailableLanguages(),
             _spellCheckLanguageCode);
-
-        var webView = GetWebView();
-
-        if (webView != null)
-        {
-            var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
-
-            anim?.TryStart(webView);
-        }
 
         _disposables.Add(GetSuggestionBoxDisposable(ToBox));
         _disposables.Add(GetSuggestionBoxDisposable(CCBox));
         _disposables.Add(GetSuggestionBoxDisposable(BccBox));
 
-        EditorSession.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
-        EditorSession.ApplicationShortcutRequested += WebViewEditor_ApplicationShortcutRequested;
+        EditorSession.ApplicationShortcutRequested -= ComposeEditor_ApplicationShortcutRequested;
+        EditorSession.ApplicationShortcutRequested += ComposeEditor_ApplicationShortcutRequested;
         _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
         _keyboardShortcutService.KeyboardShortcutsChanged += KeyboardShortcutService_KeyboardShortcutsChanged;
-        WebViewEditor.Restarted -= WebViewEditor_Restarted;
-        WebViewEditor.Restarted += WebViewEditor_Restarted;
-
-        ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
-        var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
-        ViewModel.RenderHtmlBodyAsyncFunc = html => RenderComposeHtmlAsync(html, editorLifecycleToken);
-        ViewModel.ApplySignatureHtmlFunc = ApplySignatureHtmlAsync;
 
         _ = ViewModel.RefreshRewriteAvailabilityAsync();
     }
@@ -998,6 +991,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         // The editor is going away, so a rewrite in flight has nowhere to land.
         ViewModel.RewriteSession.Reset();
         ViewModel.RenderHtmlBodyAsyncFunc = null;
+        ViewModel.RenderDraftAsyncFunc = null;
         ViewModel.ApplySignatureHtmlFunc = null;
 
         try
@@ -1014,15 +1008,16 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             // The draft can disappear while it is open, for example when the server deleted
             // or moved it and synchronization removed the local copy. The save then reports
-            // "Draft no longer exists." There is nothing left to save, and this async void
-            // override must not take the process down while the page is leaving.
+            // "Draft no longer exists." The editor reports the same way when the page leaves
+            // before the draft was loaded into it. There is nothing to save in either case, and
+            // this async void override must not take the process down while the page is leaving.
             Serilog.Log.Warning(exception, "Draft changes were not saved while leaving the composer.");
         }
         finally
         {
-            EditorSession.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
+            EditorSession.ApplicationShortcutRequested -= ComposeEditor_ApplicationShortcutRequested;
             _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
-            WebViewEditor.Restarted -= WebViewEditor_Restarted;
+            ViewModel.BodyWriter = null;
             ViewModel.GetHTMLBodyFunction = null;
             _isEditorDisposed = true;
             await EditorSession.DisposeAsync();
@@ -1030,17 +1025,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
             _editorLifecycleCancellationSource?.Dispose();
             _editorLifecycleCancellationSource = null;
         }
-    }
-
-    private async void WebViewEditor_Restarted(object? sender, EventArgs e)
-    {
-        if (IsEditorUnavailable || _editorLifecycleCancellationSource is not { } lifecycle)
-            return;
-
-        // The editor's browser restarted with an empty document. Show the last saved draft again, with the
-        // composer's typography, so typing continues on top of it instead of being replaced on the next save.
-        Serilog.Log.Warning("Compose editor restarted after its browser closed; rendering the saved draft again.");
-        await RenderComposeHtmlAsync(ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty, lifecycle.Token);
     }
 
     private async Task<string> GetEditorHtmlBodyAsync()
@@ -1053,13 +1037,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             return ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty;
         }
-        catch (InvalidOperationException) when (WebViewEditor.IsContentLost)
+        catch (InvalidOperationException)
         {
-            // The editor's browser restarted and lost what was typed since the last save. Put the
-            // saved body back so the composer keeps working and the draft is not overwritten.
-            var savedBody = ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty;
-            await EditorSession.RenderHtmlAsync(savedBody);
-            return savedBody;
+            // Nothing is loaded into the editor yet, so the saved body is still the draft's content.
+            return ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty;
         }
     }
 
@@ -1200,7 +1181,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         return !string.IsNullOrWhiteSpace(inReplyTo);
     }
 
-    [WinRT.DynamicWindowsRuntimeCast(typeof(WebView2))]
     private async Task ApplyInitialFocusAsync()
     {
         if (_isInitialFocusHandled || !_shouldApplyInitialFocus)
@@ -1217,7 +1197,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             {
                 await EditorSession.FocusEditorAsync(true);
 
-                if (FocusManager.GetFocusedElement() is WebView2)
+                if (ComposeEditor.HasKeyboardFocus)
                 {
                     return;
                 }
@@ -1236,17 +1216,31 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    private async Task RenderComposeHtmlAsync(string html, CancellationToken editorLifecycleToken)
+    private Task RenderComposeHtmlAsync(string html, CancellationToken editorLifecycleToken)
+        => RenderInEditorAsync(
+            async () =>
+            {
+                await EditorSession.SetRemoteContentPolicyAsync(
+                    ViewModel.ShouldBlockRemoteContent ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed,
+                    editorLifecycleToken);
+                await EditorSession.RenderHtmlAsync(html, editorLifecycleToken);
+            },
+            editorLifecycleToken);
+
+    private Task RenderComposeDraftAsync(ComposeDraftRenderRequest request, CancellationToken editorLifecycleToken)
+        => RenderInEditorAsync(() => EditorSession.RenderDraftAsync(request, editorLifecycleToken), editorLifecycleToken);
+
+    private async Task RenderInEditorAsync(Func<Task> renderAsync, CancellationToken editorLifecycleToken)
     {
         if (editorLifecycleToken.IsCancellationRequested)
             return;
 
         try
         {
-            await WebViewEditor.ConfigureSpellCheckAsync(
-                _isSpellCheckEnabled,
-                _spellCheckLanguageCode);
-            await WebViewEditor.ConfigureAutoCorrectAsync(ViewModel.PreferencesService.IsComposerAutoCorrectEnabled);
+            // Each load opens a new composer in the editor; the session hands it these settings.
+            await EditorSession.ExecuteCommandAsync(EditorCommand.SetSpellCheckLanguage(_spellCheckLanguageCode));
+            await EditorSession.ExecuteCommandAsync(EditorCommand.ToggleSpellCheck(_isSpellCheckEnabled));
+            await EditorSession.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(ViewModel.PreferencesService.IsComposerAutoCorrectEnabled));
 
             await EditorSession.SetDefaultTypographyAsync(
                 ViewModel.PreferencesService.ComposerFont,
@@ -1257,10 +1251,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             if (editorLifecycleToken.IsCancellationRequested)
                 return;
 
-            await EditorSession.SetRemoteContentPolicyAsync(
-                ViewModel.ShouldBlockRemoteContent ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed,
-                editorLifecycleToken);
-            await EditorSession.RenderHtmlAsync(html, editorLifecycleToken);
+            await renderAsync();
 
             if (!editorLifecycleToken.IsCancellationRequested)
                 await ApplyInitialFocusAsync();
@@ -1273,19 +1264,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
             // Draft deletion can navigate away while initialization/rendering is
             // still in flight. Disposal is the expected completion of that work.
         }
-        catch (ObjectDisposedException exception)
+        catch (Exception exception)
         {
-            // The editor or its WebView2 closed without this page observing a navigation
-            // (for example the WebView2 process went away). A disposed editor cannot render,
-            // and this call runs under the ViewModel's async void OnNavigatedTo.
-            Serilog.Log.Warning(exception, "Compose editor was disposed before the draft body rendered.");
-        }
-        catch (Exception exception) when (exception is System.IO.FileNotFoundException or System.Runtime.InteropServices.COMException or InvalidOperationException or TimeoutException)
-        {
-            // WebView2 failed to start (runtime files missing, bootstrap timeout or script
-            // error). Keep the composer open with the editor's failure status instead of crashing.
-            Serilog.Log.Error(exception, "Compose editor failed to initialize.");
-            WebViewEditor.ReportInitializationFailure(exception);
+            // This call runs under the ViewModel's async void OnNavigatedTo. A draft the engine cannot open, or an
+            // engine that could not start, leaves the composer open and empty instead of ending the process.
+            Serilog.Log.Error(exception, "Compose editor failed to load the draft body.");
         }
     }
 
@@ -1334,7 +1317,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         return EditorSession.SetApplicationShortcutsAsync(gestures);
     }
 
-    private async void WebViewEditor_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture gesture)
+    private async void ComposeEditor_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture gesture)
     {
         if (Interlocked.Exchange(ref _isExecutingEditorShortcut, 1) != 0)
             return;
@@ -1362,8 +1345,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 Key = shortcut.Key,
                 ModifierKeys = shortcut.ModifierKeys,
                 InputContext = _isPoppedOut ? KeyboardShortcutInputContext.PopOutCompose : KeyboardShortcutInputContext.Compose,
-                Sender = WebViewEditor,
-                Origin = WebViewEditor
+                Sender = ComposeEditor,
+                Origin = ComposeEditor
             });
         }
         catch (Exception exception)
@@ -1377,4 +1360,23 @@ public sealed partial class ComposePage : ComposePageAbstract,
     }
 
     private void EditorLinkOpenRequested(object? sender, Uri uri) => EditorLinkLauncher.Open(uri);
+
+    /// <summary>
+    /// Files dropped or pasted straight into the editor. The editor keeps the images and hands over the rest.
+    /// </summary>
+    private async void ComposeEditor_FilesReceived(object? sender, IReadOnlyList<string> paths)
+    {
+        try
+        {
+            var files = new List<StorageFile>();
+            foreach (var path in paths)
+                files.Add(await StorageFile.GetFileFromPathAsync(path));
+
+            await AttachFiles(files);
+        }
+        catch (Exception exception)
+        {
+            _logger.CaptureException(exception, "ComposePage.EditorFilesReceived");
+        }
+    }
 }

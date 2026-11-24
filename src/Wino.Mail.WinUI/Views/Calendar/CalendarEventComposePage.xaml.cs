@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using EmailValidation;
@@ -16,6 +16,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Editor;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Views.Abstract;
@@ -29,6 +30,7 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
     IRecipient<ApplicationThemeChanged>
 {
     private readonly List<IDisposable> _disposables = [];
+    private string _openedNotesHtml = string.Empty;
 
     public CalendarEventComposePage()
     {
@@ -48,7 +50,7 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
 
     private void ToggleNotesEditorThemeClicked(object sender, RoutedEventArgs e)
     {
-        NotesEditor.ToggleEditorTheme();
+        NotesEditor.IsEditorDarkMode = !NotesEditor.IsEditorDarkMode;
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -56,21 +58,21 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         base.OnNavigatedTo(e);
 
         _disposables.Add(GetSuggestionBoxDisposable(InviteBox));
-        _disposables.Add(NotesEditor);
 
-        ViewModel.GetHtmlNotesAsync = async () => await NotesEditor.GetHtmlBodyAsync() ?? string.Empty;
         var args = e.Parameter as CalendarEventComposeNavigationArgs;
+        var session = NotesEditor.Session;
+        _openedNotesHtml = args?.NotesHtml ?? string.Empty;
+        ViewModel.GetHtmlNotesAsync = GetNotesHtmlAsync;
 
         try
         {
             // Notes use the same spell-check choice as the mail composer.
-            await NotesEditor.ConfigureSpellCheckAsync(
-                ViewModel.IsComposerSpellCheckEnabled,
-                ViewModel.ComposerSpellCheckLanguageCode);
-            await NotesEditor.ConfigureAutoCorrectAsync(ViewModel.IsComposerAutoCorrectEnabled);
-            await NotesEditor.SetDefaultTypographyAsync(ViewModel.ComposerFont, ViewModel.ComposerFontSize);
+            await session.ExecuteCommandAsync(EditorCommand.SetSpellCheckLanguage(ViewModel.ComposerSpellCheckLanguageCode ?? string.Empty));
+            await session.ExecuteCommandAsync(EditorCommand.ToggleSpellCheck(ViewModel.IsComposerSpellCheckEnabled));
+            await session.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(ViewModel.IsComposerAutoCorrectEnabled));
+            await session.SetDefaultTypographyAsync(ViewModel.ComposerFont, ViewModel.ComposerFontSize);
 
-            await NotesEditor.RenderHtmlAsync(string.IsNullOrWhiteSpace(args?.NotesHtml) ? " " : args.NotesHtml);
+            await session.RenderHtmlAsync(_openedNotesHtml);
         }
         catch (ObjectDisposedException exception)
         {
@@ -78,16 +80,27 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
             // disposed it. Nothing is left to render.
             Log.Debug(exception, "Calendar notes editor was disposed during initialization.");
         }
-        catch (Exception exception) when (exception is System.IO.FileNotFoundException or COMException or InvalidOperationException or TimeoutException)
+        catch (Exception exception)
         {
-            // WebView2 could not start (for example missing runtime files on Windows 10).
-            // The rest of the event form stays usable; the editor shows its failure status.
+            // The rest of the event form stays usable without the notes editor.
             Log.Error(exception, "Calendar notes editor failed to initialize.");
-            NotesEditor.ReportInitializationFailure(exception);
         }
     }
 
-    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+    private async Task<string> GetNotesHtmlAsync()
+    {
+        try
+        {
+            return await NotesEditor.Session.GetHtmlBodyAsync() ?? string.Empty;
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or InvalidOperationException)
+        {
+            // The editor never showed the notes, so the event keeps the notes it was opened with.
+            return _openedNotesHtml;
+        }
+    }
+
+    protected override async void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
         base.OnNavigatingFrom(e);
 
@@ -97,6 +110,8 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         }
 
         _disposables.Clear();
+
+        await NotesEditor.Session.DisposeAsync();
     }
 
     private IDisposable GetSuggestionBoxDisposable(AutoSuggestBox box)
@@ -275,4 +290,22 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
     }
 
     private void EditorLinkOpenRequested(object? sender, Uri uri) => EditorLinkLauncher.Open(uri);
+
+    /// <summary>Files dropped or pasted into the notes that are not images become attachments of the event.</summary>
+    private void NotesEditor_FilesReceived(object? sender, IReadOnlyList<string> paths)
+    {
+        if (!ViewModel.CanAddAttachments) return;
+
+        foreach (var path in paths)
+        {
+            try
+            {
+                ViewModel.TryAddAttachment(path, new FileInfo(path).Length);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Log.Warning(exception, "A file dropped into the calendar notes could not be attached.");
+            }
+        }
+    }
 }

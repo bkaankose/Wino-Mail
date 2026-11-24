@@ -550,11 +550,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
             {
                 // Find the MIME and go to rendering page.
 
-                if (IsComposingPageActive())
-                {
-                    PrepareComposePageWebViewTransition();
-                }
-
                 ViewModel.NavigationService.Navigate(WinoPage.MailRenderingPage, selectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame);
             }
         }
@@ -655,7 +650,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 catch (Exception ex) when (ex is ObjectDisposedException or COMException)
                 {
                     // This task is fire-and-forget. A competing navigation can dispose the
-                    // reader's WebView2 during the settle delay; the idle navigation below
+                    // reader during the settle delay; the idle navigation below
                     // still has to run.
                     Log.Debug(ex, "Mail renderer was already disposed while preparing for idle.");
                 }
@@ -673,38 +668,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
         UpdateAdaptiveness();
     }
-
-    private void PrepareComposePageWebViewTransition()
-    {
-        var webView = GetComposerPageWebView();
-
-        if (webView != null)
-        {
-            var animation = ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("WebViewConnectedAnimation", webView);
-            animation.Configuration = new BasicConnectedAnimationConfiguration();
-        }
-    }
-
-    #region Connected Animation Helpers
-
-    // The connected animation is cosmetic. A page whose WebView2 is already disposed simply
-    // skips it instead of failing the selection change that triggered it.
-    private WebView2? GetComposerPageWebView()
-    {
-        try
-        {
-            if (RenderingFrame.Content is ComposePage composePage)
-                return composePage.GetWebView();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            Log.Debug(ex, "Compose page WebView2 was disposed before the connected animation.");
-        }
-
-        return null;
-    }
-
-    #endregion
 
     public void Receive(SelectMailItemContainerEvent message)
     {
