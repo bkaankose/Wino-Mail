@@ -1,17 +1,18 @@
 <Project>
   <!--
     The native mail renderer is referenced from a local checkout by absolute path until it ships as a package.
-    WINO_RENDERER_ROOT (environment) or -p:WinoRendererRoot overrides the location.
+    WINO_RENDERER_ROOT (environment) or -p:WinoRendererRoot overrides the location. A value given on the command
+    line cannot be changed here, so the trailing slash goes into a property of its own.
   -->
   <PropertyGroup>
     <WinoRendererRoot Condition="'$(WinoRendererRoot)' == '' and '$(WINO_RENDERER_ROOT)' != ''">$(WINO_RENDERER_ROOT)</WinoRendererRoot>
     <WinoRendererRoot Condition="'$(WinoRendererRoot)' == ''">D:\Wino-Mail-Renderer.worktrees\wino-integration</WinoRendererRoot>
-    <WinoRendererRoot>$([MSBuild]::EnsureTrailingSlash('$(WinoRendererRoot)'))</WinoRendererRoot>
+    <WinoRendererDirectory>$([MSBuild]::EnsureTrailingSlash('$(WinoRendererRoot)'))</WinoRendererDirectory>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="$(WinoRendererRoot)src\Wino.Renderer\Wino.Renderer.csproj" />
-    <ProjectReference Include="$(WinoRendererRoot)src\Wino.Renderer.Mime\Wino.Renderer.Mime.csproj" />
-    <ProjectReference Include="$(WinoRendererRoot)platforms\Wino.Renderer.Platform.Windows\Wino.Renderer.Platform.Windows.csproj" />
-    <ProjectReference Include="$(WinoRendererRoot)platforms\Wino.Renderer.WinUI\Wino.Renderer.WinUI.csproj" />
+    <ProjectReference Include="$(WinoRendererDirectory)src\Wino.Renderer\Wino.Renderer.csproj" />
+    <ProjectReference Include="$(WinoRendererDirectory)src\Wino.Renderer.Mime\Wino.Renderer.Mime.csproj" />
+    <ProjectReference Include="$(WinoRendererDirectory)platforms\Wino.Renderer.Platform.Windows\Wino.Renderer.Platform.Windows.csproj" />
+    <ProjectReference Include="$(WinoRendererDirectory)platforms\Wino.Renderer.WinUI\Wino.Renderer.WinUI.csproj" />
   </ItemGroup>
 </Project>
