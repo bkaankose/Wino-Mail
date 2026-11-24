@@ -16,7 +16,8 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
-using Wino.Editor.Android;
+using Wino.Mail.Rendering;
+using Wino.Renderer.Android;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels;
@@ -34,7 +35,7 @@ namespace Wino.Mail.Android.Views.Mail.Compose;
 /// carries Close, the title with the draft status, Attach, More and the filled Send button (Send to server for a local
 /// draft whose upload failed). The zone holds the draft-upload failure bar, From (an alias menu when the account has
 /// several), To / Cc / Bcc (Recipients partial), Subject, the attachment strip (Attachments partial), the body in the
-/// shared editor document (<see cref="AndroidHtmlMailEditorSession"/>) and the format bar (Format partial) right above
+/// native mail renderer's composer (<see cref="EngineMailEditorSession"/> over a MailView) and the format bar (Format partial) right above
 /// the keyboard. The draft is saved three seconds after the last change, whenever the page pauses (backgrounded, rotated,
 /// covered) and when it closes; Close and Back save and close, Discard (in More) asks first.
 /// </summary>
@@ -44,8 +45,8 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
     private IDispatcher? _dispatcher;
     private IMailDialogService? _dialogs;
     private ComposeBridge? _bridge;
-    private AndroidHtmlMailEditorSession? _editor;
-    private WebView? _web;
+    private EngineMailEditorSession? _editor;
+    private MailView? _web;
     private TextView? _title;
     private TextView? _status;
     private CircularProgressIndicator? _saving;
@@ -428,51 +429,29 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
 
     // ---- Editor ----
 
+    // The body is Wino's own renderer in its composer mode: a self-scrolling MailView with the keyboard's input
+    // connection, behind the shared EngineMailEditorSession the format bar and the ViewModel use.
     private void BuildEditor(View view, Context context, ComposePageViewModel viewModel, IServiceProvider services)
     {
-        _web = view.Require<WebView>(Resource.Id.compose_web);
-        _web.ContentDescription = Translator.Reader_MessageBodyAutomationName;
-        var editor = _editor = new AndroidHtmlMailEditorSession(_web);
-        if (services.GetService<IExternalLauncher>() is { } launcher) editor.Configure(launcher);
-        editor.OperationFailed += (_, exception) => ReportError(exception);
-        editor.BrowserLost += (_, _) => _dispatcher?.ExecuteOnUIThread(() => Observe(ReplaceEditorAsync(editor)));
+        var host = view.Require<FrameLayout>(Resource.Id.compose_body);
+        _web = new MailView(context) { ContentDescription = Translator.Reader_MessageBodyAutomationName };
+        host.AddView(_web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        var editor = _editor = new EngineMailEditorSession(_web, _dispatcher ?? services.GetRequiredService<IDispatcher>(),
+            services.GetRequiredService<MailEngineHost>(), services.GetRequiredService<IMailDialogService>());
         editor.ContentChanged += (_, _) => _dispatcher?.ExecuteOnUIThread(ScheduleAutosave);
         editor.StateChanged += (_, state) => _dispatcher?.ExecuteOnUIThread(() => UpdateFormatState(state));
         editor.ShortcutRequested += (_, kind) =>
         {
             if (kind == EditorShortcutKind.OpenLinkDialog) _dispatcher?.ExecuteOnUIThread(ShowLinkDialog);
         };
-        editor.ImageInsertionRequested += (_, _) => _dispatcher?.ExecuteOnUIThread(() => Observe(InsertPicturesAsync()));
-        if (context.ContentResolver is { } resolver) editor.AcceptReceivedImages(resolver);
+        if (services.GetService<IExternalLauncher>() is { } launcher)
+            editor.LinkOpenRequested += (_, uri) => Observe(launcher.LaunchUriAsync(uri));
         Observe(InitializeEditorAsync(editor));
     }
 
-    /// <summary>
-    /// Windows WinoMailEditor recovery: a WebView whose renderer ended cannot be reused, so a new one takes its place and
-    /// the last saved draft body is rendered again. Autosave reads no body while the editor is missing.
-    /// </summary>
-    private async Task ReplaceEditorAsync(AndroidHtmlMailEditorSession lost)
-    {
-        if (_editorDisposed || !ReferenceEquals(_editor, lost) || _web is not { Context: { } context } old
-            || old.Parent is not ViewGroup parent || View is not { } root || ViewModel is not { } viewModel || _services is not { } services) return;
-        _editor = null;
-        var fresh = new WebView(context, null, 0, Resource.Style.Widget_Wino_Compose_Body) { Id = old.Id };
-        int index = parent.IndexOfChild(old);
-        var layout = old.LayoutParameters;
-        parent.RemoveView(old);
-        if (layout is null) parent.AddView(fresh, index);
-        else parent.AddView(fresh, index, layout);
-        try { await lost.DisposeAsync(); }
-        catch (Exception exception) { ReportError(exception); }
-        old.Destroy();
-        BuildEditor(root, context, viewModel, services);
-        await RenderBodyAsync(viewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty);
-    }
-
-    private async Task InitializeEditorAsync(AndroidHtmlMailEditorSession editor)
+    private async Task InitializeEditorAsync(EngineMailEditorSession editor)
     {
         await editor.SetThemeAsync(_darkEditor);
-        await editor.SetLinkLabelsAsync(Translator.Composer_OpenLink, Translator.Composer_RemoveLink);
         await editor.InitializeAsync();
     }
 
@@ -509,10 +488,8 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
     private void FocusBody()
     {
         if (_editor is not { } editor || _editorDisposed) return;
-        _web?.RequestFocus();
         Observe(editor.FocusEditorAsync(true));
-        if (_web is not null && _web.Context?.GetSystemService(Context.InputMethodService) is InputMethodManager input)
-            input.ShowSoftInput(_web, ShowFlags.Implicit);
+        _web?.ShowKeyboard();
     }
 
     /// <summary>A reply (it has In-Reply-To) starts in the body; anything else starts in To (Windows ApplyInitialFocusAsync).</summary>
@@ -540,11 +517,10 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
     {
         if (_editor is not { } editor || _editorDisposed) return;
         _editorDisposed = true;
-        var web = _web;
         _editor = null;
         try { await editor.DisposeAsync(); }
         catch (Exception exception) { ReportError(exception); }
-        web?.Destroy();
+        _web = null;
     }
 
     private void SetEditorTheme(bool dark)
