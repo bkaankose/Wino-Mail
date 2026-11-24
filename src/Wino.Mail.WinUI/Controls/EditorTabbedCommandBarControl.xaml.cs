@@ -199,6 +199,13 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        // Moving the page into a pop-out window raises Loaded for the new tree before the Unloaded of the old one
+        // arrives. Detaching then would leave the bar in the live tree without the editor's state.
+        if (IsLoaded)
+        {
+            return;
+        }
+
         DetachCommandTarget();
     }
 
