@@ -61,6 +61,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private bool _isPoppedOut;
     private bool _isInitialFocusHandled;
     private bool _shouldApplyInitialFocus;
+    private bool _hasLoaded;
+    private bool _isEditorLastTextInput;
+    private bool _shouldReturnFocusToEditor;
     private bool _isNavigatingFrom;
     // The editor session lives as long as the page instance, so a disposed editor stays disposed even if the page is navigated to again.
     private bool _isEditorDisposed;
@@ -126,6 +129,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     public void OnPopoutStateChanged(bool isPoppedOut)
     {
+        // Read before the page leaves its window: the move itself shifts the focus.
+        _shouldReturnFocusToEditor = isPoppedOut && _isEditorLastTextInput;
         _isPoppedOut = isPoppedOut;
         Bindings.Update();
     }
@@ -969,9 +974,50 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private void ComposerLoaded(object sender, RoutedEventArgs e)
     {
+        // Loaded runs again when the page arrives in its pop-out window. Someone who was writing the message goes
+        // on writing it there; otherwise the page focuses what it focuses when it opens.
+        if (_hasLoaded && _shouldReturnFocusToEditor)
+        {
+            _shouldReturnFocusToEditor = false;
+            _ = ReturnFocusToEditorAsync();
+            return;
+        }
+
+        _hasLoaded = true;
+
         if (ShouldFocusRecipients())
         {
             ToBox.Focus(FocusState.Programmatic);
+        }
+    }
+
+    [WinRT.DynamicWindowsRuntimeCast(typeof(TextBox))]
+    private void ComposerGotFocus(object sender, RoutedEventArgs e)
+    {
+        // Buttons and menus take the focus for a moment without becoming the place the user types in.
+        if (ComposeEditor.HasKeyboardFocus)
+            _isEditorLastTextInput = true;
+        else if (e.OriginalSource is TextBox)
+            _isEditorLastTextInput = false;
+    }
+
+    private async Task ReturnFocusToEditorAsync()
+    {
+        try
+        {
+            for (var attempt = 0; attempt < InitialFocusRetryCount; attempt++)
+            {
+                await EditorSession.FocusEditorAsync(true);
+
+                if (ComposeEditor.HasKeyboardFocus)
+                    return;
+
+                await Task.Delay(TimeSpan.FromMilliseconds(50));
+            }
+        }
+        catch (ObjectDisposedException) when (IsEditorUnavailable)
+        {
+            // The composer closed while it was moving.
         }
     }
 
