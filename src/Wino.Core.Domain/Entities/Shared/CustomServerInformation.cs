@@ -90,7 +90,7 @@ public class CustomServerInformation
     [Ignore]
     public ExchangeTransport EffectiveExchangeTransport
         => ExchangeTransport != ExchangeTransport.Automatic ? ExchangeTransport
-         : DetectedExchangeTransport is ExchangeTransport.Ews or ExchangeTransport.ActiveSync ? DetectedExchangeTransport
+         : DetectedExchangeTransport == ExchangeTransport.Ews ? ExchangeTransport.Ews
          : ExchangeTransport.MapiHttp;
 
     /// <summary>POP3 only: delete each message from the server once it is saved on this device.</summary>

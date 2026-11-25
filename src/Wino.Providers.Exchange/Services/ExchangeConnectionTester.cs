@@ -97,14 +97,9 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
                 ? new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.CredentialRejected)
                 : new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, detected, ex.Message);
 
+            // Automatic never falls back to ActiveSync: it is chosen explicitly in the connection method.
             Logger.Warning(ex, "The Exchange connection check against {Host} failed.", ewsUri.Host);
-
-            // Servers such as Zoho Mail expose only ActiveSync, so Automatic tries it on the same host before giving up.
-            if (serverInformation.ExchangeTransport != ExchangeTransport.Automatic || serverInformation.UseOAuthAuthentication)
-                return ewsResult;
-
-            var activeSyncResult = await TestActiveSyncAsync(account, cancellationToken).ConfigureAwait(false);
-            return activeSyncResult.Status == ExchangeConnectionTestStatus.Succeeded ? activeSyncResult : ewsResult;
+            return ewsResult;
         }
     }
 
