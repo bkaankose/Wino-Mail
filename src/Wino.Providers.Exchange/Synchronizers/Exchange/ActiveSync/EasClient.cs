@@ -151,6 +151,25 @@ internal sealed class EasClient : IDisposable
             await DiscardSynchronizationStateAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// X-MS-RP: the server requires the client to discard its local data and synchronize again, and names the versions
+    /// it now supports, so the version is negotiated again first.
+    /// </summary>
+    private async Task ResynchronizeAsync(EasAccountState state, IEnumerable<string> advertised)
+    {
+        var versions = advertised.SelectMany(value => value.Split(',')).Select(value => value.Trim()).ToHashSet(StringComparer.Ordinal);
+        var version = SupportedVersions.FirstOrDefault(versions.Contains)
+            ?? throw new NotSupportedException(string.Format(Translator.ExchangeSetup_ActiveSyncVersionUnsupported, string.Join(", ", versions)));
+        Logger.Information("The EAS server asked account {AccountId} to synchronize again (X-MS-RP); version {Previous} -> {Version}.", _account.Id, _version, version);
+        _version = version;
+        state.ProtocolVersion = version;
+        await SaveStateAsync().ConfigureAwait(false);
+
+        if (_accountData == null)
+            Logger.Warning("A connection check for account {AccountId} received X-MS-RP; it has no local data to discard.", _account.Id);
+        await DiscardSynchronizationStateAsync().ConfigureAwait(false);
+    }
+
     /// <summary>Discards the account's synchronized data and sync state, then stops the running operation so it starts over.</summary>
     private async Task DiscardSynchronizationStateAsync()
     {
@@ -191,7 +210,14 @@ internal sealed class EasClient : IDisposable
         if (_version == null)
             await ConnectAsync(cancellationToken).ConfigureAwait(false);
 
-        return await PostAsync(command, EasWbxml.Encode(document), "application/vnd.ms-sync.wbxml", cancellationToken).ConfigureAwait(false);
+        return await PostAsync(command, EasWbxml.Encode(document), "application/vnd.ms-sync.wbxml", cancellationToken,
+            initializesState: IsInitialHierarchyRequest(document)).ConfigureAwait(false);
+    }
+
+    private static bool IsInitialHierarchyRequest(XElement document)
+    {
+        XNamespace folder = "FolderHierarchy:";
+        return document.Name == folder + "FolderSync" && document.Element(folder + "SyncKey")?.Value == "0";
     }
 
     internal async Task SendMailAsync(byte[] mime, string clientId, CancellationToken cancellationToken)
@@ -277,24 +303,29 @@ internal sealed class EasClient : IDisposable
     }
 
     private async Task<XElement?> PostAsync(string command, byte[] bytes, string contentType, CancellationToken cancellationToken,
-        bool allowProvision = true, bool allowRedirect = true, HttpClient? http = null, string? policyKey = null)
+        bool allowProvision = true, bool allowRedirect = true, HttpClient? http = null, string? policyKey = null, bool initializesState = false)
     {
         var state = await EnsureStateAsync().ConfigureAwait(false);
         var sentPolicyKey = policyKey ?? state.PolicyKey;
         using var request = CreateRequest(command, bytes, contentType, state.DeviceId, sentPolicyKey);
         using var response = await (http ?? _http).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         if (allowRedirect && await TryFollowMailboxRedirectAsync(response).ConfigureAwait(false))
-            return await PostAsync(command, bytes, contentType, cancellationToken, allowProvision, false, http, policyKey).ConfigureAwait(false);
+            return await PostAsync(command, bytes, contentType, cancellationToken, allowProvision, false, http, policyKey, initializesState).ConfigureAwait(false);
 
         if ((int)response.StatusCode == 449)
         {
             if (!allowProvision)
                 throw new EasPolicyException(Translator.ExchangeSetup_ActiveSyncProvisioningLoop, "449");
             await ProvisionAsync(sentPolicyKey, cancellationToken).ConfigureAwait(false);
-            return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect, http).ConfigureAwait(false);
+            return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect, http, initializesState: initializesState).ConfigureAwait(false);
         }
 
         EnsureHttpSuccess(response);
+
+        // Exchange also sends X-MS-RP on every answer to an initial request (Provision with policy key 0, FolderSync with
+        // key 0); such a request already starts the state over, so only other answers discard it.
+        if (response.Headers.TryGetValues("X-MS-RP", out var resetVersions) && !initializesState && !(command == "Provision" && sentPolicyKey == "0"))
+            await ResynchronizeAsync(state, resetVersions).ConfigureAwait(false);
         if (response.Content.Headers.ContentLength > MaximumResponseBytes)
             throw new EasResponseTooLargeException();
 
@@ -326,7 +357,7 @@ internal sealed class EasClient : IDisposable
             if (!allowProvision)
                 throw new EasPolicyException(Translator.ExchangeSetup_ActiveSyncProvisioningLoop, status);
             await ProvisionAsync(sentPolicyKey, cancellationToken).ConfigureAwait(false);
-            return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect, http).ConfigureAwait(false);
+            return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect, http, initializesState: initializesState).ConfigureAwait(false);
         }
 
         ThrowOnAccountStatus(status);
