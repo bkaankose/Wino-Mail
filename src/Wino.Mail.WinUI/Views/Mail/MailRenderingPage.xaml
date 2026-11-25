@@ -849,6 +849,7 @@
                                 <Button
                                     Padding="8,2"
                                     AutomationProperties.AutomationId="MailActionCardPrimaryAction"
+                                    AutomationProperties.Name="{x:Bind PrimaryAction.Label}"
                                     Click="ActionCardAction_Click"
                                     CornerRadius="4"
                                     FontSize="12"
