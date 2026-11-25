@@ -160,6 +160,7 @@ internal sealed class ActionCardView : WinoSurfaceView
         foreach (var action in _model.MoreActions)
             actions.AddArrangedSubview(ActionButton(action, action.Label, false));
         actions.AddArrangedSubview(WinoLayout.Spacer());
+        actions.AddArrangedSubview(WinoStyle.Label(Translator.ActionCard_SenderDataNote, WinoStyle.Caption, WinoStyle.TertiaryText, 1));
         return actions;
     }
 
