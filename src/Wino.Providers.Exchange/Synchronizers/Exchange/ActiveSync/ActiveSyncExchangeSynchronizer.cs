@@ -164,15 +164,84 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         return TaskSynchronizationResult.Empty;
     }
 
+    /// <summary>
+    /// Runs each bundle on its own, as the EWS synchronizer does: a failed bundle goes through the error handlers and
+    /// is reverted, the others still run, and the failures are reported together. Cancellation reverts the bundle
+    /// that was running and every later one.
+    /// </summary>
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<EwsRequest>> requests, CancellationToken cancellationToken = default)
     {
+        if (requests == null || requests.Count == 0)
+            return;
+
         ApplyOptimisticUiChanges(requests);
-        foreach (var bundle in requests)
+        var errors = new List<string>();
+        for (var index = 0; index < requests.Count; index++)
         {
-            try { await bundle.NativeRequest.IntegratorTask(bundle.Request, cancellationToken).ConfigureAwait(false); }
-            catch { UiChanges.RevertBundle(bundle); throw; }
-            finally { UiChanges.CompleteRequests(new[] { bundle.Request }); }
+            var bundle = requests[index];
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await bundle.NativeRequest.IntegratorTask(bundle.Request, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                for (var later = index; later < requests.Count; later++)
+                    UiChanges.RevertBundle(requests[later]);
+                throw;
+            }
+            catch (Exception exception)
+            {
+                await HandleFailedRequestAsync(bundle, exception, errors).ConfigureAwait(false);
+            }
+            finally
+            {
+                UiChanges.CompleteRequests(new[] { bundle.Request });
+            }
         }
+
+        if (errors.Count > 0)
+            throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
+    }
+
+    private async Task HandleFailedRequestAsync(IRequestBundle<EwsRequest> bundle, Exception exception, List<string> errors)
+    {
+        var error = new SynchronizerErrorContext
+        {
+            Account = Account,
+            ErrorMessage = exception.Message,
+            Exception = exception,
+            RequestBundle = bundle,
+            Request = bundle.Request,
+            IsEntityNotFound = IsEntityNotFound(exception, bundle.UIChangeRequest),
+            OperationType = "ActiveSyncExecuteRequest"
+        };
+
+        var handled = await HandleRequestErrorAsync(_errorHandlerFactory, error).ConfigureAwait(false);
+
+        // Handlers own the non-transient errors they handled.
+        if (!handled || error.Severity == SynchronizerErrorSeverity.Transient)
+        {
+            CaptureSynchronizationIssue(error);
+            UiChanges.RevertBundle(bundle);
+            Logger.Error(exception, "EAS request execution failed for {Account}.", Account.Name);
+            errors.Add(exception.Message);
+        }
+    }
+
+    /// <summary>Whether an operation on an existing item failed because the item or its folder is gone (MS-ASCMD status 8).</summary>
+    private static bool IsEntityNotFound(Exception exception, IUIChangeRequest? request)
+    {
+        if (request is not (BatchDeleteRequest or BatchMoveRequest or BatchChangeFlagRequest or BatchMarkReadRequest or BatchArchiveRequest
+            or DeleteRequest or MoveRequest or ChangeFlagRequest or MarkReadRequest))
+            return false;
+
+        for (Exception? current = exception; current != null; current = current.InnerException)
+        {
+            if (current is SynchronizerEntityNotFoundException || current is EasCommandException { Status: "8" })
+                return true;
+        }
+        return false;
     }
 
     public override List<IRequestBundle<EwsRequest>> MarkRead(BatchMarkReadRequest requests) => Bundle(async token =>
