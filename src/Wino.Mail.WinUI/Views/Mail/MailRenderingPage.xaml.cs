@@ -393,7 +393,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             {
                 Text = Translator.Reader_ContextMenu_CopyLink,
                 Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Link)),
-                Command = ViewModel.CopyClipboardCommand,
+                Command = ViewModel.CopyLinkCommand,
                 CommandParameter = request.LinkUrl,
                 AutomationId = "MailRenderingCopyLink"
             });
