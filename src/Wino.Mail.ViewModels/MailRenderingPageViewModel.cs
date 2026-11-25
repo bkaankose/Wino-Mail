@@ -123,13 +123,22 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     /// <summary>
     /// False from the moment a message starts loading until its body has been handed to the renderer.
-    /// The reader shows skeletons while it is false, so no half-populated header is ever on screen.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsLoadingMailContent))]
     public partial bool IsMailContentReady { get; set; }
 
-    public bool IsLoadingMailContent => !IsMailContentReady;
+    /// <summary>
+    /// True while the reader shows its loading skeleton instead of a message.
+    /// </summary>
+    /// <remarks>
+    /// A cached MIME renders almost instantly, so switching between two cached messages keeps the
+    /// previous one on screen and swaps it in one pass; a skeleton there only flashes. The skeleton
+    /// is for a fresh reader, a MIME that has to be downloaded, and a cached load that runs long.
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool IsLoadingMailContent { get; set; }
+
+    private static readonly TimeSpan CachedLoadSkeletonDelay = TimeSpan.FromMilliseconds(300);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
@@ -565,9 +574,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         base.OnNavigatedTo(mode, parameters);
 
         BeginMailContentLoad();
+        ShowLoadingSkeleton();
 
         // Only a fresh navigation blanks the renderer. Re-entry keeps the previous body on screen
-        // behind the loading treatment, which is what removes the flash between two messages.
+        // until the next one replaces it, which is what removes the flash between two messages.
         if (MessageReader is { } messageReader)
         {
             await ExecuteUIThreadAsync(messageReader.ClearAsync);
@@ -581,11 +591,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     /// <summary>
-    /// Puts the reader into its loading state and drops every trace of the message it was showing.
+    /// Starts loading another message and detaches the reader from the one it was showing.
     /// </summary>
     /// <remarks>
-    /// The page is reused across selections, so this is the only thing standing between the previous
-    /// message's sender, date, recipients and attachments and the next message's body.
+    /// The previous message stays on screen: either RenderAsync replaces every part of it in one UI
+    /// pass, or <see cref="ShowLoadingSkeleton"/> clears it. Nothing message-specific stays
+    /// invocable meanwhile, because every command reads the initialized item, which is cleared here.
     /// </remarks>
     public void BeginMailContentLoad()
     {
@@ -604,8 +615,23 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
-        CurrentMailItemDisplayInformation = null;
         CurrentRenderModel = null;
+
+        ResetProgress();
+    }
+
+    /// <summary>
+    /// Shows the loading skeleton and drops every visible trace of the previous message.
+    /// </summary>
+    private void ShowLoadingSkeleton()
+    {
+        ClearDisplayedMessage();
+        IsLoadingMailContent = true;
+    }
+
+    private void ClearDisplayedMessage()
+    {
+        CurrentMailItemDisplayInformation = null;
         ResetPrivacyState();
         ResetInvitation();
         ResetLinkedItems();
@@ -621,11 +647,38 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         // them, which a fast switch can interleave with that repopulation.
         IsShowingAllAttachments = false;
 
-        ResetProgress();
-
-        // With no initialized item this leaves only Save As and Print, so nothing message-specific
-        // is invocable while the reader is loading.
+        // With no initialized item this leaves only Save As and Print.
         InitializeCommandBarItems();
+    }
+
+    private async Task ShowSkeletonIfStillLoadingAsync(int loadVersion)
+    {
+        await Task.Delay(CachedLoadSkeletonDelay).ConfigureAwait(false);
+
+        // Only covers the reader. The render may already have filled in the new header, and clearing it here
+        // would leave it blank once the skeleton lifts.
+        await ExecuteUIThread(() =>
+        {
+            if (loadVersion == _loadVersion && !IsMailContentReady)
+                IsLoadingMailContent = true;
+        });
+    }
+
+    private async Task CompleteMailContentLoadAsync(int loadVersion)
+    {
+        await ExecuteUIThread(() =>
+        {
+            if (loadVersion != _loadVersion)
+                return;
+
+            // A load that rendered nothing (missing or corrupt MIME) must not leave the previous
+            // message on screen as if it were this one.
+            if (initializedMimeMessageInformation == null)
+                ClearDisplayedMessage();
+
+            IsLoadingMailContent = false;
+            IsMailContentReady = true;
+        });
     }
 
     /// <summary>
@@ -652,8 +705,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             InitializeCommandBarItems();
 
-            if (loadVersion == _loadVersion)
-                await ExecuteUIThread(() => IsMailContentReady = true);
+            await CompleteMailContentLoadAsync(loadVersion);
         }
         catch (OperationCanceledException)
         {
@@ -667,8 +719,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             Log.Error(ex, "Failed to render mail.");
 
             // Leave an empty reader behind the error rather than a skeleton that never resolves.
-            if (loadVersion == _loadVersion)
-                await ExecuteUIThread(() => IsMailContentReady = true);
+            await CompleteMailContentLoadAsync(loadVersion);
         }
     }
 
@@ -743,12 +794,23 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private async Task RenderAsync(MailItemViewModel mailItemViewModel, CancellationToken cancellationToken = default)
     {
         ResetProgress();
+        var loadVersion = _loadVersion;
         var isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.MailCopy.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!isMimeExists)
+        if (isMimeExists)
         {
+            _ = ShowSkeletonIfStillLoadingAsync(loadVersion);
+        }
+        else
+        {
+            await ExecuteUIThread(() =>
+            {
+                if (loadVersion == _loadVersion)
+                    ShowLoadingSkeleton();
+            });
+
             var downloadFailureReported = await HandleSingleItemDownloadAsync(mailItemViewModel);
 
             // A download can take seconds, which is long enough for the user to select something else.
@@ -787,9 +849,16 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
 
         initializedMailItemViewModel = mailItemViewModel;
+
+        // The invitation load reads the card's version, so the reset has to land before it starts.
+        await ExecuteUIThread(() =>
+        {
+            ResetInvitation();
+            CurrentMailItemDisplayInformation = mailItemViewModel;
+        });
+
         BeginInvitationLoad(mailItemViewModel, mimeMessageInformation.MimeMessage, cancellationToken);
         BeginLinkedItemsLoad(mailItemViewModel);
-        await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
         await RenderAsync(mimeMessageInformation);
     }
 
@@ -825,9 +894,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         await ExecuteUIThread(() =>
         {
-            // A message reader returns the attachments later. When it re-renders the open message its
-            // attachments stay on screen until then; a new message's are hidden behind the loading treatment.
-            if (messageReader == null || CurrentRenderModel == null)
+            // A message reader returns the attachments later, and ApplyRenderModel swaps them in with the
+            // body, so the previous message's stay on screen until then instead of blinking out.
+            if (messageReader == null)
             {
                 Attachments.Clear();
                 DisplayedAttachments.Clear();
@@ -894,6 +963,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     private void ApplyRenderModel(MailRenderModel renderModel, RemoteContentDecision decision, bool isJunk, bool isTransient)
     {
+        ResetPrivacyState();
+
         // Heads refresh their remote content bars when CurrentRenderModel changes, so the
         // privacy state has to be current before it is assigned.
         ApplyPrivacyState(renderModel, decision, isJunk, isTransient);
@@ -957,6 +1028,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         CurrentDownloadPercentage = 0d;
         IsMailContentReady = false;
+        IsLoadingMailContent = false;
 
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;

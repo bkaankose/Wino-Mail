@@ -103,6 +103,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _readerPresentation = new EngineReaderPresentation();
         _mailView = CreateMailView();
         MailRendererHost.Children.Add(_mailView);
+
+        // The swap chain ignores the host's rounded clip, so the view rounds itself to the same radius.
+        _mailView.ContentCornerRadius = MailRendererHost.CornerRadius;
         _messageReader = new EngineMailMessageReader(
             _mailView,
             App.Current.Services.GetRequiredService<MailEngineHost>(),
@@ -578,8 +581,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             _currentMailItem = mailItemViewModel;
             _intelligence.BeginMailItem(_currentMailItem);
 
-            // Deliberately no clear of the renderer. The previous body stays loaded behind the
-            // opaque loading overlay instead of blanking the pane, which is what removes the flash.
+            // Deliberately no clear of the renderer. The previous body stays on screen until the next
+            // one replaces it, or behind the opaque skeleton when the MIME has to be downloaded first.
             await ViewModel.LoadContentAsync(mailItemViewModel);
         }
         catch (Exception ex)
