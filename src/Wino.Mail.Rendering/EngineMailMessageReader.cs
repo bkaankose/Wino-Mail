@@ -326,8 +326,10 @@ public sealed partial class EngineMailMessageReader : IMailMessageReader
             Mode = ToRenderMode(_isReaderView),
             KeepScrollPosition = keepScrollPosition,
             Accessibility = _view.AccessibilityContext,
-            FoldTrimmedContent = options?.FoldEarlierMessages == true ? TrimmedKinds.Reply | TrimmedKinds.Signature : TrimmedKinds.None,
-            ReplyRow = CreateReplyRow(Wino.Core.Domain.Translator.Reader_EarlierMessageRowTitle),
+            FoldTrimmedContent = options?.FoldEarlierMessages != true ? TrimmedKinds.None
+                : options.FoldConversation ? TrimmedKinds.Reply | TrimmedKinds.Signature
+                : TrimmedKinds.Quote | TrimmedKinds.Signature,
+            ReplyRow = options?.FoldConversation == true ? CreateReplyRow(Wino.Core.Domain.Translator.Reader_EarlierMessageRowTitle) : null,
 
             // Block all covers images only inside the engine; web fonts and font style sheets are their own switches.
             RemoteFonts = !isEverythingBlocked,

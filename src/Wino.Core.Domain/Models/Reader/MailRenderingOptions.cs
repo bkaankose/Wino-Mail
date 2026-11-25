@@ -14,6 +14,9 @@ public class MailRenderingOptions
     /// <summary>Quoted earlier messages and signatures are shown folded behind a button.</summary>
     public bool FoldEarlierMessages { get; set; }
 
+    /// <summary>With <see cref="FoldEarlierMessages"/>, each earlier message folds behind its own row.</summary>
+    public bool FoldConversation { get; set; }
+
     /// <summary>The sender's structured data (bookings, orders) is read after the message is shown.</summary>
     public bool FindStructuredData { get; set; }
 

@@ -451,6 +451,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsReaderFoldingEnabled { get; set; }
 
     /// <summary>
+    /// Setting: With folding on, each earlier message of a conversation folds behind its own row instead of the whole history behind one button.
+    /// </summary>
+    bool IsConversationFoldingEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Show the bookings, orders and deliveries a sender describes with structured data as cards above the message.
     /// </summary>
     bool IsActionCardsEnabled { get; set; }

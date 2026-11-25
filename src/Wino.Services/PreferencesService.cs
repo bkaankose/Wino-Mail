@@ -62,6 +62,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
             RemoteContent = RemoteContentMode,
             RenderPlaintextLinks = RenderPlaintextLinks,
             FoldEarlierMessages = IsReaderFoldingEnabled,
+            FoldConversation = IsReaderFoldingEnabled && IsConversationFoldingEnabled,
             FindStructuredData = IsActionCardsEnabled,
             FindDates = IsDateDetectionEnabled
         };
@@ -240,6 +241,11 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(IsReaderFoldingEnabled), true);
         set => SetPropertyAndSave(nameof(IsReaderFoldingEnabled), value);
+    }
+    public bool IsConversationFoldingEnabled
+    {
+        get => _configurationService.Get(nameof(IsConversationFoldingEnabled), false);
+        set => SetPropertyAndSave(nameof(IsConversationFoldingEnabled), value);
     }
     public bool IsActionCardsEnabled
     {

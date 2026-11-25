@@ -98,18 +98,31 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="RenderingFoldingCard"
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="RenderingFoldingExpander"
             Description="{x:Bind domain:Translator.SettingsRendering_Folding_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsRendering_Folding_Title, Mode=OneTime}">
-            <controls:SettingsCard.HeaderIcon>
+            <controls:SettingsExpander.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="TextQuote" />
-            </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsExpander.HeaderIcon>
             <ToggleSwitch
+                x:Name="FoldingToggle"
                 AutomationProperties.AutomationId="RenderingFoldingToggle"
                 AutomationProperties.Name="{x:Bind domain:Translator.SettingsRendering_Folding_Title, Mode=OneTime}"
                 IsOn="{x:Bind ViewModel.PreferencesService.IsReaderFoldingEnabled, Mode=TwoWay}" />
-        </controls:SettingsCard>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="RenderingConversationFoldingCard"
+                    Description="{x:Bind domain:Translator.SettingsRendering_ConversationFolding_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsRendering_ConversationFolding_Title, Mode=OneTime}"
+                    IsEnabled="{x:Bind FoldingToggle.IsOn, Mode=OneWay}">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="RenderingConversationFoldingToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SettingsRendering_ConversationFolding_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.PreferencesService.IsConversationFoldingEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="RenderingLinkifyCard"

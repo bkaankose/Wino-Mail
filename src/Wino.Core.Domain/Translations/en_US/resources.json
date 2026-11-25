@@ -6190,5 +6190,7 @@
   "DraftCheck_SizeTitleFormat": "This message is {0}",
   "DraftCheck_SizeDetailFormat": "Your account sends messages up to {0}. Make the pictures smaller or share them as a link.",
   "DraftCheck_TextFixed": "The text color was changed. Ctrl+Z undoes it.",
-  "Reader_EarlierMessageRowTitle": "Earlier message"
+  "Reader_EarlierMessageRowTitle": "Earlier message",
+  "SettingsRendering_ConversationFolding_Title": "Fold each earlier message separately",
+  "SettingsRendering_ConversationFolding_Description": "Every earlier message in a conversation gets its own row with the sender, so you can open one at a time"
 }
