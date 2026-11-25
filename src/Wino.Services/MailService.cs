@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -31,7 +32,7 @@ using Wino.Services.Models.MailItem;
 
 namespace Wino.Services;
 
-public class MailService : BaseDatabaseService, IMailService
+public partial class MailService : BaseDatabaseService, IMailService
 {
     private const int ItemLoadCount = 100;
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _draftLifecycleLocks = new();
@@ -2470,6 +2471,13 @@ public class MailService : BaseDatabaseService, IMailService
         return string.Concat(Enumerable.Repeat(template, 2));
     }
 
+    // Empty lines a signature editor leaves at the end (<br>, an empty div or paragraph) would push the quote down.
+    private static string TrimTrailingEmptyLines(string html)
+        => TrailingEmptyLines().Replace(html, string.Empty);
+
+    [GeneratedRegex(@"(?:\s|&nbsp;|<br\s*/?>|<(?:div|p)\b[^>]*>(?:\s|&nbsp;|<br\s*/?>)*</(?:div|p)>)+$", RegexOptions.IgnoreCase)]
+    private static partial Regex TrailingEmptyLines();
+
     private async Task<string> GetSignature(MailAccount account, DraftCreationReason reason)
     {
         if (account.Preferences.IsSignatureEnabled)
@@ -2541,13 +2549,13 @@ public class MailService : BaseDatabaseService, IMailService
         var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
         ownAddresses ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // The typing room sits above the signature; the quoted message follows the signature directly, behind its separator.
         var gap = CreateHtmlGap();
-        builder.HtmlBody = gap + CreateHtmlForReferencingMessage(referenceMessage);
+        var quotedMessage = CreateHtmlForReferencingMessage(referenceMessage);
 
-        if (signature != null)
-        {
-            builder.HtmlBody = gap + signature + builder.HtmlBody;
-        }
+        builder.HtmlBody = signature != null
+            ? gap + TrimTrailingEmptyLines(signature) + quotedMessage
+            : gap + quotedMessage;
 
         if (!string.IsNullOrWhiteSpace(draftCreationOptions.InitialBodyText))
         {
