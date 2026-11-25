@@ -751,19 +751,23 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             RequireMeetingSupport(isProtocol16, HasAttendees(attendees));
         var occurrence = request.Item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(request.Item.RemoteEventId) : null;
         var sendsAttendees = isOrganizer && occurrence == null;
-        var data = EasDataMapper.WriteEvent(request.Item, sendsAttendees ? attendees : null, reminders, isProtocol16);
+        var seriesId = occurrence?.SeriesId ?? request.Item.RemoteEventId.GetProviderRemoteEventId();
+        var stored = await _calendars.GetCalendarItemAsync(request.Item.Id).ConfigureAwait(false)
+            ?? throw new InvalidOperationException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncItemRequiresSync);
+        // An edit that keeps the event's zone writes back the zone the server holds, which no system zone may match.
+        var serverTimeZone = request.Item.StartTimeZone == stored.StartTimeZone
+            ? await _engine.GetStoredTimeZoneAsync(calendar.RemoteCalendarId, seriesId).ConfigureAwait(false) : null;
+        var data = EasDataMapper.WriteEvent(request.Item, sendsAttendees ? attendees : null, reminders, isProtocol16, serverTimeZone);
         if (isProtocol16)
         {
             // 16.x keeps the calendar elements a Change leaves out, and a StartTime, EndTime or Recurrence sent for a
             // series deletes its exceptions, so only the elements that differ from the stored event are sent.
-            var stored = await _calendars.GetCalendarItemAsync(request.Item.Id).ConfigureAwait(false)
-                ?? throw new InvalidOperationException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncItemRequiresSync);
             var original = EasDataMapper.WriteEvent(stored, sendsAttendees ? await _calendars.GetAttendeesAsync(stored.Id).ConfigureAwait(false) : null,
-                await _calendars.GetRemindersAsync(stored.Id).ConfigureAwait(false), isProtocol16);
+                await _calendars.GetRemindersAsync(stored.Id).ConfigureAwait(false), isProtocol16, serverTimeZone);
             data = EasDataMapper.ChangedFields(data, original);
         }
         await _engine.MutateEventAsync(calendar.RemoteCalendarId, new EasEventMutation("Change",
-            occurrence?.SeriesId ?? request.Item.RemoteEventId.GetProviderRemoteEventId(), data, InstanceKey: occurrence?.InstanceKey,
+            seriesId, data, InstanceKey: occurrence?.InstanceKey,
             Persist: async _ =>
             {
                 await _calendars.UpdateCalendarItemAsync(request.Item, attendees).ConfigureAwait(false);

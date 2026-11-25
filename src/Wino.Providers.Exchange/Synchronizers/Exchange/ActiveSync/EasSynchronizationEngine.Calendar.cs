@@ -247,6 +247,14 @@ internal sealed partial class EasSynchronizationEngine
         finally { _gate.Release(); }
     }
 
+    /// <summary>The TimeZone element of the server's copy of an event, as stored; null when there is none.</summary>
+    internal async Task<string?> GetStoredTimeZoneAsync(string folderId, string remoteId)
+    {
+        var shadow = await _database.Connection.FindAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, folderId, remoteId)).ConfigureAwait(false);
+        var value = shadow == null ? null : EasDataMapper.Value(Parse(shadow.ApplicationData), EasDataMapper.Calendar, "TimeZone");
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
     /// <summary>What an occurrence change may carry: no zone, series rule or attendee list of its own.</summary>
     private static XElement OccurrenceData(XElement data)
     {

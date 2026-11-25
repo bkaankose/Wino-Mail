@@ -53,13 +53,14 @@ internal static partial class EasDataMapper
         if (end < start)
             end = start;
 
-        var zone = EasTimeZone.Read(data, start.Year);
+        var eventZone = EasTimeZone.Read(data, start.Year);
+        var zone = eventZone.Stored;
         var allDay = Value(data, Calendar, "AllDayEvent") == "1";
         DateTime localStart, localEnd;
         if (allDay)
         {
-            localStart = AllDayDate(start, zone);
-            localEnd = AllDayDate(end, zone);
+            localStart = AllDayDate(start, eventZone.Zone);
+            localEnd = AllDayDate(end, eventZone.Zone);
             if (localEnd <= localStart)
                 localEnd = localStart.AddDays(1);
         }
@@ -158,7 +159,11 @@ internal static partial class EasDataMapper
         if (string.IsNullOrEmpty(master.Recurrence) || master.AssignedCalendar is not AccountCalendar calendar)
             return result;
 
-        var zone = EasTimeZone.Resolve(master.StartTimeZone);
+        // The rule runs in the event's own zone; rows store their times in the system zone they name.
+        var stored = EasTimeZone.Resolve(master.StartTimeZone);
+        var masterStartUtc = master.IsAllDayEvent ? DateTime.SpecifyKind(master.StartDate, DateTimeKind.Utc) : ToUtc(master.StartDate, stored);
+        var zone = EasTimeZone.Read(data, masterStartUtc.Year).Zone;
+        var masterStart = master.IsAllDayEvent ? master.StartDate : TimeZoneInfo.ConvertTimeFromUtc(masterStartUtc, zone);
         var exceptions = new Dictionary<DateTime, XElement>();
         foreach (var exception in data.Element(Calendar + "Exceptions")?.Elements(Calendar + "Exception") ?? Enumerable.Empty<XElement>())
         {
@@ -176,8 +181,8 @@ internal static partial class EasDataMapper
                 pattern.Until = new CalDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(until.AsUtc, DateTimeKind.Utc), zone), true);
             var series = new CalendarEvent
             {
-                Start = new CalDateTime(DateTime.SpecifyKind(master.StartDate, DateTimeKind.Unspecified), true),
-                End = new CalDateTime(DateTime.SpecifyKind(master.StartDate.AddSeconds(master.DurationInSeconds), DateTimeKind.Unspecified), true)
+                Start = new CalDateTime(DateTime.SpecifyKind(masterStart, DateTimeKind.Unspecified), true),
+                End = new CalDateTime(DateTime.SpecifyKind(masterStart.AddSeconds(master.DurationInSeconds), DateTimeKind.Unspecified), true)
             };
             series.RecurrenceRule = pattern;
             var windowStartLocal = TimeZoneInfo.ConvertTimeFromUtc(windowStartUtc, zone).AddDays(-1);
@@ -191,7 +196,7 @@ internal static partial class EasDataMapper
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             Serilog.Log.Warning(exception, "EAS series {RemoteId} could not be expanded; only its first occurrence is shown.", remoteId);
-            starts = [master.StartDate];
+            starts = [masterStart];
         }
 
         foreach (var local in starts)
@@ -211,7 +216,7 @@ internal static partial class EasDataMapper
             {
                 occurrence = ReadEvent(data, calendar, key, accountAddress);
                 if (occurrence != null)
-                    occurrence.StartDate = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+                    occurrence.StartDate = DateTime.SpecifyKind(master.IsAllDayEvent ? local : TimeZoneInfo.ConvertTimeFromUtc(originalUtc, stored), DateTimeKind.Unspecified);
             }
             if (occurrence == null)
                 continue;
@@ -316,22 +321,29 @@ internal static partial class EasDataMapper
     /// <summary>
     /// The application data for an event. All-day events are floating midnights without a zone on 16.x, and local
     /// midnight of the event's zone (or the device's) with that zone on 14.x, as the server stores them.
+    /// <paramref name="serverTimeZone"/>, the TimeZone the server holds for an event whose zone the edit keeps, is
+    /// written back unchanged and the rule's days are computed in it, also when no system zone is equivalent to it.
     /// </summary>
-    internal static XElement WriteEvent(CalendarItem item, IReadOnlyList<CalendarEventAttendee>? attendees, IReadOnlyList<Reminder> reminders, bool isProtocol16)
+    internal static XElement WriteEvent(CalendarItem item, IReadOnlyList<CalendarEventAttendee>? attendees, IReadOnlyList<Reminder> reminders, bool isProtocol16,
+        string? serverTimeZone = null)
     {
-        var zone = EasTimeZone.Resolve(item.StartTimeZone);
+        var stored = EasTimeZone.Resolve(item.StartTimeZone);
+        var eventZone = string.IsNullOrEmpty(serverTimeZone) ? null : EasTimeZone.FromBlob(serverTimeZone);
+        if (eventZone == null)
+            serverTimeZone = null;
+        TimeZoneInfo zone;
         DateTime start, end;
         if (item.IsAllDayEvent)
         {
-            var allDayZone = isProtocol16 ? TimeZoneInfo.Utc : string.IsNullOrEmpty(item.StartTimeZone) ? TimeZoneInfo.Local : zone;
-            zone = allDayZone;
-            start = ToUtc(item.StartDate.Date, allDayZone);
-            end = ToUtc(item.EndDate.Date > item.StartDate.Date ? item.EndDate.Date : item.StartDate.Date.AddDays(1), allDayZone);
+            zone = isProtocol16 ? TimeZoneInfo.Utc : eventZone ?? (string.IsNullOrEmpty(item.StartTimeZone) ? TimeZoneInfo.Local : stored);
+            start = ToUtc(item.StartDate.Date, zone);
+            end = ToUtc(item.EndDate.Date > item.StartDate.Date ? item.EndDate.Date : item.StartDate.Date.AddDays(1), zone);
         }
         else
         {
-            start = ToUtc(item.StartDate, zone);
-            end = ToUtc(item.EndDate, zone);
+            zone = eventZone ?? stored;
+            start = ToUtc(item.StartDate, stored);
+            end = ToUtc(item.EndDate, stored);
         }
 
         var result = new XElement(Sync + "ApplicationData",
@@ -342,7 +354,7 @@ internal static partial class EasDataMapper
             isProtocol16 ? null : new XElement(Calendar + "DtStamp", Timestamp(DateTime.UtcNow)),
             new XElement(Calendar + "AllDayEvent", item.IsAllDayEvent ? "1" : "0"), new XElement(Calendar + "BusyStatus", (int)item.ShowAs),
             new XElement(Calendar + "Sensitivity", item.Visibility switch { CalendarItemVisibility.Private => "2", CalendarItemVisibility.Confidential => "3", _ => "0" }),
-            item.IsAllDayEvent && isProtocol16 ? null : new XElement(Calendar + "TimeZone", EasTimeZone.Write(zone, start)),
+            item.IsAllDayEvent && isProtocol16 ? null : new XElement(Calendar + "TimeZone", serverTimeZone ?? EasTimeZone.Write(zone, start)),
             TextBody(item.Description));
         if (attendees != null)
             result.Add(new XElement(Calendar + "Attendees", attendees.Where(attendee => !attendee.IsOrganizer && !string.IsNullOrWhiteSpace(attendee.Email)).Select(attendee =>
