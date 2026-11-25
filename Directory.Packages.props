@@ -6,7 +6,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <!-- The native mail renderer packages (build/Wino.Renderer.Root.props). -->
-    <WinoRendererVersion>0.1.0-preview.2</WinoRendererVersion>
+    <WinoRendererVersion>0.1.0-preview.3</WinoRendererVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="WinoMail.Renderer" Version="$(WinoRendererVersion)" />
