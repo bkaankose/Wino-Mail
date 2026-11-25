@@ -1141,10 +1141,11 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         // Rows without a known MapiFolderId (stored by EWS or ActiveSync) are matched by role and path instead, and
         // then re-keyed through their MapiFolderId below.
+        var localMapiIds = localFolders.Where(f => !string.IsNullOrEmpty(f.MapiFolderId)).Select(f => f.MapiFolderId).ToHashSet(StringComparer.Ordinal);
         var rekeys = ExchangeTransportRekey.MatchFolders(
             localFolders.Where(f => string.IsNullOrEmpty(f.MapiFolderId) || !incomingMapiIds.Contains(f.MapiFolderId)).ToList(),
             mailFolders
-                .Where(f => !localFolders.Any(local => local.MapiFolderId == f.FolderId.ToString("X16", CultureInfo.InvariantCulture)))
+                .Where(f => !localMapiIds.Contains(f.FolderId.ToString("X16", CultureInfo.InvariantCulture)))
                 .Select(f => new ExchangeFolderCandidate(ToMapiId(f.FolderId), mailFolderIds.Contains(f.ParentFolderId) ? ToMapiId(f.ParentFolderId) : null,
                     f.DisplayName, specialByFolderId.TryGetValue(f.FolderId, out var role) ? role : SpecialFolderType.Other))
                 .ToList(),
