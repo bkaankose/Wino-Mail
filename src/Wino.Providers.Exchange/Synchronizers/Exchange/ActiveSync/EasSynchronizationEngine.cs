@@ -22,7 +22,7 @@ using Wino.Services.Interfaces;
 
 namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
-internal sealed class EasSynchronizationEngine : IDisposable
+internal sealed partial class EasSynchronizationEngine : IDisposable
 {
     private static readonly XNamespace FolderHierarchy = "FolderHierarchy:";
 
@@ -142,6 +142,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                         await _calendars.DeleteAccountCalendarAsync(previous).ConfigureAwait(false);
                     }
                 }
+                await ExtendSeriesWindowAsync(states.Where(state => ItemClass(state.Type) == "Calendar")).ConfigureAwait(false);
             }
         }
         finally { _gate.Release(); }
@@ -181,10 +182,6 @@ internal sealed class EasSynchronizationEngine : IDisposable
         CancellationToken cancellationToken, Func<string, Task>? persistMutation = null)
         => MutateCoreAsync(folderId, operation, remoteId, data, clientId, persistMutation, cancellationToken);
 
-    internal Task<string> CreateCalendarEventAsync(string folderId, XElement data, string clientId,
-        Func<string, Task> persistCreatedItem, CancellationToken cancellationToken)
-        => MutateCoreAsync(folderId, "Add", string.Empty, data, clientId, persistCreatedItem, cancellationToken);
-
     private async Task<string> MutateCoreAsync(string folderId, string operation, string remoteId, XElement? data, string clientId,
         Func<string, Task>? persistMutation, CancellationToken cancellationToken)
     {
@@ -200,9 +197,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             {
                 var shadow = operation == "Add" ? null : await _database.Connection.FindAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, folderId, remoteId)).ConfigureAwait(false);
                 var itemClass = ItemClass(state.Type);
-                command.Add(itemClass is "Email" or "Contacts" ? data
-                    : itemClass == "Calendar" ? EasDataMapper.ForEventChange(Merge(shadow?.ApplicationData, data), _client.IsAtLeast("16.0"))
-                    : itemClass == "Tasks" ? EasDataMapper.ForTaskChange(Merge(shadow?.ApplicationData, data)) : Merge(shadow?.ApplicationData, data));
+                command.Add(itemClass is "Email" or "Contacts" ? data : itemClass == "Tasks" ? EasDataMapper.ForTaskChange(Merge(shadow?.ApplicationData, data)) : Merge(shadow?.ApplicationData, data));
             }
             var result = await _client.SyncAsync(folderId, state.SyncKey, ItemClass(state.Type), new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
             // The server has moved to the new key even when the item itself failed.
@@ -1141,67 +1136,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                     Tasks = new[] { EasDataMapper.ReadTask(data, list, EasDataMapper.ProviderId(remoteId)) }, TaskDeltaLink = state.SyncKey }).ConfigureAwait(false);
                 break;
             case "Calendar":
-                var calendar = await _calendars.GetAccountCalendarAsync(id).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS calendar is missing.");
-                var item = EasDataMapper.ReadEvent(data, calendar, remoteId);
-                var storedEvent = await _calendars.GetCalendarItemAsync(calendar.Id, remoteId).ConfigureAwait(false);
-                var trackingId = storedEvent?.RemoteEventId.GetClientTrackingId();
-                if (EasDataMapper.ClientEventId(data) is Guid clientId)
-                {
-                    var local = await _database.Connection.FindAsync<CalendarItem>(clientId).ConfigureAwait(false);
-                    if (local?.CalendarId == calendar.Id)
-                    {
-                        if (storedEvent != null && storedEvent.Id != local.Id)
-                            await _calendars.DeleteCalendarItemAsync(storedEvent.Id).ConfigureAwait(false);
-                        storedEvent = local;
-                        trackingId = clientId;
-                    }
-                }
-                if (storedEvent != null)
-                    item.Id = storedEvent.Id;
-                item.RemoteEventId = remoteId.WithClientTrackingId(trackingId);
-                var attendees = EasDataMapper.ReadAttendees(data, item.Id);
-                if (storedEvent == null)
-                    await _calendars.CreateNewCalendarItemAsync(item, attendees).ConfigureAwait(false);
-                else
-                    await _calendars.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
-                var reminder = EasDataMapper.Value(data, EasDataMapper.Calendar, "Reminder");
-                var reminders = new List<Reminder>();
-                if (int.TryParse(reminder, out var minutes) && minutes >= 0)
-                    reminders.Add(new Reminder { Id = EasDataMapper.StableId(item.Id.ToString("N") + "/reminder"), CalendarItemId = item.Id,
-                        DurationInSeconds = checked(minutes * 60) });
-                await _calendars.SaveRemindersAsync(item.Id, reminders).ConfigureAwait(false);
-                var exceptionIds = new HashSet<Guid>();
-                foreach (var exception in data.Element(EasDataMapper.Calendar + "Exceptions")?.Elements(EasDataMapper.Calendar + "Exception") ?? Enumerable.Empty<XElement>())
-                {
-                    if (EasDataMapper.Value(exception, EasDataMapper.Calendar, "Deleted") == "1")
-                        continue;
-                    var exceptionStart = Required(exception, EasDataMapper.Calendar + "ExceptionStartTime");
-                    var exceptionData = Merge(data.ToString(SaveOptions.DisableFormatting), exception);
-                    var startElement = EasDataMapper.Calendar + "StartTime";
-                    var endElement = EasDataMapper.Calendar + "EndTime";
-                    if (exception.Element(startElement) == null)
-                        exceptionData.SetElementValue(startElement, exceptionStart);
-                    if (exception.Element(endElement) == null)
-                    {
-                        var utcStart = EasDataMapper.Date(exceptionStart) ?? throw new InvalidDataException("The EAS exception start is missing.");
-                        var zone = EasTimeZone.Resolve(item.StartTimeZone);
-                        var endLocal = TimeZoneInfo.ConvertTimeFromUtc(utcStart, zone).AddSeconds(item.DurationInSeconds);
-                        var endUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(endLocal, DateTimeKind.Unspecified), zone);
-                        exceptionData.SetElementValue(endElement, endUtc.ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture));
-                    }
-                    exceptionData.Element(EasDataMapper.Calendar + "Recurrence")?.Remove();
-                    exceptionData.Element(EasDataMapper.Calendar + "Exceptions")?.Remove();
-                    var child = EasDataMapper.ReadEvent(exceptionData, calendar, remoteId + "/exception/" + exceptionStart);
-                    child.RecurringCalendarItemId = item.Id;
-                    exceptionIds.Add(child.Id);
-                    var childAttendees = EasDataMapper.ReadAttendees(exceptionData, child.Id);
-                    if (await _calendars.GetCalendarItemAsync(child.Id).ConfigureAwait(false) == null)
-                        await _calendars.CreateNewCalendarItemAsync(child, childAttendees).ConfigureAwait(false);
-                    else
-                        await _calendars.UpdateCalendarItemAsync(child, childAttendees).ConfigureAwait(false);
-                }
-                foreach (var stale in (await _calendars.GetRecurringChildrenAsync(item.Id).ConfigureAwait(false)).Where(child => !exceptionIds.Contains(child.Id)))
-                    await _calendars.DeleteCalendarItemAsync(stale.Id).ConfigureAwait(false);
+                await ProjectEventAsync(state, remoteId, data).ConfigureAwait(false);
                 break;
         }
     }

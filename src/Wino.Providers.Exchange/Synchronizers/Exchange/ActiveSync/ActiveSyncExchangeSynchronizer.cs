@@ -630,21 +630,26 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         var data = EasDataMapper.WriteEvent(request.PreparedItem, request.PreparedEvent.Attendees, request.PreparedEvent.Reminders, isProtocol16);
         // 16.x generates the UID itself and takes the client's id as ClientUid.
         data.Add(new XElement(EasDataMapper.Calendar + (isProtocol16 ? "ClientUid" : "UID"), request.PreparedItem.Id.ToString("N")));
-        await _engine.CreateCalendarEventAsync(request.AssignedCalendar.RemoteCalendarId, data, request.PreparedItem.Id.ToString("N"), async id =>
-        {
-            var trackedId = id.WithClientTrackingId(request.PreparedItem.Id);
-            await _changeProcessor.PersistCreatedCalendarEventAsync(request.PreparedItem, request.PreparedEvent.Attendees,
-                request.PreparedEvent.Reminders, trackedId).ConfigureAwait(false);
-            var stored = await _calendars.GetCalendarItemAsync(request.AssignedCalendar.Id, id).ConfigureAwait(false);
-            if (stored != null && stored.Id != request.PreparedItem.Id)
+        await _engine.MutateEventAsync(request.AssignedCalendar.RemoteCalendarId, new EasEventMutation("Add", string.Empty, data, request.PreparedItem.Id.ToString("N"),
+            Persist: async id =>
             {
-                UiChanges.RevertRequest(request);
-                stored.RemoteEventId = trackedId;
-                await _calendars.UpdateCalendarItemAsync(stored, await _calendars.GetAttendeesAsync(stored.Id).ConfigureAwait(false)).ConfigureAwait(false);
-            }
-        }, token).ConfigureAwait(false);
+                var trackedId = id.WithClientTrackingId(request.PreparedItem.Id);
+                await _changeProcessor.PersistCreatedCalendarEventAsync(request.PreparedItem, request.PreparedEvent.Attendees,
+                    request.PreparedEvent.Reminders, trackedId).ConfigureAwait(false);
+                var stored = await _calendars.GetCalendarItemAsync(request.AssignedCalendar.Id, id).ConfigureAwait(false);
+                if (stored != null && stored.Id != request.PreparedItem.Id)
+                {
+                    UiChanges.RevertRequest(request);
+                    stored.RemoteEventId = trackedId;
+                    await _calendars.UpdateCalendarItemAsync(stored, await _calendars.GetAttendeesAsync(stored.Id).ConfigureAwait(false)).ConfigureAwait(false);
+                }
+            }), token).ConfigureAwait(false);
     }, request, request);
 
+    /// <summary>
+    /// Changes an event, or one occurrence of a series. The organizer's change carries the attendees, and on 16.x the
+    /// server sends them the update; an attendee's change to their copy leaves the attendees alone.
+    /// </summary>
     public override List<IRequestBundle<EwsRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request) => Bundle(async token =>
     {
         if (Account.CalendarIntegrationSource == AccountIntegrationSource.Local)
@@ -652,21 +657,27 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
             await _localCalendar.UpdateCalendarEventAsync(request).ConfigureAwait(false);
             return;
         }
-        if (request.Item.IsRecurringChild || request.Attachments?.Count > 0)
-            throw new NotSupportedException("EAS occurrence edits and event attachments are not supported yet.");
+        if (request.Attachments?.Count > 0)
+            throw new NotSupportedException("EAS event attachments are not supported yet.");
         var calendar = await _calendars.GetAccountCalendarAsync(request.Item.CalendarId).ConfigureAwait(false);
         var attendees = request.Attendees ?? await _calendars.GetAttendeesAsync(request.Item.Id).ConfigureAwait(false);
         var reminders = request.Reminders ?? await _calendars.GetRemindersAsync(request.Item.Id).ConfigureAwait(false);
-        await _engine.MutateAsync(calendar.RemoteCalendarId, "Change", request.Item.RemoteEventId.GetProviderRemoteEventId(),
-            EasDataMapper.WriteEvent(request.Item, attendees, reminders, await _engine.IsProtocol16Async(token).ConfigureAwait(false)), string.Empty, token, async _ =>
+        var isProtocol16 = await _engine.IsProtocol16Async(token).ConfigureAwait(false);
+        var isOrganizer = !request.Item.IsLocked;
+        var occurrence = request.Item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(request.Item.RemoteEventId) : null;
+        var data = EasDataMapper.WriteEvent(request.Item, isOrganizer && occurrence == null ? attendees : null, reminders, isProtocol16);
+        await _engine.MutateEventAsync(calendar.RemoteCalendarId, new EasEventMutation("Change",
+            occurrence?.SeriesId ?? request.Item.RemoteEventId.GetProviderRemoteEventId(), data, InstanceKey: occurrence?.InstanceKey,
+            Persist: async _ =>
             {
                 await _calendars.UpdateCalendarItemAsync(request.Item, attendees).ConfigureAwait(false);
                 await _calendars.SaveRemindersAsync(request.Item.Id, reminders).ConfigureAwait(false);
-            }).ConfigureAwait(false);
+            }), token).ConfigureAwait(false);
     }, request, request);
 
     public override List<IRequestBundle<EwsRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request) => UpdateCalendarEvent(request);
 
+    /// <summary>Deletes an event or one occurrence. On 16.x the server cancels the meeting for its attendees when the organizer deletes it.</summary>
     public override List<IRequestBundle<EwsRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request) => Bundle(async token =>
     {
         if (Account.CalendarIntegrationSource == AccountIntegrationSource.Local)
@@ -674,11 +685,10 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
             await _localCalendar.DeleteCalendarEventAsync(request).ConfigureAwait(false);
             return;
         }
-        if (request.Item.IsRecurringChild)
-            throw new NotSupportedException("Deleting a single EAS event occurrence is not supported yet.");
         var calendar = await _calendars.GetAccountCalendarAsync(request.Item.CalendarId).ConfigureAwait(false);
-        await _engine.MutateAsync(calendar.RemoteCalendarId, "Delete", request.Item.RemoteEventId.GetProviderRemoteEventId(), null, string.Empty, token,
-            _ => _calendars.DeleteCalendarItemAsync(request.Item.Id)).ConfigureAwait(false);
+        var occurrence = request.Item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(request.Item.RemoteEventId) : null;
+        await _engine.MutateEventAsync(calendar.RemoteCalendarId, new EasEventMutation("Delete",
+            occurrence?.SeriesId ?? request.Item.RemoteEventId.GetProviderRemoteEventId(), null, InstanceKey: occurrence?.InstanceKey), token).ConfigureAwait(false);
     }, request, request);
 
     public override List<IRequestBundle<EwsRequest>> AcceptEvent(AcceptEventRequest request) => Account.CalendarIntegrationSource == AccountIntegrationSource.Local
