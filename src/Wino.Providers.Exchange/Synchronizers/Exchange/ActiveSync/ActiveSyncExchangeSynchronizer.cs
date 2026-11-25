@@ -457,48 +457,36 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         }
 
         var folder = await DraftsFolderAsync(localDraft).ConfigureAwait(false);
-        var (serverId, threadId) = await AddServerDraftAsync(folder, preparation.CreatedLocalDraftMimeMessage, token).ConfigureAwait(false);
+        var (serverId, threadId) = await AddServerDraftAsync(folder, localDraft.UniqueId, preparation.CreatedLocalDraftMimeMessage, token).ConfigureAwait(false);
         var key = EasDataMapper.Key(Account.Id, folder.RemoteFolderId, serverId);
         if (!await _mail.MapLocalDraftAsync(Account.Id, localDraft.UniqueId, key, key, threadId ?? localDraft.ThreadId).ConfigureAwait(false))
         {
             // The local draft was discarded while the Add was in flight; the server copy goes so the next sync cannot bring it back.
-            await _engine.MutateItemsAsync(folder.RemoteFolderId, [EasMutation.Delete(serverId)], deletesAsMoves: false, CancellationToken.None).ConfigureAwait(false);
+            await _engine.DeleteSentDraftAsync(folder.RemoteFolderId, serverId, CancellationToken.None).ConfigureAwait(false);
         }
     }, request, request);
 
     /// <summary>
-    /// A later save of a server draft. A Change with MIME merges into the old draft instead of replacing it, so the
-    /// new version is added and the old one deleted, as the EWS synchronizer does, and the new id is handed back.
-    /// Without server drafts the save is local only and the identity stays.
+    /// A later save of a server draft: a Change of the draft's fields and attachments, so the draft keeps its id.
+    /// Without server drafts the save is local only. Either way the identity stays.
     /// </summary>
     public override async Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, MailCopy draft, CancellationToken cancellationToken = default)
     {
-        if (!TryRemoteMail(draft, out var oldId) || !await _engine.SupportsServerDraftsAsync(cancellationToken).ConfigureAwait(false))
+        if (!TryRemoteMail(draft, out var serverId) || !await _engine.SupportsServerDraftsAsync(cancellationToken).ConfigureAwait(false))
             return DraftUpdateIdentity.From(draft);
 
         var folder = await DraftsFolderAsync(draft).ConfigureAwait(false);
         using var mime = snapshot.OpenMime();
-        var (serverId, threadId) = await AddServerDraftAsync(folder, mime, cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var deleted = await _engine.MutateItemsAsync(folder.RemoteFolderId, [EasMutation.Delete(oldId)], deletesAsMoves: false, CancellationToken.None).ConfigureAwait(false);
-            if (deleted.Count > 0 && !deleted[0].Succeeded && !deleted[0].IsNotFound)
-                Logger.Warning("The superseded EAS draft {DraftId} was not deleted (status {Status}).", oldId, deleted[0].Status);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            // The old draft is superseded either way; the next Drafts sync removes a leftover.
-            Logger.Warning(exception, "The superseded EAS draft {DraftId} was not deleted.", oldId);
-        }
-
-        var key = EasDataMapper.Key(Account.Id, folder.RemoteFolderId, serverId);
-        return new DraftUpdateIdentity(key, key, threadId ?? draft.ThreadId);
+        await _engine.UpdateServerDraftAsync(folder.RemoteFolderId, serverId, mime, draft.IsRead, draft.IsFlagged, cancellationToken).ConfigureAwait(false);
+        return DraftUpdateIdentity.From(draft);
     }
 
     /// <summary>
-    /// Sends the composed MIME with SendMail, which keeps a copy in Sent Items, then deletes the server draft for
-    /// good. Once the server accepted the message, removing the draft is best effort: reporting a failure after that
-    /// point would bring the draft back and invite a second send.
+    /// Sends the composed MIME with SendMail, which keeps a copy in Sent Items, then deletes the server draft for good.
+    /// The ClientId is derived from the draft and the exact message, so sending the same version again after a lost
+    /// response is recognized as a duplicate, while an edited version is a new message. Once the server accepted the
+    /// message the draft deletion is recorded and retried until it succeeds; reporting a failure after that point would
+    /// bring the draft back and invite a second send.
     /// </summary>
     public override List<IRequestBundle<EwsRequest>> SendDraft(SendDraftRequest request) => Bundle(async token =>
     {
@@ -508,32 +496,36 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         using (var stream = new MemoryStream())
         {
             await outgoing.WriteToAsync(stream, token).ConfigureAwait(false);
-            await _engine.SendAsync(stream.ToArray(), draft.UniqueId.ToString("N"), token).ConfigureAwait(false);
+            var bytes = stream.ToArray();
+            await _engine.SendAsync(bytes, SendClientId(draft.UniqueId, bytes), token).ConfigureAwait(false);
         }
 
         if (!draft.IsLocalDraft && TryRemoteMail(draft, out var draftId))
         {
-            try
-            {
-                var folder = await DraftsFolderAsync(draft).ConfigureAwait(false);
-                await _engine.MutateItemsAsync(folder.RemoteFolderId, [EasMutation.Delete(draftId)], deletesAsMoves: false, CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                Logger.Debug(exception, "The EAS draft {DraftId} was not deleted after sending; it may already be gone.", draft.Id);
-            }
+            var folder = await DraftsFolderAsync(draft).ConfigureAwait(false);
+            await _engine.DeleteSentDraftAsync(folder.RemoteFolderId, draftId, CancellationToken.None).ConfigureAwait(false);
         }
 
         try { await _mail.DeleteMailAsync(Account.Id, draft.Id).ConfigureAwait(false); }
         catch (Exception exception) { Logger.Error(exception, "EAS accepted message {MailId}, but removing the local draft failed.", draft.Id); }
     }, request, request);
 
-    /// <summary>
-    /// Adds a draft as MIME, which keeps every header and part. A refusal is the request's failure.
-    /// </summary>
-    private async Task<(string ServerId, string? ThreadId)> AddServerDraftAsync(MailItemFolder folder, MimeMessage mime, CancellationToken cancellationToken)
+    /// <summary>The SendMail ClientId (at most 40 characters): a hash of the draft id and the message as sent.</summary>
+    private static string SendClientId(Guid draftId, byte[] message)
     {
-        var result = (await _engine.MutateItemsAsync(folder.RemoteFolderId, [EasMutation.Add(Guid.NewGuid().ToString("N"), EasDraftMapper.Mime(mime))],
+        using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+        hash.AppendData(draftId.ToByteArray());
+        hash.AppendData(message);
+        return Convert.ToHexString(hash.GetHashAndReset(), 0, 20);
+    }
+
+    /// <summary>
+    /// Adds a draft as MIME, which keeps every header and part. A refusal is the request's failure. The ClientId is
+    /// the draft's id, so an addition answered in a request sent again after its response was lost is found again.
+    /// </summary>
+    private async Task<(string ServerId, string? ThreadId)> AddServerDraftAsync(MailItemFolder folder, Guid draftId, MimeMessage mime, CancellationToken cancellationToken)
+    {
+        var result = (await _engine.MutateItemsAsync(folder.RemoteFolderId, [EasMutation.Add(draftId.ToString("N"), EasDraftMapper.Mime(mime))],
             deletesAsMoves: true, cancellationToken).ConfigureAwait(false))[0];
         if (!result.Succeeded || string.IsNullOrEmpty(result.ServerId))
             throw new EasCommandException("Sync", result.Status);

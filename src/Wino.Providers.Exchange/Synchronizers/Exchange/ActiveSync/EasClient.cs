@@ -735,6 +735,30 @@ internal sealed class EasClient : IDisposable
     }
 
     /// <summary>
+    /// The FileReference of every attachment the item holds on the server, read with ItemOperations without its body.
+    /// </summary>
+    internal async Task<IReadOnlyList<string>> FetchAttachmentReferencesAsync(string folderId, string serverId, CancellationToken cancellationToken)
+    {
+        XNamespace items = "ItemOperations:";
+        XNamespace sync = "AirSync:";
+        XNamespace body = "AirSyncBase:";
+        var response = await CommandAsync("ItemOperations", new XElement(items + "ItemOperations",
+            new XElement(items + "Fetch", new XElement(items + "Store", "Mailbox"),
+                new XElement(sync + "CollectionId", folderId), new XElement(sync + "ServerId", serverId),
+                new XElement(items + "Options", new XElement(body + "BodyPreference", new XElement(body + "Type", "1"), new XElement(body + "TruncationSize", "0"))))),
+            cancellationToken).ConfigureAwait(false)
+            ?? throw InvalidResponse("ItemOperations");
+        RequireSuccess(response);
+        var fetch = response.Element(items + "Response")?.Element(items + "Fetch")
+            ?? throw InvalidResponse("ItemOperations/Fetch");
+        RequireSuccess(fetch);
+        var properties = fetch.Element(items + "Properties") ?? throw InvalidResponse("ItemOperations/Properties");
+        return properties.Element(body + "Attachments")?.Elements(body + "Attachment")
+            .Select(attachment => attachment.Element(body + "FileReference")?.Value ?? throw InvalidResponse("ItemOperations/Attachment/FileReference"))
+            .ToList() ?? [];
+    }
+
+    /// <summary>
     /// The whole message as MIME. A policy that truncates email bodies truncates it to the strictest of its plain-text
     /// and HTML limits, because the MIME carries whichever body the message has.
     /// </summary>

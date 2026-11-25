@@ -346,6 +346,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     {
         await Connection.ExecuteAsync(
             "DELETE FROM EasItemShadow WHERE CollectionId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?)", accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM EasDraftState WHERE AccountId = ? AND DeletePending = 0", accountId).ConfigureAwait(false);
         await Connection.ExecuteAsync(
             "UPDATE MailItemFolder SET DeltaToken = '0', EasSyncGeneration = '' WHERE MailAccountId = ? AND EasFolderType > 0", accountId).ConfigureAwait(false);
         await Connection.ExecuteAsync(
@@ -375,6 +376,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             transaction.Execute("DELETE FROM EasCollectionState WHERE AccountId = ?", accountId);
             transaction.Execute("DELETE FROM EasPendingSync WHERE AccountId = ?", accountId);
             transaction.Execute("DELETE FROM EasClientAnswer WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasDraftState WHERE AccountId = ?", accountId);
         }).ConfigureAwait(false);
 
         await DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.ExpiredCache).ConfigureAwait(false);
@@ -708,6 +710,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         transaction.Execute("DELETE FROM EasCollectionState WHERE AccountId = ?", accountId);
         transaction.Execute("DELETE FROM EasPendingSync WHERE AccountId = ?", accountId);
         transaction.Execute("DELETE FROM EasClientAnswer WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM EasDraftState WHERE AccountId = ?", accountId);
     }
 
     private static bool UsesOAuth(CustomServerInformation serverInformation)

@@ -301,6 +301,7 @@ VALUES
             Connection.CreateTableAsync<EasCollectionState>(),
             Connection.CreateTableAsync<EasPendingSync>(),
             Connection.CreateTableAsync<EasClientAnswer>(),
+            Connection.CreateTableAsync<EasDraftState>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),

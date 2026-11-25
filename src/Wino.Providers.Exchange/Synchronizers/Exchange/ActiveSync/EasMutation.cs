@@ -12,6 +12,12 @@ internal enum EasItemOperation
 /// <summary>One Sync command. <see cref="Id"/> is the ClientId of an Add and the ServerId of a Change or Delete.</summary>
 internal sealed record EasMutation(EasItemOperation Operation, string Id, XElement? Data = null)
 {
+    /// <summary>
+    /// For a Change whose own data does not describe the stored copy, the application data the copy takes once the
+    /// server accepts it (<see cref="EasCommandEffect"/>).
+    /// </summary>
+    internal XElement? Effect { get; init; }
+
     internal static EasMutation Add(string clientId, XElement data) => new(EasItemOperation.Add, clientId, data);
 
     internal static EasMutation Change(string serverId, XElement data) => new(EasItemOperation.Change, serverId, data);

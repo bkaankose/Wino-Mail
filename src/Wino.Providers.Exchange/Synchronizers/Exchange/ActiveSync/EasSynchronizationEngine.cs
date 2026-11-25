@@ -321,7 +321,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         foreach (var chunk in mutations.Where(mutation => !answered.ContainsKey(mutation)).Chunk(MutationBatchSize))
         {
             var commands = new XElement(sync + "Commands", chunk.Select(mutation => mutation.ToCommand()));
-            var response = await SendCommandsAsync(state, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
+            var effects = chunk.Where(mutation => mutation.Effect != null).Select(mutation => new EasCommandEffect(mutation.Id, false, mutation.Effect)).ToList();
+            var response = await SendCommandsAsync(state, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves, effects: effects).ConfigureAwait(false);
             if (response == null)
             {
                 results.AddRange(chunk.Select(mutation => new EasMutationResult(mutation, "8", null)));
@@ -935,6 +936,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             await ReplayPendingAsync(state, downloaded, cancellationToken).ConfigureAwait(false);
         if (state.SyncKey == "0" && !await HandshakeAsync(state, cancellationToken).ConfigureAwait(false))
             return;
+        if (state.IsMail && state.Type == DraftsFolderType)
+            await SendDraftDeletionsAsync(state, cancellationToken).ConfigureAwait(false);
 
         var windowSize = DefaultWindowSize;
         var emptyPages = 0;
@@ -1021,6 +1024,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         if (state.IsMail)
             await _mail.DeleteMailsAsync(_account.Id, await ServerMailIdsAsync(state.Id).ConfigureAwait(false)).ConfigureAwait(false);
         await _database.Connection.ExecuteAsync("DELETE FROM EasClientAnswer WHERE CollectionId = ?", state.Id).ConfigureAwait(false);
+        await _database.Connection.ExecuteAsync("DELETE FROM EasDraftState WHERE CollectionId = ?", state.Id).ConfigureAwait(false);
         state.SyncKey = "0";
         state.Generation = string.Empty;
         await SaveSyncStateAsync(state).ConfigureAwait(false);
@@ -1555,6 +1559,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         {
             case "Email":
                 await _mail.DeleteMailAsync(_account.Id, EasDataMapper.Key(_account.Id, state.ServerId, remoteId)).ConfigureAwait(false);
+                await _database.Connection.DeleteAsync<EasDraftState>(EasDataMapper.Key(_account.Id, state.ServerId, remoteId)).ConfigureAwait(false);
                 break;
             case "Calendar":
                 await _calendars.DeleteCalendarItemAsync(remoteId, id).ConfigureAwait(false);
@@ -1577,6 +1582,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     {
         await _database.Connection.DeleteAsync<EasPendingSync>(state.Id).ConfigureAwait(false);
         await _database.Connection.ExecuteAsync("DELETE FROM EasClientAnswer WHERE CollectionId = ?", state.Id).ConfigureAwait(false);
+        await _database.Connection.ExecuteAsync("DELETE FROM EasDraftState WHERE CollectionId = ?", state.Id).ConfigureAwait(false);
         var shadows = await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false);
         foreach (var shadow in shadows)
             await DeleteProjectionAsync(state, shadow.RemoteId).ConfigureAwait(false);
