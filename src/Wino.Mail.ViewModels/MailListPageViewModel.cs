@@ -1496,6 +1496,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (targetMail?.MailCopy == null || targetMail.MailCopy.FileId == Guid.Empty)
             return;
 
+        // Providers that synchronize without MIME download it when a message opens; a reply from the list may come first.
+        var accountId = targetMail.MailCopy.AssignedAccount.Id;
+        if (!await _mimeFileService.IsMimeExistAsync(accountId, targetMail.MailCopy.FileId) &&
+            await _synchronizationManager.DownloadMimeMessageAsync(targetMail.MailCopy, accountId) == null)
+        {
+            _mailDialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
+            return;
+        }
+
         var mimeInformation = await _mimeFileService.GetMimeMessageInformationAsync(targetMail.MailCopy.FileId, targetMail.MailCopy.AssignedAccount.Id);
         if (mimeInformation?.MimeMessage == null)
             return;
