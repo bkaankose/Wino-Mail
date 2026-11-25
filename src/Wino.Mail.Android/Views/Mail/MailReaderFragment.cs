@@ -634,7 +634,10 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         mailView.SetMinimumHeight(WinoTokens.Px(context, Resource.Dimension.wino_m3_reader_body_min_height));
         card.AddView(mailView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
         _messageReader = new EngineMailMessageReader(mailView, services.GetRequiredService<MailEngineHost>(), _presentation,
-            viewModel.SecureMimeContextFactory, () => viewModel.ShouldStripLinkTrackingParameters);
+            viewModel.SecureMimeContextFactory, () => viewModel.ShouldStripLinkTrackingParameters)
+        {
+            FoldRowTemplate = AndroidFoldRowTemplate.Instance,
+        };
         _messageReader.InsightsChanged += (_, insights) => viewModel.ShowInsights(insights);
         _messageReader.Attach();
         viewModel.PrintPresenter = new AndroidMailPrintPresenter(services.GetRequiredService<MailEngineHost>(), () => Activity,
