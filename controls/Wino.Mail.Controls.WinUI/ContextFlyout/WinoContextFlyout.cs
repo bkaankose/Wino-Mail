@@ -101,9 +101,26 @@ public partial class WinoContextFlyout : CommandBarFlyout
         if (MenuTheme != ElementTheme.Default)
         {
             presenter.RequestedTheme = MenuTheme;
+            ApplyOverflowTheme(presenter);
         }
 
         return presenter;
+    }
+
+    // The menu rows are drawn in the command bar's overflow, a popup of its own that does not inherit the presenter's
+    // theme. Its presenter takes the theme through the command bar's overflow style.
+    [DynamicWindowsRuntimeCast(typeof(ContentControl))]
+    [DynamicWindowsRuntimeCast(typeof(CommandBar))]
+    private void ApplyOverflowTheme(Control presenter)
+    {
+        if (presenter is not ContentControl { Content: CommandBar commandBar })
+        {
+            return;
+        }
+
+        var style = new Style(typeof(CommandBarOverflowPresenter)) { BasedOn = commandBar.CommandBarOverflowPresenterStyle };
+        style.Setters.Add(new Setter(FrameworkElement.RequestedThemeProperty, MenuTheme));
+        commandBar.CommandBarOverflowPresenterStyle = style;
     }
 
     private void OnDeclaredItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) => _areDeclaredItemsDirty = true;
@@ -113,6 +130,22 @@ public partial class WinoContextFlyout : CommandBarFlyout
         if (_areDeclaredItemsDirty && ItemsSource is null)
         {
             Rebuild();
+        }
+
+        ApplyMenuTheme();
+    }
+
+    // The rows live outside the presenter's tree (the overflow is its own popup), so the presenter's theme reaches the
+    // background but not the rows' text. Each row takes the theme itself.
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    private void ApplyMenuTheme()
+    {
+        foreach (var command in PrimaryCommands.Concat(SecondaryCommands))
+        {
+            if (command is FrameworkElement element && element.RequestedTheme != MenuTheme)
+            {
+                element.RequestedTheme = MenuTheme;
+            }
         }
     }
 
