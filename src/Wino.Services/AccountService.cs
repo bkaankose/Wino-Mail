@@ -365,6 +365,19 @@ public class AccountService : BaseDatabaseService, IAccountService
         await DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.MailAccessDisabled).ConfigureAwait(false);
     }
 
+    public async Task ResetExchangeTransportStateAsync(Guid accountId)
+    {
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            transaction.Execute("UPDATE MailAccount SET SynchronizationDeltaIdentifier = NULL WHERE Id = ?", accountId);
+            transaction.Execute("UPDATE MailItemFolder SET DeltaToken = NULL, EasSyncGeneration = '' WHERE MailAccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasItemShadow WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasCollectionState WHERE AccountId = ?", accountId);
+        }).ConfigureAwait(false);
+
+        await DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.ExpiredCache).ConfigureAwait(false);
+    }
+
     public async Task DeleteAccountAsync(MailAccount account)
     {
         // While the provider token still exists: the provider stops notifying the relay for this account.

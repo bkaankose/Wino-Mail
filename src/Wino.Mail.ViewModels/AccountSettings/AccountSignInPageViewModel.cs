@@ -213,9 +213,13 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
         if (account == null || server == null || !IsExchangeAccount || server.ExchangeTransport == selected.Transport)
             return;
 
-        var updated = server.CloneForCredentialStorage();
-        updated.ExchangeTransport = selected.Transport;
-        updated.DetectedExchangeTransport = ExchangeTransport.Automatic;
+        var updated = ExchangeTransportChange.Prepare(server, selected.Transport, out var error);
+        if (updated == null)
+        {
+            RestoreExchangeTransport(previous);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, error ?? Translator.ExchangeSetup_ServerAddressInvalid, InfoBarMessageType.Error);
+            return;
+        }
 
         var isTransportSwitch = updated.EffectiveExchangeTransport != server.EffectiveExchangeTransport;
         if (isTransportSwitch &&
@@ -232,33 +236,8 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
 
         try
         {
-            await _accountService.UpdateAccountCustomServerInformationAsync(updated);
-            account.ServerInformation = updated;
+            await ExchangeTransportChange.ApplyAsync(_accountService, _synchronizationManager, Messenger, account, updated, isTransportSwitch);
             ServerInformation = updated;
-
-            await _synchronizationManager.DestroySynchronizerAsync(account.Id);
-
-            if (isTransportSwitch)
-                await _accountService.DeleteAccountMailCacheAsync(account.Id, AccountCacheResetReason.ExpiredCache);
-
-            RequestMailSynchronization(account);
-
-            // Calendars, address books and task lists keep the old transport's ids until their own pass re-keys them.
-            if (isTransportSwitch && account.IsCalendarAccessGranted)
-            {
-                Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
-                {
-                    AccountId = account.Id,
-                    Type = CalendarSynchronizationType.Strict
-                }));
-            }
-
-            if (isTransportSwitch)
-            {
-                Messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions { AccountId = account.Id, Type = ContactSynchronizationType.Full }));
-                Messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions { AccountId = account.Id, Type = TaskSynchronizationType.Full }));
-            }
-
             _dialogService.InfoBarMessage(Translator.EditAccountDetailsPage_SaveSuccess_Title, Translator.AccountDetailsPage_ExchangeTransportSaved, InfoBarMessageType.Success);
         }
         catch (Exception ex)

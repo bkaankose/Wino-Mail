@@ -320,12 +320,29 @@ IExchangeAuthenticator exchangeAuthenticator,
         while (page.MoreAvailable);
 
         var localFolders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+
+        // Rows another transport stored (after a connection method change) take this transport's ids in place.
+        var rekeys = ExchangeTransportRekey.MatchFolders(localFolders,
+            remoteFolders.Select(f => new ExchangeFolderCandidate(f.Id.UniqueId, f.ParentFolderId?.UniqueId, f.DisplayName,
+                specialMap.TryGetValue(f.Id.UniqueId, out var role) ? role : SpecialFolderType.Other)).ToList(),
+            ExchangeTransport.Ews);
+        var structureChanged = rekeys.Count > 0;
+        foreach (var local in localFolders)
+        {
+            if (!rekeys.TryGetValue(local.Id, out var newRemoteId))
+                continue;
+
+            _logger.Information("Exchange folder sync: re-keying {Name} to its EWS id.", local.FolderName);
+            local.RemoteFolderId = newRemoteId;
+            local.EasFolderType = 0;
+            local.EasSyncGeneration = string.Empty;
+            local.DeltaToken = null;
+        }
+
         var localByRemoteId = localFolders
             .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
             .GroupBy(f => f.RemoteFolderId)
             .ToDictionary(g => g.Key, g => g.First());
-
-        var structureChanged = false;
 
         foreach (var remote in remoteFolders)
         {

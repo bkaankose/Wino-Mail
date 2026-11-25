@@ -1137,6 +1137,26 @@ IExchangeAuthenticator exchangeAuthenticator,
         // A row still carrying an EWS id (the account ran on EWS before the transport changed) is matched by its
         // MapiFolderId and re-keyed in place, so nothing under it moves: mail rows key on the folder row's Guid.
         var mailFolderIds = mailFolders.Select(f => f.FolderId).ToHashSet();
+        var incomingMapiIds = mailFolders.Select(f => f.FolderId.ToString("X16", CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
+
+        // Rows without a known MapiFolderId (stored by EWS or ActiveSync) are matched by role and path instead, and
+        // then re-keyed through their MapiFolderId below.
+        var rekeys = ExchangeTransportRekey.MatchFolders(
+            localFolders.Where(f => string.IsNullOrEmpty(f.MapiFolderId) || !incomingMapiIds.Contains(f.MapiFolderId)).ToList(),
+            mailFolders
+                .Where(f => !localFolders.Any(local => local.MapiFolderId == f.FolderId.ToString("X16", CultureInfo.InvariantCulture)))
+                .Select(f => new ExchangeFolderCandidate(ToMapiId(f.FolderId), mailFolderIds.Contains(f.ParentFolderId) ? ToMapiId(f.ParentFolderId) : null,
+                    f.DisplayName, specialByFolderId.TryGetValue(f.FolderId, out var role) ? role : SpecialFolderType.Other))
+                .ToList(),
+            ExchangeTransport.MapiHttp);
+        foreach (var local in localFolders)
+        {
+            if (!rekeys.TryGetValue(local.Id, out var newRemoteId))
+                continue;
+
+            local.MapiFolderId = newRemoteId[MapiIdPrefix.Length..];
+        }
+
         var localByRemoteId = localFolders
             .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
             .GroupBy(f => f.RemoteFolderId)
@@ -1165,8 +1185,11 @@ IExchangeAuthenticator exchangeAuthenticator,
             {
                 if (existing.RemoteFolderId != remoteId)
                 {
-                    Logger.Information("MAPI folder sync: re-keying {Name} from its EWS id to {Key}.", remote.DisplayName, remoteId);
+                    Logger.Information("MAPI folder sync: re-keying {Name} from another transport's id to {Key}.", remote.DisplayName, remoteId);
                     existing.RemoteFolderId = remoteId;
+                    existing.EasFolderType = 0;
+                    existing.EasSyncGeneration = string.Empty;
+                    existing.DeltaToken = null;
                     structureChanged = true;
                 }
 
