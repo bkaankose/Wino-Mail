@@ -40,10 +40,10 @@ internal static partial class EasDataMapper
     internal static XElement WriteFlag(bool isFlagged)
     {
         XNamespace email = "Email:";
+        // Empty Tasks date elements fail with status 6 on EAS 16.x; 14.1 and 16.1 both accept status and type alone.
         var flag = new XElement(email + "Flag", new XElement(email + "Status", isFlagged ? "2" : "0"));
         if (isFlagged)
-            flag.Add(new XElement(email + "FlagType", "Flag for follow up"), new XElement(Tasks + "StartDate"),
-                new XElement(Tasks + "UtcStartDate"), new XElement(Tasks + "DueDate"), new XElement(Tasks + "UtcDueDate"));
+            flag.Add(new XElement(email + "FlagType", "Flag for follow up"));
         return new XElement(Sync + "ApplicationData", flag);
     }
 

@@ -22,7 +22,8 @@ internal sealed class EasClient : IDisposable
     private const int MaximumResponseBytes = 64 * 1024 * 1024;
     private const string PolicyType = "MS-EAS-Provisioning-WBXML";
 
-    private static readonly string[] SupportedVersions = ["14.1", "14.0", "12.1", "12.0"];
+    // Newest first. 16.x adds server drafts and server-sent meeting mail; callers branch on IsAtLeast.
+    private static readonly string[] SupportedVersions = ["16.1", "16.0", "14.1", "14.0", "12.1", "12.0"];
 
     private static readonly ILogger Logger = Log.ForContext<EasClient>();
     private readonly HttpClient _http;

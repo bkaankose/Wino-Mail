@@ -348,8 +348,10 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         }
         if (request.ComposeResult.Attachments?.Count > 0)
             throw new NotSupportedException("EAS event attachments are not supported yet.");
-        var data = EasDataMapper.WriteEvent(request.PreparedItem, request.PreparedEvent.Attendees, request.PreparedEvent.Reminders);
-        data.Add(new XElement(EasDataMapper.Calendar + "UID", request.PreparedItem.Id.ToString("N")));
+        var isProtocol16 = await _engine.IsProtocol16Async(token).ConfigureAwait(false);
+        var data = EasDataMapper.WriteEvent(request.PreparedItem, request.PreparedEvent.Attendees, request.PreparedEvent.Reminders, isProtocol16);
+        // 16.x generates the UID itself and takes the client's id as ClientUid.
+        data.Add(new XElement(EasDataMapper.Calendar + (isProtocol16 ? "ClientUid" : "UID"), request.PreparedItem.Id.ToString("N")));
         await _engine.CreateCalendarEventAsync(request.AssignedCalendar.RemoteCalendarId, data, request.PreparedItem.Id.ToString("N"), async id =>
         {
             var trackedId = id.WithClientTrackingId(request.PreparedItem.Id);
@@ -378,7 +380,7 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         var attendees = request.Attendees ?? await _calendars.GetAttendeesAsync(request.Item.Id).ConfigureAwait(false);
         var reminders = request.Reminders ?? await _calendars.GetRemindersAsync(request.Item.Id).ConfigureAwait(false);
         await _engine.MutateAsync(calendar.RemoteCalendarId, "Change", request.Item.RemoteEventId.GetProviderRemoteEventId(),
-            EasDataMapper.WriteEvent(request.Item, attendees, reminders), string.Empty, token, async _ =>
+            EasDataMapper.WriteEvent(request.Item, attendees, reminders, await _engine.IsProtocol16Async(token).ConfigureAwait(false)), string.Empty, token, async _ =>
             {
                 await _calendars.UpdateCalendarItemAsync(request.Item, attendees).ConfigureAwait(false);
                 await _calendars.SaveRemindersAsync(request.Item.Id, reminders).ConfigureAwait(false);

@@ -30,7 +30,7 @@ internal static partial class EasDataMapper
         {
             Id = StableId(Key(calendar.AccountId, calendar.RemoteCalendarId, remoteId)), CalendarId = calendar.Id, AssignedCalendar = calendar,
             RemoteEventId = remoteId, Title = Value(data, Calendar, "Subject"), Description = BodyText(data),
-            Location = Value(data, Calendar, "Location"), StartDate = localStart, DurationInSeconds = (localEnd - localStart).TotalSeconds,
+            Location = ReadLocation(data), StartDate = localStart, DurationInSeconds = (localEnd - localStart).TotalSeconds,
             StartTimeZone = zone.Id, EndTimeZone = zone.Id, OrganizerEmail = Value(data, Calendar, "OrganizerEmail"),
             OrganizerDisplayName = Value(data, Calendar, "OrganizerName"), CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = Date(Value(data, Calendar, "DtStamp")) ?? DateTime.UtcNow,
@@ -52,7 +52,42 @@ internal static partial class EasDataMapper
             { "2" => AttendeeStatus.Tentative, "3" => AttendeeStatus.Accepted, "4" => AttendeeStatus.Declined, _ => AttendeeStatus.NeedsAction }
         }).ToList() ?? [];
 
-    internal static XElement WriteEvent(CalendarItem item, IReadOnlyList<CalendarEventAttendee> attendees, IReadOnlyList<Reminder> reminders)
+    // EAS 16.x moved the location to AirSyncBase:Location and rejects Calendar:Location.
+    private static string ReadLocation(XElement data)
+        => data.Element(Calendar + "Location")?.Value is { Length: > 0 } location ? location
+            : data.Element(Body + "Location")?.Element(Body + "DisplayName")?.Value ?? string.Empty;
+
+    private static readonly HashSet<string> ServerOnlyEventFields = new(StringComparer.Ordinal)
+        { "ResponseRequested", "ResponseType", "AppointmentReplyTime" };
+
+    // EAS 16.x: the server owns these; sending them back in a Change fails with status 6.
+    private static readonly HashSet<string> ServerOnlyEventFields16 = new(StringComparer.Ordinal)
+        { "UID", "DtStamp", "OrganizerName", "OrganizerEmail" };
+
+    /// <summary>
+    /// The stored server copy merged with the edit, reduced to what a Sync Change may carry. Measured against Exchange
+    /// SE: read-only response fields, an empty reminder and the body size fail with status 6 on 14.1 or 16.1.
+    /// </summary>
+    internal static XElement ForEventChange(XElement merged, bool isProtocol16)
+    {
+        var result = new XElement(merged);
+        result.Elements().Where(element => element.Name.Namespace == Calendar && (ServerOnlyEventFields.Contains(element.Name.LocalName) ||
+            (isProtocol16 && ServerOnlyEventFields16.Contains(element.Name.LocalName)) ||
+            (element.Name.LocalName == "Reminder" && element.Value.Length == 0))).Remove();
+        result.Element(Body + "Body")?.Elements().Where(element => element.Name.LocalName is "EstimatedDataSize" or "Truncated" or "Preview").Remove();
+        if (isProtocol16 && result.Element(Calendar + "Location") is { } legacyLocation)
+        {
+            legacyLocation.Remove();
+            result.Element(Body + "Location")?.Remove();
+            result.Add(WriteLocation(legacyLocation.Value));
+        }
+        return result;
+    }
+
+    private static XElement WriteLocation(string location)
+        => new(Body + "Location", new XElement(Body + "DisplayName", location));
+
+    internal static XElement WriteEvent(CalendarItem item, IReadOnlyList<CalendarEventAttendee> attendees, IReadOnlyList<Reminder> reminders, bool isProtocol16)
     {
         var zone = string.IsNullOrEmpty(item.StartTimeZone) ? TimeZoneInfo.Utc : TimeZoneInfo.FindSystemTimeZoneById(item.StartTimeZone);
         var start = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(item.StartDate, DateTimeKind.Unspecified), zone);
@@ -63,10 +98,11 @@ internal static partial class EasDataMapper
             end = DateTime.SpecifyKind(item.EndDate.Date, DateTimeKind.Utc);
         }
         var result = new XElement(Sync + "ApplicationData",
-            new XElement(Calendar + "Subject", item.Title ?? string.Empty), new XElement(Calendar + "Location", item.Location ?? string.Empty),
+            new XElement(Calendar + "Subject", item.Title ?? string.Empty),
+            isProtocol16 ? WriteLocation(item.Location ?? string.Empty) : new XElement(Calendar + "Location", item.Location ?? string.Empty),
             new XElement(Calendar + "StartTime", start.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)),
             new XElement(Calendar + "EndTime", end.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)),
-            new XElement(Calendar + "DtStamp", DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)),
+            isProtocol16 ? null : new XElement(Calendar + "DtStamp", DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)),
             new XElement(Calendar + "AllDayEvent", item.IsAllDayEvent ? "1" : "0"), new XElement(Calendar + "BusyStatus", (int)item.ShowAs),
             new XElement(Calendar + "TimeZone", EasTimeZone.Write(zone, item.StartDate.Year)),
             TextBody(item.Description), new XElement(Calendar + "Attendees", attendees.Where(attendee => !attendee.IsOrganizer).Select(attendee =>

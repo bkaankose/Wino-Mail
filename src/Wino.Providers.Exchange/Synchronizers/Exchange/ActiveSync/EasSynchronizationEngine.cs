@@ -52,6 +52,9 @@ internal sealed class EasSynchronizationEngine : IDisposable
             server.IncomingServerPassword ?? throw new InvalidOperationException("The EAS password is missing."), new EasAccountStateStore(database));
     }
 
+    internal async Task<bool> IsProtocol16Async(CancellationToken cancellationToken)
+        => Version.Parse(await GetProtocolVersionAsync(cancellationToken).ConfigureAwait(false)) >= new Version(16, 0);
+
     /// <summary>The negotiated MS-ASProtocolVersion; connects first when no request has been made yet.</summary>
     internal async Task<string> GetProtocolVersionAsync(CancellationToken cancellationToken)
     {
@@ -128,7 +131,10 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (data != null)
             {
                 var shadow = operation == "Add" ? null : await _database.Connection.FindAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, folderId, remoteId)).ConfigureAwait(false);
-                command.Add(ItemClass(state.EasFolderType) is "Email" or "Contacts" ? data : Merge(shadow?.ApplicationData, data));
+                var itemClass = ItemClass(state.EasFolderType);
+                command.Add(itemClass is "Email" or "Contacts" ? data
+                    : itemClass == "Calendar" ? EasDataMapper.ForEventChange(Merge(shadow?.ApplicationData, data), _client.IsAtLeast("16.0"))
+                    : Merge(shadow?.ApplicationData, data));
             }
             var result = await _client.SyncAsync(folderId, state.DeltaToken, ItemClass(state.EasFolderType), new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
             var response = result.Element(sync + "Responses")?.Element(sync + operation);
