@@ -16,6 +16,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Messaging.UI;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
@@ -61,7 +62,8 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         : base(account, messenger, uiChanges)
     {
         _errorHandlerFactory = errorHandlerFactory;
-        _engine = new EasSynchronizationEngine(account, database, accounts, folders, mail, calendars, contacts, tasks, pictures, client);
+        _engine = new EasSynchronizationEngine(account, database, accounts, folders, mail, calendars, contacts, tasks, pictures,
+            () => Messenger.Send(new AccountFolderConfigurationUpdated(account.Id)), client);
         _mail = mail; _folders = folders; _contacts = contacts; _tasks = tasks; _calendars = calendars; _mime = mime;
         _pictures = pictures;
         _changeProcessor = changeProcessor;

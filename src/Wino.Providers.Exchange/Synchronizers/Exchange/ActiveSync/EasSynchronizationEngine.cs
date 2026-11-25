@@ -35,15 +35,17 @@ internal sealed class EasSynchronizationEngine : IDisposable
     private readonly ITaskService _tasks;
     private readonly IPictureStorageService _pictures;
     private readonly EasClient _client;
+    private readonly Action _hierarchyChanged;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     internal EasSynchronizationEngine(MailAccount account, IDatabaseService database, IAccountService accounts,
         IFolderService folders, IMailService mail, ICalendarService calendars, IContactService contacts, ITaskService tasks, IPictureStorageService pictures,
-        EasClient? client = null)
+        Action hierarchyChanged, EasClient? client = null)
     {
         _account = account; _database = database; _accounts = accounts; _folders = folders;
         _mail = mail; _calendars = calendars; _contacts = contacts; _tasks = tasks;
         _pictures = pictures;
+        _hierarchyChanged = hierarchyChanged;
         var server = account.ServerInformation ?? throw new InvalidOperationException("EAS server settings are missing.");
         if (server.UseOAuthAuthentication)
             throw new NotSupportedException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncPasswordRequired);
@@ -216,8 +218,9 @@ internal sealed class EasSynchronizationEngine : IDisposable
             var resultId = command == "FolderCreate" ? Required(response, FolderHierarchy + "ServerId") : remoteId;
             var mailRows = await LoadMailRowsAsync().ConfigureAwait(false);
             var states = await LoadStatesAsync().ConfigureAwait(false);
+            var mailChanged = false;
             if (command == "FolderDelete")
-                await RemoveServerIdAsync(resultId, mailRows, states).ConfigureAwait(false);
+                mailChanged = await RemoveServerIdAsync(resultId, mailRows, states).ConfigureAwait(false);
             else
             {
                 var type = mailRows.FirstOrDefault(row => row.EasFolderType > 0 && row.RemoteFolderId == resultId)?.EasFolderType
@@ -226,12 +229,14 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 if (IsMailType(type))
                 {
                     if (_account.IsMailAccessGranted)
-                        await UpsertMailFolderAsync(resultId, parent, displayName, type, mailRows).ConfigureAwait(false);
+                        mailChanged = await UpsertMailFolderAsync(resultId, parent, displayName, type, mailRows).ConfigureAwait(false);
                 }
                 else
                     await UpsertCollectionStateAsync(resultId, parent, displayName, type, states).ConfigureAwait(false);
             }
             await SaveHierarchyKeyAsync(Required(response, FolderHierarchy + "SyncKey")).ConfigureAwait(false);
+            if (mailChanged)
+                _hierarchyChanged();
             return resultId;
         }
         finally { _gate.Release(); }
@@ -291,10 +296,11 @@ internal sealed class EasSynchronizationEngine : IDisposable
             .Where(element => element.Name == FolderHierarchy + "Add" || element.Name == FolderHierarchy + "Update" || element.Name == FolderHierarchy + "Delete")
             .ToList();
         var fullRead = key == "0";
+        var mailChanged = false;
 
         var staleRows = new List<MailItemFolder>();
         if (fullRead && _account.IsMailAccessGranted)
-            await RematchFoldersAsync(mailRows, staleRows, entries).ConfigureAwait(false);
+            mailChanged |= await RematchFoldersAsync(mailRows, staleRows, entries).ConfigureAwait(false);
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var change in entries)
@@ -305,7 +311,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             seen.Add(serverId);
             if (change.Name == FolderHierarchy + "Delete")
             {
-                await RemoveServerIdAsync(serverId, mailRows, states).ConfigureAwait(false);
+                mailChanged |= await RemoveServerIdAsync(serverId, mailRows, states).ConfigureAwait(false);
                 continue;
             }
 
@@ -316,7 +322,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (IsMailType(type))
             {
                 if (_account.IsMailAccessGranted)
-                    await UpsertMailFolderAsync(serverId, parentId, name, type, mailRows).ConfigureAwait(false);
+                    mailChanged |= await UpsertMailFolderAsync(serverId, parentId, name, type, mailRows).ConfigureAwait(false);
             }
             else
                 await UpsertCollectionStateAsync(serverId, parentId, name, type, states).ConfigureAwait(false);
@@ -327,6 +333,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             foreach (var stale in staleRows)
             {
                 await RemoveCollectionAsync(EasCollection.From(stale)).ConfigureAwait(false);
+                mailChanged = true;
             }
             foreach (var stale in states.Where(state => !seen.Contains(state.ServerId)).ToList())
             {
@@ -344,6 +351,8 @@ internal sealed class EasSynchronizationEngine : IDisposable
         }
 
         await SaveHierarchyKeyAsync(Required(response, FolderHierarchy + "SyncKey")).ConfigureAwait(false);
+        if (mailChanged)
+            _hierarchyChanged();
     }
 
     /// <summary>
