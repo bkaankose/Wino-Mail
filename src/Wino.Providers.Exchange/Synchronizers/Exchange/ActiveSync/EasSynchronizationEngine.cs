@@ -221,7 +221,8 @@ internal sealed class EasSynchronizationEngine : IDisposable
 
     /// <summary>
     /// FolderCreate, FolderUpdate or FolderDelete. The response carries the next hierarchy key, so the change is applied
-    /// locally here: the following FolderSync does not report it again.
+    /// locally here: the following FolderSync does not report it again. Status 9 means the hierarchy key is stale; the
+    /// hierarchy is read again and the command retried once.
     /// </summary>
     internal async Task<string> ChangeFolderAsync(string command, string remoteId, string parentId, string displayName, int folderType, CancellationToken cancellationToken)
     {
@@ -229,16 +230,27 @@ internal sealed class EasSynchronizationEngine : IDisposable
         try
         {
             await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-            var request = new XElement(FolderHierarchy + command, new XElement(FolderHierarchy + "SyncKey", HierarchyKey()));
-            if (command != "FolderCreate")
-                request.Add(new XElement(FolderHierarchy + "ServerId", remoteId));
-            if (command != "FolderDelete")
-                request.Add(new XElement(FolderHierarchy + "ParentId", string.IsNullOrEmpty(parentId) ? "0" : parentId), new XElement(FolderHierarchy + "DisplayName", displayName));
-            if (command == "FolderCreate")
-                request.Add(new XElement(FolderHierarchy + "Type", folderType));
-            var response = await _client.CommandAsync(command, request, cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidDataException("The EAS folder operation response is empty.");
-            EasClient.RequireSuccess(response);
+            XElement response;
+            for (var attempt = 0; ; attempt++)
+            {
+                var request = new XElement(FolderHierarchy + command, new XElement(FolderHierarchy + "SyncKey", HierarchyKey()));
+                if (command != "FolderCreate")
+                    request.Add(new XElement(FolderHierarchy + "ServerId", remoteId));
+                if (command != "FolderDelete")
+                    request.Add(new XElement(FolderHierarchy + "ParentId", string.IsNullOrEmpty(parentId) ? "0" : parentId), new XElement(FolderHierarchy + "DisplayName", displayName));
+                if (command == "FolderCreate")
+                    request.Add(new XElement(FolderHierarchy + "Type", folderType));
+                response = await _client.CommandAsync(command, request, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidDataException("The EAS folder operation response is empty.");
+                if (attempt == 0 && StatusOf(response) == "9")
+                {
+                    Serilog.Log.Information("EAS {Command} for {Account}: the folder hierarchy key is stale; reading the hierarchy again.", command, _account.Address);
+                    await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+                EasClient.RequireSuccess(response);
+                break;
+            }
 
             var resultId = command == "FolderCreate" ? Required(response, FolderHierarchy + "ServerId") : remoteId;
             var mailRows = await LoadMailRowsAsync().ConfigureAwait(false);
@@ -633,6 +645,9 @@ internal sealed class EasSynchronizationEngine : IDisposable
         5 => SpecialFolderType.Sent,
         _ => SpecialFolderType.Other
     };
+
+    private static string? StatusOf(XElement response)
+        => response.Elements().FirstOrDefault(element => element.Name.LocalName == "Status")?.Value;
 
     private async Task SynchronizeCollectionAsync(EasCollection state, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
