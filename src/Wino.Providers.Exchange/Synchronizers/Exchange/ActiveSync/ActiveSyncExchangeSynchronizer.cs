@@ -416,21 +416,12 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             throw new EasCommandException("Sync", string.Join(", ", failures.Distinct()) + " for " + failures.Count + " item(s)");
     }
 
-    public override List<IRequestBundle<EwsRequest>> EmptyFolder(EmptyFolderRequest request) => Bundle(async token =>
-    {
-        var deletes = request.MailsToDelete.Select(mail => new DeleteRequest(mail)).ToList();
-        if (!await _engine.EmptyFolderAsync(request.Folder.RemoteFolderId, token).ConfigureAwait(false))
-        {
-            await MutateMailAsync(deletes, delete => delete.Item, (_, id) => EasMutation.Delete(id),
-                delete => _mail.DeleteMailAsync(Account.Id, delete.Item.Id), deletesAsMoves: false, token,
-                delete => _mail.DiscardLocalDraftAsync(Account.Id, delete.Item.UniqueId)).ConfigureAwait(false);
-            return;
-        }
-
-        foreach (var draft in deletes.Where(delete => delete.Item.IsLocalDraft))
-            await _mail.DiscardLocalDraftAsync(Account.Id, draft.Item.UniqueId).ConfigureAwait(false);
-        await _mail.DeleteMailsAsync(Account.Id, deletes.Where(delete => !delete.Item.IsLocalDraft).Select(delete => delete.Item.Id)).ConfigureAwait(false);
-    }, request, request);
+    /// <summary>
+    /// Deletes exactly the messages the request lists, as the EWS synchronizer does, in batched Sync Deletes. Messages
+    /// the user never saw (not yet synchronized, or outside the synchronization range) stay on the server.
+    /// </summary>
+    public override List<IRequestBundle<EwsRequest>> EmptyFolder(EmptyFolderRequest request)
+        => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(mail => new DeleteRequest(mail))));
 
     public override List<IRequestBundle<EwsRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(mail => new MarkReadRequest(mail, true))));

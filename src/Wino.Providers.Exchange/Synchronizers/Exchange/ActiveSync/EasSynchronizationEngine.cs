@@ -340,33 +340,6 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         finally { _gate.Release(); }
     }
 
-    /// <summary>
-    /// Empties a mail folder on the server with ItemOperations EmptyFolderContents; subfolders stay. The items leave
-    /// the folder for good (Exchange keeps them in Recoverable Items). False when the server refuses, so the caller
-    /// can delete the messages one by one instead.
-    /// </summary>
-    internal async Task<bool> EmptyFolderAsync(string folderId, CancellationToken cancellationToken)
-    {
-        XNamespace items = "ItemOperations:";
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var state = await GetCollectionAsync(folderId).ConfigureAwait(false);
-            var response = await _client.CommandAsync("ItemOperations", new XElement(items + "ItemOperations",
-                new XElement(items + "EmptyFolderContents", new XElement(EasDataMapper.Sync + "CollectionId", folderId))), cancellationToken).ConfigureAwait(false);
-            var status = response?.Element(items + "Response")?.Element(items + "EmptyFolderContents")?.Element(items + "Status")?.Value;
-            if (response == null || StatusOf(response) != "1" || status != "1")
-            {
-                Serilog.Log.Warning("EAS EmptyFolderContents for {Collection} of {Account} returned status {Status}.", state.Name, _account.Address,
-                    status ?? (response == null ? null : StatusOf(response)) ?? "missing");
-                return false;
-            }
-            await _database.Connection.ExecuteAsync("DELETE FROM EasItemShadow WHERE CollectionId = ?", state.Id).ConfigureAwait(false);
-            return true;
-        }
-        finally { _gate.Release(); }
-    }
-
     private async Task ProjectMoveAsync(EasMove move, string? destinationId)
     {
         var source = await GetCollectionAsync(move.SourceFolderId).ConfigureAwait(false);
