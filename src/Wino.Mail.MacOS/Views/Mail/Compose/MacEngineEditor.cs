@@ -25,7 +25,7 @@ public readonly record struct EditorFindResult(int Index, int Count);
 /// replace, link opening, errors). The session is the <see cref="IHtmlMailEditorSession"/> and the
 /// <see cref="Wino.Mail.ViewModels.IComposeBodyWriter"/>.
 /// </summary>
-public sealed class MacEngineEditor : IAsyncDisposable
+public sealed partial class MacEngineEditor : IAsyncDisposable
 {
     private readonly EngineMailView _view;
     private IExternalLauncher? _launcher;
@@ -40,6 +40,7 @@ public sealed class MacEngineEditor : IAsyncDisposable
         Engine.ShortcutRequested += (_, kind) => ShortcutRequested?.Invoke(this, kind);
         Engine.ApplicationShortcutRequested += (_, gesture) => ApplicationShortcutRequested?.Invoke(this, gesture);
         _view.FilesReceived += (_, files) => FilesReceived?.Invoke(this, files);
+        _view.ContextMenuRequested += View_ContextMenuRequested;
     }
 
     public EngineMailEditorSession Engine { get; }
@@ -76,7 +77,11 @@ public sealed class MacEngineEditor : IAsyncDisposable
     public Task InitializeAsync(CancellationToken cancellationToken = default) => Engine.InitializeAsync(cancellationToken);
     public Task RenderHtmlAsync(string htmlBody, CancellationToken cancellationToken = default) => Engine.RenderHtmlAsync(htmlBody, cancellationToken);
     public Task<string?> GetHtmlBodyAsync(CancellationToken cancellationToken = default) => Engine.GetHtmlBodyAsync(cancellationToken);
-    public Task SetThemeAsync(bool isDarkMode, CancellationToken cancellationToken = default) => Engine.SetThemeAsync(isDarkMode, cancellationToken);
+    public Task SetThemeAsync(bool isDarkMode, CancellationToken cancellationToken = default)
+    {
+        _isDarkEditor = isDarkMode;
+        return Engine.SetThemeAsync(isDarkMode, cancellationToken);
+    }
     public Task SetDefaultTypographyAsync(string? fontFamily, int fontSize, CancellationToken cancellationToken = default) => Engine.SetDefaultTypographyAsync(fontFamily, fontSize, cancellationToken);
     public Task SetSignatureAsync(string? html, string? previousHtml, CancellationToken cancellationToken = default) => Engine.SetSignatureAsync(html, previousHtml, cancellationToken);
     public Task FocusEditorAsync(bool focusControlAsWell, CancellationToken cancellationToken = default) => Engine.FocusEditorAsync(focusControlAsWell, cancellationToken);
