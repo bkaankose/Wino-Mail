@@ -63,7 +63,7 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
     {
         _errorHandlerFactory = errorHandlerFactory;
         _engine = new EasSynchronizationEngine(account, database, accounts, folders, mail, calendars, contacts, tasks, pictures,
-            () => Messenger.Send(new AccountFolderConfigurationUpdated(account.Id)), client);
+            () => Messenger.Send(new AccountFolderConfigurationUpdated(account.Id)), ReportCollectionFailure, client);
         _mail = mail; _folders = folders; _contacts = contacts; _tasks = tasks; _calendars = calendars; _mime = mime;
         _pictures = pictures;
         _changeProcessor = changeProcessor;
@@ -113,6 +113,20 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
                 ? MailSynchronizationResult.Completed(new List<MailCopy>())
                 : MailSynchronizationResult.Failed(exception);
         }
+    }
+
+    private void ReportCollectionFailure(EasCollection collection, Exception exception)
+    {
+        Logger.Error(exception, "EAS collection {Collection} failed for {Account}; the other collections continue.", collection.Name, Account.Name);
+        CaptureSynchronizationIssue(new SynchronizerErrorContext
+        {
+            Account = Account,
+            ErrorMessage = exception.Message,
+            Exception = exception,
+            FolderId = collection.IsMail ? collection.Id : null,
+            FolderName = collection.Name,
+            OperationType = "ActiveSyncCollectionSync"
+        });
     }
 
     protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)

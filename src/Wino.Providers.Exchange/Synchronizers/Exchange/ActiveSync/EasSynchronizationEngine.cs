@@ -36,16 +36,18 @@ internal sealed class EasSynchronizationEngine : IDisposable
     private readonly IPictureStorageService _pictures;
     private readonly EasClient _client;
     private readonly Action _hierarchyChanged;
+    private readonly Action<EasCollection, Exception> _collectionFailed;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     internal EasSynchronizationEngine(MailAccount account, IDatabaseService database, IAccountService accounts,
         IFolderService folders, IMailService mail, ICalendarService calendars, IContactService contacts, ITaskService tasks, IPictureStorageService pictures,
-        Action hierarchyChanged, EasClient? client = null)
+        Action hierarchyChanged, Action<EasCollection, Exception> collectionFailed, EasClient? client = null)
     {
         _account = account; _database = database; _accounts = accounts; _folders = folders;
         _mail = mail; _calendars = calendars; _contacts = contacts; _tasks = tasks;
         _pictures = pictures;
         _hierarchyChanged = hierarchyChanged;
+        _collectionFailed = collectionFailed;
         var server = account.ServerInformation ?? throw new InvalidOperationException("EAS server settings are missing.");
         if (server.UseOAuthAuthentication)
             throw new NotSupportedException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncPasswordRequired);
@@ -78,7 +80,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 .ToList();
             var downloaded = new List<MailCopy>();
             foreach (var folder in folders)
-                await SynchronizeCollectionAsync(EasCollection.From(folder), downloaded, cancellationToken).ConfigureAwait(false);
+                await SynchronizeIsolatedAsync(EasCollection.From(folder), downloaded, cancellationToken).ConfigureAwait(false);
             return downloaded;
         }
         finally { _gate.Release(); }
@@ -94,7 +96,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (!states.Any(state => ItemClass(state.Type) == itemClass))
                 throw new NotSupportedException("The EAS server did not expose a " + itemClass + " collection for this account. Check synchronization availability with your mail provider.");
             foreach (var state in states.Where(state => ItemClass(state.Type) == itemClass))
-                await SynchronizeCollectionAsync(EasCollection.From(state), new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+                await SynchronizeIsolatedAsync(EasCollection.From(state), new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
             if (itemClass == "Calendar" && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider)
             {
                 var activeCalendars = states.Where(state => ItemClass(state.Type) == "Calendar").Select(state => state.Id).ToHashSet();
@@ -119,6 +121,29 @@ internal sealed class EasSynchronizationEngine : IDisposable
         try { await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false); }
         finally { _gate.Release(); }
     }
+
+    private async Task SynchronizeIsolatedAsync(EasCollection collection, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await SynchronizeCollectionAsync(collection, downloaded, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (IsCollectionFailure(exception))
+        {
+            _collectionFailed(collection, exception);
+        }
+    }
+
+    /// <summary>
+    /// Whether a failure belongs to one collection, so the pass continues with the others. Global ActiveSync statuses
+    /// (100 and above), HTTP, authentication, policy and cancellation failures stop the pass.
+    /// </summary>
+    private static bool IsCollectionFailure(Exception exception) => exception switch
+    {
+        EasCommandException command => !int.TryParse(command.Status, out var status) || status < 100,
+        InvalidDataException or XmlException or FormatException => true,
+        _ => false
+    };
 
     internal Task<string> MutateAsync(string folderId, string operation, string remoteId, XElement? data, string clientId,
         CancellationToken cancellationToken, Func<string, Task>? persistMutation = null)
@@ -309,23 +334,31 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (string.IsNullOrEmpty(serverId))
                 continue;
             seen.Add(serverId);
-            if (change.Name == FolderHierarchy + "Delete")
+            try
             {
-                mailChanged |= await RemoveServerIdAsync(serverId, mailRows, states).ConfigureAwait(false);
-                continue;
-            }
+                if (change.Name == FolderHierarchy + "Delete")
+                {
+                    mailChanged |= await RemoveServerIdAsync(serverId, mailRows, states).ConfigureAwait(false);
+                    continue;
+                }
 
-            var name = Required(change, FolderHierarchy + "DisplayName");
-            var parentId = Required(change, FolderHierarchy + "ParentId");
-            if (!int.TryParse(Required(change, FolderHierarchy + "Type"), out var type))
-                throw new InvalidDataException("The EAS folder type is invalid.");
-            if (IsMailType(type))
-            {
-                if (_account.IsMailAccessGranted)
-                    mailChanged |= await UpsertMailFolderAsync(serverId, parentId, name, type, mailRows).ConfigureAwait(false);
+                var name = Required(change, FolderHierarchy + "DisplayName");
+                var parentId = Required(change, FolderHierarchy + "ParentId");
+                if (!int.TryParse(Required(change, FolderHierarchy + "Type"), out var type))
+                    throw new InvalidDataException("The EAS folder type is invalid.");
+                if (IsMailType(type))
+                {
+                    if (_account.IsMailAccessGranted)
+                        mailChanged |= await UpsertMailFolderAsync(serverId, parentId, name, type, mailRows).ConfigureAwait(false);
+                }
+                else
+                    await UpsertCollectionStateAsync(serverId, parentId, name, type, states).ConfigureAwait(false);
             }
-            else
-                await UpsertCollectionStateAsync(serverId, parentId, name, type, states).ConfigureAwait(false);
+            catch (Exception exception) when (IsCollectionFailure(exception))
+            {
+                _collectionFailed(EasCollection.From(new EasCollectionState { ServerId = serverId,
+                    DisplayName = change.Element(FolderHierarchy + "DisplayName")?.Value ?? serverId }), exception);
+            }
         }
 
         if (fullRead)
