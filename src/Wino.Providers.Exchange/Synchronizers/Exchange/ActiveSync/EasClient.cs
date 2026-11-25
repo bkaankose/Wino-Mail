@@ -139,6 +139,35 @@ internal sealed class EasClient : IDisposable
         // provisions before its first command.
         if (!state.IsPolicyRecorded)
             await ProvisionAsync(state.PolicyKey, cancellationToken).ConfigureAwait(false);
+
+        // From 14.1 the device information travels in the initial Provision request; older versions send it once with
+        // Settings, after provisioning and before the first FolderSync.
+        if (!IsAtLeast("14.1") && !state.IsDeviceInformationSent)
+            await SendDeviceInformationAsync(state, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SendDeviceInformationAsync(EasAccountState state, CancellationToken cancellationToken)
+    {
+        XNamespace settings = "Settings:";
+        var response = await PostAsync("Settings", EasWbxml.Encode(new XElement(settings + "Settings",
+            new XElement(settings + "DeviceInformation", DeviceInformationSet()))), "application/vnd.ms-sync.wbxml", cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidDataException("The EAS Settings response was empty.");
+        RequireSuccess(response);
+        RequireSuccess(response.Element(settings + "DeviceInformation") ?? throw new InvalidDataException("The EAS Settings response has no device information status."));
+        state.IsDeviceInformationSent = true;
+        await SaveStateAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>The device properties for Settings or Provision; UserAgent exists from 12.1.</summary>
+    private XElement DeviceInformationSet()
+    {
+        XNamespace settings = "Settings:";
+        var set = new XElement(settings + "Set",
+            new XElement(settings + "Model", "Wino Mail"),
+            new XElement(settings + "OS", Environment.OSVersion.VersionString));
+        if (IsAtLeast("12.1"))
+            set.Add(new XElement(settings + "UserAgent", "WinoMail/2.0"));
+        return set;
     }
 
     internal async Task<XElement?> CommandAsync(string command, XElement document, CancellationToken cancellationToken)
@@ -359,10 +388,7 @@ internal sealed class EasClient : IDisposable
         var request = new XElement(provision + "Provision",
             new XElement(provision + "Policies", new XElement(provision + "Policy", new XElement(provision + "PolicyType", PolicyType))));
         if (IsAtLeast("14.1"))
-            request.AddFirst(new XElement(settings + "DeviceInformation", new XElement(settings + "Set",
-                new XElement(settings + "Model", "Wino Mail"),
-                new XElement(settings + "OS", Environment.OSVersion.VersionString),
-                new XElement(settings + "UserAgent", "WinoMail/2.0"))));
+            request.AddFirst(new XElement(settings + "DeviceInformation", DeviceInformationSet()));
         return request;
     }
 

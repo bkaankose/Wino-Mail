@@ -15,6 +15,9 @@ public sealed class EasAccountState
     public string ResolvedEndpoint { get; set; } = string.Empty;
     public bool IsRemoteWipeRequested { get; set; }
 
+    /// <summary>Whether Settings DeviceInformation was sent, which protocol versions below 14.1 use instead of Provision.</summary>
+    public bool IsDeviceInformationSent { get; set; }
+
     /// <summary>Whether the limits below come from the policy the current <see cref="PolicyKey"/> was issued for.</summary>
     public bool IsPolicyRecorded { get; set; }
 
