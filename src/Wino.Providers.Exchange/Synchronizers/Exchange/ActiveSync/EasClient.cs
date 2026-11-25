@@ -27,6 +27,7 @@ internal sealed class EasClient : IDisposable
 
     private static readonly ILogger Logger = Log.ForContext<EasClient>();
     private readonly HttpClient _http;
+    private readonly Lazy<HttpClient> _longPoll;
     private readonly MailAccount _account;
     private readonly Uri _configuredEndpoint;
     private readonly string _user;
@@ -60,6 +61,16 @@ internal sealed class EasClient : IDisposable
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
             Convert.ToBase64String(Encoding.UTF8.GetBytes(user + ":" + password)));
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("WinoMail/2.0");
+
+        // Ping holds a request open for minutes; its own client keeps it off the connections that synchronization uses.
+        var authorization = _http.DefaultRequestHeaders.Authorization;
+        _longPoll = new Lazy<HttpClient>(() =>
+        {
+            var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
+            client.DefaultRequestHeaders.Authorization = authorization;
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("WinoMail/2.0");
+            return client;
+        }, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <summary>The negotiated MS-ASProtocolVersion, or null before the first request.</summary>
@@ -144,21 +155,43 @@ internal sealed class EasClient : IDisposable
             RequireSuccess(result);
     }
 
+    /// <summary>
+    /// One Ping (MS-ASCMD 2.2.1.13) on the long-poll client. The server answers when a folder changes or the heartbeat
+    /// ends; <paramref name="timeout"/> bounds the wait beyond that, for a connection that silently died.
+    /// </summary>
+    internal async Task<XElement> PingAsync(XElement request, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        if (_version == null)
+            await ConnectAsync(cancellationToken).ConfigureAwait(false);
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(timeout);
+        try
+        {
+            return await PostAsync("Ping", EasWbxml.Encode(request), "application/vnd.ms-sync.wbxml", deadline.Token, http: _longPoll.Value).ConfigureAwait(false)
+                ?? throw new InvalidDataException("The EAS Ping response was empty.");
+        }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("The EAS server did not answer a Ping within " + timeout.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture) + " s.", exception);
+        }
+    }
+
     private async Task<XElement?> PostAsync(string command, byte[] bytes, string contentType, CancellationToken cancellationToken,
-        bool allowProvision = true, bool allowRedirect = true)
+        bool allowProvision = true, bool allowRedirect = true, HttpClient? http = null)
     {
         var state = await EnsureStateAsync().ConfigureAwait(false);
         using var request = CreateRequest(command, bytes, contentType, state);
-        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        using var response = await (http ?? _http).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         if (allowRedirect && await TryFollowMailboxRedirectAsync(response).ConfigureAwait(false))
-            return await PostAsync(command, bytes, contentType, cancellationToken, allowProvision, false).ConfigureAwait(false);
+            return await PostAsync(command, bytes, contentType, cancellationToken, allowProvision, false, http).ConfigureAwait(false);
 
         if ((int)response.StatusCode == 449)
         {
             if (!allowProvision)
                 throw new EasPolicyException(Translator.ExchangeSetup_ActiveSyncProvisioningLoop, "449");
             await ProvisionAsync(cancellationToken).ConfigureAwait(false);
-            return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect).ConfigureAwait(false);
+            return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect, http).ConfigureAwait(false);
         }
 
         EnsureHttpSuccess(response);
@@ -193,7 +226,7 @@ internal sealed class EasClient : IDisposable
             if (!allowProvision)
                 throw new EasPolicyException(Translator.ExchangeSetup_ActiveSyncProvisioningLoop, status);
             await ProvisionAsync(cancellationToken).ConfigureAwait(false);
-            return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect).ConfigureAwait(false);
+            return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect, http).ConfigureAwait(false);
         }
 
         ThrowOnAccountStatus(status);
@@ -539,6 +572,8 @@ internal sealed class EasClient : IDisposable
     public void Dispose()
     {
         _http.Dispose();
+        if (_longPoll.IsValueCreated)
+            _longPoll.Value.Dispose();
         _stateGate.Dispose();
     }
 }

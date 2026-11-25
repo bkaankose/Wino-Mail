@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -40,6 +41,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     private readonly Action<EasCollection, Exception> _collectionFailed;
     private readonly Action<EasCollection, string, Exception> _itemFailed;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly ConcurrentDictionary<string, DateTime> _collectionPassesUtc = new(StringComparer.Ordinal);
+    private long _hierarchyPassTicks;
 
     internal EasSynchronizationEngine(MailAccount account, IDatabaseService database, IAccountService accounts,
         IFolderService folders, IMailService mail, ICalendarService calendars, IContactService contacts, ITaskService tasks, IPictureStorageService pictures,
@@ -467,6 +470,18 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     /// </summary>
     private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken)
     {
+        try
+        {
+            await SynchronizeFoldersCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _hierarchyPassTicks, DateTime.UtcNow.Ticks);
+        }
+    }
+
+    private async Task SynchronizeFoldersCoreAsync(CancellationToken cancellationToken)
+    {
         var mailRows = await LoadMailRowsAsync().ConfigureAwait(false);
         var states = await LoadStatesAsync().ConfigureAwait(false);
         var hasMailCollections = mailRows.Any(row => row.EasFolderType > 0);
@@ -827,6 +842,18 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         => response.Elements().FirstOrDefault(element => element.Name.LocalName == "Status")?.Value;
 
     private async Task SynchronizeCollectionAsync(EasCollection state, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await SynchronizeCollectionCoreAsync(state, downloaded, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _collectionPassesUtc[state.ServerId] = DateTime.UtcNow;
+        }
+    }
+
+    private async Task SynchronizeCollectionCoreAsync(EasCollection state, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
         var sync = EasDataMapper.Sync;
         var recovered = false;
@@ -1269,5 +1296,48 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     };
     private static string Required(XElement element, XName name) => !string.IsNullOrEmpty(element.Element(name)?.Value)
         ? element.Element(name)!.Value : throw new InvalidDataException("The EAS response is missing " + name.LocalName + ".");
+    /// <summary>When a FolderSync pass last ended, successfully or not; null when none ran in this session.</summary>
+    internal DateTime? LastHierarchyPassUtc
+        => Interlocked.Read(ref _hierarchyPassTicks) is var ticks and > 0 ? new DateTime(ticks, DateTimeKind.Utc) : null;
+
+    /// <summary>When a Sync pass over the collection last ended, successfully or not; null when none ran in this session.</summary>
+    internal DateTime? LastCollectionPassUtc(string serverId)
+        => _collectionPassesUtc.TryGetValue(serverId, out var value) ? value : null;
+
+    /// <summary>
+    /// The collections Ping watches: the enabled mail folders and the calendar, contacts and tasks collections the account
+    /// takes from the provider. Only collections synchronized at least once qualify; Ping refuses a collection without
+    /// a sync key.
+    /// </summary>
+    internal async Task<List<EasPingFolder>> GetPingFoldersAsync()
+    {
+        var folders = new List<EasPingFolder>();
+        foreach (var folder in await LoadMailRowsAsync().ConfigureAwait(false))
+        {
+            if (folder.EasFolderType > 0 && folder.IsSynchronizationEnabled && !string.IsNullOrEmpty(folder.RemoteFolderId) &&
+                folder.DeltaToken is { Length: > 0 } key && key != "0")
+                folders.Add(new EasPingFolder(folder.RemoteFolderId, "Email", folder.EasFolderType, folder.Id));
+        }
+
+        foreach (var state in await LoadStatesAsync().ConfigureAwait(false))
+        {
+            var itemClass = ItemClass(state.Type);
+            var source = itemClass switch
+            {
+                "Calendar" => _account.CalendarIntegrationSource,
+                "Contacts" => _account.ContactIntegrationSource,
+                "Tasks" => _account.TaskIntegrationSource,
+                _ => (AccountIntegrationSource?)null
+            };
+            if (source == AccountIntegrationSource.Provider && !string.IsNullOrEmpty(state.SyncKey) && state.SyncKey != "0")
+                folders.Add(new EasPingFolder(state.ServerId, itemClass, state.Type, state.EntityId));
+        }
+
+        return folders;
+    }
+
+    internal Task<XElement> PingAsync(XElement request, TimeSpan timeout, CancellationToken cancellationToken)
+        => _client.PingAsync(request, timeout, cancellationToken);
+
     public void Dispose() => _client.Dispose();
 }

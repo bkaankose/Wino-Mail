@@ -39,7 +39,7 @@ using Wino.Services.Models.MailItem;
 
 namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
-internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsRequest, MimeMessage, CalendarItem, AccountContact>
+internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsRequest, MimeMessage, CalendarItem, AccountContact>
 {
     private readonly EasSynchronizationEngine _engine;
     private readonly IMailService _mail;
@@ -801,6 +801,7 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
     public override async Task KillSynchronizerAsync()
     {
         await base.KillSynchronizerAsync().ConfigureAwait(false);
+        await CloseChangeListenerAsync().ConfigureAwait(false);
         _engine.Dispose();
     }
 }

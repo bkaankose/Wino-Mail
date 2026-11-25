@@ -36,3 +36,6 @@ internal sealed class EasCollection
     internal string SyncKey { get; set; }
     internal string Generation { get; set; }
 }
+
+/// <summary>A collection Ping watches: its server id, its Ping class, its folder type and the Wino row it backs.</summary>
+internal sealed record EasPingFolder(string ServerId, string Class, int Type, Guid? EntityId);
