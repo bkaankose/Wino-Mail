@@ -33,6 +33,7 @@ internal sealed class EasClient : IDisposable
     private readonly string _user;
     private readonly EasAccountStateStore? _store;
     private readonly string? _deviceIdOverride;
+    private readonly EasAccountData? _accountData;
     private readonly SemaphoreSlim _stateGate = new(1, 1);
     private readonly SemaphoreSlim _provisionGate = new(1, 1);
     private EasAccountState? _state;
@@ -40,9 +41,10 @@ internal sealed class EasClient : IDisposable
     private string? _version;
 
     /// <param name="store">Persists the device partnership; null keeps it in memory, as a connection probe does.</param>
+    /// <param name="accountData">Carries out what the server asks of the local data; null for a connection check, which has none.</param>
     /// <param name="deviceId">A device id for a probe that must not touch the live partnership's sync state.</param>
     internal EasClient(MailAccount account, string endpoint, string user, string password, EasAccountStateStore? store,
-        string? deviceId = null, HttpMessageHandler? handler = null)
+        EasAccountData? accountData = null, string? deviceId = null, HttpMessageHandler? handler = null)
     {
         _account = account ?? throw new ArgumentNullException(nameof(account));
         _configuredEndpoint = NormalizeEndpoint(endpoint)
@@ -55,6 +57,7 @@ internal sealed class EasClient : IDisposable
         _user = user;
         _store = store;
         _deviceIdOverride = deviceId;
+        _accountData = accountData;
         _http = new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false })
         {
             Timeout = TimeSpan.FromMinutes(5)
@@ -347,11 +350,10 @@ internal sealed class EasClient : IDisposable
 
     private async Task<XElement> PostProvisionAsync(XElement request, string policyKey, CancellationToken cancellationToken)
     {
-        XNamespace provision = "Provision:";
         var response = await PostAsync("Provision", EasWbxml.Encode(request), "application/vnd.ms-sync.wbxml", cancellationToken, false, policyKey: policyKey).ConfigureAwait(false)
             ?? throw new InvalidDataException("The EAS provisioning response is empty.");
-        if (response.Element(provision + "RemoteWipe") != null || response.Element(provision + "AccountOnlyRemoteWipe") != null)
-            await AcknowledgeRemoteWipeAsync(response, cancellationToken).ConfigureAwait(false);
+        if (WipeDirectiveOf(response) is { } directive)
+            await RemoteWipeAsync(directive, cancellationToken).ConfigureAwait(false);
 
         ThrowOnAccountStatus(StatusOf(response));
         RequireSuccess(response);
@@ -359,8 +361,8 @@ internal sealed class EasClient : IDisposable
     }
 
     /// <summary>
-    /// Status 140. Exchange sends RemoteWipe next to the policy in the Provision response; an account-only wipe was
-    /// never delivered to this client in the lab, so the status alone also stops the account.
+    /// Status 140: the client asks for the wipe directive with an empty Provision element and policy key 0
+    /// (MS-ASPROV 3.1.5.1.1) and carries it out.
     /// </summary>
     private async Task HandleRemoteWipeAsync(CancellationToken cancellationToken)
     {
@@ -368,44 +370,78 @@ internal sealed class EasClient : IDisposable
         await _provisionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var response = await PostAsync("Provision", EasWbxml.Encode(CreatePolicyRequest()), "application/vnd.ms-sync.wbxml", cancellationToken, false, policyKey: "0").ConfigureAwait(false);
-            if (response != null && (response.Element(provision + "RemoteWipe") != null || response.Element(provision + "AccountOnlyRemoteWipe") != null))
-                await AcknowledgeRemoteWipeAsync(response, cancellationToken).ConfigureAwait(false);
-
-            await MarkRemoteWipeAsync().ConfigureAwait(false);
+            var response = await PostAsync("Provision", EasWbxml.Encode(new XElement(provision + "Provision")), "application/vnd.ms-sync.wbxml",
+                cancellationToken, false, policyKey: "0").ConfigureAwait(false)
+                ?? throw new InvalidDataException("The EAS provisioning response is empty.");
+            var directive = WipeDirectiveOf(response)
+                ?? throw new InvalidDataException("The EAS server reported a remote wipe (status 140) but its Provision response carries no wipe directive.");
+            await RemoteWipeAsync(directive, cancellationToken).ConfigureAwait(false);
         }
         finally { _provisionGate.Release(); }
     }
 
-    /// <summary>
-    /// Wino never erases mail on a server's request. It answers 2 (wipe failed), the truthful MS-ASPROV result, so the
-    /// administrator does not see a wipe reported as done, then stops using the partnership.
-    /// </summary>
-    private async Task AcknowledgeRemoteWipeAsync(XElement response, CancellationToken cancellationToken)
+    private static string? WipeDirectiveOf(XElement response)
     {
         XNamespace provision = "Provision:";
-        var element = response.Element(provision + "AccountOnlyRemoteWipe") != null ? "AccountOnlyRemoteWipe" : "RemoteWipe";
-        Logger.Warning("The EAS server requested {WipeKind} for account {AccountId}. Synchronization stops; no local data is erased.", element, _account.Id);
+        return response.Element(provision + "AccountOnlyRemoteWipe") != null ? "AccountOnlyRemoteWipe"
+            : response.Element(provision + "RemoteWipe") != null ? "RemoteWipe"
+            : null;
+    }
+
+    /// <summary>
+    /// Wino cannot reset the computer, so for either directive it destroys what it received from the server and the
+    /// stored credentials, which MS-ASPROV 3.1.5.1.2.2 requires of a client that does not wipe the device, and reports
+    /// that result. A connection check has no account to erase, so it leaves the directive to the synchronization.
+    /// </summary>
+    private async Task RemoteWipeAsync(string directive, CancellationToken cancellationToken)
+    {
+        XNamespace provision = "Provision:";
+        if (_accountData == null)
+        {
+            Logger.Warning("The EAS server requested {WipeKind} during a connection check for account {AccountId}; it is carried out by the next synchronization.",
+                directive, _account.Id);
+            throw new EasRemoteWipeException(Translator.ExchangeSetup_ActiveSyncRemoteWipePending);
+        }
+
+        Logger.Warning("The EAS server requested {WipeKind} for account {AccountId}. Erasing the account's data and credentials.", directive, _account.Id);
+        var result = "1";
         try
         {
-            await PostAsync("Provision", EasWbxml.Encode(new XElement(provision + "Provision",
-                new XElement(provision + element, new XElement(provision + "Status", "2")))), "application/vnd.ms-sync.wbxml", cancellationToken, false, policyKey: "0").ConfigureAwait(false);
+            await _accountData.EraseForRemoteWipeAsync().ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Logger.Warning(exception, "Acknowledging the EAS remote wipe for account {AccountId} failed.", _account.Id);
+            Logger.Error(exception, "Erasing account {AccountId} for an EAS {WipeKind} failed.", _account.Id, directive);
+            result = "2";
         }
 
-        await MarkRemoteWipeAsync().ConfigureAwait(false);
+        // The client does not rely on the server's answer to the acknowledgment (MS-ASPROV 3.1.5.1.2.2); it is logged only.
+        try
+        {
+            var answer = await PostAsync("Provision", EasWbxml.Encode(new XElement(provision + "Provision",
+                new XElement(provision + directive, new XElement(provision + "Status", result)))), "application/vnd.ms-sync.wbxml",
+                cancellationToken, false, policyKey: "0").ConfigureAwait(false);
+            Logger.Information("The EAS server answered the {WipeKind} acknowledgment (status {Result}) for account {AccountId} with status {Status}.",
+                directive, result, _account.Id, answer == null ? "none" : StatusOf(answer) ?? "none");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.Warning(exception, "Sending the EAS {WipeKind} acknowledgment for account {AccountId} failed.", directive, _account.Id);
+        }
+        finally
+        {
+            await MarkRemoteWipeAsync().ConfigureAwait(false);
+        }
+
+        throw new EasRemoteWipeException(Translator.ExchangeSetup_ActiveSyncRemoteWipe);
     }
 
     private async Task MarkRemoteWipeAsync()
     {
-        var state = await EnsureStateAsync().ConfigureAwait(false);
+        var state = _state ?? await EnsureStateAsync().ConfigureAwait(false);
         state.IsRemoteWipeRequested = true;
         state.PolicyKey = "0";
         await SaveStateAsync().ConfigureAwait(false);
-        throw new EasRemoteWipeException(Translator.ExchangeSetup_ActiveSyncRemoteWipe);
     }
 
     private async Task SavePolicyKeyAsync(EasAccountState state, string policyKey)
@@ -442,7 +478,12 @@ internal sealed class EasClient : IDisposable
                 ? new EasAccountState { AccountId = _account.Id, DeviceId = _deviceIdOverride ?? _account.Id.ToString("N") }
                 : await _store.LoadAsync(_account.Id).ConfigureAwait(false);
             if (state.IsRemoteWipeRequested)
+            {
+                // A wipe acknowledged before the client erased data keeps the partnership flagged; the data goes now.
+                if (_accountData != null)
+                    await _accountData.EraseForRemoteWipeAsync().ConfigureAwait(false);
                 throw new EasRemoteWipeException(Translator.ExchangeSetup_ActiveSyncRemoteWipe);
+            }
 
             if (state.ConfiguredEndpoint == _configuredEndpoint.AbsoluteUri && NormalizeEndpoint(state.ResolvedEndpoint) is { } resolved)
                 _endpoint = resolved;

@@ -21,7 +21,7 @@ internal sealed class EasPolicyException(string message, string status) : Invali
     internal string Status { get; } = status;
 }
 
-/// <summary>The administrator asked to wipe this device. Wino stops using the partnership and keeps local data.</summary>
+/// <summary>The administrator wiped the account from this device; its data and credentials are erased and the partnership is not used again.</summary>
 internal sealed class EasRemoteWipeException(string message) : InvalidOperationException(message);
 
 /// <summary>HTTP 503, 429 or MS-ASCMD status 111: the server asks the client to back off.</summary>

@@ -3649,7 +3649,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() =>
         {
             appliesToActiveFolder =
-                message.Reason is AccountCacheResetReason.ExpiredCache or AccountCacheResetReason.MailAccessDisabled &&
+                message.Reason is AccountCacheResetReason.ExpiredCache or AccountCacheResetReason.MailAccessDisabled or AccountCacheResetReason.RemoteWipe &&
                 ActiveFolder?.HandlingFolders.Any(a => a.MailAccountId == message.AccountId) == true;
         });
 

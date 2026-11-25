@@ -117,7 +117,7 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
             // FolderSync with key 0 resets every collection of the device that sends it, so the check runs as its own
             // probe device and never under the account's live partnership.
             using var client = new EasClient(account, endpoint.AbsoluteUri, serverInformation.IncomingServerUsername,
-                serverInformation.IncomingServerPassword ?? string.Empty, null, ProbeDeviceId(account.Id));
+                serverInformation.IncomingServerPassword ?? string.Empty, null, deviceId: ProbeDeviceId(account.Id));
             await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
             await client.FolderSyncAsync("0", cancellationToken).ConfigureAwait(false);
             return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Succeeded, ExchangeTransport.ActiveSync);

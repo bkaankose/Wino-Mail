@@ -40,7 +40,8 @@ public static class MailAccountReauthenticationExtensions
         if (account == null)
             return false;
 
-        if (account.AttentionReason is AccountAttentionReason.InvalidCredentials or AccountAttentionReason.CertificateValidationFailed)
+        if (account.AttentionReason is AccountAttentionReason.InvalidCredentials or AccountAttentionReason.CertificateValidationFailed
+            or AccountAttentionReason.RemovedByAdministrator)
             return true;
 
         return mode switch

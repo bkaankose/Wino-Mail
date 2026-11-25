@@ -245,6 +245,20 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
+    <!--  Account wiped from this device by its administrator.  -->
+    <DataTemplate x:Key="FixRemovedByAdministratorTemplate" x:DataType="menuitems:FixAccountIssuesMenuItem">
+        <coreControls:WinoNavigationViewItem AutomationProperties.AutomationId="WinoAppShellWinoNavigationViewItem3" SelectsOnInvoked="False">
+            <coreControls:WinoNavigationViewItem.Content>
+                <TextBlock
+                    Margin="0,10"
+                    Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
+                    HorizontalTextAlignment="Center"
+                    Text="{x:Bind domain:Translator.Shell_FixRemovedByAdministrator, Mode=OneTime}"
+                    TextWrapping="WrapWholeWords" />
+            </coreControls:WinoNavigationViewItem.Content>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
     <!--  New Mail  -->
     <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menuitems:NewMailMenuItem">
         <coreControls:WinoNavigationViewItem

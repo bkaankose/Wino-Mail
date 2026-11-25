@@ -585,9 +585,12 @@ internal sealed class ShellFixAccountCell : NSTableCellView
 
     public void Configure(FixAccountIssuesMenuItem item)
     {
-        _label.StringValue = item.Account?.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration
-            ? Translator.MacOS_Shell_FixMissingSystemFolders
-            : Translator.MacOS_Shell_FixInvalidCredentials;
+        _label.StringValue = item.Account?.AttentionReason switch
+        {
+            AccountAttentionReason.MissingSystemFolderConfiguration => Translator.MacOS_Shell_FixMissingSystemFolders,
+            AccountAttentionReason.RemovedByAdministrator => Translator.MacOS_Shell_FixRemovedByAdministrator,
+            _ => Translator.MacOS_Shell_FixInvalidCredentials
+        };
         AccessibilityLabel = _label.StringValue;
     }
 }

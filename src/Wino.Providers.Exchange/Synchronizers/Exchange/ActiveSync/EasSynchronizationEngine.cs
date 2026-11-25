@@ -62,7 +62,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         var endpoint = ExchangeServerEndpoint.Normalize(server.IncomingServer, ExchangeTransport.ActiveSync)
             ?? throw new InvalidOperationException("The EAS server address is invalid.");
         _client = client ?? new EasClient(account, endpoint.AbsoluteUri, server.IncomingServerUsername,
-            server.IncomingServerPassword ?? throw new InvalidOperationException("The EAS password is missing."), new EasAccountStateStore(database));
+            server.IncomingServerPassword ?? throw new InvalidOperationException("The EAS password is missing."), new EasAccountStateStore(database),
+            new EasAccountData(accounts, account));
     }
 
     internal async Task<bool> IsProtocol16Async(CancellationToken cancellationToken)

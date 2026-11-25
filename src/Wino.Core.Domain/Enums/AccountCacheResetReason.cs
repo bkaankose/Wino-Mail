@@ -6,5 +6,8 @@ public enum AccountCacheResetReason
     ExpiredCache,
 
     /// <summary>The mail mode was turned off for the account, so its downloaded messages were removed.</summary>
-    MailAccessDisabled
+    MailAccessDisabled,
+
+    /// <summary>The server's administrator wiped the account from this device.</summary>
+    RemoteWipe
 }

@@ -53,6 +53,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? MergedMailCategoryMenuTemplate { get; set; }
     public DataTemplate? FolderMenuTemplate { get; set; }
     public DataTemplate? FixMissingFolderConfigTemplate { get; set; }
+    public DataTemplate? FixRemovedByAdministratorTemplate { get; set; }
     public DataTemplate? FixAuthenticationIssueTemplate { get; set; }
 
     protected override DataTemplate? SelectTemplateCore(object item) => GetTemplate(item);
@@ -106,10 +107,12 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         MailCategoryMenuItem => MailCategoryMenuTemplate,
         MergedMailCategoryMenuItem => MergedMailCategoryMenuTemplate,
         FolderMenuItem => FolderMenuTemplate,
-        FixAccountIssuesMenuItem fixAccountIssuesMenuItem =>
-            fixAccountIssuesMenuItem.Account.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration
-                ? FixMissingFolderConfigTemplate
-                : FixAuthenticationIssueTemplate,
+        FixAccountIssuesMenuItem fixAccountIssuesMenuItem => fixAccountIssuesMenuItem.Account.AttentionReason switch
+        {
+            AccountAttentionReason.MissingSystemFolderConfiguration => FixMissingFolderConfigTemplate,
+            AccountAttentionReason.RemovedByAdministrator => FixRemovedByAdministratorTemplate,
+            _ => FixAuthenticationIssueTemplate
+        },
 
         _ => null
     };

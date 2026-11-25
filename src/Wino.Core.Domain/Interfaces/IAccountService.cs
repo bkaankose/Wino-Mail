@@ -61,6 +61,13 @@ public interface IAccountService
     Task DeleteAccountAuthenticationDataAsync(Guid accountId);
 
     /// <summary>
+    /// Carries out a server's remote wipe on this device's copy of the account: deletes everything synchronized from the
+    /// server and the stored credentials, keeps the account row and its local settings, and marks it
+    /// <see cref="Enums.AccountAttentionReason.RemovedByAdministrator"/> so no connection method synchronizes it again.
+    /// </summary>
+    Task EraseAccountDataForRemoteWipeAsync(Guid accountId);
+
+    /// <summary>
     /// Returns the custom server information for the given account id.
     /// </summary>
     Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId);
