@@ -593,11 +593,10 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             if (row.EasFolderType > 0 && row.RemoteFolderId == serverId)
                 continue;
 
-            // Mail ids embed the collection id, so the downloaded mail of a re-keyed row is fetched again. Local
-            // drafts never reached the server and stay.
+            // Mail ids embed the collection id, so the downloaded mail of a re-keyed row is fetched again. Messages
+            // whose id is not an ActiveSync key (local drafts) never reached the server and stay.
             await _database.Connection.ExecuteAsync("DELETE FROM EasItemShadow WHERE CollectionId = ?", row.Id).ConfigureAwait(false);
-            await _database.Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ? AND (DraftId IS NULL OR DraftId NOT LIKE ?)",
-                row.Id, Wino.Core.Domain.Constants.LocalDraftStartPrefix + "%").ConfigureAwait(false);
+            await _mail.DeleteMailsAsync(_account.Id, await ServerMailIdsAsync(row.Id).ConfigureAwait(false)).ConfigureAwait(false);
             row.RemoteFolderId = serverId;
             row.EasFolderType = types[serverId];
             row.DeltaToken = "0";
@@ -1216,7 +1215,13 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
         if (state.IsMail)
         {
-            await _database.Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ?", state.Id).ConfigureAwait(false);
+            // The folder is gone from the server, so everything left in it goes too, local drafts included, through the
+            // mail service so the lists update and the MIME files are removed.
+            var remaining = await _database.Connection.QueryScalarsAsync<string>("SELECT Id FROM MailCopy WHERE FolderId = ?", state.Id).ConfigureAwait(false);
+            var local = remaining.Count(id => !IsServerMailId(id));
+            if (local > 0)
+                Serilog.Log.Warning("EAS folder {Collection} of {Account} was removed on the server; {Count} local draft(s) in it are removed too.", state.Name, _account.Address, local);
+            await _mail.DeleteMailsAsync(_account.Id, remaining).ConfigureAwait(false);
             await _database.Connection.DeleteAsync<MailItemFolder>(state.Id).ConfigureAwait(false);
             return;
         }
@@ -1242,6 +1247,14 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         }
         await _database.Connection.DeleteAsync<EasCollectionState>(state.Id).ConfigureAwait(false);
     }
+
+    /// <summary>Whether a message id is an ActiveSync item key of this account; local drafts carry other ids.</summary>
+    private bool IsServerMailId(string id) => id.StartsWith(_account.Id.ToString("N") + "/", StringComparison.Ordinal);
+
+    /// <summary>The ids of the messages in a folder that came from the server, leaving local drafts out.</summary>
+    private async Task<List<string>> ServerMailIdsAsync(Guid folderId)
+        => (await _database.Connection.QueryScalarsAsync<string>("SELECT Id FROM MailCopy WHERE FolderId = ?", folderId).ConfigureAwait(false))
+            .Where(IsServerMailId).ToList();
 
     private async Task<EasCollection> GetCollectionAsync(string serverId)
     {
