@@ -627,6 +627,7 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         if (request.ComposeResult.Attachments?.Count > 0)
             throw new NotSupportedException("EAS event attachments are not supported yet.");
         var isProtocol16 = await _engine.IsProtocol16Async(token).ConfigureAwait(false);
+        RequireMeetingSupport(isProtocol16, HasAttendees(request.PreparedEvent.Attendees));
         var data = EasDataMapper.WriteEvent(request.PreparedItem, request.PreparedEvent.Attendees, request.PreparedEvent.Reminders, isProtocol16);
         // 16.x generates the UID itself and takes the client's id as ClientUid.
         data.Add(new XElement(EasDataMapper.Calendar + (isProtocol16 ? "ClientUid" : "UID"), request.PreparedItem.Id.ToString("N")));
@@ -664,6 +665,8 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         var reminders = request.Reminders ?? await _calendars.GetRemindersAsync(request.Item.Id).ConfigureAwait(false);
         var isProtocol16 = await _engine.IsProtocol16Async(token).ConfigureAwait(false);
         var isOrganizer = !request.Item.IsLocked;
+        if (isOrganizer)
+            RequireMeetingSupport(isProtocol16, HasAttendees(attendees));
         var occurrence = request.Item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(request.Item.RemoteEventId) : null;
         var data = EasDataMapper.WriteEvent(request.Item, isOrganizer && occurrence == null ? attendees : null, reminders, isProtocol16);
         await _engine.MutateEventAsync(calendar.RemoteCalendarId, new EasEventMutation("Change",
@@ -686,22 +689,39 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
             return;
         }
         var calendar = await _calendars.GetAccountCalendarAsync(request.Item.CalendarId).ConfigureAwait(false);
+        if (!request.Item.IsLocked)
+            RequireMeetingSupport(await _engine.IsProtocol16Async(token).ConfigureAwait(false),
+                HasAttendees(await _calendars.GetAttendeesAsync(request.Item.Id).ConfigureAwait(false)));
         var occurrence = request.Item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(request.Item.RemoteEventId) : null;
         await _engine.MutateEventAsync(calendar.RemoteCalendarId, new EasEventMutation("Delete",
             occurrence?.SeriesId ?? request.Item.RemoteEventId.GetProviderRemoteEventId(), null, InstanceKey: occurrence?.InstanceKey), token).ConfigureAwait(false);
     }, request, request);
 
     public override List<IRequestBundle<EwsRequest>> AcceptEvent(AcceptEventRequest request) => Account.CalendarIntegrationSource == AccountIntegrationSource.Local
-        ? Bundle(_ => _localCalendar.AcceptEventAsync(request), request, request) : MeetingResponse(request, request.Item, 1);
+        ? Bundle(_ => _localCalendar.AcceptEventAsync(request), request, request) : MeetingResponse(request, request.Item, 1, request.ResponseMessage);
     public override List<IRequestBundle<EwsRequest>> TentativeEvent(TentativeEventRequest request) => Account.CalendarIntegrationSource == AccountIntegrationSource.Local
-        ? Bundle(_ => _localCalendar.TentativeEventAsync(request), request, request) : MeetingResponse(request, request.Item, 2);
+        ? Bundle(_ => _localCalendar.TentativeEventAsync(request), request, request) : MeetingResponse(request, request.Item, 2, request.ResponseMessage);
     public override List<IRequestBundle<EwsRequest>> DeclineEvent(DeclineEventRequest request) => Account.CalendarIntegrationSource == AccountIntegrationSource.Local
-        ? Bundle(_ => _localCalendar.DeclineEventAsync(request), request, request) : MeetingResponse(request, request.Item, 3);
+        ? Bundle(_ => _localCalendar.DeclineEventAsync(request), request, request) : MeetingResponse(request, request.Item, 3, request.ResponseMessage);
 
-    private List<IRequestBundle<EwsRequest>> MeetingResponse(IRequestBase request, CalendarItem item, int response) => Bundle(async token =>
+    /// <summary>
+    /// Answers a meeting. On 16.x the server sends the answer, with the user's message, to the organizer and updates
+    /// the calendar; the stored event takes the answer at once, as the server's next report would.
+    /// </summary>
+    private List<IRequestBundle<EwsRequest>> MeetingResponse(IRequestBase request, CalendarItem item, int response, string? message) => Bundle(async token =>
     {
+        RequireMeetingSupport(await _engine.IsProtocol16Async(token).ConfigureAwait(false), true);
         var calendar = await _calendars.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
-        await _engine.RespondToMeetingAsync(calendar.RemoteCalendarId, item.RemoteEventId.GetProviderRemoteEventId(), response, token).ConfigureAwait(false);
+        var occurrence = item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(item.RemoteEventId) : null;
+        await _engine.RespondToMeetingAsync(calendar.RemoteCalendarId, occurrence?.SeriesId ?? item.RemoteEventId.GetProviderRemoteEventId(),
+            occurrence?.InstanceKey, response, message, token).ConfigureAwait(false);
+
+        var stored = await _calendars.GetCalendarItemAsync(item.Id).ConfigureAwait(false);
+        if (stored == null)
+            return;
+        stored.Status = response switch { 1 => CalendarItemStatus.Accepted, 2 => CalendarItemStatus.Tentative, _ => CalendarItemStatus.Cancelled };
+        stored.IsHidden = stored.Status == CalendarItemStatus.Cancelled;
+        await _calendars.UpdateCalendarItemAsync(stored, await _calendars.GetAttendeesAsync(stored.Id).ConfigureAwait(false)).ConfigureAwait(false);
     }, request, (IUIChangeRequest)request);
 
     /// <summary>Whether the message has an ActiveSync item id; a draft kept on a server without drafts has none.</summary>
@@ -716,6 +736,19 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
             return false;
         remoteId = Uri.UnescapeDataString(mail.Id[(separator + 1)..]);
         return true;
+    }
+
+    private static bool HasAttendees(IEnumerable<CalendarEventAttendee>? attendees)
+        => attendees?.Any(attendee => !attendee.IsOrganizer && !string.IsNullOrWhiteSpace(attendee.Email)) == true;
+
+    /// <summary>
+    /// Below 16.0 the server neither sends invitations, updates and cancellations nor delivers meeting answers, so a
+    /// meeting operation there is refused instead of leaving the other participants uninformed.
+    /// </summary>
+    private static void RequireMeetingSupport(bool isProtocol16, bool isMeeting)
+    {
+        if (isMeeting && !isProtocol16)
+            throw new InvalidOperationException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncMeetingsNeedProtocol16);
     }
 
     private async Task<(MailItemFolder Folder, string RemoteId)> RemoteMailAsync(MailCopy mail)

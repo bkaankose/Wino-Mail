@@ -176,7 +176,12 @@ internal sealed partial class EasSynchronizationEngine
             else if (mutation.Data != null)
             {
                 updated = operation == "Add" ? new XElement(mutation.Data) : Merge(shadow?.ApplicationData, mutation.Data);
-                command.Add(operation == "Add" ? mutation.Data : EasDataMapper.ForEventChange(updated, isProtocol16));
+                var change = EasDataMapper.ForEventChange(updated, isProtocol16);
+                // Only the organizer sends the attendee list; an attendee's copy keeps the server's.
+                if (EasDataMapper.Value(updated, EasDataMapper.Calendar, "OrganizerEmail") is { Length: > 0 } organizer &&
+                    !string.Equals(organizer, _account.Address, StringComparison.OrdinalIgnoreCase))
+                    change.Elements(EasDataMapper.Calendar + "Attendees").Remove();
+                command.Add(operation == "Add" ? mutation.Data : change);
             }
 
             var responseName = command.Name.LocalName;
@@ -254,5 +259,26 @@ internal sealed partial class EasSynchronizationEngine
                 : EasDataMapper.Value(existing, EasDataMapper.Body, "InstanceId")) == original).Remove();
         exceptions.Add(exception);
         return result;
+    }
+
+    internal async Task RespondToMeetingAsync(string folderId, string remoteId, string? instanceKey, int responseCode, string? message, CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            XNamespace meeting = "MeetingResponse:";
+            var request = new XElement(meeting + "Request", new XElement(meeting + "UserResponse", responseCode),
+                new XElement(meeting + "CollectionId", folderId), new XElement(meeting + "RequestId", remoteId));
+            // Unlike Sync, MeetingResponse takes the instance in the extended form; the compact one fails with status 2.
+            if (instanceKey != null && EasDataMapper.Date(instanceKey) is { } instance)
+                request.Add(new XElement(meeting + "InstanceId", instance.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture)));
+            // 16.x sends the answer to the organizer only when asked to; 14.x never does (the caller refuses there).
+            if (_client.IsAtLeast("16.0"))
+                request.Add(new XElement(meeting + "SendResponse", string.IsNullOrWhiteSpace(message) ? null
+                    : new XElement(EasDataMapper.Body + "Body", new XElement(EasDataMapper.Body + "Type", "1"), new XElement(EasDataMapper.Body + "Data", message))));
+            var response = await _client.CommandAsync("MeetingResponse", new XElement(meeting + "MeetingResponse", request), cancellationToken).ConfigureAwait(false);
+            EasClient.RequireSuccess(response?.Element(meeting + "Result") ?? throw new InvalidDataException("The EAS meeting response is missing."));
+        }
+        finally { _gate.Release(); }
     }
 }

@@ -460,20 +460,6 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     internal Task<XElement> FetchAsync(string folderId, string remoteId, CancellationToken cancellationToken)
         => _client.FetchAsync(folderId, remoteId, cancellationToken);
 
-    internal async Task RespondToMeetingAsync(string folderId, string remoteId, int responseCode, CancellationToken cancellationToken)
-    {
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            XNamespace meeting = "MeetingResponse:";
-            var response = await _client.CommandAsync("MeetingResponse", new XElement(meeting + "MeetingResponse",
-                new XElement(meeting + "Request", new XElement(meeting + "UserResponse", responseCode),
-                    new XElement(meeting + "CollectionId", folderId), new XElement(meeting + "RequestId", remoteId))), cancellationToken).ConfigureAwait(false);
-            EasClient.RequireSuccess(response?.Element(meeting + "Result") ?? throw new InvalidDataException("The EAS meeting response is missing."));
-        }
-        finally { _gate.Release(); }
-    }
-
     /// <summary>
     /// Reads the folder hierarchy. Mail collections become MailItemFolder rows, the others EasCollectionState rows.
     /// On a full read (key 0, also after a connection method change) rows another transport stored are re-keyed in

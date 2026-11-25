@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 
@@ -26,9 +27,11 @@ public sealed class CalendarCapabilityService : ICalendarCapabilityService
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
     private readonly ICalDavStateStore _stateStore;
+    private readonly IDatabaseService _databaseService;
 
-    public CalendarCapabilityService(IAccountService accountService, ICalendarService calendarService, ICalDavStateStore stateStore)
+    public CalendarCapabilityService(IAccountService accountService, ICalendarService calendarService, ICalDavStateStore stateStore, IDatabaseService databaseService)
     {
+        _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
         _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
         _calendarService = calendarService ?? throw new ArgumentNullException(nameof(calendarService));
         _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
@@ -44,7 +47,7 @@ public sealed class CalendarCapabilityService : ICalendarCapabilityService
 
             var source = ResolveSource(account);
             if (source != CalendarCapabilitySource.CalDav)
-                return GetStaticCapabilities(source);
+                return await GetProviderCapabilitiesAsync(account, source).ConfigureAwait(false);
 
             var state = await _stateStore.GetAsync(accountId).ConfigureAwait(false);
             return FromCalDavState(state, calendar: null);
@@ -78,7 +81,7 @@ public sealed class CalendarCapabilityService : ICalendarCapabilityService
             }
             else
             {
-                capabilities = GetStaticCapabilities(source);
+                capabilities = await GetProviderCapabilitiesAsync(account, source).ConfigureAwait(false);
             }
 
             return calendar.IsReadOnly && !capabilities.IsReadOnly
@@ -97,6 +100,22 @@ public sealed class CalendarCapabilityService : ICalendarCapabilityService
 
     internal static CalendarCapabilities GetStaticCapabilities(CalendarCapabilitySource source)
         => CalendarCapabilities.ForSource(source);
+
+    /// <summary>
+    /// The fixed set of the source, except Exchange over ActiveSync below 16.0: that server sends no invitations,
+    /// updates or meeting answers, so the account offers no attendees.
+    /// </summary>
+    private async Task<CalendarCapabilities> GetProviderCapabilitiesAsync(MailAccount account, CalendarCapabilitySource source)
+    {
+        var capabilities = GetStaticCapabilities(source);
+        if (source != CalendarCapabilitySource.Exchange || account.ServerInformation?.EffectiveExchangeTransport != ExchangeTransport.ActiveSync)
+            return capabilities;
+
+        var state = await _databaseService.Connection.FindAsync<EasAccountState>(account.Id).ConfigureAwait(false);
+        return Version.TryParse(state?.ProtocolVersion, out var version) && version < new Version(16, 0)
+            ? capabilities with { SupportsAttendees = false, SendsInvitations = false }
+            : capabilities;
+    }
 
     /// <summary>
     /// Maps recorded server state to capabilities. With <paramref name="calendar"/> null the result

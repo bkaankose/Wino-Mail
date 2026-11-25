@@ -27,7 +27,7 @@ internal static class EasWbxml
         Add(5, "Move", "05 MoveItems|06 Move|07 SrcMsgId|08 SrcFldId|09 DstFldId|0A Response|0B Status|0C DstMsgId");
         Add(6, "GetItemEstimate", "05 GetItemEstimate|06 Version|07 Collections|08 Collection|09 Class|0A CollectionId|0B DateTime|0C Estimate|0D Response|0E Status");
         Add(7, "FolderHierarchy", "07 DisplayName|08 ServerId|09 ParentId|0A Type|0C Status|0E Changes|0F Add|10 Delete|11 Update|12 SyncKey|13 FolderCreate|14 FolderDelete|15 FolderUpdate|16 FolderSync|17 Count");
-        Add(8, "MeetingResponse", "05 CalendarId|06 CollectionId|07 MeetingResponse|08 RequestId|09 Request|0A Result|0B Status|0C UserResponse|0E InstanceId");
+        Add(8, "MeetingResponse", "05 CalendarId|06 CollectionId|07 MeetingResponse|08 RequestId|09 Request|0A Result|0B Status|0C UserResponse|0E InstanceId|10 ProposedStartTime|11 ProposedEndTime|12 SendResponse");
         Add(9, "Tasks", "08 Categories|09 Category|0A Complete|0B DateCompleted|0C DueDate|0D UtcDueDate|0E Importance|0F Recurrence|10 Type|11 Start|12 Until|13 Occurrences|14 Interval|15 DayOfMonth|16 DayOfWeek|17 WeekOfMonth|18 MonthOfYear|19 Regenerate|1A DeadOccur|1B ReminderSet|1C ReminderTime|1D Sensitivity|1E StartDate|1F UtcStartDate|20 Subject|22 OrdinalDate|23 SubOrdinalDate|24 CalendarType|25 IsLeapMonth|26 FirstDayOfWeek");
         Add(12, "Contacts2", "05 CustomerId|06 GovernmentId|07 IMAddress|08 IMAddress2|09 IMAddress3|0A ManagerName|0B CompanyMainPhone|0C AccountName|0D NickName|0E MMS");
         Add(13, "Ping", "05 Ping|06 AutdState|07 Status|08 HeartbeatInterval|09 Folders|0A Folder|0B Id|0C Class|0D MaxFolders");
