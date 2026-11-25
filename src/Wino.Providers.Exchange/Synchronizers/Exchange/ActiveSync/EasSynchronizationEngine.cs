@@ -95,10 +95,12 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         return _client.ProtocolVersion ?? throw new InvalidDataException("The EAS protocol version was not negotiated.");
     }
 
+    private const int DraftsFolderType = 3;
+
     /// <summary>
     /// Synchronizes the mail folders the options select, the way the other synchronizers pick them: every enabled
     /// folder on a full pass, the Inbox set or the named folders otherwise. The hierarchy is read on a full pass and
-    /// whenever no mail folder is known yet.
+    /// whenever no mail folder is known yet. Below 16.0 the Drafts folder is not synchronized: drafts stay local there.
     /// </summary>
     internal async Task<List<MailCopy>> SynchronizeMailAsync(MailSynchronizationOptions options, CancellationToken cancellationToken)
     {
@@ -109,8 +111,9 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             if (options.Type == MailSynchronizationType.FullFolders || known == 0)
                 await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
+            var syncsDrafts = await IsProtocol16Async(cancellationToken).ConfigureAwait(false);
             var folders = (await _folders.GetSynchronizationFoldersAsync(options).ConfigureAwait(false))
-                .Where(folder => folder.EasFolderType > 0 && !string.IsNullOrEmpty(folder.RemoteFolderId))
+                .Where(folder => folder.EasFolderType > 0 && !string.IsNullOrEmpty(folder.RemoteFolderId) && (syncsDrafts || folder.EasFolderType != DraftsFolderType))
                 .GroupBy(folder => folder.Id)
                 .Select(group => group.First())
                 .ToList();
@@ -1320,9 +1323,11 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     internal async Task<List<EasPingFolder>> GetPingFoldersAsync()
     {
         var folders = new List<EasPingFolder>();
+        var syncsDrafts = await SupportsServerDraftsAsync(CancellationToken.None).ConfigureAwait(false);
         foreach (var folder in await LoadMailRowsAsync().ConfigureAwait(false))
         {
             if (folder.EasFolderType > 0 && folder.IsSynchronizationEnabled && !string.IsNullOrEmpty(folder.RemoteFolderId) &&
+                (syncsDrafts || folder.EasFolderType != DraftsFolderType) &&
                 folder.DeltaToken is { Length: > 0 } key && key != "0")
                 folders.Add(new EasPingFolder(folder.RemoteFolderId, "Email", folder.EasFolderType, folder.Id));
         }
