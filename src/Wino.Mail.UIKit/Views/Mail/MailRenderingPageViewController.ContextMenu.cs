@@ -23,7 +23,7 @@ public sealed partial class MailRenderingPageViewController
 
     private void InitializeDateTap()
     {
-        _dateTap = new UITapGestureRecognizer(MailView_Tapped);
+        _dateTap = new UITapGestureRecognizer(MailView_Tapped) { CancelsTouchesInView = false };
         _mailView.AddGestureRecognizer(_dateTap);
     }
 
@@ -109,8 +109,7 @@ public sealed partial class MailRenderingPageViewController
         if (sheet.PopoverPresentationController is { } popover)
         {
             popover.SourceView = _mailView;
-            var anchor = _mailView.ConvertPointFromView(point, _mailView.ScrollView);
-            popover.SourceRect = new CGRect(anchor.X + _mailView.ScrollView.ContentOffset.X, anchor.Y + _mailView.ScrollView.ContentOffset.Y, 1, 1);
+            popover.SourceRect = new CGRect(point.X, point.Y, 1, 1);
         }
 
         PresentViewController(sheet, true, null);
