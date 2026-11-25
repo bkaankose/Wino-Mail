@@ -63,8 +63,13 @@ internal static partial class EasDataMapper
     internal static string BodyText(XElement data)
     {
         var text = data.Element(Body + "Body")?.Element(Body + "Data");
-        return text == null ? string.Empty : text.Attribute(EasWbxml.Opaque) == null ? text.Value
-            : new UTF8Encoding(false, true).GetString(Convert.FromBase64String(text.Value));
+        if (text == null)
+            return string.Empty;
+        if (text.Attribute(EasWbxml.Opaque) == null)
+            return text.Value;
+        var buffer = new byte[text.Value.Length * 3 / 4 + 3];
+        return Convert.TryFromBase64String(text.Value, buffer, out var length)
+            ? EasWbxml.XmlSafe(new UTF8Encoding(false, false).GetString(buffer, 0, length)) : string.Empty;
     }
 
     internal static MimeMessage ReadMime(XElement data)

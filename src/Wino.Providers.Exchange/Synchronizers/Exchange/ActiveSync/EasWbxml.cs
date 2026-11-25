@@ -12,6 +12,8 @@ internal static class EasWbxml
 {
     internal static readonly XName Opaque = XName.Get("opaque", "urn:wino:eas");
     private static readonly UTF8Encoding Utf8 = new(false, true);
+    // Servers pass through what senders wrote, so decoding replaces invalid UTF-8 instead of failing the response.
+    private static readonly UTF8Encoding LenientUtf8 = new(false, false);
     private static readonly Dictionary<XName, (byte Page, byte Token)> Tokens = new();
     private static readonly Dictionary<(byte Page, byte Token), XName> Names = new();
 
@@ -160,7 +162,7 @@ internal static class EasWbxml
                     while ((value = ReadByte(stream)) != 0)
                         text.WriteByte(value);
 
-                    stack.Peek().Add(new XText(Utf8.GetString(text.ToArray())));
+                    stack.Peek().Add(new XText(XmlSafe(LenientUtf8.GetString(text.GetBuffer(), 0, (int)text.Length))));
                 }
                 else
                 {
@@ -204,6 +206,45 @@ internal static class EasWbxml
             throw new InvalidDataException("Incomplete EAS WBXML document.");
 
         return root;
+    }
+
+    /// <summary>
+    /// Drops characters XML 1.0 cannot hold (control characters, unpaired surrogates, U+FFFE and U+FFFF). A message
+    /// subject may carry them, and a string that keeps them fails later when the element is serialized.
+    /// </summary>
+    internal static string XmlSafe(string value)
+    {
+        var index = 0;
+        while (index < value.Length && IsXmlChar(value, index, out var width))
+            index += width;
+        if (index == value.Length)
+            return value;
+
+        var builder = new StringBuilder(value.Length);
+        builder.Append(value, 0, index);
+        while (index < value.Length)
+        {
+            if (IsXmlChar(value, index, out var width))
+                builder.Append(value, index, width);
+            index += width;
+        }
+        return builder.ToString();
+    }
+
+    private static bool IsXmlChar(string value, int index, out int width)
+    {
+        var current = value[index];
+        width = 1;
+        if (char.IsHighSurrogate(current))
+        {
+            if (index + 1 < value.Length && char.IsLowSurrogate(value[index + 1]))
+            {
+                width = 2;
+                return true;
+            }
+            return false;
+        }
+        return System.Xml.XmlConvert.IsXmlChar(current);
     }
 
     private static byte ReadByte(Stream stream)
