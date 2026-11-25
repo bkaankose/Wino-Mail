@@ -114,12 +114,13 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
         {
             if (serverInformation.UseOAuthAuthentication)
                 throw new NotSupportedException(Translator.ExchangeSetup_ActiveSyncPasswordRequired);
-            // FolderSync with key 0 resets every collection of the device that sends it, so the check runs as its own
-            // probe device and never under the account's live partnership.
+            // The check runs as the account's own device, so an administrator who approves it once approves the
+            // partnership that synchronizes. It provisions and reads Settings only: FolderSync with key 0 would reset
+            // every collection of that device.
             using var client = new EasClient(account, endpoint.AbsoluteUri, serverInformation.IncomingServerUsername,
-                serverInformation.IncomingServerPassword ?? string.Empty, null, deviceId: ProbeDeviceId(account.Id));
+                serverInformation.IncomingServerPassword ?? string.Empty, null);
             await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
-            await client.FolderSyncAsync("0", cancellationToken).ConfigureAwait(false);
+            await client.GetUserInformationAsync(cancellationToken).ConfigureAwait(false);
             return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Succeeded, ExchangeTransport.ActiveSync);
         }
         catch (AuthenticationAttentionException)
@@ -132,9 +133,6 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
             return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, ExchangeTransport.ActiveSync, ex.Message);
         }
     }
-
-    private static string ProbeDeviceId(Guid accountId)
-        => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("wino-probe:" + accountId.ToString("N"))))[..32];
 
     private static ExchangeCredentials ToEwsCredentials(ExchangeCredential credential) => credential switch
     {

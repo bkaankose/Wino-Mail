@@ -68,7 +68,10 @@ public sealed class ExchangeAccountSetupData
     public string? EmailAddress { get; init; }
     public CustomServerInformation? ServerInformation { get; init; }
 
-    /// <summary>The id the Exchange sign-in stored the refresh token under; the saved account takes it.</summary>
+    /// <summary>
+    /// The id the saved account takes: the id a modern-auth sign-in stored its refresh token under, or the id whose
+    /// ActiveSync device partnership the connection check registered.
+    /// </summary>
     public Guid? SignedInAccountId { get; init; }
 }
 

@@ -490,9 +490,9 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
     }
 
     /// <summary>
-    /// Saves an Exchange account the caller already checked. A modern-auth sign-in stored its refresh token under
-    /// <see cref="ExchangeAccountSetupData.SignedInAccountId"/>, so the account takes that id; a password goes to the
-    /// credential store with the server information.
+    /// Saves an Exchange account the caller already checked. A modern-auth sign-in stored its refresh token, and an
+    /// ActiveSync check registered its device, under <see cref="ExchangeAccountSetupData.SignedInAccountId"/>, so the
+    /// account takes that id; a password goes to the credential store with the server information.
     /// </summary>
     private async Task RunExchangeAsync(SetupRun run, CancellationToken cancellationToken)
     {

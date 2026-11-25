@@ -178,7 +178,7 @@ public partial class AccountDetailsPageViewModel
             {
                 var result = await _exchangeConnectionTester.TestAsync(new MailAccount
                 {
-                    Id = Guid.NewGuid(),
+                    Id = account.Id,
                     Name = account.Name,
                     Address = account.Address,
                     ProviderType = MailProviderType.Exchange,

@@ -421,7 +421,8 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             server.IncomingServerUsername = string.IsNullOrEmpty(userName) ? EmailAddress.Trim() : userName;
             server.IncomingServerPassword = Password;
 
-            var result = await _connectionTester.TestAsync(CreateAccount(server), operation.Token);
+            var account = CreateAccount(server);
+            var result = await _connectionTester.TestAsync(account, operation.Token);
             if (operation.IsCancellationRequested)
                 return;
 
@@ -432,7 +433,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             }
 
             ApplyDetectedTransport(server, result);
-            Continue(server, signedInAccountId: null);
+
+            // ActiveSync identifies the device by the account id, so the saved account keeps the id the check used.
+            Continue(server, server.EffectiveExchangeTransport == ExchangeTransport.ActiveSync ? account.Id : null);
         }
         catch (OperationCanceledException) when (operation.IsCancellationRequested)
         {
