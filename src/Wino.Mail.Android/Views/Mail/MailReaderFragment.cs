@@ -198,6 +198,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _avatar = view.FindViewById<WinoContactPicture>(Resource.Id.reader_avatar);
         _chips = view.FindViewById<LinearLayout>(Resource.Id.reader_chips);
         FindPrivacyViews(view);
+        _actionCards = view.FindViewById<LinearLayout>(Resource.Id.reader_action_cards);
         _attachmentStrip = view.FindViewById(Resource.Id.reader_attachment_strip);
         _attachments = view.FindViewById<LinearLayout>(Resource.Id.reader_attachments);
         if (view.FindViewById<LinearLayout>(Resource.Id.reader_sender_row) is { } senderRow
@@ -514,6 +515,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         ObserveCollection(viewModel.ToItems, attachments: false, dispatcher);
         ObserveCollection(viewModel.CcItems, attachments: false, dispatcher);
         ObserveCollection(viewModel.Attachments, attachments: true, dispatcher);
+        ObserveActionCards(viewModel, dispatcher);
         EventHandler<string?> pictureChanged = (_, address) =>
         {
             if (address is null || string.Equals(ViewModel?.FromAddress?.Trim(), address, StringComparison.OrdinalIgnoreCase)) UpdateSender();
