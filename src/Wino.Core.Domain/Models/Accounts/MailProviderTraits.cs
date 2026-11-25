@@ -11,6 +11,9 @@ public sealed record MailProviderTraits
 {
     public static MailProviderTraits None { get; } = new();
 
+    /// <summary>The largest message the provider accepts for sending, in bytes, when the provider documents one; null when unknown.</summary>
+    public long? MaximumMessageBytes { get; init; }
+
     /// <summary>Signs in through the provider's interactive OAuth consent, and asks for it again when a mode is turned on.</summary>
     public bool UsesInteractiveOAuth { get; init; }
 

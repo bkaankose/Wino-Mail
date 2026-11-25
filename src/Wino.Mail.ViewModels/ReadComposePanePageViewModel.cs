@@ -11,6 +11,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Browsers;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Services;
 using Wino.Core.Domain.Messaging.Client.Navigation;
@@ -20,7 +21,7 @@ namespace Wino.Mail.ViewModels;
 public partial class ReadComposePanePageViewModel : MailBaseViewModel
 {
     public IPreferencesService PreferencesService { get; set; }
-    public List<string> AvailableFonts => FontService.GetFonts();
+    public List<string> AvailableFonts { get; }
     public List<AppLanguageModel> AvailableSpellCheckLanguages { get; }
 
     [ObservableProperty]
@@ -63,9 +64,13 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     public ReadComposePanePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                     IPreferencesService preferencesService,
                                     ITranslationService translationService,
-                                    IEnumerable<ISpellCheckLanguageSource> spellCheckLanguageSources) : base(messenger)
+                                    IEnumerable<ISpellCheckLanguageSource> spellCheckLanguageSources,
+                                    IEnumerable<IMailFontSource> fontSources) : base(messenger)
     {
         PreferencesService = preferencesService;
+
+        var rendererFonts = fontSources.FirstOrDefault()?.GetFontFamilies() ?? [];
+        AvailableFonts = rendererFonts.Count > 0 ? [.. rendererFonts] : FontService.GetFonts();
 
         var spellCheckSource = spellCheckLanguageSources.FirstOrDefault();
         var savedSpellCheckCode = preferencesService.ComposerSpellCheckLanguageCode;
@@ -112,6 +117,10 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     [RelayCommand]
     private void OpenReaderActions()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.ReaderActions_Title, WinoPage.ReaderActionsPage));
+
+    [RelayCommand]
+    private void OpenPrivacySettings()
+        => Messenger.Send(new BreadcrumbNavigationRequested(SettingsCatalog.Title(WinoPage.PrivacySecurityPage), WinoPage.PrivacySecurityPage));
 
     partial void OnCurrentReaderFontChanged(string value)
     {

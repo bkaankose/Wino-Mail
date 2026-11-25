@@ -60,8 +60,10 @@ public partial class PreferencesService(IConfigurationService configurationServi
         => new MailRenderingOptions()
         {
             RemoteContent = RemoteContentMode,
-            LoadStyles = RenderStyles,
-            RenderPlaintextLinks = RenderPlaintextLinks
+            RenderPlaintextLinks = RenderPlaintextLinks,
+            FoldEarlierMessages = IsReaderFoldingEnabled,
+            FindStructuredData = IsActionCardsEnabled,
+            FindDates = IsDateDetectionEnabled
         };
 
     public string ExportPreferences()
@@ -234,10 +236,30 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsMarkAsReadOnMoveToTrashEnabled), value);
     }
 
-    public bool RenderStyles
+    public bool IsReaderFoldingEnabled
     {
-        get => _configurationService.Get(nameof(RenderStyles), true);
-        set => SetPropertyAndSave(nameof(RenderStyles), value);
+        get => _configurationService.Get(nameof(IsReaderFoldingEnabled), true);
+        set => SetPropertyAndSave(nameof(IsReaderFoldingEnabled), value);
+    }
+    public bool IsActionCardsEnabled
+    {
+        get => _configurationService.Get(nameof(IsActionCardsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsActionCardsEnabled), value);
+    }
+    public bool IsActionCardConfirmationEnabled
+    {
+        get => _configurationService.Get(nameof(IsActionCardConfirmationEnabled), true);
+        set => SetPropertyAndSave(nameof(IsActionCardConfirmationEnabled), value);
+    }
+    public bool IsActionCardExpanded
+    {
+        get => _configurationService.Get(nameof(IsActionCardExpanded), true);
+        set => SetPropertyAndSave(nameof(IsActionCardExpanded), value);
+    }
+    public bool IsDateDetectionEnabled
+    {
+        get => _configurationService.Get(nameof(IsDateDetectionEnabled), true);
+        set => SetPropertyAndSave(nameof(IsDateDetectionEnabled), value);
     }
 
     public bool RenderPlaintextLinks
@@ -501,6 +523,36 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(IsComposerAutoCorrectEnabled), false);
         set => SetPropertyAndSave(nameof(IsComposerAutoCorrectEnabled), value);
+    }
+
+    public bool IsComposerPasteFormattingEnabled
+    {
+        get => _configurationService.Get(nameof(IsComposerPasteFormattingEnabled), true);
+        set => SetPropertyAndSave(nameof(IsComposerPasteFormattingEnabled), value);
+    }
+
+    public bool IsDraftCheckEnabled
+    {
+        get => _configurationService.Get(nameof(IsDraftCheckEnabled), true);
+        set => SetPropertyAndSave(nameof(IsDraftCheckEnabled), value);
+    }
+
+    public bool IsDraftImageDescriptionCheckEnabled
+    {
+        get => _configurationService.Get(nameof(IsDraftImageDescriptionCheckEnabled), true);
+        set => SetPropertyAndSave(nameof(IsDraftImageDescriptionCheckEnabled), value);
+    }
+
+    public bool IsDraftReadableTextCheckEnabled
+    {
+        get => _configurationService.Get(nameof(IsDraftReadableTextCheckEnabled), true);
+        set => SetPropertyAndSave(nameof(IsDraftReadableTextCheckEnabled), value);
+    }
+
+    public bool IsDraftMessageSizeCheckEnabled
+    {
+        get => _configurationService.Get(nameof(IsDraftMessageSizeCheckEnabled), true);
+        set => SetPropertyAndSave(nameof(IsDraftMessageSizeCheckEnabled), value);
     }
 
     public string ComposerSpellCheckLanguageCode

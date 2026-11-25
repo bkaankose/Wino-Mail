@@ -14,6 +14,7 @@ public static class MailRenderingRegistration
         services.AddSingleton<MailEngineHost>();
         services.AddSingleton<IMailUnsubscribeReader, EngineUnsubscribeReader>();
         services.AddSingleton<ISpellCheckLanguageSource, EngineSpellCheckLanguageSource>();
+        services.AddSingleton<IMailFontSource, EngineMailFontSource>();
         return services;
     }
 }

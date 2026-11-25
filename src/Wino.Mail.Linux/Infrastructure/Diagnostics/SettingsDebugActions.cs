@@ -105,7 +105,6 @@ internal static class SettingsDebugActions
             nameof(IPreferencesService.AutoSelectNextItem) => Flag(() => p.AutoSelectNextItem, v => p.AutoSelectNextItem = v, value),
             nameof(IPreferencesService.ReaderFont) => Text(() => p.ReaderFont, v => p.ReaderFont = v, value),
             nameof(IPreferencesService.ReaderFontSize) => Number(() => p.ReaderFontSize, v => p.ReaderFontSize = v, value),
-            nameof(IPreferencesService.RenderStyles) => Flag(() => p.RenderStyles, v => p.RenderStyles = v, value),
             nameof(IPreferencesService.RenderPlaintextLinks) => Flag(() => p.RenderPlaintextLinks, v => p.RenderPlaintextLinks = v, value),
             nameof(IPreferencesService.ReaderContentTheme) => Choice(() => p.ReaderContentTheme, v => p.ReaderContentTheme = v, value),
             nameof(IPreferencesService.ReaderDarkModeMethod) => Choice(() => p.ReaderDarkModeMethod, v => p.ReaderDarkModeMethod = v, value),

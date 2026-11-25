@@ -68,8 +68,6 @@ internal sealed class ReadComposePanePage(ReadComposePanePageViewModel viewModel
 
         AddGroup(null,
             Settings.Command(Translator.ReaderActions_Title, Translator.ReaderActions_EntryDescription, WinoIconGlyph.ReOrderDotsVertical, vm.OpenReaderActionsCommand),
-            Settings.Switch(p, Translator.SettingsLoadStyles_Title, null, WinoIconGlyph.Color,
-                nameof(p.RenderStyles), static s => s.RenderStyles, static (s, v) => s.RenderStyles = v),
             Settings.Switch(p, Translator.SettingsLoadPlaintextLinks_Title, null, WinoIconGlyph.Link,
                 nameof(p.RenderPlaintextLinks), static s => s.RenderPlaintextLinks, static (s, v) => s.RenderPlaintextLinks = v));
     }

@@ -60,8 +60,6 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
         AddGroup(null,
             NavigationCard(Translator.ReaderActions_Title, Translator.ReaderActions_EntryDescription, WinoIconGlyph.ReOrderDotsVertical,
                 () => vm.OpenReaderActionsCommand.Execute(null)),
-            Card(Translator.SettingsLoadStyles_Title, null, WinoIconGlyph.Color,
-                Bind.Switch(p, nameof(p.RenderStyles), s => s.RenderStyles, (s, v) => s.RenderStyles = v, Translator.SettingsLoadStyles_Title)),
             Card(Translator.SettingsLoadPlaintextLinks_Title, null, WinoIconGlyph.Link,
                 Bind.Switch(p, nameof(p.RenderPlaintextLinks), s => s.RenderPlaintextLinks, (s, v) => s.RenderPlaintextLinks = v, Translator.SettingsLoadPlaintextLinks_Title)));
     }
