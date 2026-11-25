@@ -153,16 +153,22 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
     /// <summary>The negotiated MS-ASProtocolVersion (for example 16.1); server drafts and meeting mail need 16.0.</summary>
     internal Task<string> GetProtocolVersionAsync(CancellationToken cancellationToken = default) => _engine.GetProtocolVersionAsync(cancellationToken);
 
+    /// <summary>
+    /// A pass that fails after some folders were stored still reports the messages it stored, as the EWS synchronizer
+    /// does, so they are announced.
+    /// </summary>
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
+        var downloaded = new List<MailCopy>();
         try
         {
             if (options.Type == MailSynchronizationType.FoldersOnly)
             {
                 await _engine.SynchronizeFolderMetadataAsync(cancellationToken).ConfigureAwait(false);
-                return MailSynchronizationResult.Completed(new List<MailCopy>());
+                return MailSynchronizationResult.Completed(downloaded);
             }
-            return MailSynchronizationResult.Completed(await _engine.SynchronizeMailAsync(options, cancellationToken).ConfigureAwait(false));
+            await _engine.SynchronizeMailAsync(options, downloaded, cancellationToken).ConfigureAwait(false);
+            return MailSynchronizationResult.Completed(downloaded);
         }
         catch (EasResyncRequiredException exception)
         {
@@ -184,9 +190,11 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             Logger.Error(exception, "EAS mail synchronization failed for {Account}.", Account.Name);
 
             // A throttled pass is not a failure: the server asked to come back later, as EWS treats ServerBusy.
-            return error.Category == SynchronizerErrorCategory.RateLimit
-                ? MailSynchronizationResult.Completed(new List<MailCopy>())
-                : MailSynchronizationResult.Failed(exception);
+            if (error.Category == SynchronizerErrorCategory.RateLimit)
+                return MailSynchronizationResult.Completed(downloaded);
+            var failed = MailSynchronizationResult.Failed(exception);
+            failed.DownloadedMessages = downloaded;
+            return failed;
         }
     }
 

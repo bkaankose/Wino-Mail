@@ -102,7 +102,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     /// folder on a full pass, the Inbox set or the named folders otherwise. The hierarchy is read on a full pass and
     /// whenever no mail folder is known yet. Below 16.0 the Drafts folder is not synchronized: drafts stay local there.
     /// </summary>
-    internal async Task<List<MailCopy>> SynchronizeMailAsync(MailSynchronizationOptions options, CancellationToken cancellationToken)
+    /// <param name="downloaded">Receives each new message as it is stored, so a pass that fails later still reports them.</param>
+    internal async Task SynchronizeMailAsync(MailSynchronizationOptions options, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -117,10 +118,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 .GroupBy(folder => folder.Id)
                 .Select(group => group.First())
                 .ToList();
-            var downloaded = new List<MailCopy>();
             foreach (var folder in folders)
                 await SynchronizeIsolatedAsync(EasCollection.From(folder), downloaded, cancellationToken).ConfigureAwait(false);
-            return downloaded;
         }
         finally { _gate.Release(); }
     }
