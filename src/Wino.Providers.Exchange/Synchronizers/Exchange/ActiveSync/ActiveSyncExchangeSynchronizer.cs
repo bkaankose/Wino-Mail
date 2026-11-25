@@ -20,6 +20,7 @@ using Wino.Core.Domain.Messaging.UI;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
+using Wino.Core.Extensions;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
@@ -521,6 +522,40 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
             mail.MessageId = messageId;
             mail.InReplyTo = inReplyTo;
             mail.References = references;
+        }
+        await TryMapCalendarInvitationAsync(mail, mime, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Links a meeting message to the event it belongs to, as the EWS synchronizer does: the event is found by the
+    /// invitation's iCalendar UID, which Exchange also reports as the event's UID. A series maps to its first stored
+    /// occurrence, because the series itself is not shown. Failures are logged; the mail is already saved.
+    /// </summary>
+    private async Task TryMapCalendarInvitationAsync(MailCopy mail, MimeMessage message, CancellationToken cancellationToken)
+    {
+        if (Account.CalendarIntegrationSource != AccountIntegrationSource.Provider || !Account.IsCalendarAccessGranted)
+            return;
+        var uid = message.ExtractInvitationUid();
+        if (string.IsNullOrWhiteSpace(uid))
+            return;
+        try
+        {
+            if (await _engine.FindEventByUidAsync(uid, cancellationToken).ConfigureAwait(false) is not { } match)
+                return;
+            var item = await _calendars.GetCalendarItemAsync(match.CalendarId, match.RemoteId).ConfigureAwait(false);
+            if (item?.IsRecurringParent == true)
+                item = (await _calendars.GetRecurringChildrenAsync(item.Id).ConfigureAwait(false)).OrderBy(child => child.StartDate).FirstOrDefault();
+            if (item == null)
+                return;
+            await _changeProcessor.UpsertMailInvitationCalendarMappingAsync(new MailInvitationCalendarMapping
+            {
+                Id = Guid.NewGuid(), AccountId = Account.Id, MailCopyId = mail.Id, InvitationUid = uid,
+                CalendarId = match.CalendarId, CalendarItemId = item.Id, CalendarRemoteEventId = item.RemoteEventId
+            }).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.Warning(exception, "EAS invitation mail {MailCopyId} was not linked to its event.", mail.Id);
         }
     }
 
