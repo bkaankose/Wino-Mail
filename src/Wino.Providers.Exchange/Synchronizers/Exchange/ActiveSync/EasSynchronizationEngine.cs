@@ -75,6 +75,14 @@ internal sealed class EasSynchronizationEngine : IDisposable
         return Version.TryParse(version, out var parsed) && parsed >= new Version(16, 0);
     }
 
+    /// <summary>
+    /// Stores the threading headers of a message whose MIME was just fetched: synchronization reads no MIME, and
+    /// ActiveSync carries no Message-ID field, so replies and threading learn them here.
+    /// </summary>
+    internal Task SaveMessageHeadersAsync(Guid uniqueId, string messageId, string inReplyTo, string references)
+        => _database.Connection.ExecuteAsync("UPDATE MailCopy SET MessageId = ?, InReplyTo = ?, \"References\" = ? WHERE UniqueId = ?",
+            messageId, inReplyTo, references, uniqueId);
+
     /// <summary>The negotiated MS-ASProtocolVersion; connects first when no request has been made yet.</summary>
     internal async Task<string> GetProtocolVersionAsync(CancellationToken cancellationToken)
     {

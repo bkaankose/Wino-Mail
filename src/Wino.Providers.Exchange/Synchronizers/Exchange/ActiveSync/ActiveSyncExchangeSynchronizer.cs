@@ -499,12 +499,29 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
             : throw new InvalidOperationException("The draft has no ActiveSync folder to be saved into.");
     }
 
+    /// <summary>
+    /// Saves the fetched MIME and the threading headers it carries; synchronization reads no MIME and ActiveSync has
+    /// no Message-ID field, so replies and threading learn them here.
+    /// </summary>
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mail, ITransferProgress transferProgress = null, CancellationToken cancellationToken = default)
     {
         var (folder, id) = await RemoteMailAsync(mail).ConfigureAwait(false);
         var data = await _engine.FetchAsync(folder.RemoteFolderId, id, cancellationToken).ConfigureAwait(false);
-        if (!await _mime.SaveMimeMessageAsync(mail.FileId, EasDataMapper.ReadMime(data), Account.Id).ConfigureAwait(false))
+        var mime = EasDataMapper.ReadMime(data);
+        if (!await _mime.SaveMimeMessageAsync(mail.FileId, mime, Account.Id).ConfigureAwait(false))
             throw new IOException("The EAS MIME message could not be saved.");
+
+        var messageId = MailHeaderExtensions.NormalizeMessageId(mime.Headers[HeaderId.MessageId]) ?? string.Empty;
+        var inReplyTo = MailHeaderExtensions.NormalizeMessageId(string.IsNullOrWhiteSpace(mime.InReplyTo) ? mime.Headers[HeaderId.InReplyTo] : mime.InReplyTo) ?? string.Empty;
+        var references = (mime.References?.Count > 0 ? MailHeaderExtensions.JoinStoredReferences(mime.References)
+            : MailHeaderExtensions.NormalizeReferences(mime.Headers[HeaderId.References])) ?? string.Empty;
+        if (messageId != (mail.MessageId ?? string.Empty) || inReplyTo != (mail.InReplyTo ?? string.Empty) || references != (mail.References ?? string.Empty))
+        {
+            await _engine.SaveMessageHeadersAsync(mail.UniqueId, messageId, inReplyTo, references).ConfigureAwait(false);
+            mail.MessageId = messageId;
+            mail.InReplyTo = inReplyTo;
+            mail.References = references;
+        }
     }
 
     protected override async Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
