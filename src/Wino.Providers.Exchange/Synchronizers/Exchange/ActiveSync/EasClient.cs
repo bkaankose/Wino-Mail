@@ -34,6 +34,7 @@ internal sealed class EasClient : IDisposable
     private readonly EasAccountStateStore? _store;
     private readonly string? _deviceIdOverride;
     private readonly SemaphoreSlim _stateGate = new(1, 1);
+    private readonly SemaphoreSlim _provisionGate = new(1, 1);
     private EasAccountState? _state;
     private Uri _endpoint;
     private string? _version;
@@ -215,19 +216,20 @@ internal sealed class EasClient : IDisposable
     }
 
     private async Task<XElement?> PostAsync(string command, byte[] bytes, string contentType, CancellationToken cancellationToken,
-        bool allowProvision = true, bool allowRedirect = true, HttpClient? http = null)
+        bool allowProvision = true, bool allowRedirect = true, HttpClient? http = null, string? policyKey = null)
     {
         var state = await EnsureStateAsync().ConfigureAwait(false);
-        using var request = CreateRequest(command, bytes, contentType, state);
+        var sentPolicyKey = policyKey ?? state.PolicyKey;
+        using var request = CreateRequest(command, bytes, contentType, state.DeviceId, sentPolicyKey);
         using var response = await (http ?? _http).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         if (allowRedirect && await TryFollowMailboxRedirectAsync(response).ConfigureAwait(false))
-            return await PostAsync(command, bytes, contentType, cancellationToken, allowProvision, false, http).ConfigureAwait(false);
+            return await PostAsync(command, bytes, contentType, cancellationToken, allowProvision, false, http, policyKey).ConfigureAwait(false);
 
         if ((int)response.StatusCode == 449)
         {
             if (!allowProvision)
                 throw new EasPolicyException(Translator.ExchangeSetup_ActiveSyncProvisioningLoop, "449");
-            await ProvisionAsync(cancellationToken).ConfigureAwait(false);
+            await ProvisionAsync(sentPolicyKey, cancellationToken).ConfigureAwait(false);
             return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect, http).ConfigureAwait(false);
         }
 
@@ -262,7 +264,7 @@ internal sealed class EasClient : IDisposable
         {
             if (!allowProvision)
                 throw new EasPolicyException(Translator.ExchangeSetup_ActiveSyncProvisioningLoop, status);
-            await ProvisionAsync(cancellationToken).ConfigureAwait(false);
+            await ProvisionAsync(sentPolicyKey, cancellationToken).ConfigureAwait(false);
             return await PostAsync(command, bytes, contentType, cancellationToken, false, allowRedirect, http).ConfigureAwait(false);
         }
 
@@ -270,12 +272,27 @@ internal sealed class EasClient : IDisposable
         return result;
     }
 
-    private async Task ProvisionAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Provisions once for every request that the server refused with <paramref name="refusedPolicyKey"/>: requests
+    /// that were refused while another one provisioned find a newer key after the wait and are retried with it.
+    /// </summary>
+    private async Task ProvisionAsync(string refusedPolicyKey, CancellationToken cancellationToken)
     {
-        var state = await EnsureStateAsync().ConfigureAwait(false);
+        await _provisionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var state = await EnsureStateAsync().ConfigureAwait(false);
+            if (state.PolicyKey != refusedPolicyKey)
+                return;
+            await ProvisionCoreAsync(state, cancellationToken).ConfigureAwait(false);
+        }
+        finally { _provisionGate.Release(); }
+    }
+
+    private async Task ProvisionCoreAsync(EasAccountState state, CancellationToken cancellationToken)
+    {
         XNamespace provision = "Provision:";
-        state.PolicyKey = "0";
-        var response = await PostProvisionAsync(CreatePolicyRequest(), cancellationToken).ConfigureAwait(false);
+        var response = await PostProvisionAsync(CreatePolicyRequest(), "0", cancellationToken).ConfigureAwait(false);
         var policy = response.Element(provision + "Policies")?.Element(provision + "Policy")
             ?? throw new InvalidDataException("The EAS provisioning policy is missing.");
 
@@ -301,7 +318,7 @@ internal sealed class EasClient : IDisposable
             new XElement(provision + "Status", evaluation.AcknowledgementStatus))));
 
         XElement accepted;
-        try { accepted = await PostProvisionAsync(acknowledgement, cancellationToken).ConfigureAwait(false); }
+        try { accepted = await PostProvisionAsync(acknowledgement, temporaryKey, cancellationToken).ConfigureAwait(false); }
         catch (EasPolicyException exception) when (exception.Status == "139" && unenforceable.Count > 0)
         {
             throw new EasPolicyException(string.Format(Translator.ExchangeSetup_ActiveSyncPolicyNotSupported, string.Join(", ", unenforceable)), "139");
@@ -328,10 +345,10 @@ internal sealed class EasClient : IDisposable
         return request;
     }
 
-    private async Task<XElement> PostProvisionAsync(XElement request, CancellationToken cancellationToken)
+    private async Task<XElement> PostProvisionAsync(XElement request, string policyKey, CancellationToken cancellationToken)
     {
         XNamespace provision = "Provision:";
-        var response = await PostAsync("Provision", EasWbxml.Encode(request), "application/vnd.ms-sync.wbxml", cancellationToken, false).ConfigureAwait(false)
+        var response = await PostAsync("Provision", EasWbxml.Encode(request), "application/vnd.ms-sync.wbxml", cancellationToken, false, policyKey: policyKey).ConfigureAwait(false)
             ?? throw new InvalidDataException("The EAS provisioning response is empty.");
         if (response.Element(provision + "RemoteWipe") != null || response.Element(provision + "AccountOnlyRemoteWipe") != null)
             await AcknowledgeRemoteWipeAsync(response, cancellationToken).ConfigureAwait(false);
@@ -348,13 +365,16 @@ internal sealed class EasClient : IDisposable
     private async Task HandleRemoteWipeAsync(CancellationToken cancellationToken)
     {
         XNamespace provision = "Provision:";
-        var state = await EnsureStateAsync().ConfigureAwait(false);
-        state.PolicyKey = "0";
-        var response = await PostAsync("Provision", EasWbxml.Encode(CreatePolicyRequest()), "application/vnd.ms-sync.wbxml", cancellationToken, false).ConfigureAwait(false);
-        if (response != null && (response.Element(provision + "RemoteWipe") != null || response.Element(provision + "AccountOnlyRemoteWipe") != null))
-            await AcknowledgeRemoteWipeAsync(response, cancellationToken).ConfigureAwait(false);
+        await _provisionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var response = await PostAsync("Provision", EasWbxml.Encode(CreatePolicyRequest()), "application/vnd.ms-sync.wbxml", cancellationToken, false, policyKey: "0").ConfigureAwait(false);
+            if (response != null && (response.Element(provision + "RemoteWipe") != null || response.Element(provision + "AccountOnlyRemoteWipe") != null))
+                await AcknowledgeRemoteWipeAsync(response, cancellationToken).ConfigureAwait(false);
 
-        await MarkRemoteWipeAsync().ConfigureAwait(false);
+            await MarkRemoteWipeAsync().ConfigureAwait(false);
+        }
+        finally { _provisionGate.Release(); }
     }
 
     /// <summary>
@@ -369,7 +389,7 @@ internal sealed class EasClient : IDisposable
         try
         {
             await PostAsync("Provision", EasWbxml.Encode(new XElement(provision + "Provision",
-                new XElement(provision + element, new XElement(provision + "Status", "2")))), "application/vnd.ms-sync.wbxml", cancellationToken, false).ConfigureAwait(false);
+                new XElement(provision + element, new XElement(provision + "Status", "2")))), "application/vnd.ms-sync.wbxml", cancellationToken, false, policyKey: "0").ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -461,13 +481,13 @@ internal sealed class EasClient : IDisposable
         return true;
     }
 
-    private HttpRequestMessage CreateRequest(string command, byte[] bytes, string contentType, EasAccountState state)
+    private HttpRequestMessage CreateRequest(string command, byte[] bytes, string contentType, string deviceId, string policyKey)
     {
         var uri = new Uri(_endpoint.AbsoluteUri + "?Cmd=" + command + "&User=" + Uri.EscapeDataString(_user) +
-            "&DeviceId=" + state.DeviceId + "&DeviceType=WinoMail");
+            "&DeviceId=" + deviceId + "&DeviceType=WinoMail");
         var request = new HttpRequestMessage(HttpMethod.Post, uri);
         request.Headers.Add("MS-ASProtocolVersion", _version);
-        request.Headers.Add("X-MS-PolicyKey", state.PolicyKey);
+        request.Headers.Add("X-MS-PolicyKey", policyKey);
         request.Content = new ByteArrayContent(bytes);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         return request;
@@ -612,5 +632,6 @@ internal sealed class EasClient : IDisposable
         if (_longPoll.IsValueCreated)
             _longPoll.Value.Dispose();
         _stateGate.Dispose();
+        _provisionGate.Dispose();
     }
 }
