@@ -1168,6 +1168,7 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         var structureChanged = false;
         var seenRemoteIds = new HashSet<string>(StringComparer.Ordinal);
+        var assignedRoles = specialByFolderId.Values.ToHashSet();
 
         foreach (var remote in mailFolders)
         {
@@ -1195,6 +1196,14 @@ IExchangeAuthenticator exchangeAuthenticator,
 
                 if (existing.FolderName != remote.DisplayName || existing.ParentRemoteFolderId != parentRemoteId)
                     structureChanged = true;
+
+                // A type no folder holds on the server (Archive, or one the user assigned on another connection
+                // method) stays as it is.
+                if (existing.IsSystemFolder && !isSystem && !assignedRoles.Contains(existing.SpecialFolderType))
+                {
+                    specialType = existing.SpecialFolderType;
+                    isSystem = true;
+                }
 
                 // Classification here comes from ids, not from a bind that may have failed, so both corrections are
                 // safe. The Inbox is never left unpinned: the navigation only looks for it at the top level.

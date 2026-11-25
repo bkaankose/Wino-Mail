@@ -299,7 +299,7 @@ IExchangeAuthenticator exchangeAuthenticator,
     /// </summary>
     private async Task SynchronizeFoldersAsync(ExchangeService service, CancellationToken cancellationToken)
     {
-        var (specialMap, unresolvedTypes) = await BuildSpecialFolderMapAsync(service, cancellationToken).ConfigureAwait(false);
+        var (specialMap, _) = await BuildSpecialFolderMapAsync(service, cancellationToken).ConfigureAwait(false);
 
         var view = new FolderView(500)
         {
@@ -327,6 +327,7 @@ IExchangeAuthenticator exchangeAuthenticator,
                 specialMap.TryGetValue(f.Id.UniqueId, out var role) ? role : SpecialFolderType.Other)).ToList(),
             ExchangeTransport.Ews);
         var structureChanged = rekeys.Count > 0;
+        var assignedRoles = specialMap.Values.ToHashSet();
         foreach (var local in localFolders)
         {
             if (!rekeys.TryGetValue(local.Id, out var newRemoteId))
@@ -359,8 +360,9 @@ IExchangeAuthenticator exchangeAuthenticator,
                     structureChanged = true;
 
                 // A well-known bind that failed in this pass says nothing about the folder: keep the known system
-                // type instead of demoting a pinned folder such as the Inbox to a plain user folder.
-                if (existing.IsSystemFolder && !isSystem && unresolvedTypes.Contains(existing.SpecialFolderType))
+                // type instead of demoting a pinned folder such as the Inbox to a plain user folder. A type no folder
+                // holds on the server (Archive, or one the user assigned on another connection method) stays too.
+                if (existing.IsSystemFolder && !isSystem && !assignedRoles.Contains(existing.SpecialFolderType))
                 {
                     specialType = existing.SpecialFolderType;
                     isSystem = true;
