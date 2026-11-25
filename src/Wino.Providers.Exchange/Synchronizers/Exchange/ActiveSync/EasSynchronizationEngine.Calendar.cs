@@ -186,6 +186,8 @@ internal sealed partial class EasSynchronizationEngine
 
             var responseName = command.Name.LocalName;
             var result = await _client.SyncAsync(folderId, state.SyncKey, "Calendar", new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
+            // The server has moved to the new key even when the item itself failed.
+            await SaveKeyAsync(state, result).ConfigureAwait(false);
             var response = result.Element(sync + "Responses")?.Element(sync + responseName);
             if (response != null)
                 EasClient.RequireSuccess(response);
@@ -215,7 +217,6 @@ internal sealed partial class EasSynchronizationEngine
                     Generation = state.Generation }, typeof(EasItemShadow)).ConfigureAwait(false);
                 await ProjectEventAsync(state, resultId, updated).ConfigureAwait(false);
             }
-            await SaveKeyAsync(state, result).ConfigureAwait(false);
             return resultId;
         }
         finally { _gate.Release(); }
