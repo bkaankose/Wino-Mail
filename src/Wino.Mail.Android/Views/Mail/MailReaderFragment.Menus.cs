@@ -2,7 +2,6 @@ using Android.Content;
 using Android.Views;
 using AndroidX.Core.Content;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Android.Rendering;
 using Wino.Mail.ViewModels;
@@ -35,20 +34,20 @@ public sealed partial class MailReaderFragment
             rows.Add(null);
         }
         if (request.HasSelection)
-            rows.Add(new EngineMenuEntry(Translator.Buttons_Copy, WinoIconGlyph.Copy, () => view.CopySelection(), AutomationId: "MailRenderingCopy"));
+            rows.Add(new EngineMenuEntry(Translator.Buttons_Copy, () => view.CopySelection(), AutomationId: "MailRenderingCopy"));
         if (request.LinkUrl is { Length: > 0 } url)
-            rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_CopyLink, WinoIconGlyph.Link, () => Observe(viewModel.CopyLinkCommand.ExecuteAsync(url)), AutomationId: "MailRenderingCopyLink"));
+            rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_CopyLink, () => Observe(viewModel.CopyLinkCommand.ExecuteAsync(url)), AutomationId: "MailRenderingCopyLink"));
         if (request.OnImage && view.Reader is { } reader && reader.TryGetImageAt(request.ViewPoint, out var image) && !image.Bytes.IsEmpty)
-            rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_CopyImage, WinoIconGlyph.Image, () => Observe(CopyImageAsync(context, image)), AutomationId: "MailRenderingCopyImage"));
+            rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_CopyImage, () => Observe(CopyImageAsync(context, image)), AutomationId: "MailRenderingCopyImage"));
         foreach (var target in targets)
         {
             if (target.Kind != ContextTargetKind.Table) continue;
-            rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_CopyTable, WinoIconGlyph.Table, () => CopyTable(view, target, TableTextFormat.TabSeparated), AutomationId: "MailRenderingCopyTable"));
-            rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_CopyTableAsCsv, WinoIconGlyph.Document, () => CopyTable(view, target, TableTextFormat.Csv), AutomationId: "MailRenderingCopyTableAsCsv"));
+            rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_CopyTable, () => CopyTable(view, target, TableTextFormat.TabSeparated), AutomationId: "MailRenderingCopyTable"));
+            rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_CopyTableAsCsv, () => CopyTable(view, target, TableTextFormat.Csv), AutomationId: "MailRenderingCopyTableAsCsv"));
             break;
         }
         if (rows.Count > 0) rows.Add(null);
-        rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_SelectAll, WinoIconGlyph.SelectAll, () => view.SelectAll(), AutomationId: "MailRenderingSelectAll"));
+        rows.Add(new EngineMenuEntry(Translator.Reader_ContextMenu_SelectAll, () => view.SelectAll(), AutomationId: "MailRenderingSelectAll"));
 
         EngineContextMenu.Show(host, request.ViewPoint, DisplayDensity(), _dark, rows);
     }
@@ -66,13 +65,13 @@ public sealed partial class MailReaderFragment
     private IEnumerable<EngineMenuEntry?> DateRows(MailDetectedDate date, MailRenderingPageViewModel viewModel)
     {
         var text = MailRenderingPageViewModel.FormatDetectedDate(date);
-        yield return new EngineMenuEntry(text, WinoIconGlyph.Calendar, () => { }, IsEnabled: false, AutomationId: "MailRenderingDateHeader");
-        yield return new EngineMenuEntry(Translator.Reader_Date_AddToCalendar, WinoIconGlyph.CalendarAdd,
+        yield return new EngineMenuEntry(text, () => { }, IsEnabled: false, AutomationId: "MailRenderingDateHeader");
+        yield return new EngineMenuEntry(Translator.Reader_Date_AddToCalendar,
             () => Observe(viewModel.AddDateToCalendarCommand.ExecuteAsync(date)), AutomationId: "MailRenderingDateAddToCalendar");
-        yield return new EngineMenuEntry(Translator.Reader_Date_CreateTask, WinoIconGlyph.TaskList,
+        yield return new EngineMenuEntry(Translator.Reader_Date_CreateTask,
             () => Observe(viewModel.CreateTaskForDateCommand.ExecuteAsync(date)), AutomationId: "MailRenderingDateCreateTask");
         yield return null;
-        yield return new EngineMenuEntry(Translator.Reader_Date_Copy, WinoIconGlyph.Copy,
+        yield return new EngineMenuEntry(Translator.Reader_Date_Copy,
             () => Observe(viewModel.CopyClipboardCommand.ExecuteAsync(text)), AutomationId: "MailRenderingDateCopy");
     }
 
