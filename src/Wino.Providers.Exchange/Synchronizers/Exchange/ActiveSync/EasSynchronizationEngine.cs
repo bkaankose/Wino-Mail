@@ -15,6 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Misc;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Services;
 using Wino.Services.Interfaces;
@@ -69,14 +70,24 @@ internal sealed class EasSynchronizationEngine : IDisposable
         return _client.ProtocolVersion ?? throw new InvalidDataException("The EAS protocol version was not negotiated.");
     }
 
-    internal async Task<List<MailCopy>> SynchronizeMailAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Synchronizes the mail folders the options select, the way the other synchronizers pick them: every enabled
+    /// folder on a full pass, the Inbox set or the named folders otherwise. The hierarchy is read on a full pass and
+    /// whenever no mail folder is known yet.
+    /// </summary>
+    internal async Task<List<MailCopy>> SynchronizeMailAsync(MailSynchronizationOptions options, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-            var folders = (await LoadMailRowsAsync().ConfigureAwait(false))
-                .Where(folder => folder.EasFolderType > 0 && folder.IsSynchronizationEnabled)
+            var known = await CountMailCollectionsAsync().ConfigureAwait(false);
+            if (options.Type == MailSynchronizationType.FullFolders || known == 0)
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+
+            var folders = (await _folders.GetSynchronizationFoldersAsync(options).ConfigureAwait(false))
+                .Where(folder => folder.EasFolderType > 0 && !string.IsNullOrEmpty(folder.RemoteFolderId))
+                .GroupBy(folder => folder.Id)
+                .Select(group => group.First())
                 .ToList();
             var downloaded = new List<MailCopy>();
             foreach (var folder in folders)
@@ -652,6 +663,9 @@ internal sealed class EasSynchronizationEngine : IDisposable
 
     private Task<List<EasCollectionState>> LoadStatesAsync()
         => _database.Connection.Table<EasCollectionState>().Where(state => state.AccountId == _account.Id).ToListAsync();
+
+    private Task<int> CountMailCollectionsAsync()
+        => _database.Connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM MailItemFolder WHERE MailAccountId = ? AND EasFolderType > 0", _account.Id);
 
     private static bool IsMailType(int type) => ItemClass(type) == "Email";
 

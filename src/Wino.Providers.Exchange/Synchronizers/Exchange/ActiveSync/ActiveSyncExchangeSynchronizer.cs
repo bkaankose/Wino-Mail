@@ -93,7 +93,7 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
                 await _engine.SynchronizeFolderMetadataAsync(cancellationToken).ConfigureAwait(false);
                 return MailSynchronizationResult.Completed(new List<MailCopy>());
             }
-            return MailSynchronizationResult.Completed(await _engine.SynchronizeMailAsync(cancellationToken).ConfigureAwait(false));
+            return MailSynchronizationResult.Completed(await _engine.SynchronizeMailAsync(options, cancellationToken).ConfigureAwait(false));
         }
         catch (Exception exception) when (exception is not (OperationCanceledException or AuthenticationAttentionException))
         {
