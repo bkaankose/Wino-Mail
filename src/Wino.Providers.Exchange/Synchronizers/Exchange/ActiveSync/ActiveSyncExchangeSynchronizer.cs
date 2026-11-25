@@ -54,6 +54,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
     private readonly LocalTaskSynchronizer _localTasks;
     private readonly LocalCalendarOperationHandler _localCalendar;
     private readonly IExchangeSynchronizerErrorHandlerFactory _errorHandlerFactory;
+    private readonly IAccountService _accounts;
 
     internal ActiveSyncExchangeSynchronizer(MailAccount account, IMessenger messenger, RequestUiChangeCoordinator uiChanges,
         IDatabaseService database, IAccountService accounts,
@@ -63,6 +64,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         : base(account, messenger, uiChanges)
     {
         _errorHandlerFactory = errorHandlerFactory;
+        _accounts = accounts;
         _engine = new EasSynchronizationEngine(account, database, accounts, folders, mail, calendars, contacts, tasks, pictures,
             () => Messenger.Send(new AccountFolderConfigurationUpdated(account.Id)), ReportCollectionFailure, ReportItemFailure, client);
         _mail = mail; _folders = folders; _contacts = contacts; _tasks = tasks; _calendars = calendars; _mime = mime;
@@ -72,8 +74,73 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         _localCalendar = new LocalCalendarOperationHandler(account, changeProcessor, calendars, applicationDataFolder, "local");
     }
 
-    // Exchange advertises profile sync for every transport; ActiveSync reads no profile, and a null Task from the base would throw.
-    public override Task<ProfileInformation> GetProfileInformationAsync() => Task.FromResult<ProfileInformation>(null);
+    private const int ProfilePictureMaximumBytes = 100 * 1024;
+
+    /// <summary>
+    /// The display name from Settings UserInformation (14.1 and later) and the directory photo from ResolveRecipients.
+    /// What the server does not say keeps the stored value: an older server names no display name, and a failed photo
+    /// lookup leaves the picture alone.
+    /// </summary>
+    public override async Task<ProfileInformation> GetProfileInformationAsync()
+    {
+        var senderName = Account.SenderName;
+        try
+        {
+            var information = EasUserInformation.Parse(await _engine.GetUserInformationAsync(CancellationToken.None).ConfigureAwait(false), Account.Address);
+            if (!string.IsNullOrWhiteSpace(information.DisplayName))
+                senderName = information.DisplayName;
+        }
+        catch (EasCommandException exception)
+        {
+            Logger.Warning(exception, "The ActiveSync server answered no user information for {Account}; the profile stays as it is.", Account.Name);
+        }
+
+        // ResolveRecipients pictures need 14.1; below it the stored picture stays.
+        ProfilePictureFetchResult? picture = null;
+        if (Version.Parse(await _engine.GetProtocolVersionAsync(CancellationToken.None).ConfigureAwait(false)) >= new Version(14, 1))
+        {
+            try
+            {
+                picture = EasUserInformation.ReadPicture(await _engine.ResolveRecipientPictureAsync(Account.Address, ProfilePictureMaximumBytes, CancellationToken.None).ConfigureAwait(false));
+            }
+            catch (Exception exception) when (exception is not (OperationCanceledException or AuthenticationAttentionException))
+            {
+                Logger.Debug(exception, "The ActiveSync directory photo of {Account} could not be read.", Account.Name);
+                picture = ProfilePictureFetchResult.FetchFailed;
+            }
+        }
+
+        return new ProfileInformation(senderName, picture, null);
+    }
+
+    /// <summary>
+    /// The mailbox's SMTP addresses from Settings UserInformation. The account address stays the root alias, as on EWS;
+    /// the others become aliases discovered on the server.
+    /// </summary>
+    protected override async Task SynchronizeAliasesAsync()
+    {
+        var information = EasUserInformation.Parse(await _engine.GetUserInformationAsync(CancellationToken.None).ConfigureAwait(false), Account.Address);
+        var aliases = new Dictionary<string, RemoteAccountAlias>(StringComparer.OrdinalIgnoreCase);
+        foreach (var address in information.Addresses.Prepend(Account.Address))
+        {
+            if (string.IsNullOrWhiteSpace(address) || aliases.ContainsKey(address))
+                continue;
+
+            var isAccountAddress = address.Equals(Account.Address, StringComparison.OrdinalIgnoreCase);
+            aliases[address] = new RemoteAccountAlias
+            {
+                AliasAddress = address,
+                ReplyToAddress = address,
+                IsPrimary = isAccountAddress,
+                IsRootAlias = isAccountAddress,
+                IsVerified = true,
+                Source = AliasSource.ProviderDiscovered,
+                SendCapability = AliasSendCapability.Confirmed
+            };
+        }
+
+        await _accounts.UpdateRemoteAliasInformationAsync(Account, aliases.Values.ToList()).ConfigureAwait(false);
+    }
 
     protected override bool SerializeMailOperations => true;
     public override uint BatchModificationSize => 100;

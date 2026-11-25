@@ -50,6 +50,12 @@ public sealed class ExchangeProviderModule(
         LiveCoverage = LiveCoverageKind.ExchangeNotifications
     };
 
+    // ActiveSync reads the mailbox's addresses from Settings UserInformation; EWS and MAPI have no such call.
+    private MailProviderTraits ActiveSyncTraits => field ??= Traits with { SupportsAliasSync = true };
+
+    public MailProviderTraits GetTraits(MailAccount account)
+        => account.ServerInformation?.EffectiveExchangeTransport == ExchangeTransport.ActiveSync ? ActiveSyncTraits : Traits;
+
     public IAuthenticator CreateAuthenticator() => authenticator();
 
     public IWinoSynchronizerBase CreateSynchronizer(MailAccount account)

@@ -362,7 +362,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         {
             run.Start(AccountSetupStepKind.SyncingAliases);
 
-            if (_providers.GetTraits(account.ProviderType).SupportsAliasSync)
+            if (_providers.GetTraits(account).SupportsAliasSync)
             {
                 var aliasResult = await _synchronizationManager.SynchronizeAliasesAsync(account.Id, cancellationToken);
                 if (aliasResult.CompletedState != SynchronizationCompletedState.Success)
@@ -529,9 +529,29 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             await SynchronizeCalendarMetadataAsync(run, cancellationToken);
 
         if (account.IsMailAccessGranted)
+        {
             await _accountService.CreateRootAliasAsync(account.Id, account.Address);
 
+            if (_providers.GetTraits(account).SupportsAliasSync)
+                await TrySynchronizeExchangeAliasesAsync(account, cancellationToken);
+        }
+
         await TryFetchDirectoryProfilePictureAsync(account, cancellationToken);
+    }
+
+    // The root alias is already in place; the server's other addresses are an addition that must not fail the setup.
+    private async Task TrySynchronizeExchangeAliasesAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _synchronizationManager.SynchronizeAliasesAsync(account.Id, cancellationToken);
+            if (result.CompletedState != SynchronizationCompletedState.Success)
+                Log.Warning("The Exchange aliases of {AccountId} could not be read during account setup.", account.Id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Warning(ex, "The Exchange aliases could not be read during account setup.");
+        }
     }
 
     // The directory photo is a nicety: a server without one, or without GetUserPhoto, must not fail the setup.

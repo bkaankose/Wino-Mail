@@ -96,7 +96,7 @@ public sealed class AccountProfilePictureMaintenance
         {
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
             var eligibleAccounts = accounts
-                .Where(account => _providers.GetTraits(account.ProviderType).SupportsProfileInfoSync)
+                .Where(account => _providers.GetTraits(account).SupportsProfileInfoSync)
                 .Where(account => !account.IsProfilePictureBackfillComplete ||
                                   account.ProfilePictureFileId is { } fileId &&
                                   _pictureStorage.GetPicturePath(PictureKind.AccountProfile, fileId) == null)

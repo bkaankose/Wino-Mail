@@ -17,6 +17,9 @@ public interface IMailProviderModule
 
     MailProviderTraits Traits { get; }
 
+    /// <summary>The traits for one account; a provider whose transports differ answers per account, the others with <see cref="Traits"/>.</summary>
+    MailProviderTraits GetTraits(MailAccount account) => Traits;
+
     /// <summary>A new authenticator, or null when the provider signs in only with credentials stored on the account.</summary>
     IAuthenticator? CreateAuthenticator();
 

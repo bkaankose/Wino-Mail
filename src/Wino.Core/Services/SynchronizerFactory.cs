@@ -85,7 +85,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         var synchronizer = module?.CreateSynchronizer(mailAccount);
 
         if (module != null && synchronizer is IProviderTraitsReceiver receiver)
-            receiver.ProviderTraits = module.Traits;
+            receiver.ProviderTraits = module.GetTraits(mailAccount);
 
         return synchronizer;
     }

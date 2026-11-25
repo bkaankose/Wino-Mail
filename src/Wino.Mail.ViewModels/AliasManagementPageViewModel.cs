@@ -52,7 +52,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(HasSynchronizationError))]
     public partial string SynchronizationError { get; set; }
 
-    public bool CanSynchronizeAliases => Account != null && _providers.GetTraits(Account.ProviderType).SupportsAliasSync;
+    public bool CanSynchronizeAliases => Account != null && _providers.GetTraits(Account).SupportsAliasSync;
 
     public AliasManagementItemList AliasItems => AliasManagementItem.Create(AccountAliases, IsSmimeAvailable);
 

@@ -24,7 +24,7 @@ public sealed partial class AccountCapabilityService
     {
         ArgumentNullException.ThrowIfNull(account);
 
-        var traits = _providers.GetTraits(account.ProviderType);
+        var traits = _providers.GetTraits(account);
         var state = AccountApps.Evaluate(account, traits, app);
 
         if (state.Mode == mode)
@@ -184,7 +184,7 @@ public sealed partial class AccountCapabilityService
                     ?? throw new NotSupportedException($"{account.ProviderType} cannot synchronize.");
 
         if (probe is IProviderTraitsReceiver receiver)
-            receiver.ProviderTraits = module.Traits;
+            receiver.ProviderTraits = module.GetTraits(account);
 
         try
         {

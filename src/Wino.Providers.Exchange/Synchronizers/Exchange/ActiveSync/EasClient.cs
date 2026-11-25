@@ -177,6 +177,43 @@ internal sealed class EasClient : IDisposable
         }
     }
 
+    /// <summary>Settings UserInformation Get (MS-ASCMD 2.2.1.18): the mailbox's addresses and, from 14.1, its display name.</summary>
+    internal async Task<XElement> GetUserInformationAsync(CancellationToken cancellationToken)
+    {
+        XNamespace settings = "Settings:";
+        var response = await CommandAsync("Settings", new XElement(settings + "Settings",
+            new XElement(settings + "UserInformation", new XElement(settings + "Get"))), cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidDataException("The EAS Settings response was empty.");
+        RequireSuccess(response);
+        var information = response.Element(settings + "UserInformation")
+            ?? throw new InvalidDataException("The EAS Settings response has no user information.");
+        RequireSuccess(information);
+        return information;
+    }
+
+    /// <summary>
+    /// ResolveRecipients with a picture request (14.1 and later) for one address. Returns the response's first
+    /// recipient, or null when the directory has no entry for the address.
+    /// </summary>
+    internal async Task<XElement?> ResolveRecipientPictureAsync(string address, int maxSize, CancellationToken cancellationToken)
+    {
+        XNamespace resolve = "ResolveRecipients:";
+        var response = await CommandAsync("ResolveRecipients", new XElement(resolve + "ResolveRecipients",
+            new XElement(resolve + "To", address),
+            new XElement(resolve + "Options",
+                new XElement(resolve + "MaxAmbiguousRecipients", "1"),
+                new XElement(resolve + "Picture",
+                    new XElement(resolve + "MaxSize", maxSize.ToString(CultureInfo.InvariantCulture)),
+                    new XElement(resolve + "MaxPictures", "1")))), cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidDataException("The EAS ResolveRecipients response was empty.");
+        RequireSuccess(response);
+        var answer = response.Element(resolve + "Response");
+        if (answer == null || StatusOf(answer) is "2" or "4")
+            return null;
+        RequireSuccess(answer);
+        return answer.Element(resolve + "Recipient");
+    }
+
     private async Task<XElement?> PostAsync(string command, byte[] bytes, string contentType, CancellationToken cancellationToken,
         bool allowProvision = true, bool allowRedirect = true, HttpClient? http = null)
     {

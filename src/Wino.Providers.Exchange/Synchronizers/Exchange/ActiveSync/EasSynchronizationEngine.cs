@@ -1339,5 +1339,10 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     internal Task<XElement> PingAsync(XElement request, TimeSpan timeout, CancellationToken cancellationToken)
         => _client.PingAsync(request, timeout, cancellationToken);
 
+    internal Task<XElement> GetUserInformationAsync(CancellationToken cancellationToken) => _client.GetUserInformationAsync(cancellationToken);
+
+    internal Task<XElement?> ResolveRecipientPictureAsync(string address, int maxSize, CancellationToken cancellationToken)
+        => _client.ResolveRecipientPictureAsync(address, maxSize, cancellationToken);
+
     public void Dispose() => _client.Dispose();
 }
