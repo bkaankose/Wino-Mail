@@ -7,6 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Interfaces;
+using Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Providers.Exchange.Synchronizers.Errors.Exchange;
@@ -17,13 +18,16 @@ public class ExchangeServerBusyHandler : ISynchronizerErrorHandler
     private readonly ILogger _logger = Log.ForContext<ExchangeServerBusyHandler>();
 
     public bool CanHandle(SynchronizerErrorContext error)
-        => error.ErrorCode == 429 || error.Exception is ServerBusyException;
+        => error.ErrorCode == 429 || error.Exception is ServerBusyException or EasServerBusyException;
 
     public Task<bool> HandleAsync(SynchronizerErrorContext error)
     {
-        var backoff = error.Exception is ServerBusyException busy && busy.BackOffMilliseconds > 0
-            ? TimeSpan.FromMilliseconds(busy.BackOffMilliseconds)
-            : TimeSpan.FromSeconds(10);
+        var backoff = error.Exception switch
+        {
+            ServerBusyException busy when busy.BackOffMilliseconds > 0 => TimeSpan.FromMilliseconds(busy.BackOffMilliseconds),
+            EasServerBusyException { RetryAfter: { } retryAfter } => retryAfter,
+            _ => TimeSpan.FromSeconds(10)
+        };
 
         _logger.Warning(error.Exception,
             "Exchange throttled account {AccountName} ({AccountId}); backing off {Backoff}.",

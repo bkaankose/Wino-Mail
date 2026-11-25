@@ -119,13 +119,13 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
         {
             if (serverInformation.UseOAuthAuthentication)
                 throw new NotSupportedException(Translator.ExchangeSetup_ActiveSyncPasswordRequired);
-            using var client = new EasClient(endpoint.AbsoluteUri, serverInformation.IncomingServerUsername,
-                serverInformation.IncomingServerPassword ?? string.Empty, account.Id);
+            using var client = new EasClient(account, endpoint.AbsoluteUri, serverInformation.IncomingServerUsername,
+                serverInformation.IncomingServerPassword ?? string.Empty, null);
             await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
             await client.FolderSyncAsync("0", cancellationToken).ConfigureAwait(false);
             return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Succeeded, ExchangeTransport.ActiveSync);
         }
-        catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        catch (AuthenticationAttentionException)
         {
             return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.CredentialRejected);
         }

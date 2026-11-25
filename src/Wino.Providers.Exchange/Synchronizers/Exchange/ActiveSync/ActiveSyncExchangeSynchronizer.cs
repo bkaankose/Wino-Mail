@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -21,6 +22,7 @@ using Wino.Core.Requests;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Providers.Exchange.Interfaces;
 using Wino.Providers.Exchange.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Contact;
@@ -49,14 +51,16 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
     private readonly LocalContactSynchronizer _localContacts;
     private readonly LocalTaskSynchronizer _localTasks;
     private readonly LocalCalendarOperationHandler _localCalendar;
+    private readonly IExchangeSynchronizerErrorHandlerFactory _errorHandlerFactory;
 
     internal ActiveSyncExchangeSynchronizer(MailAccount account, IMessenger messenger, RequestUiChangeCoordinator uiChanges,
         IDatabaseService database, IAccountService accounts,
         IFolderService folders, IMailService mail, ICalendarService calendars, IContactService contacts, ITaskService tasks,
         IMimeFileService mime, IPictureStorageService pictures, ICalDavChangeProcessor changeProcessor, string applicationDataFolder,
-        EasClient? client = null)
+        IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory, EasClient? client = null)
         : base(account, messenger, uiChanges)
     {
+        _errorHandlerFactory = errorHandlerFactory;
         _engine = new EasSynchronizationEngine(account, database, accounts, folders, mail, calendars, contacts, tasks, pictures, client);
         _mail = mail; _folders = folders; _contacts = contacts; _tasks = tasks; _calendars = calendars; _mime = mime;
         _pictures = pictures;
@@ -75,14 +79,38 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
     public override Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(MimeMessage message, MailItemFolder folder, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("An EAS message requires its server identifier and application data.");
 
+    /// <summary>The negotiated MS-ASProtocolVersion (for example 16.1); server drafts and meeting mail need 16.0.</summary>
+    internal Task<string> GetProtocolVersionAsync(CancellationToken cancellationToken = default) => _engine.GetProtocolVersionAsync(cancellationToken);
+
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        if (options.Type == MailSynchronizationType.FoldersOnly)
+        try
         {
-            await _engine.SynchronizeFolderMetadataAsync(cancellationToken).ConfigureAwait(false);
-            return MailSynchronizationResult.Completed(new List<MailCopy>());
+            if (options.Type == MailSynchronizationType.FoldersOnly)
+            {
+                await _engine.SynchronizeFolderMetadataAsync(cancellationToken).ConfigureAwait(false);
+                return MailSynchronizationResult.Completed(new List<MailCopy>());
+            }
+            return MailSynchronizationResult.Completed(await _engine.SynchronizeAsync("Email", cancellationToken).ConfigureAwait(false));
         }
-        return MailSynchronizationResult.Completed(await _engine.SynchronizeAsync("Email", cancellationToken).ConfigureAwait(false));
+        catch (Exception exception) when (exception is not (OperationCanceledException or AuthenticationAttentionException))
+        {
+            var error = new SynchronizerErrorContext
+            {
+                Account = Account,
+                ErrorMessage = exception.Message,
+                Exception = exception,
+                OperationType = "ActiveSyncMailSync"
+            };
+            await _errorHandlerFactory.HandleErrorAsync(error).ConfigureAwait(false);
+            CaptureSynchronizationIssue(error);
+            Logger.Error(exception, "EAS mail synchronization failed for {Account}.", Account.Name);
+
+            // A throttled pass is not a failure: the server asked to come back later, as EWS treats ServerBusy.
+            return error.Category == SynchronizerErrorCategory.RateLimit
+                ? MailSynchronizationResult.Completed(new List<MailCopy>())
+                : MailSynchronizationResult.Failed(exception);
+        }
     }
 
     protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)

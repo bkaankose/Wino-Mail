@@ -471,6 +471,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             transaction.Execute("DELETE FROM ItemLink WHERE SourceAccountId = ? OR TargetAccountId = ?", account.Id, account.Id);
             transaction.Execute("DELETE FROM MailAccountPreferences WHERE AccountId = ?", account.Id);
             transaction.Execute("DELETE FROM EasItemShadow WHERE AccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM EasAccountState WHERE AccountId = ?", account.Id);
         }).ConfigureAwait(false);
 
         await _taskService.DeleteAccountTasksAsync(account.Id).ConfigureAwait(false);

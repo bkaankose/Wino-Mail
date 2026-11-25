@@ -48,8 +48,16 @@ internal sealed class EasSynchronizationEngine : IDisposable
         // Automatic detection keeps the EWS URL it started from; Normalize maps it to the ActiveSync path on the same host.
         var endpoint = ExchangeServerEndpoint.Normalize(server.IncomingServer, ExchangeTransport.ActiveSync)
             ?? throw new InvalidOperationException("The EAS server address is invalid.");
-        _client = client ?? new EasClient(endpoint.AbsoluteUri, server.IncomingServerUsername,
-            server.IncomingServerPassword ?? throw new InvalidOperationException("The EAS password is missing."), account.Id);
+        _client = client ?? new EasClient(account, endpoint.AbsoluteUri, server.IncomingServerUsername,
+            server.IncomingServerPassword ?? throw new InvalidOperationException("The EAS password is missing."), new EasAccountStateStore(database));
+    }
+
+    /// <summary>The negotiated MS-ASProtocolVersion; connects first when no request has been made yet.</summary>
+    internal async Task<string> GetProtocolVersionAsync(CancellationToken cancellationToken)
+    {
+        if (_client.ProtocolVersion == null)
+            await _client.ConnectAsync(cancellationToken).ConfigureAwait(false);
+        return _client.ProtocolVersion ?? throw new InvalidDataException("The EAS protocol version was not negotiated.");
     }
 
     internal async Task<List<MailCopy>> SynchronizeAsync(string itemClass, CancellationToken cancellationToken)

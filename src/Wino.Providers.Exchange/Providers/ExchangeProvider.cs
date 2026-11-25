@@ -113,7 +113,8 @@ public static class ExchangeProviderRegistration
                 provider.GetRequiredService<IMimeFileService>(),
                 provider.GetRequiredService<IPictureStorageService>(),
                 provider.GetRequiredService<ICalDavChangeProcessor>(),
-                provider.GetRequiredService<IApplicationConfiguration>().ApplicationDataFolderPath)));
+                provider.GetRequiredService<IApplicationConfiguration>().ApplicationDataFolderPath,
+                provider.GetRequiredService<IExchangeSynchronizerErrorHandlerFactory>())));
 
         services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();

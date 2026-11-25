@@ -297,6 +297,7 @@ VALUES
             Connection.CreateTableAsync<CardDavAddressBookState>(),
             Connection.CreateTableAsync<CardDavResourceShadow>(),
             Connection.CreateTableAsync<EasItemShadow>(),
+            Connection.CreateTableAsync<EasAccountState>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),
