@@ -631,16 +631,17 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Border
                                 x:Name="PART_HeaderHoverBackground"
-                                Grid.ColumnSpan="2"
+                                Grid.ColumnSpan="3"
                                 Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                 IsHitTestVisible="False"
                                 Opacity="0" />
                             <Border
                                 x:Name="PART_HeaderPressedBackground"
-                                Grid.ColumnSpan="2"
+                                Grid.ColumnSpan="3"
                                 Background="{ThemeResource SubtleFillColorTertiaryBrush}"
                                 IsHitTestVisible="False"
                                 Opacity="0" />
@@ -722,19 +723,11 @@
                                                 Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}" />
                                         </StackPanel>
                                     </Grid>
-                                    <accountIcon:WinoFontIcon
-                                        x:Name="PART_ChevronIcon"
-                                        Grid.Column="4"
-                                        VerticalAlignment="Center"
-                                        AutomationProperties.AccessibilityView="Raw"
-                                        FontSize="10"
-                                        Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                        Glyph="&#xE02A;" />
                                 </Grid>
                             </Button>
                             <StackPanel
                                 Grid.Column="1"
-                                Margin="6,4,6,4"
+                                Margin="6,4,0,4"
                                 VerticalAlignment="Center"
                                 Orientation="Horizontal"
                                 Spacing="10">
@@ -761,6 +754,35 @@
                                     FontSize="11"
                                     Visibility="Collapsed" />
                             </StackPanel>
+
+                            <!--
+                                The chevron closes the row, after the host's buttons, as on the invitation card. It is a
+                                second pointer target for the same toggle; keyboard and screen readers use the header button.
+                            -->
+                            <Button
+                                x:Name="PART_ChevronButton"
+                                Grid.Column="2"
+                                MinWidth="32"
+                                Padding="0,0,12,0"
+                                VerticalAlignment="Stretch"
+                                AutomationProperties.AccessibilityView="Raw"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                CornerRadius="0"
+                                IsTabStop="False">
+                                <Button.Resources>
+                                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="Transparent" />
+                                </Button.Resources>
+                                <accountIcon:WinoFontIcon
+                                    x:Name="PART_ChevronIcon"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    FontSize="10"
+                                    Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                    Glyph="&#xE02A;" />
+                            </Button>
                         </Grid>
 
                         <Border

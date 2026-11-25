@@ -58,6 +58,7 @@ public sealed partial class WinoIntelligenceHeader : Control
     private WinoIntelligenceProgressRing? _processingProgressRing;
     private TextBlock? _processingStatusTextBlock;
     private FontIcon? _chevronIcon;
+    private Button? _chevronButton;
     private FrameworkElement? _bodyRoot;
     private FontIcon? _headerIcon;
     private ContentPresenter? _headerActionsPresenter;
@@ -470,6 +471,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         _processingProgressRing = GetTemplateChild(PartProcessingProgressRingName) as WinoIntelligenceProgressRing;
         _processingStatusTextBlock = GetTemplateChild(PartProcessingStatusTextBlockName) as TextBlock;
         _chevronIcon = GetTemplateChild(PartChevronIconName) as FontIcon;
+        _chevronButton = GetTemplateChild(PartChevronButtonName) as Button;
         _bodyRoot = GetTemplateChild(PartBodyRootName) as FrameworkElement;
         _headerIcon = GetTemplateChild(PartHeaderIconName) as FontIcon;
         _headerActionsPresenter = GetTemplateChild(PartHeaderActionsPresenterName) as ContentPresenter;
@@ -546,6 +548,8 @@ public sealed partial class WinoIntelligenceHeader : Control
     private void AttachTemplateHandlers()
     {
         if (_headerToggleButton is not null) _headerToggleButton.Click += OnHeaderToggleClicked;
+        if (_chevronButton is not null) _chevronButton.Click += OnHeaderToggleClicked;
+        if (_chevronIcon is not null) _chevronIcon.SizeChanged += OnChevronSizeChanged;
         if (_headerRow is not null)
         {
             _headerRow.PointerEntered += OnHeaderRowPointerEntered;
@@ -584,6 +588,8 @@ public sealed partial class WinoIntelligenceHeader : Control
     private void DetachTemplateHandlers()
     {
         if (_headerToggleButton is not null) _headerToggleButton.Click -= OnHeaderToggleClicked;
+        if (_chevronButton is not null) _chevronButton.Click -= OnHeaderToggleClicked;
+        if (_chevronIcon is not null) _chevronIcon.SizeChanged -= OnChevronSizeChanged;
         if (_headerRow is not null)
         {
             _headerRow.PointerEntered -= OnHeaderRowPointerEntered;
@@ -769,9 +775,16 @@ public sealed partial class WinoIntelligenceHeader : Control
         SyncTranslationVisuals();
     }
 
+    // Host content is a compact card, so its body keeps less room around it than the intelligence panels.
+    private static readonly Thickness HostBodyPadding = new(12, 8, 12, 10);
+    private static readonly Thickness IntelligenceBodyPadding = new(12);
+
+    [DynamicWindowsRuntimeCast(typeof(Border))]
     private void SyncHostContentVisuals()
     {
         var hasHostContent = HasHostContent;
+
+        if (_bodyRoot is Border body) body.Padding = hasHostContent ? HostBodyPadding : IntelligenceBodyPadding;
 
         if (_intelligenceBody is not null) _intelligenceBody.Visibility = ToVisibility(!hasHostContent);
         if (_bodyContentPresenter is not null) _bodyContentPresenter.Visibility = ToVisibility(hasHostContent);
@@ -820,6 +833,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         if (_headerContentRoot is not null) _headerContentRoot.Opacity = CanExpand ? 1 : 0.6;
         if (_headerToggleButton is not null) _headerToggleButton.IsEnabled = CanExpand;
         if (_chevronIcon is not null) _chevronIcon.Visibility = ToVisibility(CanExpand);
+        if (_chevronButton is not null) _chevronButton.IsEnabled = CanExpand;
         UpdateHeaderRowPointerVisual();
         UpdateHeaderAutomationName(hasBriefingFact);
     }
@@ -1138,6 +1152,13 @@ public sealed partial class WinoIntelligenceHeader : Control
     }
 
     private void OnHeaderToggleClicked(object sender, RoutedEventArgs e) { if (CanExpand) IsExpanded = !IsExpanded; }
+
+    // A header that starts expanded rotates its chevron before the icon has a size; the center follows the real size.
+    private void OnChevronSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_chevronIcon is null) return;
+        ElementCompositionPreview.GetElementVisual(_chevronIcon).CenterPoint = new Vector3((float)(e.NewSize.Width / 2), (float)(e.NewSize.Height / 2), 0);
+    }
 
     private void OnHeaderRowPointerEntered(object sender, PointerRoutedEventArgs e)
     {

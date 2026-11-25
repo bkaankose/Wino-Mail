@@ -847,7 +847,7 @@
                             SubtitleText="{x:Bind Summary}">
                             <intelligenceControls:WinoIntelligenceHeader.HeaderActions>
                                 <Button
-                                    Padding="9,3"
+                                    Padding="8,2"
                                     AutomationProperties.AutomationId="MailActionCardPrimaryAction"
                                     Click="ActionCardAction_Click"
                                     CornerRadius="4"
@@ -866,7 +866,7 @@
                                 </Button>
                             </intelligenceControls:WinoIntelligenceHeader.HeaderActions>
                             <intelligenceControls:WinoIntelligenceHeader.BodyContent>
-                                <StackPanel Spacing="12">
+                                <StackPanel Spacing="8">
                                     <StackPanel Spacing="2">
                                         <TextBlock
                                             FontWeight="SemiBold"
@@ -887,7 +887,10 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="2">
-                                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind DepartureTime}" />
+                                            <TextBlock
+                                                FontSize="18"
+                                                FontWeight="SemiBold"
+                                                Text="{x:Bind DepartureTime}" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -919,7 +922,8 @@
                                             Spacing="2">
                                             <TextBlock
                                                 HorizontalAlignment="Right"
-                                                Style="{StaticResource SubtitleTextBlockStyle}"
+                                                FontSize="18"
+                                                FontWeight="SemiBold"
                                                 Text="{x:Bind ArrivalTime}" />
                                             <TextBlock
                                                 HorizontalAlignment="Right"
@@ -936,7 +940,10 @@
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Style="{StaticResource CaptionTextBlockStyle}"
                                             Text="{x:Bind AmountLabel}" />
-                                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind Amount}" />
+                                        <TextBlock
+                                            FontSize="18"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind Amount}" />
                                     </StackPanel>
 
                                     <StackPanel Visibility="{x:Bind HasLines}">
@@ -944,7 +951,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="actionCards:ActionCardLine">
                                                     <Grid
-                                                        Padding="0,5"
+                                                        Padding="0,3"
                                                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                                         BorderThickness="0,0,0,1"
                                                         ColumnSpacing="12">
@@ -974,7 +981,7 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="actionCards:ActionCardStep">
-                                                <StackPanel Width="112" Spacing="6">
+                                                <StackPanel Width="96" Spacing="4">
                                                     <Border
                                                         Height="3"
                                                         Background="{ThemeResource AccentFillColorDefaultBrush}"
@@ -994,12 +1001,12 @@
                                     <ItemsControl ItemsSource="{x:Bind Fields}" Visibility="{x:Bind HasFields}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
-                                                <primitives:WinoWrapPanel HorizontalSpacing="24" VerticalSpacing="10" />
+                                                <primitives:WinoWrapPanel HorizontalSpacing="20" VerticalSpacing="4" />
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="actionCards:ActionCardField">
-                                                <StackPanel MinWidth="120" Spacing="1">
+                                                <StackPanel MinWidth="96" Spacing="0">
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                         Style="{StaticResource CaptionTextBlockStyle}"
@@ -1012,8 +1019,8 @@
                                                             Text="{x:Bind Value}"
                                                             TextWrapping="Wrap" />
                                                         <Button
-                                                            Width="24"
-                                                            Height="24"
+                                                            Width="20"
+                                                            Height="20"
                                                             Padding="0"
                                                             VerticalAlignment="Center"
                                                             AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.GetActionCardCopyName(Label)}"
@@ -1048,7 +1055,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="actionCards:ActionCardAction">
                                                     <Button
-                                                        Padding="9,3"
+                                                        Padding="8,2"
                                                         AutomationProperties.AutomationId="MailActionCardAction"
                                                         Click="ActionCardAction_Click"
                                                         CornerRadius="4"
