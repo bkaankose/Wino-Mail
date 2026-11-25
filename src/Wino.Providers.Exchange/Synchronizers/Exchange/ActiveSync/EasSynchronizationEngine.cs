@@ -263,35 +263,16 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             if (state.SyncKey == "0")
                 await SynchronizeCollectionAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
 
-            var sync = EasDataMapper.Sync;
-            foreach (var chunk in mutations.Chunk(MutationBatchSize))
+            results.AddRange(await SendMutationsAsync(state, mutations, deletesAsMoves, cancellationToken).ConfigureAwait(false));
+
+            // Item statuses 5 (server error) and 16 (retry) ask for the command to be sent again; once.
+            var transient = results.Where(result => result.Status is "5" or "16").ToList();
+            if (transient.Count > 0)
             {
-                var commands = new XElement(sync + "Commands", chunk.Select(mutation => mutation.ToCommand()));
-                XElement? response;
-                response = await SendCommandsAsync(state, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
-
-                if (response == null)
-                {
-                    results.AddRange(chunk.Select(mutation => new EasMutationResult(mutation, "8", null)));
-                    continue;
-                }
-
-                await SaveKeyAsync(state, response).ConfigureAwait(false);
-                var answers = response.Element(sync + "Responses")?.Elements().ToList() ?? new List<XElement>();
-                foreach (var mutation in chunk)
-                {
-                    var answer = answers.FirstOrDefault(element => element.Name.LocalName == mutation.Operation.ToString() &&
-                        element.Element(sync + (mutation.Operation == EasItemOperation.Add ? "ClientId" : "ServerId"))?.Value == mutation.Id);
-                    var status = answer?.Element(sync + "Status")?.Value ?? (mutation.Operation == EasItemOperation.Add ? "missing" : "1");
-                    var serverId = mutation.Operation == EasItemOperation.Add ? answer?.Element(sync + "ServerId")?.Value : mutation.Id;
-                    var result = new EasMutationResult(mutation, status, serverId, answer?.Element(sync + "ApplicationData"));
-                    results.Add(result);
-
-                    if (mutation.Operation == EasItemOperation.Delete && result.Succeeded)
-                        await _database.Connection.DeleteAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.ServerId, mutation.Id)).ConfigureAwait(false);
-                    else if (mutation.Operation == EasItemOperation.Add && result.Succeeded && !string.IsNullOrEmpty(serverId) && mutation.Data != null)
-                        await WriteShadowAsync(state, serverId, mutation.Data).ConfigureAwait(false);
-                }
+                Serilog.Log.Information("EAS collection {Collection} for {Account}: {Count} item(s) returned a transient status; sending them again.",
+                    state.Name, _account.Address, transient.Count);
+                foreach (var retried in await SendMutationsAsync(state, transient.Select(result => result.Mutation).ToList(), deletesAsMoves, cancellationToken).ConfigureAwait(false))
+                    results[results.FindIndex(result => ReferenceEquals(result.Mutation, retried.Mutation))] = retried;
             }
 
             if (results.Any(result => result.IsNotFound))
@@ -307,6 +288,42 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             return results;
         }
         finally { _gate.Release(); }
+    }
+
+    private async Task<List<EasMutationResult>> SendMutationsAsync(EasCollection state, IReadOnlyList<EasMutation> mutations, bool deletesAsMoves,
+        CancellationToken cancellationToken)
+    {
+        var sync = EasDataMapper.Sync;
+        var results = new List<EasMutationResult>(mutations.Count);
+        foreach (var chunk in mutations.Chunk(MutationBatchSize))
+        {
+            var commands = new XElement(sync + "Commands", chunk.Select(mutation => mutation.ToCommand()));
+            var response = await SendCommandsAsync(state, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
+            if (response == null)
+            {
+                results.AddRange(chunk.Select(mutation => new EasMutationResult(mutation, "8", null)));
+                continue;
+            }
+
+            await SaveKeyAsync(state, response).ConfigureAwait(false);
+            var answers = response.Element(sync + "Responses")?.Elements().ToList() ?? new List<XElement>();
+            foreach (var mutation in chunk)
+            {
+                var answer = answers.FirstOrDefault(element => element.Name.LocalName == mutation.Operation.ToString() &&
+                    element.Element(sync + (mutation.Operation == EasItemOperation.Add ? "ClientId" : "ServerId"))?.Value == mutation.Id);
+                // No answer for a Change or Delete means it succeeded; an Add is always answered.
+                var status = answer?.Element(sync + "Status")?.Value ?? (mutation.Operation == EasItemOperation.Add ? "missing" : "1");
+                var serverId = mutation.Operation == EasItemOperation.Add ? answer?.Element(sync + "ServerId")?.Value : mutation.Id;
+                var result = new EasMutationResult(mutation, status, serverId, answer?.Element(sync + "ApplicationData"));
+                results.Add(result);
+
+                if (mutation.Operation == EasItemOperation.Delete && result.Succeeded)
+                    await _database.Connection.DeleteAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.ServerId, mutation.Id)).ConfigureAwait(false);
+                else if (mutation.Operation == EasItemOperation.Add && result.Succeeded && !string.IsNullOrEmpty(serverId) && mutation.Data != null)
+                    await WriteShadowAsync(state, serverId, mutation.Data).ConfigureAwait(false);
+            }
+        }
+        return results;
     }
 
     /// <summary>
@@ -1025,9 +1042,12 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     }
 
     /// <summary>
-    /// One Sync request for a collection with the recoveries MS-ASCMD asks for: status 12 (the folder hierarchy
-    /// changed) and 8 (the collection is not found) read the hierarchy and retry once; 5 and 16 (transient server
-    /// errors) retry with a growing delay. Null means the collection is gone after the hierarchy was read.
+    /// One Sync request for a collection with the recoveries MS-ASCMD gives for collection statuses: 12 (the folder
+    /// hierarchy changed) and 8 (the collection id is no longer valid) read the hierarchy and send the request again
+    /// once; 16 (retry) and 5 (server error) send it again, up to three times with a growing delay. When status 5
+    /// persists the collection fails for this pass and the next pass retries with the same key; it does not return to
+    /// key 0, which the protocol leaves to the client ("consider") and which below 16.1 discards the stored copy.
+    /// Status 3 is recovered by the callers. Null means the collection is gone after the hierarchy was read.
     /// </summary>
     private async Task<XElement?> SyncWithRecoveryAsync(EasCollection state, string syncKey, XElement? commands, CancellationToken cancellationToken,
         int windowSize = DefaultWindowSize, bool getChanges = true, bool deletesAsMoves = true)
