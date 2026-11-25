@@ -27,7 +27,7 @@ internal sealed partial class EasSynchronizationEngine
     /// </summary>
     private async Task ProjectEventAsync(EasCollection state, string remoteId, XElement data)
     {
-        var calendar = await _calendars.GetAccountCalendarAsync(state.Id).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS calendar is missing.");
+        var calendar = await _calendars.GetAccountCalendarAsync(state.Id).ConfigureAwait(false) ?? throw new InvalidOperationException("The EAS calendar is missing.");
         var item = EasDataMapper.ReadEvent(data, calendar, remoteId, _account.Address);
         if (item == null)
             return;

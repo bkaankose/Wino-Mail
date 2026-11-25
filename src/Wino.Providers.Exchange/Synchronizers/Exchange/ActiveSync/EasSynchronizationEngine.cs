@@ -1026,8 +1026,9 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     }
 
     /// <summary>
-    /// Applies one Sync response. Each item is applied on its own: an item that cannot be read or stored is reported
-    /// and skipped, its shadow is still written and the sync key still advances, so one message never stalls a folder.
+    /// Applies one Sync response. Each item is applied on its own: an item whose data cannot be read is reported and
+    /// skipped, its shadow is still written and the sync key still advances, so one malformed message never stalls a
+    /// folder. Any other failure leaves the page unapplied and the key unsaved.
     /// </summary>
     private async Task ApplyPageAsync(EasCollection state, XElement response, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
@@ -1098,17 +1099,11 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             Generation = state.Generation }, typeof(EasItemShadow));
 
     /// <summary>
-    /// Whether a failure belongs to the one item being applied. Cancellation, and the account and connection failures
-    /// that would fail every item the same way, stop the pass instead.
+    /// Whether a failure is the item's own malformed data, which skips only that item. Every other failure (storage,
+    /// connection, account, cancellation, or a defect) aborts the page before its key is saved, so the page is read again.
     /// </summary>
-    private static bool IsItemFailure(Exception exception, CancellationToken cancellationToken) => exception switch
-    {
-        OperationCanceledException when cancellationToken.IsCancellationRequested => false,
-        EasCommandException command => IsCollectionFailure(command),
-        EasPolicyException or EasAccessDeniedException or EasRemoteWipeException or EasServerBusyException or EasResyncRequiredException => false,
-        System.Net.Http.HttpRequestException or Wino.Core.Domain.Exceptions.AuthenticationAttentionException => false,
-        _ => true
-    };
+    private static bool IsItemFailure(Exception exception, CancellationToken cancellationToken)
+        => !cancellationToken.IsCancellationRequested && exception is InvalidDataException or FormatException or XmlException or ArgumentException;
 
     private async Task ProjectIsolatedAsync(EasCollection state, EasItemShadow shadow, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
@@ -1183,7 +1178,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             return;
         }
 
-        var folder = await _folders.GetFolderAsync(state.Id).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS mail folder is missing.");
+        var folder = await _folders.GetFolderAsync(state.Id).ConfigureAwait(false) ?? throw new InvalidOperationException("The EAS mail folder is missing.");
         var package = EasDataMapper.Mail(folder, remoteId, data);
         var cutoff = _account.InitialSynchronizationRange.ToCutoffDateUtc(_account.CreatedAt ?? DateTime.UtcNow);
         if (cutoff.HasValue && package.Copy.CreationDate < cutoff.Value)
