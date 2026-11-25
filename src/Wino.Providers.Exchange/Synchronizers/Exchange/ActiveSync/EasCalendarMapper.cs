@@ -31,7 +31,7 @@ internal static partial class EasDataMapper
             Id = StableId(Key(calendar.AccountId, calendar.RemoteCalendarId, remoteId)), CalendarId = calendar.Id, AssignedCalendar = calendar,
             RemoteEventId = remoteId, Title = Value(data, Calendar, "Subject"), Description = BodyText(data),
             Location = ReadLocation(data), StartDate = localStart, DurationInSeconds = (localEnd - localStart).TotalSeconds,
-            StartTimeZone = zone.Id, EndTimeZone = zone.Id, OrganizerEmail = Value(data, Calendar, "OrganizerEmail"),
+            StartTimeZone = EasTimeZone.IanaId(zone), EndTimeZone = EasTimeZone.IanaId(zone), OrganizerEmail = Value(data, Calendar, "OrganizerEmail"),
             OrganizerDisplayName = Value(data, Calendar, "OrganizerName"), CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = Date(Value(data, Calendar, "DtStamp")) ?? DateTime.UtcNow,
             Recurrence = ReadRecurrence(data.Element(Calendar + "Recurrence")) + string.Concat(
@@ -89,7 +89,7 @@ internal static partial class EasDataMapper
 
     internal static XElement WriteEvent(CalendarItem item, IReadOnlyList<CalendarEventAttendee> attendees, IReadOnlyList<Reminder> reminders, bool isProtocol16)
     {
-        var zone = string.IsNullOrEmpty(item.StartTimeZone) ? TimeZoneInfo.Utc : TimeZoneInfo.FindSystemTimeZoneById(item.StartTimeZone);
+        var zone = EasTimeZone.Resolve(item.StartTimeZone);
         var start = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(item.StartDate, DateTimeKind.Unspecified), zone);
         var end = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(item.EndDate, DateTimeKind.Unspecified), zone);
         if (item.IsAllDayEvent)
@@ -104,7 +104,7 @@ internal static partial class EasDataMapper
             new XElement(Calendar + "EndTime", end.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)),
             isProtocol16 ? null : new XElement(Calendar + "DtStamp", DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)),
             new XElement(Calendar + "AllDayEvent", item.IsAllDayEvent ? "1" : "0"), new XElement(Calendar + "BusyStatus", (int)item.ShowAs),
-            new XElement(Calendar + "TimeZone", EasTimeZone.Write(zone, item.StartDate.Year)),
+            new XElement(Calendar + "TimeZone", EasTimeZone.Write(zone, start)),
             TextBody(item.Description), new XElement(Calendar + "Attendees", attendees.Where(attendee => !attendee.IsOrganizer).Select(attendee =>
                 new XElement(Calendar + "Attendee", new XElement(Calendar + "Email", attendee.Email), new XElement(Calendar + "Name", attendee.Name ?? attendee.Email),
                     new XElement(Calendar + "AttendeeType", attendee.IsOptionalAttendee ? "2" : "1")))));

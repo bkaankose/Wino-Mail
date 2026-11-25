@@ -1184,7 +1184,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                     if (exception.Element(endElement) == null)
                     {
                         var utcStart = EasDataMapper.Date(exceptionStart) ?? throw new InvalidDataException("The EAS exception start is missing.");
-                        var zone = TimeZoneInfo.FindSystemTimeZoneById(item.StartTimeZone);
+                        var zone = EasTimeZone.Resolve(item.StartTimeZone);
                         var endLocal = TimeZoneInfo.ConvertTimeFromUtc(utcStart, zone).AddSeconds(item.DurationInSeconds);
                         var endUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(endLocal, DateTimeKind.Unspecified), zone);
                         exceptionData.SetElementValue(endElement, endUtc.ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture));
