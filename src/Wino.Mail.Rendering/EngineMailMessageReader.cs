@@ -303,6 +303,12 @@ public sealed partial class EngineMailMessageReader : IMailMessageReader
         _isVariantShown = false;
     }
 
+    // The engine asks on its worker thread, so the fallback title is read here, on the caller's.
+    private static Func<TrimmedBlock, FoldRowContent?> CreateReplyRow(string fallbackTitle)
+        => block => new FoldRowContent(
+            string.IsNullOrWhiteSpace(block.SenderName) ? block.SenderAddress ?? fallbackTitle : block.SenderName,
+            block.HeaderText);
+
     private ReaderLoadOptions CreateLoadOptions(MailRenderingOptions? options, bool keepScrollPosition)
     {
         var remoteContent = options?.RemoteContent ?? DomainRemoteContentMode.BlockAll;
@@ -320,7 +326,8 @@ public sealed partial class EngineMailMessageReader : IMailMessageReader
             Mode = ToRenderMode(_isReaderView),
             KeepScrollPosition = keepScrollPosition,
             Accessibility = _view.AccessibilityContext,
-            FoldTrimmedContent = options?.FoldEarlierMessages == true ? TrimmedKinds.Quote | TrimmedKinds.Signature : TrimmedKinds.None,
+            FoldTrimmedContent = options?.FoldEarlierMessages == true ? TrimmedKinds.Reply | TrimmedKinds.Signature : TrimmedKinds.None,
+            ReplyRow = CreateReplyRow(Wino.Core.Domain.Translator.Reader_EarlierMessageRowTitle),
 
             // Block all covers images only inside the engine; web fonts and font style sheets are their own switches.
             RemoteFonts = !isEverythingBlocked,
