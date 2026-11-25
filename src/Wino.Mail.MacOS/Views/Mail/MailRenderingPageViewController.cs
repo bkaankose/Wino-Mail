@@ -174,9 +174,9 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         BuildIntelligenceHeader(_intelligenceHost);
 
         var linkedRow = BuildLinkedItemsRow();
-        var header = _header = WinoLayout.VStack(12, senderRow, _chips, linkedRow, _intelligenceHost, privacyBars, invitationCard);
+        var header = _header = WinoLayout.VStack(12, senderRow, _chips, linkedRow, _actionCardsHost, _intelligenceHost, privacyBars, invitationCard);
         header.EdgeInsets = new NSEdgeInsets(14, 24, 10, 24);
-        foreach (var view in new NSView[] { senderRow, _intelligenceHost, privacyBars, invitationCard })
+        foreach (var view in new NSView[] { senderRow, _actionCardsHost, _intelligenceHost, privacyBars, invitationCard })
             _headerWidths.Add(view.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -48));
         // The tile row hugs its chips from the leading edge; it is only capped (and clips) at the header width.
         _headerWidths.Add(_chips.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor, 1, -48));
@@ -282,6 +282,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _currentItem = parameter as MailItemViewModel;
         IntelligenceBeginItem(_currentItem);
         InitializeEngineReader();
+        InitializeActionCards();
         _commandBar.ShowsLabels = ViewModel.PreferencesService.IsShowActionLabelsEnabled;
         ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
         ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
