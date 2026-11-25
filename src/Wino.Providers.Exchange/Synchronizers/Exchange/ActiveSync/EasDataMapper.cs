@@ -39,14 +39,24 @@ internal static partial class EasDataMapper
     internal static XElement ChangedFields(XElement desired, XElement original) => new(desired.Name,
         desired.Elements().Where(element => !XNode.DeepEquals(element, original.Element(element.Name))).Select(element => new XElement(element)));
 
-    internal static XElement WriteFlag(bool isFlagged)
+    internal static XElement WriteFlag(bool isFlagged) => new(Sync + "ApplicationData", Flag(isFlagged));
+
+    /// <summary>
+    /// A follow-up flag for today, with the start and due dates the flag action requires, or the empty Flag that clears
+    /// it. StartDate and DueDate are the local day written with a UTC designator, their Utc forms the instant that day
+    /// starts in the user's zone, as Outlook writes them.
+    /// </summary>
+    internal static XElement Flag(bool isFlagged)
     {
-        XNamespace email = "Email:";
-        // Empty Tasks date elements fail with status 6 on EAS 16.x; 14.1 and 16.1 both accept status and type alone.
-        var flag = new XElement(email + "Flag", new XElement(email + "Status", isFlagged ? "2" : "0"));
-        if (isFlagged)
-            flag.Add(new XElement(email + "FlagType", "Flag for follow up"));
-        return new XElement(Sync + "ApplicationData", flag);
+        if (!isFlagged)
+            return new XElement(Email + "Flag");
+        const string format = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+        var day = DateTime.Today;
+        var local = day.ToString(format, CultureInfo.InvariantCulture);
+        var utc = LocalMidnightUtc(day).ToString(format, CultureInfo.InvariantCulture);
+        return new XElement(Email + "Flag", new XElement(Email + "Status", "2"), new XElement(Email + "FlagType", "Flag for follow up"),
+            new XElement(Tasks + "StartDate", local), new XElement(Tasks + "UtcStartDate", utc),
+            new XElement(Tasks + "DueDate", local), new XElement(Tasks + "UtcDueDate", utc));
     }
 
     internal static DateTime? Date(string text)
