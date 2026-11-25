@@ -529,35 +529,11 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
     }, request, request);
 
     /// <summary>
-    /// Adds a draft as MIME, which keeps every header and part. A server that refuses MIME gets the draft fields
-    /// instead, and is not offered MIME again while this synchronizer lives.
+    /// Adds a draft as MIME, which keeps every header and part. A refusal is the request's failure.
     /// </summary>
     private async Task<(string ServerId, string? ThreadId)> AddServerDraftAsync(MailItemFolder folder, MimeMessage mime, CancellationToken cancellationToken)
     {
-        EasMutationResult? result = null;
-        if (!_draftMimeRefused)
-        {
-            string status;
-            try
-            {
-                result = (await _engine.MutateItemsAsync(folder.RemoteFolderId, [EasMutation.Add(Guid.NewGuid().ToString("N"), EasDraftMapper.Mime(mime))],
-                    deletesAsMoves: true, cancellationToken).ConfigureAwait(false))[0];
-                status = result.Status;
-            }
-            catch (EasCommandException exception) when (exception.Status is "4" or "6" or "102" or "103")
-            {
-                status = exception.Status;
-            }
-
-            if (result?.Succeeded != true || string.IsNullOrEmpty(result.ServerId))
-            {
-                Logger.Warning("The EAS server refused a MIME draft for {Account} (status {Status}); saving the draft fields instead.", Account.Name, status);
-                _draftMimeRefused = true;
-                result = null;
-            }
-        }
-
-        result ??= (await _engine.MutateItemsAsync(folder.RemoteFolderId, [EasMutation.Add(Guid.NewGuid().ToString("N"), EasDraftMapper.Fields(mime))],
+        var result = (await _engine.MutateItemsAsync(folder.RemoteFolderId, [EasMutation.Add(Guid.NewGuid().ToString("N"), EasDraftMapper.Mime(mime))],
             deletesAsMoves: true, cancellationToken).ConfigureAwait(false))[0];
         if (!result.Succeeded || string.IsNullOrEmpty(result.ServerId))
             throw new EasCommandException("Sync", result.Status);
@@ -565,8 +541,6 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         var conversation = result.Data?.Element(EasDataMapper.Email2 + "ConversationId")?.Value;
         return (result.ServerId, string.IsNullOrEmpty(conversation) ? null : conversation);
     }
-
-    private bool _draftMimeRefused;
 
     private async Task<MailItemFolder> DraftsFolderAsync(MailCopy draft)
     {
