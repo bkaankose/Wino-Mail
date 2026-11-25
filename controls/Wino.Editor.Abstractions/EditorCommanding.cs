@@ -112,7 +112,7 @@ public sealed record class EditorTableCommandArgs(
     [property: JsonPropertyName("columns")] int Columns);
 
 public sealed record class EditorImagePropertiesCommandArgs(
-    [property: JsonPropertyName("altText")] string AltText,
+    [property: JsonPropertyName("altText")] string? AltText,
     [property: JsonPropertyName("linkUrl")] string? LinkUrl = null,
     [property: JsonPropertyName("openInNewWindow")] bool OpenInNewWindow = true);
 

@@ -55,6 +55,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     /// </summary>
     public IComposeBodyWriter? BodyWriter { get; set; }
 
+    /// <summary>The composer's checks before sending; null sends without them.</summary>
+    public IComposeDraftChecks? DraftChecks { get; set; }
+
     /// <summary>
     /// Set by a head whose composer opens the draft's MIME itself. While it is set, no HTML is prepared for the
     /// draft and <see cref="RenderHtmlBodyAsyncFunc"/> is not called for it. Called on the UI thread.
@@ -248,9 +251,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IRecipientHistoryService recipientHistoryService,
                                 IAttachmentFileService attachmentFileService = null,
                                 IWinoIntelligenceCoordinator intelligenceCoordinator = null,
-                                ISignatureService signatureService = null) : base(messenger)
+                                ISignatureService signatureService = null,
+                                IMailProviderRegistry providerRegistry = null) : base(messenger)
     {
         _signatureService = signatureService;
+        _providerRegistry = providerRegistry;
         ContactService = contactService;
         RecipientSuggestionService = recipientSuggestionService;
         _recipientHistoryService = recipientHistoryService;
@@ -479,6 +484,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             _dialogService.InfoBarMessage(Translator.DialogMessage_AliasNotSelectedTitle, Translator.DialogMessage_AliasNotSelectedMessage, InfoBarMessageType.Error);
             return;
         }
+
+        if (!await ConfirmDraftChecksAsync()) return;
 
         // Save mime changes before sending.
         if (!await UpdateMimeChangesAsync().ConfigureAwait(false)) return;

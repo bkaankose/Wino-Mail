@@ -380,6 +380,7 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
             SpellCheck = _isSpellCheckEnabled,
             AutoCorrect = _isSpellCheckEnabled && _isAutoCorrectEnabled,
             SpellCheckLanguage = _spellCheckLanguage,
+            PasteAsHtml = _pasteAsHtml,
             Policy = _blockRemoteContent && policy is not null
                 ? policy with { Resources = policy.Resources with { Mode = RemoteContentMode.BlockAll } }
                 : null
