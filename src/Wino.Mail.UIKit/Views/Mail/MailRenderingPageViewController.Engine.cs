@@ -8,6 +8,7 @@ using Wino.Editor;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.Rendering;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Rendering;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Renderer;
@@ -39,6 +40,9 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
         _mailView.LinkActivated += MailView_LinkActivated;
         _mailView.LinkHoverChanged += MailView_LinkHoverChanged;
         _mailView.ContextMenuRequested += MailView_ContextMenuRequested;
+        InitializeDateTap();
+        _reader.FoldRowTemplate = UIKitFoldRowTemplate.Instance;
+        _reader.InsightsChanged += Reader_InsightsChanged;
         WinoTraits.OnAppearanceChanged(_mailView, _ => AppearanceChanged());
         // Increase Contrast (Darker System Colors) changes the mail's colours while it is open.
         var contrast = Foundation.NSNotificationCenter.DefaultCenter.AddObserver(UIView.DarkerSystemColorsStatusDidChangeNotification, _ =>
@@ -48,6 +52,8 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
         Bindings.Own(new ActionDisposable(contrast.Dispose));
         _reader.Attach();
     }
+
+    private void Reader_InsightsChanged(object? sender, MailReaderInsights insights) => ViewModel.ShowInsights(insights);
 
     private void ApplyReaderPresentation()
     {
@@ -124,6 +130,7 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
             Date = MailRowPresentation.FormatReaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference),
             BodyName = Translator.Reader_MessageBodyAutomationName,
             PlainTextFallbackName = Translator.Reader_PlainTextFallbackAutomationName,
+            TrimmedContentName = Translator.Reader_EarlierMessagesButtonName,
             FallbackText = accessibleText
         };
     }
@@ -173,36 +180,10 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
         }
 
         var safeTarget = link.Protection == LinkProtection.OutlookSafeLinks && link.RedirectTarget is { Length: > 0 } target ? target : null;
-        _linkTarget.Show(new RendererLinkHoverEventArgs(link.Kind == LinkKind.Web ? link.Effective : link.Original, safeTarget));
-    }
-
-    // A long press on a link or an image: an action sheet anchored at the finger.
-    private void MailView_ContextMenuRequested(object? sender, ContextMenuRequest request)
-    {
-        var sheet = UIAlertController.Create(request.LinkUrl, null, UIAlertControllerStyle.ActionSheet);
-        if (!string.IsNullOrEmpty(request.LinkUrl))
-        {
-            var url = request.LinkUrl;
-            if (Uri.TryCreate(url, UriKind.Absolute, out var address))
-                sheet.AddAction(UIAlertAction.Create(Translator.Buttons_Open, UIAlertActionStyle.Default,
-                    _ => Observe(OpenAsync(new ResolvedMailLink(address, null)))));
-            sheet.AddAction(UIAlertAction.Create(Translator.Reader_ContextMenu_CopyLink, UIAlertActionStyle.Default,
-                _ => Observe(ViewModel.CopyClipboardCommand.ExecuteAsync(url))));
-        }
-
-        if (request.HasSelection)
-            sheet.AddAction(UIAlertAction.Create(Translator.Buttons_Copy, UIAlertActionStyle.Default, _ => _mailView.CopySelection()));
-
-        sheet.AddAction(UIAlertAction.Create(Translator.Reader_ContextMenu_SelectAll, UIAlertActionStyle.Default, _ => _mailView.SelectAll()));
-        sheet.AddAction(UIAlertAction.Create(Translator.Buttons_Cancel, UIAlertActionStyle.Cancel, null));
-        if (sheet.PopoverPresentationController is { } popover)
-        {
-            popover.SourceView = _mailView;
-            var point = _mailView.ConvertPointFromView(new CoreGraphics.CGPoint(request.ViewPoint.X, request.ViewPoint.Y), _mailView.ScrollView);
-            popover.SourceRect = new CoreGraphics.CGRect(point.X + _mailView.ScrollView.ContentOffset.X, point.Y + _mailView.ScrollView.ContentOffset.Y, 1, 1);
-        }
-
-        PresentViewController(sheet, true, null);
+        var mismatch = e.TextMismatch is { } textMismatch
+            ? string.Format(System.Globalization.CultureInfo.CurrentCulture, Translator.Reader_LinkTextMismatchFormat, textMismatch.TextHost, textMismatch.TargetHost)
+            : string.Empty;
+        _linkTarget.Show(new RendererLinkHoverEventArgs(link.Kind == LinkKind.Web ? link.Effective : link.Original, safeTarget), mismatch);
     }
 
     private async Task OpenAsync(ResolvedMailLink link) => (await ViewModel.OpenLinkAsync(link)).ThrowIfNotSucceeded();

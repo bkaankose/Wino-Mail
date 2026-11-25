@@ -14,6 +14,7 @@ namespace Wino.Mail.UIKit.Views.Mail;
 internal sealed class ReaderLinkTargetBar : WinoSurfaceView
 {
     private readonly UILabel _text = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+    private readonly UILabel _mismatch = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.Critical);
     private bool _pointerHovering;
 
     public ReaderLinkTargetBar()
@@ -28,7 +29,10 @@ internal sealed class ReaderLinkTargetBar : WinoSurfaceView
         AccessibilityElementsHidden = true;
         _text.LineBreakMode = UILineBreakMode.TailTruncation;
         _text.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);
-        WinoLayout.Fill(_text, this, 4, 10, 4, 10);
+        _mismatch.LineBreakMode = UILineBreakMode.TailTruncation;
+        _mismatch.Hidden = true;
+        var lines = WinoLayout.VStack(2, _text, _mismatch);
+        WinoLayout.Fill(lines, this, 4, 10, 4, 10);
     }
 
     /// <summary>
@@ -52,7 +56,7 @@ internal sealed class ReaderLinkTargetBar : WinoSurfaceView
         }));
     }
 
-    public void Show(RendererLinkHoverEventArgs args)
+    public void Show(RendererLinkHoverEventArgs args, string mismatch = "")
     {
         if (args.Uri is null || !_pointerHovering)
         {
@@ -63,6 +67,8 @@ internal sealed class ReaderLinkTargetBar : WinoSurfaceView
         _text.Text = args.SafeLinkTarget is { } target
             ? Translator.Reader_ProtectedLinkFormat.Replace("{0}", target, StringComparison.Ordinal)
             : args.Uri;
+        _mismatch.Text = mismatch;
+        _mismatch.Hidden = mismatch.Length == 0;
         Hidden = false;
     }
 
@@ -70,5 +76,7 @@ internal sealed class ReaderLinkTargetBar : WinoSurfaceView
     {
         Hidden = true;
         _text.Text = string.Empty;
+        _mismatch.Text = string.Empty;
+        _mismatch.Hidden = true;
     }
 }
