@@ -557,10 +557,11 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     }
 
     /// <summary>
-    /// Matches every stored folder row to the mail collections of a full hierarchy read, through the matcher every
-    /// Exchange transport shares: rows another transport stored (EWS, MAPI, or a local Drafts folder) and ActiveSync
-    /// rows alike, because the server numbers its folders again after a FolderSync from key 0. A row whose id changes
-    /// starts its collection over; rows that match nothing are moved to <paramref name="staleRows"/>.
+    /// Matches the stored folder rows to the mail collections of a full hierarchy read. An ActiveSync row keeps its
+    /// collection when the read still has its ServerId: ServerIds do not change when the hierarchy is read again from
+    /// key 0, and they are opaque, so they are never matched by name. Only rows another transport stored (EWS, MAPI)
+    /// go through the matcher every Exchange transport shares, by role and path. A re-keyed row starts its collection
+    /// over; rows that match nothing are moved to <paramref name="staleRows"/>.
     /// </summary>
     private async Task<bool> RematchFoldersAsync(List<MailItemFolder> mailRows, List<MailItemFolder> staleRows, List<XElement> entries)
     {
@@ -576,14 +577,9 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 add.Element(FolderHierarchy + "DisplayName")?.Value ?? string.Empty, ServerRole(type)));
         }
 
-        var matches = ExchangeTransportRekey.MatchFolders(mailRows, incoming, ExchangeTransport.ActiveSync, rematchAll: true);
-        var claimed = matches.Values.ToHashSet(StringComparer.Ordinal);
-        foreach (var row in mailRows.Where(row => !matches.ContainsKey(row.Id) && row.EasFolderType > 0 &&
-            types.ContainsKey(row.RemoteFolderId ?? string.Empty) && !claimed.Contains(row.RemoteFolderId ?? string.Empty)))
-        {
+        var matches = ExchangeTransportRekey.MatchFolders(mailRows, incoming, ExchangeTransport.ActiveSync);
+        foreach (var row in mailRows.Where(row => row.EasFolderType > 0 && types.ContainsKey(row.RemoteFolderId ?? string.Empty)))
             matches[row.Id] = row.RemoteFolderId;
-            claimed.Add(row.RemoteFolderId);
-        }
 
         var changed = false;
         foreach (var row in mailRows.ToList())

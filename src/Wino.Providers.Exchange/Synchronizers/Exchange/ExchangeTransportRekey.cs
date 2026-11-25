@@ -112,25 +112,22 @@ public static class ExchangeTransportRekey
     /// Drafts and Deleted Items match by their server role first; every other folder matches by its path of names
     /// from the root, only when that path is unique on both sides. Re-keying keeps the row's id, so its settings
     /// (pinned, hidden, synchronization, order, colors, a special type the user assigned) survive the switch.
-    /// With <paramref name="rematchAll"/> every stored row is a candidate, for a transport whose ids are only valid
-    /// within one hierarchy read (ActiveSync numbers its folders again after a FolderSync from key 0).
+    /// Rows the same transport stored keep their ids and are never candidates.
     /// </summary>
     public static Dictionary<Guid, string> MatchFolders(IReadOnlyList<MailItemFolder> stored, IReadOnlyList<ExchangeFolderCandidate> incoming,
-        ExchangeTransport transport, bool rematchAll = false)
+        ExchangeTransport transport)
     {
         var result = new Dictionary<Guid, string>();
         var candidates = stored
-            .Where(folder => !string.IsNullOrEmpty(folder.RemoteFolderId) && (rematchAll || FolderTransport(folder) != transport))
+            .Where(folder => !string.IsNullOrEmpty(folder.RemoteFolderId) && FolderTransport(folder) != transport)
             .ToList();
         if (candidates.Count == 0 || incoming.Count == 0)
             return result;
 
-        var claimed = rematchAll
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : stored
-                .Where(folder => FolderTransport(folder) == transport && !string.IsNullOrEmpty(folder.RemoteFolderId))
-                .Select(folder => folder.RemoteFolderId)
-                .ToHashSet(StringComparer.Ordinal);
+        var claimed = stored
+            .Where(folder => FolderTransport(folder) == transport && !string.IsNullOrEmpty(folder.RemoteFolderId))
+            .Select(folder => folder.RemoteFolderId)
+            .ToHashSet(StringComparer.Ordinal);
         var open = incoming
             .Where(folder => !string.IsNullOrEmpty(folder.RemoteId) && !claimed.Contains(folder.RemoteId))
             .ToList();
