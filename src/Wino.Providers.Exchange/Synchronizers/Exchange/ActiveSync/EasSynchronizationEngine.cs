@@ -202,7 +202,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 var itemClass = ItemClass(state.Type);
                 command.Add(itemClass is "Email" or "Contacts" ? data
                     : itemClass == "Calendar" ? EasDataMapper.ForEventChange(Merge(shadow?.ApplicationData, data), _client.IsAtLeast("16.0"))
-                    : Merge(shadow?.ApplicationData, data));
+                    : itemClass == "Tasks" ? EasDataMapper.ForTaskChange(Merge(shadow?.ApplicationData, data)) : Merge(shadow?.ApplicationData, data));
             }
             var result = await _client.SyncAsync(folderId, state.SyncKey, ItemClass(state.Type), new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
             // The server has moved to the new key even when the item itself failed.

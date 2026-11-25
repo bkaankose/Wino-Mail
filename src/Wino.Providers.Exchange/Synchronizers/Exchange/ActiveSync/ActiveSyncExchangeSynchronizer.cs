@@ -603,7 +603,7 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
             var list = await _tasks.GetTaskListAsync(action.Task.TaskListId).ConfigureAwait(false) ?? throw new InvalidOperationException("The EAS task list is missing.");
             var operation = action.Operation switch { TaskSynchronizerOperation.CreateTask => "Add", TaskSynchronizerOperation.UpdateTask => "Change",
                 TaskSynchronizerOperation.DeleteTask => "Delete", _ => throw new NotSupportedException("This EAS task operation is not supported.") };
-            var data = operation == "Delete" ? null : EasDataMapper.WriteTask(action.Task);
+            var data = operation == "Delete" ? null : EasDataMapper.WriteTask(action.Task, clearDueDate: action.OriginalTask?.DueDate != null);
             if (operation == "Change" && action.OriginalTask != null && data != null)
                 data = EasDataMapper.ChangedFields(data, EasDataMapper.WriteTask(action.OriginalTask));
             await _engine.MutateAsync(EasDataMapper.ServerId(list.RemoteId), operation, EasDataMapper.ServerId(action.Task.RemoteId),

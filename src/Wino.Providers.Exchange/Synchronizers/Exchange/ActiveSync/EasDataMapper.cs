@@ -61,6 +61,12 @@ internal static partial class EasDataMapper
         return null;
     }
 
+    internal static DateTime? TryDate(string text)
+    {
+        try { return Date(text); }
+        catch (InvalidDataException) { return null; }
+    }
+
     internal static XElement TextBody(string text) => new(Body + "Body", new XElement(Body + "Type", "1"), new XElement(Body + "Data", text ?? string.Empty));
     internal static string BodyText(XElement data)
     {
@@ -72,6 +78,15 @@ internal static partial class EasDataMapper
         var buffer = new byte[text.Value.Length * 3 / 4 + 3];
         return Convert.TryFromBase64String(text.Value, buffer, out var length)
             ? EasWbxml.XmlSafe(new UTF8Encoding(false, false).GetString(buffer, 0, length)) : string.Empty;
+    }
+
+    internal static string SafeBodyText(XElement data)
+    {
+        try { return BodyText(data); }
+        catch (Exception exception) when (exception is FormatException or DecoderFallbackException)
+        {
+            return string.Empty;
+        }
     }
 
     internal static MimeMessage ReadMime(XElement data)
@@ -255,18 +270,57 @@ internal static partial class EasDataMapper
         return data;
     }
 
+    /// <summary>
+    /// DueDate is the due day as a local date written with a UTC designator; UtcDueDate is the instant that day starts
+    /// in the user's zone. The day is read from DueDate, or from UtcDueDate in the device's zone when only that is set.
+    /// </summary>
     internal static AccountTask ReadTask(XElement data, AccountTaskList list, string remoteId) => new()
     {
         Id = StableId(Key(list.MailAccountId, list.RemoteId, remoteId)), MailAccountId = list.MailAccountId, TaskListId = list.Id,
-        SourceKind = TaskSourceKind.Exchange, RemoteId = remoteId, Title = Value(data, Tasks, "Subject"), Notes = BodyText(data),
+        SourceKind = TaskSourceKind.Exchange, RemoteId = remoteId, Title = Value(data, Tasks, "Subject"), Notes = SafeBodyText(data),
         IsCompleted = Value(data, Tasks, "Complete") == "1", IsImportant = Value(data, Tasks, "Importance") == "2",
-        DueDate = Date(Value(data, Tasks, "DueDate"))?.Date, CompletedAtUtc = Date(Value(data, Tasks, "DateCompleted"))
+        DueDate = TryDate(Value(data, Tasks, "DueDate"))?.Date
+            ?? (TryDate(Value(data, Tasks, "UtcDueDate")) is { } utcDue ? TimeZoneInfo.ConvertTimeFromUtc(utcDue, TimeZoneInfo.Local).Date : null),
+        CompletedAtUtc = TryDate(Value(data, Tasks, "DateCompleted"))
     };
 
-    internal static XElement WriteTask(AccountTask item) => new(Sync + "ApplicationData",
-        new XElement(Tasks + "Subject", item.Title ?? string.Empty), TextBody(item.Notes), new XElement(Tasks + "Complete", item.IsCompleted ? "1" : "0"),
-        new XElement(Tasks + "Importance", item.IsImportant ? "2" : "1"),
-        new XElement(Tasks + "DueDate", item.DueDate?.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture) ?? string.Empty),
-        new XElement(Tasks + "UtcDueDate", item.DueDate?.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture) ?? string.Empty),
-        new XElement(Tasks + "DateCompleted", item.IsCompleted ? (item.CompletedAtUtc ?? DateTime.UtcNow).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture) : string.Empty));
+    /// <summary>
+    /// An unset date is left out: an empty Tasks date element fails with status 6 on 16.x. <paramref name="clearDueDate"/>
+    /// writes the due dates empty, which <see cref="ForTaskChange"/> turns into leaving them out of the Change, so the
+    /// server drops its own.
+    /// </summary>
+    internal static XElement WriteTask(AccountTask item, bool clearDueDate = false)
+    {
+        const string format = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+        var due = item.DueDate?.Date;
+        var data = new XElement(Sync + "ApplicationData",
+            new XElement(Tasks + "Subject", item.Title ?? string.Empty), TextBody(item.Notes), new XElement(Tasks + "Complete", item.IsCompleted ? "1" : "0"),
+            new XElement(Tasks + "Importance", item.IsImportant ? "2" : "1"));
+        if (due is { } day)
+            data.Add(new XElement(Tasks + "DueDate", day.ToString(format, CultureInfo.InvariantCulture)),
+                new XElement(Tasks + "UtcDueDate", LocalMidnightUtc(day).ToString(format, CultureInfo.InvariantCulture)));
+        else if (clearDueDate)
+            data.Add(new XElement(Tasks + "DueDate"), new XElement(Tasks + "UtcDueDate"));
+        if (item.IsCompleted)
+            data.Add(new XElement(Tasks + "DateCompleted", (item.CompletedAtUtc ?? DateTime.UtcNow).ToString(format, CultureInfo.InvariantCulture)));
+        return data;
+    }
+
+    /// <summary>The stored task merged with the edit, without the empty date elements a Change may not carry.</summary>
+    internal static XElement ForTaskChange(XElement merged)
+    {
+        var result = new XElement(merged);
+        result.Elements().Where(element => element.Name.Namespace == Tasks && element.Name.LocalName.Contains("Date", StringComparison.Ordinal) && element.Value.Length == 0).Remove();
+        return result;
+    }
+
+    /// <summary>The instant a day starts in the device's zone, as Outlook stores date-only values.</summary>
+    private static DateTime LocalMidnightUtc(DateTime day)
+    {
+        var midnight = DateTime.SpecifyKind(day.Date, DateTimeKind.Unspecified);
+        while (TimeZoneInfo.Local.IsInvalidTime(midnight))
+            midnight = midnight.AddMinutes(30);
+        return TimeZoneInfo.ConvertTimeToUtc(midnight, TimeZoneInfo.Local);
+    }
+
 }
