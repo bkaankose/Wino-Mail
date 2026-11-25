@@ -284,21 +284,66 @@ internal sealed class EasSynchronizationEngine : IDisposable
         finally { _gate.Release(); }
     }
 
-    internal async Task MoveAsync(string folderId, string remoteId, string destinationId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Moves messages with MoveItems, up to <see cref="MutationBatchSize"/> in each request. Exchange answers out of
+    /// order, so answers are matched by source id. A moved message is stored under the id it has in the destination
+    /// (DstMsgId) right away; the destination's next Sync reports it again and updates that row. Status 1 means the
+    /// source item is gone, and it is removed locally.
+    /// </summary>
+    internal async Task<IReadOnlyList<EasMoveResult>> MoveItemsAsync(IReadOnlyList<EasMove> moves, CancellationToken cancellationToken)
     {
+        var results = new List<EasMoveResult>(moves.Count);
+        if (moves.Count == 0)
+            return results;
+
+        XNamespace move = "Move:";
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            XNamespace move = "Move:";
-            var result = await _client.CommandAsync("MoveItems", new XElement(move + "MoveItems", new XElement(move + "Move",
-                new XElement(move + "SrcMsgId", remoteId), new XElement(move + "SrcFldId", folderId), new XElement(move + "DstFldId", destinationId))), cancellationToken).ConfigureAwait(false);
-            var response = result?.Element(move + "Response") ?? throw new InvalidDataException("The EAS move response is missing.");
-            if (response.Element(move + "Status")?.Value != "3")
-                throw new InvalidDataException("The EAS server rejected moving the message.");
-
-            await DeleteProjectionAsync(await GetCollectionAsync(folderId).ConfigureAwait(false), remoteId).ConfigureAwait(false);
+            foreach (var chunk in moves.Chunk(MutationBatchSize))
+            {
+                var request = new XElement(move + "MoveItems", chunk.Select(item => new XElement(move + "Move", new XElement(move + "SrcMsgId", item.SourceId),
+                    new XElement(move + "SrcFldId", item.SourceFolderId), new XElement(move + "DstFldId", item.DestinationFolderId))));
+                var response = await _client.CommandAsync("MoveItems", request, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidDataException("The EAS move response is missing.");
+                var answers = response.Elements(move + "Response").ToList();
+                foreach (var item in chunk)
+                {
+                    var answer = answers.FirstOrDefault(element => element.Element(move + "SrcMsgId")?.Value == item.SourceId);
+                    var result = new EasMoveResult(item, answer?.Element(move + "Status")?.Value ?? "missing", answer?.Element(move + "DstMsgId")?.Value);
+                    results.Add(result);
+                    if (result.Succeeded || result.IsNotFound)
+                        await ProjectMoveAsync(item, result.Succeeded ? result.DestinationId : null).ConfigureAwait(false);
+                }
+            }
+            return results;
         }
         finally { _gate.Release(); }
+    }
+
+    private async Task ProjectMoveAsync(EasMove move, string? destinationId)
+    {
+        var source = await GetCollectionAsync(move.SourceFolderId).ConfigureAwait(false);
+        var existing = await _mail.GetSingleMailItemAsync(EasDataMapper.Key(_account.Id, source.ServerId, move.SourceId), source.ServerId).ConfigureAwait(false);
+        await DeleteProjectionAsync(source, move.SourceId).ConfigureAwait(false);
+        if (existing == null || string.IsNullOrEmpty(destinationId))
+            return;
+
+        var folder = await _database.Connection.Table<MailItemFolder>()
+            .FirstOrDefaultAsync(row => row.MailAccountId == _account.Id && row.RemoteFolderId == move.DestinationFolderId && row.EasFolderType > 0).ConfigureAwait(false);
+        if (folder == null)
+            return;
+
+        var destination = EasCollection.From(folder);
+        var package = EasDataMapper.Mail(folder, destinationId, new XElement(EasDataMapper.Sync + "ApplicationData"));
+        var copy = package.Copy;
+        copy.Subject = existing.Subject; copy.FromName = existing.FromName; copy.FromAddress = existing.FromAddress;
+        copy.CreationDate = existing.CreationDate; copy.PreviewText = existing.PreviewText; copy.IsRead = existing.IsRead;
+        copy.IsFlagged = existing.IsFlagged; copy.IsPinned = existing.IsPinned; copy.Importance = existing.Importance;
+        copy.HasAttachments = existing.HasAttachments; copy.ItemType = existing.ItemType; copy.ThreadId = existing.ThreadId;
+        copy.MessageId = existing.MessageId; copy.References = existing.References; copy.InReplyTo = existing.InReplyTo;
+        await _mail.CreateMailAsync(_account.Id, package).ConfigureAwait(false);
+        await WriteShadowAsync(destination, destinationId, new XElement(EasDataMapper.Sync + "ApplicationData")).ConfigureAwait(false);
     }
 
     /// <summary>

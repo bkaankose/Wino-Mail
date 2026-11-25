@@ -256,11 +256,17 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
 
     public override List<IRequestBundle<EwsRequest>> Move(BatchMoveRequest requests) => Bundle(async token =>
     {
+        var moves = new List<EasMove>();
         foreach (var request in requests)
         {
             var (folder, id) = await RemoteMailAsync(request.Item).ConfigureAwait(false);
-            await _engine.MoveAsync(folder.RemoteFolderId, id, request.ToFolder.RemoteFolderId, token).ConfigureAwait(false);
+            moves.Add(new EasMove(folder.RemoteFolderId, id, request.ToFolder.RemoteFolderId));
         }
+
+        var failures = (await _engine.MoveItemsAsync(moves, token).ConfigureAwait(false))
+            .Where(result => !result.Succeeded && !result.IsNotFound).Select(result => result.Status).ToList();
+        if (failures.Count > 0)
+            throw new EasCommandException("MoveItems", string.Join(", ", failures.Distinct()) + " for " + failures.Count + " item(s)");
     }, requests.FirstOrDefault(), requests);
 
     public override List<IRequestBundle<EwsRequest>> Archive(BatchArchiveRequest requests)
