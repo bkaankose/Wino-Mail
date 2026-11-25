@@ -151,7 +151,7 @@ internal sealed class ActionCardView : WinoSurfaceView
         return views.ToArray();
     }
 
-    private UIStackView BuildActions()
+    private UIView BuildActions()
     {
         var actions = WinoLayout.HStack(8);
         actions.Distribution = UIStackViewDistribution.Fill;
@@ -159,14 +159,14 @@ internal sealed class ActionCardView : WinoSurfaceView
             actions.AddArrangedSubview(ActionButton(primary, primary.Label, true));
         foreach (var action in _model.MoreActions)
             actions.AddArrangedSubview(ActionButton(action, action.Label, false));
-        actions.AddArrangedSubview(WinoLayout.Spacer());
-        actions.AddArrangedSubview(WinoStyle.Label(Translator.ActionCard_SenderDataNote, WinoStyle.Caption, WinoStyle.TertiaryText, 1));
-        return actions;
+        var note = WinoStyle.Label(Translator.ActionCard_SenderDataNote, WinoStyle.Caption, WinoStyle.TertiaryText, 1);
+        return WinoLayout.VStack(4, actions, note);
     }
 
     private UIButton ActionButton(ActionCardAction action, string title, bool primary)
     {
         var button = SettingsBinder.CreateButton(title, primary);
+        button.TitleLabel!.Lines = 1;
         button.PrimaryActionTriggered += (_, _) => _actionRequested(action);
         return button;
     }
