@@ -312,7 +312,10 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         }
     }
 
-    /// <summary>Whether an operation on an existing item failed because the item or its folder is gone (MS-ASCMD status 8).</summary>
+    /// <summary>
+    /// Whether an operation on an existing item failed because the item or its folder is gone. ActiveSync status 8 is
+    /// not one: the engine resolves it by synchronizing, as MS-ASCMD asks, and the server's Delete removes the item.
+    /// </summary>
     private static bool IsEntityNotFound(Exception exception, IUIChangeRequest? request)
     {
         if (request is not (BatchDeleteRequest or BatchMoveRequest or BatchChangeFlagRequest or BatchMarkReadRequest or BatchArchiveRequest
@@ -321,7 +324,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
 
         for (Exception? current = exception; current != null; current = current.InnerException)
         {
-            if (current is SynchronizerEntityNotFoundException || current is EasCommandException { Status: "8" })
+            if (current is SynchronizerEntityNotFoundException)
                 return true;
         }
         return false;
@@ -347,7 +350,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         }
 
         var failures = (await _engine.MoveItemsAsync(moves, token).ConfigureAwait(false))
-            .Where(result => !result.Succeeded && !result.IsNotFound).Select(result => result.Status).ToList();
+            .Where(result => !result.Succeeded && !result.IsGone).Select(result => result.Status).ToList();
         if (failures.Count > 0)
             throw new EasCommandException("MoveItems", string.Join(", ", failures.Distinct()) + " for " + failures.Count + " item(s)");
     }, requests.FirstOrDefault(), requests);
@@ -367,7 +370,8 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
 
     /// <summary>
     /// Sends the requests as one batched Sync per folder and stores each result as the server answers it. An item the
-    /// server no longer has is removed locally; the other failed items fail the bundle after the rest are stored.
+    /// server no longer has was removed by the synchronization that followed; the other failed items fail the bundle
+    /// after the rest are stored.
     /// Local drafts, and drafts kept on a server without drafts, never reached the server and change only locally.
     /// </summary>
     private async Task MutateMailAsync<TRequest>(IEnumerable<TRequest> requests, Func<TRequest, MailCopy> itemOf, Func<TRequest, string, EasMutation> mutationOf,
@@ -402,11 +406,8 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
                 var result = results[index];
                 if (result.Succeeded)
                     await commit(entries[index].Request).ConfigureAwait(false);
-                else if (result.IsNotFound)
-                {
-                    Logger.Warning("EAS item {RemoteId} is no longer on the server; removing it locally.", entries[index].RemoteId);
-                    await _mail.DeleteMailAsync(Account.Id, itemOf(entries[index].Request).Id).ConfigureAwait(false);
-                }
+                else if (result.IsGone)
+                    Logger.Information("EAS item {RemoteId} is no longer on the server; the synchronization removed it.", entries[index].RemoteId);
                 else
                     failures.Add(result.Status);
             }

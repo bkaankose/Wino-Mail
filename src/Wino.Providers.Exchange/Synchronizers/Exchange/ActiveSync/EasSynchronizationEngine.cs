@@ -243,7 +243,9 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     /// request, without reading the collection's pending changes first. The new sync key is saved after every request,
     /// also when single items fail. Results come back in the order of <paramref name="mutations"/>; a Change or
     /// Delete the server does not answer for succeeded, and an Add result carries the server id it was given.
-    /// <paramref name="deletesAsMoves"/> false deletes permanently instead of moving to Deleted Items.
+    /// <paramref name="deletesAsMoves"/> false deletes permanently instead of moving to Deleted Items. When the server
+    /// answers status 8 (object not found) for an item, the collection is synchronized, so a deletion on the server
+    /// reaches Wino as the server's Delete; nothing is removed locally on the strength of the status alone.
     /// </summary>
     internal async Task<IReadOnlyList<EasMutationResult>> MutateItemsAsync(string folderId, IReadOnlyList<EasMutation> mutations, bool deletesAsMoves,
         CancellationToken cancellationToken)
@@ -291,11 +293,21 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                     var result = new EasMutationResult(mutation, status, serverId, answer?.Element(sync + "ApplicationData"));
                     results.Add(result);
 
-                    if (mutation.Operation == EasItemOperation.Delete && (result.Succeeded || result.IsNotFound) ||
-                        mutation.Operation == EasItemOperation.Change && result.IsNotFound)
+                    if (mutation.Operation == EasItemOperation.Delete && result.Succeeded)
                         await _database.Connection.DeleteAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.ServerId, mutation.Id)).ConfigureAwait(false);
                     else if (mutation.Operation == EasItemOperation.Add && result.Succeeded && !string.IsNullOrEmpty(serverId) && mutation.Data != null)
                         await WriteShadowAsync(state, serverId, mutation.Data).ConfigureAwait(false);
+                }
+            }
+
+            if (results.Any(result => result.IsNotFound))
+            {
+                await SynchronizeCollectionAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+                for (var index = 0; index < results.Count; index++)
+                {
+                    if (results[index].IsNotFound && await _database.Connection.FindAsync<EasItemShadow>(
+                        EasDataMapper.Key(_account.Id, state.ServerId, results[index].Mutation.Id)).ConfigureAwait(false) == null)
+                        results[index] = results[index] with { IsGone = true };
                 }
             }
             return results;
@@ -306,38 +318,71 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     /// <summary>
     /// Moves messages with MoveItems, up to <see cref="MutationBatchSize"/> in each request. Exchange answers out of
     /// order, so answers are matched by source id. A moved message is stored under the id it has in the destination
-    /// (DstMsgId) right away; the destination's next Sync reports it again and updates that row. Status 1 means the
-    /// source item is gone, and it is removed locally.
+    /// (DstMsgId) right away; the destination's next Sync reports it again and updates that row. Status 1 (invalid
+    /// source collection or item) reads the folder hierarchy and synchronizes the source folders, then moves again the
+    /// messages still in their source folder; a message no longer there is gone and that synchronization removed it.
+    /// Status 2 (invalid destination) reads the hierarchy and fails. Status 7 (transient) is sent again once.
     /// </summary>
     internal async Task<IReadOnlyList<EasMoveResult>> MoveItemsAsync(IReadOnlyList<EasMove> moves, CancellationToken cancellationToken)
     {
-        var results = new List<EasMoveResult>(moves.Count);
         if (moves.Count == 0)
-            return results;
+            return [];
 
-        XNamespace move = "Move:";
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            foreach (var chunk in moves.Chunk(MutationBatchSize))
+            var results = await SendMovesAsync(moves, cancellationToken).ConfigureAwait(false);
+            var invalidSource = results.Where(result => result.Status == "1").ToList();
+            if (invalidSource.Count > 0 || results.Any(result => result.Status == "2"))
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+
+            var again = results.Where(result => result.Status == "7").Select(result => result.Move).ToList();
+            foreach (var source in invalidSource.GroupBy(result => result.Move.SourceFolderId))
             {
-                var request = new XElement(move + "MoveItems", chunk.Select(item => new XElement(move + "Move", new XElement(move + "SrcMsgId", item.SourceId),
-                    new XElement(move + "SrcFldId", item.SourceFolderId), new XElement(move + "DstFldId", item.DestinationFolderId))));
-                var response = await _client.CommandAsync("MoveItems", request, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidDataException("The EAS move response is missing.");
-                var answers = response.Elements(move + "Response").ToList();
-                foreach (var item in chunk)
+                var collection = await FindCollectionAsync(source.Key).ConfigureAwait(false);
+                if (collection != null)
+                    await SynchronizeCollectionAsync(collection, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+                foreach (var result in source)
                 {
-                    var answer = answers.FirstOrDefault(element => element.Element(move + "SrcMsgId")?.Value == item.SourceId);
-                    var result = new EasMoveResult(item, answer?.Element(move + "Status")?.Value ?? "missing", answer?.Element(move + "DstMsgId")?.Value);
-                    results.Add(result);
-                    if (result.Succeeded || result.IsNotFound)
-                        await ProjectMoveAsync(item, result.Succeeded ? result.DestinationId : null).ConfigureAwait(false);
+                    if (collection != null && await _database.Connection.FindAsync<EasItemShadow>(
+                        EasDataMapper.Key(_account.Id, collection.ServerId, result.Move.SourceId)).ConfigureAwait(false) != null)
+                        again.Add(result.Move);
+                    else
+                        results[results.IndexOf(result)] = result with { IsGone = true };
                 }
             }
+
+            if (again.Count > 0)
+            {
+                foreach (var result in await SendMovesAsync(again, cancellationToken).ConfigureAwait(false))
+                    results[results.FindIndex(previous => previous.Move == result.Move)] = result;
+            }
+
+            foreach (var result in results.Where(result => result.Succeeded))
+                await ProjectMoveAsync(result.Move, result.DestinationId).ConfigureAwait(false);
             return results;
         }
         finally { _gate.Release(); }
+    }
+
+    private async Task<List<EasMoveResult>> SendMovesAsync(IReadOnlyList<EasMove> moves, CancellationToken cancellationToken)
+    {
+        XNamespace move = "Move:";
+        var results = new List<EasMoveResult>(moves.Count);
+        foreach (var chunk in moves.Chunk(MutationBatchSize))
+        {
+            var request = new XElement(move + "MoveItems", chunk.Select(item => new XElement(move + "Move", new XElement(move + "SrcMsgId", item.SourceId),
+                new XElement(move + "SrcFldId", item.SourceFolderId), new XElement(move + "DstFldId", item.DestinationFolderId))));
+            var response = await _client.CommandAsync("MoveItems", request, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidDataException("The EAS move response is missing.");
+            var answers = response.Elements(move + "Response").ToList();
+            foreach (var item in chunk)
+            {
+                var answer = answers.FirstOrDefault(element => element.Element(move + "SrcMsgId")?.Value == item.SourceId);
+                results.Add(new EasMoveResult(item, answer?.Element(move + "Status")?.Value ?? "missing", answer?.Element(move + "DstMsgId")?.Value));
+            }
+        }
+        return results;
     }
 
     private async Task ProjectMoveAsync(EasMove move, string? destinationId)
@@ -1257,6 +1302,9 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             .Where(IsServerMailId).ToList();
 
     private async Task<EasCollection> GetCollectionAsync(string serverId)
+        => await FindCollectionAsync(serverId).ConfigureAwait(false) ?? throw new InvalidOperationException("The EAS collection is not synchronized yet.");
+
+    private async Task<EasCollection?> FindCollectionAsync(string serverId)
     {
         var folder = await _database.Connection.Table<MailItemFolder>()
             .FirstOrDefaultAsync(row => row.MailAccountId == _account.Id && row.RemoteFolderId == serverId && row.EasFolderType > 0).ConfigureAwait(false);
@@ -1264,7 +1312,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             return EasCollection.From(folder);
         var state = await _database.Connection.Table<EasCollectionState>()
             .FirstOrDefaultAsync(row => row.AccountId == _account.Id && row.ServerId == serverId).ConfigureAwait(false);
-        return state != null ? EasCollection.From(state) : throw new InvalidOperationException("The EAS collection is not synchronized yet.");
+        return state == null ? null : EasCollection.From(state);
     }
 
     private async Task SaveKeyAsync(EasCollection state, XElement response)

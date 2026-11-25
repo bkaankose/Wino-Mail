@@ -37,6 +37,11 @@ internal sealed record EasMutationResult(EasMutation Mutation, string Status, st
 {
     internal bool Succeeded => Status == "1";
 
-    /// <summary>MS-ASCMD status 8: the item is no longer on the server.</summary>
+    /// <summary>MS-ASCMD status 8: the item or collection id is no longer valid on the server.</summary>
     internal bool IsNotFound => Status == "8";
+
+    /// <summary>
+    /// Status 8, and the synchronization that followed removed the item: it is gone from the server and from Wino.
+    /// </summary>
+    internal bool IsGone { get; init; }
 }
