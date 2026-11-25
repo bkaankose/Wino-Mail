@@ -1134,14 +1134,37 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         var localFolders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
 
-        // A row still carrying an EWS id (the account ran on EWS before the transport changed) is matched by its
-        // MapiFolderId and re-keyed in place, so nothing under it moves: mail rows key on the folder row's Guid.
+        // A row another transport stored keeps its row and settings and takes the MAPI id in place; mail rows key on the
+        // folder row's Guid, so nothing under it moves. A row that ran on MAPI before keeps its MapiFolderId; a row EWS
+        // stored is matched by entry id (EWS ConvertId gives the HexEntryId of its EWS id, MAPI the EntryId of each
+        // folder); a row ActiveSync stored, whose ids are opaque, is matched by role and path.
         var mailFolderIds = mailFolders.Select(f => f.FolderId).ToHashSet();
         var incomingMapiIds = mailFolders.Select(f => f.FolderId.ToString("X16", CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
-
-        // Rows without a known MapiFolderId (stored by EWS or ActiveSync) are matched by role and path instead, and
-        // then re-keyed through their MapiFolderId below.
         var localMapiIds = localFolders.Where(f => !string.IsNullOrEmpty(f.MapiFolderId)).Select(f => f.MapiFolderId).ToHashSet(StringComparer.Ordinal);
+
+        var ewsRows = localFolders
+            .Where(f => ExchangeTransportRekey.FolderTransport(f) == ExchangeTransport.Ews && !string.IsNullOrEmpty(f.RemoteFolderId) &&
+                (string.IsNullOrEmpty(f.MapiFolderId) || !incomingMapiIds.Contains(f.MapiFolderId)))
+            .ToList();
+        if (ewsRows.Count > 0)
+        {
+            var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
+            var entryIds = await ConvertFolderIdsToHexEntryIdsAsync(service, ewsRows.Select(f => f.RemoteFolderId).ToList(), cancellationToken).ConfigureAwait(false);
+            var incomingByEntryId = mailFolders
+                .Where(f => f.EntryIdHex != null && !localMapiIds.Contains(f.FolderId.ToString("X16", CultureInfo.InvariantCulture)))
+                .GroupBy(f => f.EntryIdHex!, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() == 1)
+                .ToDictionary(g => g.Key, g => g.First().FolderId.ToString("X16", CultureInfo.InvariantCulture), StringComparer.OrdinalIgnoreCase);
+            foreach (var local in ewsRows)
+            {
+                if (entryIds.TryGetValue(local.RemoteFolderId, out var entryId) && incomingByEntryId.TryGetValue(entryId, out var mapiId))
+                {
+                    local.MapiFolderId = mapiId;
+                    localMapiIds.Add(mapiId);
+                }
+            }
+        }
+
         var rekeys = ExchangeTransportRekey.MatchFolders(
             localFolders.Where(f => string.IsNullOrEmpty(f.MapiFolderId) || !incomingMapiIds.Contains(f.MapiFolderId)).ToList(),
             mailFolders
@@ -1225,6 +1248,7 @@ IExchangeAuthenticator exchangeAuthenticator,
                 existing.SpecialFolderType = specialType;
                 existing.IsSystemFolder = isSystem;
                 existing.MapiFolderId = mapiFolderId;
+                existing.MapiEntryId = remote.EntryIdHex;
                 await ExchangeChangeProcessor.UpdateFolderAsync(existing).ConfigureAwait(false);
             }
             else
@@ -1237,6 +1261,7 @@ IExchangeAuthenticator exchangeAuthenticator,
                     RemoteFolderId = remoteId,
                     ParentRemoteFolderId = parentRemoteId,
                     MapiFolderId = mapiFolderId,
+                    MapiEntryId = remote.EntryIdHex,
                     FolderName = remote.DisplayName,
                     SpecialFolderType = specialType,
                     IsSticky = isSystem,

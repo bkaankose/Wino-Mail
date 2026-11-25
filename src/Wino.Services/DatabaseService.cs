@@ -709,6 +709,13 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
                 .ConfigureAwait(false);
         }
 
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.MapiEntryId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.MapiEntryId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
         var accountPreferencesColumns = await Connection.GetTableInfoAsync(nameof(MailAccountPreferences)).ConfigureAwait(false);
 
         if (!accountPreferencesColumns.Any(c => c.Name == nameof(MailAccountPreferences.IsJumpListEnabled)))

@@ -107,19 +107,22 @@ public static class ExchangeTransportRekey
             : ExchangeTransport.Ews;
 
     /// <summary>
-    /// Stored folder rows to re-key, by local id, with the remote folder id they take on <paramref name="transport"/>.
-    /// Only rows another transport stored are candidates, so a steady-state pass returns nothing. Inbox, Sent Items,
-    /// Drafts and Deleted Items match by their server role first; every other folder matches by its path of names
-    /// from the root, only when that path is unique on both sides. Re-keying keeps the row's id, so its settings
-    /// (pinned, hidden, synchronization, order, colors, a special type the user assigned) survive the switch.
-    /// Rows the same transport stored keep their ids and are never candidates.
+    /// Stored folder rows to re-key, by local id, with the remote folder id they take on <paramref name="transport"/>,
+    /// for rows whose ids have no documented relationship to the incoming ones: rows ActiveSync stored when the account
+    /// now uses EWS or MAPI, and rows EWS or MAPI stored when it now uses ActiveSync (ActiveSync server ids are opaque).
+    /// EWS and MAPI rows are re-keyed between each other by their folder entry id instead. Inbox, Sent Items, Drafts and
+    /// Deleted Items match by their server role first; every other folder matches by its path of names from the root,
+    /// only when that path is unique on both sides. Re-keying keeps the row's id, so its settings (pinned, hidden,
+    /// synchronization, order, colors, a special type the user assigned) survive the switch. Rows the same transport
+    /// stored keep their ids and are never candidates, so a steady-state pass returns nothing.
     /// </summary>
     public static Dictionary<Guid, string> MatchFolders(IReadOnlyList<MailItemFolder> stored, IReadOnlyList<ExchangeFolderCandidate> incoming,
         ExchangeTransport transport)
     {
         var result = new Dictionary<Guid, string>();
         var candidates = stored
-            .Where(folder => !string.IsNullOrEmpty(folder.RemoteFolderId) && FolderTransport(folder) != transport)
+            .Where(folder => !string.IsNullOrEmpty(folder.RemoteFolderId) && FolderTransport(folder) != transport &&
+                (transport == ExchangeTransport.ActiveSync || FolderTransport(folder) == ExchangeTransport.ActiveSync))
             .ToList();
         if (candidates.Count == 0 || incoming.Count == 0)
             return result;

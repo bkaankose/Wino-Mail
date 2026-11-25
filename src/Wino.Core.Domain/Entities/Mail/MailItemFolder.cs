@@ -123,6 +123,12 @@ public class MailItemFolder : IMailItemFolder
     /// </summary>
     public string MapiFolderId { get; set; }
 
+    /// <summary>
+    /// The folder's entry id as uppercase hex (the HexEntryId form of EWS ConvertId), stored by MAPI over HTTP. A row
+    /// MAPI stored is re-keyed to its EWS id through this column when the account changes to EWS.
+    /// </summary>
+    public string MapiEntryId { get; set; }
+
     // For GMail Labels
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }
