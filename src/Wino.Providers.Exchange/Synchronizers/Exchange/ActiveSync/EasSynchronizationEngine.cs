@@ -300,12 +300,12 @@ internal sealed class EasSynchronizationEngine : IDisposable
         finally { _gate.Release(); }
     }
 
-    internal async Task<System.Xml.Linq.XElement> FetchAsync(string folderId, string remoteId, CancellationToken cancellationToken)
-    {
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try { return await _client.FetchAsync(folderId, remoteId, cancellationToken).ConfigureAwait(false); }
-        finally { _gate.Release(); }
-    }
+    /// <summary>
+    /// ItemOperations reads one item and touches no sync key, so opening a message does not wait for a running
+    /// synchronization to finish.
+    /// </summary>
+    internal Task<XElement> FetchAsync(string folderId, string remoteId, CancellationToken cancellationToken)
+        => _client.FetchAsync(folderId, remoteId, cancellationToken);
 
     internal async Task RespondToMeetingAsync(string folderId, string remoteId, int responseCode, CancellationToken cancellationToken)
     {
