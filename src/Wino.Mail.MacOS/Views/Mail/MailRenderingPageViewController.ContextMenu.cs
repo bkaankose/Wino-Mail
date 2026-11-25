@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -28,6 +29,7 @@ public sealed partial class MailRenderingPageViewController
 
         var menu = CreateMenu();
         AddDateItems(menu, date);
+        RecordMenu(menu);
         menu.PopUpMenu(null, location, _mailView);
     }
 
@@ -62,7 +64,19 @@ public sealed partial class MailRenderingPageViewController
         menu.AddItem(NSMenuItem.SeparatorItem);
         menu.AddItem(new NSMenuItem(Translator.Reader_ContextMenu_SelectAll, (_, _) => _mailView.SelectAll()));
 
+        RecordMenu(menu);
         menu.PopUpMenu(null, new CGPoint(request.ViewPoint.X, request.ViewPoint.Y), _mailView);
+    }
+
+#if DEBUG
+    private static string LastReaderMenu = string.Empty;
+#endif
+
+    private static void RecordMenu(NSMenu menu)
+    {
+#if DEBUG
+        LastReaderMenu = string.Join(" | ", menu.Items.Select(item => item.IsSeparatorItem ? "-" : item.Title + (item.Enabled ? string.Empty : "[disabled]")));
+#endif
     }
 
     private NSMenu CreateMenu()

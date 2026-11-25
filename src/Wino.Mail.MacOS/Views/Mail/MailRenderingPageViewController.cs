@@ -659,6 +659,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             return _recipientRows.Dump() + $" card={_contactCard?.Shown == true}";
         }));
         // "reader-frames": frames drawn so far and whether the view counts as visible (animations run only then).
+        MacDebugBridge.Register("reader-menu", _ => ReaderDebugAsync(() => LastReaderMenu));
         MacDebugBridge.Register("reader-frames", _ => ReaderDebugAsync(() =>
             $"frames={_mailView.Controller.FrameCount} visible={_mailView.Controller.IsVisible} lastFrameMs={_mailView.Controller.LastFrameMs:F1}"));
         MacDebugBridge.Register("reader-pointer", args => ReaderDebugAsync(() =>
