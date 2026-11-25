@@ -264,23 +264,16 @@ internal sealed partial class EasSynchronizationEngine
 
     /// <summary>
     /// The calendar and server id of the event whose iCalendar UID is <paramref name="uid"/>, read from the stored
-    /// server copies. When none matches, the calendars are synchronized once, as the invitation can arrive first.
+    /// server copies. It reads the database only: opening a message never waits for a running synchronization.
     /// </summary>
-    internal async Task<(Guid CalendarId, string RemoteId)?> FindEventByUidAsync(string uid, CancellationToken cancellationToken)
+    internal async Task<(Guid CalendarId, string RemoteId)?> FindEventByUidAsync(string uid)
     {
         var needle = new XElement(EasDataMapper.Calendar + "UID", uid).ToString(SaveOptions.DisableFormatting);
         needle = needle[needle.IndexOf('>')..];
-        for (var attempt = 0; attempt < 2; attempt++)
-        {
-            var shadow = await _database.Connection.FindWithQueryAsync<EasItemShadow>(
-                "SELECT * FROM EasItemShadow WHERE AccountId = ? AND instr(ApplicationData, ?) > 0 AND CollectionId IN (SELECT Id FROM EasCollectionState WHERE AccountId = ? AND Type IN (8, 13))",
-                _account.Id, needle, _account.Id).ConfigureAwait(false);
-            if (shadow != null)
-                return (shadow.CollectionId, shadow.RemoteId);
-            if (attempt == 0)
-                await SynchronizeAsync("Calendar", cancellationToken).ConfigureAwait(false);
-        }
-        return null;
+        var shadow = await _database.Connection.FindWithQueryAsync<EasItemShadow>(
+            "SELECT * FROM EasItemShadow WHERE AccountId = ? AND instr(ApplicationData, ?) > 0 AND CollectionId IN (SELECT Id FROM EasCollectionState WHERE AccountId = ? AND Type IN (8, 13))",
+            _account.Id, needle, _account.Id).ConfigureAwait(false);
+        return shadow == null ? null : (shadow.CollectionId, shadow.RemoteId);
     }
 
     internal async Task RespondToMeetingAsync(string folderId, string remoteId, string? instanceKey, int responseCode, string? message, CancellationToken cancellationToken)

@@ -612,7 +612,8 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
     /// <summary>
     /// Links a meeting message to the event it belongs to, as the EWS synchronizer does: the event is found by the
     /// invitation's iCalendar UID, which Exchange also reports as the event's UID. A series maps to its first stored
-    /// occurrence, because the series itself is not shown. Failures are logged; the mail is already saved.
+    /// occurrence, because the series itself is not shown. Only stored events are searched: an invitation whose event
+    /// the calendar has not synchronized yet stays unlinked. Failures are logged; the mail is already saved.
     /// </summary>
     private async Task TryMapCalendarInvitationAsync(MailCopy mail, MimeMessage message, CancellationToken cancellationToken)
     {
@@ -623,7 +624,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             return;
         try
         {
-            if (await _engine.FindEventByUidAsync(uid, cancellationToken).ConfigureAwait(false) is not { } match)
+            if (await _engine.FindEventByUidAsync(uid).ConfigureAwait(false) is not { } match)
                 return;
             var item = await _calendars.GetCalendarItemAsync(match.CalendarId, match.RemoteId).ConfigureAwait(false);
             if (item?.IsRecurringParent == true)
