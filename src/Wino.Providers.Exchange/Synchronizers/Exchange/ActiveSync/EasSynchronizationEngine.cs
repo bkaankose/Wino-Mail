@@ -257,7 +257,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             var states = await LoadStatesAsync().ConfigureAwait(false);
             var mailChanged = false;
             if (command == "FolderDelete")
-                mailChanged = await RemoveServerIdAsync(resultId, mailRows, states).ConfigureAwait(false);
+                mailChanged = await RemoveTreeAsync(resultId, mailRows, states).ConfigureAwait(false);
             else
             {
                 var type = mailRows.FirstOrDefault(row => row.EasFolderType > 0 && row.RemoteFolderId == resultId)?.EasFolderType
@@ -350,7 +350,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             {
                 if (change.Name == FolderHierarchy + "Delete")
                 {
-                    mailChanged |= await RemoveServerIdAsync(serverId, mailRows, states).ConfigureAwait(false);
+                    mailChanged |= await RemoveTreeAsync(serverId, mailRows, states).ConfigureAwait(false);
                     continue;
                 }
 
@@ -383,7 +383,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             foreach (var stale in states.Where(state => !seen.Contains(state.ServerId)).ToList())
             {
                 if (states.Contains(stale))
-                    await RemoveServerIdAsync(stale.ServerId, mailRows, states).ConfigureAwait(false);
+                    await RemoveTreeAsync(stale.ServerId, mailRows, states).ConfigureAwait(false);
             }
         }
 
@@ -540,19 +540,40 @@ internal sealed class EasSynchronizationEngine : IDisposable
         await _database.Connection.InsertOrReplaceAsync(state, typeof(EasCollectionState)).ConfigureAwait(false);
     }
 
-    private async Task<bool> RemoveServerIdAsync(string serverId, List<MailItemFolder> mailRows, List<EasCollectionState> states)
+    /// <summary>Removes a collection and everything below it; a parent's delete is not always reported per child.</summary>
+    private async Task<bool> RemoveTreeAsync(string serverId, List<MailItemFolder> mailRows, List<EasCollectionState> states)
     {
+        var pending = new Queue<string>();
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        pending.Enqueue(serverId);
         var mailChanged = false;
-        foreach (var row in mailRows.Where(row => row.EasFolderType > 0 && row.RemoteFolderId == serverId).ToList())
+        var order = new List<string>();
+        while (pending.Count > 0)
         {
-            await RemoveCollectionAsync(EasCollection.From(row)).ConfigureAwait(false);
-            mailRows.Remove(row);
-            mailChanged = true;
+            var current = pending.Dequeue();
+            if (!visited.Add(current))
+                continue;
+            order.Add(current);
+            foreach (var child in mailRows.Where(row => row.EasFolderType > 0 && row.ParentRemoteFolderId == current && !string.IsNullOrEmpty(row.RemoteFolderId)))
+                pending.Enqueue(child.RemoteFolderId);
+            foreach (var child in states.Where(state => state.ParentServerId == current))
+                pending.Enqueue(child.ServerId);
         }
-        foreach (var state in states.Where(state => state.ServerId == serverId).ToList())
+
+        order.Reverse();
+        foreach (var id in order)
         {
-            await RemoveCollectionAsync(EasCollection.From(state)).ConfigureAwait(false);
-            states.Remove(state);
+            foreach (var row in mailRows.Where(row => row.EasFolderType > 0 && row.RemoteFolderId == id).ToList())
+            {
+                await RemoveCollectionAsync(EasCollection.From(row)).ConfigureAwait(false);
+                mailRows.Remove(row);
+                mailChanged = true;
+            }
+            foreach (var state in states.Where(state => state.ServerId == id).ToList())
+            {
+                await RemoveCollectionAsync(EasCollection.From(state)).ConfigureAwait(false);
+                states.Remove(state);
+            }
         }
         return mailChanged;
     }
