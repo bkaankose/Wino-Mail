@@ -412,6 +412,8 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             }
         }
 
+        if (failures.Contains("7"))
+            throw new InvalidOperationException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncChangeConflict);
         if (failures.Count > 0)
             throw new EasCommandException("Sync", string.Join(", ", failures.Distinct()) + " for " + failures.Count + " item(s)");
     }

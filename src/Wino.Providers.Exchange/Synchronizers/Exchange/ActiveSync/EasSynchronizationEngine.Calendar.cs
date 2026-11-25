@@ -190,7 +190,7 @@ internal sealed partial class EasSynchronizationEngine
             await SaveKeyAsync(state, result).ConfigureAwait(false);
             var response = result.Element(sync + "Responses")?.Element(sync + responseName);
             if (response != null)
-                EasClient.RequireSuccess(response);
+                RequireItemSuccess(response);
             else if (operation == "Add")
                 throw new InvalidDataException("The EAS addition response is missing.");
             var resultId = response?.Element(sync + "ServerId")?.Value ?? mutation.RemoteId;

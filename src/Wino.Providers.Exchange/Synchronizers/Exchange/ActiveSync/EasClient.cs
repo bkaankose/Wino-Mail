@@ -659,7 +659,7 @@ internal sealed class EasClient : IDisposable
             collection.Add(new XElement(sync + "DeletesAsMoves", deletesAsMoves ? "1" : "0"),
                 new XElement(sync + "GetChanges", getChanges ? "1" : "0"),
                 new XElement(sync + "WindowSize", windowSize.ToString(CultureInfo.InvariantCulture)),
-                new XElement(sync + "Options", new XElement(sync + "Conflict", "0"), BodyPreference(itemClass)));
+                new XElement(sync + "Options", new XElement(sync + "Conflict", ServerWins), BodyPreference(itemClass)));
             var filterType = PolicyLimits.ClampFilterType(itemClass, 0);
             if (filterType != 0)
                 collection.Element(sync + "Options")!.AddFirst(new XElement(sync + "FilterType", filterType.ToString(CultureInfo.InvariantCulture)));
@@ -680,6 +680,13 @@ internal sealed class EasClient : IDisposable
         RequireSuccess(result);
         return result;
     }
+
+    /// <summary>
+    /// Conflict 1: a change the server made since the client last synchronized the item wins over the client's change,
+    /// which the server refuses with status 7. Wino applies a change locally only after the server accepts it, so the
+    /// item keeps the server's version and the user is told; the client never overwrites a change it has not seen.
+    /// </summary>
+    private const string ServerWins = "1";
 
     /// <summary>
     /// Mail is synchronized without its MIME: 14.0 and later return only a 255-character preview, 12.x a plain-text

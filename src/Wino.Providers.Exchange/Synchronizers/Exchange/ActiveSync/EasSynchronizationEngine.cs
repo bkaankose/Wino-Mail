@@ -210,7 +210,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             await SaveKeyAsync(state, result).ConfigureAwait(false);
             var response = result.Element(sync + "Responses")?.Element(sync + operation);
             if (response != null)
-                EasClient.RequireSuccess(response);
+                RequireItemSuccess(response);
             else if (operation == "Add")
                 throw new InvalidDataException("The EAS addition response is missing.");
             var resultId = response?.Element(sync + "ServerId")?.Value ?? remoteId;
@@ -825,6 +825,17 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         5 => SpecialFolderType.Sent,
         _ => SpecialFolderType.Other
     };
+
+    /// <summary>
+    /// Requires an item answer of status 1. Status 7 (conflict, server wins) is reported to the user as such: the item
+    /// is not sent again and the server's version arrives with the next synchronization.
+    /// </summary>
+    internal static void RequireItemSuccess(XElement response)
+    {
+        if (StatusOf(response) == "7")
+            throw new InvalidOperationException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncChangeConflict);
+        EasClient.RequireSuccess(response);
+    }
 
     private static string? StatusOf(XElement response)
         => response.Elements().FirstOrDefault(element => element.Name.LocalName == "Status")?.Value;

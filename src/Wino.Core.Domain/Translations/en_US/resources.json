@@ -1252,6 +1252,7 @@
   "ExchangeSetup_ActiveSyncCommandFailed": "The Exchange server refused the ActiveSync {0} request (status {1}).",
   "ExchangeSetup_ActiveSyncResponseTooLarge": "The Exchange server sent an ActiveSync answer larger than Wino Mail accepts.",
   "ExchangeSetup_ActiveSyncServerBusy": "The Exchange server is busy and asked Wino Mail to wait before synchronizing again.",
+  "ExchangeSetup_ActiveSyncChangeConflict": "The item was changed on the Exchange server after Wino Mail last synchronized it, so the server kept its version and your change was not applied. Synchronize the account and make the change again.",
   "ExchangeSetup_ActiveSyncMeetingsNeedProtocol16": "This Exchange server offers an ActiveSync version that does not send meeting invitations, updates, cancellations or answers. Use the EWS or MAPI connection method for meetings on this account.",
   "ExchangeSetup_ActiveSyncVersionUnsupported": "The server offers ActiveSync versions {0}. Wino Mail needs version 12.0 or later.",
   "ExchangeSetup_UserNameHeader": "User name (optional)",
