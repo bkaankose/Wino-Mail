@@ -1105,7 +1105,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     {
         OperationCanceledException when cancellationToken.IsCancellationRequested => false,
         EasCommandException command => IsCollectionFailure(command),
-        EasPolicyException or EasAccessDeniedException or EasRemoteWipeException or EasServerBusyException => false,
+        EasPolicyException or EasAccessDeniedException or EasRemoteWipeException or EasServerBusyException or EasResyncRequiredException => false,
         System.Net.Http.HttpRequestException or Wino.Core.Domain.Exceptions.AuthenticationAttentionException => false,
         _ => true
     };

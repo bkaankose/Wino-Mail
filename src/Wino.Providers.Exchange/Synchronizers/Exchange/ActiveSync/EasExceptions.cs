@@ -30,5 +30,8 @@ internal sealed class EasServerBusyException(string message, TimeSpan? retryAfte
     internal TimeSpan? RetryAfter { get; } = retryAfter;
 }
 
+/// <summary>The account's synchronized data was discarded at the server's request; the operation starts over.</summary>
+internal sealed class EasResyncRequiredException(string message) : IOException(message);
+
 /// <summary>The response is larger than the client accepts.</summary>
 internal sealed class EasResponseTooLargeException() : IOException("The EAS response exceeds the size limit.");

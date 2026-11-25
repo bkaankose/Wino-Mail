@@ -1240,6 +1240,7 @@
   "ExchangeSetup_ActiveSyncProvisioningLoop": "The Exchange server keeps asking Wino Mail to apply its device policy after accepting it. Try again later, or ask your administrator to check the mobile device policy.",
   "ExchangeSetup_ActiveSyncRemoteWipe": "Your administrator removed this mailbox from this device. Wino Mail deleted the account's mail, calendars, contacts, tasks and saved password from this computer.",
   "ExchangeSetup_ActiveSyncRemoteWipePending": "Your administrator asked to remove this mailbox from this device. Wino Mail removes the account's data from this computer the next time the account synchronizes.",
+  "ExchangeSetup_ActiveSyncResyncRequired": "The Exchange server changed in a way that requires downloading this mailbox again. Wino Mail removed the downloaded copy and is synchronizing it again.",
   "ExchangeSetup_ActiveSyncServerBusy": "The Exchange server is busy and asked Wino Mail to wait before synchronizing again.",
   "ExchangeSetup_ActiveSyncMeetingsNeedProtocol16": "This Exchange server offers an ActiveSync version that does not send meeting invitations, updates, cancellations or answers. Use the EWS or MAPI connection method for meetings on this account.",
   "ExchangeSetup_ActiveSyncVersionUnsupported": "The server offers ActiveSync versions {0}. Wino Mail needs version 12.0 or later.",

@@ -127,9 +127,10 @@ internal sealed class EasClient : IDisposable
         _version = SupportedVersions.FirstOrDefault(versions.Contains)
             ?? throw new NotSupportedException(string.Format(Translator.ExchangeSetup_ActiveSyncVersionUnsupported, string.Join(", ", versions)));
 
+        var versionChanged = !string.IsNullOrEmpty(state.ProtocolVersion) && state.ProtocolVersion != _version;
         if (state.ProtocolVersion != _version)
         {
-            if (!string.IsNullOrEmpty(state.ProtocolVersion))
+            if (versionChanged)
                 Logger.Information("EAS protocol version for account {AccountId} changed from {Previous} to {Version}.", _account.Id, state.ProtocolVersion, _version);
             state.ProtocolVersion = _version;
             await SaveStateAsync().ConfigureAwait(false);
@@ -144,6 +145,21 @@ internal sealed class EasClient : IDisposable
         // Settings, after provisioning and before the first FolderSync.
         if (!IsAtLeast("14.1") && !state.IsDeviceInformationSent)
             await SendDeviceInformationAsync(state, cancellationToken).ConfigureAwait(false);
+
+        // Sync keys and server ids were issued under the previous version; the partnership is synchronized again.
+        if (versionChanged)
+            await DiscardSynchronizationStateAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>Discards the account's synchronized data and sync state, then stops the running operation so it starts over.</summary>
+    private async Task DiscardSynchronizationStateAsync()
+    {
+        if (_accountData == null)
+            return;
+
+        Logger.Warning("Discarding the ActiveSync synchronization state of account {AccountId}; the mailbox is synchronized again.", _account.Id);
+        await _accountData.DiscardSynchronizationStateAsync().ConfigureAwait(false);
+        throw new EasResyncRequiredException(Translator.ExchangeSetup_ActiveSyncResyncRequired);
     }
 
     private async Task SendDeviceInformationAsync(EasAccountState state, CancellationToken cancellationToken)

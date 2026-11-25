@@ -16,6 +16,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Messaging.Server;
 using Wino.Core.Domain.Messaging.UI;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -162,6 +163,12 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
                 return MailSynchronizationResult.Completed(new List<MailCopy>());
             }
             return MailSynchronizationResult.Completed(await _engine.SynchronizeMailAsync(options, cancellationToken).ConfigureAwait(false));
+        }
+        catch (EasResyncRequiredException exception)
+        {
+            Logger.Information(exception, "The ActiveSync data of {Account} was discarded; synchronizing it again.", Account.Name);
+            Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions { AccountId = Account.Id, Type = MailSynchronizationType.FullFolders }));
+            return MailSynchronizationResult.Completed(new List<MailCopy>());
         }
         catch (Exception exception) when (exception is not (OperationCanceledException or AuthenticationAttentionException))
         {
