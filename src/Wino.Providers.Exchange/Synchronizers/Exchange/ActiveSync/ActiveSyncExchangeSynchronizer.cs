@@ -576,6 +576,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         var (folder, id) = await RemoteMailAsync(mail).ConfigureAwait(false);
         var data = await _engine.FetchAsync(folder.RemoteFolderId, id, cancellationToken).ConfigureAwait(false);
         var mime = EasDataMapper.ReadMime(data);
+        _engine.ApplyAttachmentPolicy(mime);
         if (!await _mime.SaveMimeMessageAsync(mail.FileId, mime, Account.Id).ConfigureAwait(false))
             throw new IOException("The EAS MIME message could not be saved.");
 

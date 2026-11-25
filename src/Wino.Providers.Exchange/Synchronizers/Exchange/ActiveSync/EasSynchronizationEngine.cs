@@ -464,6 +464,9 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     internal Task<XElement> FetchAsync(string folderId, string remoteId, CancellationToken cancellationToken)
         => _client.FetchAsync(folderId, remoteId, cancellationToken);
 
+    /// <summary>Removes the attachments the server's device policy does not allow on this device.</summary>
+    internal void ApplyAttachmentPolicy(MimeKit.MimeMessage message) => _client.ApplyAttachmentPolicy(message);
+
     /// <summary>
     /// Reads the folder hierarchy. Mail collections become MailItemFolder rows, the others EasCollectionState rows.
     /// On a full read (key 0, also after a connection method change) rows another transport stored are re-keyed in

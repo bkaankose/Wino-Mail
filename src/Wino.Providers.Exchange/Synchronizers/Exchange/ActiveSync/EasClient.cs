@@ -10,6 +10,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using MimeKit;
+using MimeKit.IO;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -95,6 +97,12 @@ internal sealed class EasClient : IDisposable
 
     internal Uri Endpoint => _endpoint;
 
+    /// <summary>The synchronization limits of the device policy the current policy key was issued for.</summary>
+    internal EasPolicyLimits PolicyLimits => _state is { IsPolicyRecorded: true } state
+        ? new EasPolicyLimits(state.PolicyMaxEmailAgeFilter, state.PolicyMaxCalendarAgeFilter, state.PolicyMaxAttachmentSize,
+            state.PolicyMaxEmailBodyTruncationSize, state.PolicyMaxEmailHtmlBodyTruncationSize, state.PolicyAttachmentsDisabled)
+        : EasPolicyLimits.None;
+
     internal bool IsAtLeast(string version)
         => _version != null && Version.Parse(_version) >= Version.Parse(version);
 
@@ -126,6 +134,11 @@ internal sealed class EasClient : IDisposable
             state.ProtocolVersion = _version;
             await SaveStateAsync().ConfigureAwait(false);
         }
+
+        // The limits the client enforces come with the policy, so a partnership whose policy was never recorded
+        // provisions before its first command.
+        if (!state.IsPolicyRecorded)
+            await ProvisionAsync(state.PolicyKey, cancellationToken).ConfigureAwait(false);
     }
 
     internal async Task<XElement?> CommandAsync(string command, XElement document, CancellationToken cancellationToken)
@@ -302,7 +315,7 @@ internal sealed class EasClient : IDisposable
         // Policy status 2: the server has no policy for this client, so there is nothing to acknowledge.
         if (StatusOf(policy) == "2")
         {
-            await SavePolicyKeyAsync(state, policy.Element(provision + "PolicyKey")?.Value ?? "0").ConfigureAwait(false);
+            await SavePolicyAsync(state, policy.Element(provision + "PolicyKey")?.Value ?? "0", EasPolicyLimits.None).ConfigureAwait(false);
             return;
         }
         RequireSuccess(policy);
@@ -312,7 +325,7 @@ internal sealed class EasClient : IDisposable
         var evaluation = EasPolicy.Parse(document);
         var unenforceable = evaluation.Unenforceable;
         if (unenforceable.Count > 0)
-            Logger.Warning("The EAS policy for account {AccountId} asks for settings Wino cannot enforce: {Settings}. Acknowledging it as partially applied.",
+            Logger.Warning("The EAS policy for account {AccountId} asks for settings Wino cannot enforce: {Settings}. Acknowledging it as not applied.",
                 _account.Id, string.Join(", ", unenforceable));
 
         var temporaryKey = policy.Element(provision + "PolicyKey")?.Value ?? throw new InvalidDataException("The EAS policy key is missing.");
@@ -330,8 +343,13 @@ internal sealed class EasClient : IDisposable
         var acceptedPolicy = accepted.Element(provision + "Policies")?.Element(provision + "Policy")
             ?? throw new InvalidDataException("The EAS accepted policy is missing.");
         RequireSuccess(acceptedPolicy);
-        await SavePolicyKeyAsync(state, acceptedPolicy.Element(provision + "PolicyKey")?.Value
-            ?? throw new InvalidDataException("The EAS accepted policy key is missing.")).ConfigureAwait(false);
+        var permanentKey = acceptedPolicy.Element(provision + "PolicyKey")?.Value;
+
+        // Exchange answers a "not applied" acknowledgment with success but without a permanent key, and refuses every
+        // later request with 144, so the device cannot synchronize under this policy.
+        if (permanentKey == null && unenforceable.Count > 0)
+            throw new EasPolicyException(string.Format(Translator.ExchangeSetup_ActiveSyncPolicyNotSupported, string.Join(", ", unenforceable)), "3");
+        await SavePolicyAsync(state, permanentKey ?? throw new InvalidDataException("The EAS accepted policy key is missing."), evaluation.Limits).ConfigureAwait(false);
     }
 
     private XElement CreatePolicyRequest()
@@ -444,9 +462,16 @@ internal sealed class EasClient : IDisposable
         await SaveStateAsync().ConfigureAwait(false);
     }
 
-    private async Task SavePolicyKeyAsync(EasAccountState state, string policyKey)
+    private async Task SavePolicyAsync(EasAccountState state, string policyKey, EasPolicyLimits limits)
     {
         state.PolicyKey = policyKey;
+        state.IsPolicyRecorded = true;
+        state.PolicyMaxEmailAgeFilter = limits.MaxEmailAgeFilter;
+        state.PolicyMaxCalendarAgeFilter = limits.MaxCalendarAgeFilter;
+        state.PolicyMaxAttachmentSize = limits.MaxAttachmentSize;
+        state.PolicyMaxEmailBodyTruncationSize = limits.MaxEmailBodyTruncationSize;
+        state.PolicyMaxEmailHtmlBodyTruncationSize = limits.MaxEmailHtmlBodyTruncationSize;
+        state.PolicyAttachmentsDisabled = limits.AttachmentsDisabled;
         await SaveStateAsync().ConfigureAwait(false);
     }
 
@@ -562,6 +587,9 @@ internal sealed class EasClient : IDisposable
                 new XElement(sync + "GetChanges", getChanges ? "1" : "0"),
                 new XElement(sync + "WindowSize", windowSize.ToString(CultureInfo.InvariantCulture)),
                 new XElement(sync + "Options", new XElement(sync + "Conflict", "0"), BodyPreference(itemClass)));
+            var filterType = PolicyLimits.ClampFilterType(itemClass, 0);
+            if (filterType != 0)
+                collection.Element(sync + "Options")!.AddFirst(new XElement(sync + "FilterType", filterType.ToString(CultureInfo.InvariantCulture)));
         }
 
         if (commands != null)
@@ -591,18 +619,22 @@ internal sealed class EasClient : IDisposable
             return new XElement(body + "BodyPreference", new XElement(body + "Type", "1"));
         return IsAtLeast("14.0")
             ? new XElement(body + "BodyPreference", new XElement(body + "Type", "2"), new XElement(body + "TruncationSize", "0"), new XElement(body + "Preview", "255"))
-            : new XElement(body + "BodyPreference", new XElement(body + "Type", "1"), new XElement(body + "TruncationSize", "255"));
+            : new XElement(body + "BodyPreference", new XElement(body + "Type", "1"),
+                new XElement(body + "TruncationSize", Math.Min(255, PolicyLimits.MaxEmailBodyTruncationSize ?? 255).ToString(CultureInfo.InvariantCulture)));
     }
 
     internal async Task<XElement> FetchAsync(string folderId, string serverId, CancellationToken cancellationToken)
     {
+        // The request carries the policy's truncation, which is known once connected.
+        if (_version == null)
+            await ConnectAsync(cancellationToken).ConfigureAwait(false);
         XNamespace items = "ItemOperations:";
         XNamespace sync = "AirSync:";
         XNamespace body = "AirSyncBase:";
         var response = await CommandAsync("ItemOperations", new XElement(items + "ItemOperations",
             new XElement(items + "Fetch", new XElement(items + "Store", "Mailbox"),
                 new XElement(sync + "CollectionId", folderId), new XElement(sync + "ServerId", serverId),
-                new XElement(items + "Options", new XElement(body + "BodyPreference", new XElement(body + "Type", "4")),
+                new XElement(items + "Options", MimeBodyPreference(),
                     new XElement(sync + "MIMESupport", "2")))), cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidDataException("The EAS item fetch response was empty.");
         RequireSuccess(response);
@@ -610,6 +642,67 @@ internal sealed class EasClient : IDisposable
             ?? throw new InvalidDataException("The EAS item fetch response has no item.");
         RequireSuccess(fetch);
         return fetch.Element(items + "Properties") ?? throw new InvalidDataException("The EAS item has no properties.");
+    }
+
+    /// <summary>
+    /// The whole message as MIME. A policy that truncates email bodies truncates it to the strictest of its plain-text
+    /// and HTML limits, because the MIME carries whichever body the message has.
+    /// </summary>
+    private XElement MimeBodyPreference()
+    {
+        XNamespace body = "AirSyncBase:";
+        var preference = new XElement(body + "BodyPreference", new XElement(body + "Type", "4"));
+        if (PolicyLimits.BodyTruncation is { } truncation)
+            preference.Add(new XElement(body + "TruncationSize", truncation.ToString(CultureInfo.InvariantCulture)));
+        return preference;
+    }
+
+    /// <summary>
+    /// Removes the attachments the device policy does not allow on this device: every attachment when attachments are
+    /// disabled, otherwise those larger than MaxAttachmentSize. Every part that is not a text body counts as an
+    /// attachment, as ActiveSync lists inline images among a message's attachments.
+    /// </summary>
+    internal void ApplyAttachmentPolicy(MimeMessage message)
+    {
+        var limits = PolicyLimits;
+        if (!limits.AttachmentsDisabled && limits.MaxAttachmentSize == null)
+            return;
+
+        if (message.Body is { } body && RemoveDisallowedParts(body, limits) is var removed && removed > 0)
+            Logger.Information("Removed {Count} attachment(s) the EAS device policy of account {AccountId} does not allow.", removed, _account.Id);
+    }
+
+    private static int RemoveDisallowedParts(MimeEntity entity, EasPolicyLimits limits)
+    {
+        if (entity is not Multipart multipart)
+            return 0;
+
+        var removed = 0;
+        for (var index = multipart.Count - 1; index >= 0; index--)
+        {
+            var child = multipart[index];
+            if (child is Multipart)
+                removed += RemoveDisallowedParts(child, limits);
+            else if (IsAttachment(child) && (limits.AttachmentsDisabled || SizeOf(child) > limits.MaxAttachmentSize))
+            {
+                multipart.RemoveAt(index);
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    private static bool IsAttachment(MimeEntity entity)
+        => entity is MessagePart || entity is MimePart part && (part.IsAttachment || part is not TextPart);
+
+    private static long SizeOf(MimeEntity entity)
+    {
+        using var measure = new MeasuringStream();
+        if (entity is MimePart { Content: { } content })
+            content.DecodeTo(measure);
+        else if (entity is MessagePart { Message: { } message })
+            message.WriteTo(measure);
+        return measure.Length;
     }
 
     internal static void RequireSuccess(XElement response)
