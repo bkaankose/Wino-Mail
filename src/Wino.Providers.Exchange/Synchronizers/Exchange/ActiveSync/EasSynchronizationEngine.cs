@@ -38,17 +38,20 @@ internal sealed class EasSynchronizationEngine : IDisposable
     private readonly EasClient _client;
     private readonly Action _hierarchyChanged;
     private readonly Action<EasCollection, Exception> _collectionFailed;
+    private readonly Action<EasCollection, string, Exception> _itemFailed;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     internal EasSynchronizationEngine(MailAccount account, IDatabaseService database, IAccountService accounts,
         IFolderService folders, IMailService mail, ICalendarService calendars, IContactService contacts, ITaskService tasks, IPictureStorageService pictures,
-        Action hierarchyChanged, Action<EasCollection, Exception> collectionFailed, EasClient? client = null)
+        Action hierarchyChanged, Action<EasCollection, Exception> collectionFailed, Action<EasCollection, string, Exception> itemFailed,
+        EasClient? client = null)
     {
         _account = account; _database = database; _accounts = accounts; _folders = folders;
         _mail = mail; _calendars = calendars; _contacts = contacts; _tasks = tasks;
         _pictures = pictures;
         _hierarchyChanged = hierarchyChanged;
         _collectionFailed = collectionFailed;
+        _itemFailed = itemFailed;
         var server = account.ServerInformation ?? throw new InvalidOperationException("EAS server settings are missing.");
         if (server.UseOAuthAuthentication)
             throw new NotSupportedException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncPasswordRequired);
@@ -760,7 +763,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (matches.Count > 0)
                 await _contacts.RekeyAddressBookAsync(book.Id, book.RemoteId, matches).ConfigureAwait(false);
             foreach (var shadow in snapshot)
-                await ProjectAsync(state, shadow.RemoteId, Parse(shadow.ApplicationData), downloaded, cancellationToken).ConfigureAwait(false);
+                await ProjectIsolatedAsync(state, shadow, downloaded, cancellationToken).ConfigureAwait(false);
             var deleted = (await _contacts.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false))
                 .Where(item => item.PendingMutation == ContactPendingMutation.None && !string.IsNullOrEmpty(item.RemoteId) && !remoteIds.Contains(item.RemoteId))
                 .Select(item => item.RemoteId).ToArray();
@@ -777,7 +780,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (matches.Count > 0)
                 await _tasks.RekeyTaskListAsync(list.Id, list.RemoteId, matches).ConfigureAwait(false);
             foreach (var shadow in snapshot)
-                await ProjectAsync(state, shadow.RemoteId, Parse(shadow.ApplicationData), downloaded, cancellationToken).ConfigureAwait(false);
+                await ProjectIsolatedAsync(state, shadow, downloaded, cancellationToken).ConfigureAwait(false);
             var deleted = (await _database.Connection.Table<AccountTask>().Where(item => item.TaskListId == list.Id).ToListAsync().ConfigureAwait(false))
                 .Where(item => item.PendingMutation == TaskPendingMutation.None && !string.IsNullOrEmpty(item.RemoteId) && !remoteIds.Contains(item.RemoteId))
                 .Select(item => item.RemoteId).ToArray();
@@ -786,40 +789,97 @@ internal sealed class EasSynchronizationEngine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Applies one Sync response. Each item is applied on its own: an item that cannot be read or stored is reported
+    /// and skipped, its shadow is still written and the sync key still advances, so one message never stalls a folder.
+    /// </summary>
     private async Task ApplyPageAsync(EasCollection state, XElement response, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
         var sync = EasDataMapper.Sync;
         foreach (var command in response.Element(sync + "Commands")?.Elements() ?? Enumerable.Empty<XElement>())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var remoteId = Required(command, sync + "ServerId");
-            if (command.Name.LocalName is "Delete" or "SoftDelete")
+            var remoteId = command.Element(sync + "ServerId")?.Value;
+            if (string.IsNullOrEmpty(remoteId))
             {
-                await DeleteProjectionAsync(state, remoteId).ConfigureAwait(false);
+                Serilog.Log.Warning("EAS collection {Collection} for {Account} returned a {Command} without an item id; skipped.", state.Name, _account.Address, command.Name.LocalName);
                 continue;
             }
-            if (command.Name.LocalName is not ("Add" or "Change"))
-                throw new InvalidDataException("The EAS server returned an unknown synchronization operation.");
 
-            var key = EasDataMapper.Key(_account.Id, state.ServerId, remoteId);
-            var shadow = await _database.Connection.FindAsync<EasItemShadow>(key).ConfigureAwait(false);
-            var incoming = command.Element(sync + "ApplicationData") ?? throw new InvalidDataException("EAS application data is missing.");
-            var previous = shadow?.ApplicationData;
-            if (previous != null && ItemClass(state.Type) != "Email")
+            XElement? data = null;
+            try
             {
-                var retained = Parse(previous);
-                retained.Elements().Where(element => element.Name != EasDataMapper.Body + "Body" && element.Name != EasDataMapper.Contact + "Picture").Remove();
-                previous = retained.ToString(SaveOptions.DisableFormatting);
+                if (command.Name.LocalName is "Delete" or "SoftDelete")
+                {
+                    await DeleteProjectionAsync(state, remoteId).ConfigureAwait(false);
+                    continue;
+                }
+                if (command.Name.LocalName is not ("Add" or "Change"))
+                {
+                    Serilog.Log.Warning("EAS collection {Collection} for {Account} returned an unknown {Command}; skipped.", state.Name, _account.Address, command.Name.LocalName);
+                    continue;
+                }
+
+                var incoming = command.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData");
+                data = await MergeWithShadowAsync(state, remoteId, incoming).ConfigureAwait(false);
+                // Match identities across transports only after the complete snapshot establishes unique candidates.
+                if (string.IsNullOrEmpty(state.Generation) || ItemClass(state.Type) is not ("Contacts" or "Tasks"))
+                    await ProjectAsync(state, remoteId, data, downloaded, cancellationToken).ConfigureAwait(false);
             }
-            var data = Merge(previous, incoming);
-            // Match identities across transports only after the complete snapshot establishes unique candidates.
-            if (string.IsNullOrEmpty(state.Generation) || ItemClass(state.Type) is not ("Contacts" or "Tasks"))
-                await ProjectAsync(state, remoteId, data, downloaded, cancellationToken).ConfigureAwait(false);
-            if (ItemClass(state.Type) == "Email")
-                data.Element(EasDataMapper.Body + "Body")?.Remove();
-            await _database.Connection.InsertOrReplaceAsync(new EasItemShadow { Id = key, AccountId = _account.Id,
-                CollectionId = state.Id, RemoteId = remoteId, ApplicationData = data.ToString(SaveOptions.DisableFormatting),
-                Generation = state.Generation }, typeof(EasItemShadow)).ConfigureAwait(false);
+            catch (Exception exception) when (IsItemFailure(exception, cancellationToken))
+            {
+                _itemFailed(state, remoteId, exception);
+            }
+
+            if (data != null)
+                await WriteShadowAsync(state, remoteId, data).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<XElement> MergeWithShadowAsync(EasCollection state, string remoteId, XElement incoming)
+    {
+        if (ItemClass(state.Type) == "Email")
+            return new XElement(incoming);
+        var shadow = await _database.Connection.FindAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.ServerId, remoteId)).ConfigureAwait(false);
+        var previous = shadow?.ApplicationData;
+        if (!string.IsNullOrEmpty(previous))
+        {
+            var retained = Parse(previous);
+            retained.Elements().Where(element => element.Name != EasDataMapper.Body + "Body" && element.Name != EasDataMapper.Contact + "Picture").Remove();
+            previous = retained.ToString(SaveOptions.DisableFormatting);
+        }
+        return Merge(string.IsNullOrEmpty(previous) ? null : previous, incoming);
+    }
+
+    /// <summary>
+    /// Mail shadows only record that the item exists in this collection generation; the message row holds its state,
+    /// so its application data is not kept.
+    /// </summary>
+    private Task WriteShadowAsync(EasCollection state, string remoteId, XElement data)
+        => _database.Connection.InsertOrReplaceAsync(new EasItemShadow { Id = EasDataMapper.Key(_account.Id, state.ServerId, remoteId), AccountId = _account.Id,
+            CollectionId = state.Id, RemoteId = remoteId,
+            ApplicationData = ItemClass(state.Type) == "Email" ? string.Empty : data.ToString(SaveOptions.DisableFormatting),
+            Generation = state.Generation }, typeof(EasItemShadow));
+
+    /// <summary>
+    /// Whether a failure belongs to the one item being applied. Cancellation, and the account and connection failures
+    /// that would fail every item the same way, stop the pass instead.
+    /// </summary>
+    private static bool IsItemFailure(Exception exception, CancellationToken cancellationToken) => exception switch
+    {
+        OperationCanceledException when cancellationToken.IsCancellationRequested => false,
+        EasCommandException command => IsCollectionFailure(command),
+        EasPolicyException or EasAccessDeniedException or EasRemoteWipeException or EasServerBusyException => false,
+        System.Net.Http.HttpRequestException or Wino.Core.Domain.Exceptions.AuthenticationAttentionException => false,
+        _ => true
+    };
+
+    private async Task ProjectIsolatedAsync(EasCollection state, EasItemShadow shadow, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        try { await ProjectAsync(state, shadow.RemoteId, Parse(shadow.ApplicationData), downloaded, cancellationToken).ConfigureAwait(false); }
+        catch (Exception exception) when (IsItemFailure(exception, cancellationToken))
+        {
+            _itemFailed(state, shadow.RemoteId, exception);
         }
     }
 
@@ -873,11 +933,12 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 if (data.Element(EasDataMapper.Contact + "Picture") is XElement photo)
                 {
                     var current = await _database.Connection.Table<AccountContact>().FirstOrDefaultAsync(contact => contact.AddressBookId == book.Id && contact.RemoteId == providerId).ConfigureAwait(false);
-                    if (string.IsNullOrEmpty(photo.Value))
+                    var bytes = new byte[photo.Value.Length * 3 / 4 + 3];
+                    if (string.IsNullOrEmpty(photo.Value) || !Convert.TryFromBase64String(photo.Value, bytes, out var length))
                         contact.RemotePhotoKey = string.Empty;
                     else
                     {
-                        var bytes = Convert.FromBase64String(photo.Value);
+                        bytes = bytes[..length];
                         contact.RemotePhotoKey = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
                         contact.ContactPictureFileId = current != null && current.RemotePhotoKey == contact.RemotePhotoKey ? current.ContactPictureFileId
                             : await _pictures.SavePictureAsync(PictureKind.Contact, bytes).ConfigureAwait(false);

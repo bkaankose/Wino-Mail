@@ -56,7 +56,7 @@ internal static partial class EasDataMapper
             CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed))
             return parsed.UtcDateTime;
 
-        throw new InvalidDataException("The EAS server returned an invalid timestamp.");
+        return null;
     }
 
     internal static XElement TextBody(string text) => new(Body + "Body", new XElement(Body + "Type", "1"), new XElement(Body + "Data", text ?? string.Empty));

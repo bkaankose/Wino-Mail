@@ -63,7 +63,7 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
     {
         _errorHandlerFactory = errorHandlerFactory;
         _engine = new EasSynchronizationEngine(account, database, accounts, folders, mail, calendars, contacts, tasks, pictures,
-            () => Messenger.Send(new AccountFolderConfigurationUpdated(account.Id)), ReportCollectionFailure, client);
+            () => Messenger.Send(new AccountFolderConfigurationUpdated(account.Id)), ReportCollectionFailure, ReportItemFailure, client);
         _mail = mail; _folders = folders; _contacts = contacts; _tasks = tasks; _calendars = calendars; _mime = mime;
         _pictures = pictures;
         _changeProcessor = changeProcessor;
@@ -126,6 +126,20 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
             FolderId = collection.IsMail ? collection.Id : null,
             FolderName = collection.Name,
             OperationType = "ActiveSyncCollectionSync"
+        });
+    }
+
+    private void ReportItemFailure(EasCollection collection, string remoteId, Exception exception)
+    {
+        Logger.Warning(exception, "EAS item {RemoteId} in {Collection} could not be applied for {Account}; it is skipped.", remoteId, collection.Name, Account.Name);
+        CaptureSynchronizationIssue(new SynchronizerErrorContext
+        {
+            Account = Account,
+            ErrorMessage = exception.Message,
+            Exception = exception,
+            FolderId = collection.IsMail ? collection.Id : null,
+            FolderName = collection.Name,
+            OperationType = "ActiveSyncItemSync"
         });
     }
 
