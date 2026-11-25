@@ -272,7 +272,6 @@ public class FolderService : BaseDatabaseService, IFolderService
             .ToListAsync()
             .ConfigureAwait(false);
 
-        allFolders = allFolders.Where(folder => folder.IsMailFolder).ToList();
         AssignSharedFolderDetails(allFolders);
 
         var folders = includeHiddenFolders ? allFolders : FilterVisibleFolders(allFolders);
@@ -822,9 +821,8 @@ public class FolderService : BaseDatabaseService, IFolderService
         // is honored. SQLite's default ORDER BY is not culture-aware.
         const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
         var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
-        var mailFolders = rows.Where(folder => folder.IsMailFolder).ToList();
-        AssignSharedFolderDetails(mailFolders);
-        return ApplyFolderSort(mailFolders).ToList();
+        AssignSharedFolderDetails(rows);
+        return ApplyFolderSort(rows).ToList();
     }
 
     public async Task<List<MailItemFolder>> GetFoldersByIdsAsync(
@@ -861,9 +859,8 @@ public class FolderService : BaseDatabaseService, IFolderService
         // Visibility depends on the parent chain, so hidden rows are loaded too.
         const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
         var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
-        var mailFolders = rows.Where(folder => folder.IsMailFolder).ToList();
-        AssignSharedFolderDetails(mailFolders);
-        return ApplyFolderSort(FilterVisibleFolders(mailFolders)).ToList();
+        AssignSharedFolderDetails(rows);
+        return ApplyFolderSort(FilterVisibleFolders(rows)).ToList();
     }
 
     public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)

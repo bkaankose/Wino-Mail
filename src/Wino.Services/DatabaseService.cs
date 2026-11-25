@@ -298,6 +298,7 @@ VALUES
             Connection.CreateTableAsync<CardDavResourceShadow>(),
             Connection.CreateTableAsync<EasItemShadow>(),
             Connection.CreateTableAsync<EasAccountState>(),
+            Connection.CreateTableAsync<EasCollectionState>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),
@@ -664,6 +665,8 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.EasSyncGeneration)))
             await Connection.ExecuteAsync("ALTER TABLE MailItemFolder ADD COLUMN EasSyncGeneration TEXT NOT NULL DEFAULT ''").ConfigureAwait(false);
 
+        await MigrateActiveSyncCollectionsAsync().ConfigureAwait(false);
+
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))
         {
             await Connection
@@ -957,6 +960,49 @@ SET SortKey = LOWER(COALESCE(
     (SELECT p.Number FROM ContactPhoneNumber p WHERE p.ContactId = ContactCard.Id ORDER BY p.IsPrimary DESC, p.""Order"" LIMIT 1),
     ''))
 WHERE SortKey IS NULL OR SortKey = ''").ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Databases written by the first ActiveSync build kept every collection (calendars, contacts, tasks) as a mail
+    /// folder, a local Drafts folder next to the server one, and system flags that differ from EWS. Non-mail
+    /// collections move to EasCollectionState with their ids, so EasItemShadow rows and calendars keyed on them stay
+    /// valid; local drafts move into the server Drafts folder.
+    /// </summary>
+    private async Task MigrateActiveSyncCollectionsAsync()
+    {
+        const string nonMail = "EasFolderType NOT IN (0, 1, 2, 3, 4, 5, 6, 12)";
+        const string localDrafts = "RemoteFolderId = 'eas-local-drafts'";
+
+        var legacyRows = await Connection
+            .ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM MailItemFolder WHERE {nonMail} OR {localDrafts}")
+            .ConfigureAwait(false);
+        if (legacyRows == 0)
+            return;
+
+        var deleted = (int)SpecialFolderType.Deleted;
+        var other = (int)SpecialFolderType.Other;
+        var draft = (int)SpecialFolderType.Draft;
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            transaction.Execute($@"INSERT OR IGNORE INTO EasCollectionState (Id, AccountId, ServerId, ParentServerId, Type, DisplayName, SyncKey, Generation)
+SELECT Id, MailAccountId, RemoteFolderId, COALESCE(ParentRemoteFolderId, ''), EasFolderType, COALESCE(FolderName, ''), COALESCE(DeltaToken, '0'), COALESCE(EasSyncGeneration, '')
+FROM MailItemFolder WHERE {nonMail}");
+            transaction.Execute($"DELETE FROM MailItemFolder WHERE {nonMail}");
+
+            transaction.Execute($@"UPDATE MailItemFolder SET SpecialFolderType = {draft}, IsSystemFolder = 1, IsSticky = 1, IsSynchronizationEnabled = 1
+WHERE EasFolderType = 3");
+            transaction.Execute($@"UPDATE MailCopy SET FolderId = (SELECT d.Id FROM MailItemFolder d JOIN MailItemFolder l ON l.MailAccountId = d.MailAccountId
+    WHERE l.Id = MailCopy.FolderId AND d.EasFolderType = 3 LIMIT 1)
+WHERE FolderId IN (SELECT l.Id FROM MailItemFolder l WHERE l.{localDrafts}
+    AND EXISTS (SELECT 1 FROM MailItemFolder d WHERE d.MailAccountId = l.MailAccountId AND d.EasFolderType = 3))");
+            transaction.Execute($@"DELETE FROM MailItemFolder WHERE {localDrafts}
+AND EXISTS (SELECT 1 FROM MailItemFolder d WHERE d.MailAccountId = MailItemFolder.MailAccountId AND d.EasFolderType = 3)");
+
+            transaction.Execute($@"UPDATE MailItemFolder SET IsSystemFolder = (SpecialFolderType <> {other}),
+    ShowUnreadCount = (SpecialFolderType <> {deleted}), IsCountedInAccountTotal = (SpecialFolderType <> {deleted})
+WHERE EasFolderType > 0");
+        }).ConfigureAwait(false);
     }
 
     private async Task EnsureWinoAccountSchemaAsync()

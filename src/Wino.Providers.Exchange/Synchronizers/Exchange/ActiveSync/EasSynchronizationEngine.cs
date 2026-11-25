@@ -23,6 +23,8 @@ namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 internal sealed class EasSynchronizationEngine : IDisposable
 {
+    private static readonly XNamespace FolderHierarchy = "FolderHierarchy:";
+
     private readonly MailAccount _account;
     private readonly IDatabaseService _database;
     private readonly IAccountService _accounts;
@@ -63,29 +65,37 @@ internal sealed class EasSynchronizationEngine : IDisposable
         return _client.ProtocolVersion ?? throw new InvalidDataException("The EAS protocol version was not negotiated.");
     }
 
-    internal async Task<List<MailCopy>> SynchronizeAsync(string itemClass, CancellationToken cancellationToken)
+    internal async Task<List<MailCopy>> SynchronizeMailAsync(CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-            var states = await _database.Connection.Table<MailItemFolder>().Where(state => state.MailAccountId == _account.Id && state.EasFolderType > 0).ToListAsync().ConfigureAwait(false);
-            if (!states.Any(state => ItemClass(state.EasFolderType) == itemClass))
-                throw new NotSupportedException("The EAS server did not expose a " + itemClass + " collection for this account. Check synchronization availability with your mail provider.");
+            var folders = (await LoadMailRowsAsync().ConfigureAwait(false))
+                .Where(folder => folder.EasFolderType > 0 && folder.IsSynchronizationEnabled)
+                .ToList();
             var downloaded = new List<MailCopy>();
-            foreach (var state in states.Where(state => state.EasFolderType != 3 && ItemClass(state.EasFolderType) == itemClass))
-            {
-                if (itemClass == "Email")
-                {
-                    var folder = await _folders.GetFolderAsync(_account.Id, state.RemoteFolderId).ConfigureAwait(false);
-                    if (folder?.IsSynchronizationEnabled != true)
-                        continue;
-                }
-                await SynchronizeCollectionAsync(state, downloaded, cancellationToken).ConfigureAwait(false);
-            }
+            foreach (var folder in folders)
+                await SynchronizeCollectionAsync(EasCollection.From(folder), downloaded, cancellationToken).ConfigureAwait(false);
+            return downloaded;
+        }
+        finally { _gate.Release(); }
+    }
+
+    internal async Task SynchronizeAsync(string itemClass, CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+            var states = await LoadStatesAsync().ConfigureAwait(false);
+            if (!states.Any(state => ItemClass(state.Type) == itemClass))
+                throw new NotSupportedException("The EAS server did not expose a " + itemClass + " collection for this account. Check synchronization availability with your mail provider.");
+            foreach (var state in states.Where(state => ItemClass(state.Type) == itemClass))
+                await SynchronizeCollectionAsync(EasCollection.From(state), new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
             if (itemClass == "Calendar" && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider)
             {
-                var activeCalendars = states.Where(state => ItemClass(state.EasFolderType) == "Calendar").Select(state => state.Id).ToHashSet();
+                var activeCalendars = states.Where(state => ItemClass(state.Type) == "Calendar").Select(state => state.Id).ToHashSet();
                 foreach (var previous in await _calendars.GetAccountCalendarsAsync(_account.Id).ConfigureAwait(false))
                 {
                     if (!activeCalendars.Contains(previous.Id) && !string.IsNullOrWhiteSpace(previous.RemoteCalendarId) &&
@@ -97,7 +107,6 @@ internal sealed class EasSynchronizationEngine : IDisposable
                     }
                 }
             }
-            return downloaded;
         }
         finally { _gate.Release(); }
     }
@@ -123,7 +132,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var state = await GetStateAsync(folderId).ConfigureAwait(false);
+            var state = await GetCollectionAsync(folderId).ConfigureAwait(false);
             await SynchronizeCollectionAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
             var sync = EasDataMapper.Sync;
             var command = new XElement(sync + operation,
@@ -131,12 +140,12 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (data != null)
             {
                 var shadow = operation == "Add" ? null : await _database.Connection.FindAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, folderId, remoteId)).ConfigureAwait(false);
-                var itemClass = ItemClass(state.EasFolderType);
+                var itemClass = ItemClass(state.Type);
                 command.Add(itemClass is "Email" or "Contacts" ? data
                     : itemClass == "Calendar" ? EasDataMapper.ForEventChange(Merge(shadow?.ApplicationData, data), _client.IsAtLeast("16.0"))
                     : Merge(shadow?.ApplicationData, data));
             }
-            var result = await _client.SyncAsync(folderId, state.DeltaToken, ItemClass(state.EasFolderType), new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
+            var result = await _client.SyncAsync(folderId, state.SyncKey, ItemClass(state.Type), new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
             var response = result.Element(sync + "Responses")?.Element(sync + operation);
             if (response != null)
                 EasClient.RequireSuccess(response);
@@ -158,7 +167,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 var shadow = await _database.Connection.FindAsync<EasItemShadow>(key).ConfigureAwait(false);
                 await _database.Connection.InsertOrReplaceAsync(new EasItemShadow { Id = key, AccountId = _account.Id,
                     CollectionId = state.Id, RemoteId = resultId, ApplicationData = Merge(shadow?.ApplicationData, data).ToString(SaveOptions.DisableFormatting),
-                    Generation = state.EasSyncGeneration }, typeof(EasItemShadow)).ConfigureAwait(false);
+                    Generation = state.Generation }, typeof(EasItemShadow)).ConfigureAwait(false);
             }
             await SaveKeyAsync(state, result).ConfigureAwait(false);
             return resultId;
@@ -178,48 +187,51 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (response.Element(move + "Status")?.Value != "3")
                 throw new InvalidDataException("The EAS server rejected moving the message.");
 
-            await DeleteProjectionAsync(await GetStateAsync(folderId).ConfigureAwait(false), remoteId).ConfigureAwait(false);
+            await DeleteProjectionAsync(await GetCollectionAsync(folderId).ConfigureAwait(false), remoteId).ConfigureAwait(false);
         }
         finally { _gate.Release(); }
     }
 
+    /// <summary>
+    /// FolderCreate, FolderUpdate or FolderDelete. The response carries the next hierarchy key, so the change is applied
+    /// locally here: the following FolderSync does not report it again.
+    /// </summary>
     internal async Task<string> ChangeFolderAsync(string command, string remoteId, string parentId, string displayName, int folderType, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-            XNamespace folder = "FolderHierarchy:";
-            var request = new XElement(folder + command, new XElement(folder + "SyncKey", _account.SynchronizationDeltaIdentifier));
+            var request = new XElement(FolderHierarchy + command, new XElement(FolderHierarchy + "SyncKey", HierarchyKey()));
             if (command != "FolderCreate")
-                request.Add(new XElement(folder + "ServerId", remoteId));
+                request.Add(new XElement(FolderHierarchy + "ServerId", remoteId));
             if (command != "FolderDelete")
-                request.Add(new XElement(folder + "ParentId", string.IsNullOrEmpty(parentId) ? "0" : parentId), new XElement(folder + "DisplayName", displayName));
+                request.Add(new XElement(FolderHierarchy + "ParentId", string.IsNullOrEmpty(parentId) ? "0" : parentId), new XElement(FolderHierarchy + "DisplayName", displayName));
             if (command == "FolderCreate")
-                request.Add(new XElement(folder + "Type", folderType));
+                request.Add(new XElement(FolderHierarchy + "Type", folderType));
             var response = await _client.CommandAsync(command, request, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidDataException("The EAS folder operation response is empty.");
             EasClient.RequireSuccess(response);
-            var resultId = command == "FolderCreate" ? Required(response, folder + "ServerId") : remoteId;
-            var key = EasDataMapper.StableId(EasDataMapper.Key(_account.Id, resultId, string.Empty));
-            var state = await _database.Connection.FindAsync<MailItemFolder>(key).ConfigureAwait(false);
+
+            var resultId = command == "FolderCreate" ? Required(response, FolderHierarchy + "ServerId") : remoteId;
+            var mailRows = await LoadMailRowsAsync().ConfigureAwait(false);
+            var states = await LoadStatesAsync().ConfigureAwait(false);
             if (command == "FolderDelete")
-            {
-                if (state != null)
-                    await RemoveCollectionAsync(state).ConfigureAwait(false);
-            }
+                await RemoveServerIdAsync(resultId, mailRows, states).ConfigureAwait(false);
             else
             {
-                state ??= new MailItemFolder { Id = key, MailAccountId = _account.Id, RemoteFolderId = resultId, EasFolderType = folderType,
-                    SpecialFolderType = SpecialFolderType.Other, DeltaToken = "0" };
-                state.ParentRemoteFolderId = string.IsNullOrEmpty(parentId) ? "0" : parentId;
-                state.FolderName = displayName;
-                if (ItemClass(folderType) == "Email")
-                    await EnsureCollectionAsync(state).ConfigureAwait(false);
-                await _database.Connection.InsertOrReplaceAsync(state, typeof(MailItemFolder)).ConfigureAwait(false);
+                var type = mailRows.FirstOrDefault(row => row.EasFolderType > 0 && row.RemoteFolderId == resultId)?.EasFolderType
+                    ?? states.FirstOrDefault(state => state.ServerId == resultId)?.Type ?? folderType;
+                var parent = string.IsNullOrEmpty(parentId) ? "0" : parentId;
+                if (IsMailType(type))
+                {
+                    if (_account.IsMailAccessGranted)
+                        await UpsertMailFolderAsync(resultId, parent, displayName, type, mailRows).ConfigureAwait(false);
+                }
+                else
+                    await UpsertCollectionStateAsync(resultId, parent, displayName, type, states).ConfigureAwait(false);
             }
-            _account.SynchronizationDeltaIdentifier = Required(response, folder + "SyncKey");
-            await _accounts.UpdateAccountAsync(_account).ConfigureAwait(false);
+            await SaveHierarchyKeyAsync(Required(response, FolderHierarchy + "SyncKey")).ConfigureAwait(false);
             return resultId;
         }
         finally { _gate.Release(); }
@@ -253,19 +265,20 @@ internal sealed class EasSynchronizationEngine : IDisposable
         finally { _gate.Release(); }
     }
 
+    /// <summary>
+    /// Reads the folder hierarchy. Mail collections become MailItemFolder rows, the others EasCollectionState rows.
+    /// On a full read (key 0, also after a connection method change) rows another transport stored are re-keyed in
+    /// place first, so folder ids and their settings survive, and rows the server no longer has are removed.
+    /// </summary>
     private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken)
     {
-        if (_account.IsMailAccessGranted && await _folders.GetSpecialFolderByAccountIdAsync(_account.Id, SpecialFolderType.Draft).ConfigureAwait(false) == null)
-        {
-            var id = EasDataMapper.StableId(EasDataMapper.Key(_account.Id, "eas-local-drafts", string.Empty));
-            await _folders.InsertFolderAsync(new MailItemFolder { Id = id, MailAccountId = _account.Id, RemoteFolderId = "eas-local-drafts",
-                FolderName = Wino.Core.Domain.Translator.POP3Folder_Drafts, SpecialFolderType = SpecialFolderType.Draft,
-                IsSticky = true, IsSystemFolder = true, IsSynchronizationEnabled = false }).ConfigureAwait(false);
-        }
-        XNamespace folder = "FolderHierarchy:";
-        var key = _account.SynchronizationDeltaIdentifier ?? "0";
-        if (await _database.Connection.Table<MailItemFolder>().Where(state => state.MailAccountId == _account.Id && state.EasFolderType > 0).CountAsync().ConfigureAwait(false) == 0)
+        var mailRows = await LoadMailRowsAsync().ConfigureAwait(false);
+        var states = await LoadStatesAsync().ConfigureAwait(false);
+        var hasMailCollections = mailRows.Any(row => row.EasFolderType > 0);
+        var key = HierarchyKey();
+        if ((!hasMailCollections && states.Count == 0) || (_account.IsMailAccessGranted && !hasMailCollections))
             key = "0";
+
         XElement response;
         try { response = await _client.FolderSyncAsync(key, cancellationToken).ConfigureAwait(false); }
         catch (EasCommandException exception) when (exception.Status == "9" && key != "0")
@@ -273,107 +286,263 @@ internal sealed class EasSynchronizationEngine : IDisposable
             key = "0";
             response = await _client.FolderSyncAsync(key, cancellationToken).ConfigureAwait(false);
         }
-        var changes = response.Element(folder + "Changes") ?? throw new InvalidDataException("The EAS folder changes are missing.");
+        var changes = response.Element(FolderHierarchy + "Changes") ?? throw new InvalidDataException("The EAS folder changes are missing.");
+        var entries = changes.Elements()
+            .Where(element => element.Name == FolderHierarchy + "Add" || element.Name == FolderHierarchy + "Update" || element.Name == FolderHierarchy + "Delete")
+            .ToList();
+        var fullRead = key == "0";
+
+        var staleRows = new List<MailItemFolder>();
+        if (fullRead && _account.IsMailAccessGranted)
+            await RematchFoldersAsync(mailRows, staleRows, entries).ConfigureAwait(false);
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var change in changes.Elements().Where(element =>
-            element.Name == folder + "Add" || element.Name == folder + "Update" || element.Name == folder + "Delete"))
+        foreach (var change in entries)
         {
-            var remoteId = Required(change, folder + "ServerId");
-            seen.Add(remoteId);
-            var id = EasDataMapper.StableId(EasDataMapper.Key(_account.Id, remoteId, string.Empty));
-            var state = await _database.Connection.FindAsync<MailItemFolder>(id).ConfigureAwait(false);
-            if (change.Name == folder + "Delete")
+            var serverId = change.Element(FolderHierarchy + "ServerId")?.Value;
+            if (string.IsNullOrEmpty(serverId))
+                continue;
+            seen.Add(serverId);
+            if (change.Name == FolderHierarchy + "Delete")
             {
-                if (state != null)
-                    await RemoveCollectionAsync(state).ConfigureAwait(false);
+                await RemoveServerIdAsync(serverId, mailRows, states).ConfigureAwait(false);
                 continue;
             }
 
-            state ??= new MailItemFolder { Id = id, MailAccountId = _account.Id, RemoteFolderId = remoteId,
-                SpecialFolderType = SpecialFolderType.Other, DeltaToken = "0" };
-            state.FolderName = Required(change, folder + "DisplayName");
-            state.ParentRemoteFolderId = Required(change, folder + "ParentId");
-            if (!int.TryParse(Required(change, folder + "Type"), out var type))
+            var name = Required(change, FolderHierarchy + "DisplayName");
+            var parentId = Required(change, FolderHierarchy + "ParentId");
+            if (!int.TryParse(Required(change, FolderHierarchy + "Type"), out var type))
                 throw new InvalidDataException("The EAS folder type is invalid.");
-            state.EasFolderType = type;
-            await EnsureCollectionAsync(state).ConfigureAwait(false);
-            await _database.Connection.InsertOrReplaceAsync(state, typeof(MailItemFolder)).ConfigureAwait(false);
+            if (IsMailType(type))
+            {
+                if (_account.IsMailAccessGranted)
+                    await UpsertMailFolderAsync(serverId, parentId, name, type, mailRows).ConfigureAwait(false);
+            }
+            else
+                await UpsertCollectionStateAsync(serverId, parentId, name, type, states).ConfigureAwait(false);
         }
 
-        if (key == "0")
+        if (fullRead)
         {
-            var previousMailFolders = await _folders.GetFoldersAsync(_account.Id).ConfigureAwait(false);
-            foreach (var previous in previousMailFolders.Where(item => item.EasFolderType == 0 &&
-                !string.IsNullOrEmpty(item.RemoteFolderId) && item.RemoteFolderId != "eas-local-drafts"))
-                await _folders.DeleteFolderAsync(_account.Id, previous.RemoteFolderId).ConfigureAwait(false);
-            var states = await _database.Connection.Table<MailItemFolder>().Where(state => state.MailAccountId == _account.Id && state.EasFolderType > 0).ToListAsync().ConfigureAwait(false);
-            foreach (var state in states.Where(state => !seen.Contains(state.RemoteFolderId)))
-                await RemoveCollectionAsync(state).ConfigureAwait(false);
+            foreach (var stale in staleRows)
+            {
+                await RemoveCollectionAsync(EasCollection.From(stale)).ConfigureAwait(false);
+            }
+            foreach (var stale in states.Where(state => !seen.Contains(state.ServerId)).ToList())
+            {
+                if (states.Contains(stale))
+                    await RemoveServerIdAsync(stale.ServerId, mailRows, states).ConfigureAwait(false);
+            }
         }
 
-        var activeStates = await _database.Connection.Table<MailItemFolder>().Where(state => state.MailAccountId == _account.Id && state.EasFolderType > 0).ToListAsync().ConfigureAwait(false);
-        foreach (var state in activeStates)
+        foreach (var state in states)
+        {
+            var entityId = state.EntityId;
             await EnsureCollectionAsync(state).ConfigureAwait(false);
+            if (state.EntityId != entityId)
+                await _database.Connection.ExecuteAsync("UPDATE EasCollectionState SET EntityId = ? WHERE Id = ?", state.EntityId, state.Id).ConfigureAwait(false);
+        }
 
-        _account.SynchronizationDeltaIdentifier = Required(response, folder + "SyncKey");
-        await _accounts.UpdateAccountAsync(_account).ConfigureAwait(false);
+        await SaveHierarchyKeyAsync(Required(response, FolderHierarchy + "SyncKey")).ConfigureAwait(false);
     }
 
-    private async Task EnsureCollectionAsync(MailItemFolder state)
+    /// <summary>
+    /// Matches every stored folder row to the mail collections of a full hierarchy read, through the matcher every
+    /// Exchange transport shares: rows another transport stored (EWS, MAPI, or a local Drafts folder) and ActiveSync
+    /// rows alike, because the server numbers its folders again after a FolderSync from key 0. A row whose id changes
+    /// starts its collection over; rows that match nothing are moved to <paramref name="staleRows"/>.
+    /// </summary>
+    private async Task<bool> RematchFoldersAsync(List<MailItemFolder> mailRows, List<MailItemFolder> staleRows, List<XElement> entries)
+    {
+        var incoming = new List<ExchangeFolderCandidate>();
+        var types = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var add in entries.Where(entry => entry.Name == FolderHierarchy + "Add"))
+        {
+            var serverId = add.Element(FolderHierarchy + "ServerId")?.Value;
+            if (string.IsNullOrEmpty(serverId) || !int.TryParse(add.Element(FolderHierarchy + "Type")?.Value, out var type) || !IsMailType(type))
+                continue;
+            types[serverId] = type;
+            incoming.Add(new ExchangeFolderCandidate(serverId, add.Element(FolderHierarchy + "ParentId")?.Value ?? "0",
+                add.Element(FolderHierarchy + "DisplayName")?.Value ?? string.Empty, ServerRole(type)));
+        }
+
+        var matches = ExchangeTransportRekey.MatchFolders(mailRows, incoming, ExchangeTransport.ActiveSync, rematchAll: true);
+        var claimed = matches.Values.ToHashSet(StringComparer.Ordinal);
+        foreach (var row in mailRows.Where(row => !matches.ContainsKey(row.Id) && row.EasFolderType > 0 &&
+            types.ContainsKey(row.RemoteFolderId ?? string.Empty) && !claimed.Contains(row.RemoteFolderId ?? string.Empty)))
+        {
+            matches[row.Id] = row.RemoteFolderId;
+            claimed.Add(row.RemoteFolderId);
+        }
+
+        var changed = false;
+        foreach (var row in mailRows.ToList())
+        {
+            if (!matches.TryGetValue(row.Id, out var serverId))
+            {
+                mailRows.Remove(row);
+                staleRows.Add(row);
+                continue;
+            }
+            if (row.EasFolderType > 0 && row.RemoteFolderId == serverId)
+                continue;
+
+            // Mail ids embed the collection id, so the downloaded mail of a re-keyed row is fetched again. Local
+            // drafts never reached the server and stay.
+            await _database.Connection.ExecuteAsync("DELETE FROM EasItemShadow WHERE CollectionId = ?", row.Id).ConfigureAwait(false);
+            await _database.Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ? AND (DraftId IS NULL OR DraftId NOT LIKE ?)",
+                row.Id, Wino.Core.Domain.Constants.LocalDraftStartPrefix + "%").ConfigureAwait(false);
+            row.RemoteFolderId = serverId;
+            row.EasFolderType = types[serverId];
+            row.DeltaToken = "0";
+            row.EasSyncGeneration = string.Empty;
+            await _database.Connection.ExecuteAsync(
+                "UPDATE MailItemFolder SET RemoteFolderId = ?, EasFolderType = ?, DeltaToken = '0', EasSyncGeneration = '' WHERE Id = ?",
+                row.RemoteFolderId, row.EasFolderType, row.Id).ConfigureAwait(false);
+            changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>
+    /// Inserts or updates a mail folder row. Inbox, Drafts, Deleted Items and Sent Items take their role from the
+    /// server type with the flags the EWS synchronizer gives the same roles. ActiveSync has no Junk or Archive role, so
+    /// a special type the user assigned to any other folder is kept.
+    /// </summary>
+    private async Task<bool> UpsertMailFolderAsync(string serverId, string parentId, string name, int type, List<MailItemFolder> mailRows)
+    {
+        var role = ServerRole(type);
+        var row = mailRows.FirstOrDefault(row => row.EasFolderType > 0 && row.RemoteFolderId == serverId);
+        if (row == null)
+        {
+            var isSystem = role != SpecialFolderType.Other;
+            row = new MailItemFolder
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = _account.Id,
+                RemoteFolderId = serverId,
+                ParentRemoteFolderId = parentId,
+                FolderName = name,
+                EasFolderType = type,
+                DeltaToken = "0",
+                SpecialFolderType = role,
+                IsSystemFolder = isSystem,
+                IsSticky = isSystem,
+                IsSynchronizationEnabled = true,
+                ShowUnreadCount = role != SpecialFolderType.Deleted,
+                IsCountedInAccountTotal = role != SpecialFolderType.Deleted,
+            };
+            await _folders.InsertFolderAsync(row).ConfigureAwait(false);
+            mailRows.Add(row);
+            return true;
+        }
+
+        var changed = row.FolderName != name || row.ParentRemoteFolderId != parentId || row.EasFolderType != type;
+        if (role != SpecialFolderType.Other && (row.SpecialFolderType != role || !row.IsSystemFolder))
+        {
+            row.SpecialFolderType = role;
+            row.IsSystemFolder = true;
+            row.IsSticky = true;
+            changed = true;
+        }
+        else if (role == SpecialFolderType.Other && ServerRoles.Contains(row.SpecialFolderType))
+        {
+            // Only the server's own folder holds a role ActiveSync reports, so a second Inbox or Drafts cannot appear.
+            row.SpecialFolderType = SpecialFolderType.Other;
+            row.IsSystemFolder = false;
+            row.IsSticky = false;
+            changed = true;
+        }
+        if (row.SpecialFolderType == SpecialFolderType.Inbox && !row.IsSticky)
+        {
+            row.IsSticky = true;
+            changed = true;
+        }
+        if (!changed)
+            return false;
+
+        row.FolderName = name;
+        row.ParentRemoteFolderId = parentId;
+        row.EasFolderType = type;
+        await _database.Connection.ExecuteAsync(
+            "UPDATE MailItemFolder SET FolderName = ?, ParentRemoteFolderId = ?, EasFolderType = ?, SpecialFolderType = ?, IsSystemFolder = ?, IsSticky = ? WHERE Id = ?",
+            row.FolderName, row.ParentRemoteFolderId, row.EasFolderType, row.SpecialFolderType, row.IsSystemFolder, row.IsSticky, row.Id).ConfigureAwait(false);
+        return true;
+    }
+
+    private async Task UpsertCollectionStateAsync(string serverId, string parentId, string name, int type, List<EasCollectionState> states)
+    {
+        var state = states.FirstOrDefault(state => state.ServerId == serverId);
+        if (state == null)
+        {
+            state = new EasCollectionState { Id = EasDataMapper.StableId(EasDataMapper.Key(_account.Id, serverId, string.Empty)),
+                AccountId = _account.Id, ServerId = serverId, SyncKey = "0" };
+            states.Add(state);
+        }
+        state.ParentServerId = parentId;
+        state.DisplayName = name;
+        state.Type = type;
+        await EnsureCollectionAsync(state).ConfigureAwait(false);
+        await _database.Connection.InsertOrReplaceAsync(state, typeof(EasCollectionState)).ConfigureAwait(false);
+    }
+
+    private async Task<bool> RemoveServerIdAsync(string serverId, List<MailItemFolder> mailRows, List<EasCollectionState> states)
+    {
+        var mailChanged = false;
+        foreach (var row in mailRows.Where(row => row.EasFolderType > 0 && row.RemoteFolderId == serverId).ToList())
+        {
+            await RemoveCollectionAsync(EasCollection.From(row)).ConfigureAwait(false);
+            mailRows.Remove(row);
+            mailChanged = true;
+        }
+        foreach (var state in states.Where(state => state.ServerId == serverId).ToList())
+        {
+            await RemoveCollectionAsync(EasCollection.From(state)).ConfigureAwait(false);
+            states.Remove(state);
+        }
+        return mailChanged;
+    }
+
+    private async Task EnsureCollectionAsync(EasCollectionState state)
     {
         var id = state.Id;
         var color = string.IsNullOrWhiteSpace(_account.AccountColorHex) ? ColorPalette.GetColors()[0] : _account.AccountColorHex;
-        switch (ItemClass(state.EasFolderType))
+        switch (ItemClass(state.Type))
         {
-            case "Email" when _account.IsMailAccessGranted && state.EasFolderType != 3:
-                var folder = await _folders.GetFolderAsync(_account.Id, state.RemoteFolderId).ConfigureAwait(false);
-                if (folder == null)
-                {
-                    var special = state.EasFolderType switch { 2 => SpecialFolderType.Inbox, 3 => SpecialFolderType.Draft,
-                        4 => SpecialFolderType.Deleted, 5 => SpecialFolderType.Sent, _ => SpecialFolderType.Other };
-                    state.SpecialFolderType = special;
-                    state.IsSynchronizationEnabled = true;
-                    state.IsSticky = special != SpecialFolderType.Other;
-                    state.ShowUnreadCount = true;
-                    await _folders.InsertFolderAsync(state).ConfigureAwait(false);
-                }
-                else
-                {
-                    await _folders.UpdateFolderAsync(state).ConfigureAwait(false);
-                }
-                break;
             case "Calendar" when _account.IsCalendarAccessGranted && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider:
                 var calendar = await _database.Connection.FindAsync<AccountCalendar>(id).ConfigureAwait(false);
                 if (calendar == null)
                     await _calendars.InsertAccountCalendarAsync(new AccountCalendar { Id = id, AccountId = _account.Id,
-                        RemoteCalendarId = state.RemoteFolderId, Name = state.FolderName, IsPrimary = state.EasFolderType == 8,
+                        RemoteCalendarId = state.ServerId, Name = state.DisplayName, IsPrimary = state.Type == 8,
                         BackgroundColorHex = color, MailAccount = _account, TimeZone = "UTC" }).ConfigureAwait(false);
-                else
+                else if (calendar.Name != state.DisplayName || string.IsNullOrWhiteSpace(calendar.BackgroundColorHex))
                 {
                     calendar.MailAccount = _account;
-                    calendar.Name = state.FolderName;
+                    calendar.Name = state.DisplayName;
                     if (string.IsNullOrWhiteSpace(calendar.BackgroundColorHex))
                         calendar.BackgroundColorHex = color;
                     await _calendars.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
                 }
+                state.EntityId = id;
                 break;
             case "Contacts" when _account.IsContactAccessGranted && _account.ContactIntegrationSource == AccountIntegrationSource.Provider:
-                var bookId = EasDataMapper.ProviderId(state.RemoteFolderId);
+                var bookId = EasDataMapper.ProviderId(state.ServerId);
                 var books = await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false);
-                if (state.EasFolderType == 9 && !books.Any(book => book.SourceKind == ContactSourceKind.Exchange && book.RemoteId == bookId))
+                if (state.Type == 9 && !books.Any(book => book.SourceKind == ContactSourceKind.Exchange && book.RemoteId == bookId))
                 {
                     var carried = books.Where(book => book.SourceKind == ContactSourceKind.Exchange && book.IsDefault &&
                         ExchangeTransportRekey.IsOtherTransport(book.RemoteId, bookId)).ToList();
                     if (carried.Count == 1)
                         await _contacts.RekeyAddressBookAsync(carried[0].Id, bookId, new Dictionary<Guid, string>()).ConfigureAwait(false);
                 }
-                await _contacts.GetOrCreateProviderAddressBookAsync(_account.Id, ContactSourceKind.Exchange, bookId, state.FolderName, state.EasFolderType == 9).ConfigureAwait(false);
+                var book = await _contacts.GetOrCreateProviderAddressBookAsync(_account.Id, ContactSourceKind.Exchange, bookId, state.DisplayName, state.Type == 9).ConfigureAwait(false);
+                state.EntityId = book?.Id;
                 break;
             case "Tasks" when _account.IsTaskAccessGranted && _account.TaskIntegrationSource == AccountIntegrationSource.Provider:
-                var listId = EasDataMapper.ProviderId(state.RemoteFolderId);
+                var listId = EasDataMapper.ProviderId(state.ServerId);
                 var lists = await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false);
                 var list = lists.FirstOrDefault(list => list.RemoteId == listId && list.SourceKind == TaskSourceKind.Exchange);
-                if (list == null && state.EasFolderType == 7)
+                if (list == null && state.Type == 7)
                 {
                     var carried = lists.Where(item => item.SourceKind == TaskSourceKind.Exchange && item.IsDefault &&
                         ExchangeTransportRekey.IsOtherTransport(item.RemoteId, listId)).ToList();
@@ -387,18 +556,47 @@ internal sealed class EasSynchronizationEngine : IDisposable
                     }
                 }
                 list ??= new AccountTaskList { Id = id, MailAccountId = _account.Id, SourceKind = TaskSourceKind.Exchange, RemoteId = listId,
-                    IsDefault = state.EasFolderType == 7, ColorHex = color };
-                list.Title = state.FolderName;
+                    IsDefault = state.Type == 7, ColorHex = color };
+                list.Title = state.DisplayName;
                 await _tasks.UpsertRemoteTaskListAsync(list).ConfigureAwait(false);
+                state.EntityId = list.Id;
                 break;
         }
     }
 
-    private async Task SynchronizeCollectionAsync(MailItemFolder state, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    private string HierarchyKey() => string.IsNullOrEmpty(_account.SynchronizationDeltaIdentifier) ? "0" : _account.SynchronizationDeltaIdentifier;
+
+    private async Task SaveHierarchyKeyAsync(string key)
+    {
+        _account.SynchronizationDeltaIdentifier = key;
+        await _database.Connection.ExecuteAsync("UPDATE MailAccount SET SynchronizationDeltaIdentifier = ? WHERE Id = ?", key, _account.Id).ConfigureAwait(false);
+    }
+
+    private Task<List<MailItemFolder>> LoadMailRowsAsync()
+        => _database.Connection.QueryAsync<MailItemFolder>("SELECT * FROM MailItemFolder WHERE MailAccountId = ?", _account.Id);
+
+    private Task<List<EasCollectionState>> LoadStatesAsync()
+        => _database.Connection.Table<EasCollectionState>().Where(state => state.AccountId == _account.Id).ToListAsync();
+
+    private static bool IsMailType(int type) => ItemClass(type) == "Email";
+
+    private static readonly SpecialFolderType[] ServerRoles =
+        [SpecialFolderType.Inbox, SpecialFolderType.Draft, SpecialFolderType.Deleted, SpecialFolderType.Sent];
+
+    private static SpecialFolderType ServerRole(int type) => type switch
+    {
+        2 => SpecialFolderType.Inbox,
+        3 => SpecialFolderType.Draft,
+        4 => SpecialFolderType.Deleted,
+        5 => SpecialFolderType.Sent,
+        _ => SpecialFolderType.Other
+    };
+
+    private async Task SynchronizeCollectionAsync(EasCollection state, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
         var sync = EasDataMapper.Sync;
         var recovered = false;
-        if (ItemClass(state.EasFolderType) == "Calendar" && state.DeltaToken != "0" && string.IsNullOrEmpty(state.EasSyncGeneration))
+        if (ItemClass(state.Type) == "Calendar" && state.SyncKey != "0" && string.IsNullOrEmpty(state.Generation))
         {
             var shadows = await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false);
             var duplicateClientIds = shadows.Select(shadow => EasDataMapper.ClientEventId(Parse(shadow.ApplicationData)))
@@ -408,27 +606,27 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 var local = await _database.Connection.FindAsync<CalendarItem>(clientId).ConfigureAwait(false);
                 if (local?.CalendarId == state.Id)
                 {
-                    state.DeltaToken = "0";
+                    state.SyncKey = "0";
                     break;
                 }
             }
         }
-        if (state.DeltaToken == "0")
+        if (state.SyncKey == "0")
         {
-            state.EasSyncGeneration = Guid.NewGuid().ToString("N");
-            var handshake = await _client.SyncAsync(state.RemoteFolderId, "0", ItemClass(state.EasFolderType), null, cancellationToken).ConfigureAwait(false);
+            state.Generation = Guid.NewGuid().ToString("N");
+            var handshake = await _client.SyncAsync(state.ServerId, "0", ItemClass(state.Type), null, cancellationToken).ConfigureAwait(false);
             await SaveKeyAsync(state, handshake).ConfigureAwait(false);
         }
 
         for (var page = 0; page < 10000; page++)
         {
             XElement response;
-            try { response = await _client.SyncAsync(state.RemoteFolderId, state.DeltaToken, ItemClass(state.EasFolderType), null, cancellationToken).ConfigureAwait(false); }
+            try { response = await _client.SyncAsync(state.ServerId, state.SyncKey, ItemClass(state.Type), null, cancellationToken).ConfigureAwait(false); }
             catch (EasCommandException exception) when (exception.Status == "3" && !recovered)
             {
                 recovered = true;
-                state.EasSyncGeneration = Guid.NewGuid().ToString("N");
-                var handshake = await _client.SyncAsync(state.RemoteFolderId, "0", ItemClass(state.EasFolderType), null, cancellationToken).ConfigureAwait(false);
+                state.Generation = Guid.NewGuid().ToString("N");
+                var handshake = await _client.SyncAsync(state.ServerId, "0", ItemClass(state.Type), null, cancellationToken).ConfigureAwait(false);
                 await SaveKeyAsync(state, handshake).ConfigureAwait(false);
                 continue;
             }
@@ -436,14 +634,14 @@ internal sealed class EasSynchronizationEngine : IDisposable
             await SaveKeyAsync(state, response).ConfigureAwait(false);
             if (response.Element(sync + "MoreAvailable") == null)
             {
-                if (!string.IsNullOrEmpty(state.EasSyncGeneration))
+                if (!string.IsNullOrEmpty(state.Generation))
                 {
                     var shadows = await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false);
-                    await ReconcileResetAsync(state, shadows.Where(shadow => shadow.Generation == state.EasSyncGeneration).ToList(), downloaded, cancellationToken).ConfigureAwait(false);
-                    foreach (var shadow in shadows.Where(shadow => shadow.Generation != state.EasSyncGeneration))
+                    await ReconcileResetAsync(state, shadows.Where(shadow => shadow.Generation == state.Generation).ToList(), downloaded, cancellationToken).ConfigureAwait(false);
+                    foreach (var shadow in shadows.Where(shadow => shadow.Generation != state.Generation))
                         await DeleteProjectionAsync(state, shadow.RemoteId).ConfigureAwait(false);
-                    state.EasSyncGeneration = string.Empty;
-                    await _database.Connection.UpdateAsync(state, typeof(MailItemFolder)).ConfigureAwait(false);
+                    state.Generation = string.Empty;
+                    await SaveSyncStateAsync(state).ConfigureAwait(false);
                 }
                 return;
             }
@@ -451,13 +649,13 @@ internal sealed class EasSynchronizationEngine : IDisposable
         throw new InvalidDataException("The EAS server exceeded the synchronization page limit.");
     }
 
-    private async Task ReconcileResetAsync(MailItemFolder state, List<EasItemShadow> snapshot, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    private async Task ReconcileResetAsync(EasCollection state, List<EasItemShadow> snapshot, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
-        var itemClass = ItemClass(state.EasFolderType);
+        var itemClass = ItemClass(state.Type);
         if (itemClass is not ("Contacts" or "Tasks"))
             return;
 
-        var folderId = EasDataMapper.ProviderId(state.RemoteFolderId);
+        var folderId = EasDataMapper.ProviderId(state.ServerId);
         var remoteIds = snapshot.Select(shadow => EasDataMapper.ProviderId(shadow.RemoteId)).ToHashSet(StringComparer.Ordinal);
         if (itemClass == "Contacts")
         {
@@ -474,7 +672,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
             var deleted = (await _contacts.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false))
                 .Where(item => item.PendingMutation == ContactPendingMutation.None && !string.IsNullOrEmpty(item.RemoteId) && !remoteIds.Contains(item.RemoteId))
                 .Select(item => item.RemoteId).ToArray();
-            await _contacts.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch(Array.Empty<AccountContact>(), deleted, state.DeltaToken), false).ConfigureAwait(false);
+            await _contacts.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch(Array.Empty<AccountContact>(), deleted, state.SyncKey), false).ConfigureAwait(false);
         }
         else
         {
@@ -492,11 +690,11 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 .Where(item => item.PendingMutation == TaskPendingMutation.None && !string.IsNullOrEmpty(item.RemoteId) && !remoteIds.Contains(item.RemoteId))
                 .Select(item => item.RemoteId).ToArray();
             await _tasks.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta { TaskListId = list.Id, DeletedTaskRemoteIds = deleted,
-                TaskDeltaLink = state.DeltaToken }).ConfigureAwait(false);
+                TaskDeltaLink = state.SyncKey }).ConfigureAwait(false);
         }
     }
 
-    private async Task ApplyPageAsync(MailItemFolder state, XElement response, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    private async Task ApplyPageAsync(EasCollection state, XElement response, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
         var sync = EasDataMapper.Sync;
         foreach (var command in response.Element(sync + "Commands")?.Elements() ?? Enumerable.Empty<XElement>())
@@ -511,11 +709,11 @@ internal sealed class EasSynchronizationEngine : IDisposable
             if (command.Name.LocalName is not ("Add" or "Change"))
                 throw new InvalidDataException("The EAS server returned an unknown synchronization operation.");
 
-            var key = EasDataMapper.Key(_account.Id, state.RemoteFolderId, remoteId);
+            var key = EasDataMapper.Key(_account.Id, state.ServerId, remoteId);
             var shadow = await _database.Connection.FindAsync<EasItemShadow>(key).ConfigureAwait(false);
             var incoming = command.Element(sync + "ApplicationData") ?? throw new InvalidDataException("EAS application data is missing.");
             var previous = shadow?.ApplicationData;
-            if (previous != null && ItemClass(state.EasFolderType) != "Email")
+            if (previous != null && ItemClass(state.Type) != "Email")
             {
                 var retained = Parse(previous);
                 retained.Elements().Where(element => element.Name != EasDataMapper.Body + "Body" && element.Name != EasDataMapper.Contact + "Picture").Remove();
@@ -523,24 +721,24 @@ internal sealed class EasSynchronizationEngine : IDisposable
             }
             var data = Merge(previous, incoming);
             // Match identities across transports only after the complete snapshot establishes unique candidates.
-            if (string.IsNullOrEmpty(state.EasSyncGeneration) || ItemClass(state.EasFolderType) is not ("Contacts" or "Tasks"))
+            if (string.IsNullOrEmpty(state.Generation) || ItemClass(state.Type) is not ("Contacts" or "Tasks"))
                 await ProjectAsync(state, remoteId, data, downloaded, cancellationToken).ConfigureAwait(false);
-            if (ItemClass(state.EasFolderType) == "Email")
+            if (ItemClass(state.Type) == "Email")
                 data.Element(EasDataMapper.Body + "Body")?.Remove();
             await _database.Connection.InsertOrReplaceAsync(new EasItemShadow { Id = key, AccountId = _account.Id,
                 CollectionId = state.Id, RemoteId = remoteId, ApplicationData = data.ToString(SaveOptions.DisableFormatting),
-                Generation = state.EasSyncGeneration }, typeof(EasItemShadow)).ConfigureAwait(false);
+                Generation = state.Generation }, typeof(EasItemShadow)).ConfigureAwait(false);
         }
     }
 
-    private async Task ProjectAsync(MailItemFolder state, string remoteId, XElement data, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    private async Task ProjectAsync(EasCollection state, string remoteId, XElement data, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
         var id = state.Id;
-        switch (ItemClass(state.EasFolderType))
+        switch (ItemClass(state.Type))
         {
             case "Email":
                 var folder = await _folders.GetFolderAsync(id).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS mail folder is missing.");
-                var existing = await _mail.GetSingleMailItemAsync(EasDataMapper.Key(_account.Id, state.RemoteFolderId, remoteId), state.RemoteFolderId).ConfigureAwait(false);
+                var existing = await _mail.GetSingleMailItemAsync(EasDataMapper.Key(_account.Id, state.ServerId, remoteId), state.ServerId).ConfigureAwait(false);
                 var cutoff = _account.InitialSynchronizationRange.ToCutoffDateUtc(_account.CreatedAt ?? DateTime.UtcNow);
                 XNamespace emailFields = "Email:";
                 var received = EasDataMapper.Date(EasDataMapper.Value(data, emailFields, "DateReceived"));
@@ -558,7 +756,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 }
                 if (body == null || EasDataMapper.Value(body, EasDataMapper.Body, "Type") != "4" || EasDataMapper.Value(body, EasDataMapper.Body, "Truncated") == "1")
                 {
-                    var fetched = await _client.FetchAsync(state.RemoteFolderId, remoteId, cancellationToken).ConfigureAwait(false);
+                    var fetched = await _client.FetchAsync(state.ServerId, remoteId, cancellationToken).ConfigureAwait(false);
                     data = Merge(data.ToString(SaveOptions.DisableFormatting), fetched);
                 }
                 var package = EasDataMapper.Mail(EasDataMapper.ReadMime(data), folder, remoteId, data);
@@ -577,7 +775,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                 }
                 break;
             case "Contacts":
-                var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).First(item => item.RemoteId == EasDataMapper.ProviderId(state.RemoteFolderId) && item.SourceKind == ContactSourceKind.Exchange);
+                var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).First(item => item.RemoteId == EasDataMapper.ProviderId(state.ServerId) && item.SourceKind == ContactSourceKind.Exchange);
                 var providerId = EasDataMapper.ProviderId(remoteId);
                 var contact = EasDataMapper.ReadContact(data, _account.Id, book.Id, providerId);
                 if (data.Element(EasDataMapper.Contact + "Picture") is XElement photo)
@@ -593,12 +791,12 @@ internal sealed class EasSynchronizationEngine : IDisposable
                             : await _pictures.SavePictureAsync(PictureKind.Contact, bytes).ConfigureAwait(false);
                     }
                 }
-                await _contacts.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch(new[] { contact }, Array.Empty<string>(), state.DeltaToken), false).ConfigureAwait(false);
+                await _contacts.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch(new[] { contact }, Array.Empty<string>(), state.SyncKey), false).ConfigureAwait(false);
                 break;
             case "Tasks":
-                var list = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false)).First(list => list.RemoteId == EasDataMapper.ProviderId(state.RemoteFolderId) && list.SourceKind == TaskSourceKind.Exchange);
+                var list = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false)).First(list => list.RemoteId == EasDataMapper.ProviderId(state.ServerId) && list.SourceKind == TaskSourceKind.Exchange);
                 await _tasks.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta { TaskListId = list.Id,
-                    Tasks = new[] { EasDataMapper.ReadTask(data, list, EasDataMapper.ProviderId(remoteId)) }, TaskDeltaLink = state.DeltaToken }).ConfigureAwait(false);
+                    Tasks = new[] { EasDataMapper.ReadTask(data, list, EasDataMapper.ProviderId(remoteId)) }, TaskDeltaLink = state.SyncKey }).ConfigureAwait(false);
                 break;
             case "Calendar":
                 var calendar = await _calendars.GetAccountCalendarAsync(id).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS calendar is missing.");
@@ -666,66 +864,88 @@ internal sealed class EasSynchronizationEngine : IDisposable
         }
     }
 
-    private async Task DeleteProjectionAsync(MailItemFolder state, string remoteId)
+    private async Task DeleteProjectionAsync(EasCollection state, string remoteId)
     {
         var id = state.Id;
-        switch (ItemClass(state.EasFolderType))
+        switch (ItemClass(state.Type))
         {
             case "Email":
-                await _mail.DeleteMailAsync(_account.Id, EasDataMapper.Key(_account.Id, state.RemoteFolderId, remoteId)).ConfigureAwait(false);
+                await _mail.DeleteMailAsync(_account.Id, EasDataMapper.Key(_account.Id, state.ServerId, remoteId)).ConfigureAwait(false);
                 break;
             case "Calendar":
                 await _calendars.DeleteCalendarItemAsync(remoteId, id).ConfigureAwait(false);
                 break;
             case "Contacts":
-                var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).FirstOrDefault(item => item.RemoteId == EasDataMapper.ProviderId(state.RemoteFolderId) && item.SourceKind == ContactSourceKind.Exchange);
+                var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).FirstOrDefault(item => item.RemoteId == EasDataMapper.ProviderId(state.ServerId) && item.SourceKind == ContactSourceKind.Exchange);
                 if (book != null)
-                    await _contacts.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch(Array.Empty<AccountContact>(), new[] { EasDataMapper.ProviderId(remoteId) }, state.DeltaToken), false).ConfigureAwait(false);
+                    await _contacts.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch(Array.Empty<AccountContact>(), new[] { EasDataMapper.ProviderId(remoteId) }, state.SyncKey), false).ConfigureAwait(false);
                 break;
             case "Tasks":
-                var list = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false)).FirstOrDefault(list => list.RemoteId == EasDataMapper.ProviderId(state.RemoteFolderId) && list.SourceKind == TaskSourceKind.Exchange);
+                var list = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false)).FirstOrDefault(list => list.RemoteId == EasDataMapper.ProviderId(state.ServerId) && list.SourceKind == TaskSourceKind.Exchange);
                 if (list != null)
-                    await _tasks.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta { TaskListId = list.Id, DeletedTaskRemoteIds = new[] { EasDataMapper.ProviderId(remoteId) }, TaskDeltaLink = state.DeltaToken }).ConfigureAwait(false);
+                    await _tasks.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta { TaskListId = list.Id, DeletedTaskRemoteIds = new[] { EasDataMapper.ProviderId(remoteId) }, TaskDeltaLink = state.SyncKey }).ConfigureAwait(false);
                 break;
         }
-        await _database.Connection.DeleteAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.RemoteFolderId, remoteId)).ConfigureAwait(false);
+        await _database.Connection.DeleteAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.ServerId, remoteId)).ConfigureAwait(false);
     }
 
-    private async Task RemoveCollectionAsync(MailItemFolder state)
+    private async Task RemoveCollectionAsync(EasCollection state)
     {
         var shadows = await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false);
         foreach (var shadow in shadows)
             await DeleteProjectionAsync(state, shadow.RemoteId).ConfigureAwait(false);
 
-        switch (ItemClass(state.EasFolderType))
+        if (state.IsMail)
         {
-            case "Email": await _folders.DeleteFolderAsync(_account.Id, state.RemoteFolderId).ConfigureAwait(false); break;
+            await _database.Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ?", state.Id).ConfigureAwait(false);
+            await _database.Connection.DeleteAsync<MailItemFolder>(state.Id).ConfigureAwait(false);
+            return;
+        }
+
+        switch (ItemClass(state.Type))
+        {
             case "Calendar":
                 var calendar = await _database.Connection.FindAsync<AccountCalendar>(state.Id).ConfigureAwait(false);
-                if (calendar != null) calendar.MailAccount = _account;
-                if (calendar != null) await _calendars.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+                if (calendar != null)
+                {
+                    calendar.MailAccount = _account;
+                    await _calendars.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+                }
                 break;
             case "Tasks":
-                var list = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false)).FirstOrDefault(list => list.RemoteId == EasDataMapper.ProviderId(state.RemoteFolderId) && list.SourceKind == TaskSourceKind.Exchange);
+                var list = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false)).FirstOrDefault(list => list.RemoteId == EasDataMapper.ProviderId(state.ServerId) && list.SourceKind == TaskSourceKind.Exchange);
                 if (list != null) await _tasks.RemoveTaskListAsync(list.Id).ConfigureAwait(false);
                 break;
             case "Contacts":
-                var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).FirstOrDefault(item => item.RemoteId == EasDataMapper.ProviderId(state.RemoteFolderId) && item.SourceKind == ContactSourceKind.Exchange);
+                var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).FirstOrDefault(item => item.RemoteId == EasDataMapper.ProviderId(state.ServerId) && item.SourceKind == ContactSourceKind.Exchange);
                 if (book != null) await _contacts.DeleteAddressBookAsync(book.Id).ConfigureAwait(false);
                 break;
         }
-        await _database.Connection.DeleteAsync<MailItemFolder>(state.Id).ConfigureAwait(false);
+        await _database.Connection.DeleteAsync<EasCollectionState>(state.Id).ConfigureAwait(false);
     }
 
-    private Task<MailItemFolder> GetStateAsync(string folderId) => _database.Connection.GetAsync<MailItemFolder>(EasDataMapper.StableId(EasDataMapper.Key(_account.Id, folderId, string.Empty)));
-
-    private async Task SaveKeyAsync(MailItemFolder state, XElement response)
+    private async Task<EasCollection> GetCollectionAsync(string serverId)
     {
-        state.DeltaToken = Required(response, EasDataMapper.Sync + "SyncKey");
-        if (state.DeltaToken == "0")
-            throw new InvalidDataException("The EAS server returned an invalid synchronization key.");
-        await _database.Connection.UpdateAsync(state, typeof(MailItemFolder)).ConfigureAwait(false);
+        var folder = await _database.Connection.Table<MailItemFolder>()
+            .FirstOrDefaultAsync(row => row.MailAccountId == _account.Id && row.RemoteFolderId == serverId && row.EasFolderType > 0).ConfigureAwait(false);
+        if (folder != null)
+            return EasCollection.From(folder);
+        var state = await _database.Connection.Table<EasCollectionState>()
+            .FirstOrDefaultAsync(row => row.AccountId == _account.Id && row.ServerId == serverId).ConfigureAwait(false);
+        return state != null ? EasCollection.From(state) : throw new InvalidOperationException("The EAS collection is not synchronized yet.");
     }
+
+    private async Task SaveKeyAsync(EasCollection state, XElement response)
+    {
+        state.SyncKey = Required(response, EasDataMapper.Sync + "SyncKey");
+        if (state.SyncKey == "0")
+            throw new InvalidDataException("The EAS server returned an invalid synchronization key.");
+        await SaveSyncStateAsync(state).ConfigureAwait(false);
+    }
+
+    private Task SaveSyncStateAsync(EasCollection state) => state.IsMail
+        ? _database.Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = ?, EasSyncGeneration = ? WHERE Id = ?", state.SyncKey, state.Generation, state.Id)
+        : _database.Connection.ExecuteAsync("UPDATE EasCollectionState SET SyncKey = ?, Generation = ? WHERE Id = ?", state.SyncKey, state.Generation, state.Id);
 
     internal static XElement Merge(string? previous, XElement incoming)
     {
