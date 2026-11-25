@@ -218,7 +218,7 @@ internal static partial class EasDataMapper
                 result.PostalAddresses.Add(address);
         }
 
-        var birthday = Date(Value(data, Contact, "Birthday"));
+        var birthday = ReadBirthday(Value(data, Contact, "Birthday"));
         result.BirthdayYear = birthday?.Year; result.BirthdayMonth = birthday?.Month; result.BirthdayDay = birthday?.Day;
         return result;
     }
@@ -261,8 +261,8 @@ internal static partial class EasDataMapper
                 new XElement(Contact + (prefix + "AddressPostalCode"), address?.PostalCode ?? string.Empty), new XElement(Contact + (prefix + "AddressCountry"), address?.Country ?? string.Empty));
         }
 
-        if (item.BirthdayMonth.HasValue && item.BirthdayDay.HasValue)
-            data.Add(new XElement(Contact + "Birthday", new DateTime(item.BirthdayYear ?? 1604, item.BirthdayMonth.Value, item.BirthdayDay.Value).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)));
+        if (item.BirthdayMonth is { } month && item.BirthdayDay is { } day && month is >= 1 and <= 12 && day >= 1 && day <= DateTime.DaysInMonth(item.BirthdayYear ?? 1604, month))
+            data.Add(new XElement(Contact + "Birthday", LocalMidnightUtc(new DateTime(item.BirthdayYear ?? 1604, month, day)).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)));
         else
             data.Add(new XElement(Contact + "Birthday"));
 
@@ -323,4 +323,10 @@ internal static partial class EasDataMapper
         return TimeZoneInfo.ConvertTimeToUtc(midnight, TimeZoneInfo.Local);
     }
 
+    /// <summary>
+    /// A birthday is a day stored as an instant: midnight in the zone of whoever wrote it, sent in UTC. The day is the
+    /// one nearest that instant in the device's zone, so a value written in another zone does not move a day back.
+    /// </summary>
+    private static DateTime? ReadBirthday(string text)
+        => TryDate(text) is { } utc ? TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZoneInfo.Local).AddHours(12).Date : null;
 }
