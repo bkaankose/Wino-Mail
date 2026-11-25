@@ -58,6 +58,12 @@ public sealed partial class EngineMailMessageReader : IMailMessageReader
         _shouldStripTrackingParameters = shouldStripTrackingParameters;
     }
 
+    /// <summary>
+    /// The platform's look for the reply rows of conversation folding; null uses the engine's plain row.
+    /// It applies from the next message load.
+    /// </summary>
+    public FoldRowTemplate? FoldRowTemplate { get; set; }
+
     /// <summary>True while a message is loaded, also when a translated variant of it is on screen.</summary>
     public bool HasMessage => _content is not null;
 
@@ -330,6 +336,7 @@ public sealed partial class EngineMailMessageReader : IMailMessageReader
                 : options.FoldConversation ? TrimmedKinds.Reply | TrimmedKinds.Signature
                 : TrimmedKinds.Quote | TrimmedKinds.Signature,
             ReplyRow = options?.FoldConversation == true ? CreateReplyRow(Wino.Core.Domain.Translator.Reader_EarlierMessageRowTitle) : null,
+            FoldRowTemplate = FoldRowTemplate,
 
             // Block all covers images only inside the engine; web fonts and font style sheets are their own switches.
             RemoteFonts = !isEverythingBlocked,

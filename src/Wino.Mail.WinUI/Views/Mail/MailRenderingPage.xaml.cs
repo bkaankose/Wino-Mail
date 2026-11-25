@@ -111,7 +111,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             App.Current.Services.GetRequiredService<MailEngineHost>(),
             _readerPresentation,
             ViewModel.SecureMimeContextFactory,
-            () => ViewModel.ShouldStripLinkTrackingParameters);
+            () => ViewModel.ShouldStripLinkTrackingParameters)
+        {
+            FoldRowTemplate = FluentFoldRowTemplate.Instance
+        };
         _messageReader.InsightsChanged += MessageReader_InsightsChanged;
 
         InitializeWinoIntelligenceHeader();
