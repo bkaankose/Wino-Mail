@@ -365,9 +365,13 @@ internal static partial class EasDataMapper
         var pattern = new RecurrencePattern(rule[6..].Trim());
         var setPosition = pattern.BySetPosition.Count > 0 ? pattern.BySetPosition[0] : (int?)null;
         var relative = pattern.ByDay.Count > 0 && (setPosition != null || pattern.ByDay.Any(day => day.Offset is not null and not 0));
+        // A daily rule limited to weekdays recurs on those days of every week: an EAS weekly pattern. Every n days on
+        // some weekdays (n > 1) has no EAS form.
+        if (pattern.Frequency == FrequencyType.Daily && pattern.ByDay.Count > 0 && Math.Max(1, pattern.Interval) > 1)
+            throw new NotSupportedException("The event recurrence cannot be represented by EAS.");
         var type = pattern.Frequency switch
         {
-            FrequencyType.Daily => 0, FrequencyType.Weekly => 1,
+            FrequencyType.Daily => pattern.ByDay.Count > 0 ? 1 : 0, FrequencyType.Weekly => 1,
             FrequencyType.Monthly => relative ? 3 : 2, FrequencyType.Yearly => relative ? 6 : 5,
             _ => throw new NotSupportedException("The event recurrence cannot be represented by EAS.")
         };
@@ -400,12 +404,14 @@ internal static partial class EasDataMapper
 
     /// <summary>
     /// The EAS rule as an RRULE. An ordinal (WeekOfMonth, 5 = last) applies to the set of days, so "the last day" or
-    /// "the first weekday" of a month becomes BYDAY with BYSETPOS, not one ordinal per day.
+    /// "the first weekday" of a month becomes BYDAY with BYSETPOS, not one ordinal per day. A daily pattern with
+    /// DayOfWeek recurs weekly on those days, every Interval weeks.
     /// </summary>
     private static string ReadRecurrence(XElement recurrence)
     {
         var type = Value(recurrence, Calendar, "Type");
-        var frequency = type switch { "0" => "DAILY", "1" => "WEEKLY", "2" or "3" => "MONTHLY", "5" or "6" => "YEARLY",
+        var weeklyDaily = type == "0" && Value(recurrence, Calendar, "DayOfWeek").Length > 0;
+        var frequency = type switch { "0" => weeklyDaily ? "WEEKLY" : "DAILY", "1" => "WEEKLY", "2" or "3" => "MONTHLY", "5" or "6" => "YEARLY",
             _ => throw new NotSupportedException("The EAS recurrence type is not supported.") };
         var parts = new List<string> { "FREQ=" + frequency };
         foreach (var (tag, key) in new[] { ("Interval", "INTERVAL"), ("Occurrences", "COUNT"), ("DayOfMonth", "BYMONTHDAY"), ("MonthOfYear", "BYMONTH") })
@@ -432,7 +438,7 @@ internal static partial class EasDataMapper
             else
                 parts.Add("BYDAY=" + string.Join(',', days.Select(day => ordinal + day)));
         }
-        else if (type is "1" or "3" or "6")
+        else if (type is "1" or "3" or "6" || weeklyDaily)
             throw new FormatException("The EAS recurrence has no days.");
 
         return "RRULE:" + string.Join(';', parts);
