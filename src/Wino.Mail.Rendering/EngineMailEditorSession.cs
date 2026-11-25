@@ -9,6 +9,7 @@ using Wino.Editor;
 using Wino.Mail.ViewModels;
 using Wino.Renderer;
 using Wino.Renderer.Compose;
+using Wino.Renderer.Editing;
 using Wino.Renderer.Mime;
 using Wino.Renderer.Platform;
 using Wino.Renderer.Policy;
@@ -40,6 +41,11 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
     private bool _isContentCurrent;
     private EditorCommandCapabilities? _capabilities;
     private ComposeTypography _typography = new(DefaultFontFamily, 14);
+
+    // The family the user last picked in this document. The default typography only applies until then: an empty
+    // line, such as the one Enter opens, keeps the picked family instead of falling back to the inherited default.
+    private string? _pickedFontFamily;
+    private bool _isPickedFontQueued;
     private string? _spellCheckLanguage;
     private bool _isDarkMode;
     private bool _isHighContrast;
@@ -144,6 +150,7 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
             _typography = new ComposeTypography(
                 string.IsNullOrWhiteSpace(fontFamily) ? DefaultFontFamily : fontFamily,
                 Math.Clamp(fontSize, 8, 72));
+            _pickedFontFamily = null;
             _view.Composer?.Typography = _typography;
             RaiseStateChanged();
 
@@ -269,6 +276,7 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
         // Until this load shows its content the view still holds the previous document, which is no longer what the
         // host asked for. A read in that state throws instead of handing one document's content out as another's.
         _isContentCurrent = false;
+        _pickedFontFamily = null;
 
         var load = LoadCoreAsync(++_loadGeneration, start, cancellationToken);
         _loadTask = load;
@@ -450,13 +458,54 @@ public sealed partial class EngineMailEditorSession : IHtmlMailEditorSession, IC
     {
         if (_disposed) return;
 
-        CurrentState = EngineEditorMapping.ToEditorState(
-            _view.EditState,
+        var editState = _view.EditState;
+        var state = EngineEditorMapping.ToEditorState(
+            editState,
             _typography.FontFamily,
             _typography.FontSizePx,
             _isDarkMode,
             _isSpellCheckEnabled);
+
+        if (NeedsPickedFont(editState, state.FontFamily) is { } picked)
+        {
+            state = state with { FontFamily = picked };
+            QueuePickedFont();
+        }
+
+        CurrentState = state;
         StateChanged?.Invoke(this, CurrentState);
+    }
+
+    private string? NeedsPickedFont(EditState? editState, string? reportedFontFamily)
+        => _pickedFontFamily is { } picked
+           && editState is { HasSelection: false, IsCaretOnEmptyLine: true }
+           && !string.Equals(reportedFontFamily, picked, StringComparison.OrdinalIgnoreCase)
+            ? picked
+            : null;
+
+    // Applied after the engine finishes raising its state change rather than from inside it: the yield posts the rest
+    // to the UI thread's next turn (IDispatcher would run it inline). On a caret the engine only sets the style for
+    // the next typed text, so the document and the undo history are unchanged.
+    private async void QueuePickedFont()
+    {
+        if (_isPickedFontQueued) return;
+
+        _isPickedFontQueued = true;
+        await Task.Yield();
+        _isPickedFontQueued = false;
+        if (_disposed) return;
+
+        try
+        {
+            var editState = _view.EditState;
+            var reported = EngineEditorMapping.FirstFontFamily(editState?.FontFamily) ?? _typography.FontFamily;
+            if (NeedsPickedFont(editState, reported) is { } picked)
+                _view.Execute(EditCommandKind.SetFontFamily, new FontFamilyArgs(picked));
+        }
+        catch (Exception exception)
+        {
+            Log.Warning(exception, "Could not keep the picked font on an empty line.");
+        }
     }
 
     private IPlatformBackend? TryGetBackend()

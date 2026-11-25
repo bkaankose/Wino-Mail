@@ -147,7 +147,7 @@ internal static class EngineEditorMapping
         return color.A == 0 ? null : color;
     }
 
-    private static string? FirstFontFamily(string? fontFamily)
+    internal static string? FirstFontFamily(string? fontFamily)
     {
         if (string.IsNullOrWhiteSpace(fontFamily)) return null;
 

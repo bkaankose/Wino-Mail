@@ -88,6 +88,7 @@ public sealed partial class EngineMailEditorSession
                 return _view.Execute(EditCommandKind.SetAlignment, new AlignmentArgs(EngineEditorMapping.ToEngineAlignment(alignment)));
 
             case EditorCommandKind.SetFontFamily when command.Value is string { Length: > 0 } fontFamily:
+                _pickedFontFamily = fontFamily;
                 return _view.Execute(EditCommandKind.SetFontFamily, new FontFamilyArgs(fontFamily));
 
             // Both sides count the font size in CSS pixels.
