@@ -1,12 +1,17 @@
 <Project>
   <!--
     The Apple apps: the engine and the Apple backend; the AppKit view for a macOS target and the UIKit view for an iOS
-    one. Import it after the target framework is set.
+    one. Import it after the target framework is set. As packages, the Apple backend comes inside the platform's view
+    package, so a backend-only project also gets the view assembly.
   -->
   <Import Project="Wino.Renderer.Engine.props" Condition="'$(WinoRendererEngineImported)' != 'true'" />
   <PropertyGroup>
     <WinoRendererTargetPlatform>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</WinoRendererTargetPlatform>
   </PropertyGroup>
+  <ItemGroup Condition="'$(WinoRendererSource)' == 'Package'">
+    <PackageReference Include="WinoMail.Renderer.macOS" Condition="'$(WinoRendererTargetPlatform)' == 'macos'" />
+    <PackageReference Include="WinoMail.Renderer.iOS" Condition="'$(WinoRendererTargetPlatform)' == 'ios'" />
+  </ItemGroup>
   <ItemGroup Condition="'$(WinoRendererDirectory)' != ''">
     <ProjectReference Include="$(WinoRendererDirectory)platforms\Wino.Renderer.Platform.Apple\Wino.Renderer.Platform.Apple.csproj" />
     <ProjectReference Include="$(WinoRendererDirectory)platforms\Wino.Renderer.AppKit\Wino.Renderer.AppKit.csproj"

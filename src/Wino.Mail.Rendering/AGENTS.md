@@ -1,6 +1,6 @@
 # Wino.Mail.Rendering
 
-The glue between the native mail renderer (`Wino.Renderer`, a separate repository) and the shared seams of the app. Every head that reads and composes with the renderer uses this one project, so a change here changes each of them. It targets `net10.0` and references the engine through `build/Wino.Renderer.Engine.props`, so building it needs `WINO_RENDERER_ROOT` (or `-p:WinoRendererRoot`) on any machine but the maintainer's Windows PC.
+The glue between the native mail renderer (`Wino.Renderer`, a separate repository) and the shared seams of the app. Every head that reads and composes with the renderer uses this one project, so a change here changes each of them. It targets `net10.0` and references the engine through `build/Wino.Renderer.Engine.props`: the `WinoMail.Renderer` package, or a renderer checkout when `WINO_RENDERER_ROOT` (or `-p:WinoRendererRoot`) names one.
 
 ## What is here
 
@@ -25,7 +25,6 @@ The glue between the native mail renderer (`Wino.Renderer`, a separate repositor
 ## Check your change
 
 ```sh
-export WINO_RENDERER_ROOT=<path to the Wino-Mail-Renderer checkout>
 dotnet build src/Wino.Mail.Rendering/Wino.Mail.Rendering.csproj -c Debug
 dotnet build src/Wino.Mail.Rendering/Wino.Mail.Rendering.csproj -c Release
 ```

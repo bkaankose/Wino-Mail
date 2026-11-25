@@ -31,7 +31,7 @@ The Windows app: WinUI 3 pages in XAML over the shared services and ViewModels, 
 
 ## Mail renderer
 
-Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebView2. The engine is a separate repository, referenced as four projects by `build/Wino.Renderer.props`; `WinoRendererRoot` or `WINO_RENDERER_ROOT` names its checkout.
+Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebView2. The engine is a separate repository, referenced as the `WinoMail.Renderer.Windows` package (which brings `WinoMail.Renderer`) by `build/Wino.Renderer.props`; `WinoRendererRoot` or `WINO_RENDERER_ROOT` builds against a renderer checkout instead.
 
 - The glue every head on the renderer shares is in [src/Wino.Mail.Rendering](../Wino.Mail.Rendering/AGENTS.md): `MailEngineHost`, the reader and editor sessions, the reader presentation, the unsubscribe reader and the spell-check languages. It talks to the engine's `IMailView`, which the WinUI `MailView` implements. Change it there, not in this head.
 - `MailEngineHost` owns the one platform backend and the one `MailEngine` of the process. [CoreUWPContainerSetup.cs](CoreUWPContainerSetup.cs) registers it through `AddMailRendering()` with this head's `Rendering/WindowsMailEngineBackendFactory`. Never create a second engine.

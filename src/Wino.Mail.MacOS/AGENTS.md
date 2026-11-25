@@ -23,7 +23,7 @@ The macOS app: AppKit views written in C# over the shared services and ViewModel
 
 ## Mail renderer
 
-Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebKit. `build/Wino.Renderer.Apple.props` references the engine, its Core Graphics and Core Text backend (`Wino.Renderer.Platform.Apple`) and the AppKit view (`Wino.Renderer.AppKit`) from the checkout `WINO_RENDERER_ROOT` names; set it before every build.
+Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebKit. `build/Wino.Renderer.Apple.props` references the `WinoMail.Renderer.macOS` package: the engine, its Core Graphics and Core Text backend (`Wino.Renderer.Platform.Apple`) and the AppKit view (`Wino.Renderer.AppKit`). `WINO_RENDERER_ROOT` builds against a renderer checkout instead.
 
 - The glue shared with the other heads is in [src/Wino.Mail.Rendering](../Wino.Mail.Rendering/AGENTS.md) (`MailEngineHost`, `EngineMailMessageReader`, `EngineMailEditorSession`, `EngineReaderPresentation`, print documents, spell-check languages); the Apple parts (backend factory, PDF export, memory pressure) are in `src/Wino.Mail.Rendering.Apple`. Change them there.
 - [Composition.cs](Composition.cs) registers the one backend (`AppKitBackend.Create()`) and calls `AddMailRendering()`. Never create a second engine.

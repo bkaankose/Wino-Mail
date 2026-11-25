@@ -80,7 +80,7 @@ Runtime identifiers: Debug builds of the head use `android-arm64` (the Apple sil
 
 ## Build and run
 
-Every build needs the native mail renderer's checkout: `export WINO_RENDERER_ROOT=<path to Wino-Mail-Renderer>` (or pass `-p:WinoRendererRoot=`).
+The native mail renderer comes as the `WinoMail.Renderer.Android` package. To build against a renderer checkout instead, `export WINO_RENDERER_ROOT=<path to Wino-Mail-Renderer>` (or pass `-p:WinoRendererRoot=`).
 
 ```sh
 dotnet build src/Wino.Mail.Android/Wino.Mail.Android.csproj -c Debug -p:WinoTargetPlatform=Android

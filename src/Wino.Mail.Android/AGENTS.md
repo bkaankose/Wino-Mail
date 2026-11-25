@@ -21,7 +21,7 @@ The Android app: Android Views with XML layouts, AndroidX and Material Component
 - Google matches the package `com.winomail.android` and the signing certificate; Android client ids are never named in code. Each signing key needs its own registrations.
 - The browser sign-in callback scheme must equal the API's `AppCallbackUri`. It is read from `WinoAccountExternalAuth` in `Wino.Core.Domain`.
 - There is no ONNX on Android (`WINO_ML_UNSUPPORTED`).
-- Mail is read, printed and composed with the native mail renderer, never a `WebView`. `WINO_RENDERER_ROOT` (or `-p:WinoRendererRoot`) must name the renderer checkout for every build; without it the build fails. `WebView` remains only in `EmbeddedBrowserSignInDialog`, the embedded browser auth broker and the intelligence policy sheet, which load web pages.
+- Mail is read, printed and composed with the native mail renderer, never a `WebView`. It comes as the `WinoMail.Renderer.Android` package; `WINO_RENDERER_ROOT` (or `-p:WinoRendererRoot`) builds against a renderer checkout instead. `WebView` remains only in `EmbeddedBrowserSignInDialog`, the embedded browser auth broker and the intelligence policy sheet, which load web pages.
 
 ## Mail renderer
 

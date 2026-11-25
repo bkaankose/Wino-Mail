@@ -23,7 +23,7 @@ The iPhone and iPad app: UIKit views written in C# over the shared services and 
 
 ## Mail renderer
 
-Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebKit. `build/Wino.Renderer.Apple.props` references the engine, its Core Graphics and Core Text backend and the UIKit view (`Wino.Renderer.UIKit`) from the checkout `WINO_RENDERER_ROOT` names; set it before every build.
+Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebKit. `build/Wino.Renderer.Apple.props` references the `WinoMail.Renderer.iOS` package: the engine, its Core Graphics and Core Text backend and the UIKit view (`Wino.Renderer.UIKit`). `WINO_RENDERER_ROOT` builds against a renderer checkout instead.
 
 - The glue shared with the other heads is in [src/Wino.Mail.Rendering](../Wino.Mail.Rendering/AGENTS.md); the Apple parts (backend factory, PDF export, memory pressure) are in `src/Wino.Mail.Rendering.Apple`. `RegisterUIKitServices` registers the one backend (`UIKitBackend.Create()`) and calls `AddMailRendering()`; the head's `Composition` starts `MailEngineMemoryPressure`. Never create a second engine.
 - The engine's `MailView` (a `UIView` over the shared `MailViewController`) is created in code. The reader and the event description set `SizesToContent`: the page's scroll view scrolls the mail with its header, and the view draws only the part on screen. The composer, the signature and template editors and the event notes go through `Views/Mail/Compose/UIKitEngineEditor`; the format bar is the view's `InputAccessory`. `Infrastructure/UIKitEngineMailPrintPresenter` presents the print sheet and exports PDF.

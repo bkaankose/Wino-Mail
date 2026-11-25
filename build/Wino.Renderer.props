@@ -1,6 +1,9 @@
 <Project>
   <!-- The Windows app: the engine, the Windows backend and the WinUI view. -->
   <Import Project="Wino.Renderer.Engine.props" Condition="'$(WinoRendererEngineImported)' != 'true'" />
+  <ItemGroup Condition="'$(WinoRendererSource)' == 'Package'">
+    <PackageReference Include="WinoMail.Renderer.Windows" />
+  </ItemGroup>
   <ItemGroup Condition="'$(WinoRendererDirectory)' != ''">
     <ProjectReference Include="$(WinoRendererDirectory)platforms\Wino.Renderer.Platform.Windows\Wino.Renderer.Platform.Windows.csproj" />
     <ProjectReference Include="$(WinoRendererDirectory)platforms\Wino.Renderer.WinUI\Wino.Renderer.WinUI.csproj" />
