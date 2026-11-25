@@ -1,0 +1,48 @@
+﻿<ContentDialog
+    x:Class="Wino.Mail.WinUI.Dialogs.ActionCardOpenDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    AutomationProperties.AutomationId="ActionCardOpenDialog"
+    CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+    DefaultButton="Close"
+    PrimaryButtonStyle="{ThemeResource AccentButtonStyle}"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Open, Mode=OneTime}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">440</x:Double>
+        <x:Double x:Key="ContentDialogMaxWidth">540</x:Double>
+    </ContentDialog.Resources>
+
+    <StackPanel Spacing="12">
+        <TextBlock
+            x:Name="MessageText"
+            AutomationProperties.AutomationId="ActionCardOpenMessage"
+            TextWrapping="WrapWholeWords" />
+        <Border
+            Padding="12,8"
+            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="4">
+            <RichTextBlock
+                AutomationProperties.AutomationId="ActionCardOpenAddress"
+                FontFamily="Consolas"
+                IsTextSelectionEnabled="True"
+                TextWrapping="Wrap">
+                <Paragraph>
+                    <Run x:Name="HostRun" FontWeight="SemiBold" />
+                    <Run x:Name="PathRun" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Paragraph>
+            </RichTextBlock>
+        </Border>
+        <CheckBox
+            x:Name="DontAskAgainCheckBox"
+            AutomationProperties.AutomationId="ActionCardOpenDontAskAgain"
+            Content="{x:Bind domain:Translator.ActionCardOpenDialog_DontAskAgain, Mode=OneTime}" />
+    </StackPanel>
+</ContentDialog>

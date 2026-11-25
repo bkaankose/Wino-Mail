@@ -24,6 +24,10 @@ namespace Wino.Mail.Controls.IntelligenceHeader;
 [TemplatePart(Name = PartProcessingStatusTextBlockName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartChevronIconName, Type = typeof(FontIcon))]
 [TemplatePart(Name = PartBodyRootName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartHeaderIconName, Type = typeof(FontIcon))]
+[TemplatePart(Name = PartHeaderActionsPresenterName, Type = typeof(ContentPresenter))]
+[TemplatePart(Name = PartIntelligenceBodyName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartBodyContentPresenterName, Type = typeof(ContentPresenter))]
 [TemplatePart(Name = PartIntelligenceTileBarName, Type = typeof(WinoMailIntelligenceTileBar))]
 [TemplatePart(Name = PartFactsPanelName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartDeadlineFactCardName, Type = typeof(FrameworkElement))]
@@ -105,6 +109,10 @@ public sealed partial class WinoIntelligenceHeader
     private const string PartProcessingStatusTextBlockName = "PART_ProcessingStatusTextBlock";
     private const string PartChevronIconName = "PART_ChevronIcon";
     private const string PartBodyRootName = "PART_BodyRoot";
+    private const string PartHeaderIconName = "PART_HeaderIcon";
+    private const string PartHeaderActionsPresenterName = "PART_HeaderActionsPresenter";
+    private const string PartIntelligenceBodyName = "PART_IntelligenceBody";
+    private const string PartBodyContentPresenterName = "PART_BodyContentPresenter";
     private const string PartIntelligenceTileBarName = "PART_IntelligenceTileBar";
     private const string PartFactsPanelName = "PART_FactsPanel";
     private const string PartDeadlineFactCardName = "PART_DeadlineFactCard";

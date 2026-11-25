@@ -59,6 +59,31 @@
                         SuggestedReplyChosen="HeaderSuggestedReplyChosen"
                         VerificationCode="123456" />
 
+                    <!--  Host content: the same collapsible header with a card the host draws, as the reader's booking cards use it.  -->
+                    <intelligence:WinoIntelligenceHeader
+                        x:Name="HostContentHeader"
+                        AutomationProperties.AutomationId="IntelligenceHeaderPlaygroundHostContent"
+                        ExpansionChanged="HeaderExpansionChanged"
+                        HeaderGlyph="&#xE0D6;"
+                        HeaderIconBrush="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        HeaderTitle="Northern Lights Orchestra"
+                        IsExpanded="True"
+                        SubtitleText="Sun, December 14, 8:00 PM · Litware Hall">
+                        <intelligence:WinoIntelligenceHeader.HeaderActions>
+                            <Button
+                                Padding="9,3"
+                                Content="Add to calendar"
+                                CornerRadius="4"
+                                FontSize="12" />
+                        </intelligence:WinoIntelligenceHeader.HeaderActions>
+                        <intelligence:WinoIntelligenceHeader.BodyContent>
+                            <StackPanel Spacing="2">
+                                <TextBlock FontWeight="SemiBold" Text="Sunday, December 14 · 8:00 PM – 10:15 PM" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Litware Hall, Museumplein 1, Amsterdam" />
+                            </StackPanel>
+                        </intelligence:WinoIntelligenceHeader.BodyContent>
+                    </intelligence:WinoIntelligenceHeader>
+
                     <StackPanel Spacing="8">
                         <TextBlock FontWeight="SemiBold" Text="Page response" />
                         <TextBlock

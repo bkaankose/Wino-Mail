@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Editor;
@@ -521,6 +522,54 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         };
 
         return await HandleDialogPresentationAsync(dialog) == ContentDialogResult.Primary;
+    }
+
+    public async Task<ActionCardOpenConfirmation> ShowActionCardOpenConfirmationAsync(string actionName, string senderName, Uri address)
+    {
+        var dialog = new ActionCardOpenDialog(actionName, senderName, address)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        var isConfirmed = await HandleDialogPresentationAsync(dialog) == ContentDialogResult.Primary;
+
+        return new ActionCardOpenConfirmation(isConfirmed, isConfirmed && dialog.DontAskAgain);
+    }
+
+    public async Task<DraftCheckDialogResult> ShowDraftCheckDialogAsync(IReadOnlyList<DraftCheckIssueItem> issues)
+    {
+        var dialog = new DraftCheckDialog(issues)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
+    }
+
+    public async Task<string?> ShowPictureDescriptionDialogAsync(string? currentDescription)
+    {
+        var dialog = new PictureDescriptionDialog(currentDescription)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
+    }
+
+    public async Task<PictureSize?> ShowPictureResizeDialogAsync(PictureSize currentSize)
+    {
+        var dialog = new PictureResizeDialog(currentSize)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
     }
 
     public async Task<bool> ShowCautiousConfirmationDialogAsync(string title, string message, string confirmButtonText)

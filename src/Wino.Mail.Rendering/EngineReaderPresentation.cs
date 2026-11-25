@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Wino.Renderer;
 using Wino.Renderer.Theme;
 
@@ -67,13 +69,24 @@ public sealed class EngineReaderPresentation
 
     public TypographyOptions CreateTypography() => new(FontFamily, FontSizePx) { TextScale = TextScale };
 
+    /// <summary>What the reader looks for after a message is drawn.</summary>
+    public InsightKinds Insights { get; set; }
+
+    /// <summary>The cultures dates are read in, highest priority first. Null lets the engine use the UI language.</summary>
+    public IReadOnlyList<string>? Languages { get; set; }
+
     public ReaderOptions CreateOptions() => new()
     {
         Theme = CreateTheme(),
         Typography = CreateTypography(),
         Viewport = Viewport,
-        BackgroundUpdates = true
+        BackgroundUpdates = true,
+        Insights = Insights,
+        Languages = Languages
     };
+
+    private static bool SameLanguages(IReadOnlyList<string>? first, IReadOnlyList<string>? second)
+        => first is null || second is null ? first is null && second is null : first.SequenceEqual(second, StringComparer.OrdinalIgnoreCase);
 
     public void ApplyTo(IMailView view)
     {
@@ -87,5 +100,11 @@ public sealed class EngineReaderPresentation
         var typography = CreateTypography();
         if (reader.Typography != typography)
             reader.Typography = typography;
+
+        if (!SameLanguages(reader.Languages, Languages))
+            reader.Languages = Languages;
+
+        if (reader.InsightKinds != Insights)
+            reader.InsightKinds = Insights;
     }
 }

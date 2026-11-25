@@ -26,7 +26,7 @@ namespace Wino.Mail.Rendering;
 /// <summary>
 /// Shows a parsed message in an <see cref="IMailView"/> and reports what the reader page needs from it.
 /// </summary>
-public sealed class EngineMailMessageReader : IMailMessageReader
+public sealed partial class EngineMailMessageReader : IMailMessageReader
 {
     private static readonly TimeSpan FirstFrameTimeout = TimeSpan.FromMilliseconds(750);
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
@@ -155,10 +155,16 @@ public sealed class EngineMailMessageReader : IMailMessageReader
         var options = request.Options;
 
         Attach();
+        _presentation.Insights = ToInsightKinds(options);
+        _presentation.Languages = DateLanguages;
         _presentation.ApplyTo(_view);
+        WatchInsights();
 
         // A re-render of the open message (another remote content mode) keeps its content and its scroll position.
         var content = ReferenceEquals(_message, message) ? _content : null;
+
+        if (content is null)
+            ResetInsights();
         var accessibleText = _accessibleText;
         Exception? contentError = null;
         MailLoadResult result;
@@ -224,6 +230,9 @@ public sealed class EngineMailMessageReader : IMailMessageReader
         _loadOptions = CreateLoadOptions(options, false);
         _isVariantShown = false;
 
+        // The view creates its reader session with the first load, so a view that showed nothing before is watched now.
+        WatchInsights();
+
         var firstFrameMilliseconds = await firstFrame.WaitAsync(FirstFrameTimeout);
 
         LogRender(request.MimePath, result, content, loadMilliseconds, firstFrameMilliseconds);
@@ -283,6 +292,9 @@ public sealed class EngineMailMessageReader : IMailMessageReader
 
     private void ReleaseContent()
     {
+        if (_reportedInsights is not null)
+            ResetInsights();
+
         _content?.Dispose();
         _content = null;
         _message = null;
@@ -301,7 +313,6 @@ public sealed class EngineMailMessageReader : IMailMessageReader
             User = new UserPolicyAdjustments
             {
                 RemoteContent = ToEngineMode(remoteContent),
-                AuthorStyleSheets = options?.LoadStyles ?? true,
                 Linkify = options?.RenderPlaintextLinks ?? true,
                 StripTrackingParameters = _shouldStripTrackingParameters(),
                 UnwrapRedirectsOnActivation = true
@@ -309,6 +320,7 @@ public sealed class EngineMailMessageReader : IMailMessageReader
             Mode = ToRenderMode(_isReaderView),
             KeepScrollPosition = keepScrollPosition,
             Accessibility = _view.AccessibilityContext,
+            FoldTrimmedContent = options?.FoldEarlierMessages == true ? TrimmedKinds.Quote | TrimmedKinds.Signature : TrimmedKinds.None,
 
             // Block all covers images only inside the engine; web fonts and font style sheets are their own switches.
             RemoteFonts = !isEverythingBlocked,

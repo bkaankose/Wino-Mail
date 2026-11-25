@@ -10,9 +10,11 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Menus;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.ActionCards;
 using Wino.Mail.ViewModels.AccountSettings;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Companion;
@@ -180,6 +182,18 @@ using WinRT;
 // Items linked to the open message, task or event.
 [assembly: GeneratedWinRTExposedExternalType(typeof(LinkedItemViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<LinkedItemViewModel>))]
+
+[assembly: GeneratedWinRTExposedExternalType(typeof(ActionCardModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<ActionCardModel>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ActionCardAction))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<ActionCardAction>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ActionCardField))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<ActionCardField>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ActionCardLine))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<ActionCardLine>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ActionCardStep))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<ActionCardStep>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MailDetectedDate))]
 
 // The Flagged mail view of To Do.
 [assembly: GeneratedWinRTExposedExternalType(typeof(FlaggedMailItemViewModel))]
