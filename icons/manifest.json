@@ -2451,6 +2451,66 @@
         "color": "blue"
       },
       "source": "fluent:folder_people"
+    },
+    {
+      "name": "Bed",
+      "codepoint": "E0D2",
+      "svg": "Bed.svg",
+      "source": "fluent:bed"
+    },
+    {
+      "name": "VehicleCar",
+      "codepoint": "E0D3",
+      "svg": "VehicleCar.svg",
+      "source": "fluent:vehicle_car"
+    },
+    {
+      "name": "Train",
+      "codepoint": "E0D4",
+      "svg": "Train.svg",
+      "source": "fluent:vehicle_subway"
+    },
+    {
+      "name": "Food",
+      "codepoint": "E0D5",
+      "svg": "Food.svg",
+      "source": "fluent:food"
+    },
+    {
+      "name": "Ticket",
+      "codepoint": "E0D6",
+      "svg": "Ticket.svg",
+      "source": "fluent:ticket_diagonal"
+    },
+    {
+      "name": "Receipt",
+      "codepoint": "E0D7",
+      "svg": "Receipt.svg",
+      "source": "fluent:receipt"
+    },
+    {
+      "name": "ImageResize",
+      "codepoint": "E0D8",
+      "svg": "ImageResize.svg",
+      "source": "fluent:resize_image"
+    },
+    {
+      "name": "TextQuote",
+      "codepoint": "E0D9",
+      "svg": "TextQuote.svg",
+      "source": "fluent:text_quote"
+    },
+    {
+      "name": "ClipboardPaste",
+      "codepoint": "E0DA",
+      "svg": "ClipboardPaste.svg",
+      "source": "fluent:clipboard_paste"
+    },
+    {
+      "name": "CalendarAdd",
+      "codepoint": "E0DB",
+      "svg": "CalendarAdd.svg",
+      "source": "fluent:calendar_add"
     }
   ]
 }

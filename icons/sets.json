@@ -1170,6 +1170,46 @@
     "BenefitUnlimitedAccounts": {
       "material": "group_add",
       "framework7": "person_3"
+    },
+    "Bed": {
+      "material": "bed",
+      "framework7": "bed_double"
+    },
+    "VehicleCar": {
+      "material": "directions_car",
+      "framework7": "car_fill"
+    },
+    "Train": {
+      "material": "train",
+      "framework7": "tram_fill"
+    },
+    "Food": {
+      "material": "restaurant",
+      "framework7": "cart"
+    },
+    "Ticket": {
+      "material": "confirmation_number",
+      "framework7": "tickets"
+    },
+    "Receipt": {
+      "material": "receipt_long",
+      "framework7": "doc_text"
+    },
+    "ImageResize": {
+      "material": "photo_size_select_large",
+      "framework7": "resize"
+    },
+    "TextQuote": {
+      "material": "format_quote",
+      "framework7": "text_quote"
+    },
+    "ClipboardPaste": {
+      "material": "content_paste",
+      "framework7": "doc_on_clipboard"
+    },
+    "CalendarAdd": {
+      "material": "calendar_add_on",
+      "framework7": "calendar_badge_plus"
     }
   }
 }
