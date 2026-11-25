@@ -73,6 +73,13 @@ public partial class WinoContextFlyout : CommandBarFlyout
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string Language { get; set; }
 
+    /// <summary>
+    /// The theme the menu is drawn in. <see cref="ElementTheme.Default"/> follows the window; a host whose content has
+    /// a theme of its own (a message shown light in a dark app) passes that one, so the menu matches what it opens on.
+    /// </summary>
+    [GeneratedDependencyProperty(DefaultValue = ElementTheme.Default)]
+    public partial ElementTheme MenuTheme { get; set; }
+
     internal IReadOnlyList<ContextFlyoutMenuEntry> RootItems =>
         ItemsSource ?? Items.Select(static item => item.CreateEntry()).ToArray();
 
@@ -89,6 +96,11 @@ public partial class WinoContextFlyout : CommandBarFlyout
         if (!string.IsNullOrWhiteSpace(Language))
         {
             presenter.Language = Language;
+        }
+
+        if (MenuTheme != ElementTheme.Default)
+        {
+            presenter.RequestedTheme = MenuTheme;
         }
 
         return presenter;

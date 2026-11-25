@@ -115,7 +115,7 @@ public sealed partial class EngineMailEditorView
             "EditorContextSelectAll",
             shortcut: new ContextFlyoutShortcut("Ctrl+A", "A", Control: true)));
 
-        new WinoContextFlyout { ItemsSource = entries.ToArray() }.ShowAt(
+        new WinoContextFlyout { ItemsSource = entries.ToArray(), MenuTheme = IsEditorDarkMode ? ElementTheme.Dark : ElementTheme.Light }.ShowAt(
             _view,
             WinoContextFlyoutHelper.CreatePointerAlignedOptions(new Point(request.ViewPoint.X, request.ViewPoint.Y)));
     }

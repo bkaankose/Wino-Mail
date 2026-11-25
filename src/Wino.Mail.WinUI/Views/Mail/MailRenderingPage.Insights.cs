@@ -56,7 +56,7 @@ public sealed partial class MailRenderingPage
             return;
 
         e.Handled = true;
-        WinoContextFlyoutHelper.Show(_mailView, position, CreateDateEntries(date));
+        WinoContextFlyoutHelper.Show(_mailView, position, CreateDateEntries(date), menuTheme: MailRendererHost.ActualTheme);
     }
 
     private List<ContextFlyoutMenuEntry> CreateDateEntries(MailDetectedDate date)
