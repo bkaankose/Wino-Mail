@@ -202,7 +202,8 @@ internal sealed partial class EasSynchronizationEngine
 
             if (mutation.Persist != null)
                 await mutation.Persist(resultId).ConfigureAwait(false);
-            await ApplyPageAsync(state, result, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            var unknown = await ApplyPageAsync(state, result, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            await FetchUnknownAsync(state, unknown, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
 
             var key = EasDataMapper.Key(_account.Id, folderId, resultId);
             if (operation == "Delete" && mutation.InstanceKey == null)

@@ -220,7 +220,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             // Persist acknowledged mutations before projecting server echoes, while the gate is held.
             if (persistMutation != null)
                 await persistMutation(resultId).ConfigureAwait(false);
-            await ApplyPageAsync(state, result, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            var unknown = await ApplyPageAsync(state, result, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            await FetchUnknownAsync(state, unknown, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
             if (operation == "Delete")
                 await _database.Connection.DeleteAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, folderId, resultId)).ConfigureAwait(false);
             else if (data != null)
@@ -946,8 +947,9 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             }
             if (response == null)
                 return;
-            await ApplyPageAsync(state, response, downloaded, cancellationToken).ConfigureAwait(false);
+            var unknown = await ApplyPageAsync(state, response, downloaded, cancellationToken).ConfigureAwait(false);
             await SaveKeyAsync(state, response).ConfigureAwait(false);
+            await FetchUnknownAsync(state, unknown, downloaded, cancellationToken).ConfigureAwait(false);
             if (response.Element(sync + "MoreAvailable") != null)
             {
                 emptyPages = response.Element(sync + "Commands")?.HasElements == true ? 0 : emptyPages + 1;
@@ -1063,11 +1065,13 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     /// <summary>
     /// Applies one Sync response. Each item is applied on its own: an item whose data cannot be read is reported and
     /// skipped, its shadow is still written and the sync key still advances, so one malformed message never stalls a
-    /// folder. Any other failure leaves the page unapplied and the key unsaved.
+    /// folder. Any other failure leaves the page unapplied and the key unsaved. A Change for an item Wino never received
+    /// is not applied: a Change carries only what changed, so the item is returned for <see cref="FetchUnknownAsync"/>.
     /// </summary>
-    private async Task ApplyPageAsync(EasCollection state, XElement response, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    private async Task<List<string>> ApplyPageAsync(EasCollection state, XElement response, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
         var sync = EasDataMapper.Sync;
+        var unknown = new List<string>();
         foreach (var command in response.Element(sync + "Commands")?.Elements() ?? Enumerable.Empty<XElement>())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1092,11 +1096,17 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                     continue;
                 }
 
+                var isChange = command.Name.LocalName == "Change";
+                if (isChange && await _database.Connection.FindAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.ServerId, remoteId)).ConfigureAwait(false) == null)
+                {
+                    unknown.Add(remoteId);
+                    continue;
+                }
                 var incoming = command.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData");
                 data = await MergeWithShadowAsync(state, remoteId, incoming).ConfigureAwait(false);
                 // Match identities across transports only after the complete snapshot establishes unique candidates.
                 if (string.IsNullOrEmpty(state.Generation) || ItemClass(state.Type) is not ("Contacts" or "Tasks"))
-                    await ProjectAsync(state, remoteId, data, downloaded, cancellationToken).ConfigureAwait(false);
+                    await ProjectAsync(state, remoteId, data, downloaded, cancellationToken, isChange).ConfigureAwait(false);
             }
             catch (Exception exception) when (IsItemFailure(exception, cancellationToken))
             {
@@ -1105,6 +1115,51 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
             if (data != null)
                 await WriteShadowAsync(state, remoteId, data).ConfigureAwait(false);
+        }
+        return unknown;
+    }
+
+    /// <summary>
+    /// Reads items the server reported a Change for but Wino never received, with Sync Fetch, and stores them as if
+    /// they had been added. The request carries no changes, so it only moves the collection to a new key; an item the
+    /// server no longer has (status 8) is left out, and its Delete follows in a later synchronization.
+    /// </summary>
+    private async Task FetchUnknownAsync(EasCollection state, List<string> remoteIds, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        var sync = EasDataMapper.Sync;
+        foreach (var chunk in remoteIds.Distinct(StringComparer.Ordinal).Chunk(MutationBatchSize))
+        {
+            var commands = new XElement(sync + "Commands", chunk.Select(id => new XElement(sync + "Fetch", new XElement(sync + "ServerId", id))));
+            var response = await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: false).ConfigureAwait(false);
+            if (response == null)
+                return;
+            await SaveKeyAsync(state, response).ConfigureAwait(false);
+            foreach (var fetch in response.Element(sync + "Responses")?.Elements(sync + "Fetch") ?? Enumerable.Empty<XElement>())
+            {
+                var remoteId = fetch.Element(sync + "ServerId")?.Value;
+                if (string.IsNullOrEmpty(remoteId))
+                    continue;
+                var status = StatusOf(fetch);
+                if (status != "1")
+                {
+                    Serilog.Log.Information("EAS collection {Collection} for {Account}: fetching changed item {RemoteId} returned status {Status}; it is not stored.",
+                        state.Name, _account.Address, remoteId, status ?? "missing");
+                    continue;
+                }
+
+                XElement? data = null;
+                try
+                {
+                    data = await MergeWithShadowAsync(state, remoteId, fetch.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData")).ConfigureAwait(false);
+                    await ProjectAsync(state, remoteId, data, downloaded, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (IsItemFailure(exception, cancellationToken))
+                {
+                    _itemFailed(state, remoteId, exception);
+                }
+                if (data != null)
+                    await WriteShadowAsync(state, remoteId, data).ConfigureAwait(false);
+            }
         }
     }
 
@@ -1149,13 +1204,14 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         }
     }
 
-    private async Task ProjectAsync(EasCollection state, string remoteId, XElement data, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    private async Task ProjectAsync(EasCollection state, string remoteId, XElement data, List<MailCopy> downloaded, CancellationToken cancellationToken,
+        bool isChange = false)
     {
         var id = state.Id;
         switch (ItemClass(state.Type))
         {
             case "Email":
-                await ProjectMailAsync(state, remoteId, data, downloaded).ConfigureAwait(false);
+                await ProjectMailAsync(state, remoteId, data, downloaded, isChange).ConfigureAwait(false);
                 break;
             case "Contacts":
                 var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).First(item => item.RemoteId == EasDataMapper.ProviderId(state.ServerId) && item.SourceKind == ContactSourceKind.Exchange);
@@ -1194,7 +1250,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     /// FilterType expresses a Wino range (see <see cref="EasClient"/>), so mail is synchronized without one and the
     /// fixed cutoff the other synchronizers apply is applied here.
     /// </summary>
-    private async Task ProjectMailAsync(EasCollection state, string remoteId, XElement data, List<MailCopy> downloaded)
+    private async Task ProjectMailAsync(EasCollection state, string remoteId, XElement data, List<MailCopy> downloaded, bool isChange)
     {
         var key = EasDataMapper.Key(_account.Id, state.ServerId, remoteId);
         var existing = await _mail.GetSingleMailItemAsync(key, state.ServerId).ConfigureAwait(false);
@@ -1212,6 +1268,12 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 if (existing.IsFlagged != wasFlagged)
                     await _mail.ChangeFlagStatusAsync(existing.Id, existing.IsFlagged).ConfigureAwait(false);
             }
+            return;
+        }
+        if (isChange)
+        {
+            // Received before, but not stored because it is older than the range cutoff; a Change carries no full message.
+            Serilog.Log.Debug("EAS message {RemoteId} in {Collection} changed, but Wino does not keep it; not stored.", remoteId, state.Name);
             return;
         }
 

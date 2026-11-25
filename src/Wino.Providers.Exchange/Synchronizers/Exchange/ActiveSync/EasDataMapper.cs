@@ -114,6 +114,9 @@ internal static partial class EasDataMapper
             IsDraft = folder.SpecialFolderType == SpecialFolderType.Draft
         };
         ApplyMailFields(copy, data);
+        // DateReceived is optional ([MS-ASEMAIL] 2.2.2.24); a new message without one is dated when it reached Wino.
+        if (copy.CreationDate == default)
+            copy.CreationDate = DateTime.UtcNow;
         return new NewMailItemPackage(copy, null, folder.RemoteFolderId);
     }
 
@@ -128,10 +131,8 @@ internal static partial class EasDataMapper
             copy.FromAddress = sender?.Address ?? from.Value;
             copy.FromName = string.IsNullOrWhiteSpace(sender?.Name) ? copy.FromAddress : sender.Name;
         }
-        if (data.Element(Email + "DateReceived") != null)
-            copy.CreationDate = Date(Value(data, Email, "DateReceived")) ?? (copy.CreationDate == default ? DateTime.UtcNow : copy.CreationDate);
-        else if (copy.CreationDate == default)
-            copy.CreationDate = DateTime.UtcNow;
+        if (Date(Value(data, Email, "DateReceived")) is { } received)
+            copy.CreationDate = received;
         if (data.Element(Email + "Read") != null)
             copy.IsRead = Value(data, Email, "Read") == "1";
         if (data.Element(Email + "Flag") is XElement flag)
