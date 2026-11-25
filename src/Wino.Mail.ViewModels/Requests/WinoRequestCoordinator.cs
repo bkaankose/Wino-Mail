@@ -28,21 +28,77 @@ public sealed class WinoRequestCoordinator(
     IMailDialogService dialogService,
     IFolderService folderService,
     IPreferencesService preferencesService,
-    IShortcutPlatformService shortcutPlatformService)
+    IShortcutPlatformService shortcutPlatformService,
+    IMailTransferService mailTransferService,
+    IProviderFeatureAuthorizationService featureAuthorization,
+    IAccountService accountService,
+    Links.ConnectedItemsCoordinator? connectedItems = null)
 {
     private static readonly WinoRequestDelegationResult Cancelled = new(0, null);
 
     /// <summary>Asks what the mail operation needs, queues it, and shows the error that stopped it.</summary>
     public async Task<WinoRequestDelegationResult> ExecuteMailOperationAsync(MailOperationPreperationRequest request)
     {
+        // Create task and Create event change no mail; they open the task or event editor for the mail.
+        if (Links.ConnectedItemsCoordinator.IsConnectedMailOperation(request.Action))
+        {
+            if (connectedItems is not null)
+                await connectedItems.ExecuteMailOperationAsync(request.Action, request.MailItems);
+
+            return Cancelled;
+        }
+
         var answered = await AnswerMailOperationAsync(request);
         if (answered is null) return Cancelled;
 
         var result = await requestDelegator.ExecuteWithResultAsync(answered);
+
+        if (result.Error is MailOperationDecisionRequiredException { Decision: MailOperationDecision.AuthorizeMailImport }
+            && answered.MoveTargetFolder is { } target)
+        {
+            if (!await AuthorizeMailImportAsync(target.MailAccountId)) return Cancelled;
+
+            result = await requestDelegator.ExecuteWithResultAsync(answered);
+        }
+
         if (result.Error is { } error)
             ShowMailOperationError(error);
 
         return result;
+    }
+
+    /// <summary>
+    /// Asks for the opt-in permission an account needs before it can receive mail moved from another account, and
+    /// records it once the provider granted it. False when the user declined or the sign-in failed; nothing moves then.
+    /// </summary>
+    private async Task<bool> AuthorizeMailImportAsync(Guid accountId)
+    {
+        var account = await accountService.GetAccountAsync(accountId);
+        if (account == null) return false;
+
+        if (!await dialogService.ShowConfirmationDialogAsync(
+                string.Format(Translator.DialogMessage_AuthorizeMailImportMessage, account.Name),
+                string.Format(Translator.DialogMessage_AuthorizeMailImportTitle, account.Name),
+                Translator.Buttons_Continue))
+        {
+            return false;
+        }
+
+        try
+        {
+            await featureAuthorization.EnableAsync(accountId, ProviderFeature.CrossAccountMoveImport);
+            return true;
+        }
+        catch (AccountSetupCanceledException)
+        {
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Authorizing mail import for account {AccountId} failed.", accountId);
+            dialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
+            return false;
+        }
     }
 
     /// <summary>
@@ -75,7 +131,9 @@ public sealed class WinoRequestCoordinator(
             // Mails from several accounts can't share one picker; the delegator reports that as an invalid target.
             if (HasSeveralAccounts(mailItems)) return answered;
 
-            var target = await dialogService.PickFolderAsync(mailItems[0].AssignedAccount.Id, PickFolderReason.Move, folderService);
+            // Other accounts that can receive mail are listed under their names after the account's own folders.
+            var targets = await mailTransferService.GetMoveTargetsAsync(mailItems[0].AssignedAccount.Id, displayShape: false);
+            var target = await dialogService.ShowMoveMailFolderDialogAsync(targets);
             if (target == null) return null;
 
             answered = answered with { MoveTargetFolder = target };
@@ -106,6 +164,9 @@ public sealed class WinoRequestCoordinator(
                 break;
             case InvalidMoveTargetException { Reason: InvalidMoveTargetReason.MultipleAccounts }:
                 dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Exception_InvalidMultiAccountMoveTarget, InfoBarMessageType.Warning);
+                break;
+            case InvalidMoveTargetException { Reason: InvalidMoveTargetReason.CrossAccountNotSupported }:
+                dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Info_CrossAccountMoveNotSupportedMessage, InfoBarMessageType.Warning);
                 break;
             case InvalidMoveTargetException:
                 break;

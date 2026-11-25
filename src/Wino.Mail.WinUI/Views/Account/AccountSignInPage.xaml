@@ -1,0 +1,121 @@
+﻿<viewsAbstract:AccountSignInPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Account.AccountSignInPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mailViewModels="using:Wino.Mail.ViewModels"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    mc:Ignorable="d">
+
+    <!--  Sign-in and servers of an Outlook, Gmail or Exchange account. IMAP and POP3 accounts use the server page.  -->
+    <StackPanel Spacing="4">
+        <InfoBar
+            AutomationProperties.AutomationId="AccountSignInAttentionInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.NeedsAttention, Mode=OneWay}"
+            Message="{x:Bind domain:Translator.AccountHub_AttentionMessage, Mode=OneTime}"
+            Severity="Warning" />
+
+        <TextBlock
+            AutomationProperties.HeadingLevel="Level2"
+            Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+            Text="{x:Bind domain:Translator.ImapSetup_SignInGroup, Mode=OneTime}" />
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AccountSignInCard"
+            Description="{x:Bind ViewModel.Address, Mode=OneWay}"
+            Header="{x:Bind ViewModel.SignedInTitle, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="LockClosed" />
+            </controls:SettingsCard.HeaderIcon>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <ProgressRing
+                    Width="16"
+                    Height="16"
+                    AutomationProperties.Name="{x:Bind domain:Translator.ExchangeSetup_Checking, Mode=OneTime}"
+                    IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                <Button
+                    AutomationProperties.AutomationId="AccountSignInAgainButton"
+                    Command="{x:Bind ViewModel.SignInAgainCommand}"
+                    Content="{x:Bind domain:Translator.ImapSetup_OAuthSignInAgain, Mode=OneTime}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.AccountSignIn_SignInAgainDescription, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsSignInAgainVisible, Mode=OneWay}" />
+            </StackPanel>
+        </controls:SettingsCard>
+
+        <!--  Exchange: the password it signs in with, and how it connects  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="AccountSignInExchangePasswordExpander"
+            Description="{x:Bind domain:Translator.AccountDetailsPage_ExchangePasswordDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ProviderSelection_PasswordHeader_Account, Mode=OneTime}"
+            IsExpanded="{x:Bind ViewModel.NeedsAttention, Mode=OneWay}"
+            Visibility="{x:Bind ViewModel.IsExchangePasswordAuth, Mode=OneWay}">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Key" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="AccountSignInExchangePasswordCard"
+                    ContentAlignment="Vertical">
+                    <StackPanel
+                        MaxWidth="360"
+                        HorizontalAlignment="Left"
+                        Spacing="8">
+                        <TextBox
+                            AutomationProperties.AutomationId="AccountSignInExchangeUserName"
+                            Description="{x:Bind domain:Translator.ExchangeSetup_UserNameDescription, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.ExchangeSetup_UserNameHeader, Mode=OneTime}"
+                            IsSpellCheckEnabled="False"
+                            PlaceholderText="{x:Bind ViewModel.Address, Mode=OneWay}"
+                            Text="{x:Bind ViewModel.ExchangeUserName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <PasswordBox
+                            AutomationProperties.AutomationId="AccountSignInExchangePassword"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_PasswordHeader_Account, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.ProviderSelection_PasswordHeader_Account, Mode=OneTime}"
+                            Password="{x:Bind ViewModel.ExchangePassword, Mode=TwoWay}" />
+                        <Button
+                            AutomationProperties.AutomationId="AccountSignInExchangeSaveButton"
+                            Command="{x:Bind ViewModel.UpdateExchangePasswordCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+                            Style="{ThemeResource AccentButtonStyle}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsExchangeAccount, Mode=OneWay}">
+            <TextBlock
+                AutomationProperties.HeadingLevel="Level2"
+                Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+                Text="{x:Bind domain:Translator.AccountSignIn_ServersGroup, Mode=OneTime}" />
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountSignInExchangeTransportCard"
+                Description="{x:Bind ViewModel.ExchangeServerDescription, Mode=OneWay}"
+                Header="{x:Bind domain:Translator.ExchangeSetup_TransportHeader, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="GlobeDesktop" />
+                </controls:SettingsCard.HeaderIcon>
+                <ComboBox
+                    MinWidth="220"
+                    AutomationProperties.AutomationId="AccountSignInExchangeTransport"
+                    AutomationProperties.Name="{x:Bind domain:Translator.ExchangeSetup_TransportHeader, Mode=OneTime}"
+                    IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsBusy), Mode=OneWay}"
+                    ItemsSource="{x:Bind ViewModel.ExchangeTransportOptions}"
+                    SelectedItem="{x:Bind ViewModel.SelectedExchangeTransport, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="mailViewModels:ExchangeTransportOption">
+                            <TextBlock Text="{x:Bind Title}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </controls:SettingsCard>
+        </StackPanel>
+    </StackPanel>
+</viewsAbstract:AccountSignInPageAbstract>

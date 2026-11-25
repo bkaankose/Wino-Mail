@@ -2,8 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 using System.Numerics;
-using Microsoft.Graphics.Canvas;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -58,6 +58,7 @@ public sealed partial class CalendarPeriodControl
     private readonly List<DateOnly> _windowDates = new();
     private readonly HashSet<int> _dirtyUnits = new();
     private readonly List<int> _unitScratch = new();
+    private Dictionary<CalendarItemViewModel, AllDaySpan> _allDaySpans = new();
 
     private CalendarRailSpace? _space;
     private double _position;
@@ -79,7 +80,7 @@ public sealed partial class CalendarPeriodControl
     private DataTemplate? _timedTemplate;
     private DataTemplate? _monthTemplate;
 
-    // The window start each structure canvas was last drawn for. A Win2D canvas redraws on a later
+    // The window start each structure canvas was last drawn for. A canvas redraws on a later
     // frame than the window shift, so until it does, its host is offset to keep the old drawing
     // aligned with the units. The draw handler resets the offset in the frame it draws.
     private int _timedHeaderCanvasStart;
@@ -169,13 +170,24 @@ public sealed partial class CalendarPeriodControl
         for (var unitIndex = windowStart; unitIndex < windowStart + windowCount; unitIndex++)
         {
             _windowDates.AddRange(space.GetUnitDates(unitIndex));
+        }
 
-            if (!_units.ContainsKey(unitIndex))
+        // Bars in the all-day strip are placed by window index, so while any bar is shown a shifted
+        // window re-lays out the units that stay as well.
+        var relayoutRetainedUnits = RefreshAllDaySpans() || _allDaySpans.Count > 0;
+
+        for (var unitIndex = windowStart; unitIndex < windowStart + windowCount; unitIndex++)
+        {
+            if (!_units.TryGetValue(unitIndex, out var unit))
             {
-                var unit = RealizeUnit(space, unitIndex);
+                unit = RealizeUnit(space, unitIndex);
 
                 _units[unitIndex] = unit;
                 PlaceUnit(unit);
+                LayoutUnit(unit);
+            }
+            else if (relayoutRetainedUnits)
+            {
                 LayoutUnit(unit);
             }
         }
@@ -332,12 +344,11 @@ public sealed partial class CalendarPeriodControl
     /// </summary>
     private void SizeStructureCanvases()
     {
-        var maximumExtent = GetMaximumCanvasExtent();
-        var span = Math.Min(_windowCount * _unitSize, maximumExtent);
+        var span = _windowCount * _unitSize;
 
         if (IsMonthRail)
         {
-            MonthStructureCanvasHost.Width = Math.Min(_monthRowWidth, maximumExtent);
+            MonthStructureCanvasHost.Width = _monthRowWidth;
             MonthStructureCanvasHost.Height = span;
             return;
         }
@@ -347,25 +358,7 @@ public sealed partial class CalendarPeriodControl
         TimedAllDayCanvasHost.Width = span;
         TimedAllDayCanvasHost.Height = TimedAllDayHeight;
         TimedStructureCanvasHost.Width = span;
-        TimedStructureCanvasHost.Height = Math.Min(TimelineHeight, maximumExtent);
-    }
-
-    // A Win2D canvas larger than the device's bitmap limit throws while drawing, which crashes the app
-    // on wide or high-DPI windows. The farthest spare days lose their grid lines instead.
-    private double GetMaximumCanvasExtent()
-    {
-        int maximumPixels;
-        try
-        {
-            maximumPixels = CanvasDevice.GetSharedDevice().MaximumBitmapSizeInPixels;
-        }
-        catch (Exception)
-        {
-            maximumPixels = 8192;
-        }
-
-        var scale = Math.Max(1d, XamlRoot?.RasterizationScale ?? 1d);
-        return Math.Floor((maximumPixels - 2) / scale);
+        TimedStructureCanvasHost.Height = TimelineHeight;
     }
 
     private void UpdateAllDayHeight()
@@ -600,6 +593,7 @@ public sealed partial class CalendarPeriodControl
         _units.Clear();
         _dirtyUnits.Clear();
         _windowDates.Clear();
+        _allDaySpans = new();
         _windowCount = 0;
     }
 
@@ -632,6 +626,39 @@ public sealed partial class CalendarPeriodControl
     }
 
     /// <summary>
+    /// Re-packs the bars of the all-day strip over the realized window. Returns true when a bar was
+    /// added, removed or moved, which also changes the strip on days that do not show the changed item.
+    /// </summary>
+    private bool RefreshAllDaySpans()
+    {
+        var spans = IsMonthRail || _windowDates.Count == 0
+            ? new Dictionary<CalendarItemViewModel, AllDaySpan>()
+            : TimedCalendarLayoutCalculator.AssignAllDaySpans(_windowDates, CurrentItems);
+
+        var isChanged = spans.Count != _allDaySpans.Count ||
+                        spans.Any(entry => !_allDaySpans.TryGetValue(entry.Key, out var previous) || previous != entry.Value);
+
+        _allDaySpans = spans;
+
+        return isChanged;
+    }
+
+    /// <summary>
+    /// Bars restart at the first day of the shown period, so a new period re-lays out the units while
+    /// any bar is shown.
+    /// </summary>
+    private void OnRangeUnitChanged(int previousRangeUnit)
+    {
+        if (previousRangeUnit == _rangeUnit || _allDaySpans.Count == 0)
+        {
+            return;
+        }
+
+        MarkAllUnitsDirty();
+        QueueDirtyUnitLayout();
+    }
+
+    /// <summary>
     /// Lays out one unit on its own. Presenters for items that stay are moved, new ones come from
     /// the pool and the ones for items that left go back to it.
     /// </summary>
@@ -659,21 +686,33 @@ public sealed partial class CalendarPeriodControl
     private void LayoutTimedUnit(TimedRailUnit unit, List<CalendarItemViewModel> items)
     {
         var date = unit.Dates[0];
+        var windowIndex = unit.Index - _windowStart;
         var displayMode = CalendarSettings?.EventDisplayMode ?? CalendarEventDisplayMode.Stacked;
-        var allDayLayout = TimedCalendarLayoutCalculator.CalculateAllDayItems(date, items, _unitSize);
+        var allDayLayout = TimedCalendarLayoutCalculator.CalculateAllDayColumn(
+            windowIndex, date, _allDaySpans, _rangeUnit - _windowStart, _unitSize);
         var bodyLayouts = TimedCalendarLayoutCalculator.CalculateDay(date, items, _unitSize, GetHourHeight(), displayMode);
 
         unit.SetTimedSpans(bodyLayouts);
-        unit.AllDayLaneCount = allDayLayout.Items.Count;
+        unit.AllDayLaneCount = allDayLayout.LaneCount;
         unit.HasAllDayOverflow = allDayLayout.Overflow is not null;
         AssignMoreButton(unit, unit.MoreButton, allDayLayout.Overflow);
+
+        // A bar is drawn by the day it starts on; every day it covers tracks it, so that a change to
+        // the item reaches the unit that draws it.
+        foreach (var (item, span) in _allDaySpans)
+        {
+            if (span.Days.Covers(windowIndex))
+            {
+                unit.TrackHiddenItem(item);
+            }
+        }
 
         if (_allDayTemplate is DataTemplate allDayTemplate)
         {
             foreach (var layout in allDayLayout.Items)
             {
                 PlacePresenter(unit, new PresenterKey(layout.Item, AllDayPresenterSlot), unit.AllDayCanvas, allDayTemplate, layout.Bounds);
-                PrepareDisplayMetadata(layout.Item, layout.Date);
+                PrepareSpanDisplayMetadata(layout.Item);
             }
         }
 
@@ -701,7 +740,15 @@ public sealed partial class CalendarPeriodControl
         foreach (var layout in rowLayout.Items)
         {
             PlacePresenter(unit, new PresenterKey(layout.Item, layout.Column), unit.Row, monthTemplate, layout.Bounds);
-            PrepareDisplayMetadata(layout.Item, layout.Date);
+
+            if (layout.IsSpan)
+            {
+                PrepareSpanDisplayMetadata(layout.Item);
+            }
+            else
+            {
+                PrepareDisplayMetadata(layout.Item, layout.Date);
+            }
         }
 
         for (var column = 0; column < unit.MoreButtons.Length; column++)
@@ -931,6 +978,11 @@ public sealed partial class CalendarPeriodControl
         {
             _dirtyUnits.Clear();
             return;
+        }
+
+        if (RefreshAllDaySpans())
+        {
+            MarkAllUnitsDirty();
         }
 
         foreach (var unitIndex in _dirtyUnits)

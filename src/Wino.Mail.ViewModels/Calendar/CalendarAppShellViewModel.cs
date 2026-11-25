@@ -491,6 +491,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         return Task.CompletedTask;
     }
 
+    public void OpenDayView(DateOnly date)
+    {
+        SetDisplayTypeWithoutNavigation(CalendarDisplayType.Day);
+        NavigateCalendarDate(date.ToDateTime(TimeOnly.MinValue));
+    }
+
     private DateTime GetDisplayTypeSwitchDate()
     {
         var today = _dateContextProvider.GetToday();
@@ -504,6 +510,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private void TodayClicked()
     {
+        CalendarPage.CancelPendingQuickEvent();
         var today = _dateContextProvider.GetToday();
 
         if (StatePersistenceService.CalendarDisplayType == CalendarDisplayType.WorkWeek)
@@ -535,12 +542,14 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private void PreviousDateRange()
     {
+        CalendarPage.CancelPendingQuickEvent();
         NavigateRelativePeriod(-1);
     }
 
     [RelayCommand]
     private void NextDateRange()
     {
+        CalendarPage.CancelPendingQuickEvent();
         NavigateRelativePeriod(1);
     }
 
@@ -575,6 +584,29 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     [RelayCommand]
     private async Task NewEventAsync()
+    {
+        CalendarPage.CancelPendingQuickEvent();
+
+        // The pane entry, the command and the shortcut can all fire for one activation (UI Automation
+        // invokes the pane entry and selects it), so a second request while the picker is open is dropped.
+        if (_isNewEventFlowRunning)
+            return;
+
+        _isNewEventFlowRunning = true;
+
+        try
+        {
+            await RunNewEventFlowAsync();
+        }
+        finally
+        {
+            _isNewEventFlowRunning = false;
+        }
+    }
+
+    private bool _isNewEventFlowRunning;
+
+    private async Task RunNewEventFlowAsync()
     {
         // The pane entry, the shortcut and the command all land here.
         var readiness = CalendarPage.Readiness;
@@ -640,7 +672,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     [RelayCommand]
     private void DateClicked(CalendarViewDayClickedEventArgs clickedDateArgs)
-        => NavigateCalendarDate(clickedDateArgs.ClickedDate);
+    {
+        CalendarPage.CancelPendingQuickEvent();
+        NavigateCalendarDate(clickedDateArgs.ClickedDate);
+    }
 
     protected override void RegisterRecipients()
     {

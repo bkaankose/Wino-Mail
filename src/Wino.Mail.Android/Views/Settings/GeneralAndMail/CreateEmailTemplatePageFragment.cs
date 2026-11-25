@@ -1,12 +1,8 @@
-using Android.Graphics;
-using Android.Text;
 using Android.Views;
 using Android.Widget;
 using Google.Android.Material.Button;
-using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Android.Views.Dialogs;
 using Wino.Mail.Controls.Android.Settings;
@@ -19,8 +15,8 @@ namespace Wino.Mail.Android.Views.Settings.GeneralAndMail;
 /// Settings › Email templates › template (Windows CreateEmailTemplatePage, iOS CreateEmailTemplatePageViewController).
 /// The title follows the template name, with "Edit template" (or the new-template description) under it. Name and
 /// Description cards carry full-width fields; the Template content header precedes the rich text editor
-/// (<see cref="WinoHtmlTextEditor"/> until an Android WebView editor session exists), set up with the composer font,
-/// size, spell check and auto-correct preferences. The footer holds Delete (existing templates only) and the primary
+/// (<see cref="WinoHtmlTextEditor"/>, Wino's own composer), set up with the composer font, size, spell check and
+/// auto-correct preferences. The footer holds Delete (existing templates only) and the primary
 /// Save, which pass the editor HTML to the ViewModel; both return to the list. Navigation parameter: the template id, or
 /// none. The route runs OnNavigatedTo and then the template load (iOS InitializeAsync); the loaded HTML, and the edited
 /// HTML when the view is recreated, live in the entry.
@@ -124,35 +120,29 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
         // A recreated view keeps the edited HTML; the editor's text goes back to the entry when the view goes.
         Bindings.Own(new ActionDisposable(() =>
         {
-            if (_editorReady && _editor is { } editor && Entry is { IsReleased: false } entry) entry.State[HtmlKey] = editor.Html;
             _editor = null;
             _nameField = null;
             _save = null;
             _delete = null;
             _editorReady = false;
+            _editorLoading = false;
         }));
 
         ApplyLoadedContent();
     }
 
-    /// <summary>The rich text editor in a card frame, at least the template editor height tall, using the composer typography and proofing.</summary>
+    /// <summary>The rich text editor, at least the template editor height tall, with the composer typography and proofing.</summary>
     private View BuildEditor()
     {
         var editor = new WinoHtmlTextEditor(Ctx, Translator.SettingsEmailTemplates_ContentTitle,
             Resource.Dimension.wino_mail_template_editor_min_height);
-        var field = editor.Field;
-        if (MainApplication.Services?.GetService<IPreferencesService>() is { } preferences)
+
+        // The entry keeps the edited HTML, so a recreated view starts from it.
+        editor.ContentChanged += async (_, _) =>
         {
-            if (!string.IsNullOrWhiteSpace(preferences.ComposerFont))
-                field.Typeface = Typeface.Create(preferences.ComposerFont, TypefaceStyle.Normal);
-            if (preferences.ComposerFontSize > 0)
-                field.SetTextSize(global::Android.Util.ComplexUnitType.Sp, Math.Clamp(preferences.ComposerFontSize, 8, 48));
-            var input = field.InputType;
-            input = preferences.IsComposerSpellCheckEnabled ? input & ~InputTypes.TextFlagNoSuggestions : input | InputTypes.TextFlagNoSuggestions;
-            input = preferences.IsComposerAutoCorrectEnabled ? input | InputTypes.TextFlagAutoCorrect : input & ~InputTypes.TextFlagAutoCorrect;
-            field.InputType = input;
-        }
-        field.Enabled = false;
+            if (!_editorReady || await editor.GetHtmlAsync() is not { } html) return;
+            if (Entry is { IsReleased: false } entry) entry.State[HtmlKey] = html;
+        };
         _editor = editor;
         return editor;
     }
@@ -161,11 +151,10 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
     private void ApplyLoadedContent()
     {
         if (_editor is not { } editor || Entry is not { } entry || !entry.State.TryGetValue(HtmlKey, out var stored)) return;
-        if (!_editorReady)
+        if (!_editorReady && !_editorLoading)
         {
-            editor.Html = stored as string ?? string.Empty;
-            editor.Field.Enabled = true;
-            _editorReady = true;
+            _editorLoading = true;
+            Run(ShowContentAsync(editor, stored as string));
         }
         if (!entry.State.ContainsKey(FocusedKey))
         {
@@ -173,6 +162,19 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
             if (!VM.IsExistingTemplate) _nameField?.RequestFocus();
         }
         Refresh();
+    }
+
+    private bool _editorLoading;
+
+    private async Task ShowContentAsync(WinoHtmlTextEditor editor, string? html)
+    {
+        await editor.SetHtmlAsync(html);
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (!ReferenceEquals(_editor, editor)) return;
+            _editorReady = true;
+            Refresh();
+        });
     }
 
     private bool CanSave => _editorReady && !_busy;
@@ -191,7 +193,7 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
         Refresh();
         try
         {
-            var html = editor.Html;
+            if (await editor.GetHtmlAsync() is not { } html) return;
             if (Entry is { } entry) entry.State[HtmlKey] = html;
             await VM.SaveAsync(html);
         }

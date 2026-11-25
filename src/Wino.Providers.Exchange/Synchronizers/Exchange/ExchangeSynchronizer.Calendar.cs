@@ -471,7 +471,7 @@ public partial class ExchangeSynchronizer
         {
             var appointment = await Appointment.Bind(service, new ItemId(item.RemoteEventId.GetProviderRemoteEventId())).ConfigureAwait(false);
             var isOrganizer = OrganizesAppointment(appointment);
-            ApplyCalendarItem(appointment, item, attendees, reminders: null, isOrganizer ? null : service.TimeZone);
+            ApplyCalendarItem(appointment, item, attendees, request.Reminders, isOrganizer ? null : service.TimeZone);
 
             // Only the organizer re-sends the request; an attendee editing their copy just saves it.
             var sendMode = HasAttendees(appointment) && isOrganizer
@@ -607,10 +607,13 @@ public partial class ExchangeSynchronizer
             }
         }
 
-        if (reminders != null && reminders.Count > 0)
+        // Exchange keeps one reminder before the start; the others stay in Wino and fire from there.
+        if (reminders != null)
         {
-            appointment.IsReminderSet = true;
-            appointment.ReminderMinutesBeforeStart = (int)Math.Max(0, reminders[0].DurationInSeconds / 60);
+            var serverReminder = ReminderSyncPlan.Split(reminders, CalendarCapabilities.Exchange).Server.FirstOrDefault();
+            appointment.IsReminderSet = serverReminder != null;
+            if (serverReminder != null)
+                appointment.ReminderMinutesBeforeStart = (int)(serverReminder.DurationInSeconds / 60);
         }
     }
 

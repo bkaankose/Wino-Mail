@@ -4,7 +4,6 @@
     <Project Path="src/Wino.Platform.Android/Wino.Platform.Android.csproj" />
     <Project Path="controls/Wino.Presentation.Android/Wino.Presentation.Android.csproj" />
     <Project Path="controls/Wino.Mail.Controls.Android/Wino.Mail.Controls.Android.csproj" />
-    <Project Path="controls/Wino.Editor.Android/Wino.Editor.Android.csproj" />
   </Folder>
   <Folder Name="/Shared/">
     <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
@@ -21,6 +20,7 @@
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
     <Project Path="controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
     <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />
+    <Project Path="controls/Wino.Editor.Abstractions/Wino.Editor.Abstractions.csproj" />
     <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj" />
   </Folder>
 </Solution>

@@ -61,6 +61,22 @@ public interface IPreferencesService : INotifyPropertyChanged
     CompanionUnreadMessageBehavior CompanionUnreadMessageBehavior { get; set; }
 
     /// <summary>
+    /// Setting: Which tasks are shown in the companion flyout: My Day, or open tasks due today or overdue.
+    /// </summary>
+    CompanionTaskBehavior CompanionTaskBehavior { get; set; }
+
+    /// <summary>
+    /// Setting: Show open tasks with a due date on the calendar.
+    /// </summary>
+    bool ShowTasksInCalendar { get; set; }
+
+    /// <summary>
+    /// Accounts whose last task list on this device the user deleted, so To Do does not create a replacement.
+    /// Comma-separated account ids.
+    /// </summary>
+    string DeletedLocalTaskListAccountIds { get; set; }
+
+    /// <summary>
     /// Setting: Whether calendar events are shown in the companion flyout.
     /// </summary>
     bool ShowCalendarInCompanion { get; set; }

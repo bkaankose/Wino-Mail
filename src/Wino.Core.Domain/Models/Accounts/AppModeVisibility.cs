@@ -29,6 +29,12 @@ public sealed record AppModeVisibility(
 
     public WinoApplicationMode FallbackMode => VisibleModes[0];
 
+    /// <summary>How many accounts have each mode turned on. Modes no account provides are missing.</summary>
+    public IReadOnlyDictionary<WinoApplicationMode, int> ProviderCounts { get; init; } = new Dictionary<WinoApplicationMode, int>();
+
+    public int GetProviderCount(WinoApplicationMode mode)
+        => ProviderCounts.TryGetValue(mode, out var count) ? count : 0;
+
     public bool IsAvailable(WinoApplicationMode mode)
         => mode == WinoApplicationMode.Settings || AvailableModes.Contains(mode);
 
@@ -62,13 +68,18 @@ public sealed record AppModeVisibility(
         if (visible.Count == 0)
             visible = [available[0]];
 
-        return new AppModeVisibility(available, visible);
+        var providerCounts = SwitchableModes.ToDictionary(
+            mode => mode,
+            mode => accounts.Count(account => AppModeReadiness.IsModeEnabled(account, mode)));
+
+        return new AppModeVisibility(available, visible) { ProviderCounts = providerCounts };
     }
 
     public bool Equals(AppModeVisibility? other)
         => other != null &&
            AvailableModes.SequenceEqual(other.AvailableModes) &&
-           VisibleModes.SequenceEqual(other.VisibleModes);
+           VisibleModes.SequenceEqual(other.VisibleModes) &&
+           SwitchableModes.All(mode => GetProviderCount(mode) == other.GetProviderCount(mode));
 
     public override int GetHashCode()
     {

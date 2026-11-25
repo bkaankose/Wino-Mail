@@ -54,6 +54,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private TaskCompletionSource<ImapCalDavSetupResult> _completionSource;
     private AccountCreationDialogResult _accountCreationContext;
     private bool _isCompletionFinalized;
+    private bool _isLeavingPage;
     private bool _isCardDavEnabled;
     private MailProviderType _providerType = MailProviderType.IMAP4;
 
@@ -188,7 +189,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     public bool IsMailPasswordInputVisible => IsMailSupportEnabled;
     public bool IsMailActionsVisible => IsMailSupportEnabled;
     public bool IsPop3 => _providerType == MailProviderType.POP3;
-    public string MailValidationFailedTitle => IsPop3 ? Translator.POP3Setup_ValidationFailedTitle : Translator.IMAPSetupDialog_ValidationFailed_Title;
+    /// <summary>The heads that show one mail error for both servers name the outgoing server when only it failed.</summary>
+    public string MailValidationFailedTitle => OutgoingConnectionState == ConnectionTestState.Failed
+        ? Translator.ImapSetup_OutgoingValidationFailedTitle
+        : IsPop3 ? Translator.POP3Setup_ValidationFailedTitle : Translator.IMAPSetupDialog_ValidationFailed_Title;
     public string IncomingSettingsTitle => IsPop3 ? Translator.ImapSetup_IncomingPop3Title : Translator.ImapSetup_IncomingImapTitle;
     public bool IsCalendarModeSelectionVisible => IsCalendarSupportEnabled && !IsPop3;
     public bool IsCalDavSettingsVisible => IsCalDavCalendarEnabled || IsCalDavTaskEnabled;
@@ -344,6 +348,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _providerType = context.AccountCreationDialogResult?.ProviderType ?? MailProviderType.IMAP4;
         _isCardDavEnabled = _wizardContext.ContactIntegrationSource == AccountIntegrationSource.Dav;
         _isCompletionFinalized = false;
+        _isLeavingPage = false;
         _isDavModeTrackingEnabled = false;
         IsPageInfoBarOpen = false;
 
@@ -358,6 +363,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
             if (mode != NavigationMode.Back && context.Prefill != null)
                 ApplyPrefill(context.Prefill);
+
+            if (mode != NavigationMode.Back)
+                ApplyFeaturesStep(context.Prefill);
         }
         else
         {
@@ -371,6 +379,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             RememberInitialDavModes();
         await RefreshDavGrantedScopesAsync();
         _isDavModeTrackingEnabled = true;
+
+        if (mode != NavigationMode.Back)
+            ApplyRequestedAppMode(context);
 
         Log.Debug("IMAP setup opened in {Mode}: wizard contacts source {Source}, contact mode {ContactMode}, CardDAV {IsCardDavEnabled}",
             _pageMode, _wizardContext.ContactIntegrationSource, Capabilities.ContactMode, _isCardDavEnabled);
@@ -453,7 +464,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
             if (_isCardDavEnabled)
             {
-                await ValidateCardDavConnectivityAsync(serverInformation);
+                await TestCardDavConnectionAsync(serverInformation);
             }
 
             if (_pageMode == ImapCalDavSettingsPageMode.Wizard)
@@ -498,6 +509,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             _isCompletionFinalized = true;
         }
 
+        _isLeavingPage = true;
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
@@ -511,6 +523,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     {
         serverInformation.Id = Guid.NewGuid();
         serverInformation.AccountId = Guid.Empty;
+
+        _wizardContext.AccountName = NewAccountName;
 
         // The account is created from the wizard context, which still holds the setup page's guess when that page
         // found no servers (CalDAV calendar). What this page shows and saves is the user's choice.
@@ -841,7 +855,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         // Shared sign-ins collapse to one checkbox; a server that uses its own keeps its fields open.
         UseIncomingCredentialsForOutgoing = IsSameCredential(OutgoingServerUsername, OutgoingServerPassword, IncomingServerUsername, IncomingServerPassword);
-        UseMailCredentialsForDav = IsSameCredential(CalDavUsername, CalDavPassword, IncomingServerUsername, IncomingServerPassword);
+        UseMailCredentialsForDav = IsSameCredential(CalDavUsername, CalDavPassword, MailSharedDavUsername, IncomingServerPassword);
 
         SelectedIncomingServerAuthenticationMethodIndex = FindAuthenticationMethodIndex(serverInformation.IncomingAuthenticationMethod);
         SelectedIncomingServerConnectionSecurityIndex = FindConnectionSecurityIndex(serverInformation.IncomingServerSocketOption);
@@ -858,6 +872,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             return;
 
         if (TryApplyKnownProviderSettingsIfNeeded(requireCompleteImapSettings: true, requireCompleteCalDavSettings: false))
+            return;
+
+        // Adding an account on the servers step: the validation names the missing field. Discovery already ran, would
+        // ask for the sign-in step's password, which is empty when setup opened on the servers, and overwrite what was typed.
+        if (IsCreateMode && IsServersStepVisible)
             return;
 
         var minimalSettings = BuildMinimalSettingsOrThrow();
@@ -932,7 +951,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 {
                     throw new ImapValidationException(
                         connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
-                        connectivityResult.ProtocolLog);
+                        connectivityResult.ProtocolLog,
+                        isOutgoingServer: connectivityResult.IsOutgoingServerFailure);
                 }
 
                 return;
@@ -961,7 +981,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             if (!result.IsCertificateUIRequired)
             {
                 if (!result.IsSuccess)
-                    throw new Pop3ValidationException(result.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage, result.ProtocolLog);
+                    throw new Pop3ValidationException(
+                        result.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage,
+                        result.ProtocolLog,
+                        isOutgoingServer: result.IsOutgoingServerFailure);
 
                 return;
             }
@@ -978,7 +1001,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private async Task ShowImapValidationFailureAsync(Exception exception)
     {
         await ShowPageErrorAsync(
-            MailValidationFailedTitle,
+            GetValidationFailedTitle(exception),
             exception.Message);
 
         if (exception is ImapValidationException { ProtocolLog.Length: > 0 } validationException)
@@ -989,6 +1012,19 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                     validationException.ProtocolLog));
         }
     }
+
+    /// <summary>
+    /// Names the server that failed: the incoming one, the outgoing one after the incoming one answered, or the CalDAV or
+    /// CardDAV server, whose rows keep the message of their failed test.
+    /// </summary>
+    private string GetValidationFailedTitle(Exception exception) => exception switch
+    {
+        ImapValidationException { IsOutgoingServer: true } or Pop3ValidationException { IsOutgoingServer: true } => Translator.ImapSetup_OutgoingValidationFailedTitle,
+        ImapValidationException or Pop3ValidationException => IsPop3 ? Translator.ImapSetup_IncomingPop3ValidationFailedTitle : Translator.ImapSetup_IncomingImapValidationFailedTitle,
+        _ when HasCalDavConnectionError && CalDavConnectionError == exception.Message => Translator.ImapSetup_CalDavValidationFailedTitle,
+        _ when HasCardDavConnectionError && CardDavConnectionError == exception.Message => Translator.ImapSetup_CardDavValidationFailedTitle,
+        _ => MailValidationFailedTitle
+    };
 
     private async Task ValidateCalDavConnectivityAsync(CustomServerInformation serverInformation)
     {
@@ -1150,16 +1186,18 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             Translator.ImapCalDavSettingsPage_SaveSuccessMessage,
             InfoBarMessageType.Success);
 
+        _isLeavingPage = true;
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
+    /// <summary>The name the user typed before Advanced setup opened, otherwise the address the account is saved with.</summary>
+    private string NewAccountName => string.IsNullOrWhiteSpace(_accountCreationContext?.AccountName)
+        ? EmailAddress?.Trim() ?? string.Empty
+        : _accountCreationContext.AccountName.Trim();
+
     private async Task<bool> ValidateAccountUniquenessAsync(Guid? excludedAccountId)
     {
-        var accountName = (_pageMode == ImapCalDavSettingsPageMode.Create
-                           || _pageMode == ImapCalDavSettingsPageMode.Wizard
-                           || _pageMode == ImapCalDavSettingsPageMode.AddAccount)
-            ? _accountCreationContext?.AccountName
-            : null;
+        var accountName = IsCreateMode ? NewAccountName : null;
 
         if (!string.IsNullOrWhiteSpace(accountName) &&
             await _accountService.AccountNameExistsAsync(accountName, excludedAccountId).ConfigureAwait(false))
@@ -1289,6 +1327,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             Translator.ImapCalDavSettingsPage_SaveSuccessMessage,
             InfoBarMessageType.Success);
 
+        _isLeavingPage = true;
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
@@ -1375,7 +1414,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (!Capabilities.RequiresRemoteService)
             return;
 
-        if (IsMailSupportEnabled && string.IsNullOrWhiteSpace(DisplayName))
+        // An existing account edits its sender name with its mail settings, not here.
+        if (IsCreateMode && IsMailSupportEnabled && string.IsNullOrWhiteSpace(DisplayName))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationDisplayNameRequired);
 
         if (string.IsNullOrWhiteSpace(EmailAddress))

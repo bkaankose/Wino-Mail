@@ -1,11 +1,11 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Services;
 
 namespace Wino.Core.Synchronizers.CalDav;
 
@@ -14,8 +14,8 @@ namespace Wino.Core.Synchronizers.CalDav;
 /// </summary>
 /// <param name="Block">The VALARM text to write into a new event, marked with <c>X-APPLE-DEFAULT-ALARM:TRUE</c>.</param>
 /// <param name="Reminder">
-/// The local reminder the alarm maps to, or null when Wino cannot express it: a trigger after the
-/// start or relative to the end.
+/// The local reminder the alarm maps to, or null when Wino cannot express it: a trigger relative
+/// to the end.
 /// </param>
 public sealed record CalDavDefaultAlarm(string Block, CalDavEventReminder? Reminder);
 
@@ -126,79 +126,8 @@ public static partial class CalendarIcsBuilder
         return inserted ? builder.ToString() : icsContent;
     }
 
-    /// <summary>
-    /// Parses an iCalendar duration (RFC 5545 section 3.3.6), for example <c>-PT15M</c>,
-    /// <c>P1D</c>, <c>-P1DT9H</c> or <c>-P1W</c>.
-    /// </summary>
     internal static bool TryParseIcsDuration(string? value, out TimeSpan duration)
-    {
-        duration = TimeSpan.Zero;
-
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        var text = value.Trim().ToUpperInvariant();
-        var sign = 1;
-
-        if (text[0] is '+' or '-')
-        {
-            sign = text[0] == '-' ? -1 : 1;
-            text = text[1..];
-        }
-
-        if (text.Length < 2 || text[0] != 'P')
-            return false;
-
-        long seconds = 0;
-        var inTime = false;
-        var number = new StringBuilder();
-        var sawComponent = false;
-
-        foreach (var character in text[1..])
-        {
-            if (char.IsAsciiDigit(character))
-            {
-                number.Append(character);
-                continue;
-            }
-
-            if (character == 'T')
-            {
-                if (inTime || number.Length > 0)
-                    return false;
-
-                inTime = true;
-                continue;
-            }
-
-            if (number.Length == 0 || !long.TryParse(number.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var amount))
-                return false;
-
-            number.Clear();
-
-            long? unit = (character, inTime) switch
-            {
-                ('W', false) => 7 * 86400,
-                ('D', false) => 86400,
-                ('H', true) => 3600,
-                ('M', true) => 60,
-                ('S', true) => 1,
-                _ => null
-            };
-
-            if (unit == null)
-                return false;
-
-            seconds += amount * unit.Value;
-            sawComponent = true;
-        }
-
-        if (!sawComponent || number.Length > 0)
-            return false;
-
-        duration = TimeSpan.FromSeconds(sign * seconds);
-        return true;
-    }
+        => CalDavAlarms.TryParseDuration(value, out duration);
 
     private static CalDavDefaultAlarm? ParseAlarmBlock(List<string> block)
     {
@@ -225,13 +154,13 @@ public static partial class CalendarIcsBuilder
 
         var relatedToEnd = HasParameter(parameters, "RELATED", "END");
 
-        // Wino reminders count seconds before the start, so a trigger after the start or relative
-        // to the end is written to the server but has no local reminder.
-        CalDavEventReminder? reminder = relatedToEnd || trigger > TimeSpan.Zero
+        // Wino reminders count seconds before the start, so a trigger relative to the end is
+        // written to the server but has no local reminder.
+        CalDavEventReminder? reminder = relatedToEnd
             ? null
             : new CalDavEventReminder
             {
-                DurationInSeconds = (int)Math.Min(int.MaxValue, -trigger.TotalSeconds),
+                DurationInSeconds = (int)Math.Clamp(-trigger.TotalSeconds, int.MinValue, int.MaxValue),
                 ReminderType = string.Equals(action, "EMAIL", StringComparison.OrdinalIgnoreCase)
                     ? CalendarItemReminderType.Email
                     : CalendarItemReminderType.Popup

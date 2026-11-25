@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    The native mail renderer comes as NuGet packages (WinoMail.Renderer and one package per platform) at the version
+    WinoRendererVersion in Directory.Packages.props. To build against a renderer checkout instead, name it with
+    WINO_RENDERER_ROOT (environment) or -p:WinoRendererRoot, or pass -p:WinoRendererSource=Project, which on Windows
+    falls back to the maintainer's default path. A value given on the command line cannot be changed here, so the
+    trailing slash goes into a property of its own.
+  -->
+  <PropertyGroup Condition="'$(WinoRendererRootImported)' != 'true'">
+    <WinoRendererRootImported>true</WinoRendererRootImported>
+    <WinoRendererRoot Condition="'$(WinoRendererRoot)' == '' and '$(WINO_RENDERER_ROOT)' != ''">$(WINO_RENDERER_ROOT)</WinoRendererRoot>
+    <WinoRendererSource Condition="'$(WinoRendererSource)' == '' and '$(WinoRendererRoot)' != ''">Project</WinoRendererSource>
+    <WinoRendererSource Condition="'$(WinoRendererSource)' == ''">Package</WinoRendererSource>
+    <WinoRendererRoot Condition="'$(WinoRendererSource)' == 'Project' and '$(WinoRendererRoot)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">D:\Wino-Mail-Renderer.worktrees\wino-integration</WinoRendererRoot>
+    <WinoRendererDirectory Condition="'$(WinoRendererSource)' == 'Project' and '$(WinoRendererRoot)' != ''">$([MSBuild]::EnsureTrailingSlash('$(WinoRendererRoot)'))</WinoRendererDirectory>
+  </PropertyGroup>
+
+  <Target Name="WinoRendererRootRequired" BeforeTargets="ResolveProjectReferences;_CheckForInvalidConfigurationAndPlatform" Condition="'$(WinoRendererSource)' == 'Project' and '$(WinoRendererRoot)' == ''">
+    <Error Text="The native mail renderer checkout is not set. Set the WINO_RENDERER_ROOT environment variable or pass -p:WinoRendererRoot=&lt;path to the Wino-Mail-Renderer checkout&gt;." />
+  </Target>
+</Project>

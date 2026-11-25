@@ -24,16 +24,20 @@ public static class NotificationContentRules
     /// <summary>More new mails than this in one batch show one "N new messages" summary instead.</summary>
     public const int MaxIndividualMailNotifications = 3;
 
-    /// <summary>Windows IsWithinNotificationScope.</summary>
+    /// <summary>
+    /// Whether a new mail is in the folders the scope covers. Folders other users share are covered only by
+    /// "All folders": a custom folder is the user's own.
+    /// </summary>
     public static bool IsWithinNotificationScope(MailCopy mailItem, MailNotificationScope scope)
     {
         if (scope == MailNotificationScope.AllFolders) return true;
         var isInbox = mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox;
+        var isOwnCustomFolder = mailItem.AssignedFolder is { SpecialFolderType: SpecialFolderType.Other, Scope: MailFolderScope.Personal };
         return scope switch
         {
             MailNotificationScope.InboxOnly => isInbox,
             MailNotificationScope.FocusedInboxOnly => isInbox && mailItem.IsFocused,
-            MailNotificationScope.InboxAndCustomFolders => isInbox || mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Other,
+            MailNotificationScope.InboxAndCustomFolders => isInbox || isOwnCustomFolder,
             _ => true
         };
     }

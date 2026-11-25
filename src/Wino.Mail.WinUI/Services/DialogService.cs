@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +23,7 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Editor;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
@@ -110,7 +112,10 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
     {
         try
         {
-            var configurableFolder = await folderService.GetFoldersAsync(accountId);
+            // Special-folder roles belong to the account's own folders only.
+            var configurableFolder = (await folderService.GetFoldersAsync(accountId))
+                .Where(folder => folder.Scope == MailFolderScope.Personal && !folder.IsContainer)
+                .ToList();
 
             var systemFolderConfigurationDialog = new SystemFolderConfigurationDialog(configurableFolder)
             {
@@ -242,6 +247,16 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
+    public async Task<List<CalendarReminderDraft>?> ShowCalendarReminderEditorAsync(List<CalendarReminderDraft> reminders, bool supportsEmailReminder)
+    {
+        var dialog = new CalendarReminderEditorDialog(reminders, supportsEmailReminder)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+        await HandleDialogPresentationAsync(dialog);
+        return dialog.Result;
+    }
+
     public async Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName, bool canRenameOnServer)
     {
         var dialog = new RenameFolderDialog(folderName, displayName, canRenameOnServer)
@@ -252,16 +267,33 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
-    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
+    public Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
         IReadOnlyList<AccountTaskList> taskLists,
         IReadOnlyList<MailAccount> accounts)
+        => ShowTaskListPickerDialogAsync(taskLists, accounts, null);
+
+    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
+        IReadOnlyList<AccountTaskList> taskLists,
+        IReadOnlyList<MailAccount> accounts,
+        string? title)
     {
-        var dialog = new TaskListPickerDialog(taskLists, accounts)
+        var dialog = new TaskListPickerDialog(taskLists, accounts, title)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+        return dialog.PickedList;
+    }
+
+    public async Task<TaskFromItemResult?> ShowCreateTaskFromItemDialogAsync(TaskFromItemDraft draft)
+    {
+        var dialog = new CreateTaskFromItemDialog(draft)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
         await HandleDialogPresentationAsync(dialog);
-        return dialog.PickedList;
+        return dialog.Result;
     }
 
     public async Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)

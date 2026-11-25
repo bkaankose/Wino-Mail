@@ -12,7 +12,7 @@ namespace Wino.Mail.WinUI.Dialogs;
 /// <summary>
 /// Hosts an identity provider's sign-in page in a WebView2 and captures the redirect before it loads. Presented only
 /// by the dialog service. The browser profile lives in its own user data folder, so sign-in cookies never reach the
-/// reader's or the editor's WebView2 and theirs never reach the sign-in page.
+/// policy dialogs' WebView2 and theirs never reach the sign-in page.
 /// </summary>
 public sealed partial class EmbeddedBrowserSignInDialog : ContentDialog
 {

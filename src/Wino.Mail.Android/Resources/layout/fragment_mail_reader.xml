@@ -189,13 +189,7 @@
                   android:layout_height="wrap_content"
                   android:layout_marginTop="@dimen/wino_space_l"
                   android:background="@drawable/reader_body_background"
-                  android:clipToOutline="true">
-
-                <WebView
-                    android:id="@+id/reader_web"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/wino_m3_reader_body_min_height" />
-              </FrameLayout>
+                  android:clipToOutline="true" />
             </LinearLayout>
           </androidx.core.widget.NestedScrollView>
 

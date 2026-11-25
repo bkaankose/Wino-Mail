@@ -1,0 +1,118 @@
+<ContentDialog
+    x:Class="Wino.Mail.WinUI.Dialogs.CalendarReminderEditorDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:calendar="using:Wino.Mail.ViewModels.Calendar"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Mail.WinUI.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.CalendarReminderEditor_Title}"
+    HorizontalContentAlignment="Stretch"
+    VerticalContentAlignment="Stretch"
+    DefaultButton="Primary"
+    PrimaryButtonClick="SaveClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save}"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">680</x:Double>
+        <x:Double x:Key="ContentDialogMaxWidth">760</x:Double>
+    </ContentDialog.Resources>
+
+    <StackPanel Spacing="12">
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="{x:Bind domain:Translator.CalendarReminderEditor_Description}"
+            TextWrapping="Wrap" />
+
+        <TextBlock
+            AutomationProperties.AutomationId="CalendarReminderEditorEmptyText"
+            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+            Text="{x:Bind domain:Translator.CalendarReminderEditor_Empty}"
+            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(Editor.HasRows), Mode=OneWay}" />
+
+        <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto">
+            <ItemsControl AutomationProperties.AutomationId="CalendarReminderEditorRows" ItemsSource="{x:Bind Editor.Rows}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="calendar:CalendarReminderEditorRow">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" MinWidth="120" />
+                                <ColumnDefinition Width="*" MinWidth="140" />
+                                <ColumnDefinition Width="*" MinWidth="140" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <NumberBox
+                                AutomationProperties.AutomationId="CalendarReminderEditorValue"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarReminderEditor_Value}"
+                                Maximum="9999"
+                                Minimum="0"
+                                SpinButtonPlacementMode="Hidden"
+                                Value="{x:Bind Value, Mode=TwoWay}" />
+
+                            <ComboBox
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="CalendarReminderEditorUnit"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarReminderEditor_Unit}"
+                                ItemsSource="{x:Bind calendar:CalendarReminderEditorRow.UnitOptions}"
+                                SelectedIndex="{x:Bind SelectedUnitIndex, Mode=TwoWay}" />
+
+                            <ComboBox
+                                Grid.Column="2"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="CalendarReminderEditorDirection"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarReminderEditor_Direction}"
+                                ItemsSource="{x:Bind calendar:CalendarReminderEditorRow.DirectionOptions}"
+                                SelectedIndex="{x:Bind SelectedDirectionIndex, Mode=TwoWay}" />
+
+                            <ComboBox
+                                Grid.Column="3"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="CalendarReminderEditorMethod"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarReminderEditor_Method}"
+                                IsEnabled="{x:Bind SupportsEmailReminder}"
+                                ItemsSource="{x:Bind calendar:CalendarReminderEditorRow.MethodOptions}"
+                                SelectedIndex="{x:Bind SelectedMethodIndex, Mode=TwoWay}" />
+
+                            <Button
+                                Grid.Column="4"
+                                AutomationProperties.AutomationId="CalendarReminderEditorRemove"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarReminderEditor_Remove}"
+                                Click="RemoveClicked"
+                                Style="{StaticResource TransparentActionButtonStyle}"
+                                Tag="{x:Bind}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarReminderEditor_Remove}">
+                                <coreControls:WinoFontIcon
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontSize="14"
+                                    Icon="Delete" />
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Button AutomationProperties.AutomationId="CalendarReminderEditorAdd" Command="{x:Bind Editor.AddReminderCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <coreControls:WinoFontIcon
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                    FontSize="14"
+                    Icon="Add" />
+                <TextBlock Text="{x:Bind domain:Translator.CalendarReminderEditor_Add}" />
+            </StackPanel>
+        </Button>
+    </StackPanel>
+</ContentDialog>

@@ -118,6 +118,7 @@ public partial class AccountSetupPageViewModel
                 Translator.ProviderSelection_UseForCalendar,
                 WinoIconGlyph.Calendar,
                 Capabilities.CalendarMode,
+                Capabilities.CalendarModeWhenOn,
                 Capabilities.IsCalendarProviderModeAvailable,
                 GetCalendarSyncedText(),
                 _calDavAvailability,
@@ -130,6 +131,7 @@ public partial class AccountSetupPageViewModel
                 Translator.ProviderSelection_UseForContacts,
                 WinoIconGlyph.People,
                 Capabilities.ContactMode,
+                Capabilities.ContactModeWhenOn,
                 Capabilities.IsContactProviderModeAvailable,
                 GetContactSyncedText(),
                 _cardDavAvailability,
@@ -142,6 +144,7 @@ public partial class AccountSetupPageViewModel
                 Translator.ProviderSelection_UseForTasks,
                 WinoIconGlyph.TaskList,
                 Capabilities.TaskMode,
+                Capabilities.TaskModeWhenOn,
                 Capabilities.IsTaskProviderModeAvailable,
                 GetTaskSyncedText(),
                 _calDavAvailability,
@@ -188,6 +191,7 @@ public partial class AccountSetupPageViewModel
         string title,
         WinoIconGlyph glyph,
         AccountCapabilityMode mode,
+        AccountCapabilityMode modeWhenOn,
         bool isProviderAvailable,
         string syncedText,
         AccountSetupDavAvailability davAvailability,
@@ -209,7 +213,8 @@ public partial class AccountSetupPageViewModel
                 protocolName)));
         }
 
-        var selectedId = mode == AccountCapabilityMode.Provider
+        // An app that is off still shows the source it starts on when the switch is turned on.
+        var selectedId = modeWhenOn == AccountCapabilityMode.Provider
             ? isManualEntry ? EnterSourceId : ProviderSourceId
             : LocalSourceId;
 
@@ -313,15 +318,15 @@ public partial class AccountSetupPageViewModel
                     row.Note = GetMailNote();
                     break;
                 case AccountSetupAppKind.Calendar:
-                    Capabilities.CalendarMode = ToMode(row, id);
+                    Capabilities.CalendarMode = _userAppModes[row.Kind] = ToMode(row, id);
                     AlignCalDavRows(row, AccountSetupAppKind.Tasks);
                     break;
                 case AccountSetupAppKind.Tasks:
-                    Capabilities.TaskMode = ToMode(row, id);
+                    Capabilities.TaskMode = _userAppModes[row.Kind] = ToMode(row, id);
                     AlignCalDavRows(row, AccountSetupAppKind.Calendar);
                     break;
                 case AccountSetupAppKind.Contacts:
-                    Capabilities.ContactMode = ToMode(row, id);
+                    Capabilities.ContactMode = _userAppModes[row.Kind] = ToMode(row, id);
                     break;
             }
 

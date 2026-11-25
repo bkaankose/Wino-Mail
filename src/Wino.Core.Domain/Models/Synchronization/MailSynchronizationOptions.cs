@@ -39,5 +39,11 @@ public class MailSynchronizationOptions
     /// </summary>
     public Guid? GroupedSynchronizationTrackingId { get; set; }
 
+    /// <summary>
+    /// Set with <see cref="MailSynchronizationType.FullFolders"/> to download the mail between the account's stored
+    /// range and this wider one. Mail already stored is never downloaded again.
+    /// </summary>
+    public InitialSynchronizationRange? RangeBackfillTarget { get; set; }
+
     public override string ToString() => $"Type: {Type}";
 }

@@ -16,7 +16,6 @@ public sealed partial class MainPage : Page
         new("contact", typeof(ContactPicturePage)),
         new("mailList", typeof(MailListPage)),
         new("mailListInteractions", typeof(MailListInteractionsPage)),
-        new("editor", typeof(EditorPage)),
         new("searchBar", typeof(SearchBarPage)),
         new("intelligenceHeader", typeof(IntelligenceHeaderPage)),
         new("intelligenceProgress", typeof(IntelligenceProgressPage)),

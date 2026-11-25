@@ -12,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels.AccountSettings;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Shell.Contracts;
 using Wino.Services.Interfaces;
@@ -93,9 +94,9 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
 
     private IEnumerable<SettingsNavigationItemInfo> CreateAccountSearchItems(MailAccount account)
     {
-        var accountTitle = !string.IsNullOrWhiteSpace(account.Address)
-            ? string.Format(Translator.SettingsAccountDetails_NavigationTitle, account.Address)
-            : account.Name ?? Translator.AccountDetailsPage_Title;
+        var accountTitle = !string.IsNullOrWhiteSpace(account.Name)
+            ? account.Name
+            : !string.IsNullOrWhiteSpace(account.Address) ? account.Address : Translator.AccountDetailsPage_Title;
         var accountSearchText = string.Join(' ', new[] { account.Name, account.Address }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
         yield return CreateAccountSearchItem(
@@ -107,7 +108,8 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
             accountSearchText,
             includeDestination: false);
 
-        if (account.IsContactAccessGranted)
+        // People and To Do kept on this device have settings too, so the app being on is what counts.
+        if (account.IsContactAccessEnabled)
         {
             yield return CreateAccountSearchItem(
                 account,
@@ -119,7 +121,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 includeDestination: false);
         }
 
-        if (account.IsTaskAccessGranted)
+        if (account.IsTaskAccessEnabled)
         {
             yield return CreateAccountSearchItem(
                 account,
@@ -194,6 +196,15 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
         {
             yield return CreateAccountSearchItem(
                 account,
+                Translator.AccountSettingsDialog_AccountName,
+                Translator.AccountMail_SenderNameDescription,
+                WinoPage.AccountMailSettingsPage,
+                AccountDetailsTab.Mail,
+                "sender name display name from",
+                includeDestination: false);
+
+            yield return CreateAccountSearchItem(
+                account,
                 Translator.ImapCalDavSettingsPage_TitleEdit,
                 Translator.ImapCalDavSettingsPage_Subtitle,
                 WinoPage.ImapCalDavSettingsPage,
@@ -211,14 +222,33 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
         string searchKeywords,
         bool includeDestination = true)
     {
-        var accountTitle = !string.IsNullOrWhiteSpace(account.Address)
-            ? string.Format(Translator.SettingsAccountDetails_NavigationTitle, account.Address)
-            : account.Name ?? Translator.AccountDetailsPage_Title;
+        var accountTitle = !string.IsNullOrWhiteSpace(account.Name)
+            ? account.Name
+            : !string.IsNullOrWhiteSpace(account.Address) ? account.Address : Translator.AccountDetailsPage_Title;
         var routeSteps = new List<SettingsNavigationRouteStep>
         {
             new(Translator.SettingsManageAccountSettings_Title, WinoPage.ManageAccountsPage),
-            new(accountTitle, WinoPage.AccountDetailsPage, new AccountDetailsNavigationContext(account.Id, accountTab))
+            new(accountTitle, WinoPage.AccountDetailsPage, new AccountDetailsNavigationContext(account.Id, AccountDetailsTab.General))
         };
+
+        // Settings of one app live on that app's page under the account, so the route passes through it.
+        WinoApplicationMode? app = accountTab switch
+        {
+            AccountDetailsTab.Mail => WinoApplicationMode.Mail,
+            AccountDetailsTab.Calendar => WinoApplicationMode.Calendar,
+            AccountDetailsTab.People => WinoApplicationMode.Contacts,
+            AccountDetailsTab.ToDo => WinoApplicationMode.Tasks,
+            _ => null
+        };
+
+        if (app is { } appMode)
+        {
+            var appPage = AccountAppPresenter.GetPage(appMode);
+            routeSteps.Add(new SettingsNavigationRouteStep(AccountAppPresenter.GetTitle(appMode), appPage, account.Id));
+
+            if (!includeDestination)
+                destinationPage = appPage;
+        }
 
         if (includeDestination)
             routeSteps.Add(new SettingsNavigationRouteStep(title, destinationPage, account.Id));
@@ -272,6 +302,10 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 return Translator.SettingsSignature_Description;
             case WinoPage.ImapCalDavSettingsPage:
                 return Translator.ImapCalDavSettingsPage_Subtitle;
+            case WinoPage.AccountTroubleshootingPage:
+                return string.Format(Translator.AccountTroubleshooting_PageDescription, await GetAccountNameAsync(parameter).ConfigureAwait(false) ?? pageTitle);
+            case WinoPage.AccountSignInPage:
+                return string.Format(Translator.AccountSignIn_PageDescription, await GetAccountNameAsync(parameter).ConfigureAwait(false) ?? pageTitle);
             case WinoPage.WinoIntelligenceManagementPage:
                 return Translator.SemanticIndex_PageDescription;
             case WinoPage.IntelligenceCoveragePage:

@@ -43,7 +43,7 @@
                     VerticalAlignment="Center"
                     FontFamily="{ThemeResource WinoIconFontFamily}"
                     FontSize="18"
-                    Icon="{x:Bind winuiHelpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
+                    Icon="{x:Bind winuiHelpers:XamlHelpers.GetFolderGlyph(SpecialFolderType, Scope, IsContainer, IsSharedOwnerNode)}" />
 
                 <TextBlock
                     Grid.Column="2"
@@ -56,7 +56,8 @@
                     AutomationProperties.AutomationId="FolderCustomizationPageRenameButton"
                     Click="Rename_Click"
                     Style="{StaticResource SubtleButtonStyle}"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.FolderOperation_Rename}">
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.FolderOperation_Rename}"
+                    Visibility="{x:Bind CanPinAndRename}">
                     <coreControls:WinoFontIcon
                         FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="16"
@@ -81,7 +82,8 @@
                     AutomationProperties.AutomationId="FolderCustomizationPageButton"
                     Click="PinToggle_Click"
                     Style="{StaticResource SubtleButtonStyle}"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.FolderCustomization_Pin}">
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.FolderCustomization_Pin}"
+                    Visibility="{x:Bind CanPinAndRename}">
                     <coreControls:WinoFontIcon
                         FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="16"

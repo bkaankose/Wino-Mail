@@ -25,6 +25,14 @@ public sealed class ImapCalDavSettingsNavigationContext
     /// <summary>Set when the address-first setup page opens Advanced setup with what it already found.</summary>
     public ImapSetupPrefill? Prefill { get; init; }
 
+    /// <summary>
+    /// Edit mode only: an app the account settings want to turn on or move to a server. The page shows that server so
+    /// it can be entered, and Save applies the change once the server answered.
+    /// </summary>
+    public WinoApplicationMode? RequestedApp { get; init; }
+
+    public AccountCapabilityMode RequestedMode { get; init; }
+
     public static ImapCalDavSettingsNavigationContext CreateForCreateMode(
         AccountCreationDialogResult accountCreationDialogResult,
         TaskCompletionSource<ImapCalDavSetupResult> completionSource)
@@ -40,6 +48,15 @@ public sealed class ImapCalDavSettingsNavigationContext
         {
             Mode = ImapCalDavSettingsPageMode.Edit,
             AccountId = accountId
+        };
+
+    public static ImapCalDavSettingsNavigationContext CreateForEditMode(Guid accountId, WinoApplicationMode requestedApp, AccountCapabilityMode requestedMode)
+        => new()
+        {
+            Mode = ImapCalDavSettingsPageMode.Edit,
+            AccountId = accountId,
+            RequestedApp = requestedApp,
+            RequestedMode = requestedMode
         };
 
     public static ImapCalDavSettingsNavigationContext CreateForWizardMode(

@@ -213,6 +213,12 @@ public sealed partial class TaskService
             CreatedAtUtc = task.CreatedAtUtc,
             ModifiedAtUtc = task.ModifiedAtUtc,
             IsReadOnly = isReadOnly,
+            ReminderAtUtc = task.ReminderAtUtc,
+            ReminderSnoozedUntilUtc = task.ReminderSnoozedUntilUtc,
+            Priority = task.Priority,
+            Categories = task.Categories,
+            StartDate = task.StartDate,
+            Recurrence = task.Recurrence,
             Steps = steps.Select(step => new AccountTaskStep
             {
                 Id = step.Id,
@@ -241,6 +247,7 @@ public sealed partial class TaskService
     private static string TaskSignature(AccountTask task, IEnumerable<AccountTaskStep> steps, bool isReadOnly)
         => Join(task.Title, task.Notes, task.DueDate?.Ticks, task.IsCompleted, task.CompletedAtUtc?.Ticks,
             task.IsImportant, task.MyDayDateUtc?.Ticks, task.TaskListId, isReadOnly,
+            task.ReminderAtUtc?.Ticks, task.Priority, task.Categories, task.StartDate?.Ticks, task.Recurrence,
             string.Join('\u001e', steps.Select(step => Join(step.Id, step.Title, step.IsCompleted, step.Order))));
 
     private static string Join(params object[] values)

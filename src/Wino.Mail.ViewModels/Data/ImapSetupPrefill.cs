@@ -23,4 +23,7 @@ public sealed class ImapSetupPrefill
 
     /// <summary>Opens on the Servers step instead of the sign-in step.</summary>
     public bool StartOnServers { get; init; } = true;
+
+    /// <summary>The setup page had not shown its apps yet, so Advanced setup asks for them first.</summary>
+    public bool StartOnFeatures { get; init; }
 }

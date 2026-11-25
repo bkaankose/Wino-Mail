@@ -6,6 +6,7 @@
     python scripts/release/store-listing/build.py --lang all   # every language in i18n/
     python scripts/release/store-listing/build.py --set dark   # the dark-by-default set, into out/dark
     python scripts/release/store-listing/build.py --art        # hero, box and poster art, into out/art
+    python scripts/release/store-listing/build.py --mac        # the Mac App Store set (2880x1800) from screens/macos, into out/macos
 
 Each scene is a 1920x1080 canvas rendered at 2x (3840x2160). A scene with an app window shows
 screens/<scene>.png (dark) or screens/<scene>-light.png when that file exists, and the drawn placeholder otherwise.
@@ -17,6 +18,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from PIL import Image
@@ -54,7 +56,7 @@ def chip(text, icon=""):
 
 def caption(headline, sub="", badges=""):
     extra = (f"<p>{sub}</p>" if sub else "") + (f'<div class="badges">{badges}</div>' if badges else "")
-    if LAYOUT in ("full", "zoom"):
+    if LAYOUT in ("full", "zoom", "fan"):
         headline = headline.replace("<br>", " ")  # one line above the app, so the app gets the height
     lines = " l3" if headline.count("<br>") >= 2 else ""
     return f'<header class="cap{lines}"><h1>{headline}</h1>{extra}</header>'
@@ -97,7 +99,7 @@ def nav(rows):
 
 def window(shot, body):
     """The app window: a capture from screens/ when there is one, the drawn placeholder otherwise."""
-    name = f'{shot}{"" if DARK else "-light"}.png'
+    name = f'macos/{shot}{"-dark" if DARK else ""}.png' if MAC else f'{shot}{"" if DARK else "-light"}.png'
     if not (HERE / "screens" / name).exists():
         return f'<div class="window"><div class="mimic">{body}</div></div>'
     return f'<div class="window"><img class="shot" src="screens/{name}" alt=""></div>'
@@ -346,6 +348,9 @@ def scene_todo():
 # ------------------------------------------------------------------------------------- Themes
 
 def scene_themes():
+    if MAC:
+        fan = "".join(f'<div class="window"><img class="shot" src="screens/macos/theme-{n}.png" alt=""></div>' for n in MAC_THEMES)
+        return caption(T["head_themes"]) + f'<div class="fan">{fan}</div>'
     names = ["Aurora", "Nebula", "Coastline", "Forest", "Dunes", "Skyline", "Lavender", "Ember", "Blossom", "Mist", "Indigo", "Garden"]
     tiles = "".join(f'<div class="theme{" on" if n == "Aurora" else ""}"><img src="{THEMES}/{n}.jpg" alt=""><span>{n}</span></div>' for n in names)
     swatches = "".join(f'<i style="background:{c}"{" class=on" if k == 0 else ""}></i>' for k, c in enumerate(
@@ -476,7 +481,11 @@ def scene_companion():
 def scene_features():
     icons = [("Flash", "amber"), ("Pulse", "green"), ("PeopleCommunity", "blue"), ("PersonSwap", "purple"), ("Keyboard", "teal"),
              ("Grid", "orange"), ("DocumentAdd", "blue"), ("Signature", "purple"), ("TextProofingTools", "red")]
-    items = [(i, c, t, d) for (i, c), (t, d) in zip(icons, T["features"])]
+    features = list(T["features"])
+    if MAC:  # the Mac app has the menu bar Companion instead of Windows widgets and Live Tiles
+        icons[5] = ("Companion", "orange")
+        features[5] = T.get("feature_mac_companion", ["Menu bar Companion", "Your next event, tasks and mail one click away"])
+    items = [(i, c, t, d) for (i, c), (t, d) in zip(icons, features)]
     cards = "".join(f'<div class="feat"><span style="color:var(--{c})">{ico(i)}</span><div><strong>{t}</strong><small>{d}</small></div></div>' for i, c, t, d in items)
     providers = "".join(f"<span>{provider(f)}{n}</span>" for n, f in [
         ("Outlook", "Outlook"), ("Gmail", "Gmail"), ("Exchange", "Exchange"), ("iCloud", "iCloud"), ("Yahoo", "Yahoo"), ("IMAP", "IMAP4"), ("POP3", "IMAP4")])
@@ -506,6 +515,18 @@ META = {
     "privacy": ("Privacy &amp; security", "Shield", "#a9e6cd", "#acd6f5", "#d2efb6", "#0a6b52", "#0a5fae", scene_privacy),
     "assistant": ("Wino Mail", "Sparkle", "#cdbcff", "#ffbfdf", "#a9cbff", "#6a3be0", "#d13a86", scene_assistant),
 }
+# The Mac App Store set: the same scenes with captures of the AppKit app (screens/macos, from the
+# MacDebugBridge commands seedstore and snap2x). Mail and Calendar show the whole window; People and To Do are zoomed.
+# The dark Mail and Calendar captures merge snap2x with a real window capture (wsnap), because offscreen rendering
+# draws the dark toolbar's glass buttons and the pane dividers white.
+SCENES_MAC = {
+    "01-mail": ("mail", "full", False), "02-mail-dark": ("mail", "full", True),
+    "03-calendar": ("calendar", "full", False), "04-calendar-dark": ("calendar", "full", True),
+    "05-people": ("people", "zoom", False), "06-todo": ("todo", "zoom", False),
+    "07-themes": ("themes", "fan", False), "08-features": ("features", "top", False),
+}
+MAC_THEMES = ("Blossom", "Coastline", "Garden")
+MAC = False
 BASE = ""
 LAYOUT = "top"
 SET = "light"
@@ -528,7 +549,7 @@ document.querySelectorAll('[data-shot]').forEach(w => {
 
 def section(key):
     global BASE, DARK, LAYOUT
-    BASE, LAYOUT, variant = SCENES[key]
+    BASE, LAYOUT, variant = (SCENES_MAC if MAC else SCENES)[key]
     DARK = (SET == "dark") != variant
     _, glyph, c1, c2, c3, d1, d2, fn = META[BASE]
     style = f"--c1:{c1};--c2:{c2};--c3:{c3};--d1:{d1};--d2:{d2}"
@@ -541,29 +562,42 @@ def build(lang, theme):
     LANG, SET = lang, theme
     T = json.loads((HERE / "i18n" / f"{lang}.json").read_text(encoding="utf-8"))["scenes"]
     css = (HERE / "scenes.css").read_text(encoding="utf-8")
-    sections = "".join(section(k) for k in SCENES)
-    html = f'<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8"><title>Wino Store listing</title><style>{css}</style></head><body>{sections}<script>{SCRIPT}</script></body></html>'
-    page = HERE / f"scenes.{theme}.{lang}.html"
+    if MAC:
+        css += (HERE / "scenes.macos.css").read_text(encoding="utf-8")
+    sections = "".join(section(k) for k in (SCENES_MAC if MAC else SCENES))
+    html = f'<!DOCTYPE html><html lang="{lang}"{' class="mac"' if MAC else ''}><head><meta charset="utf-8"><title>Wino Store listing</title><style>{css}</style></head><body>{sections}<script>{SCRIPT}</script></body></html>'
+    page = HERE / f"scenes.{'macos' if MAC else theme}.{lang}.html"
     page.write_text(html, encoding="utf-8")
     return page
 
 
 def render(page, lang, theme, names):
     out = HERE / "out" if lang == "en-us" else HERE / "out" / lang
-    if theme != "light":
+    if MAC:
+        out = HERE / "out" / "macos" / (lang if lang != "en-us" else "")
+    elif theme != "light":
         out = out / theme
     out.mkdir(parents=True, exist_ok=True)
     profile = Path(tempfile.gettempdir()) / "wino-store-listing-edge"
     for name in names:
         target = out / f"{name}.png"
+        scale, height = ("1.5", 1200) if MAC else ("2", 1080)
+        target.unlink(missing_ok=True)
         subprocess.run([
             str(EDGE), "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--user-data-dir={profile}",
-            "--allow-file-access-from-files", "--force-device-scale-factor=2", "--window-size=1920,1200",
+            "--allow-file-access-from-files", f"--force-device-scale-factor={scale}", f"--window-size=1920,{height + 120}",
             "--virtual-time-budget=6000", f"--screenshot={target}", f"{page.as_uri()}?s={name}",
         ], check=True, capture_output=True)
-        # Headless Edge leaves a blank strip at the bottom of some scenes, so capture taller and crop to 1920x1080 at 2x.
+        # Edge can return before the file is written.
+        for _ in range(100):
+            if target.exists() and target.stat().st_size > 0:
+                break
+            time.sleep(0.3)
+        time.sleep(0.5)
+        # Headless Edge leaves a blank strip at the bottom of some scenes, so capture taller and crop to the canvas.
         with Image.open(target) as shot:
-            shot.crop((0, 0, 3840, 2160)).save(target)
+            size = (int(1920 * float(scale)), int(height * float(scale)))
+            shot.crop((0, 0) + size).convert("RGB").save(target)
         print(target)
 
 
@@ -615,9 +649,12 @@ if __name__ == "__main__":
     if "--art" in args:
         render_art()
         sys.exit()
+    if "--mac" in args:
+        args.remove("--mac")
+        MAC = True
     lang, theme = option("--lang", "en-us"), option("--set", "light")
     langs = sorted(f.stem for f in (HERE / "i18n").glob("*.json")) if lang == "all" else [lang]
     for each in langs:
         for one in (["dark", "light"] if theme == "both" else [theme]):
             page = build(each, one)
-            render(page, each, one, [k for k in SCENES if not args or any(w in k for w in args)])
+            render(page, each, one, [k for k in (SCENES_MAC if MAC else SCENES) if not args or any(w in k for w in args)])

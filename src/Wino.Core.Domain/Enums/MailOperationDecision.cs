@@ -7,5 +7,8 @@ public enum MailOperationDecision
     ConfirmPermanentDelete,
 
     /// <summary>A move has no destination folder.</summary>
-    PickMoveTarget
+    PickMoveTarget,
+
+    /// <summary>The move goes into an account that needs the user's permission to receive mail from other accounts.</summary>
+    AuthorizeMailImport
 }

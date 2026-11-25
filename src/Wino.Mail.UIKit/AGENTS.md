@@ -21,6 +21,15 @@ The iPhone and iPad app: UIKit views written in C# over the shared services and 
 - Debug bridge commands are registered only inside `#if DEBUG`.
 - Never build a `UIButton` subclass with `base(UIButtonType.System)`.
 
+## Mail renderer
+
+Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebKit. `build/Wino.Renderer.Apple.props` references the `WinoMail.Renderer.iOS` package: the engine, its Core Graphics and Core Text backend and the UIKit view (`Wino.Renderer.UIKit`). `WINO_RENDERER_ROOT` builds against a renderer checkout instead.
+
+- The glue shared with the other heads is in [src/Wino.Mail.Rendering](../Wino.Mail.Rendering/AGENTS.md); the Apple parts (backend factory, PDF export, memory pressure) are in `src/Wino.Mail.Rendering.Apple`. `RegisterUIKitServices` registers the one backend (`UIKitBackend.Create()`) and calls `AddMailRendering()`; the head's `Composition` starts `MailEngineMemoryPressure`. Never create a second engine.
+- The engine's `MailView` (a `UIView` over the shared `MailViewController`) is created in code. The reader and the event description set `SizesToContent`: the page's scroll view scrolls the mail with its header, and the view draws only the part on screen. The composer, the signature and template editors and the event notes go through `Views/Mail/Compose/UIKitEngineEditor`; the format bar is the view's `InputAccessory`. `Infrastructure/UIKitEngineMailPrintPresenter` presents the print sheet and exports PDF.
+- Links, remote content, tracking parameters, find, zoom, the caret, marked text, spelling and Dynamic Type for mail text are the engine's. Keep this head to wiring and UIKit chrome; an engine fault is fixed in the renderer repository.
+- Debug bridge: `reader-theme`, `reader-touch X Y [long]`, `reader-print`, `reader-pdf`, `compose-type`, `compose-ime`, `compose-key`, `compose-image`, `compose-body` and `compose-discard` drive the renderer in the running app.
+
 ## How a view consumes a ViewModel
 
 A page is a `WinoViewController<TViewModel>` ([Infrastructure/WinoViewController.cs](Infrastructure/WinoViewController.cs)). The base class owns the contract with the shared ViewModel, so a page only declares bindings:

@@ -35,8 +35,7 @@ public partial class App :
     /// <summary>Starts once the launch completes, so the first widget and tile update stays off the startup path.</summary>
     private void StartBackgroundActivities()
     {
-        if (_widgetsAndTiles != null ||
-            !(WidgetsAndTilesService.AreLiveTilesSupported || WidgetsAndTilesService.AreWidgetsSupported))
+        if (_widgetsAndTiles != null)
             return;
 
         _widgetsAndTiles = Services.GetRequiredService<WidgetsAndTilesService>();

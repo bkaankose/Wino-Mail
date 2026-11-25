@@ -62,10 +62,24 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
 
     public ReadComposePanePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                     IPreferencesService preferencesService,
-                                    ITranslationService translationService) : base(messenger)
+                                    ITranslationService translationService,
+                                    IEnumerable<ISpellCheckLanguageSource> spellCheckLanguageSources) : base(messenger)
     {
         PreferencesService = preferencesService;
-        AvailableSpellCheckLanguages = translationService.GetAvailableLanguages();
+
+        var spellCheckSource = spellCheckLanguageSources.FirstOrDefault();
+        var savedSpellCheckCode = preferencesService.ComposerSpellCheckLanguageCode;
+        var platformLanguages = spellCheckSource?.GetLanguages() ?? Array.Empty<(string Code, string DisplayName)>();
+
+        // Spell-check languages are not app languages; the menu reuses the app language model for every head's binding,
+        // so the enum value of a platform language means nothing and only the code and the name are read.
+        AvailableSpellCheckLanguages = platformLanguages.Count > 0
+            ? [.. platformLanguages.Select(language => new AppLanguageModel(AppLanguage.None, language.DisplayName, language.Code))]
+            : translationService.GetAvailableLanguages();
+
+        var selectedCode = spellCheckSource is not null && platformLanguages.Count > 0
+            ? spellCheckSource.Resolve(savedSpellCheckCode)
+            : savedSpellCheckCode;
 
         CurrentReaderFont = preferencesService.ReaderFont;
         CurrentReaderFontSize = preferencesService.ReaderFontSize;
@@ -73,7 +87,7 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
         CurrentComposerFont = preferencesService.ComposerFont;
         CurrentComposerFontSize = preferencesService.ComposerFontSize;
         CurrentSpellCheckLanguage = AvailableSpellCheckLanguages.Find(language =>
-            string.Equals(language.Code, preferencesService.ComposerSpellCheckLanguageCode, System.StringComparison.OrdinalIgnoreCase));
+            string.Equals(language.Code, selectedCode, System.StringComparison.OrdinalIgnoreCase));
 
         SelectedReaderContentThemeIndex = Math.Max(0, Array.IndexOf(ReaderContentThemes, preferencesService.ReaderContentTheme));
         SelectedReaderDarkModeMethodIndex = Math.Max(0, Array.IndexOf(ReaderDarkModeMethods, preferencesService.ReaderDarkModeMethod));

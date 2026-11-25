@@ -9,6 +9,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.MacOS.Views.Links;
 using Wino.Presentation.AppKit;
 using Wino.Presentation.Bindings;
 using Wino.Mail.ViewModels.Calendar;
@@ -22,7 +23,8 @@ namespace Wino.Mail.MacOS.Views.Calendar;
 /// calendar colour, detail rows with Wino glyphs, the people card with RSVP glyphs, the
 /// description and attachments. Driven by the shared EventDetailsPageViewModel.
 /// </summary>
-public sealed class EventDetailsPageViewController(EventDetailsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
+public sealed class EventDetailsPageViewController(EventDetailsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
+    Wino.Mail.Rendering.MailEngineHost engineHost)
     : WinoViewController<EventDetailsPageViewModel>(viewModel, dispatcher, logger)
 {
     private static readonly NSColor CardFill = WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));
@@ -34,6 +36,9 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     private ActionBarButton _rsvp = null!;
     private ActionBarButton _delete = null!;
     private ActionBarButton _series = null!;
+    private ActionBarButton _followUp = null!;
+    private WinoSurfaceView _linkedCard = null!;
+    private LinkedItemButtons _linkedItems = null!;
     private ActionBarButton _openInWindow = null!;
     private NSPopUpButton _showAs = null!;
     private NSPopUpButton _reminder = null!;
@@ -50,8 +55,12 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     private WinoSurfaceView _peopleCard = null!;
     private NSTextField _peopleTitle = null!;
     private NSStackView _peopleList = null!;
-    private NSTextView _description = null!;
-    private NSScrollView _descriptionScroll = null!;
+    private Wino.Renderer.AppKit.MailView _descriptionScroll = null!;
+    private readonly Wino.Mail.Rendering.EngineReaderPresentation _descriptionPresentation = new();
+    private Wino.Mail.Rendering.EngineHtmlReaderSession? _descriptionReader;
+    private Task _descriptionReady = Task.CompletedTask;
+    private string? _renderedDescription;
+    private bool _descriptionDark;
     private WinoSurfaceView _attachmentsCard = null!;
     private NSStackView _attachmentList = null!;
     private BindingScope? _eventBindings;
@@ -81,6 +90,8 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _rsvp = Action(WinoIconGlyph.EventRespond, Translator.CalendarEventResponse_NotResponded, ViewModel.ToggleRsvpPanelCommand);
         _delete = Action(WinoIconGlyph.Delete, Translator.Buttons_Delete, ViewModel.DeleteCommand);
         _series = Action(WinoIconGlyph.EventEditSeries, Translator.CalendarEventDetails_EditSeries, ViewModel.ViewSeriesCommand);
+        _followUp = Action(WinoIconGlyph.TaskList, Translator.CalendarContextMenu_CreateTask, ViewModel.CreateFollowUpTaskCommand);
+        _followUp.Hidden = !ViewModel.CanCreateFollowUpTask;
         // Mac addition: the details pane can open the event in its own window (EventDetailsWindow).
         _openInWindow = new ActionBarButton(WinoIconGlyph.OpenInNewWindow, null, Translator.CalendarEventDetails_OpenInNewWindow);
         _openInWindow.Activated += (_, _) => OpenInNewWindow();
@@ -105,7 +116,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         var actions = new ActionRow { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Spacing = 2, TranslatesAutoresizingMaskIntoConstraints = false };
         actions.Collapsible = [_delete, _series, _join];
         actions.Alignment = NSLayoutAttribute.CenterY;
-        foreach (var view in new NSView[] { _join, _rsvp, _delete, _series }) actions.AddArrangedSubview(view);
+        foreach (var view in new NSView[] { _join, _rsvp, _followUp, _delete, _series }) actions.AddArrangedSubview(view);
         actions.AddArrangedSubview(WinoLayout.Spacer());
         actions.AddArrangedSubview(_openInWindow);
         var secondary = WinoLayout.HStack(10, showAsRow, reminderRow, WinoLayout.Spacer());
@@ -151,6 +162,17 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         details.DetachesHiddenViews = true;
         AddRow(details);
 
+        // Mails and tasks linked to the event (Windows EventDetailsPage linked items).
+        _linkedItems = new LinkedItemButtons(item => Observe(ViewModel.OpenLinkedItemCommand.ExecuteAsync(item)), NSUserInterfaceLayoutOrientation.Vertical);
+        _linkedItems.Attach(ViewModel.LinkedItems);
+        var linkedTitle = WinoStyle.Label(Translator.ConnectedItems_LinkedHeader, WinoStyle.Caption, WinoStyle.SecondaryText);
+        var linkedColumn = WinoLayout.VStack(8, linkedTitle, _linkedItems);
+        linkedColumn.EdgeInsets = new NSEdgeInsets(10, 12, 10, 12);
+        _linkedItems.WidthAnchor.ConstraintEqualTo(linkedColumn.WidthAnchor, 1, -24).Active = true;
+        _linkedCard = new WinoSurfaceView { Fill = CardFill, CornerRadius = 4, Hidden = true };
+        WinoLayout.Fill(linkedColumn, _linkedCard);
+        AddRow(_linkedCard);
+
         // People
         _peopleTitle = WinoStyle.Label(Translator.CalendarEventDetails_People, WinoStyle.Caption, WinoStyle.SecondaryText);
         _peopleList = WinoLayout.VStack(2);
@@ -162,12 +184,12 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         AddRow(_peopleCard);
 
         // Description
-        _description = new NSTextView { Editable = false, Selectable = true, DrawsBackground = false, BackgroundColor = NSColor.Clear, TextContainerInset = new CoreGraphics.CGSize(0, 0) };
-        _description.TextContainer!.WidthTracksTextView = true;
-        _description.VerticallyResizable = true;
-        _description.HorizontallyResizable = false;
-        _description.AutoresizingMask = NSViewResizingMask.WidthSizable;
-        _descriptionScroll = new NSScrollView { DocumentView = _description, DrawsBackground = false, HasVerticalScroller = true, AutohidesScrollers = true, BorderType = NSBorderType.NoBorder, TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
+        // The description through the native mail renderer; it scrolls itself past its maximum height.
+        _descriptionScroll = new Wino.Renderer.AppKit.MailView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
+        _descriptionScroll.ContentChanged += (_, _) => UpdateDescriptionHeight();
+        _descriptionReader = new Wino.Mail.Rendering.EngineHtmlReaderSession(_descriptionScroll, engineHost, _descriptionPresentation);
+        _descriptionReader.NavigationRequested += DescriptionNavigationRequested;
+        _descriptionPresentation.Viewport = _descriptionPresentation.Viewport with { FitToWidth = true };
         _descriptionScroll.HeightAnchor.ConstraintGreaterThanOrEqualTo(80).Active = true;
         _descriptionScroll.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Vertical);
         AddRow(_descriptionScroll);
@@ -267,6 +289,8 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         Bind(nameof(ViewModel.CanEditSeries), vm => vm.CanEditSeries, can => _series.Hidden = !can);
         Bind(nameof(ViewModel.Reminders), vm => vm.Reminders, _ => QueueReminderMenu());
         Bind(nameof(ViewModel.HasAttachments), vm => vm.HasAttachments, _ => ApplyAttachments());
+        Bind(nameof(ViewModel.HasLinkedItems), vm => vm.HasLinkedItems, visible => _linkedCard.Hidden = !visible);
+        Bindings.Own(new ActionDisposable(_linkedItems.Detach));
         return Task.CompletedTask;
     }
 
@@ -434,7 +458,28 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         return await DebugAfterSaveAsync();
     }
 
+    /// <summary>Debug bridge: runs the "Add follow-up task" action of the details, as its action bar button does.</summary>
+    internal async Task<string> DebugFollowUpAsync()
+    {
+        var ran = false;
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            ran = ViewModel.CreateFollowUpTaskCommand.CanExecute(null);
+            if (ran) ViewModel.CreateFollowUpTaskCommand.Execute(null);
+        });
+        return ran ? "follow-up task requested" : "follow-up task unavailable";
+    }
+
     /// <summary>Debug bridge: toggles the reminder with <paramref name="minutes"/> through the menu path and waits for the save.</summary>
+    internal async Task<string> DebugCustomizeRemindersAsync()
+    {
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (ViewModel.EditRemindersCommand.CanExecute(null)) ViewModel.EditRemindersCommand.Execute(null);
+        });
+        return "ok";
+    }
+
     internal async Task<string> DebugToggleReminderAsync(int minutes)
     {
         await Dispatcher.ExecuteOnUIThread(() =>
@@ -478,6 +523,13 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
             item.Activated += (_, _) => ToggleReminder(captured, item);
             menu.AddItem(item);
         }
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        var customize = new NSMenuItem(Translator.CalendarReminder_Customize) { Enabled = !_isReadOnly };
+        customize.Activated += (_, _) =>
+        {
+            if (ViewModel.EditRemindersCommand.CanExecute(null)) ViewModel.EditRemindersCommand.Execute(null);
+        };
+        menu.AddItem(customize);
         UpdateReminderRow();
     }
 
@@ -535,47 +587,67 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
 
     private void ApplyDescription(string? html)
     {
-        if (string.IsNullOrWhiteSpace(html))
+        if (string.IsNullOrWhiteSpace(html) || _descriptionReader is not { } reader)
         {
+            _renderedDescription = null;
             _descriptionScroll.Hidden = true;
             return;
         }
-        NSAttributedString? attributed = null;
-        try
-        {
-            string document = html.Contains('<') ? html : $"<p>{System.Net.WebUtility.HtmlEncode(html).Replace("\n", "<br>")}</p>";
-            var preferences = ViewModel.PreferencesService;
-            var font = preferences.ReaderFont.Replace("\"", string.Empty).Replace("<", string.Empty);
-            var styled = $"<meta charset=\"utf-8\"><style>body{{font-family:\"{font}\",-apple-system,sans-serif;font-size:{Math.Clamp(preferences.ReaderFontSize, 8, 72)}px;color:{(WinoIcons.IsDark(View.EffectiveAppearance) ? "#e6e6e6" : "#1b1b1b")};}}</style>{document}";
-            attributed = NSAttributedString.CreateWithHTML(NSData.FromString(styled, NSStringEncoding.UTF8), out NSDictionary _);
-        }
-        catch (Exception exception) { ReportError(exception); }
-        attributed ??= new NSAttributedString(html, new NSStringAttributes { Font = NSFont.SystemFontOfSize(Math.Clamp(ViewModel.PreferencesService.ReaderFontSize, 8, 72)), ForegroundColor = WinoStyle.PrimaryText });
-        attributed = TrimEdges(attributed);
-        // Drop baked-in foreground colours so the text follows light/dark through the view's TextColor; links keep their own style.
-        var mutable = new NSMutableAttributedString(attributed);
-        var whole = new NSRange(0, (nint)mutable.Length);
-        mutable.RemoveAttribute(NSStringAttributeKey.ForegroundColor, whole);
-        mutable.AddAttribute(NSStringAttributeKey.ForegroundColor, WinoStyle.PrimaryText, whole);
-        _description.TextStorage?.SetString(mutable);
+
         _descriptionScroll.Hidden = false;
-        _description.LayoutManager?.EnsureLayoutForTextContainer(_description.TextContainer!);
-        var height = Math.Min(260, Math.Max(80, _description.LayoutManager?.GetUsedRect(_description.TextContainer!).Height ?? 80) + 8);
+        var dark = WinoIcons.IsDark(View.EffectiveAppearance);
+        if (html == _renderedDescription && dark == _descriptionDark) return;
+        _renderedDescription = html;
+        _descriptionDark = dark;
+        string document = html.Contains('<') ? html : $"<p>{System.Net.WebUtility.HtmlEncode(html).Replace("\n", "<br>")}</p>";
+        Observe(RenderDescriptionAsync(reader, document, dark));
+    }
+
+    private async Task RenderDescriptionAsync(Wino.Mail.Rendering.EngineHtmlReaderSession reader, string document, bool dark)
+    {
+        if (_descriptionReady.IsCompleted && !_descriptionInitialized)
+        {
+            _descriptionInitialized = true;
+            _descriptionReady = reader.InitializeAsync();
+        }
+
+        await _descriptionReady;
+        if (_released) return;
+        await reader.SetThemeAsync(dark);
+        await reader.SetReaderTypographyAsync(ViewModel.PreferencesService.ReaderFont, ViewModel.PreferencesService.ReaderFontSize);
+        await reader.RenderAsync(new Wino.Editor.HtmlMailReaderRequest(document, Wino.Editor.RemoteContentPolicy.ImagesAndFontsAllowed));
+        UpdateDescriptionHeight();
+    }
+
+    private bool _descriptionInitialized;
+
+    /// <summary>As tall as the description, between 80 and 260 points; a longer one scrolls inside.</summary>
+    private void UpdateDescriptionHeight()
+    {
+        if (_released) return;
+        // Exchange sends an empty HTML document for an event without notes; nothing is shown then.
+        _descriptionScroll.Hidden = _renderedDescription is null
+            || (_descriptionScroll.Reader is { } shown && string.IsNullOrWhiteSpace(shown.GetPlainText()) && !_renderedDescription.Contains("<img", StringComparison.OrdinalIgnoreCase));
+        var height = Math.Min(260, Math.Max(80, Math.Ceiling(_descriptionScroll.Controller.ContentSize.Height) + 2));
         _descriptionHeight ??= _descriptionScroll.HeightAnchor.ConstraintEqualTo((nfloat)height);
         _descriptionHeight.Constant = (nfloat)height;
         _descriptionHeight.Active = true;
     }
 
+    private async void DescriptionNavigationRequested(object? sender, Wino.Editor.RendererNavigationRequestedEventArgs args)
+    {
+        try { (await ViewModel.OpenLinkAsync(args.Uri)).ThrowIfNotSucceeded(); }
+        catch (Exception exception) { ReportError(exception); }
+    }
+
     private NSLayoutConstraint? _descriptionHeight;
 
-    /// <summary>HTML import leaves blank paragraphs at both ends; drop them.</summary>
-    private static NSAttributedString TrimEdges(NSAttributedString text)
+    private void DisposeDescriptionReader()
     {
-        var value = text.Value ?? string.Empty;
-        int start = 0, end = value.Length;
-        while (start < end && char.IsWhiteSpace(value[start])) start++;
-        while (end > start && char.IsWhiteSpace(value[end - 1])) end--;
-        return start == 0 && end == value.Length ? text : text.Substring(start, end - start);
+        if (_descriptionReader is not { } reader) return;
+        _descriptionReader = null;
+        reader.NavigationRequested -= DescriptionNavigationRequested;
+        _ = reader.DisposeAsync();
     }
 
     /// <summary>
@@ -662,6 +734,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _eventBindings = null;
         _attachmentBindings?.Dispose();
         _attachmentBindings = null;
+        DisposeDescriptionReader();
         return base.DeactivateAsync();
     }
 
@@ -674,6 +747,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
             ContentHeightChanged = null;
             _eventBindings?.Dispose(); _eventBindings = null;
             _attachmentBindings?.Dispose(); _attachmentBindings = null;
+            DisposeDescriptionReader();
         }
         base.Dispose(disposing);
     }

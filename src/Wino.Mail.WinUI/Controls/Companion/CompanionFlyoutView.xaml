@@ -603,7 +603,7 @@
                                 FontSize="12"
                                 FontWeight="Bold"
                                 Foreground="{ThemeResource CompanionTertiaryTextBrush}"
-                                Text="{x:Bind domain:Translator.Companion_MyDay, Mode=OneTime}" />
+                                Text="{x:Bind ViewModel.TasksHeaderText, Mode=OneWay}" />
                             <TextBlock
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
@@ -652,6 +652,54 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <Button
+                            Margin="0,4,0,0"
+                            Padding="10,6"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="CompanionMoreTasksButton"
+                            Visibility="{x:Bind ViewModel.MoreTasksVisibility, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <coreControls:WinoFontIcon
+                                    VerticalAlignment="Center"
+                                    FontSize="12"
+                                    Icon="ChevronRight" />
+                                <TextBlock
+                                    FontSize="12.5"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.MoreTasksText, Mode=OneWay}" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <Flyout Placement="Bottom">
+                                    <ItemsControl
+                                        Width="360"
+                                        AutomationProperties.AutomationId="CompanionMoreTasksList"
+                                        ItemsSource="{x:Bind ViewModel.MoreTasks}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="mail:TaskItemViewModel">
+                                                <CheckBox
+                                                    MinHeight="36"
+                                                    Margin="0,1"
+                                                    Click="TaskCompleted_Click"
+                                                    CommandParameter="{x:Bind}"
+                                                    IsChecked="{x:Bind IsCompleted, Mode=OneWay}">
+                                                    <StackPanel Margin="4,3,0,3">
+                                                        <TextBlock
+                                                            FontWeight="SemiBold"
+                                                            Text="{x:Bind Title}"
+                                                            TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock
+                                                            FontSize="11.5"
+                                                            Foreground="{ThemeResource CompanionTertiaryTextBrush}"
+                                                            Text="{x:Bind DueDisplayText}" />
+                                                    </StackPanel>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>

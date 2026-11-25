@@ -569,7 +569,7 @@ public sealed class CompanionPopoverViewController : NSViewController
 
     private NSView BuildTaskSection()
     {
-        var header = WinoStyle.Label(Translator.Companion_MyDay, CompanionStyle.SectionHeader, WinoStyle.SecondaryText);
+        var header = WinoStyle.Label(_viewModel.TasksHeaderText, CompanionStyle.SectionHeader, WinoStyle.SecondaryText);
         var progress = WinoStyle.Label(_viewModel.TaskProgressText, WinoStyle.Description, WinoStyle.SecondaryText);
         var headerRow = WinoLayout.HStack(8, header, progress, WinoLayout.Spacer());
         var section = WinoLayout.VStack(2, headerRow);
@@ -579,9 +579,33 @@ public sealed class CompanionPopoverViewController : NSViewController
             var item = task;
             section.AddArrangedSubview(new CompanionTaskRowView(item, () => Run(_viewModel.SetTaskCompletedCommand.ExecuteAsync(item))));
         }
+        if (_viewModel.HasMoreTasks)
+        {
+            var more = new NSButton { Title = _viewModel.MoreTasksText, BezelStyle = NSBezelStyle.Inline, Font = NSFont.SystemFontOfSize((nfloat)12.5, NSFontWeight.Semibold) };
+            more.Activated += (_, _) => ShowMoreTasks(more);
+            section.AddArrangedSubview(more);
+        }
         foreach (var row in section.ArrangedSubviews)
             row.WidthAnchor.ConstraintEqualTo(section.WidthAnchor).Active = true;
         return Inset(section);
+    }
+
+    /// <summary>The tasks past the Companion's list, in their own pop-over (Windows CompanionMoreTasksList).</summary>
+    private void ShowMoreTasks(NSView anchor)
+    {
+        var list = WinoLayout.VStack(2);
+        foreach (var task in _viewModel.MoreTasks.ToArray())
+        {
+            var item = task;
+            list.AddArrangedSubview(new CompanionTaskRowView(item, () => Run(_viewModel.SetTaskCompletedCommand.ExecuteAsync(item))));
+        }
+        foreach (var row in list.ArrangedSubviews)
+            row.WidthAnchor.ConstraintEqualTo(list.WidthAnchor).Active = true;
+        var content = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(list, content, 8, 8, 8, 8);
+        content.WidthAnchor.ConstraintEqualTo(360).Active = true;
+        var popover = new NSPopover { ContentViewController = new NSViewController { View = content }, Behavior = NSPopoverBehavior.Transient, Animates = true };
+        popover.Show(anchor.Bounds, anchor, NSRectEdge.MaxYEdge);
     }
 
     /// <summary>Opens <paramref name="menu"/> under <paramref name="anchor"/>, like a pull-down.</summary>

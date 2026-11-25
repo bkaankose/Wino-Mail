@@ -9,11 +9,11 @@ Presentation decisions are in [macOS design decisions](../macos-design-decisions
 ## Requirements
 
 - A Mac with Apple Silicon for F5 debugging. Intel Macs can run the x64 and universal builds.
-- The .NET SDK selected by `global.json`, with the matching `macos` and `ios` workloads: `dotnet workload install macos ios`. The Apple shared libraries (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) also target `net10.0-ios`, and builds without a RID, such as the solution build, restore that target too.
+- The .NET SDK selected by `global.json`, with the matching `macos` and `ios` workloads: `dotnet workload install macos ios`. The Apple shared libraries (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Mail.Rendering.Apple`) also target `net10.0-ios`, and builds without a RID, such as the solution build, restore that target too.
 - The Xcode version that the installed workload requires, selected with `xcode-select`.
 - VS Code with Microsoft's C# extension, running on the Mac (locally or as a remote extension host on the Mac).
 
-Last verified combination (2026-10-07): macOS 26.7 on Apple Silicon, .NET SDK 10.0.401 (runtime 10.0.12), macOS workload 27.0.10722, Xcode 27.0 (27A266a).
+Last verified combination (2026-11-23): macOS 27.2.1 on Apple Silicon, .NET SDK 10.0.404 (runtime 10.0.15, workload set 10.0.404), macOS workload 27.2.10000, Xcode 27.2 (27B52). Debug arm64 and x64 built, and the signed Native AOT Release ran against a real Outlook account; the F5 breakpoint check was not repeated.
 After an SDK, workload, or Xcode update, rebuild arm64 and x64 and repeat the F5 breakpoint check below.
 
 ## Platform selection
@@ -38,7 +38,7 @@ dotnet build WinoMail.MacOS.slnx -c Debug -p:WinoTargetPlatform=MacOS -p:EnableW
 ```
 
 Output is `src/Wino.Mail.MacOS/bin/Debug/net10.0-macos/<RID>/Wino Mail.app`. The bundle's native launcher is `Contents/MacOS/Wino.Mail.MacOS`.
-Debug and Release use CoreCLR (`UseMonoRuntime=false`); the bundle contains `libcoreclr.dylib`. The AppKit head is exempt from the shared Native AOT gate (`build/Wino.MacOS.targets`); portable libraries keep their Release AOT and trimming analyzers.
+Debug runs on CoreCLR (`UseMonoRuntime=false`); the bundle contains `libcoreclr.dylib`. Release is published with Native AOT: `Contents/MacOS/Wino.Mail.MacOS` is the whole app compiled to one native executable. `build/Wino.MacOS.targets` makes any trim or AOT warning fail the publish and roots Ical.Net and the EWS client, as Windows and Linux do. The AppKit libraries stay outside the shared Release analyzer gate; portable libraries keep their Release AOT and trimming analyzers.
 
 ## Identity, signing, and sandbox
 
@@ -73,12 +73,12 @@ Historical identities: experimental builds before 7 October 2026 used `com.winom
 
 ## VS Code F5
 
-1. Open [WinoMail.MacOS.code-workspace](../../WinoMail.MacOS.code-workspace). It selects `WinoMail.MacOS.slnx` and adds the Mac tasks and launch configuration.
+1. Open the repository folder and pick `WinoMail.MacOS.slnx` with **.NET: Open Solution**. `.vscode` holds the tasks and launch configurations for every platform.
 2. Select **Debug Wino Mail (macOS, arm64)** and press **F5**.
 
-**Ctrl+Shift+B** runs **Build Wino Mail (macOS, arm64)**, a plain `dotnet build` that does not need the debugger. **Build Wino Mail (macOS, x64)** builds the Intel bundle.
+**Tasks: Run Build Task** offers **Build Wino Mail (macOS, arm64)**, a plain `dotnet build` that does not need the debugger. **Build Wino Mail (macOS, x64)** builds the Intel bundle.
 F5 runs **Prepare and build Wino Mail (macOS, arm64)**: it first runs [setup-macos-debugger.sh](../../scripts/maintenance/macos/setup-macos-debugger.sh), then the same build.
-The repository folder's own `.vscode` configuration is the Windows workflow. VS Code also loads it in the Mac workspace, so its Windows entries appear there; if **Ctrl+Shift+B** offers both default build tasks, choose the macOS one.
+The default build task (**Ctrl+Shift+B**) is the Windows build; pick the macOS task from the list instead.
 
 The C# debugger launches the bundle's native executable under `Wino Mail.app/Contents/MacOS/Wino.Mail.MacOS`. Both the application environment and `pipeTransport.pipeEnv` set `TMPDIR` to `~/Library/Containers/com.winomail.macos/Data/tmp`. Setting only `launch.env` does not change the debugger's environment. The supported [C# pipe transport](https://github.com/dotnet/vscode-csharp/blob/main/docs/debugger/Attaching-to-remote-processes.md) uses `/bin/zsh -c` to start the prepared debugger on the same machine.
 
@@ -122,7 +122,7 @@ On 2026-10-07, the production arm64 app hit a source breakpoint at `Program.cs:9
 | Change | Required evidence |
 | --- | --- |
 | AppKit head, AppKit controls, or Mac platform services | Native Debug arm64 and x64 builds, plus manual checks on the Mac |
-| Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) | The native Debug builds above and the iOS Debug Simulator build in [iOS development](development-ios.md) |
+| Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Mail.Rendering.Apple`) | The native Debug builds above and the iOS Debug Simulator build in [iOS development](development-ios.md) |
 | Shared code used by the Mac | The Mac builds above and the Windows checks in [AGENTS.md](../../AGENTS.md) |
 | Signing, entitlements, bundle identity, or release inputs | Native Release builds for arm64 and x64, `codesign --verify --deep --strict`, effective entitlements and bundle identifier; universal architecture selection when release inputs change |
 | Debugger tooling or workspace | The F5 acceptance steps above on Apple Silicon |

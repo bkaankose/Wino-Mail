@@ -86,9 +86,20 @@ public sealed class CompanionContentService(
     }
 
     /// <summary>All My Day tasks: open ones first, then by importance, due date and last change.</summary>
-    public async Task<List<TaskItemViewModel>> GetMyDayTasksAsync(CancellationToken cancellationToken)
+    public Task<List<TaskItemViewModel>> GetMyDayTasksAsync(CancellationToken cancellationToken)
+        => GetCompanionTasksAsync(CompanionTaskBehavior.MyDay, cancellationToken);
+
+    /// <summary>
+    /// The companion's tasks: My Day, or every open task due today or earlier. Open ones first, then by
+    /// importance, due date and last change.
+    /// </summary>
+    public async Task<List<TaskItemViewModel>> GetCompanionTasksAsync(CompanionTaskBehavior behavior, CancellationToken cancellationToken)
     {
-        var tasks = await taskQueryService.GetTasksAsync(view: TaskViewKind.MyDay, sort: TaskSortKind.Importance);
+        var tasks = behavior == CompanionTaskBehavior.DueDate
+            ? (await taskQueryService.GetTasksAsync(view: TaskViewKind.Planned, sort: TaskSortKind.DueDate))
+                .Where(static task => !task.IsCompleted && task.DueDate is { } due && due.Date <= DateTime.Now.Date)
+                .ToList()
+            : await taskQueryService.GetTasksAsync(view: TaskViewKind.MyDay, sort: TaskSortKind.Importance);
         var lists = await taskQueryService.GetTaskListsAsync();
         var names = lists.ToDictionary(static list => list.Id, static list => list.Title ?? string.Empty);
         cancellationToken.ThrowIfCancellationRequested();

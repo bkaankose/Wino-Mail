@@ -2,23 +2,32 @@
 
 Scripts are grouped by purpose, then by platform. Run them from any directory; each resolves the repository root from its own location.
 Terminal builds and launches use plain `dotnet`, `winapp`, and platform tools. VS Code F5 on Windows uses one PowerShell helper to decide whether WinApp needs to build.
-See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harness/development-macos.md), [iOS](../docs/harness/development-ios.md), and [Android](../docs/harness/development-android.md) development guides. iOS and Android have no scripts yet; their guides list the plain `dotnet`, `xcrun`, and `adb` commands.
+See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harness/development-macos.md), [iOS](../docs/harness/development-ios.md), and [Android](../docs/harness/development-android.md) development guides. The [Linux](../docs/harness/development-linux.md) proof of concept has its scripts in `scripts/development/linux`. iOS and Android have no scripts yet; their guides list the plain `dotnet`, `xcrun`, and `adb` commands.
 
 | Category | Script | Platform | Shell | Purpose |
 | --- | --- | --- | --- | --- |
 | Development | `development/windows/start-wino.ps1` | Windows | PowerShell 7.2+ | Check build inputs and output, then build if needed and launch the packaged Debug app locally or in Windows Sandbox with the host's fixed-version WebView2 runtime and lab accounts leased for `<computer>/sandbox` seeded before Wino starts |
 | Development | `development/windows/generate-debug-artwork.py` | Windows | Python 3 with Pillow | Regenerate the plum (#6D214F) Debug package artwork in `development/windows/DebugAssets` from the stable branding files |
+| Development | `development/linux/install-desktop-entry.sh` | Linux | Bash | Install or remove the user-level `.desktop` file of a built Linux app with its desktop actions, icon and AppStream metainfo, register the `wino://` scheme (`--default-mail` also `mailto:`) and list `.eml`, `.ics` and `.vcf` files |
 | Release | `release/windows/build-releases.ps1` | Windows | PowerShell 7 | Optionally translate resources, then build and package Store, Beta, and sideload releases |
 | Release | `release/windows/publish-releases.ps1` | Windows | PowerShell 7 | Publish Beta and sideload releases to download.winomail.app |
 | Release | `release/windows/upload-sentry-symbols.ps1` | Windows | PowerShell 7 | Upload symbols for a selected release |
 | Release | `release/macos/build-macos-release.sh` | macOS | Bash | Optionally translate resources, then build the signed, notarized macOS DMG |
 | Release | `release/macos/publish-macos-release.sh` | macOS | Bash | Publish a built DMG and its Sparkle appcast to download.winomail.app |
+| Release | `release/linux/build-linux-release.sh` | Linux or WSL2 | Bash | Optionally translate resources, then publish the Linux app with Native AOT and build the beta `.deb`, Arch and RPM packages, their update feed and build record; `--from-deb` adds the Arch and RPM packages to an existing beta `.deb` without a publish |
+| Release | `release/linux/build-deb.sh` | Linux or WSL2 | Bash | Build the Debian package from a Native AOT publish, a staged tree or a beta `.deb` (used by `build-linux-release.sh`) |
+| Release | `release/linux/build-arch.sh` | Linux or WSL2 (Ubuntu with `makepkg`, or Arch) | Bash | Build the Arch Linux and Omarchy package with `makepkg` from a publish, a staged tree or a beta `.deb` (used by `build-linux-release.sh`) |
+| Release | `release/linux/build-rpm.sh` | Linux or WSL2 (Ubuntu with `rpm`, or Fedora) | Bash | Build the Fedora RPM with `rpmbuild` from a publish, a staged tree or a beta `.deb` (used by `build-linux-release.sh`) |
+| Release | `release/linux/publish-linux-release.sh` | Linux or WSL2 | Bash | Publish the built packages and their update feed to download.winomail.app, then update the AUR files |
+| Release | `release/linux/update-aur.sh` | Linux or WSL2 with `makepkg` | Bash | Point the AUR package `wino-mail-bin` (`release/linux/aur/wino-mail-bin`) at a published Arch package and regenerate its `.SRCINFO` |
 | Release | `release/macos/build-macos-appstore.sh` | macOS | Bash | Optionally translate resources, then build, validate, and optionally upload the Mac App Store package |
 | Release | `release/release.ps1` | Both | PowerShell 7 | Bump the version, draft release notes with Claude Code, mark issues, and publish the GitHub release |
 | Release | `release/whats-new/validate.ps1` | Both | PowerShell 7 | Validate What's New notes and illustration references |
 | Lab | `lab/windows/lab.ps1` (helpers in `lab/windows/LabClient.psm1`) | Windows; macOS for the control API commands | PowerShell 7.2+ | Check the remote mail lab, lease and release its accounts, install them into the Debug app, change, inspect and trace mailboxes and inject faults through its control API, fetch the manifest, and open a tunnel to its loopback ports |
+| Lab | `lab/linux/lab.sh` | Linux | Bash with `curl` and `jq` | Lease and release lab accounts through the control API, in the lease-file shape `lab.ps1` writes |
 | Lab | `lab/windows/exchange-lab.ps1` | Windows | PowerShell 7 | Build and manage the Hyper-V Exchange Server SE lab VM (AD forest, mailboxes, trusted certificate, mail-flow and Autodiscover checks) |
 | Maintenance | `maintenance/windows/format-xaml.ps1` | Windows | PowerShell 7 | Format WinUI XAML or check formatting with the pinned XAML Styler |
+| Maintenance | `maintenance/windows/format-xaml-hook.ps1` | Any (Claude Code hook) | PowerShell 7 | Formats the `.xaml` file a Claude Code edit just wrote; wired in `.claude/settings.json` |
 | Maintenance | `maintenance/windows/audit-xaml-accessibility.ps1` | Windows | PowerShell | Report XAML controls without accessible labels |
 | Maintenance | `maintenance/windows/audit-xaml-icons.ps1` | Windows | PowerShell | Check use of the Wino icon system in WinUI code |
 | Maintenance | `maintenance/windows/build-notification-icons.ps1` | Windows | PowerShell | Render toast button icons with theme, contrast, and scale variants; `-AttributionLogos` adds missing app logo target sizes to the app and the beta artwork |
@@ -47,6 +56,8 @@ python scripts/localization/translate_resources.py --help
 ```sh
 bash scripts/release/macos/build-macos-release.sh --help
 bash scripts/release/macos/publish-macos-release.sh --help
+bash scripts/release/linux/build-linux-release.sh --help
+bash scripts/release/linux/publish-linux-release.sh --help
 bash scripts/maintenance/macos/setup-macos-debugger.sh
 ```
 

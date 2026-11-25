@@ -1355,7 +1355,23 @@ IGmailChangeProcessor gmailChangeProcessor,
 
             _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
 
-            if (isInitialSync)
+            if (options.RangeBackfillTarget is { } backfillRange)
+            {
+                if (isInitialSync)
+                    throw new InvalidOperationException("The first mail synchronization has not finished.");
+
+                // The history cursor is left alone: the next delta replays whatever changed meanwhile.
+                UpdateSyncProgress(0, 0, "Downloading older mail...");
+                await PerformInitialSyncAsync(backfillRange, skipStoredInFolder: true, cancellationToken).ConfigureAwait(false);
+                await MapArchivedMailsAsync(Account.GetMailSynchronizationCutoffUtc(backfillRange), cancellationToken).ConfigureAwait(false);
+
+                var allFolders = await _gmailChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+                foreach (var folder in allFolders.Where(f => f.RemoteFolderId != ServiceConstants.ARCHIVE_LABEL_ID))
+                {
+                    folderResults.Add(FolderSyncResult.Successful(folder.Id, folder.FolderName, 0));
+                }
+            }
+            else if (isInitialSync)
             {
                 downloadedMessageIds = await PerformInitialSyncWithHistoryAsync(options, cancellationToken).ConfigureAwait(false);
 
@@ -1442,7 +1458,7 @@ IGmailChangeProcessor gmailChangeProcessor,
         // Capture the baseline before enumeration. Replay changes made while the snapshot was downloaded.
         var profile = await _gmailService.Users.GetProfile("me").ExecuteAsync(cancellationToken).ConfigureAwait(false);
         var baseline = profile.HistoryId ?? throw new InvalidOperationException("Gmail returned no history cursor.");
-        var downloadedIds = await PerformInitialSyncAsync(cancellationToken).ConfigureAwait(false);
+        var downloadedIds = await PerformInitialSyncAsync(Account.InitialSynchronizationRange, skipStoredInFolder: false, cancellationToken).ConfigureAwait(false);
         var delta = await SynchronizeDeltaAsync(options, cancellationToken, baseline).ConfigureAwait(false);
 
         if (delta.RequiresFullResync)
@@ -1474,16 +1490,17 @@ IGmailChangeProcessor gmailChangeProcessor,
 
     /// <summary>
     /// Performs initial synchronization by downloading messages per-folder.
-    /// Messages are filtered by the account's configured initial synchronization cutoff date when present,
+    /// Messages are filtered by the range's cutoff date when present,
     /// and duplicates are avoided globally because Gmail messages can have multiple labels.
+    /// A backfill (<paramref name="skipStoredInFolder"/>) skips messages the folder already stores, and fetches the
+    /// raw MIME of a draft only when the message is stored nowhere yet.
     /// </summary>
-    private async Task<List<string>> PerformInitialSyncAsync(CancellationToken cancellationToken)
+    private async Task<List<string>> PerformInitialSyncAsync(InitialSynchronizationRange range, bool skipStoredInFolder, CancellationToken cancellationToken)
     {
         // Track all downloaded message IDs globally to avoid duplicate downloads
         var downloadedMessageIds = new HashSet<string>();
         var insertedMessageIds = new HashSet<string>(StringComparer.Ordinal);
-        var referenceDateUtc = Account.CreatedAt ?? DateTime.UtcNow;
-        var initialSynchronizationCutoffDateUtc = Account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
+        var initialSynchronizationCutoffDateUtc = Account.GetMailSynchronizationCutoffUtc(range);
         var queryText = BuildGmailSearchQuery(null, initialSynchronizationCutoffDateUtc);
 
         _logger.Information("Performing initial sync for {Name} - downloading messages per folder", Account.Name);
@@ -1513,6 +1530,7 @@ IGmailChangeProcessor gmailChangeProcessor,
                 string pageToken = null;
                 var existingMails = await _gmailChangeProcessor.GetMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
                 var remoteIds = new HashSet<string>(StringComparer.Ordinal);
+                var storedInFolderIds = skipStoredInFolder ? existingMails.Select(mail => mail.Id).ToHashSet(StringComparer.Ordinal) : null;
 
                 do
                 {
@@ -1533,7 +1551,7 @@ IGmailChangeProcessor gmailChangeProcessor,
                         // Filter out already downloaded messages to avoid duplicates
                         var newMessageIds = response.Messages
                             .Select(m => m.Id)
-                            .Where(id => !downloadedMessageIds.Contains(id))
+                            .Where(id => !downloadedMessageIds.Contains(id) && storedInFolderIds?.Contains(id) != true)
                             .ToList();
 
                         if (newMessageIds.Count > 0)
@@ -1541,10 +1559,26 @@ IGmailChangeProcessor gmailChangeProcessor,
                             // Draft folder needs MIME during initial sync so compose can open immediately.
                             bool shouldDownloadRawMime = folder.SpecialFolderType == SpecialFolderType.Draft || folder.RemoteFolderId == ServiceConstants.DRAFT_LABEL_ID;
                             var existingIds = await _gmailChangeProcessor.AreMailsExistsAsync(newMessageIds).ConfigureAwait(false);
-                            await DownloadMessagesInBatchAsync(
-                                newMessageIds,
-                                downloadRawMime: shouldDownloadRawMime,
-                                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                            if (shouldDownloadRawMime && skipStoredInFolder)
+                            {
+                                var storedElsewhere = existingIds.ToHashSet(StringComparer.Ordinal);
+                                await DownloadMessagesInBatchAsync(
+                                    newMessageIds.Where(storedElsewhere.Contains).ToList(),
+                                    downloadRawMime: false,
+                                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                                await DownloadMessagesInBatchAsync(
+                                    newMessageIds.Where(id => !storedElsewhere.Contains(id)).ToList(),
+                                    downloadRawMime: true,
+                                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                await DownloadMessagesInBatchAsync(
+                                    newMessageIds,
+                                    downloadRawMime: shouldDownloadRawMime,
+                                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                            }
 
                             var persistedIds = await _gmailChangeProcessor.AreMailsExistsAsync(newMessageIds).ConfigureAwait(false);
                             insertedMessageIds.UnionWith(persistedIds.Except(existingIds, StringComparer.Ordinal));
@@ -4819,11 +4853,11 @@ IGmailChangeProcessor gmailChangeProcessor,
             googleEvent.Reminders = new Event.RemindersData
             {
                 UseDefault = false,
-                Overrides = reminders
+                Overrides = ReminderSyncPlan.Split(reminders, CalendarCapabilities.Gmail).Server
                     .Select(reminder => new EventReminder
                     {
                         Method = reminder.ReminderType == CalendarItemReminderType.Email ? "email" : "popup",
-                        Minutes = (int)Math.Max(0, reminder.DurationInSeconds / 60)
+                        Minutes = (int)(reminder.DurationInSeconds / 60)
                     })
                     .ToList()
             };

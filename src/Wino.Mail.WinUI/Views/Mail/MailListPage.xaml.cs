@@ -172,6 +172,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Mode switches clear Frame.Content without OnNavigatedFrom. The generated
         // listeners otherwise retain this ViewModel through the singleton preferences.
         Bindings.StopTracking();
+
+        // The reading page is reused by the next mail list page, so its pop-out events would
+        // keep this page, its ViewModel and every loaded mail alive.
+        DetachPopoutClient();
     }
 
     protected override void ReleasePageResources()
@@ -421,8 +425,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         try
         {
             // The move menu mirrors the navigation menu, so it uses the same shaping: shell order,
-            // nested child folders, and the virtual Categories and More groups.
-            return await FolderService.GetFolderStructureForDisplayAsync(accountIds[0]!.Value);
+            // nested child folders, and the virtual Categories and More groups. Other accounts follow as groups.
+            return await ViewModel.GetMoveTargetFoldersAsync(accountIds[0]!.Value);
         }
         catch (Exception ex)
         {
@@ -529,10 +533,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 // Dispose active rendering if there is any and go to composer.
                 if (IsRenderingPageActive())
                 {
-                    // Prepare WebView2 animation from Rendering to Composing page.
-                    PrepareRenderingPageWebViewTransition();
-
-                    // Dispose existing HTML content from rendering page webview.
+                    // Remove the message from the reader before the composer replaces it.
                     if (RenderingFrame.Content is MailRenderingPage renderingPage)
                     {
                         _ = renderingPage.ClearRenderedContentAsync();
@@ -552,11 +553,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
             else
             {
                 // Find the MIME and go to rendering page.
-
-                if (IsComposingPageActive())
-                {
-                    PrepareComposePageWebViewTransition();
-                }
 
                 ViewModel.NavigationService.Navigate(WinoPage.MailRenderingPage, selectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame);
             }
@@ -658,7 +654,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 catch (Exception ex) when (ex is ObjectDisposedException or COMException)
                 {
                     // This task is fire-and-forget. A competing navigation can dispose the
-                    // reader's WebView2 during the settle delay; the idle navigation below
+                    // reader during the settle delay; the idle navigation below
                     // still has to run.
                     Log.Debug(ex, "Mail renderer was already disposed while preparing for idle.");
                 }
@@ -676,64 +672,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
         UpdateAdaptiveness();
     }
-
-    private void PrepareComposePageWebViewTransition()
-    {
-        var webView = GetComposerPageWebView();
-
-        if (webView != null)
-        {
-            var animation = ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("WebViewConnectedAnimation", webView);
-            animation.Configuration = new BasicConnectedAnimationConfiguration();
-        }
-    }
-
-    private void PrepareRenderingPageWebViewTransition()
-    {
-        var webView = GetRenderingPageWebView();
-
-        if (webView != null)
-        {
-            var animation = ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("WebViewConnectedAnimation", webView);
-            animation.Configuration = new BasicConnectedAnimationConfiguration();
-        }
-    }
-
-    #region Connected Animation Helpers
-
-    // The connected animation is cosmetic. A page whose WebView2 is already disposed simply
-    // skips it instead of failing the selection change that triggered it.
-    private WebView2? GetRenderingPageWebView()
-    {
-        try
-        {
-            if (RenderingFrame.Content is MailRenderingPage renderingPage)
-                return renderingPage.GetWebView();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            Log.Debug(ex, "Rendering page WebView2 was disposed before the connected animation.");
-        }
-
-        return null;
-    }
-
-    private WebView2? GetComposerPageWebView()
-    {
-        try
-        {
-            if (RenderingFrame.Content is ComposePage composePage)
-                return composePage.GetWebView();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            Log.Debug(ex, "Compose page WebView2 was disposed before the connected animation.");
-        }
-
-        return null;
-    }
-
-    #endregion
 
     public void Receive(SelectMailItemContainerEvent message)
     {
@@ -806,10 +744,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (IsRenderingPageActive())
         {
-            // Prepare WebView2 animation from Rendering to Composing page.
-            PrepareRenderingPageWebViewTransition();
-
-            // Dispose existing HTML content from rendering page webview.
+            // Remove the message from the reader before the composer replaces it.
             if (RenderingFrame.Content is MailRenderingPage renderingPage)
             {
                 _ = renderingPage.ClearRenderedContentAsync();

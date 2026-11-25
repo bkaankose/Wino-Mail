@@ -32,7 +32,10 @@ public enum TaskViewKind
     Planned = 1,
     Completed = 2,
     MyDay = 3,
-    Important = 4
+    Important = 4,
+
+    /// <summary>Flagged mail shown as tasks. It lists mails, not stored tasks.</summary>
+    FlaggedMail = 5
 }
 
 /// <summary>
@@ -72,4 +75,13 @@ public enum TaskSynchronizerOperation
     UpdateGroup = 10,
     DeleteGroup = 11,
     UpdateListPlacement = 12
+}
+
+/// <summary>A task's priority. <see cref="None"/> is "not set"; the importance star is <see cref="High"/>.</summary>
+public enum TaskPriority
+{
+    None = 0,
+    Low = 1,
+    Normal = 2,
+    High = 3
 }

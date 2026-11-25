@@ -61,6 +61,9 @@ public interface ITaskService : ITaskQueryService
 
     /// <summary>Stores the Manual sort position of each task. Never queued for the provider.</summary>
     Task UpdateTaskManualOrderAsync(IReadOnlyDictionary<Guid, int> orders);
+
+    /// <summary>Stores when a snoozed reminder fires again. Local only, like the Manual sort.</summary>
+    Task SnoozeTaskReminderAsync(Guid taskId, DateTime untilUtc);
     Task<AccountTaskStep> CreateStepAsync(AccountTaskStep step);
     Task UpdateStepAsync(AccountTaskStep step);
     Task DeleteStepAsync(Guid stepId);

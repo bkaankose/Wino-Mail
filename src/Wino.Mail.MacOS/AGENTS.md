@@ -1,6 +1,6 @@
 # Wino.Mail.MacOS
 
-The macOS app: AppKit views written in C# over the shared services and ViewModels. It runs on CoreCLR and is exempt from the Native AOT gate. This file is binding for `src/Wino.Mail.MacOS` and `src/Wino.Platform.MacOS`.
+The macOS app: AppKit views written in C# over the shared services and ViewModels. Debug runs on CoreCLR; Release is published with Native AOT, and a trim or AOT warning in the app fails the publish. This file is binding for `src/Wino.Mail.MacOS` and `src/Wino.Platform.MacOS`.
 
 ## Read first
 
@@ -20,6 +20,17 @@ The macOS app: AppKit views written in C# over the shared services and ViewModel
 - Build Apple targets with `~/.dotnet/dotnet` (it has the ios/macos/android workloads; `/usr/local/share/dotnet` does not). Code signing fails over SSH (`errSecInternalComponent`: the login keychain is locked per SSH session), so signed builds run in a local Terminal.
 - Keep `Entitlements.plist` and `Entitlements.AppStore.plist` in step. After touching either Apple sign-in path, also build Debug with `-p:WinoAppleSignIn=false`.
 - Keep the user's app data, Keychain items and bundle id. Inspect and repair data through the app, inside the sandbox.
+
+## Mail renderer
+
+Mail is read, printed and composed with the native mail renderer (`Wino.Renderer`), not with WebKit. `build/Wino.Renderer.Apple.props` references the `WinoMail.Renderer.macOS` package: the engine, its Core Graphics and Core Text backend (`Wino.Renderer.Platform.Apple`) and the AppKit view (`Wino.Renderer.AppKit`). `WINO_RENDERER_ROOT` builds against a renderer checkout instead.
+
+- The glue shared with the other heads is in [src/Wino.Mail.Rendering](../Wino.Mail.Rendering/AGENTS.md) (`MailEngineHost`, `EngineMailMessageReader`, `EngineMailEditorSession`, `EngineReaderPresentation`, print documents, spell-check languages); the Apple parts (backend factory, PDF export, memory pressure) are in `src/Wino.Mail.Rendering.Apple`. Change them there.
+- [Composition.cs](Composition.cs) registers the one backend (`AppKitBackend.Create()`) and calls `AddMailRendering()`. Never create a second engine.
+- The engine's `MailView` (an `NSView` over the shared `MailViewController`) is created in code: the reader in `MailRenderingPageViewController`, the composer and the signature, template and event-notes editors through `Views/Mail/Compose/MacEngineEditor` and `Views/Dialogs/WinoRichTextEditorView`. `Infrastructure/MacEngineMailPrintPresenter` prints through the engine's print panel sheet and exports PDF.
+- Links, remote content, tracking parameters, find, zoom, the caret, IME and spelling are the engine's. Keep this head to wiring and AppKit chrome; an engine fault is fixed in the renderer repository.
+- A closing window clears its content controller with `ClearContentViewController()` (the binding refuses null) before the page is disposed; otherwise the page and the engine view stay alive.
+- Debug bridge: `compose-type`, `compose-key`, `compose-ime`, `compose-body`, `compose-discard`, `reader-pointer X Y [click]`, `reader-print`, `reader-pdf`, `eml-open`, `eml-close`, `gc` and `live` drive and measure the renderer in the running app.
 
 ## How a view consumes a ViewModel
 

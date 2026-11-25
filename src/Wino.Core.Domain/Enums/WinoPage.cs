@@ -72,5 +72,11 @@ public enum WinoPage
     MailClassificationPage,
     AccountSetupPage,
     ExchangeSettingsPage,
-    AppLockPage
+    AppLockPage,
+    AccountMailSettingsPage,
+    AccountCalendarSettingsPage,
+    AccountPeopleSettingsPage,
+    AccountToDoSettingsPage,
+    AccountSignInPage,
+    AccountTroubleshootingPage
 }

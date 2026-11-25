@@ -14,7 +14,7 @@
     <!-- Team 4VB7YWRAQ9 development identity and profile for com.winomail.macos. Pass -p:CodesignKey=- -p:CodesignProvision= to sign ad hoc. -->
     <CodesignKey Condition="'$(CodesignKey)' == ''">Apple Development</CodesignKey>
     <CodesignProvision Condition="'$(CodesignProvision)' == ''">Wino Mail macOS Development</CodesignProvision>
-    <PublishAot>false</PublishAot>
+    <PublishAot Condition="'$(WinoIsReleaseBuild)' == 'true'">true</PublishAot>
   </PropertyGroup>
   <!-- Every Mac build carries the Windows manifest version (2.2.0.0 becomes 2.2.0). The release
        scripts pass their own ApplicationVersion (build number) and a version plist on top. -->
@@ -74,7 +74,8 @@
     <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.AppKit/Wino.Presentation.AppKit.csproj" />
     <ProjectReference Include="../../controls/Wino.Mail.Controls.AppKit/Wino.Mail.Controls.AppKit.csproj" />
-    <ProjectReference Include="../../controls/Wino.Editor.WebKit/Wino.Editor.WebKit.csproj" />
+    <ProjectReference Include="../Wino.Mail.Rendering/Wino.Mail.Rendering.csproj" />
+    <ProjectReference Include="../Wino.Mail.Rendering.Apple/Wino.Mail.Rendering.Apple.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Serilog.Extensions.Logging" />
   </ItemGroup>
@@ -122,4 +123,6 @@
       </ResolvedFileToPublish>
     </ItemGroup>
   </Target>
+  <!-- The native mail renderer: the engine, the Apple backend and the AppKit view (WINO_RENDERER_ROOT names the checkout). -->
+  <Import Project="../../build/Wino.Renderer.Apple.props" />
 </Project>

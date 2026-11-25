@@ -161,7 +161,26 @@
             </StackPanel>
         </Border>
 
-        <!--  Sender pictures  -->
+        <TextBlock
+            Margin="0,12,0,4"
+            Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+            Text="{x:Bind domain:Translator.SettingsMessageList_SectionRows, Mode=OneTime}" />
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="MessageListMailSpacingCard"
+            Description="{x:Bind domain:Translator.SettingsMailSpacing_Description}"
+            Header="{x:Bind domain:Translator.SettingsMailSpacing_Title}"
+            Visibility="{x:Bind ViewModel.IsMailListDensityAvailable, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="TextLineSpacing" />
+            </controls:SettingsCard.HeaderIcon>
+            <ComboBox
+                Width="150"
+                AutomationProperties.AutomationId="MessageListMailSpacingComboBox"
+                ItemsSource="{x:Bind ViewModel.MailSpacingOptions, Mode=OneTime}"
+                SelectedIndex="{x:Bind ViewModel.SelectedMailSpacingIndex, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
         <controls:SettingsExpander
             AutomationProperties.AutomationId="MessageListSenderPicturesExpander"
             Description="{x:Bind domain:Translator.SettingsShowSenderPictures_Description, Mode=OneTime}"
@@ -206,26 +225,56 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="MessageListMailSpacingCard"
-            Description="{x:Bind domain:Translator.SettingsMailSpacing_Description}"
-            Header="{x:Bind domain:Translator.SettingsMailSpacing_Title}"
-            Visibility="{x:Bind ViewModel.IsMailListDensityAvailable, Mode=OneTime}">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="TextLineSpacing" />
-            </controls:SettingsCard.HeaderIcon>
-            <ComboBox
-                Width="150"
-                AutomationProperties.AutomationId="MessageListMailSpacingComboBox"
-                ItemsSource="{x:Bind ViewModel.MailSpacingOptions, Mode=OneTime}"
-                SelectedIndex="{x:Bind ViewModel.SelectedMailSpacingIndex, Mode=TwoWay}" />
-        </controls:SettingsCard>
-
         <!--  Loaded after the first frame; building every card up front makes the frame skip the page slide.  -->
         <StackPanel
             x:Name="DeferredSettingsPanel"
             x:Load="False"
             Spacing="{StaticResource SettingsCardSpacing}">
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MessageListPageSettingsCard14"
+                Description="{x:Bind domain:Translator.SettingsShowPreviewText_Description}"
+                Header="{x:Bind domain:Translator.SettingsShowPreviewText_Title}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="TextDescription" />
+                </controls:SettingsCard.HeaderIcon>
+
+                <ToggleSwitch AutomationProperties.AutomationId="MessageListPageToggleSwitch7" IsOn="{x:Bind ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MessageListPageTimeFormatSettingsCard"
+                Description="{x:Bind domain:Translator.SettingsTimeFormat_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsTimeFormat_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Clock" />
+                </controls:SettingsCard.HeaderIcon>
+                <ComboBox
+                    Width="180"
+                    AutomationProperties.AutomationId="MessageListPageTimeFormatComboBox"
+                    ItemsSource="{x:Bind ViewModel.TimeFormatPreferenceOptions, Mode=OneTime}"
+                    SelectedIndex="{x:Bind ViewModel.SelectedTimeFormatPreferenceIndex, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MessageListPageAccountNicknameSettingsCard"
+                Description="{x:Bind domain:Translator.SettingsShowAccountNickname_Description}"
+                Header="{x:Bind domain:Translator.SettingsShowAccountNickname_Title}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="PersonTag" />
+                </controls:SettingsCard.HeaderIcon>
+
+                <ComboBox
+                    Width="170"
+                    AutomationProperties.AutomationId="AccountNicknamePositionComboBox"
+                    ItemsSource="{x:Bind ViewModel.AccountNicknamePositionOptions, Mode=OneTime}"
+                    SelectedIndex="{x:Bind ViewModel.SelectedAccountNicknamePositionIndex, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <TextBlock
+                Margin="0,12,0,4"
+                Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsMessageList_SectionQuickActions, Mode=OneTime}" />
+
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="MessageListPageSettingsExpander2"
                 Description="{x:Bind domain:Translator.SettingsHoverActions_Description}"
@@ -430,20 +479,10 @@
                 <ToggleSwitch AutomationProperties.AutomationId="MessageListPageToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled, Mode=TwoWay}" />
             </controls:SettingsCard>
 
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="MessageListPageAccountNicknameSettingsCard"
-                Description="{x:Bind domain:Translator.SettingsShowAccountNickname_Description}"
-                Header="{x:Bind domain:Translator.SettingsShowAccountNickname_Title}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="PersonTag" />
-                </controls:SettingsCard.HeaderIcon>
-
-                <ComboBox
-                    Width="170"
-                    AutomationProperties.AutomationId="AccountNicknamePositionComboBox"
-                    ItemsSource="{x:Bind ViewModel.AccountNicknamePositionOptions, Mode=OneTime}"
-                    SelectedIndex="{x:Bind ViewModel.SelectedAccountNicknamePositionIndex, Mode=TwoWay}" />
-            </controls:SettingsCard>
+            <TextBlock
+                Margin="0,12,0,4"
+                Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsMessageList_SectionGrouping, Mode=OneTime}" />
 
             <controls:SettingsCard
                 AutomationProperties.AutomationId="MessageListPageSettingsCard8"
@@ -474,40 +513,6 @@
                     SelectedIndex="{x:Bind ViewModel.SelectedDateGroupingTypeIndex, Mode=TwoWay}" />
             </controls:SettingsCard>
 
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="MessageListPageTimeFormatSettingsCard"
-                Description="{x:Bind domain:Translator.SettingsTimeFormat_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.SettingsTimeFormat_Title, Mode=OneTime}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Clock" />
-                </controls:SettingsCard.HeaderIcon>
-                <ComboBox
-                    Width="180"
-                    AutomationProperties.AutomationId="MessageListPageTimeFormatComboBox"
-                    ItemsSource="{x:Bind ViewModel.TimeFormatPreferenceOptions, Mode=OneTime}"
-                    SelectedIndex="{x:Bind ViewModel.SelectedTimeFormatPreferenceIndex, Mode=TwoWay}" />
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="MessageListOtherInboxUnreadNoticeSettingsCard"
-                Description="{x:Bind domain:Translator.SettingsOtherInboxUnreadNotice_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.SettingsOtherInboxUnreadNotice_Title, Mode=OneTime}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Mail" />
-                </controls:SettingsCard.HeaderIcon>
-                <ToggleSwitch AutomationProperties.AutomationId="MessageListOtherInboxUnreadNoticeToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsOtherInboxUnreadNoticeEnabled, Mode=TwoWay}" />
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="MessageListMarkAsReadOnMoveToTrashSettingsCard"
-                Description="{x:Bind domain:Translator.SettingsMarkAsReadOnMoveToTrash_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.SettingsMarkAsReadOnMoveToTrash_Title, Mode=OneTime}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Delete" />
-                </controls:SettingsCard.HeaderIcon>
-                <ToggleSwitch AutomationProperties.AutomationId="MessageListMarkAsReadOnMoveToTrashToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsMarkAsReadOnMoveToTrashEnabled, Mode=TwoWay}" />
-            </controls:SettingsCard>
-
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="MessageListPageSettingsExpander3"
                 Description="{x:Bind domain:Translator.SettingsThreads_Description}"
@@ -536,15 +541,29 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="MessageListPageSettingsCard14"
-                Description="{x:Bind domain:Translator.SettingsShowPreviewText_Description}"
-                Header="{x:Bind domain:Translator.SettingsShowPreviewText_Title}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="TextDescription" />
-                </controls:SettingsCard.HeaderIcon>
+            <TextBlock
+                Margin="0,12,0,4"
+                Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsMessageList_SectionInbox, Mode=OneTime}" />
 
-                <ToggleSwitch AutomationProperties.AutomationId="MessageListPageToggleSwitch7" IsOn="{x:Bind ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=TwoWay}" />
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MessageListOtherInboxUnreadNoticeSettingsCard"
+                Description="{x:Bind domain:Translator.SettingsOtherInboxUnreadNotice_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsOtherInboxUnreadNotice_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Mail" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch AutomationProperties.AutomationId="MessageListOtherInboxUnreadNoticeToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsOtherInboxUnreadNoticeEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MessageListMarkAsReadOnMoveToTrashSettingsCard"
+                Description="{x:Bind domain:Translator.SettingsMarkAsReadOnMoveToTrash_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsMarkAsReadOnMoveToTrash_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Delete" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch AutomationProperties.AutomationId="MessageListMarkAsReadOnMoveToTrashToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsMarkAsReadOnMoveToTrashEnabled, Mode=TwoWay}" />
             </controls:SettingsCard>
         </StackPanel>
     </StackPanel>

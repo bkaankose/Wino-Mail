@@ -137,8 +137,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     partial void OnSelectedQuickEventDateChanged(DateTime? value)
     {
-        if (value == null)
-            SelectedQuickEventEndDate = null;
+        if (value != null)
+            return;
+
+        // The selection ends when the quick event is saved, handed to the composer or dismissed, so the
+        // next one starts empty.
+        SelectedQuickEventEndDate = null;
+        EventName = string.Empty;
+        Location = string.Empty;
     }
 
     public static readonly TimeSpan QuickEventDefaultDuration = TimeSpan.FromMinutes(30);
@@ -204,6 +210,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     [ObservableProperty]
     public partial VisibleDateRange CurrentVisibleRange { get; set; }
+
+    /// <summary>Open tasks due in the visible days; null where the head composes no tasks.</summary>
+    public CalendarDueTasksViewModel DueTasks { get; }
+
+    partial void OnCurrentVisibleRangeChanged(VisibleDateRange value)
+    {
+        if (DueTasks is not null)
+            _ = DueTasks.SetRangeAsync(value);
+    }
 
     [ObservableProperty]
     public partial string VisibleDateRangeText { get; set; } = string.Empty;
@@ -300,6 +315,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public IShellMenuProvider ShellMenuProvider { get; }
 
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly Links.ConnectedItemsCoordinator _connectedItems;
 
     public CalendarPageViewModel(
         IMessenger messenger,
@@ -317,9 +333,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         ICalendarRangeTextFormatter calendarRangeTextFormatter,
         ICalendarShellClient shellMenuProvider,
         IAppModeReadinessService appModeReadinessService = null,
-        IMailShellClient mailShell = null) : base(messenger)
+        IMailShellClient mailShell = null,
+        Links.ConnectedItemsCoordinator connectedItems = null,
+        CalendarDueTasksViewModel dueTasks = null) : base(messenger)
     {
+        _connectedItems = connectedItems;
         _synchronizationManager = synchronizationManager;
+        DueTasks = dueTasks;
+        DueTasks?.Initialize(action => ExecuteUIThread(action));
         Readiness = new Wino.Mail.ViewModels.Common.Data.ModeReadinessViewModel(
             WinoApplicationMode.Calendar,
             appModeReadinessService,
@@ -635,7 +656,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             IsAllDay = IsAllDay,
             TimeZoneId = TimeZoneInfo.Local.Id,
             ShowAs = SelectedQuickEventAccountCalendar.DefaultShowAs,
-            SelectedReminders = [],
+            SelectedReminders = SelectedQuickEventAccountCalendar.AccountCalendar.ResolveDefaultReminder(_preferencesService.DefaultReminderDurationInSeconds) is { } reminderSeconds
+                ? [new Reminder { Id = Guid.NewGuid(), DurationInSeconds = reminderSeconds, ReminderType = CalendarItemReminderType.Popup }]
+                : [],
             Attendees = [],
             Attachments = [],
             Recurrence = string.Empty,
@@ -650,6 +673,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     }
 
     public bool LastQuickCreationSucceeded { get; private set; }
+
+    /// <summary>
+    /// Raised when another command takes over (New event, Today, period navigation), so a view drops a
+    /// click that is still waiting to open the quick event popup and closes the popup.
+    /// </summary>
+    public event EventHandler QuickEventCancellationRequested;
+
+    public void CancelPendingQuickEvent() => QuickEventCancellationRequested?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand]
     private void GoToEventComposePage()
@@ -713,6 +744,104 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             : targetStart;
 
         await ChangeCalendarItemTimesAsync(calendarItemViewModel, normalizedTargetStart, calendarItem.DurationInSeconds).ConfigureAwait(false);
+    }
+
+    [ObservableProperty]
+    public partial bool HasCopiedCalendarItem { get; private set; }
+
+    private CalendarItem _copiedCalendarItem;
+    private List<Reminder> _copiedReminders = [];
+
+    public async Task CopyCalendarItemAsync(CalendarItemViewModel calendarItemViewModel)
+    {
+        if (calendarItemViewModel?.CalendarItem is not CalendarItem calendarItem)
+            return;
+
+        var snapshot = CloneCalendarItem(calendarItem);
+        snapshot.AssignedCalendar = calendarItem.AssignedCalendar;
+
+        var reminders = await _calendarService.GetRemindersAsync(calendarItem.EventTrackingId).ConfigureAwait(false) ?? [];
+
+        await ExecuteUIThread(() =>
+        {
+            _copiedCalendarItem = snapshot;
+            _copiedReminders = reminders;
+            HasCopiedCalendarItem = true;
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Creates a copy of the copied event at <paramref name="target"/>. A target with a time (an hour slot)
+    /// moves a timed event's start there; a day target keeps its time of day. All-day events stay all-day
+    /// and keep their length in days.
+    /// </summary>
+    public async Task PasteCalendarItemAsync(DateTime target, bool targetHasTime)
+    {
+        var source = _copiedCalendarItem;
+
+        if (source == null || !Readiness.IsReady)
+            return;
+
+        var calendar = ResolvePasteCalendar(source.CalendarId);
+
+        if (calendar == null)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
+
+        DateTime startDate;
+        DateTime endDate;
+
+        if (source.IsAllDayEvent)
+        {
+            var dayCount = Math.Max(1, (int)Math.Round(source.DurationInSeconds / TimeSpan.FromDays(1).TotalSeconds));
+            startDate = target.Date;
+            endDate = startDate.AddDays(dayCount);
+        }
+        else
+        {
+            startDate = targetHasTime ? target : target.Date.Add(source.LocalStartDate.TimeOfDay);
+            endDate = startDate.AddSeconds(Math.Max(0d, source.DurationInSeconds));
+        }
+
+        var composeResult = new CalendarEventComposeResult
+        {
+            CalendarId = calendar.Id,
+            AccountId = calendar.Account.Id,
+            Title = source.Title ?? string.Empty,
+            Location = source.Location ?? string.Empty,
+            HtmlNotes = source.Description ?? string.Empty,
+            StartDate = startDate,
+            EndDate = endDate,
+            IsAllDay = source.IsAllDayEvent,
+            TimeZoneId = TimeZoneInfo.Local.Id,
+            ShowAs = source.ShowAs,
+            Visibility = source.Visibility,
+            SelectedReminders = _copiedReminders
+                .Select(reminder => new Reminder { DurationInSeconds = reminder.DurationInSeconds, ReminderType = reminder.ReminderType })
+                .ToList(),
+            Attendees = [],
+            Attachments = [],
+            Recurrence = string.Empty,
+            RecurrenceSummary = string.Empty
+        };
+
+        var preparationRequest = new CalendarOperationPreparationRequest(
+            CalendarSynchronizerOperation.CreateEvent,
+            ComposeResult: composeResult);
+
+        await _requestCoordinator.ExecuteCalendarOperationAsync(preparationRequest).ConfigureAwait(false);
+    }
+
+    private AccountCalendarViewModel ResolvePasteCalendar(Guid sourceCalendarId)
+    {
+        var calendars = AccountCalendarStateService.AllCalendars.ToList();
+
+        return calendars.FirstOrDefault(calendar => calendar.Id == sourceCalendarId && !calendar.IsReadOnly)
+               ?? (SelectedQuickEventAccountCalendar is { IsReadOnly: false } selected ? selected : null)
+               ?? calendars.FirstOrDefault(calendar => calendar.IsPrimary && !calendar.IsReadOnly && IsCalendarActive(calendar.Id))
+               ?? calendars.FirstOrDefault(calendar => !calendar.IsReadOnly && IsCalendarActive(calendar.Id));
     }
 
     /// <summary>
@@ -954,6 +1083,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                     DisplayDetailsCalendarItemViewModel = null;
                 }
             }).ConfigureAwait(false);
+
+            await ClearFinishedBusyStatesAsync(lifetimeVersion).ConfigureAwait(false);
 
             loadSucceeded = true;
         }
@@ -1263,6 +1394,40 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         {
             DisplayDetailsCalendarItemViewModel.IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// A load marks the events whose operation was still queued as busy. When that operation finishes
+    /// before the loaded items reach <see cref="CalendarItems"/> (typically right after the composer
+    /// saves and navigates back), its completion message finds nothing to clear and the event stays
+    /// busy. After every load the operations are checked again, and finished ones end the busy state.
+    /// </summary>
+    private async Task ClearFinishedBusyStatesAsync(long lifetimeVersion)
+    {
+        List<AccountCalendarViewModel> activeCalendars = null;
+
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
+        {
+            activeCalendars = CalendarItems.Any(item => item.IsBusy)
+                ? AccountCalendarStateService.ActiveCalendars.ToList()
+                : null;
+        }).ConfigureAwait(false);
+
+        if (activeCalendars == null || !IsPageActive(lifetimeVersion))
+            return;
+
+        var pendingCalendarItemIds = await GetPendingCalendarItemIdsAsync(activeCalendars, lifetimeVersion, new Dictionary<Guid, CalendarItem>()).ConfigureAwait(false);
+
+        await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
+        {
+            foreach (var calendarItemViewModel in CalendarItems)
+            {
+                if (calendarItemViewModel.IsBusy && !HasPendingCalendarOperation(calendarItemViewModel.CalendarItem, pendingCalendarItemIds))
+                {
+                    calendarItemViewModel.IsBusy = false;
+                }
+            }
+        }).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1619,6 +1784,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         switch (action.ActionType)
         {
+            case CalendarContextMenuActionType.Copy:
+                await CopyCalendarItemAsync(calendarItemViewModel).ConfigureAwait(false);
+                break;
+            case CalendarContextMenuActionType.CreateTask when _connectedItems is not null:
+                await _connectedItems.CreateTaskFromEventAsync(calendarItemViewModel.CalendarItem).ConfigureAwait(false);
+                break;
             case CalendarContextMenuActionType.JoinOnline:
                 await JoinOnlineAsync(calendarItemViewModel).ConfigureAwait(false);
                 break;

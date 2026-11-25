@@ -249,7 +249,6 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
         FillPaint.SetStyle(Paint.Style.Fill);
         FillPaint.Color = fill;
         canvas.DrawRoundRect(bounds, radius, radius, FillPaint);
-        if (kind == CalendarPlacementKind.MultiDayGhost) return;
 
         float stripe = (float)WinoCalendarTileAppearance.StripeWidth * Density;
         FillPaint.Color = WinoColors.Hex(WinoCalendarTileAppearance.StripeColor(model.ShowAs));
@@ -433,7 +432,7 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
         private List<AccessibleTile> AccessibleTiles()
         {
             float density = _owner.Density, left = _owner.ColumnLeft(0);
-            return _placements.Where(placement => placement.Kind != CalendarPlacementKind.MultiDayGhost).Select(placement => new AccessibleTile(placement.Item, placement.Date,
+            return _placements.Select(placement => new AccessibleTile(placement.Item, placement.Date,
                 new RectF(left + (float)placement.Bounds.X * density, (float)placement.Bounds.Y * density, left + (float)placement.Bounds.Right * density, (float)placement.Bounds.Bottom * density))).ToList();
         }
 
@@ -551,7 +550,7 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
         private List<AccessibleTile> AccessibleTiles()
         {
             float density = _owner.Density, left = _owner.ColumnLeft(0), padding = PaddingPx;
-            return _placements.Where(placement => placement.Kind != CalendarPlacementKind.MultiDayGhost).Select(placement => new AccessibleTile(placement.Item, placement.Date,
+            return _placements.Select(placement => new AccessibleTile(placement.Item, placement.Date,
                 new RectF(left + (float)placement.Bounds.X * density, padding + (float)placement.Bounds.Y * density, left + (float)placement.Bounds.Right * density, padding + (float)placement.Bounds.Bottom * density))).ToList();
         }
 
@@ -585,8 +584,7 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
             if (_placementsVersion != _owner._layoutVersion || _placementsUnit != dayWidth)
             {
                 _placements = CalendarSurfaceLayoutCalculator.CalculateTimed(_owner.Dates, _owner.Snapshot(), dayWidth / density, _owner.HourHeightDp,
-                    _owner._settings?.EventDisplayMode ?? CalendarEventDisplayMode.Stacked)
-                    .OrderBy(p => p.Kind == CalendarPlacementKind.MultiDayGhost ? 0 : 1).ToList();
+                    _owner._settings?.EventDisplayMode ?? CalendarEventDisplayMode.Stacked);
                 _placementsVersion = _owner._layoutVersion;
                 _placementsUnit = dayWidth;
                 _accessibility?.InvalidateRoot();
@@ -657,7 +655,7 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
             if (x < _owner.GutterPx) return null;
             float density = _owner.Density;
             double cx = (x - _owner.ColumnLeft(0)) / density, cy = (y - PaddingPx) / density;
-            return _placements.LastOrDefault(p => p.Kind != CalendarPlacementKind.MultiDayGhost && p.Bounds.Contains(cx, cy))?.Item;
+            return _placements.LastOrDefault(p => p.Bounds.Contains(cx, cy))?.Item;
         }
 
         private sealed class TapListener(TimedView view) : GestureDetector.SimpleOnGestureListener

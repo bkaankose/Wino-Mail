@@ -6,6 +6,8 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Requests;
 
 namespace Wino.Mail.ViewModels.Data;
@@ -72,6 +74,7 @@ public partial class TaskItemViewModel : ObservableObject
         OnPropertyChanged(nameof(MyDayActionText));
         OnPropertyChanged(nameof(ImportanceActionText));
         OnPropertyChanged(nameof(HasNote));
+        RefreshExtendedFields();
         RefreshDueDisplay();
         RefreshStepSummary();
     }
@@ -173,6 +176,7 @@ public partial class TaskItemViewModel : ObservableObject
 
             Task.IsImportant = value;
             OnPropertyChanged();
+            RefreshExtendedFields();
         }
     }
 
@@ -287,6 +291,65 @@ public partial class TaskItemViewModel : ObservableObject
     /// <summary>Metadata line label for the owning list. Hidden when the surface is a single list.</summary>
     [ObservableProperty]
     public partial bool ShowListName { get; set; }
+
+    public DateTime? ReminderAtUtc => Task.ReminderAtUtc;
+    public bool HasReminder => Task.ReminderAtUtc.HasValue;
+
+    /// <summary>"Remind me at 9:00 AM, Tue, Nov 24", or "Remind me" without a reminder.</summary>
+    public string ReminderDisplayText
+    {
+        get
+        {
+            if (Task.ReminderAtUtc is not { } reminderUtc)
+                return Translator.ToDoPage_RemindMe;
+
+            var culture = CultureInfo.CurrentCulture;
+            var local = DateTime.SpecifyKind(reminderUtc, DateTimeKind.Utc).ToLocalTime();
+            var time = DateTimeDisplayFormatter.FormatTime(local, DateTimeDisplayFormatter.GetDefaultTimeDisplayType(culture), culture);
+            var day = local.Date == DateTime.Now.Date
+                ? Translator.ToDoPage_DuePresetToday
+                : local.ToString(DateTimeDisplayFormatter.GetWeekdayMonthDayPattern(culture, abbreviatedWeekday: true, abbreviatedMonth: true), culture);
+
+            return string.Format(Translator.ToDoPage_ReminderAt, $"{time}, {day}");
+        }
+    }
+
+    public TaskPriority Priority => TaskFields.GetEffectivePriority(Task);
+    public bool HasPriority => Priority is TaskPriority.High or TaskPriority.Low;
+
+    public string PriorityDisplayText => Priority switch
+    {
+        TaskPriority.High => Translator.ToDoPage_PriorityHigh,
+        TaskPriority.Low => Translator.ToDoPage_PriorityLow,
+        TaskPriority.Normal => Translator.ToDoPage_PriorityNormal,
+        _ => Translator.ToDoPage_Priority
+    };
+
+    public List<string> CategoryNames => TaskFields.GetCategories(Task).ToList();
+    public bool HasCategories => !string.IsNullOrWhiteSpace(Task.Categories);
+    public string CategorySummaryText => string.Join(", ", TaskFields.GetCategories(Task));
+
+    public string Recurrence => TaskFields.NormalizeRecurrence(Task.Recurrence);
+    public bool IsRecurring => Recurrence is not null;
+
+    /// <summary>"Every weekday", or "Repeat" without a rule.</summary>
+    public string RecurrenceDisplayText => TaskRecurrenceRule.Describe(Task.Recurrence);
+
+    public void RefreshExtendedFields()
+    {
+        OnPropertyChanged(nameof(ReminderAtUtc));
+        OnPropertyChanged(nameof(HasReminder));
+        OnPropertyChanged(nameof(ReminderDisplayText));
+        OnPropertyChanged(nameof(Priority));
+        OnPropertyChanged(nameof(HasPriority));
+        OnPropertyChanged(nameof(PriorityDisplayText));
+        OnPropertyChanged(nameof(CategoryNames));
+        OnPropertyChanged(nameof(HasCategories));
+        OnPropertyChanged(nameof(CategorySummaryText));
+        OnPropertyChanged(nameof(Recurrence));
+        OnPropertyChanged(nameof(IsRecurring));
+        OnPropertyChanged(nameof(RecurrenceDisplayText));
+    }
 
     public void RefreshStepSummary()
     {

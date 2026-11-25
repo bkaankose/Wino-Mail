@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Mail.MacOS.Views.Settings;
+using Wino.Mail.MacOS.Views.Settings.AccountPages;
 using Wino.Mail.ViewModels;
 
 namespace Wino.Mail.MacOS.Infrastructure;
@@ -21,7 +22,13 @@ public static partial class MacViewModelRegistration
         services.AddTransient<MessageListPageViewController>();
         services.AddTransient<PersonalizationPageViewController>();
         services.AddTransient<ManageAccountsPageViewController>();
-        services.AddTransient<AccountDetailsPageViewController>();
+        services.AddTransient<AccountHubPageViewController>();
+        services.AddTransient<AccountMailPageViewController>();
+        services.AddTransient<AccountCalendarPageViewController>();
+        services.AddTransient<AccountPeoplePageViewController>();
+        services.AddTransient<AccountToDoPageViewController>();
+        services.AddTransient<AccountSignInPageViewController>();
+        services.AddTransient<AccountTroubleshootingPageViewController>();
         services.AddTransient<MailPreferencesPageViewController>();
         services.AddTransient<ReadComposePanePageViewController>();
         services.AddTransient<PrivacySecurityPageViewController>();

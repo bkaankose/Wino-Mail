@@ -25,6 +25,11 @@ public partial class ImapCalDavSettingsPageViewModel
             // "example.com" <user@example.com>.
             DisplayName = EmailAddress[..atIndex];
         }
+        else
+        {
+            // Without an address the account name is only a placeholder such as "IMAP", never a sender name.
+            DisplayName = string.Empty;
+        }
 
         if (prefill.SpecialImapProvider != SpecialImapProvider.None)
         {

@@ -23,6 +23,9 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
             == CompanionUnreadMessageBehavior.Everything
                 ? EverythingComboBoxItem
                 : AfterAppSessionComboBoxItem;
+        TaskBehaviorComboBox.SelectedItem = ViewModel.PreferencesService.CompanionTaskBehavior == CompanionTaskBehavior.DueDate
+            ? DueDateTasksComboBoxItem
+            : MyDayTasksComboBoxItem;
         RestoreHotKeyInput();
         UpdateHotKeyAvailability();
         UpdatePersonalizationAvailability();
@@ -61,6 +64,19 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
 
         if (ViewModel.PreferencesService.CompanionUnreadMessageBehavior != behavior)
             ViewModel.PreferencesService.CompanionUnreadMessageBehavior = behavior;
+    }
+
+    private void TaskBehaviorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox { IsLoaded: true } comboBox)
+            return;
+
+        var behavior = ReferenceEquals(comboBox.SelectedItem, DueDateTasksComboBoxItem)
+            ? CompanionTaskBehavior.DueDate
+            : CompanionTaskBehavior.MyDay;
+
+        if (ViewModel.PreferencesService.CompanionTaskBehavior != behavior)
+            ViewModel.PreferencesService.CompanionTaskBehavior = behavior;
     }
 
     private void HotKeyEnabled_Toggled(object sender, RoutedEventArgs e)

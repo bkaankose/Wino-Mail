@@ -1,0 +1,46 @@
+# Maintainer: Burak Kaan Köse <bkaankose@outlook.com>
+# The AUR package of the Wino Mail beta: it repackages the prebuilt Arch package from download.winomail.app.
+# scripts/release/linux/update-aur.sh rewrites pkgver and sha256sums after each publish; edit the rest here.
+pkgname=wino-mail-bin
+_pkgname=wino-mail
+_channel=beta
+_upstreamrel=1
+pkgver=2.2.15beta263261654
+pkgrel=1
+pkgdesc='Mail, calendar, contacts and To Do in one app (beta)'
+arch=('x86_64')
+url='https://www.winomail.app'
+license=('GPL-3.0-only AND Apache-2.0 AND BSD-3-Clause AND MIT')
+depends=(
+  'gtk4>=1:4.20'
+  'libadwaita>=1:1.8'
+  'webkitgtk-6.0'
+  'libsecret'
+  'libcanberra'
+  'icu'
+  'openssl'
+  'glibc>=2.38'
+  'gcc-libs'
+  'ca-certificates'
+  'hicolor-icon-theme'
+)
+optdepends=(
+  'gnome-keyring: Secret Service provider; the app needs one with an unlocked default collection'
+  'sound-theme-freedesktop: notification and reminder sounds'
+  'xdg-desktop-portal: file pickers and opening links'
+  'noto-fonts-emoji: color emoji'
+  'noto-fonts-cjk: Chinese, Japanese and Korean text'
+  'enchant: spell checking in the composer'
+  'hunspell-en_us: English dictionary for spell checking'
+  'krb5: Kerberos (GSSAPI) sign-in'
+)
+provides=("$_pkgname=$pkgver")
+conflicts=("$_pkgname")
+options=('!strip' '!debug' '!zipman' '!emptydirs' '!lto')
+source=("https://download.winomail.app/linux/$_channel/$_pkgname-$pkgver-$_upstreamrel-x86_64.pkg.tar.zst")
+sha256sums=('bd5292794e19c6eebb8761051611373266f123308a16bbb41a84d191f06689a1')
+
+package() {
+  cp -a --no-preserve=ownership "$srcdir/usr" "$pkgdir/"
+  mv "$pkgdir/usr/share/licenses/$_pkgname" "$pkgdir/usr/share/licenses/$pkgname"
+}

@@ -127,7 +127,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent.Title : calendarEvent.Summary,
                     UpdatedAt = DateTimeOffset.UtcNow,
                     Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent.Visibility : GetVisibility(calendarEvent.Visibility),
-                    ShowAs = string.IsNullOrEmpty(calendarEvent.Transparency) ? parentRecurringEvent.ShowAs : GetShowAs(calendarEvent.Transparency),
+                    ShowAs = calendarEvent.Status == "cancelled" ? parentRecurringEvent.ShowAs : MergeShowAs(parentRecurringEvent.ShowAs, calendarEvent.Transparency),
                     HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent.HtmlLink : calendarEvent.HtmlLink,
                     RemoteEventId = calendarEvent.Id,
                     IsLocked = calendarEvent.Locked.GetValueOrDefault(),
@@ -365,7 +365,9 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             existingCalendarItem.Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent?.Title ?? existingCalendarItem.Title : calendarEvent.Summary;
             existingCalendarItem.UpdatedAt = DateTimeOffset.UtcNow;
             existingCalendarItem.Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent?.Visibility ?? existingCalendarItem.Visibility : GetVisibility(calendarEvent.Visibility);
-            existingCalendarItem.ShowAs = string.IsNullOrEmpty(calendarEvent.Transparency) ? parentRecurringEvent?.ShowAs ?? existingCalendarItem.ShowAs : GetShowAs(calendarEvent.Transparency);
+            existingCalendarItem.ShowAs = calendarEvent.Status == "cancelled"
+                ? existingCalendarItem.ShowAs
+                : MergeShowAs(existingCalendarItem.ShowAs, calendarEvent.Transparency);
             existingCalendarItem.HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent?.HtmlLink ?? existingCalendarItem.HtmlLink : calendarEvent.HtmlLink;
             existingCalendarItem.DirectJoinLink = ResolveDirectJoinLink(calendarEvent, existingCalendarItem.Description, parentRecurringEvent);
             existingCalendarItem.IsLocked = calendarEvent.Locked.GetValueOrDefault(existingCalendarItem.IsLocked);
@@ -378,9 +380,27 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                 existingCalendarItem.RecurringCalendarItemId = parentRecurringEvent.Id;
             }
 
-            // Do not overwrite reminders for an existing local event. Provider reminders
-            // are imported only when the event is first created locally; Wino owns all
-            // subsequent reminder selection and notification scheduling.
+            // An event with its own reminders (useDefault false) reports them in full, so a change made
+            // in another app replaces the reminders Google holds; reminders kept only in Wino stay.
+            // Calendar default reminders are not reported per event and leave the stored ones alone.
+            if (calendarEvent.Status != "cancelled" && calendarEvent.Reminders?.UseDefault == false)
+            {
+                var serverReminders = (calendarEvent.Reminders.Overrides ?? [])
+                    .Where(reminderOverride => reminderOverride.Minutes.HasValue)
+                    .Select(reminderOverride => new Reminder
+                    {
+                        Id = Guid.NewGuid(),
+                        CalendarItemId = existingCalendarItem.Id,
+                        DurationInSeconds = reminderOverride.Minutes.GetValueOrDefault() * 60L,
+                        ReminderType = reminderOverride.Method == "email" ? CalendarItemReminderType.Email : CalendarItemReminderType.Popup
+                    })
+                    .ToList();
+
+                var storedReminders = await CalendarService.GetRemindersAsync(existingCalendarItem.Id).ConfigureAwait(false);
+                var reconciled = ReminderSyncPlan.Reconcile(storedReminders, serverReminders, CalendarCapabilities.Gmail, existingCalendarItem.Id);
+                if (reconciled != null)
+                    await CalendarService.SaveRemindersAsync(existingCalendarItem.Id, reconciled).ConfigureAwait(false);
+            }
 
             // Prepare attachments metadata from Gmail event for update
             List<CalendarAttachment> attachments = null;
@@ -489,6 +509,18 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             "confidential" => CalendarItemVisibility.Confidential,
             _ => CalendarItemVisibility.Default
         };
+    }
+
+    /// <summary>
+    /// Google leaves out "transparency" when an event is opaque, so a missing value means busy, not
+    /// "unchanged". Google has no tentative, out-of-office or working-elsewhere availability, so an
+    /// opaque event keeps whichever of those Wino already holds.
+    /// </summary>
+    private CalendarItemShowAs MergeShowAs(CalendarItemShowAs current, string transparency)
+    {
+        var remote = GetShowAs(transparency);
+
+        return remote == CalendarItemShowAs.Busy && current != CalendarItemShowAs.Free ? current : remote;
     }
 
     private CalendarItemShowAs GetShowAs(string transparency)

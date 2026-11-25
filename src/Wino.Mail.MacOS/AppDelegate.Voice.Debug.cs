@@ -196,7 +196,7 @@ public sealed partial class AppDelegate
                     new VoiceBubbleChoice("h:1", "burak@contoso.com", null, outlook, isHeader: true),
                     new VoiceBubbleChoice("1", "Inbox", "1,204 mails", null),
                     new VoiceBubbleChoice("2", "Projects", "Inbox / Projects", null),
-                    new VoiceBubbleChoice("h:3", "burak@gmail.com", null, gmail, isHeader: true),
+                    new VoiceBubbleChoice("h:3", "alex.morgan@example.com", null, gmail, isHeader: true),
                     new VoiceBubbleChoice("3", "Inbox", null, null),
                     new VoiceBubbleChoice("4", "Receipts", "Archive / Receipts", null)
                 ]);

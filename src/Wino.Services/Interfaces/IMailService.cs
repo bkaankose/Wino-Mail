@@ -101,7 +101,7 @@ public interface IMailService
     /// Mail ids that synchronizer tried to download. If there was an issue with the
     /// Items that tried and actually downloaded may differ. This function will return only new inserted ones.
     /// </param>
-    /// <returns>Newly inserted unread mails inside the Inbox folder.</returns>
+    /// <returns>Newly inserted unread mails in any folder of the account, one copy per message.</returns>
     Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds);
 
     /// <summary>
@@ -171,6 +171,9 @@ public interface IMailService
     /// Returns null when no local match exists.
     /// </summary>
     Task<MailCopy> GetMailCopyByMessageIdAsync(Guid accountId, string messageId);
+
+    /// <summary>Flagged mails of every account, newest first, outside Deleted items and Junk; one copy per message.</summary>
+    Task<List<MailCopy>> GetFlaggedMailsAsync(int maxCount);
 
     /// <summary>
     /// Returns ids 

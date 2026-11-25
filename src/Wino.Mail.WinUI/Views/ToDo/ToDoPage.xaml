@@ -7,6 +7,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:flaggedMail="using:Wino.Mail.ViewModels.FlaggedMail"
+    xmlns:links="using:Wino.Mail.ViewModels.Links"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
@@ -426,14 +428,12 @@
                                             AutomationProperties.AutomationId="ToDoScopeCompleted"
                                             Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
                                             CommandParameter="completed"
-                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}" />
                                         <MenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoScopeAll"
                                             Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
                                             CommandParameter="all"
-                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}" />
                                     </MenuFlyout>
                                 </DropDownButton.Flyout>
                             </DropDownButton>
@@ -463,37 +463,48 @@
                                 </StackPanel>
                                 <DropDownButton.Flyout>
                                     <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortImportance"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="importance"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'importance'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortImportance, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortDueDate"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="due"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'due'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortDueDate, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortMyDay"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="myday"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'myday'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortMyDay, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortAlphabetically"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="alphabetical"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'alphabetical'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortAlphabetically, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortCreationDate"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="created"
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'created'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortCreationDate, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoSortManual"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="manual"
-                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsNamedListSelected), Mode=OneWay}" />
+                                            GroupName="ToDoSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'manual'), Mode=OneWay}"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}" />
                                     </MenuFlyout>
                                 </DropDownButton.Flyout>
                             </DropDownButton>
@@ -537,14 +548,12 @@
                                             AutomationProperties.AutomationId="ToDoCompactScopeCompleted"
                                             Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
                                             CommandParameter="completed"
-                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}" />
                                         <MenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactScopeAll"
                                             Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
                                             CommandParameter="all"
-                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}" />
                                     </MenuFlyoutSubItem>
 
                                     <ToggleMenuFlyoutItem
@@ -553,37 +562,48 @@
                                         Text="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}" />
 
                                     <MenuFlyoutSubItem Text="{x:Bind domain:Translator.ToDoPage_SortBy, Mode=OneTime}">
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortImportance"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="importance"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'importance'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortImportance, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortDueDate"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="due"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'due'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortDueDate, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortMyDay"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="myday"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'myday'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortMyDay, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortAlphabetically"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="alphabetical"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'alphabetical'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortAlphabetically, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortCreationDate"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="created"
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'created'), Mode=OneWay}"
                                             Text="{x:Bind domain:Translator.ToDoPage_SortCreationDate, Mode=OneTime}" />
-                                        <MenuFlyoutItem
+                                        <RadioMenuFlyoutItem
                                             AutomationProperties.AutomationId="ToDoCompactSortManual"
                                             Command="{x:Bind ViewModel.SetSortCommand}"
                                             CommandParameter="manual"
-                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}"
-                                            Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsNamedListSelected), Mode=OneWay}" />
+                                            GroupName="ToDoCompactSort"
+                                            IsChecked="{x:Bind winuiHelpers:XamlHelpers.IsTaskSort(ViewModel.SelectedSort, 'manual'), Mode=OneWay}"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortManual, Mode=OneTime}" />
                                     </MenuFlyoutSubItem>
 
                                     <MenuFlyoutSeparator />
@@ -678,6 +698,39 @@
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
 
+                                <MenuFlyoutItem
+                                    AutomationProperties.AutomationId="ToDoCopyListMenuItem"
+                                    Command="{x:Bind ViewModel.CopySelectedListCommand}"
+                                    Text="{x:Bind domain:Translator.ToDoPage_CopyListTo, Mode=OneTime}">
+                                    <MenuFlyoutItem.Icon>
+                                        <coreControls:WinoFontIcon Icon="Copy" />
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+
+                                <MenuFlyoutSubItem AutomationProperties.AutomationId="ToDoExportTasksMenuItem" Text="{x:Bind domain:Translator.ToDoPage_ExportTasks, Mode=OneTime}">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <coreControls:WinoFontIcon Icon="ArrowUpload" />
+                                    </MenuFlyoutSubItem.Icon>
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoExportIcsMenuItem"
+                                        Command="{x:Bind ViewModel.ExportTasksCommand}"
+                                        CommandParameter="ics"
+                                        Text="{x:Bind domain:Translator.ToDoPage_ExportIcs, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoExportCsvMenuItem"
+                                        Command="{x:Bind ViewModel.ExportTasksCommand}"
+                                        CommandParameter="csv"
+                                        Text="{x:Bind domain:Translator.ToDoPage_ExportCsv, Mode=OneTime}" />
+                                </MenuFlyoutSubItem>
+                                <MenuFlyoutItem
+                                    AutomationProperties.AutomationId="ToDoImportTasksMenuItem"
+                                    Command="{x:Bind ViewModel.ImportTasksCommand}"
+                                    Text="{x:Bind domain:Translator.ToDoPage_ImportTasks, Mode=OneTime}">
+                                    <MenuFlyoutItem.Icon>
+                                        <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+
                                 <MenuFlyoutSeparator />
 
                                 <MenuFlyoutItem
@@ -730,7 +783,8 @@
                 Drop="TaskListView_Drop"
                 ItemTemplate="{StaticResource TaskRowTemplate}"
                 SelectionChanged="TaskListView_SelectionChanged"
-                SelectionMode="Extended">
+                SelectionMode="Extended"
+                Visibility="{x:Bind ViewModel.IsTaskSurfaceVisible, Mode=OneWay}">
                 <listview:WinoListView.ItemContainerStyle>
                     <!--  The row template draws its own card, so the container only spaces them.  -->
                     <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
@@ -789,6 +843,93 @@
                 </Border.RenderTransform>
             </Border>
 
+            <!--  Flagged mail: flagged messages of every account. Completing one clears its flag.  -->
+            <Grid
+                x:Name="FlaggedMailSurface"
+                Grid.Row="1"
+                x:Load="{x:Bind ViewModel.IsFlaggedMailSelected, Mode=OneWay}">
+                <ListView
+                    Padding="16,0,16,4"
+                    AutomationProperties.AutomationId="ToDoFlaggedMailList"
+                    IsItemClickEnabled="True"
+                    ItemClick="FlaggedMail_ItemClick"
+                    ItemsSource="{x:Bind ViewModel.FlaggedMail.Items, Mode=OneTime}"
+                    SelectionMode="None">
+                    <ListView.ItemContainerStyle>
+                        <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                            <Setter Property="Margin" Value="0,2" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="flaggedMail:FlaggedMailItemViewModel">
+                            <Grid
+                                Padding="4,8"
+                                AutomationProperties.Name="{x:Bind Subject}"
+                                ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ToDoFlaggedMailComplete"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_FlaggedMailComplete}"
+                                    Click="FlaggedMailComplete_Click"
+                                    IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(IsCompleting), Mode=OneWay}"
+                                    Style="{StaticResource TransparentActionButtonStyle}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_FlaggedMailComplete}">
+                                    <coreControls:WinoFontIcon
+                                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                                        FontSize="18"
+                                        Icon="CheckmarkCircle" />
+                                </Button>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        Text="{x:Bind Subject}"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind DetailsText}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <coreControls:WinoFontIcon
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontSize="14"
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                    Icon="Flag" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <StackPanel
+                    MaxWidth="320"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="6"
+                    Visibility="{x:Bind ViewModel.FlaggedMail.IsEmpty, Mode=OneWay}">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        AutomationProperties.AutomationId="ToDoFlaggedMailEmptyState"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ToDoPage_FlaggedMailEmptyTitle}"
+                        TextAlignment="Center" />
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ToDoPage_FlaggedMailEmptyBody}"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+
             <!--  Empty state. Explains the absence and offers the next useful action.  -->
             <StackPanel
                 Grid.Row="1"
@@ -797,7 +938,7 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Spacing="6"
-                Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsEmpty), Mode=OneWay}">
+                Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsTaskEmptyStateVisible), Mode=OneWay}">
                 <controlsIllustrations:WinoFocusOnYourDayIllustration
                     Width="120"
                     Height="120"
@@ -816,6 +957,34 @@
                     Text="{x:Bind ViewModel.EmptyStateBody, Mode=OneWay}"
                     TextAlignment="Center"
                     TextWrapping="Wrap" />
+            </StackPanel>
+
+            <!--  Undo for complete, delete and move: the server call waits until this closes.  -->
+            <StackPanel
+                Grid.Row="1"
+                Margin="20,0,20,8"
+                VerticalAlignment="Bottom"
+                Spacing="6">
+                <InfoBar
+                    Title="{x:Bind ViewModel.NoticeTitle, Mode=OneWay}"
+                    AutomationProperties.AutomationId="ToDoNoticeInfoBar"
+                    CloseButtonCommand="{x:Bind ViewModel.CloseNoticeCommand}"
+                    IsOpen="{x:Bind ViewModel.IsNoticeOpen, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.NoticeMessage, Mode=OneWay}"
+                    Severity="{x:Bind winuiHelpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.NoticeSeverity), Mode=OneWay}" />
+                <InfoBar
+                    Title="{x:Bind ViewModel.UndoBarTitle, Mode=OneWay}"
+                    AutomationProperties.AutomationId="ToDoUndoInfoBar"
+                    CloseButtonCommand="{x:Bind ViewModel.CloseUndoBarCommand}"
+                    IsOpen="{x:Bind ViewModel.IsUndoBarOpen, Mode=OneWay}"
+                    Severity="Informational">
+                    <InfoBar.ActionButton>
+                        <Button
+                            AutomationProperties.AutomationId="ToDoUndoButton"
+                            Command="{x:Bind ViewModel.UndoTaskActionCommand}"
+                            Content="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
             </StackPanel>
 
             <!--  Quick add. Enter submits from the text box; the pointer action stays on the same row.  -->
@@ -1168,56 +1337,295 @@
                             </Button.Flyout>
                         </Button>
 
-                        <!--  Reminders and recurrence have nowhere to persist yet, so they read as unavailable.  -->
-                        <Grid
-                            Padding="12,10"
-                            ColumnSpacing="10"
-                            IsHitTestVisible="False">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <coreControls:WinoFontIcon
-                                Grid.Column="0"
-                                FontSize="14"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Icon="AlertOff" />
-                            <TextBlock
-                                Grid.Column="1"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Text="{x:Bind domain:Translator.ToDoPage_RemindMe, Mode=OneTime}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.ToDoPage_ComingSoon, Mode=OneTime}" />
-                        </Grid>
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="ToDoReminderButton"
+                            AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.ReminderDisplayText, Mode=OneWay}"
+                            IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                            Style="{StaticResource TransparentActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <coreControls:WinoFontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Icon="Alert" />
+                                <TextBlock AutomationProperties.AutomationId="ToDoReminderText" Text="{x:Bind ViewModel.SelectedTask.ReminderDisplayText, Mode=OneWay}" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoReminderPresetLaterToday"
+                                        Command="{x:Bind ViewModel.SetReminderPresetCommand}"
+                                        CommandParameter="latertoday"
+                                        Text="{x:Bind domain:Translator.ToDoPage_ReminderPresetLaterToday, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoReminderPresetTomorrow"
+                                        Command="{x:Bind ViewModel.SetReminderPresetCommand}"
+                                        CommandParameter="tomorrow"
+                                        Text="{x:Bind domain:Translator.ToDoPage_ReminderPresetTomorrow, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoReminderPresetNextWeek"
+                                        Command="{x:Bind ViewModel.SetReminderPresetCommand}"
+                                        CommandParameter="nextweek"
+                                        Text="{x:Bind domain:Translator.ToDoPage_ReminderPresetNextWeek, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoReminderPickDateTime"
+                                        Click="PickReminderMenuItem_Click"
+                                        Text="{x:Bind domain:Translator.ToDoPage_ReminderPickDateTime, Mode=OneTime}" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRemoveReminder"
+                                        Command="{x:Bind ViewModel.SetReminderPresetCommand}"
+                                        CommandParameter="none"
+                                        IsEnabled="{x:Bind ViewModel.SelectedTask.HasReminder, Mode=OneWay}"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RemoveReminder, Mode=OneTime}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
 
-                        <Grid
-                            Padding="12,10"
-                            ColumnSpacing="10"
-                            IsHitTestVisible="False">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <coreControls:WinoFontIcon
-                                Grid.Column="0"
-                                FontSize="14"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Icon="ArrowRepeatAll" />
-                            <TextBlock
-                                Grid.Column="1"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Text="{x:Bind domain:Translator.ToDoPage_Repeat, Mode=OneTime}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.ToDoPage_ComingSoon, Mode=OneTime}" />
-                        </Grid>
+                        <!--  The custom reminder picker. It opens from the reminder menu, anchored to the reminder row.  -->
+                        <StackPanel
+                            x:Name="ReminderPickerPanel"
+                            Margin="12,4"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                            <DatePicker
+                                x:Name="ReminderDatePicker"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="ToDoReminderDatePicker"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_ReminderPickDateTime, Mode=OneTime}" />
+                            <TimePicker
+                                x:Name="ReminderTimePicker"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="ToDoReminderTimePicker"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_ReminderPickDateTime, Mode=OneTime}"
+                                MinuteIncrement="5" />
+                            <StackPanel
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button
+                                    AutomationProperties.AutomationId="ToDoReminderPickerCancel"
+                                    Click="ReminderPickerCancel_Click"
+                                    Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
+                                <Button
+                                    AutomationProperties.AutomationId="ToDoReminderPickerSave"
+                                    Click="ReminderPickerSave_Click"
+                                    Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="ToDoPriorityButton"
+                            AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.PriorityDisplayText, Mode=OneWay}"
+                            IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                            Style="{StaticResource TransparentActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <coreControls:WinoFontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Icon="Important" />
+                                <TextBlock AutomationProperties.AutomationId="ToDoPriorityText" Text="{x:Bind ViewModel.SelectedTask.PriorityDisplayText, Mode=OneWay}" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoPriorityHigh"
+                                        Command="{x:Bind ViewModel.SetPriorityCommand}"
+                                        CommandParameter="High"
+                                        Text="{x:Bind domain:Translator.ToDoPage_PriorityHigh, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoPriorityNormal"
+                                        Command="{x:Bind ViewModel.SetPriorityCommand}"
+                                        CommandParameter="Normal"
+                                        Text="{x:Bind domain:Translator.ToDoPage_PriorityNormal, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoPriorityLow"
+                                        Command="{x:Bind ViewModel.SetPriorityCommand}"
+                                        CommandParameter="Low"
+                                        Text="{x:Bind domain:Translator.ToDoPage_PriorityLow, Mode=OneTime}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+
+                        <StackPanel Padding="12,6" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <coreControls:WinoFontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Icon="Tag" />
+                                <TextBlock Text="{x:Bind domain:Translator.ToDoPage_Categories, Mode=OneTime}" />
+                            </StackPanel>
+                            <ItemsRepeater AutomationProperties.AutomationId="ToDoCategoryChips" ItemsSource="{x:Bind ViewModel.SelectedTask.CategoryNames, Mode=OneWay}">
+                                <ItemsRepeater.Layout>
+                                    <StackLayout Orientation="Vertical" Spacing="4" />
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Button
+                                            Padding="8,2"
+                                            HorizontalAlignment="Left"
+                                            AutomationProperties.Name="{x:Bind}"
+                                            Click="CategoryChip_Click"
+                                            Tag="{x:Bind}"
+                                            ToolTipService.ToolTip="{x:Bind}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind}" />
+                                                <coreControls:WinoFontIcon FontSize="10" Icon="Dismiss" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                            <AutoSuggestBox
+                                x:Name="CategoryBox"
+                                AutomationProperties.AutomationId="ToDoAddCategoryBox"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_AddCategory, Mode=OneTime}"
+                                IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                                PlaceholderText="{x:Bind domain:Translator.ToDoPage_AddCategory, Mode=OneTime}"
+                                QuerySubmitted="CategoryBox_QuerySubmitted"
+                                TextChanged="CategoryBox_TextChanged" />
+                        </StackPanel>
+
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="ToDoRepeatButton"
+                            AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.RecurrenceDisplayText, Mode=OneWay}"
+                            IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                            Style="{StaticResource TransparentActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <coreControls:WinoFontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Icon="ArrowRepeatAll" />
+                                <TextBlock AutomationProperties.AutomationId="ToDoRepeatText" Text="{x:Bind ViewModel.SelectedTask.RecurrenceDisplayText, Mode=OneWay}" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatDaily"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="daily"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetDaily, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatWeekdays"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="weekdays"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetWeekdays, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatWeekly"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="weekly"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetWeekly, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatMonthly"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="monthly"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetMonthly, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatYearly"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="yearly"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetYearly, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatCustom"
+                                        Click="CustomRepeatMenuItem_Click"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatPresetCustom, Mode=OneTime}" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRepeatNever"
+                                        Command="{x:Bind ViewModel.SetRepeatPresetCommand}"
+                                        CommandParameter="none"
+                                        IsEnabled="{x:Bind ViewModel.SelectedTask.IsRecurring, Mode=OneWay}"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RepeatNever, Mode=OneTime}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+
+                        <!--  The custom repeat editor opens from the repeat menu.  -->
+                        <StackPanel
+                            x:Name="RepeatEditorPanel"
+                            Margin="12,4"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.ToDoPage_RepeatInterval, Mode=OneTime}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <NumberBox
+                                    x:Name="RepeatIntervalBox"
+                                    Width="90"
+                                    AutomationProperties.AutomationId="ToDoRepeatIntervalBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_RepeatInterval, Mode=OneTime}"
+                                    Maximum="999"
+                                    Minimum="1"
+                                    SpinButtonPlacementMode="Compact"
+                                    Value="1" />
+                                <ComboBox
+                                    x:Name="RepeatUnitComboBox"
+                                    MinWidth="120"
+                                    AutomationProperties.AutomationId="ToDoRepeatUnitComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_RepeatInterval, Mode=OneTime}"
+                                    SelectionChanged="RepeatUnitComboBox_SelectionChanged">
+                                    <ComboBoxItem x:Name="RepeatDaysItem" Content="{x:Bind domain:Translator.ToDoPage_RepeatUnitDays, Mode=OneTime}" />
+                                    <ComboBoxItem x:Name="RepeatWeeksItem" Content="{x:Bind domain:Translator.ToDoPage_RepeatUnitWeeks, Mode=OneTime}" />
+                                    <ComboBoxItem x:Name="RepeatMonthsItem" Content="{x:Bind domain:Translator.ToDoPage_RepeatUnitMonths, Mode=OneTime}" />
+                                    <ComboBoxItem x:Name="RepeatYearsItem" Content="{x:Bind domain:Translator.ToDoPage_RepeatUnitYears, Mode=OneTime}" />
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel x:Name="RepeatDaysPanel" Spacing="4">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind domain:Translator.ToDoPage_RepeatOnDays, Mode=OneTime}" />
+                                <StackPanel
+                                    x:Name="RepeatDayToggles"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="1" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="2" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="3" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="4" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="5" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="6" />
+                                    <ToggleButton
+                                        MinWidth="36"
+                                        Padding="4"
+                                        Tag="0" />
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button
+                                    AutomationProperties.AutomationId="ToDoRepeatEditorCancel"
+                                    Click="RepeatEditorCancel_Click"
+                                    Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
+                                <Button
+                                    AutomationProperties.AutomationId="ToDoRepeatEditorSave"
+                                    Click="RepeatEditorSave_Click"
+                                    Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            </StackPanel>
+                        </StackPanel>
 
                         <!--  Delete closes the schedule group. A rule keeps the destructive row from reading as another toggle.  -->
                         <Border
@@ -1262,6 +1670,48 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
 
+                    <!--  Mails and events this task was created from or scheduled with.  -->
+                    <StackPanel
+                        x:Name="TaskLinksPanel"
+                        x:Load="{x:Bind ViewModel.HasSelectedTaskLinks, Mode=OneWay}"
+                        AutomationProperties.AutomationId="ToDoTaskLinks">
+                        <TextBlock Style="{StaticResource ToDoDetailSectionLabelStyle}" Text="{x:Bind domain:Translator.ConnectedItems_LinkedHeader, Mode=OneTime}" />
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.SelectedTaskLinks, Mode=OneTime}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="links:LinkedItemViewModel">
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        AutomationProperties.Name="{x:Bind AutomationName}"
+                                        Click="LinkedItem_Click"
+                                        Style="{StaticResource TransparentActionButtonStyle}">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <coreControls:WinoFontIcon
+                                                VerticalAlignment="Center"
+                                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                FontSize="14"
+                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                Icon="{x:Bind Glyph}" />
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="{x:Bind Subtitle}"
+                                                    TextTrimming="CharacterEllipsis"
+                                                    Visibility="{x:Bind winuiHelpers:XamlHelpers.BoolToVisibilityConverter(HasSubtitle)}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
                     <Button
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left"
@@ -1274,7 +1724,7 @@
                                 FontSize="14"
                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                 Icon="Calendar" />
-                            <TextBlock Text="{x:Bind domain:Translator.ToDoPage_CreateCalendarEvent, Mode=OneTime}" />
+                            <TextBlock Text="{x:Bind domain:Translator.ToDoPage_ScheduleTime, Mode=OneTime}" />
                         </StackPanel>
                     </Button>
 

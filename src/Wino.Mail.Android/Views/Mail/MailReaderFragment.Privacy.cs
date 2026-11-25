@@ -12,7 +12,8 @@ using Google.Android.Material.Button;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Editor;
+using Wino.Renderer;
+using Wino.Renderer.Policy;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -25,7 +26,7 @@ namespace Wino.Mail.Android.Views.Mail;
 /// The reader's privacy surface (Windows MailRenderingPage): the shield button beside the date with its popup menu, and
 /// the withheld, Junk and blocked-by-rule bars over the body. The menu is the ViewModel's <c>PrivacyMenuItems</c> under
 /// disabled header lines; every entry runs <c>InvokePrivacyMenuItemCommand</c>. Links from the body go through
-/// <see cref="MailRenderingPageViewModel.OpenLinkAsync"/> so tracking parameters are removed and the confirmation shows.
+/// <see cref="MailRenderingPageViewModel.OpenLinkAsync(ResolvedMailLink)"/> so tracking parameters are removed and the confirmation shows.
 /// </summary>
 public sealed partial class MailReaderFragment
 {
@@ -217,18 +218,30 @@ public sealed partial class MailReaderFragment
         return title;
     }
 
-    /// <summary>Remote content follows the decision the ViewModel rendered with (a one-time Load once included).</summary>
-    private static RemoteContentPolicy ResourcePolicy(MailRenderingPageViewModel viewModel)
+    /// <summary>A link from the body: cleaned, confirmed when the user asked for it, then opened in the browser.</summary>
+    private async Task OpenLinkAsync(LinkEventArgs args)
     {
-        var mode = viewModel.CurrentDecision?.EffectiveMode ?? viewModel.CurrentRenderModel?.MailRenderingOptions?.RemoteContent ?? RemoteContentMode.LoadEverything;
-        // Block trackers loads images: the trackers were already removed from the HTML.
-        return mode == RemoteContentMode.BlockAll ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed;
+        if (ViewModel is not { } viewModel || CreateResolvedLink(args.Link, args.Text) is not { } link) return;
+        (await viewModel.OpenLinkAsync(link)).ThrowIfNotSucceeded();
     }
 
-    /// <summary>A link from the body: cleaned, confirmed when the user asked for it, then opened in the browser.</summary>
-    private async Task OpenLinkAsync(RendererNavigationRequestedEventArgs request)
+    private static ResolvedMailLink? CreateResolvedLink(ResolvedLink link, string? text)
     {
-        if (ViewModel is not { } viewModel) return;
-        (await viewModel.OpenLinkAsync(request.Uri, request.LinkText)).ThrowIfNotSucceeded();
+        switch (link.Kind)
+        {
+            case LinkKind.Web:
+                if (!Uri.TryCreate(link.Effective, UriKind.Absolute, out var address)) return null;
+                var original = !string.Equals(link.Original, link.Effective, StringComparison.Ordinal)
+                    && Uri.TryCreate(link.Original, UriKind.Absolute, out var originalAddress) ? originalAddress : null;
+                return new ResolvedMailLink(address, text, link.RemovedTrackingParameters, original);
+
+            // The system routes these to the registered mail and phone apps.
+            case LinkKind.Mailto:
+            case LinkKind.Tel:
+                return Uri.TryCreate(link.Original, UriKind.Absolute, out var protocolAddress) ? new ResolvedMailLink(protocolAddress, text) : null;
+
+            default:
+                return null;
+        }
     }
 }

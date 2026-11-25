@@ -8,6 +8,9 @@
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../Wino.Editor.Abstractions/Wino.Editor.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="Editor\**\*">
       <Link>Editor\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <LogicalName>Wino.Editor.Assets.Editor.%(Filename)%(Extension)</LogicalName>

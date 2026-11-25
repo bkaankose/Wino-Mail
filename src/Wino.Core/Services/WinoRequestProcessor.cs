@@ -315,6 +315,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         var folder = request.Folder;
         var operation = request.Action;
 
+        // A container only groups a shared tree; it has no mail and cannot be changed on the server.
+        if (folder.IsContainer)
+            return default;
+
         switch (request.Action)
         {
             case FolderOperation.Pin:

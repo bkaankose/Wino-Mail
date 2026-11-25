@@ -13,10 +13,13 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.AccountSettings;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Companion;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.FlaggedMail;
 using Wino.Mail.ViewModels.Intelligence;
+using Wino.Mail.ViewModels.Links;
 using Wino.Mail.ViewModels.Search;
 using Wino.Mail.ViewModels.Calendar;
 using Wino.Mail.ViewModels.Calendar.Data;
@@ -40,6 +43,13 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(NotificationSoundOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AccountQuietHoursStanceOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(TaskReminderTimingOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ReminderOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<ReminderOption>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(CalendarReminderEditorRow))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<CalendarReminderEditorRow>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(CalendarDefaultReminderOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<CalendarDefaultReminderOption>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<CalendarDefaultReminderOption>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailNotificationActionOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(SnoozePresetOption))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(QuietHoursDayViewModel))]
@@ -54,6 +64,20 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(ThreadMailItemViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailListCollection<MailItemViewModel>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AccountProviderDetailViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountAppItemViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountAppItemViewModel>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountAppSourceOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountAppSourceOption>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(Wino.Core.Domain.Models.Accounts.InitialSynchronizationRangeOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<Wino.Core.Domain.Models.Accounts.InitialSynchronizationRangeOption>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountCollectionItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountCollectionItem>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountCalendarSettingsItemViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountCalendarSettingsItemViewModel>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(AccountCalendarShowAsOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<AccountCalendarShowAsOption>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ExchangeTransportOption))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<ExchangeTransportOption>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MergedAccountProviderDetailViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<IAccountProviderDetailViewModel>))]
 
@@ -115,6 +139,7 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(UnreadBadgeFolderViewModel))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailSearchFilterEditor))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableRangeCollection<string>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(List<string>))]
 
 [assembly: GeneratedWinRTExposedExternalType(typeof(ObservableObject[]))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(AppLockMethodOption[]))]
@@ -151,3 +176,12 @@ using WinRT;
 [assembly: GeneratedWinRTExposedExternalType(typeof(KnownImapProviderRegion[]))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(SettingsNavigationItemInfo[]))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(BriefingLabelChip[]))]
+
+// Items linked to the open message, task or event.
+[assembly: GeneratedWinRTExposedExternalType(typeof(LinkedItemViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<LinkedItemViewModel>))]
+
+// The Flagged mail view of To Do.
+[assembly: GeneratedWinRTExposedExternalType(typeof(FlaggedMailItemViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<FlaggedMailItemViewModel>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(FlaggedMailTaskMenuItem))]

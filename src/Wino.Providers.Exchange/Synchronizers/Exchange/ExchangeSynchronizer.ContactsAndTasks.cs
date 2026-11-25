@@ -769,7 +769,11 @@ public partial class ExchangeSynchronizer
         TaskSchema.DueDate,
         TaskSchema.Importance,
         TaskSchema.IsComplete,
-        TaskSchema.CompleteDate)
+        TaskSchema.CompleteDate,
+        TaskSchema.StartDate,
+        ItemSchema.Categories,
+        ItemSchema.IsReminderSet,
+        ItemSchema.ReminderDueBy)
     {
         RequestedBodyType = BodyType.Text
     };
@@ -1036,10 +1040,23 @@ public partial class ExchangeSynchronizer
                 task.StartDate = due;
         }
 
+        // A task never given a priority in Wino keeps a low importance set elsewhere.
         var currentImportance = isNew ? null : SafeGet(() => (Importance?)task.Importance);
-        task.Importance = item.IsImportant
-            ? Importance.High
-            : currentImportance == Importance.Low ? Importance.Low : Importance.Normal;
+        task.Importance = TaskFields.GetEffectivePriority(item) switch
+        {
+            TaskPriority.High => Importance.High,
+            TaskPriority.Low => Importance.Low,
+            TaskPriority.Normal => Importance.Normal,
+            _ => currentImportance == Importance.Low ? Importance.Low : Importance.Normal
+        };
+
+        if (item.StartDate is DateTime startDate && (item.DueDate is not DateTime dueDate || startDate.Date <= dueDate.Date))
+            task.StartDate = startDate.Date;
+
+        task.Categories = new StringList(TaskFields.GetCategories(item));
+        task.IsReminderSet = item.ReminderAtUtc.HasValue;
+        if (item.ReminderAtUtc is DateTime reminder)
+            task.ReminderDueBy = DateTime.SpecifyKind(reminder, DateTimeKind.Utc).ToLocalTime();
 
         var currentStatus = isNew ? null : SafeGet(() => (EwsTaskStatus?)task.Status);
         if (item.IsCompleted)
@@ -1065,6 +1082,21 @@ public partial class ExchangeSynchronizer
             Notes = SafeGet(() => task.Body?.Text),
             DueDate = task.TryGetProperty(TaskSchema.DueDate, out DateTime? dueDate) ? dueDate?.Date : null,
             IsImportant = SafeGet(() => (Importance?)task.Importance) == Importance.High,
+            Priority = SafeGet(() => (Importance?)task.Importance) switch
+            {
+                Importance.High => TaskPriority.High,
+                Importance.Low => TaskPriority.Low,
+                Importance.Normal => TaskPriority.Normal,
+                _ => TaskPriority.None
+            },
+            StartDate = task.TryGetProperty(TaskSchema.StartDate, out DateTime? startDate) ? startDate?.Date : null,
+            Categories = task.TryGetProperty(ItemSchema.Categories, out StringList? categories) && categories is not null
+                ? TaskFields.JoinCategories(categories)
+                : null,
+            ReminderAtUtc = task.TryGetProperty(ItemSchema.IsReminderSet, out bool? isReminderSet) && isReminderSet == true &&
+                            task.TryGetProperty(ItemSchema.ReminderDueBy, out DateTime? reminderDueBy) && reminderDueBy is DateTime dueBy
+                ? (dueBy.Kind == DateTimeKind.Utc ? dueBy : DateTime.SpecifyKind(dueBy, DateTimeKind.Local).ToUniversalTime())
+                : null,
             IsCompleted = completed,
             CompletedAtUtc = completed && task.TryGetProperty(TaskSchema.CompleteDate, out DateTime? completeDate) ? completeDate : null,
             PendingMutation = TaskPendingMutation.None

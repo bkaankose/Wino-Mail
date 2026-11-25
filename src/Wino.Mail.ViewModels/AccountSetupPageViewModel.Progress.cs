@@ -341,8 +341,10 @@ public partial class AccountSetupPageViewModel
         var hasFeatures = _resolution != null && Phase is not (AccountSetupPhase.Identity or AccountSetupPhase.Resolving or AccountSetupPhase.NotFound);
         var isImapResolution = Route == AccountRoute.Imap && _resolution?.Imap?.IsFound == true;
 
+        // Before anything says which servers exist, every app starts on this device, so no server address is required;
+        // the Features step of Advanced setup can switch one to a server.
         var isMailEnabled = !hasFeatures || Capabilities.IsMailEnabled;
-        var calendarMode = hasFeatures ? Capabilities.CalendarMode : AccountCapabilityMode.Provider;
+        var calendarMode = hasFeatures ? Capabilities.CalendarMode : AccountCapabilityMode.Local;
         var contactMode = hasFeatures ? Capabilities.ContactMode : AccountCapabilityMode.Local;
         var taskMode = hasFeatures ? Capabilities.TaskMode : AccountCapabilityMode.Local;
 
@@ -372,7 +374,7 @@ public partial class AccountSetupPageViewModel
             return;
         }
 
-        var accountName = GetAdvancedAccountName(address);
+        var accountName = GetAdvancedAccountName();
         var calendarSupportMode = calendarMode switch
         {
             AccountCapabilityMode.Provider => ImapCalendarSupportMode.CalDav,
@@ -410,7 +412,9 @@ public partial class AccountSetupPageViewModel
             CalDavServiceUrl = calendarMode == AccountCapabilityMode.Provider || taskMode == AccountCapabilityMode.Provider ? CalDavServiceUri?.ToString() : null,
             CardDavServiceUrl = contactMode == AccountCapabilityMode.Provider ? CardDavServiceUri?.ToString() : null,
             OAuthSession = useOAuth ? _oauthSession : null,
-            StartOnServers = isAddressValid && (isImapResolution || Phase is AccountSetupPhase.NotFound or AccountSetupPhase.Resolving)
+            StartOnServers = isAddressValid && (isImapResolution || Phase is AccountSetupPhase.NotFound or AccountSetupPhase.Resolving),
+            // The IMAP route shows its apps on the review after signing in; the other routes show them before.
+            StartOnFeatures = !hasFeatures || (IsImapRoute && Phase != AccountSetupPhase.Features)
         };
 
         // Advanced setup owns the session now and discards it if it is not saved; the rest of this attempt goes.
@@ -440,17 +444,11 @@ public partial class AccountSetupPageViewModel
                ?? providers.FirstOrDefault(provider => provider.Type == MailProviderType.IMAP4 && provider.SpecialImapProvider == SpecialImapProvider.None);
     }
 
-    private string GetAdvancedAccountName(string address)
-    {
-        var name = AccountName?.Trim();
-        if (!string.IsNullOrWhiteSpace(name))
-            return name;
-
-        if (MailAccountAddressValidator.TryGetDomain(address, out var domain) && !string.IsNullOrWhiteSpace(domain))
-            return domain;
-
-        return Translator.ProviderSelection_ModeImap;
-    }
+    /// <summary>
+    /// Only a name the user typed. Advanced setup names the account after the address it is saved with when there is
+    /// none, because the address may still change there.
+    /// </summary>
+    private string GetAdvancedAccountName() => AccountName?.Trim() ?? string.Empty;
 
     #endregion
 

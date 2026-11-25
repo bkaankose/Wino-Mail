@@ -42,7 +42,7 @@ public sealed partial class ComposePageViewController
         items.Add(new EditorToolbarItem(new EditorToolbarButton(WinoIconGlyph.ArrowUndo, Translator.MacOSMenu_Undo, () => Run(EditorCommand.Undo()))));
         items.Add(new EditorToolbarItem(new EditorToolbarButton(WinoIconGlyph.ArrowRedo, Translator.MacOSMenu_Redo, () => Run(EditorCommand.Redo()))));
         toolbar.AddOptionsItems(items.ToArray());
-        _webView.Accessory = toolbar;
+        _webView.InputAccessory = toolbar;
     }
 
     /// <summary>High, normal and low importance with the current one checked.</summary>
@@ -63,7 +63,7 @@ public sealed partial class ComposePageViewController
     private void DisposeToolbar()
     {
         _formatToolbar?.Detach();
-        _webView.Accessory = null;
+        _webView.InputAccessory = null;
     }
 
     // ---- Editor theme ----

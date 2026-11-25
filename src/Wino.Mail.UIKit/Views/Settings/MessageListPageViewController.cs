@@ -16,8 +16,8 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
-/// Message list: a live preview row, sender pictures, swipe actions, threads and the remaining row options (Windows
-/// MessageListPage, same card order). The phone list has one row density and no pointer, so density and hover actions are
+/// Message list: a live preview row, then the Windows MessageListPage sections (Message rows, Quick actions, Grouping and
+/// conversations, Inbox). The phone list has one row density and no pointer, so density and hover actions are
 /// unavailable (SettingAvailability: MailListDensity, HoverActions). The preview is the real mail row cell fed from the ViewModel's demo mail.
 /// </summary>
 public sealed class MessageListPageViewController(MessageListPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
@@ -38,12 +38,36 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
             Bind.Switch(p, nameof(p.IsShowSenderPicturesEnabled), s => s.IsShowSenderPicturesEnabled, (s, v) => s.IsShowSenderPicturesEnabled = v, Translator.SettingsShowSenderPictures_Title),
             clearCache);
 
-        AddSection(Translator.IOS_SettingsSection_Rows, null,
+        AddSection(Translator.SettingsMessageList_SectionRows, null,
             senderPictures,
             Card(Translator.SettingsShowPreviewText_Title, null, WinoIconGlyph.TextDescription,
                 Bind.Switch(p, nameof(p.IsShowPreviewEnabled), s => s.IsShowPreviewEnabled, (s, v) => s.IsShowPreviewEnabled = v, Translator.SettingsShowPreviewText_Title)),
+            StackedCard(Translator.SettingsTimeFormat_Title, null, WinoIconGlyph.Clock,
+                Bind.PopUp(vm, vm.TimeFormatPreferenceOptions, nameof(vm.SelectedTimeFormatPreferenceIndex), s => s.SelectedTimeFormatPreferenceIndex, (s, v) => s.SelectedTimeFormatPreferenceIndex = v)),
+            StackedCard(Translator.SettingsShowAccountNickname_Title, null, WinoIconGlyph.PersonTag,
+                Bind.PopUp(vm, vm.AccountNicknamePositionOptions, nameof(vm.SelectedAccountNicknamePositionIndex), s => s.SelectedAccountNicknamePositionIndex, (s, v) => s.SelectedAccountNicknamePositionIndex = v)));
+
+        bool SwipeOn(IPreferencesService s) => s.IsSwipeActionsEnabled;
+        AddSection(Translator.SettingsMessageList_SectionQuickActions, null,
+            Expander(Translator.SettingsSwipeActions_Title, null, WinoIconGlyph.ArrowSwap,
+                Bind.Switch(p, nameof(p.IsSwipeActionsEnabled), s => s.IsSwipeActionsEnabled, (s, v) => s.IsSwipeActionsEnabled = v, Translator.SettingsSwipeActions_Title),
+                CustomisedAccountsNote(vm),
+                Bind.Enabled(SwipeScopeCard(vm), p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
+                Bind.Enabled(StackedCard(Translator.SettingsSwipeActionLeft, null, WinoIconGlyph.None,
+                    Bind.PopUp(vm, vm.AvailableSwipeActionsTranslations, nameof(vm.LeftSwipeActionIndex), s => s.LeftSwipeActionIndex, (s, v) => s.LeftSwipeActionIndex = v)),
+                    p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
+                Bind.Enabled(StackedCard(Translator.SettingsSwipeActionRight, null, WinoIconGlyph.None,
+                    Bind.PopUp(vm, vm.AvailableSwipeActionsTranslations, nameof(vm.RightSwipeActionIndex), s => s.RightSwipeActionIndex, (s, v) => s.RightSwipeActionIndex = v)),
+                    p, nameof(p.IsSwipeActionsEnabled), SwipeOn)),
             Card(Translator.SettingsMailListActionBar_Title, null, WinoIconGlyph.Window,
-                Bind.Switch(p, nameof(p.IsMailListActionBarEnabled), s => s.IsMailListActionBarEnabled, (s, v) => s.IsMailListActionBarEnabled = v, Translator.SettingsMailListActionBar_Title)),
+                Bind.Switch(p, nameof(p.IsMailListActionBarEnabled), s => s.IsMailListActionBarEnabled, (s, v) => s.IsMailListActionBarEnabled = v, Translator.SettingsMailListActionBar_Title)));
+
+        AddSection(Translator.SettingsMessageList_SectionGrouping, null,
+            Card(Translator.SettingsMailListGroupHeaders_Title, null, WinoIconGlyph.GroupList,
+                Bind.Switch(p, nameof(p.IsMailListGroupHeadersEnabled), s => s.IsMailListGroupHeadersEnabled, (s, v) => s.IsMailListGroupHeadersEnabled = v, Translator.SettingsMailListGroupHeaders_Title)),
+            Bind.Enabled(StackedCard(Translator.SettingsMailListDateGroupingType_Title, null, WinoIconGlyph.CalendarWeek,
+                Bind.PopUp(vm, vm.DateGroupingTypeOptions, nameof(vm.SelectedDateGroupingTypeIndex), s => s.SelectedDateGroupingTypeIndex, (s, v) => s.SelectedDateGroupingTypeIndex = v)),
+                p, nameof(p.IsMailListGroupHeadersEnabled), s => s.IsMailListGroupHeadersEnabled),
             Expander(Translator.SettingsThreads_Title, null, WinoIconGlyph.TextBulletListTree, null,
                 Card(Translator.SettingsThreads_Enabled_Title, null, WinoIconGlyph.None,
                     Bind.Switch(p, nameof(p.IsThreadingEnabled), s => s.IsThreadingEnabled, (s, v) => s.IsThreadingEnabled = v, Translator.SettingsThreads_Enabled_Title)),
@@ -51,30 +75,7 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
                     Bind.PopUp(vm, vm.ThreadItemSortingOptions, nameof(vm.SelectedThreadItemSortingIndex), s => s.SelectedThreadItemSortingIndex, (s, v) => s.SelectedThreadItemSortingIndex = v)),
                     p, nameof(p.IsThreadingEnabled), s => s.IsThreadingEnabled)));
 
-        AddSection(Translator.IOS_SettingsSection_Grouping, null,
-            Card(Translator.SettingsMailListGroupHeaders_Title, null, WinoIconGlyph.GroupList,
-                Bind.Switch(p, nameof(p.IsMailListGroupHeadersEnabled), s => s.IsMailListGroupHeadersEnabled, (s, v) => s.IsMailListGroupHeadersEnabled = v, Translator.SettingsMailListGroupHeaders_Title)),
-            Bind.Enabled(StackedCard(Translator.SettingsMailListDateGroupingType_Title, null, WinoIconGlyph.CalendarWeek,
-                Bind.PopUp(vm, vm.DateGroupingTypeOptions, nameof(vm.SelectedDateGroupingTypeIndex), s => s.SelectedDateGroupingTypeIndex, (s, v) => s.SelectedDateGroupingTypeIndex = v)),
-                p, nameof(p.IsMailListGroupHeadersEnabled), s => s.IsMailListGroupHeadersEnabled),
-            StackedCard(Translator.SettingsTimeFormat_Title, null, WinoIconGlyph.Clock,
-                Bind.PopUp(vm, vm.TimeFormatPreferenceOptions, nameof(vm.SelectedTimeFormatPreferenceIndex), s => s.SelectedTimeFormatPreferenceIndex, (s, v) => s.SelectedTimeFormatPreferenceIndex = v)));
-
-        bool SwipeOn(IPreferencesService s) => s.IsSwipeActionsEnabled;
-        AddSection(Translator.IOS_SettingsSection_Gestures, null, Expander(Translator.SettingsSwipeActions_Title, null, WinoIconGlyph.ArrowSwap,
-            Bind.Switch(p, nameof(p.IsSwipeActionsEnabled), s => s.IsSwipeActionsEnabled, (s, v) => s.IsSwipeActionsEnabled = v, Translator.SettingsSwipeActions_Title),
-            CustomisedAccountsNote(vm),
-            Bind.Enabled(SwipeScopeCard(vm), p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
-            Bind.Enabled(StackedCard(Translator.SettingsSwipeActionLeft, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.AvailableSwipeActionsTranslations, nameof(vm.LeftSwipeActionIndex), s => s.LeftSwipeActionIndex, (s, v) => s.LeftSwipeActionIndex = v)),
-                p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
-            Bind.Enabled(StackedCard(Translator.SettingsSwipeActionRight, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.AvailableSwipeActionsTranslations, nameof(vm.RightSwipeActionIndex), s => s.RightSwipeActionIndex, (s, v) => s.RightSwipeActionIndex = v)),
-                p, nameof(p.IsSwipeActionsEnabled), SwipeOn)));
-
-        AddSection(Translator.IOS_SettingsSection_Inboxes, Translator.IOS_SettingsHint_OtherInboxNotice,
-            StackedCard(Translator.SettingsShowAccountNickname_Title, null, WinoIconGlyph.PersonTag,
-                Bind.PopUp(vm, vm.AccountNicknamePositionOptions, nameof(vm.SelectedAccountNicknamePositionIndex), s => s.SelectedAccountNicknamePositionIndex, (s, v) => s.SelectedAccountNicknamePositionIndex = v)),
+        AddSection(Translator.SettingsMessageList_SectionInbox, Translator.IOS_SettingsHint_OtherInboxNotice,
             Card(Translator.SettingsOtherInboxUnreadNotice_Title, null, WinoIconGlyph.Mail,
                 Bind.Switch(p, nameof(p.IsOtherInboxUnreadNoticeEnabled), s => s.IsOtherInboxUnreadNoticeEnabled, (s, v) => s.IsOtherInboxUnreadNoticeEnabled = v, Translator.SettingsOtherInboxUnreadNotice_Title)),
             Card(Translator.SettingsMarkAsReadOnMoveToTrash_Title, null, WinoIconGlyph.Delete,

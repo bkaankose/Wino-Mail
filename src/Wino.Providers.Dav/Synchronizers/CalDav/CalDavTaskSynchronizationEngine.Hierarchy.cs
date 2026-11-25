@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
+using Wino.Core.Synchronizers.CalDav;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Providers.Dav.Synchronizers.CalDav;
@@ -270,6 +272,11 @@ public sealed partial class CalDavTaskSynchronizationEngine
             IsCompleted = todo.IsCompleted,
             CompletedAtUtc = todo.IsCompleted ? todo.CompletedUtc : null,
             IsImportant = todo.IsImportant,
+            Priority = todo.PriorityLevel,
+            ReminderAtUtc = todo.ReminderUtc,
+            Categories = TaskFields.JoinCategories(todo.Categories),
+            StartDate = todo.StartDate,
+            Recurrence = todo.RecurrenceRule,
             CreatedAtUtc = todo.CreatedUtc ?? todo.DtStampUtc ?? default,
             Steps = []
         };
@@ -296,7 +303,8 @@ public sealed partial class CalDavTaskSynchronizationEngine
         => string.IsNullOrWhiteSpace(todo.Summary) ? Translator.CalDavTasks_UntitledTask : todo.Summary;
 
     private static AccountTask CloneStoredTask(AccountTask stored)
-        => new()
+    {
+        var clone = new AccountTask
         {
             Id = stored.Id,
             MailAccountId = stored.MailAccountId,
@@ -316,6 +324,10 @@ public sealed partial class CalDavTaskSynchronizationEngine
             CreatedAtUtc = stored.CreatedAtUtc,
             Steps = []
         };
+
+        TaskFields.CopyExtendedFields(stored, clone);
+        return clone;
+    }
 
     private static AccountTaskStep CloneStoredStep(AccountTaskStep stored)
         => new()

@@ -83,6 +83,7 @@
                                 <Setter Property="FontWeight" Value="{ThemeResource CalendarViewWeekDayFontWeight}" />
                                 <Setter Property="Margin" Value="{ThemeResource CalendarViewWeekDayMargin}" />
                                 <Setter Property="Padding" Value="{ThemeResource CalendarViewWeekDayPadding}" />
+                                <Setter Property="TextWrapping" Value="NoWrap" />
                             </Style>
                             <Style x:Key="HeaderNavigationButtonStyle" TargetType="Button">
                                 <Setter Property="HorizontalAlignment" Value="Stretch" />

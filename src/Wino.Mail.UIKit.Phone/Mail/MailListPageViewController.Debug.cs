@@ -13,6 +13,18 @@ public sealed partial class MailListPageViewController
     /// mailinfo · editmode on|off · selectall · search TEXT · searchclear · filters · movesheet · readerbar ·
     /// expand N · listbar.
     /// </summary>
+#if DEBUG
+    private static string DescribeMenuElement(UIMenuElement element) => element switch
+    {
+        UIMenu menu when menu.Options.HasFlag(UIMenuOptions.DisplayInline) => "[" + string.Join(", ", menu.Children.Select(DescribeMenuElement)) + "]",
+        UIMenu menu => $"{menu.Title}{{{string.Join(", ", menu.Children.Select(DescribeMenuElement))}}}",
+        UIAction action => action.Title
+            + (action.Attributes.HasFlag(UIMenuElementAttributes.Destructive) ? "[red]" : string.Empty)
+            + (action.Attributes.HasFlag(UIMenuElementAttributes.Disabled) ? "[off]" : string.Empty),
+        _ => element.GetType().Name,
+    };
+#endif
+
     private void RegisterDebugCommands()
     {
 #if DEBUG
@@ -45,6 +57,18 @@ public sealed partial class MailListPageViewController
             return Task.FromResult("ok");
         });
         UIKitDebugBridge.Register("selectall", _ => { SelectAllRows(); return Task.FromResult("ok " + ViewModel.SelectedItemsCount); });
+        // "mail-more-dump" prints the More menu for the selection (inline groups in brackets); "mail-more-open" opens the edit toolbar's More menu.
+        UIKitDebugBridge.Register("mail-more-dump", _ =>
+        {
+            if (_released || ViewModel.SelectedItemsCount == 0) return Task.FromResult("no selection");
+            return Task.FromResult(string.Join(" | ", SelectionMenuElements(ViewModel.SelectedItems.ToArray()).Select(DescribeMenuElement)));
+        });
+        UIKitDebugBridge.Register("mail-more-open", _ =>
+        {
+            if (_released || !_selectionMode || _editButtons.Length == 0) return Task.FromResult("not in edit mode");
+            _editButtons[^1].SendActionForControlEvents(UIControlEvent.PrimaryActionTriggered);
+            return Task.FromResult("opened");
+        });
         // Selects rows FROM..TO as a range drag over the selection circles does (enters edit mode like a two-finger pan).
         UIKitDebugBridge.Register("selectrange", args =>
         {

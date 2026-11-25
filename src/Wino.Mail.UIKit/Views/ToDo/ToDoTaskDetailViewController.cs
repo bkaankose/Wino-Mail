@@ -89,7 +89,7 @@ public sealed class ToDoTaskDetailViewController : UIViewController
         _due.ShowsMenuAsPrimaryAction = true;
         _due.Menu = UIMenu.Create([UIDeferredMenuElement.CreateUncached(completion => completion(DueMenu()))]);
         _delete = Row(WinoIconGlyph.Delete, Translator.ToDoPage_DeleteTask, WinoToDoStyle.Critical, () => { if (_task is { } task) Observe(_viewModel.DeleteTaskCommand.ExecuteAsync(task)); });
-        _calendar = Row(WinoIconGlyph.Calendar, Translator.ToDoPage_CreateCalendarEvent, WinoStyle.Accent, () => Observe(_viewModel.CreateCalendarEventCommand.ExecuteAsync(null)));
+        _calendar = Row(WinoIconGlyph.Calendar, Translator.ToDoPage_ScheduleTime, WinoStyle.Accent, () => Observe(_viewModel.CreateCalendarEventCommand.ExecuteAsync(null)));
     }
 
     public override void LoadView()

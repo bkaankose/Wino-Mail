@@ -5,7 +5,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Common;
 using Wino.Editor;
-using Wino.Editor.WebKit;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Views.Mail.Compose;
@@ -77,7 +76,7 @@ internal sealed class EditorFormatToolbar : UIInputView
     private readonly EditorToolbarButton _removeLink;
     private readonly EditorToolbarButton _imageProperties;
     private readonly EditorToolbarButton _spellCheck;
-    private WebKitHtmlMailEditorSession? _session;
+    private UIKitEngineEditor? _session;
     private EventHandler<EditorState>? _stateHandler;
     private EventHandler<EditorShortcutKind>? _shortcutHandler;
     private EventHandler? _imageHandler;
@@ -185,7 +184,7 @@ internal sealed class EditorFormatToolbar : UIInputView
     // ---- Session ----
 
     /// <summary>Drives <paramref name="session"/>: state, the link shortcut and picture insertion requests.</summary>
-    public void Attach(WebKitHtmlMailEditorSession session)
+    public void Attach(UIKitEngineEditor session)
     {
         Detach();
         _detached = false;

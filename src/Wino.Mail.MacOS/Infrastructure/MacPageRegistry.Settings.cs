@@ -1,5 +1,6 @@
 using Wino.Core.Domain.Enums;
 using Wino.Mail.MacOS.Views.Settings;
+using Wino.Mail.MacOS.Views.Settings.AccountPages;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -36,7 +37,13 @@ public sealed partial class MacPageRegistry
         Register<RemoteContentRulesPageViewController>(WinoPage.RemoteContentRulesPage, MacPageHost.SettingsWindow);
         Register<ManageAccountsPageViewController>(WinoPage.ManageAccountsPage, MacPageHost.SettingsWindow);
         Register<ManageAccountsPageViewController>(WinoPage.AccountManagementPage, MacPageHost.SettingsWindow);
-        Register<AccountDetailsPageViewController>(WinoPage.AccountDetailsPage, MacPageHost.SettingsWindow);
+        Register<AccountHubPageViewController>(WinoPage.AccountDetailsPage, MacPageHost.SettingsWindow);
+        Register<AccountMailPageViewController>(WinoPage.AccountMailSettingsPage, MacPageHost.SettingsWindow);
+        Register<AccountCalendarPageViewController>(WinoPage.AccountCalendarSettingsPage, MacPageHost.SettingsWindow);
+        Register<AccountPeoplePageViewController>(WinoPage.AccountPeopleSettingsPage, MacPageHost.SettingsWindow);
+        Register<AccountToDoPageViewController>(WinoPage.AccountToDoSettingsPage, MacPageHost.SettingsWindow);
+        Register<AccountSignInPageViewController>(WinoPage.AccountSignInPage, MacPageHost.SettingsWindow);
+        Register<AccountTroubleshootingPageViewController>(WinoPage.AccountTroubleshootingPage, MacPageHost.SettingsWindow);
         Register<MailPreferencesPageViewController>(WinoPage.MailPreferencesPage, MacPageHost.SettingsWindow);
         Register<ReadComposePanePageViewController>(WinoPage.ReadComposePanePage, MacPageHost.SettingsWindow);
         Register<ReaderActionsPageViewController>(WinoPage.ReaderActionsPage, MacPageHost.SettingsWindow);

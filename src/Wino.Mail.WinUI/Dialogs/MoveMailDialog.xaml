@@ -31,7 +31,7 @@
                     <coreControls:WinoFontIcon
                         FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="20"
-                        Icon="{x:Bind winuiHelpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
+                        Icon="{x:Bind winuiHelpers:XamlHelpers.GetFolderGlyph(SpecialFolderType, Scope, IsContainer, IsSharedOwnerNode)}" />
                     <TextBlock
                         VerticalAlignment="Center"
                         Style="{ThemeResource BodyTextBlockStyle}"

@@ -42,10 +42,10 @@
     <ProjectReference Include="../Wino.Providers.Exchange/Wino.Providers.Exchange.csproj" />
     <ProjectReference Include="../Wino.Providers.Dav/Wino.Providers.Dav.csproj" />
     <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
+    <ProjectReference Include="../Wino.Mail.Rendering/Wino.Mail.Rendering.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.Android/Wino.Presentation.Android.csproj" />
     <ProjectReference Include="../../controls/Wino.Mail.Controls.Android/Wino.Mail.Controls.Android.csproj" />
-    <ProjectReference Include="../../controls/Wino.Editor.Android/Wino.Editor.Android.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Xamarin.AndroidX.Activity" />
@@ -55,6 +55,8 @@
     <PackageReference Include="Xamarin.AndroidX.SwipeRefreshLayout" />
     <PackageReference Include="Xamarin.Google.Android.Material" />
   </ItemGroup>
+  <!-- The native mail renderer reads mail (build/Wino.Renderer.Android.props; WINO_RENDERER_ROOT names the checkout). -->
+  <Import Project="../../build/Wino.Renderer.Android.props" />
   <!-- Firebase (FCM for WinoRelay) starts only when this file exists: download it from the Firebase console for package
        com.winomail.android and put it next to this project file. Without it the app has no FCM token and reports
        RemoteNotifications off (docs/harness/development-android.md, "Background and notifications"). -->

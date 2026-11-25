@@ -14,7 +14,7 @@ namespace Wino.Services;
 
 public class ContextMenuItemService(IMailProviderRegistry providers) : IContextMenuItemService
 {
-    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder)
+    public virtual IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(bool isSticky, bool isSystemFolder, bool canRenameAndDelete = true, bool canCreateSubFolder = true, bool canEmpty = true)
     {
         var list = new List<FolderOperationMenuItem>();
 
@@ -25,15 +25,21 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
 
         list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
 
-        // Following 4 items are disabled for system folders.
+        // Disabled for system folders, and left out of a shared folder whose rights do not allow them.
+        if (canRenameAndDelete)
+        {
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.Rename, !isSystemFolder));
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.Delete, !isSystemFolder));
+        }
 
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Rename, !isSystemFolder));
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Delete, !isSystemFolder));
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.CreateSubFolder, !isSystemFolder));
+        if (canCreateSubFolder)
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.CreateSubFolder, !isSystemFolder));
 
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
+        if (canRenameAndDelete || canCreateSubFolder)
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.Seperator));
 
-        list.Add(FolderOperationMenuItem.Create(FolderOperation.Empty));
+        if (canEmpty)
+            list.Add(FolderOperationMenuItem.Create(FolderOperation.Empty));
 
         list.Add(FolderOperationMenuItem.Create(FolderOperation.MarkAllAsRead));
 
@@ -67,23 +73,21 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
             operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
         }
 
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.Reply));
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.ReplyAll));
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+        operationList.Add(CreateQuickAction(MailOperation.Reply));
+        operationList.Add(CreateQuickAction(MailOperation.ReplyAll));
+        operationList.Add(CreateQuickAction(MailOperation.Forward));
+        operationList.Add(CreateQuickAction(MailOperation.Seperator));
+        operationList.Add(CreateQuickAction(isArchiveFolder ? MailOperation.UnArchive : MailOperation.Archive));
+        operationList.Add(CreateQuickAction(MailOperation.SoftDelete));
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
-        // Archive button.
-
-        if (isArchiveFolder)
-            operationList.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
-        else
-            operationList.Add(MailOperationMenuItem.Create(MailOperation.Archive));
-
-        // Delete button.
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.SoftDelete));
-
-        // Move button.
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Move, !isDraftOrSent));
+
+        if (isSingleItem && !singleItem.IsDraft)
+        {
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateTask, placement: MailOperationMenuPlacement.CreateSubmenu));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateEvent, placement: MailOperationMenuPlacement.CreateSubmenu));
+        }
 
         // Independent flag, read etc.
         if (isSingleItem)
@@ -212,6 +216,9 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
         return actionList;
     }
 
+    private static MailOperationMenuItem CreateQuickAction(MailOperation operation)
+        => MailOperationMenuItem.Create(operation, placement: MailOperationMenuPlacement.QuickActions);
+
     private void AddFocusedInboxActions(List<MailOperationMenuItem> operationList, IReadOnlyCollection<MailCopy> selectedItems)
     {
         if (selectedItems.Count == 0 || !selectedItems.All(IsFocusedInboxMail))
@@ -276,6 +283,12 @@ public class ContextMenuItemService(IMailProviderRegistry providers) : IContextM
             items.Add(new CalendarContextMenuItem(
                 new CalendarContextMenuAction(CalendarContextMenuActionType.JoinOnline)));
         }
+
+        items.Add(new CalendarContextMenuItem(
+            new CalendarContextMenuAction(CalendarContextMenuActionType.CreateTask)));
+
+        items.Add(new CalendarContextMenuItem(
+            new CalendarContextMenuAction(CalendarContextMenuActionType.Copy)));
 
         return items;
     }

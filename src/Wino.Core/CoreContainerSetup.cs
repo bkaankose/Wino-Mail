@@ -21,6 +21,7 @@ public static class CoreContainerSetup
         services.AddSingleton(loggerLevelSwitcher);
         services.AddSingleton<IMailProviderRegistry>(provider => new MailProviderRegistry(() => provider.GetServices<IMailProviderModule>()));
         services.AddSingleton<SynchronizerFactory>();
+        services.AddSingleton<ITaskTransferService, TaskTransferService>();
         services.AddSingleton<ISynchronizerFactory>(provider => provider.GetRequiredService<SynchronizerFactory>());
 
         // Relay registrations the app manages itself (Gmail watch, Graph subscription). IMAP's builder lives in Wino.Services.
@@ -48,6 +49,7 @@ public static class CoreContainerSetup
             provider.GetRequiredService<Wino.Services.Synchronization.TaskQuotaGate>(),
             provider.GetRequiredService<IWinoLogger>(),
             provider.GetRequiredService<Wino.Core.Domain.Models.MailItem.DraftUpdateRegistry>(),
+            provider.GetRequiredService<IFolderService>(),
             provider.GetService<IPlatformCapabilities>()));
         services.AddSingleton<ISynchronizationManager>(provider => provider.GetRequiredService<SynchronizationManager>());
         services.AddSingleton<IDraftUpdateCoordinator>(provider => provider.GetRequiredService<SynchronizationManager>().DraftUpdates);
@@ -81,6 +83,7 @@ public static class CoreContainerSetup
 
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
+        services.AddSingleton<IMailTransferService, MailTransferService>();
         // One executor per app: the platform sets its window host on it (AgentPlanExecutor.Host) when the shell is up.
         services.AddSingleton<Services.Assistant.AgentPlanExecutor>();
         services.AddSingleton<Wino.Agent.Runtime.Ports.IAgentPlanExecutor>(provider => provider.GetRequiredService<Services.Assistant.AgentPlanExecutor>());
@@ -90,6 +93,7 @@ public static class CoreContainerSetup
         services.AddTransient<IMigrationAccountAuthorizationService, MigrationAccountAuthorizationService>();
         services.AddTransient<IAccountReauthenticationService, AccountReauthenticationService>();
         services.AddTransient<IAccountCapabilityService, AccountCapabilityService>();
+        services.AddSingleton<IMailSynchronizationRangeService, MailSynchronizationRangeService>();
         services.AddSingleton<IAppModeReadinessService, AppModeReadinessService>();
         services.AddTransient<IDraftSaveService, DraftSaveService>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();

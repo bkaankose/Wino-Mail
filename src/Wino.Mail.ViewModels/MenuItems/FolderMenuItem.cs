@@ -18,11 +18,11 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
 
     public bool HasTextColor => !string.IsNullOrEmpty(Parameter.TextColorHex);
     public bool IsMoveTarget => HandlingFolders.All(a => a.IsMoveTarget);
+    public bool IsSelectable => HandlingFolders.All(a => a.IsSelectable);
 
     public SpecialFolderType SpecialFolderType => Parameter.SpecialFolderType;
     public bool IsSticky => Parameter.IsSticky;
     public bool IsSystemFolder => Parameter.IsSystemFolder;
-
 
 
     /// <summary>
@@ -39,7 +39,7 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
             else if (Parameter.SpecialFolderType == SpecialFolderType.Archive && ParentAccount.ProviderType == MailProviderType.Gmail)
                 return Translator.GmailArchiveFolderNameOverride;
             else
-                return Parameter.ResolvedDisplayName;
+                return Parameter.IsSticky ? Parameter.QualifiedDisplayName : Parameter.ResolvedDisplayName;
         }
         set => SetProperty(Parameter.FolderName, value, Parameter, (u, n) => u.FolderName = n);
     }

@@ -12,7 +12,7 @@ using Wino.Mail.ViewModels.Data;
 namespace Wino.Mail.MacOS.Views.Settings;
 
 /// <summary>
-/// Debug bridge commands for the account sub-pages. <c>acct-folders [n]</c> and <c>acct-badges [n]</c> open the
+/// Debug bridge commands for the account sub-pages. <c>acct-folders [n]</c> and <c>acct-badges [n]</c>, <c>acct-hub [n]</c> and <c>acct-mail|calendar|people|todo|signin|troubleshooting [n]</c> open the
 /// n-th account (default 0); <c>acct-group [new|n]</c> opens the n-th account group (default 0), or a new one.
 /// <c>group-page ARGS</c> drives the open account group page through its ViewModel, as its controls do:
 /// <c>state</c>, <c>name TEXT</c>, <c>color KEY|default</c>, <c>icon NAME</c>, <c>combine on|off</c>, <c>add N</c>,
@@ -30,6 +30,13 @@ internal static class AccountExtrasDebug
     {
         MacDebugBridge.Register("acct-folders", args => NavigateToAccountAsync(WinoPage.FolderCustomizationPage, args));
         MacDebugBridge.Register("acct-badges", args => NavigateToAccountAsync(WinoPage.AccountUnreadBadgePage, args));
+        MacDebugBridge.Register("acct-hub", args => NavigateToAccountAsync(WinoPage.AccountDetailsPage, args));
+        MacDebugBridge.Register("acct-mail", args => NavigateToAccountAsync(WinoPage.AccountMailSettingsPage, args));
+        MacDebugBridge.Register("acct-calendar", args => NavigateToAccountAsync(WinoPage.AccountCalendarSettingsPage, args));
+        MacDebugBridge.Register("acct-people", args => NavigateToAccountAsync(WinoPage.AccountPeopleSettingsPage, args));
+        MacDebugBridge.Register("acct-todo", args => NavigateToAccountAsync(WinoPage.AccountToDoSettingsPage, args));
+        MacDebugBridge.Register("acct-signin", args => NavigateToAccountAsync(WinoPage.AccountSignInPage, args));
+        MacDebugBridge.Register("acct-troubleshooting", args => NavigateToAccountAsync(WinoPage.AccountTroubleshootingPage, args));
         MacDebugBridge.Register("acct-group", async args =>
         {
             if (args.Any(arg => arg.Equals("new", StringComparison.OrdinalIgnoreCase)))

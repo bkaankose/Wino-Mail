@@ -112,9 +112,9 @@ public partial class WinoContextFlyout : CommandBarFlyout
         Reconcile(
             PrimaryCommands,
             headers.Count,
-            index => IsPlainAppBarButton(PrimaryCommands[index]),
-            index => UpdateHeaderButton(PrimaryCommands[index], headers[index]),
-            index => CreateHeaderButton(headers[index]));
+            index => CanReuseHeader(PrimaryCommands[index], headers[index]),
+            index => UpdateHeaderElement(PrimaryCommands[index], headers[index]),
+            index => CreateHeaderElement(headers[index]));
 
         var items = NormalizeSeparators(RootItems);
         Reconcile(
@@ -188,6 +188,9 @@ public partial class WinoContextFlyout : CommandBarFlyout
     private static CommandState StateOf(ICommandBarElement element)
         => (CommandState)((FrameworkElement)element).Tag;
 
+    private static bool CanReuseHeader(ICommandBarElement element, ContextFlyoutHeaderEntry header)
+        => header.IsSeparator ? element.GetType() == typeof(AppBarSeparator) : IsPlainAppBarButton(element);
+
     private static bool IsPlainAppBarButton(ICommandBarElement element)
         => element.GetType() == typeof(AppBarButton);
 
@@ -202,20 +205,30 @@ public partial class WinoContextFlyout : CommandBarFlyout
         _ => false,
     };
 
-    private AppBarButton CreateHeaderButton(ContextFlyoutHeaderEntry header)
+    private ICommandBarElement CreateHeaderElement(ContextFlyoutHeaderEntry header)
     {
+        if (header.IsSeparator)
+        {
+            return new AppBarSeparator { Tag = new CommandState { Header = header } };
+        }
+
         var button = new AppBarButton { Tag = new CommandState() };
         button.Click += OnCommandClick;
-        UpdateHeaderButton(button, header);
+        UpdateHeaderElement(button, header);
 
         return button;
     }
 
     [DynamicWindowsRuntimeCast(typeof(AppBarButton))]
-    private static void UpdateHeaderButton(ICommandBarElement element, ContextFlyoutHeaderEntry header)
+    private static void UpdateHeaderElement(ICommandBarElement element, ContextFlyoutHeaderEntry header)
     {
+        StateOf(element).Header = header;
+        if (header.IsSeparator)
+        {
+            return;
+        }
+
         var button = (AppBarButton)element;
-        StateOf(button).Header = header;
 
         button.Label = header.Label;
         button.Icon = CreateIcon(header.Icon);
@@ -224,6 +237,7 @@ public partial class WinoContextFlyout : CommandBarFlyout
         ToolTipService.SetToolTip(button, string.IsNullOrWhiteSpace(header.Shortcut?.DisplayText)
             ? header.Label
             : $"{header.Label} ({header.Shortcut!.DisplayText})");
+        ApplyDestructiveForeground(button, header.IsDestructive, DestructiveAppBarButtonStyleKey);
         AutomationProperties.SetAutomationId(button, header.AutomationId);
     }
 

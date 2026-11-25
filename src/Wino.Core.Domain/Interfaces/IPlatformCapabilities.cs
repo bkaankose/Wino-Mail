@@ -78,4 +78,7 @@ public interface IPlatformCapabilities
 
     /// <summary>The platform has secure storage and a lock prompt, so the app lock can be turned on (the App lock settings page).</summary>
     bool AppLock { get; }
+
+    /// <summary>The To Do page shows the Flagged mail view. A head turns it on once it renders that view.</summary>
+    bool FlaggedMailTaskView => false;
 }

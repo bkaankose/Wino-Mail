@@ -6,10 +6,10 @@
     xmlns:customcontrols="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:intelligenceControls="using:Wino.Mail.Controls.IntelligenceHeader"
+    xmlns:links="using:Wino.Mail.ViewModels.Links"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -27,6 +27,9 @@
         <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
     </Page.KeyboardAccelerators>
     <Page.Resources>
+        <!--  The header card and the message body share this radius; the mail view is clipped to it as well.  -->
+        <CornerRadius x:Key="ReaderCardCornerRadius">8</CornerRadius>
+
         <DataTemplate x:Key="InternetAddressTemplate" x:DataType="viewModelData:AccountContactViewModel">
             <HyperlinkButton
                 Margin="0"
@@ -222,17 +225,19 @@
         </DataTemplate>
     </Page.Resources>
 
-    <!--  Attachments and WebView2  -->
-    <Grid
-        x:Name="RendererGridFrame"
-        Margin="0,2,0,0"
-        RowSpacing="7">
+    <!--  Attachments and the message body  -->
+    <Grid x:Name="RendererGridFrame" Margin="0,2,0,0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+        <!--
+            No row spacing: the info bars and the intelligence header are usually hidden, and spacing
+            around their empty rows tripled the gap above the body. Each element carries its own top
+            margin instead, so a hidden one takes no room.
+        -->
         <!--
             No children transition here. The page is reused across mail selections, so the
             intelligence header's visibility toggles on a live tree and a reposition transition
@@ -243,7 +248,7 @@
             Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="8"
+            CornerRadius="{StaticResource ReaderCardCornerRadius}"
             Translation="0,0,20">
             <Border.Shadow>
                 <ThemeShadow />
@@ -272,7 +277,7 @@
                         Style="{StaticResource BodyStrongTextBlockStyle}"
                         Text="{x:Bind ViewModel.Subject, Mode=OneWay}"
                         TextWrapping="Wrap"
-                        Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}" />
+                        Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsLoadingMailContent), Mode=OneWay}" />
 
                     <!--
                         The bar is sized by a proportional column rather than by an alignment plus a
@@ -487,7 +492,7 @@
                                 IsFaviconEnabled="{x:Bind winuiHelpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                                 IsGravatarEnabled="{x:Bind winuiHelpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
                                 IsTabStop="False"
-                                Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}" />
+                                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsLoadingMailContent), Mode=OneWay}" />
 
                             <!--  Stands in for the avatar, sender and date until the MIME is parsed.  -->
                             <Grid
@@ -534,7 +539,7 @@
                                 Grid.Column="1"
                                 Margin="12,0"
                                 VerticalAlignment="Center"
-                                Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}">
+                                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsLoadingMailContent), Mode=OneWay}">
                                 <StackPanel Spacing="1">
                                     <HyperlinkButton
                                         Margin="0"
@@ -568,7 +573,7 @@
                     Grid.Row="2"
                     MaxHeight="150"
                     Margin="5,0"
-                    Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}">
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsLoadingMailContent), Mode=OneWay}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -658,7 +663,7 @@
                 <Grid
                     Grid.Row="4"
                     ColumnSpacing="8"
-                    Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}">
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsLoadingMailContent), Mode=OneWay}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
@@ -712,27 +717,12 @@
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="1" Spacing="7">
-            <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsRemoteContentBarVisible, Mode=OneWay}">
-                <InfoBar
-                    x:Name="RemoteContentWithheldBar"
-                    Title="{x:Bind domain:Translator.Reader_Privacy_WithheldTitle, Mode=OneTime}"
-                    HorizontalContentAlignment="Stretch"
-                    x:Load="{x:Bind ViewModel.IsRemoteContentWithheld, Mode=OneWay}"
-                    AutomationProperties.AutomationId="RemoteContentWithheldBar"
-                    IsClosable="False"
-                    IsOpen="True"
-                    Message="{x:Bind ViewModel.WithheldBarMessage, Mode=OneWay}"
-                    Severity="Informational">
-                    <InfoBar.ActionButton>
-                        <Button
-                            HorizontalAlignment="Right"
-                            AutomationProperties.AutomationId="RemoteContentWithheldLoadOnceButton"
-                            Command="{x:Bind ViewModel.LoadOnceCommand}"
-                            Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}"
-                            Style="{ThemeResource AccentButtonStyle}" />
-                    </InfoBar.ActionButton>
-                </InfoBar>
+        <StackPanel Grid.Row="1">
+            <!--  Withheld remote content has no bar here: the privacy shield in the command bar says it and offers Load once.  -->
+            <StackPanel
+                Margin="0,6,0,0"
+                Spacing="4"
+                Visibility="{x:Bind GetRemoteContentBarVisibility(ViewModel.IsJunkBlocked, ViewModel.IsSenderBlockedByRule), Mode=OneWay}">
 
                 <InfoBar
                     x:Name="RemoteContentJunkBar"
@@ -784,13 +774,59 @@
             <!--  Read from the MIME, so invitations synced before they were recognized still get the card.  -->
             <coreControls:MailInvitationCard
                 x:Name="InvitationCard"
+                Margin="0,6,0,0"
                 x:Load="{x:Bind ViewModel.Invitation.IsVisible, Mode=OneWay}"
                 Invitation="{x:Bind ViewModel.Invitation, Mode=OneTime}" />
+
+            <StackPanel
+                x:Name="LinkedItemsPanel"
+                Margin="0,6,0,0"
+                x:Load="{x:Bind ViewModel.HasLinkedItems, Mode=OneWay}"
+                AutomationProperties.AutomationId="MailLinkedItems"
+                Orientation="Horizontal"
+                Spacing="4">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.ConnectedItems_LinkedHeader, Mode=OneTime}" />
+                <ItemsControl ItemsSource="{x:Bind ViewModel.LinkedItems, Mode=OneTime}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="links:LinkedItemViewModel">
+                            <HyperlinkButton
+                                Padding="6,2"
+                                AutomationProperties.Name="{x:Bind AutomationName}"
+                                Click="LinkedItem_Click"
+                                ToolTipService.ToolTip="{x:Bind Subtitle}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <coreControls:WinoFontIcon
+                                        VerticalAlignment="Center"
+                                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                                        FontSize="14"
+                                        Icon="{x:Bind Glyph}" />
+                                    <TextBlock
+                                        MaxWidth="240"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Title}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </HyperlinkButton>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </StackPanel>
 
         <intelligenceControls:WinoIntelligenceHeader
             x:Name="IntelligenceHeader"
             Grid.Row="2"
+            Margin="0,6,0,0"
             ActionHeadingText="{x:Bind domain:Translator.WinoIntelligence_AskWino, Mode=OneTime}"
             ActionInvoked="IntelligenceHeader_ActionInvoked"
             AddToCalendarButtonText="{x:Bind domain:Translator.WinoIntelligence_AddToCalendar, Mode=OneTime}"
@@ -832,32 +868,53 @@
 
         <Border
             Grid.Row="3"
+            Margin="0,6,0,0"
             Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            CornerRadius="8">
-            <Grid Margin="1" CornerRadius="8">
+            CornerRadius="{StaticResource ReaderCardCornerRadius}">
+            <Grid CornerRadius="{StaticResource ReaderCardCornerRadius}">
 
-                <editor:WinoMailRenderer
-                    x:Name="MailRenderer"
-                    AutomationProperties.AutomationId="MailMessageRenderer"
-                    AutomationProperties.HelpText="{x:Bind domain:Translator.Reader_MessageBodyAutomationHelpText, Mode=OneTime}"
-                    AutomationProperties.Name="{x:Bind domain:Translator.Reader_MessageBodyAutomationName, Mode=OneTime}"
-                    DarkModeMethod="{x:Bind ToRendererDarkModeMethod(ViewModel.ReaderDarkModeMethod), Mode=OneWay}"
-                    InitializationFailed="MailRenderer_InitializationFailed"
-                    IsDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
-                    NavigationRequested="MailRenderer_NavigationRequested"
-                    ProtectedLinkFormat="{x:Bind domain:Translator.Reader_ProtectedLinkFormat, Mode=OneTime}">
-                    <editor:WinoMailRenderer.KeyboardAccelerators>
+                <!--
+                    Hosts the mail view, which the page creates in code. The host carries the reader's
+                    own theme, so its opaque fill is the surface the message is drawn on.
+                -->
+                <Grid
+                    x:Name="MailRendererHost"
+                    ActualThemeChanged="MailRendererHost_ActualThemeChanged"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    CornerRadius="{StaticResource ReaderCardCornerRadius}"
+                    Loaded="MailRendererHost_Loaded"
+                    RequestedTheme="{x:Bind GetReaderElementTheme(ViewModel.IsDarkWebviewRenderer), Mode=OneWay}"
+                    Unloaded="MailRendererHost_Unloaded">
+                    <Grid.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
-                    </editor:WinoMailRenderer.KeyboardAccelerators>
-                </editor:WinoMailRenderer>
+                    </Grid.KeyboardAccelerators>
+                </Grid>
+
+                <!--  Shows where the link under the pointer leads.  -->
+                <Border
+                    x:Name="ReaderLinkTargetBar"
+                    MaxWidth="640"
+                    Margin="6"
+                    Padding="8,3"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.AccessibilityView="Raw"
+                    Background="{ThemeResource SolidBackgroundFillColorQuarternaryBrush}"
+                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    IsHitTestVisible="False"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        x:Name="ReaderLinkTargetText"
+                        MaxLines="1"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        TextTrimming="CharacterEllipsis" />
+                </Border>
 
                 <!--
                     Fully opaque, so the previously rendered message never shows through while the
-                    next one loads: the reading pane brush is a translucent layer fill over the
-                    window backdrop, which the WebView2 is happy to show through. The renderer itself
-                    stays visible - collapsing it stalls WebView2's first initialization.
+                    next one loads. The mail view stays visible underneath and keeps drawing.
                 -->
                 <Grid
                     x:Name="BodyLoadingSkeleton"
@@ -865,7 +922,7 @@
                     x:Load="{x:Bind ViewModel.IsLoadingMailContent, Mode=OneWay}"
                     AutomationProperties.AccessibilityView="Raw"
                     Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-                    CornerRadius="8"
+                    CornerRadius="{StaticResource ReaderCardCornerRadius}"
                     RowSpacing="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -895,6 +952,18 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     IsActive="{x:Bind ViewModel.ShouldDisplayDownloadProgress, Mode=OneWay}" />
+
+                <!--
+                    The outline is drawn over the body instead of around it. Around it, the body's
+                    rounded clip and the outline's inner curve never line up, and the pane background
+                    shows through as dark specks at the corners.
+                -->
+                <Border
+                    AutomationProperties.AccessibilityView="Raw"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource ReaderCardCornerRadius}"
+                    IsHitTestVisible="False" />
             </Grid>
         </Border>
     </Grid>

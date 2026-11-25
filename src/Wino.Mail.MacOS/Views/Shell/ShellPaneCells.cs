@@ -256,7 +256,9 @@ internal sealed class ShellPaneCell : NSTableCellView
                 _pill.Count = coloured.ShowUnreadCount ? coloured.UnreadItemCount : 0;
                 break;
             case IBaseFolderMenuItem folder:
-                GlyphRow(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 16, null);
+                GlyphRow(folder is FolderMenuItem { Parameter: { } single }
+                    ? SpecialFolderGlyphs.GetGlyph(single)
+                    : SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 16, null);
                 SetTitle(folder.FolderName, WinoStyle.Body);
                 _pill.Count = folder.ShowUnreadCount ? folder.UnreadItemCount : 0;
                 break;
@@ -311,6 +313,11 @@ internal sealed class ShellPaneCell : NSTableCellView
                 GlyphRow(WinoIconGlyph.Calendar, 16, null);
                 SetTitle(Translator.ToDoPage_Planned, WinoStyle.Body);
                 _pill.Count = planned.Count;
+                break;
+            case FlaggedMailTaskMenuItem flagged:
+                GlyphRow(WinoIconGlyph.Flag, 16, WinoStyle.Critical);
+                SetTitle(Translator.ToDoPage_FlaggedMail, WinoStyle.Body);
+                _pill.Count = flagged.Count;
                 break;
             case ImportantTaskMenuItem important:
                 GlyphRow(WinoIconGlyph.Star, 16, null);

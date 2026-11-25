@@ -4,12 +4,14 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Wino.Core.Domain;
@@ -20,7 +22,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.Controls.ContextFlyout;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Core.Domain.Messaging.Client.Calendar;
 using Wino.Mail.ViewModels.Shell.Contracts;
 using Wino.Mail.WinUI.Controls.Calendar;
@@ -29,7 +34,7 @@ using WinRT;
 
 namespace Wino.Mail.WinUI.Views.Calendar;
 
-public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearchHost
+public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearchHost, IDisposable
 {
     private const int PopupDialogOffset = 12;
     private ICalendarShellClient CalendarShellClient { get; } = WinoApplication.Current.Services.GetRequiredService<ICalendarShellClient>();
@@ -37,6 +42,11 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     private long _calendarTypeSelectorChangedToken;
     private bool _suppressSelectionResetOnPopupClose;
     private bool _hasAttachedNavigationLifetimeEvents;
+    private UIElement? _quickEventDismissRoot;
+    private double _quickEventHorizontalShift;
+    private double _quickEventAnchorX;
+    private KeyEventHandler? _quickEventEscapeHandler;
+    private PointerEventHandler? _quickEventDismissHandler;
 
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
     public SearchBarMode SearchMode => SearchBarMode.Calendar;
@@ -45,7 +55,12 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     public CalendarPage()
     {
+        // Built once per shell: rebuilding the page on each visit left native memory behind
+        // every time the calendar was opened.
+        NavigationCacheMode = NavigationCacheMode.Required;
+
         InitializeComponent();
+        QuickEventPopupContent.AddHandler(KeyDownEvent, new KeyEventHandler(QuickEventPopupContentKeyDown), true);
         RefreshCalendarToolbar();
     }
 
@@ -61,9 +76,17 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         base.PrepareForClose();
     }
 
+    public void Dispose() => CalendarSurface.Dispose();
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+
+        if (Frame != null)
+        {
+            WindowCleanupHelper.RetainPage(Frame, this);
+        }
+
         Bindings.Update();
         AttachNavigationLifetimeEvents();
         RefreshCalendarToolbar();
@@ -176,8 +199,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
             return;
         }
 
-        // Clicking or dragging an empty slot creates an event; not while Calendar is blocked.
-        if (!ViewModel.Readiness.IsReady)
+        // Clicking or dragging an empty slot creates an event; not while Calendar is blocked, and not
+        // over a dialog that opened after the click.
+        if (!ViewModel.Readiness.IsReady || !IsLoaded || HasOpenDialog())
             return;
 
         var isAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
@@ -190,13 +214,38 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         TeachingTipPositionerGrid.Width = 1;
         TeachingTipPositionerGrid.Height = 1;
 
+        // In the day view the popup opens below the click; dropping the anchor by one slot keeps the
+        // clicked slot visible above it.
+        var anchorDrop = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Day ? e.CellSize.Height : 0d;
+
         Canvas.SetLeft(TeachingTipPositionerGrid, canvasPoint.X);
-        Canvas.SetTop(TeachingTipPositionerGrid, canvasPoint.Y);
+        Canvas.SetTop(TeachingTipPositionerGrid, canvasPoint.Y + anchorDrop);
+
+        _quickEventAnchorX = CalendarSurface.TransformToVisual(null).TransformPoint(e.AnchorPoint).X;
+        ApplyQuickEventHorizontalShift();
 
         _suppressSelectionResetOnPopupClose = true;
         QuickEventPopupDialog.IsOpen = false;
         QuickEventPopupDialog.IsOpen = true;
         _suppressSelectionResetOnPopupClose = false;
+    }
+
+    private void ViewModelQuickEventCancellationRequested(object? sender, EventArgs e)
+        => CloseQuickEventPopup(clearSelection: true);
+
+    [DynamicWindowsRuntimeCast(typeof(ContentDialog))]
+    private bool HasOpenDialog()
+    {
+        if (XamlRoot is null)
+            return true;
+
+        foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot))
+        {
+            if (popup.Child is ContentDialog)
+                return true;
+        }
+
+        return false;
     }
 
     private void CalendarSurfaceRangeSelectionStarted(object? sender, EventArgs e)
@@ -217,8 +266,91 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         QuickEventAccountSelectorFlyout.Hide();
     }
 
+    // The popup is not light-dismissed: a light-dismiss popup swallows the press that closes it, so
+    // Today, Next or New event needed a second click. A press anywhere outside it closes it here and
+    // still reaches the control under the pointer. The popup's own content is in another tree and
+    // never raises this handler.
+    private void QuickEventPopupOpened(object sender, object e)
+    {
+        DetachQuickEventDismissWatch();
+
+        _quickEventDismissRoot = XamlRoot?.Content;
+        _quickEventDismissRoot?.AddHandler(PointerPressedEvent, _quickEventDismissHandler ??= new PointerEventHandler(QuickEventDismissPointerPressed), true);
+
+        // Without light dismiss the popup takes no focus and nothing closes it on Escape: Escape is
+        // caught wherever focus is, in the window or in the popup (a text box marks the key handled).
+        _quickEventDismissRoot?.AddHandler(KeyDownEvent, _quickEventEscapeHandler ??= new KeyEventHandler(QuickEventPopupContentKeyDown), true);
+    }
+
+    private void DetachQuickEventDismissWatch()
+    {
+        if (_quickEventDismissRoot != null && _quickEventDismissHandler != null)
+        {
+            _quickEventDismissRoot.RemoveHandler(PointerPressedEvent, _quickEventDismissHandler);
+        }
+
+        if (_quickEventDismissRoot != null && _quickEventEscapeHandler != null)
+        {
+            _quickEventDismissRoot.RemoveHandler(KeyDownEvent, _quickEventEscapeHandler);
+        }
+
+        _quickEventDismissRoot = null;
+    }
+
+    // Above or below the anchor the popup is centred on it, and the popup only flips vertically, so
+    // near the left or right window edge it is moved sideways to stay inside the window. The width
+    // comes from the content's own layout (a manual measure here left the date line unmeasured),
+    // so the shift is applied again once the content has its real size.
+    private void ApplyQuickEventHorizontalShift()
+    {
+        const double edgeMargin = 8d;
+        const double fallbackWidth = 480d;
+
+        var rootWidth = XamlRoot?.Size.Width ?? 0d;
+        var width = QuickEventPopupContent.ActualWidth > 0d ? QuickEventPopupContent.ActualWidth : fallbackWidth;
+
+        _quickEventHorizontalShift = 0d;
+
+        if (rootWidth > 0d)
+        {
+            var left = _quickEventAnchorX - (width / 2d);
+            var clampedLeft = Math.Clamp(left, edgeMargin, Math.Max(edgeMargin, rootWidth - width - edgeMargin));
+
+            _quickEventHorizontalShift = clampedLeft - left;
+        }
+
+        if (QuickEventPopupDialog.ActualPlacement is PopupPlacementMode.Bottom or PopupPlacementMode.Top ||
+            (QuickEventPopupDialog.ActualPlacement == PopupPlacementMode.Auto &&
+             QuickEventPopupDialog.DesiredPlacement is PopupPlacementMode.Bottom or PopupPlacementMode.Top))
+        {
+            QuickEventPopupDialog.HorizontalOffset = _quickEventHorizontalShift;
+        }
+    }
+
+    private void QuickEventPopupContentSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (QuickEventPopupDialog.IsOpen)
+        {
+            ApplyQuickEventHorizontalShift();
+        }
+    }
+
+    private void QuickEventDismissPointerPressed(object sender, PointerRoutedEventArgs e)
+        => CloseQuickEventPopup(clearSelection: true);
+
+    private void QuickEventPopupContentKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Escape)
+        {
+            e.Handled = true;
+            CloseQuickEventPopup(clearSelection: true);
+        }
+    }
+
     private void QuickEventPopupClosed(object sender, object e)
     {
+        DetachQuickEventDismissWatch();
+
         if (!_suppressSelectionResetOnPopupClose)
         {
             ViewModel.SelectedQuickEventDate = null;
@@ -239,9 +371,11 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         switch (popup.ActualPlacement)
         {
             case PopupPlacementMode.Top:
+                popup.HorizontalOffset = _quickEventHorizontalShift;
                 popup.VerticalOffset = PopupDialogOffset * -1;
                 break;
             case PopupPlacementMode.Bottom:
+                popup.HorizontalOffset = _quickEventHorizontalShift;
                 popup.VerticalOffset = PopupDialogOffset;
                 break;
             case PopupPlacementMode.Left:
@@ -283,6 +417,35 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     // writes the same text once that period settles and loads.
     private void CalendarSurfaceViewportPeriodChanged(object? sender, CalendarPeriodEventArgs e)
         => CalendarToolbar.VisibleDateRangeText = ViewModel.FormatRangeText(e.DisplayType, e.AnchorDate);
+
+    private void CalendarSurfaceEmptyAreaContextRequested(object? sender, CalendarEmptyAreaContextRequestedEventArgs e)
+    {
+        CloseQuickEventPopup(clearSelection: true);
+
+        var canPaste = ViewModel.HasCopiedCalendarItem && ViewModel.Readiness.IsReady;
+        var target = e.Target;
+        var hasTime = e.HasTime;
+
+        new WinoContextFlyout
+        {
+            ItemsSource = new ContextFlyoutMenuEntry[]
+            {
+                new ContextFlyoutCommandEntry
+                {
+                    Text = Translator.CalendarContextMenu_Paste,
+                    IsEnabled = canPaste,
+                    AutomationId = "CalendarContextPaste",
+                    Command = new AsyncRelayCommand(() => ViewModel.PasteCalendarItemAsync(target, hasTime), () => canPaste)
+                }
+            }
+        }.ShowAt(CalendarSurface, WinoContextFlyoutHelper.CreatePointerAlignedOptions(e.Position));
+    }
+
+    private void CalendarSurfaceMonthDayDoubleTapped(object? sender, CalendarPeriodEventArgs e)
+    {
+        CloseQuickEventPopup(clearSelection: true);
+        CalendarShellClient.OpenDayView(e.AnchorDate);
+    }
 
     private void CalendarSurfaceTodayRequested(object? sender, EventArgs e)
     {
@@ -347,6 +510,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarToolbar.NextDateRequested += CalendarToolbarNextDateRequested;
         CalendarSurface.PeriodSettled += CalendarSurfacePeriodSettled;
         CalendarSurface.TodayRequested += CalendarSurfaceTodayRequested;
+        CalendarSurface.MonthDayDoubleTapped += CalendarSurfaceMonthDayDoubleTapped;
+        CalendarSurface.EmptyAreaContextRequested += CalendarSurfaceEmptyAreaContextRequested;
+        ViewModel.QuickEventCancellationRequested += ViewModelQuickEventCancellationRequested;
         CalendarSurface.ViewportPeriodChanged += CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged += CalendarShellClientPropertyChanged;
@@ -368,6 +534,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarToolbar.NextDateRequested -= CalendarToolbarNextDateRequested;
         CalendarSurface.PeriodSettled -= CalendarSurfacePeriodSettled;
         CalendarSurface.TodayRequested -= CalendarSurfaceTodayRequested;
+        CalendarSurface.MonthDayDoubleTapped -= CalendarSurfaceMonthDayDoubleTapped;
+        CalendarSurface.EmptyAreaContextRequested -= CalendarSurfaceEmptyAreaContextRequested;
+        ViewModel.QuickEventCancellationRequested -= ViewModelQuickEventCancellationRequested;
         CalendarSurface.ViewportPeriodChanged -= CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged -= CalendarShellClientPropertyChanged;
@@ -422,6 +591,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     private void CloseQuickEventPopup(bool clearSelection)
     {
+        CalendarSurface.CancelPendingTap();
         _suppressSelectionResetOnPopupClose = !clearSelection;
         QuickEventPopupDialog.IsOpen = false;
         _suppressSelectionResetOnPopupClose = false;

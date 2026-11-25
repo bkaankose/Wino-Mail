@@ -19,6 +19,7 @@ public static class AppleNotificationCategories
 
     public const string MailHidden = "wino.mail.hidden";
     public const string Calendar = "wino.calendar";
+    public const string TaskReminder = "wino.task.reminder";
     public const string Generic = "wino.generic";
 
     /// <summary>Mail action identifiers are this prefix plus the <see cref="MailOperation"/> name.</summary>
@@ -77,6 +78,7 @@ public static class AppleNotificationCategories
             categories.Add(CalendarCategoryFor(join, null));
             foreach (var minutes in CalendarSnoozeMinutes) categories.Add(CalendarCategoryFor(join, minutes));
         }
+        categories.Add(TaskReminderCategory());
         categories.Add(Category(Generic,
             UNNotificationAction.FromIdentifier(OpenAction, Translator.Buttons_Open, UNNotificationActionOptions.Foreground),
             Dismiss()));
@@ -101,6 +103,14 @@ public static class AppleNotificationCategories
         actions.Add(Dismiss());
         return Category(CalendarCategory(join, snoozeMinutes), [.. actions]);
     }
+
+    /// <summary>Task reminder (Windows task toast): Mark completed and Snooze act on the task; a click opens it.</summary>
+    private static UNNotificationCategory TaskReminderCategory()
+        => Category(TaskReminder,
+            UNNotificationAction.FromIdentifier(NotificationActionIdentifiers.TaskComplete, Translator.ToDoPage_MarkCompleted, UNNotificationActionOptions.None),
+            UNNotificationAction.FromIdentifier(NotificationActionIdentifiers.TaskSnooze, Translator.CalendarReminder_SnoozeAction, UNNotificationActionOptions.None),
+            UNNotificationAction.FromIdentifier(OpenAction, Translator.Buttons_Open, UNNotificationActionOptions.Foreground),
+            Dismiss());
 
     private static UNNotificationCategory Category(string identifier, params UNNotificationAction[] actions)
         => UNNotificationCategory.FromIdentifier(identifier, actions, [], UNNotificationCategoryOptions.None);

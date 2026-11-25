@@ -30,7 +30,7 @@ namespace Wino.Mail.ViewModels.Activation;
 /// <see cref="INotificationResponseNavigator"/>, and a mail action asks and reports through the same
 /// <see cref="WinoRequestCoordinator"/> a page uses, so it lives in the ViewModel layer.
 /// </summary>
-public sealed class NotificationResponseService(
+public sealed partial class NotificationResponseService(
     ICalendarService calendarService,
     IMailService mailService,
     IFolderService folderService,
@@ -45,6 +45,7 @@ public sealed class NotificationResponseService(
     IExternalLauncher externalLauncher,
     INotificationResponseNavigator navigator,
     IAppLockService appLock,
+    ITaskService taskService,
     IApplicationRuntime? runtime = null) : INotificationResponseService
 {
     private static readonly TimeSpan RelayLookupSyncBudget = TimeSpan.FromSeconds(20);
@@ -65,6 +66,12 @@ public sealed class NotificationResponseService(
             }
             else if (response.IsOpen) await OpenCalendarItemAsync(calendarItemId);
 
+            return;
+        }
+
+        if (values.TryGetValue(Constants.ToastTaskIdKey, out var taskValue) && Guid.TryParse(taskValue, out var taskId))
+        {
+            await HandleTaskResponseAsync(response, taskId);
             return;
         }
 

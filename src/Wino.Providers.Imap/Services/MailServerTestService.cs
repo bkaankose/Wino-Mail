@@ -80,7 +80,8 @@ public sealed class MailServerTestService : IMailServerTestService
             throw new ImapValidationException(
                 message,
                 Encoding.UTF8.GetString(protocolLogStream.ToArray()),
-                ex);
+                ex,
+                isOutgoingServer: protocol == "SMTP");
         }
     }
 
@@ -127,7 +128,8 @@ public sealed class MailServerTestService : IMailServerTestService
             var wrapped = new Pop3ValidationException(
                 string.IsNullOrWhiteSpace(reason) ? $"{protocol} server validation failed." : $"{protocol} server validation failed: {reason}",
                 Encoding.UTF8.GetString(protocolLogStream.ToArray()),
-                ex);
+                ex,
+                isOutgoingServer: protocol == "SMTP");
             return Pop3ConnectivityTestResult.Failure(wrapped);
         }
     }

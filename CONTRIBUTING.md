@@ -42,7 +42,7 @@ winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
 The SDK handles restore and compilation. F5 uses one PowerShell helper to skip compilation when inputs and output are unchanged.
 The Windows app is [`src/Wino.Mail.WinUI`](src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj).
 See the [Windows development guide](docs/harness/development-windows.md) for debugger behavior and package troubleshooting.
-On a Mac, open [`WinoMail.MacOS.code-workspace`](WinoMail.MacOS.code-workspace) and follow the [macOS development guide](docs/harness/development-macos.md).
+On a Mac, open the repository folder in VS Code and follow the [macOS development guide](docs/harness/development-macos.md).
 
 ## Testing and maintenance
 
@@ -151,7 +151,7 @@ Platforms and applications:
 - [`Wino.Mail.WinUI`](src/Wino.Mail.WinUI) contains the Windows shell, pages, dialogs, styles, activation routes, and package manifest. [`Wino.NotificationHost`](src/Wino.NotificationHost) and [`Wino.WidgetHost`](src/Wino.WidgetHost) are its small companion executables.
 - [`Wino.Mail.MacOS`](src/Wino.Mail.MacOS), [`Wino.Mail.iOS`](src/Wino.Mail.iOS) with [`Wino.Mail.UIKit`](src/Wino.Mail.UIKit) and [`Wino.Mail.UIKit.Phone`](src/Wino.Mail.UIKit.Phone), and [`Wino.Mail.Android`](src/Wino.Mail.Android) are the other application heads.
 - [`controls`](controls) contains highly customized controls shared by Wino applications. It is not a general-purpose control library. [`controls/AGENTS.md`](controls/AGENTS.md) lists its projects.
-- [`Wino.Editor.Core`](controls/Wino.Editor.Core) contains the HTML, CSS, and JavaScript assets for mail reading and composition. `Wino.Editor.WinUI`, `Wino.Editor.WebKit`, and `Wino.Editor.Android` host them.
+- [`Wino.Editor.Core`](controls/Wino.Editor.Core) contains the HTML, CSS, and JavaScript assets for mail reading and composition. `Wino.Editor.WebKitGtk` hosts them on Linux. Windows, macOS, iOS and Android read and compose with the native mail renderer instead.
 - [`Wino.Mail.Controls.Playground.WinUI`](controls/Wino.Mail.Controls.Playground.WinUI) is the quick test application for controls before full application integration.
 
 `WinoMail.slnx` holds the Windows solution. The other applications have `WinoMail.MacOS.slnx`, `WinoMail.iOS.slnx`, and `WinoMail.Android.slnx`.
@@ -184,7 +184,7 @@ The database stores mail and calendar metadata. [`MimeFileService`](src/Wino.Ser
 
 [`PreferencesService`](src/Wino.Services/PreferencesService.cs) stores user settings and imported or exported preferences. [`StatePersistenceService`](src/Wino.Mail.WinUI/Services/StatePersistenceService.cs) stores temporary UI state.
 
-On Windows, mail rendering and composition use [WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/) through `Wino.Editor.WinUI`, over the single asset bundle in [`Wino.Editor.Core`](controls/Wino.Editor.Core). Do not add a second editor asset bundle to an application project.
+On Windows, mail is read, printed and composed with the native mail renderer (`Wino.Renderer`, referenced through [`build/Wino.Renderer.props`](build/Wino.Renderer.props)); the adapters are in [`src/Wino.Mail.WinUI/Rendering`](src/Wino.Mail.WinUI/Rendering). The other applications use a web view over the single asset bundle in [`Wino.Editor.Core`](controls/Wino.Editor.Core). Do not add a second editor asset bundle to an application project.
 
 ## View models and messaging
 

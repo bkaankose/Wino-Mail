@@ -123,6 +123,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly AccountGroupPaneItems _accountGroupItems;
 
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IMailTransferService _mailTransferService;
 
     public MailAppShellViewModel(IMessenger messenger, ISynchronizationManager synchronizationManager, IMailDialogService dialogService,
                              INavigationService navigationService,
@@ -145,9 +146,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IUnreadBadgeService unreadBadgeService,
                              IStatePersistanceService statePersistanceService,
                              IConfigurationService configurationService,
-                             IAccountReauthenticationService accountReauthenticationService) : base(messenger)
+                             IAccountReauthenticationService accountReauthenticationService,
+                             IMailTransferService mailTransferService) : base(messenger)
     {
         _synchronizationManager = synchronizationManager;
+        _mailTransferService = mailTransferService;
         StatePersistenceService = statePersistanceService;
 
         PreferencesService = preferencesService;
@@ -191,10 +194,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folder)
     {
-        if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More)
+        if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More || !folder.IsSelectable)
             return default;
 
-        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder);
+        // A shared folder offers what its known rights allow (RFC 4314: x renames and deletes, k creates subfolders).
+        var sharedFolders = folder.HandlingFolders.Where(handlingFolder => handlingFolder.Scope != MailFolderScope.Personal).ToList();
+        var canRenameAndDelete = sharedFolders.All(sharedFolder => sharedFolder.HasKnownRight('x'));
+        var canCreateSubFolder = sharedFolders.All(sharedFolder => sharedFolder.HasKnownRight('k'));
+        var canEmpty = folder.HandlingFolders.All(handlingFolder => handlingFolder.MyRights == null || (handlingFolder.HasKnownRight('t') && handlingFolder.HasKnownRight('e')));
+
+        return _contextMenuItemService.GetFolderContextMenuActions(folder.IsSticky, folder.IsSystemFolder, canRenameAndDelete, canCreateSubFolder, canEmpty);
     }
 
     private async Task CreateFooterItemsAsync(bool showNotification = false)
@@ -348,7 +357,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await RefreshAccountSynchronizationProgressAsync();
         await ProcessLaunchOptionsAsync(activationContext?.Parameter as MailFolderLaunchRequest, shouldProcessDefaultLaunch);
         await HandlePendingShareRequestAsync();
-        await ValidateWebView2RuntimeAsync();
+        await ValidateReaderRuntimeAsync();
 
         if (shouldRunStartupFlows &&
             !Debugger.IsAttached &&
@@ -388,13 +397,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _hasRegisteredPersistentRecipients = false;
     }
 
-    private async Task ValidateWebView2RuntimeAsync()
+    private async Task ValidateReaderRuntimeAsync()
     {
         var isRuntimeAvailable = await _readerRuntimeService.IsAvailableAsync();
 
         if (!isRuntimeAvailable)
         {
-            await ExecuteUIThread(() => _notificationBuilder.CreateWebView2RuntimeMissingNotification());
+            await ExecuteUIThread(() => _notificationBuilder.CreateReaderRuntimeMissingNotification());
         }
     }
 
@@ -828,6 +837,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
+    public List<MailCopy> GetMailsToMove(IBaseFolderMenuItem targetFolderMenuItem, IEnumerable<MailCopy> items)
+        => MailDropRules.MailsFor(targetFolderMenuItem, items, _mailTransferService.MayReceiveMovedMail);
+
     /// <summary>
     /// Performs move operation for given items to target folder.
     /// Used with drag and drop from Shell.
@@ -874,6 +886,39 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             var package = new MailOperationPreperationRequest(MailOperation.Move, items, false, targetFolderMenuItem.HandlingFolders.First());
 
             await _requestCoordinator.ExecuteMailOperationAsync(package);
+        }
+    }
+
+    public List<MailCopy> GetMailsToMoveToAccount(IAccountMenuItem targetAccountMenuItem, IEnumerable<MailCopy> items)
+        => MailDropRules.MailsForAccount(targetAccountMenuItem, items, _mailTransferService.MayReceiveMovedMail);
+
+    public async Task MoveMailsToAccountAsync(IEnumerable<MailCopy> items, IAccountMenuItem targetAccountMenuItem)
+    {
+        var mails = GetMailsToMoveToAccount(targetAccountMenuItem, items);
+        if (mails.Count == 0 || targetAccountMenuItem is not AccountMenuItem { Parameter: { } targetAccount })
+            return;
+
+        try
+        {
+            var moveTargets = await _mailTransferService.GetMoveTargetsAsync(mails[0].AssignedAccount.Id, displayShape: false);
+            var accountFolders = moveTargets.FirstOrDefault(folder => folder.IsContainer && folder.Id == targetAccount.Id)?.ChildFolders;
+
+            if (accountFolders == null || accountFolders.Count == 0)
+            {
+                _requestCoordinator.ShowMailOperationError(new InvalidMoveTargetException(InvalidMoveTargetReason.CrossAccountNotSupported));
+                return;
+            }
+
+            var targetFolder = await _dialogService.ShowMoveMailFolderDialogAsync(accountFolders);
+            if (targetFolder == null)
+                return;
+
+            await _requestCoordinator.ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.Move, mails, false, targetFolder));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to move mails to account {AccountId}.", targetAccount.Id);
+            _requestCoordinator.ShowMailOperationError(ex);
         }
     }
 
@@ -1072,7 +1117,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             await HandleCreateNewMailAsync();
         }
         else if (clickedMenuItem is IBaseFolderMenuItem baseFolderMenuItem &&
-                 (clickedMenuItem is IMailCategoryMenuItem or IMergedMailCategoryMenuItem || baseFolderMenuItem.HandlingFolders.All(a => a.IsMoveTarget)))
+                 (clickedMenuItem is IMailCategoryMenuItem or IMergedMailCategoryMenuItem || baseFolderMenuItem.HandlingFolders.All(a => a.IsSelectable)))
         {
             // Don't navigate to base folders that contain non-move target folders.
             // Theory: This is a special folder like Categories or More. Don't navigate to it.

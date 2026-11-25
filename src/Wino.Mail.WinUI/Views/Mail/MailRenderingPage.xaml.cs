@@ -5,16 +5,17 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Serilog;
 using Wino.Core.Domain;
@@ -26,12 +27,12 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Printing;
 using Wino.Core.Domain.Models.SemanticIndexing;
-using Wino.Editor;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.Core.ContextFlyout;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.ViewModels.Models;
@@ -39,12 +40,23 @@ using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.Rendering;
+using Wino.Mail.WinUI.Rendering;
 using Wino.Mail.WinUI.Services;
 using Wino.Core.Domain.Messaging.Client.Mails;
 using Wino.Core.Domain.Messaging.Client.Shell;
-using Wino.Mail.ViewModels.Models.Printing;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Views.Abstract;
+using Wino.Renderer;
+using Wino.Renderer.Accessibility;
+using Wino.Renderer.Policy;
+using Wino.Renderer.Primitives;
+using Wino.Renderer.Print;
+using Wino.Renderer.Theme;
+using Wino.Renderer.WinUI;
+using Wino.Services.Models.Reader;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage.Streams;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Views.Mail;
@@ -52,13 +64,16 @@ namespace Wino.Mail.WinUI.Views.Mail;
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IPopoutClient,
     IReentryTarget,
+    IMailMessageReader,
     IRecipient<ApplicationThemeChanged>
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
+    private readonly MailView _mailView;
+    private readonly EngineReaderPresentation _readerPresentation;
+    private readonly EngineMailMessageReader _messageReader;
 
     // Selections can overlap: one message's render may still be awaiting its intelligence context
     // when the next arrives. Only the newest render is allowed to touch reader state.
-    private IHtmlMailReaderSession _readerSession = null!;
     private int _renderVersion;
     private int _activeRenderCount;
     private string _currentRenderedHtml = string.Empty;
@@ -75,29 +90,57 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
                 return;
 
             _isReaderViewEnabled = value;
-            if (!string.IsNullOrWhiteSpace(_currentRenderedHtml))
-                DispatcherQueue.TryEnqueue(async () => await RenderActiveContentAsync());
+            _messageReader.IsReaderView = value;
         }
     }
     public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
     public event EventHandler<PopoutHostActionRequestedEventArgs>? HostActionRequested;
 
-    public WebView2 GetWebView() => MailRenderer.GetUnderlyingWebView();
     public MailRenderingPage()
     {
         InitializeComponent();
-        _readerSession = new WindowsHtmlMailReaderSession(MailRenderer);
+
+        _readerPresentation = new EngineReaderPresentation();
+        _mailView = CreateMailView();
+        MailRendererHost.Children.Add(_mailView);
+
+        // The swap chain ignores the host's rounded clip, so the view rounds itself to the same radius.
+        _mailView.ContentCornerRadius = MailRendererHost.CornerRadius;
+        _messageReader = new EngineMailMessageReader(
+            _mailView,
+            App.Current.Services.GetRequiredService<MailEngineHost>(),
+            _readerPresentation,
+            ViewModel.SecureMimeContextFactory,
+            () => ViewModel.ShouldStripLinkTrackingParameters);
 
         InitializeWinoIntelligenceHeader();
 
-        WebViewExtensions.EnsureWebView2Environment();
-
         ViewModel.PrintPresenter = CreatePrintPresenter();
-        ViewModel.RenderHtmlAsyncFunc = RenderInternalAsync;
-        ViewModel.ClearRenderedHtmlAsyncFunc = ClearRenderedContentAsync;
+        ViewModel.MessageReader = this;
         ViewModel.CloseRequested += ViewModel_CloseRequested;
         ViewModel.ComposeRequested += ViewModel_ComposeRequested;
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+    }
 
+    // The view is created here instead of in XAML: its public surface is engine types the XAML type table cannot describe.
+    private MailView CreateMailView()
+    {
+        var view = new MailView();
+
+        AutomationProperties.SetAutomationId(view, "MailMessageRenderer");
+        ApplyMailViewAutomationText(view);
+
+        view.LinkActivated += MailView_LinkActivated;
+        view.LinkHoverChanged += MailView_LinkHoverChanged;
+        view.ContextMenuRequested += MailView_ContextMenuRequested;
+
+        return view;
+    }
+
+    private static void ApplyMailViewAutomationText(MailView view)
+    {
+        AutomationProperties.SetName(view, Translator.Reader_MessageBodyAutomationName);
+        AutomationProperties.SetHelpText(view, Translator.Reader_MessageBodyAutomationHelpText);
     }
 
     public HostedPopoutDescriptor GetPopoutDescriptor()
@@ -124,51 +167,86 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private IMailPrintPresenter CreatePrintPresenter()
     {
         var windowManager = App.Current.Services.GetRequiredService<IWinoWindowManager>();
-        var printService = App.Current.Services.GetRequiredService<IWindowsPrintService>();
 
-        return new WindowsMailPrintPresenter(printService, () =>
-        {
-            var owner = windowManager.GetWindows()
-                .FirstOrDefault(window => XamlRoot != null && ReferenceEquals(window.Content?.XamlRoot, XamlRoot));
-            return owner == null ? IntPtr.Zero : WinRT.Interop.WindowNative.GetWindowHandle(owner);
-        }, RenderPdfStreamAsync, path => GetWebView().CoreWebView2.PrintToPdfAsync(path, null).AsTask());
+        return new EngineMailPrintPresenter(
+            App.Current.Services.GetRequiredService<MailEngineHost>(),
+            () =>
+            {
+                var owner = windowManager.GetWindows()
+                    .FirstOrDefault(window => XamlRoot != null && ReferenceEquals(window.Content?.XamlRoot, XamlRoot));
+                return owner == null ? IntPtr.Zero : WinRT.Interop.WindowNative.GetWindowHandle(owner);
+            },
+            () => _messageReader.HasMessage ? _mailView.Reader : null,
+            CreatePrintHeader);
     }
 
-    private async Task<Stream> RenderPdfStreamAsync(MailPrintOptions settings)
+    private PrintHeader CreatePrintHeader()
     {
-        var webView = GetWebView();
-        if (webView.CoreWebView2 == null)
-            throw new InvalidOperationException("WebView2 is not initialized for printing.");
+        var sender = string.IsNullOrWhiteSpace(ViewModel.FromName)
+            ? ViewModel.FromAddress
+            : string.IsNullOrWhiteSpace(ViewModel.FromAddress)
+                ? ViewModel.FromName
+                : $"{ViewModel.FromName} <{ViewModel.FromAddress}>";
 
-        var nativeSettings = settings.ToCoreWebView2PdfRenderSettings(webView.CoreWebView2.Environment);
-        var pdfStream = await webView.CoreWebView2.PrintToPdfStreamAsync(nativeSettings);
-        return pdfStream.AsStreamForRead();
+        return new PrintHeader(
+            string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject,
+            sender,
+            FormatPrintRecipients(ViewModel.ToItems),
+            FormatPrintRecipients(ViewModel.CcItems),
+            XamlHelpers.GetCreationDateString(ViewModel.CreationDate, _preferencesService.MailTimeFormatPreference));
     }
 
-    private async Task RenderInternalAsync(string htmlBody)
+    private static string FormatPrintRecipients(IEnumerable<AccountContactViewModel> recipients)
+        => string.Join("; ", recipients.Select(recipient =>
+            string.IsNullOrWhiteSpace(recipient.Name) || string.Equals(recipient.Name, recipient.Address, StringComparison.OrdinalIgnoreCase)
+                ? recipient.Address
+                : $"{recipient.Name} <{recipient.Address}>"));
+
+    async Task<MailRenderModel> IMailMessageReader.RenderAsync(MailMessageRenderRequest request, CancellationToken cancellationToken)
     {
         var renderVersion = Interlocked.Increment(ref _renderVersion);
 
         Interlocked.Increment(ref _activeRenderCount);
 
-        _currentRenderedHtml = htmlBody ?? string.Empty;
-        _intelligence.SetRenderedContent(_currentRenderedHtml);
+        Task? intelligenceLoadingTask = null;
 
         try
         {
-            await UpdateEditorThemeAsync();
-            if (IsStaleRender(renderVersion)) return;
+            ApplyReaderPresentation();
+            HideLinkTargetBar();
+            UpdateAccessibleMailContext(string.Empty);
 
-            await UpdateReaderFontPropertiesAsync();
-            if (IsStaleRender(renderVersion)) return;
+            // Read before the load starts: the engine's worker owns the message until the load ends.
+            _currentRenderedHtml = EngineMailMessageReader.GetBodyHtml(request.Message);
+            _intelligence.SetRenderedContent(_currentRenderedHtml);
 
             // The header becomes visible before cloud/local metadata finishes loading.
-            var intelligenceLoadingTask = LoadIntelligenceContextAsync();
-            await RenderActiveContentAsync();
-            if (IsStaleRender(renderVersion)) return;
+            intelligenceLoadingTask = LoadIntelligenceContextAsync();
 
-            await UpdateAccessibleMailContextAsync();
+            _messageReader.IsReaderView = IsReaderViewEnabled;
+            var renderModel = await _messageReader.RenderAsync(request, cancellationToken);
+
+            if (!IsStaleRender(renderVersion))
+                UpdateAccessibleMailContext(renderModel.AccessibleText);
+
             await intelligenceLoadingTask;
+
+            // An encrypted message has no readable body until the engine decrypted it, so the header gets it now.
+            if (_currentRenderedHtml.Length == 0 && !IsStaleRender(renderVersion) &&
+                _messageReader.GetLoadedBodyHtml() is { Length: > 0 } resolvedHtml)
+            {
+                _currentRenderedHtml = resolvedHtml;
+                await LoadIntelligenceContextAsync();
+            }
+
+            return renderModel;
+        }
+        catch
+        {
+            if (intelligenceLoadingTask is not null)
+                _ = ObserveIntelligenceLoadAsync(intelligenceLoadingTask);
+
+            throw;
         }
         finally
         {
@@ -176,29 +254,33 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         }
     }
 
-    private bool IsStaleRender(int renderVersion) => renderVersion != Volatile.Read(ref _renderVersion);
+    Task IMailMessageReader.ClearAsync() => ClearRenderedContentAsync();
 
-    private async Task RenderActiveContentAsync()
+    private static async Task ObserveIntelligenceLoadAsync(Task intelligenceLoadingTask)
     {
-        var html = _intelligence.ResolveActiveHtml(_currentRenderedHtml);
-        var renderMode = IsReaderViewEnabled
-            ? HtmlMailRenderMode.Readability
-            : HtmlMailRenderMode.Original;
-        var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
-
-        // Image stripping cannot reach CSS backgrounds or web fonts, so blocked remote
-        // content is also enforced at the renderer's network layer. Block trackers already
-        // removed the trackers from the HTML, so it allows the rest like Load everything.
-        var resourcePolicy = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RemoteContent == RemoteContentMode.BlockAll
-            ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed;
-        await _readerSession.RenderAsync(new HtmlMailReaderRequest(
-            string.IsNullOrEmpty(html) ? " " : html,
-            resourcePolicy,
-            renderMode,
-            shouldLinkifyText));
+        try
+        {
+            await intelligenceLoadingTask;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Intelligence context loading ended with its abandoned render.");
+        }
     }
 
-    private async Task UpdateAccessibleMailContextAsync()
+    private bool IsStaleRender(int renderVersion) => renderVersion != Volatile.Read(ref _renderVersion);
+
+    // The translation presenter asks for this when a translation is shown or removed.
+    private Task RenderActiveContentAsync()
+    {
+        var html = _intelligence.ResolveActiveHtml(_currentRenderedHtml);
+
+        return ReferenceEquals(html, _currentRenderedHtml)
+            ? _messageReader.ShowOriginalAsync()
+            : _messageReader.ShowHtmlVariantAsync(html);
+    }
+
+    private void UpdateAccessibleMailContext(string accessibleText)
     {
         var subject = string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject;
         var sender = string.IsNullOrWhiteSpace(ViewModel.FromName)
@@ -207,26 +289,155 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
                 ? ViewModel.FromName
                 : $"{ViewModel.FromName} <{ViewModel.FromAddress}>";
         var creationDate = XamlHelpers.GetCreationDateString(ViewModel.CreationDate, _preferencesService.MailTimeFormatPreference);
-        var accessibleText = ViewModel.CurrentRenderModel?.AccessibleText ?? string.Empty;
 
-        await _readerSession.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
-            subject,
-            sender,
-            creationDate,
-            Translator.Reader_MessageBodyAutomationName,
-            Translator.Reader_PlainTextFallbackAutomationName,
-            accessibleText));
+        _mailView.AccessibilityContext = new AccessibilityContext
+        {
+            Subject = subject,
+            Sender = sender,
+            Date = creationDate,
+            BodyName = Translator.Reader_MessageBodyAutomationName,
+            PlainTextFallbackName = Translator.Reader_PlainTextFallbackAutomationName,
+            FallbackText = accessibleText
+        };
     }
 
-    private async void MailRenderer_NavigationRequested(object? sender, RendererNavigationRequestedEventArgs args)
+    private async void MailView_LinkActivated(object? sender, LinkEventArgs e)
     {
         try
         {
-            (await ViewModel.OpenLinkAsync(args.Uri, args.LinkText)).ThrowIfNotSucceeded();
+            if (CreateResolvedLink(e.Link, e.Text) is { } link)
+                (await ViewModel.OpenLinkAsync(link)).ThrowIfNotSucceeded();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to open a link from the mail renderer.");
+        }
+    }
+
+    private static ResolvedMailLink? CreateResolvedLink(ResolvedLink link, string? text)
+    {
+        switch (link.Kind)
+        {
+            case LinkKind.Web:
+                if (!Uri.TryCreate(link.Effective, UriKind.Absolute, out var address))
+                    return null;
+
+                var original = !string.Equals(link.Original, link.Effective, StringComparison.Ordinal)
+                    && Uri.TryCreate(link.Original, UriKind.Absolute, out var originalAddress)
+                        ? originalAddress
+                        : null;
+
+                return new ResolvedMailLink(address, text, link.RemovedTrackingParameters, original);
+
+            // The operating system routes these to the registered mail and phone handlers, as before.
+            case LinkKind.Mailto:
+            case LinkKind.Tel:
+                return Uri.TryCreate(link.Original, UriKind.Absolute, out var protocolAddress)
+                    ? new ResolvedMailLink(protocolAddress, text)
+                    : null;
+
+            default:
+                return null;
+        }
+    }
+
+    private void MailView_LinkHoverChanged(object? sender, LinkHoverEventArgs e)
+    {
+        var text = GetLinkTargetText(e.Link);
+
+        ReaderLinkTargetText.Text = text;
+        ReaderLinkTargetBar.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private static string GetLinkTargetText(ResolvedLink? link)
+    {
+        if (link is null || link.Kind == LinkKind.Blocked)
+            return string.Empty;
+
+        if (link.Protection == LinkProtection.OutlookSafeLinks && link.RedirectTarget is { Length: > 0 } redirectTarget)
+        {
+            return string.Format(Translator.Reader_ProtectedLinkFormat, redirectTarget);
+        }
+
+        var target = link.Kind == LinkKind.Web ? link.Effective : link.Original;
+        return target ?? string.Empty;
+    }
+
+    private void MailView_ContextMenuRequested(object? sender, ContextMenuRequest request)
+    {
+        List<ContextFlyoutMenuEntry> entries = [];
+
+        if (request.HasSelection)
+        {
+            entries.Add(new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Copy,
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Copy)),
+                Command = new RelayCommand(() => _mailView.CopySelection()),
+                Shortcut = new ContextFlyoutShortcut("Ctrl+C", "C", Control: true),
+                AutomationId = "MailRenderingCopy"
+            });
+        }
+
+        if (!string.IsNullOrEmpty(request.LinkUrl))
+        {
+            entries.Add(new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Reader_ContextMenu_CopyLink,
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Link)),
+                Command = ViewModel.CopyClipboardCommand,
+                CommandParameter = request.LinkUrl,
+                AutomationId = "MailRenderingCopyLink"
+            });
+        }
+
+        if (request.OnImage && _mailView.Reader is { } reader && reader.TryGetImageAt(request.ViewPoint, out var image) && !image.Bytes.IsEmpty)
+        {
+            entries.Add(new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Reader_ContextMenu_CopyImage,
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Image)),
+                Command = new AsyncRelayCommand(() => CopyImageToClipboardAsync(image)),
+                AutomationId = "MailRenderingCopyImage"
+            });
+        }
+
+        entries.Add(ContextFlyoutSeparatorEntry.Instance);
+        entries.Add(new ContextFlyoutCommandEntry
+        {
+            Text = Translator.Reader_ContextMenu_SelectAll,
+            Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.SelectAll)),
+            Command = new RelayCommand(_mailView.SelectAll),
+            Shortcut = new ContextFlyoutShortcut("Ctrl+A", "A", Control: true),
+            AutomationId = "MailRenderingSelectAll"
+        });
+
+        WinoContextFlyoutHelper.Show(_mailView, new Windows.Foundation.Point(request.ViewPoint.X, request.ViewPoint.Y), entries);
+    }
+
+    private static async Task CopyImageToClipboardAsync(MailResource image)
+    {
+        try
+        {
+            // The clipboard reads the stream later, so it is handed over open.
+            var stream = new InMemoryRandomAccessStream();
+            using (var writer = new DataWriter(stream))
+            {
+                writer.WriteBytes(image.Bytes.ToArray());
+                await writer.StoreAsync();
+                writer.DetachStream();
+            }
+
+            stream.Seek(0);
+
+            var package = new DataPackage { RequestedOperation = DataPackageOperation.Copy };
+            package.SetBitmap(RandomAccessStreamReference.CreateFromStream(stream));
+            Clipboard.SetContent(package);
+            Clipboard.Flush();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to copy an image from the mail renderer.");
         }
     }
 
@@ -253,43 +464,30 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private void EditSenderRule_Click(object sender, RoutedEventArgs e)
         => PrivacyFlyout.ShowAt(PrivacyButton);
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    private void LinkedItem_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)
+            ViewModel.OpenLinkedItemCommand.Execute(item);
+    }
+
     public Visibility GetPrivacyIconVisibility(PrivacyButtonState state, PrivacyButtonState visibleState)
         => state == visibleState ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility GetPlainPrivacyIconVisibility(PrivacyButtonState state)
         => state is PrivacyButtonState.Plain or PrivacyButtonState.Count ? Visibility.Visible : Visibility.Collapsed;
 
-    private void MailRenderer_InitializationFailed(object? sender, Exception exception)
-        => Log.Error(exception, "Mail rendering WebView2 initialization failed.");
-
-    private async Task ObserveChromiumInitializationAsync(Task initializationTask)
-    {
-        try
-        {
-            await initializationTask;
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Mail rendering WebView2 initialization failed.");
-        }
-    }
+    public Visibility GetRemoteContentBarVisibility(bool isJunkBlocked, bool isSenderBlockedByRule)
+        => isJunkBlocked || isSenderBlockedByRule ? Visibility.Visible : Visibility.Collapsed;
 
     public async Task ClearRenderedContentAsync()
     {
         if (Volatile.Read(ref _activeRenderCount) == 0)
         {
             ResetReaderContentState();
+            HideLinkTargetBar();
 
-            try
-            {
-                await _readerSession.ClearAsync();
-            }
-            catch (Exception ex) when (ex is ObjectDisposedException or COMException)
-            {
-                // A competing navigation already disposed this page's renderer (or its WebView2
-                // closed). Clearing content that no longer exists needs no further work.
-                Log.Debug(ex, "Skipped clearing the mail renderer because it was already disposed.");
-            }
+            await _messageReader.ClearAsync();
         }
     }
 
@@ -306,40 +504,39 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _currentMailItem = null;
         _intelligence.ForgetMailItem();
 
-        await ClearRenderedContentAsync();
+        if (Volatile.Read(ref _activeRenderCount) != 0)
+            return;
 
-        try
-        {
-            await _readerSession.EnterIdleAsync();
-        }
-        catch (Exception ex) when (ex is ObjectDisposedException or COMException)
-        {
-            // The renderer was torn down while the idle grace period elapsed.
-            Log.Debug(ex, "Skipped idling the mail renderer because it was already disposed.");
-        }
+        ResetReaderContentState();
+        HideLinkTargetBar();
+
+        await _messageReader.EnterIdleAsync();
+    }
+
+    private void HideLinkTargetBar()
+    {
+        ReaderLinkTargetText.Text = string.Empty;
+        ReaderLinkTargetBar.Visibility = Visibility.Collapsed;
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         // This page is moved, rather than discarded, when the reader is popped
-        // out. Retain its WebView2 and render delegates for the new window.
+        // out. Retain its renderer and render delegates for the new window.
         if (_isPoppedOut)
             return;
 
         base.OnNavigatedFrom(e);
 
-        // Disposing the page.
-        // Make sure the WebView2 is disposed properly.
-
         ViewModel.PrintPresenter = null;
-        ViewModel.RenderHtmlAsyncFunc = null;
-        ViewModel.ClearRenderedHtmlAsyncFunc = null;
+        ViewModel.MessageReader = null;
         _intelligence.ClearContext();
         _intelligence.ForgetMailItem();
         _currentMailItem = null;
         _currentRenderedHtml = string.Empty;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
-        MailRenderer.Dispose();
+        HideLinkTargetBar();
+        _messageReader.Detach();
     }
 
     bool IReentryTarget.CanReenter(object parameter)
@@ -359,7 +556,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     Task IReentryTarget.ReenterAsync(object parameter) => RefreshMailItemAsync(parameter as MailItemViewModel);
 
     /// <summary>
-    /// Shows another message without rebuilding the page, keeping its WebView2 alive.
+    /// Shows another message without rebuilding the page, keeping its renderer alive.
     /// </summary>
     /// <remarks>
     /// The navigation service drops the returned task, so nothing may escape here: an unobserved
@@ -384,8 +581,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             _currentMailItem = mailItemViewModel;
             _intelligence.BeginMailItem(_currentMailItem);
 
-            // Deliberately no _readerSession.ClearAsync(). The previous body stays loaded behind the
-            // opaque loading overlay instead of blanking the pane, which is what removes the flash.
+            // Deliberately no clear of the renderer. The previous body stays on screen until the next
+            // one replaces it, or behind the opaque skeleton when the MIME has to be downloaded first.
             await ViewModel.LoadContentAsync(mailItemViewModel);
         }
         catch (Exception ex)
@@ -402,19 +599,15 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
-        ViewModel.PrintPresenter = CreatePrintPresenter();
         _currentMailItem = e.Parameter as MailItemViewModel;
         _intelligence.BeginMailItem(_currentMailItem);
-        ViewModel.RenderHtmlAsyncFunc = RenderInternalAsync;
-        ViewModel.ClearRenderedHtmlAsyncFunc = ClearRenderedContentAsync;
+        _messageReader.Attach();
+        ViewModel.PrintPresenter = CreatePrintPresenter();
+        ViewModel.MessageReader = this;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
         RendererCommandBar.PopOutClicked += RendererCommandBar_PopOutClicked;
-        _ = ObserveChromiumInitializationAsync(InitializeMailRendererAsync());
 
         base.OnNavigatedTo(e);
-
-        var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
-        anim?.TryStart(GetWebView());
 
         ApplyRenderingDesignShift();
     }
@@ -438,36 +631,52 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         }
     }
 
-    private async Task UpdateEditorThemeAsync()
+    public ElementTheme GetReaderElementTheme(bool isDark) => isDark ? ElementTheme.Dark : ElementTheme.Light;
+
+    /// <summary>
+    /// Pushes the reader theme, the surface behind the message, high contrast and the reader font to the view.
+    /// A message that is on screen is laid out again only when one of them changed.
+    /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
+    private void ApplyReaderPresentation()
     {
-        await _readerSession.SetDarkModeMethodAsync(ToRendererDarkModeMethod(ViewModel.ReaderDarkModeMethod));
-        await _readerSession.SetThemeAsync(ViewModel.IsDarkWebviewRenderer);
+        _readerPresentation.IsDark = ViewModel.IsDarkWebviewRenderer;
+        _readerPresentation.Method = ViewModel.ReaderDarkModeMethod == MailDarkModeMethod.Inverted
+            ? DarkModeMethod.Inverted
+            : DarkModeMethod.Adaptive;
+
+        _readerPresentation.SetTypography(_preferencesService.ReaderFont, _preferencesService.ReaderFontSize);
+        _readerPresentation.ApplyTo(_mailView);
     }
 
-    public HtmlMailDarkModeMethod ToRendererDarkModeMethod(MailDarkModeMethod method) => method switch
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        MailDarkModeMethod.Inverted => HtmlMailDarkModeMethod.Inverted,
-        _ => HtmlMailDarkModeMethod.Adaptive
-    };
+        if (e.PropertyName is not (nameof(ViewModel.IsDarkWebviewRenderer) or nameof(ViewModel.ReaderDarkModeMethod)))
+            return;
 
-    private async Task InitializeMailRendererAsync()
-    {
-        try
-        {
-            await _readerSession.InitializeAsync();
-        }
-        catch (Exception)
-        {
-            // TODO: Debug object disposal.
-            // throw new InvalidOperationException(Translator.Exception_WebView2RuntimeMissing_Message, ex);
-        }
+        if (DispatcherQueue.HasThreadAccess)
+            ApplyReaderPresentation();
+        else
+            DispatcherQueue.TryEnqueue(ApplyReaderPresentation);
     }
 
-    private async Task UpdateReaderFontPropertiesAsync()
+    private void MailRendererHost_ActualThemeChanged(FrameworkElement sender, object args) => ApplyReaderPresentation();
+
+    private void MailRendererHost_Loaded(object sender, RoutedEventArgs e)
     {
-        var fontName = $"{_preferencesService.ReaderFont}, sans-serif";
-        await _readerSession.SetReaderTypographyAsync(fontName, _preferencesService.ReaderFontSize);
+        _readerPresentation.HighContrastChanged -= ReaderPresentation_HighContrastChanged;
+        _readerPresentation.HighContrastChanged += ReaderPresentation_HighContrastChanged;
+        _readerPresentation.StartWatching(MailRendererHost.XamlRoot);
+        ApplyReaderPresentation();
     }
+
+    private void MailRendererHost_Unloaded(object sender, RoutedEventArgs e)
+    {
+        _readerPresentation.StopWatching();
+        _readerPresentation.HighContrastChanged -= ReaderPresentation_HighContrastChanged;
+    }
+
+    private void ReaderPresentation_HighContrastChanged(object? sender, EventArgs e) => ApplyReaderPresentation();
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
@@ -698,6 +907,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         base.OnLanguageChanged();
 
         _intelligence.OnLanguageChanged();
+        ApplyMailViewAutomationText(_mailView);
     }
 
     /// <summary>Queues presenter callbacks on this page's thread, like DispatcherQueue.TryEnqueue.</summary>

@@ -160,7 +160,9 @@ public static class ShellMenuRowPresentation
             case IBaseFolderMenuItem folder:
                 return row with
                 {
-                    Glyph = SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType),
+                    Glyph = folder is FolderMenuItem { Parameter: { } single }
+                        ? SpecialFolderGlyphs.GetGlyphOrFolder(single)
+                        : SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType),
                     Title = folder.FolderName ?? string.Empty,
                     UnreadCount = folder.ShowUnreadCount ? folder.UnreadItemCount : 0
                 };
@@ -178,6 +180,8 @@ public static class ShellMenuRowPresentation
                 return row with { Glyph = WinoIconGlyph.Calendar, Title = Translator.ToDoPage_Planned, UnreadCount = planned.Count, IsExpanded = null };
             case ImportantTaskMenuItem important:
                 return row with { Glyph = WinoIconGlyph.Star, Title = Translator.ToDoPage_Important, UnreadCount = important.Count, IsExpanded = null };
+            case FlaggedMailTaskMenuItem flagged:
+                return row with { Glyph = WinoIconGlyph.Flag, Title = Translator.ToDoPage_FlaggedMail, UnreadCount = flagged.Count, IsExpanded = null };
             case AccountGroupMenuItem accountGroup:
                 return row with
                 {

@@ -136,15 +136,21 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
         else
             await CalendarService.UpdateCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
 
-        // Provider reminders initialize newly imported events only. Once an event exists locally, Wino owns its
-        // reminder list.
+        List<Reminder> serverReminders = occurrence.ReminderMinutesBeforeStart is { } minutes
+            ? [new Reminder { Id = Guid.NewGuid(), CalendarItemId = savingItemId, DurationInSeconds = minutes * 60L, ReminderType = CalendarItemReminderType.Popup }]
+            : [];
+
         if (isNewItem)
         {
-            List<Reminder>? reminders = occurrence.ReminderMinutesBeforeStart is { } minutes
-                ? [new Reminder { Id = Guid.NewGuid(), CalendarItemId = savingItemId, DurationInSeconds = minutes * 60L, ReminderType = CalendarItemReminderType.Popup }]
-                : null;
-
-            await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+            await CalendarService.SaveRemindersAsync(savingItemId, serverReminders).ConfigureAwait(false);
+        }
+        else
+        {
+            // A reminder changed in another app replaces the one Exchange holds; reminders kept only in Wino stay.
+            var storedReminders = await CalendarService.GetRemindersAsync(savingItemId).ConfigureAwait(false);
+            var reconciled = ReminderSyncPlan.Reconcile(storedReminders, serverReminders, CalendarCapabilities.Exchange, savingItemId);
+            if (reconciled != null)
+                await CalendarService.SaveRemindersAsync(savingItemId, reconciled).ConfigureAwait(false);
         }
     }
 

@@ -47,6 +47,8 @@ public static class ServicesContainerSetup
         // Every head registers an IAppLockPlatform; the lock stays off where that platform is not available.
         services.AddSingleton<IAppLockService, AppLockService>();
         services.AddSingleton<IActivationStateService, ActivationStateService>();
+        // The Windows head replaces it with the mail engine's reader.
+        services.AddSingleton<IMailUnsubscribeReader, HeaderUnsubscribeReader>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
         services.AddSingleton<IContentTypeClassificationModel, MagikaContentTypeClassificationModel>();
         services.AddSingleton<IContentTypeDetectionService, ContentTypeDetectionService>();
@@ -58,6 +60,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<ILinkBrowserService, LinkBrowserService>();
         // Needs the platform INotificationBuilder; each head starts it once its shell is running.
         services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
+        services.AddSingleton<ITaskReminderServer, TaskReminderServer>();
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();
@@ -81,6 +84,7 @@ public static class ServicesContainerSetup
         services.AddTransient<IRemoteContentPolicyService, RemoteContentPolicyService>();
         services.AddSingleton<ILinkSanitizer, LinkSanitizer>();
         services.AddTransient<IRecipientSuggestionService, RecipientSuggestionService>();
+        services.AddSingleton<IItemLinkService, ItemLinkService>();
         services.AddTransient<ITaskService, TaskService>();
         services.AddTransient<ITaskQueryService>(provider => provider.GetRequiredService<ITaskService>());
         services.AddTransient<ISignatureService, SignatureService>();

@@ -58,6 +58,12 @@ public interface ICalendarService
     /// <param name="targetDetails">Target details.</param>
     Task<CalendarItem> GetCalendarItemTargetAsync(CalendarItemTarget targetDetails);
     Task<CalendarItem> GetCalendarItemAsync(Guid id);
+
+    /// <summary>
+    /// Finds an event of an account by its link key: the provider event id (stored with or without the client
+    /// tracking suffix) or the item id.
+    /// </summary>
+    Task<CalendarItem> GetCalendarItemByLinkKeyAsync(Guid accountId, string linkKey);
     Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
     Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
     Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
@@ -77,6 +83,13 @@ public interface ICalendarService
     /// the reminder poller is not running.
     /// </summary>
     Task<DateTime?> GetNextReminderTriggerAsync(DateTime afterLocal, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The notification reminders that fire after <paramref name="fromLocal"/> and up to <paramref name="untilLocal"/>,
+    /// earliest first and at most <paramref name="maximum"/>, with the same triggers <see cref="CheckAndNotifyAsync"/>
+    /// reports. A head hands them to the operating system so they fire while the app is closed.
+    /// </summary>
+    Task<List<CalendarReminderNotificationRequest>> GetUpcomingReminderTriggersAsync(DateTime fromLocal, DateTime untilLocal, int maximum, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets predefined reminder options in minutes (1 Hour, 30 Min, 15 Min, 5 Min, 1 Min).

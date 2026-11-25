@@ -471,11 +471,8 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         if (_wizardContext.ContactIntegrationSource == AccountIntegrationSource.Dav)
             _wizardContext.ContactIntegrationSource = AccountIntegrationSource.Provider;
 
-        if (string.IsNullOrWhiteSpace(_wizardContext.AccountName) &&
-            MailAccountAddressValidator.TryGetDomain(EmailAddress?.Trim() ?? string.Empty, out var domain))
-        {
-            _wizardContext.AccountName = domain;
-        }
+        if (string.IsNullOrWhiteSpace(_wizardContext.AccountName))
+            _wizardContext.AccountName = EmailAddress?.Trim() ?? string.Empty;
     }
 
     private CustomServerInformation BuildServerInformation() => new()

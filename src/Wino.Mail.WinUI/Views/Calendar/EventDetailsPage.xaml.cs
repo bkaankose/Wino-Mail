@@ -4,9 +4,11 @@ using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Serilog;
 using Wino.Core.Domain;
@@ -20,6 +22,11 @@ using Wino.Core.Domain.Messaging.Client.Calendar;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Mail.ViewModels.Calendar.Data;
 using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.Rendering;
+using Wino.Mail.WinUI.Rendering;
+using Wino.Renderer.WinUI;
+
+using WinRT;
 
 namespace Wino.Mail.WinUI.Views.Calendar;
 
@@ -28,10 +35,25 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     IRecipient<CalendarDescriptionRenderingRequested>
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
+    private readonly MailView _descriptionView;
+    private readonly EngineReaderPresentation _descriptionPresentation;
+    private readonly EngineHtmlReaderSession _descriptionSession;
+
     public EventDetailsPage()
     {
         InitializeComponent();
 
+        // The view is created here instead of in XAML: its public surface is engine types the XAML type table cannot describe.
+        _descriptionView = new MailView();
+        AutomationProperties.SetAutomationId(_descriptionView, "CalendarEventDescriptionRenderer");
+        EventDescriptionHost.Children.Add(_descriptionView);
+
+        _descriptionPresentation = new EngineReaderPresentation();
+        _descriptionSession = new EngineHtmlReaderSession(
+            _descriptionView,
+            App.Current.Services.GetRequiredService<MailEngineHost>(),
+            _descriptionPresentation);
+        _descriptionSession.NavigationRequested += EventDetailsRenderer_NavigationRequested;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -45,7 +67,15 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     {
         base.OnNavigatedFrom(e);
 
-        EventDetailsRenderer.Dispose();
+        _descriptionSession.NavigationRequested -= EventDetailsRenderer_NavigationRequested;
+        _ = _descriptionSession.DisposeAsync();
+    }
+
+    private void CustomizeRemindersClicked(object sender, RoutedEventArgs e)
+    {
+        // The editor is a dialog; the flyout closes first so it does not stay open behind it.
+        EventDetailsReminderFlyout.Hide();
+        ViewModel.EditRemindersCommand.Execute(null);
     }
 
     protected override void ReleasePageResources()
@@ -55,12 +85,16 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     {
         try
         {
-            await EventDetailsRenderer.InitializeAsync();
+            await _descriptionSession.InitializeAsync();
             await RenderDescriptionAsync();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            Log.Debug(ex, "Calendar description renderer was already disposed.");
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Calendar description WebView2 initialization failed.");
+            Log.Error(ex, "Calendar description rendering failed.");
         }
     }
 
@@ -75,11 +109,14 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         if (ViewModel?.CurrentEvent?.CalendarItem == null)
             return;
 
-        await UpdateEditorThemeAsync();
-        await UpdateReaderFontPropertiesAsync();
+        ApplyDescriptionPresentation();
 
         var description = ViewModel.CurrentEvent.CalendarItem.Description ?? string.Empty;
-        await EventDetailsRenderer.RenderHtmlAsync(string.IsNullOrEmpty(description) ? " " : description);
+
+        // The view has no height of its own, so an event without a description would show an empty block.
+        EventDescriptionHost.Visibility = string.IsNullOrWhiteSpace(description) ? Visibility.Collapsed : Visibility.Visible;
+
+        await _descriptionSession.RenderAsync(new HtmlMailReaderRequest(description, RemoteContentPolicy.ImagesAndFontsAllowed));
     }
 
     private async void EventDetailsRenderer_NavigationRequested(object? sender, RendererNavigationRequestedEventArgs args)
@@ -94,8 +131,7 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         }
     }
 
-    private void EventDetailsRenderer_InitializationFailed(object? sender, Exception exception)
-        => Log.Error(exception, "Calendar description WebView2 initialization failed.");
+    public ElementTheme GetDescriptionElementTheme(bool isDark) => isDark ? ElementTheme.Dark : ElementTheme.Light;
 
     private async Task UpdateEditorThemeAsync()
     {
@@ -105,15 +141,38 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
             return;
         }
 
-        EventDetailsRenderer.IsDarkMode = ViewModel.IsDarkWebviewRenderer;
-        await EventDetailsRenderer.InitializeAsync();
+        ApplyDescriptionPresentation();
     }
 
-    private async Task UpdateReaderFontPropertiesAsync()
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
+    private void ApplyDescriptionPresentation()
     {
-        var fontName = $"{_preferencesService.ReaderFont}, sans-serif";
-        await EventDetailsRenderer.SetReaderTypographyAsync(fontName, _preferencesService.ReaderFontSize);
+        if (ViewModel is null)
+            return;
+
+        _descriptionPresentation.IsDark = ViewModel.IsDarkWebviewRenderer;
+
+        _descriptionPresentation.SetTypography(_preferencesService.ReaderFont, _preferencesService.ReaderFontSize);
+        _descriptionPresentation.ApplyTo(_descriptionView);
     }
+
+    private void EventDescriptionHost_ActualThemeChanged(FrameworkElement sender, object args) => ApplyDescriptionPresentation();
+
+    private void EventDescriptionHost_Loaded(object sender, RoutedEventArgs e)
+    {
+        _descriptionPresentation.HighContrastChanged -= DescriptionPresentation_HighContrastChanged;
+        _descriptionPresentation.HighContrastChanged += DescriptionPresentation_HighContrastChanged;
+        _descriptionPresentation.StartWatching(EventDescriptionHost.XamlRoot);
+        ApplyDescriptionPresentation();
+    }
+
+    private void EventDescriptionHost_Unloaded(object sender, RoutedEventArgs e)
+    {
+        _descriptionPresentation.StopWatching();
+        _descriptionPresentation.HighContrastChanged -= DescriptionPresentation_HighContrastChanged;
+    }
+
+    private void DescriptionPresentation_HighContrastChanged(object? sender, EventArgs e) => ApplyDescriptionPresentation();
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
@@ -193,5 +252,12 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
                 AutomationId = "EventAttachmentSave"
             }
         ], FlyoutPlacementMode.Right);
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    private void LinkedItem_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is Wino.Mail.ViewModels.Links.LinkedItemViewModel item)
+            ViewModel.OpenLinkedItemCommand.Execute(item);
     }
 }

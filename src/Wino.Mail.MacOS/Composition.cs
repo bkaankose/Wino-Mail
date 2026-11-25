@@ -101,6 +101,12 @@ internal static class Composition
         services.AddSingleton<IShortcutPlatformService, MacShortcutPlatformService>();
         services.AddSingleton<IAttachmentPlatformService, MacAttachmentPlatformService>();
         services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
+        // The native mail renderer: one engine per process over Core Text and Core Graphics, with the Mac's spell
+        // checker and settings; its unsubscribe reader replaces the header reader of the web view path.
+        services.AddSingleton<Wino.Mail.Rendering.IMailEngineBackendFactory>(_ =>
+            new Wino.Mail.Rendering.Apple.AppleMailEngineBackendFactory(() => Wino.Renderer.AppKit.AppKitBackend.Create()));
+        Wino.Mail.Rendering.MailRenderingRegistration.AddMailRendering(services);
+        services.AddSingleton<Wino.Mail.Rendering.Apple.MailEngineMemoryPressure>();
         services.AddSingleton<IStartupIntegrationService, MacStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, MacSmimeCertificateService>();
         services.AddSingleton<IAppLockPlatform, UnavailableAppLockPlatform>();
@@ -112,6 +118,7 @@ internal static class Composition
         services.AddSingleton<AppleNotificationSounds>();
         services.AddSingleton<INotificationSoundProvider>(provider => provider.GetRequiredService<AppleNotificationSounds>());
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
+        services.AddSingleton<MacCalendarReminderScheduler>();
         // WinoRelay on the Mac is socket-only: no push token is registered, so nothing arrives while the app is not running.
         services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, MacPushRelayDeviceInfo>();
@@ -146,7 +153,7 @@ internal static class Composition
             RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             // The Dock badge launches the app; there is one Dock tile, so the taskbar identity never follows the mode.
             PointerHover: true, MailListDensity: true, PresentationDetection: true, ConfigurableSyncIntervals: true,
-            BadgeLaunchNavigation: true, AddressFirstAccountSetup: true,
+            BadgeLaunchNavigation: true, AddressFirstAccountSetup: true, FlaggedMailTaskView: true,
 #if WINO_APPSTORE
             AppleAppStore: true
 #else
@@ -181,7 +188,10 @@ internal static class Composition
         services.AddSingleton<AppKitNavigationService>(provider => new(provider, dispatcher, host));
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<AppKitNavigationService>());
         services.RegisterMacViewModels();
-        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        // The engine gives its decoded images back when the system runs short of memory.
+        provider.GetRequiredService<Wino.Mail.Rendering.Apple.MailEngineMemoryPressure>();
+        return provider;
     }
 
     /// <summary>A string value from the main bundle's Info.plist; empty when missing.</summary>

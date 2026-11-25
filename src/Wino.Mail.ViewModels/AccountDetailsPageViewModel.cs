@@ -28,6 +28,8 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Core.Domain.Messaging.Client.Navigation;
 using Wino.Core.Domain.Messaging.Server;
 using Wino.Core.Domain.Messaging.UI;
+using Wino.Mail.ViewModels.AccountSettings;
+using Wino.Mail.ViewModels.Calendar;
 using Wino.Mail.ViewModels.Common.Data;
 using Wino.Services.Interfaces;
 
@@ -220,7 +222,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             ? $"Assets/Providers/{Account?.SpecialImapProvider}.png"
             : $"Assets/Providers/{Account?.ProviderType}.png").ToString();
     public string Address => Account?.Address ?? string.Empty;
-    public bool IsInitialSynchronizationSummaryVisible => Account?.CreatedAt.HasValue == true && Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything;
+    public bool IsInitialSynchronizationSummaryVisible => Account?.CreatedAt.HasValue == true
+                                                          && Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything
+                                                          && _providers.GetTraits(Account.ProviderType).AppliesMailSynchronizationRange;
+
+    public MailSynchronizationRangeSettingViewModel SyncRange { get; }
     public string InitialSynchronizationSummary => Account?.CreatedAt is not DateTime createdAtUtc
         ? string.Empty
         : Account.InitialSynchronizationRange.ToCutoffDateUtc(createdAtUtc) is not DateTime cutoffDateUtc
@@ -272,6 +278,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IAccountCapabilityService accountCapabilityService,
         ISynchronizationManager synchronizationManager,
         IMailProviderRegistry providers,
+        IMailSynchronizationRangeService rangeService,
         IWinoAccountIntelligenceSnapshotService? entitlementService = null,
         IExchangeConnectionTester? exchangeConnectionTester = null,
         IAccountReauthenticationService? reauthenticationService = null,
@@ -299,6 +306,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _exchangeConnectionTester = exchangeConnectionTester;
         _reauthenticationService = reauthenticationService;
         CanAccessWinoIntelligence = entitlementService?.CurrentEntitlement.CanAccessSurfaces == true;
+        SyncRange = new MailSynchronizationRangeSettingViewModel(messenger, rangeService, ExecuteUIThread);
 
         var colorHexList = _themeService.GetAvailableAccountColors();
         AvailableColors = colorHexList.Select(a => new AppColorViewModel(a)).ToList();
@@ -355,6 +363,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     {
         base.RegisterRecipients();
         Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
+        SyncRange.RegisterRecipients();
         if (_entitlementService is not null)
             _ = RefreshEntitlementAsync();
     }
@@ -362,6 +371,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     protected override void UnregisterRecipients()
     {
         Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
+        SyncRange.UnregisterRecipients();
         base.UnregisterRecipients();
     }
 
@@ -1042,7 +1052,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             foreach (var calendar in calendars)
             {
                 AccountCalendars.Add(calendar);
-                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(calendar, ShowAsOptions, AvailableColors, IsCalendarSynchronizationConfigurable));
+                AccountCalendarSettingsItems.Add(new AccountCalendarSettingsItemViewModel(
+                    calendar,
+                    ShowAsOptions,
+                    AvailableColors,
+                    IsCalendarSynchronizationConfigurable,
+                    CalendarDefaultReminderOption.CreateOptions(_preferencesService.DefaultReminderDurationInSeconds, calendar.DefaultReminderInSeconds)));
             }
         });
 
@@ -1072,6 +1087,18 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         calendar.DefaultShowAs = option.ShowAs;
         try { await _calendarService.UpdateAccountCalendarAsync(calendar); }
         catch { calendar.DefaultShowAs = previous; throw; }
+    }
+
+    /// <summary>Stores the reminder new events in the calendar get. Kept in Wino only.</summary>
+    public async Task UpdateCalendarDefaultReminderAsync(AccountCalendar calendar, CalendarDefaultReminderOption option)
+    {
+        if (calendar == null || option == null || calendar.DefaultReminderInSeconds == option.Seconds)
+            return;
+
+        var previous = calendar.DefaultReminderInSeconds;
+        calendar.DefaultReminderInSeconds = option.Seconds;
+        try { await _calendarService.UpdateAccountCalendarAsync(calendar); }
+        catch { calendar.DefaultReminderInSeconds = previous; throw; }
     }
 
     public async Task UpdateCalendarColorAsync(AccountCalendarSettingsItemViewModel calendarItem, AppColorViewModel color)
@@ -1115,6 +1142,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         OnPropertyChanged(nameof(Address));
         OnPropertyChanged(nameof(IsInitialSynchronizationSummaryVisible));
         OnPropertyChanged(nameof(InitialSynchronizationSummary));
+        _ = SyncRange.LoadAsync(value);
         OnPropertyChanged(nameof(IsImapServer));
         OnPropertyChanged(nameof(HasMailAccess));
         OnPropertyChanged(nameof(HasCalendarAccess));
@@ -1373,8 +1401,19 @@ public partial class AccountCalendarSettingsItemViewModel : ObservableObject
     [ObservableProperty]
     public partial AppColorViewModel SelectedColor { get; set; }
 
-    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar, ObservableCollection<AccountCalendarShowAsOption> showAsOptions, List<AppColorViewModel> availableColors, bool isSynchronizationConfigurable)
+    public List<CalendarDefaultReminderOption> DefaultReminderOptions { get; }
+
+    [ObservableProperty]
+    public partial CalendarDefaultReminderOption SelectedDefaultReminderOption { get; set; }
+
+    public AccountCalendarSettingsItemViewModel(AccountCalendar calendar,
+                                                ObservableCollection<AccountCalendarShowAsOption> showAsOptions,
+                                                List<AppColorViewModel> availableColors,
+                                                bool isSynchronizationConfigurable,
+                                                List<CalendarDefaultReminderOption> defaultReminderOptions)
     {
+        DefaultReminderOptions = defaultReminderOptions;
+        SelectedDefaultReminderOption = CalendarDefaultReminderOption.FindSelected(defaultReminderOptions, calendar.DefaultReminderInSeconds);
         Calendar = calendar;
         ShowAsOptions = showAsOptions;
         AvailableColors = availableColors;

@@ -511,16 +511,24 @@ public partial class PreferencesService(IConfigurationService configurationServi
                 nameof(ComposerSpellCheckLanguageCode),
                 TranslationService.DefaultLanguageCode);
 
-            return TranslationService.IsSupportedLanguageCode(languageCode)
+            return IsLanguageTag(languageCode)
                 ? languageCode
                 : TranslationService.DefaultLanguageCode;
         }
         set => SetPropertyAndSave(
             nameof(ComposerSpellCheckLanguageCode),
-            TranslationService.IsSupportedLanguageCode(value)
+            IsLanguageTag(value)
                 ? value
                 : TranslationService.DefaultLanguageCode);
     }
+
+    // The composer checks spelling in the languages the platform has installed, which need not be app languages,
+    // so any well-formed tag is kept (en-GB, pt-PT, sr-Latn-RS).
+    private static bool IsLanguageTag(string? value)
+        => value is { Length: >= 2 and <= 35 } &&
+           char.IsAsciiLetter(value[0]) &&
+           char.IsAsciiLetterOrDigit(value[^1]) &&
+           value.All(character => char.IsAsciiLetterOrDigit(character) || character == '-');
 
     public bool IsNavigationPaneOpened
     {
@@ -804,7 +812,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
 
     public int UndoDeletingMailsIntervalInSeconds
     {
-        get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 3);
+        get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 5);
         set => SetPropertyAndSave(nameof(UndoDeletingMailsIntervalInSeconds), Math.Clamp(value, 1, 10));
     }
 
@@ -896,6 +904,28 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(
             nameof(CompanionUnreadMessageBehavior),
             Enum.IsDefined(value) ? value : CompanionUnreadMessageBehavior.AfterAppSession);
+    }
+
+    public CompanionTaskBehavior CompanionTaskBehavior
+    {
+        get
+        {
+            var value = _configurationService.Get(nameof(CompanionTaskBehavior), CompanionTaskBehavior.MyDay);
+            return Enum.IsDefined(value) ? value : CompanionTaskBehavior.MyDay;
+        }
+        set => SetPropertyAndSave(nameof(CompanionTaskBehavior), Enum.IsDefined(value) ? value : CompanionTaskBehavior.MyDay);
+    }
+
+    public string DeletedLocalTaskListAccountIds
+    {
+        get => _configurationService.Get(nameof(DeletedLocalTaskListAccountIds), string.Empty);
+        set => SetPropertyAndSave(nameof(DeletedLocalTaskListAccountIds), value ?? string.Empty);
+    }
+
+    public bool ShowTasksInCalendar
+    {
+        get => _configurationService.Get(nameof(ShowTasksInCalendar), true);
+        set => SetPropertyAndSave(nameof(ShowTasksInCalendar), value);
     }
 
     public bool ShowCalendarInCompanion

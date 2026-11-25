@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
@@ -49,21 +47,7 @@ public class TranslationService : ITranslationService
 
         if (ignoreCurrentLanguageCheck && isInitialized) return;
 
-        var currentDictionary = Translator.Resources;
-        await using var resourceStream = Core.Domain.Translations.WinoTranslationDictionary.GetLanguageStream(language);
-
-        var streamValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
-
-        var translationLookups = JsonSerializer.Deserialize(streamValue, BasicTypesJsonContext.Default.DictionaryStringString);
-
-        // Insert new translation key-value pairs.
-        // Overwrite existing values for the same keys.
-
-        foreach (var pair in translationLookups)
-        {
-            // Replace existing value.
-            currentDictionary[pair.Key] = pair.Value;
-        }
+        await Task.Run(() => Translator.Resources.Load(language)).ConfigureAwait(false);
 
         _preferencesService.CurrentLanguage = language;
         CurrentLanguageModel = GetAvailableLanguages().FirstOrDefault(a => a.Language == language);
@@ -200,8 +184,4 @@ public class TranslationService : ITranslationService
             new AppLanguageModel(AppLanguage.Ukrainian, "Ukrainian", "uk-UA"),
             new AppLanguageModel(AppLanguage.Vietnamese, "Vietnamese", "vi-VN")
         ];
-
-    public static bool IsSupportedLanguageCode(string? languageCode)
-        => CreateAvailableLanguages().Any(language =>
-            string.Equals(language.Code, languageCode, System.StringComparison.OrdinalIgnoreCase));
 }

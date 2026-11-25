@@ -23,6 +23,7 @@ public partial class MergedAccountFolderMenuItem : MenuItemBase<List<IMailItemFo
     // Any of the folders is enough to determine the synchronization enable/disable state.
     public bool IsSynchronizationEnabled => HandlingFolders.Any(a => a.IsSynchronizationEnabled);
     public bool IsMoveTarget => HandlingFolders.All(a => a.IsMoveTarget);
+    public bool IsSelectable => HandlingFolders.All(a => a.IsSelectable);
     public IEnumerable<IMailItemFolder> HandlingFolders => Parameter;
 
     // All folders in the list should have the same type.

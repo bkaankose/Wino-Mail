@@ -88,7 +88,7 @@ internal static class ShellSidebarContextMenus
 
     private static IReadOnlyList<NSMenuItem> BuiltInItems(ShellSidebarMenuTarget target, ShellSidebarMenuContext context) => target.Item switch
     {
-        FolderMenuItem or MergedAccountFolderMenuItem when target.Item is IBaseFolderMenuItem { IsMoveTarget: true } folder => FolderItems(folder, context),
+        FolderMenuItem or MergedAccountFolderMenuItem when target.Item is IBaseFolderMenuItem { IsSelectable: true } folder => FolderItems(folder, context),
         ContactFilterViewModel { HasAccountIcon: false } list => ContactListItems(list, context),
         ContactCategoriesExpanderMenuItem { NewCategoryRequested: { } newCategory } =>
             new List<NSMenuItem> { Item($"{Translator.ContactsPage_NewCategory}…", WinoIconGlyph.New, newCategory, context) },

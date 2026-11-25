@@ -27,6 +27,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.HoverActions;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -137,6 +138,8 @@ public static class XamlHelpers
     public static bool IsThreadMessageHead(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead;
     public static WinoIconGlyph GetThreadChevronGlyph(bool isExpanded) => isExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
+
+    public static WinoIconGlyph GetAppSourceGlyph(AccountCapabilityMode mode) => mode == AccountCapabilityMode.Local ? WinoIconGlyph.Desktop : WinoIconGlyph.Globe;
     public static bool IsMultiple(int count) => count > 1;
     public static bool ReverseIsMultiple(int count) => count < 1;
     public static PopupPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)
@@ -190,6 +193,8 @@ public static class XamlHelpers
     // To Do
     // The star reuses the contacts favorite idiom: filled glyph when set, outline when not.
     public static WinoIconGlyph GetTaskImportanceGlyph(bool isImportant) => isImportant ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star;
+
+    public static bool IsTaskSort(TaskSortKind selectedSort, string sortKey) => ToDoPageViewModel.ParseSortKey(sortKey) == selectedSort;
 
     /// <summary>
     /// Task state never resolves a brush here. A brush taken from the application dictionary
@@ -745,6 +750,8 @@ public static class XamlHelpers
     public static string FormatAutomationName(string format, string? value)
         => string.Format(AppDisplayCulture, format, value ?? string.Empty);
 
+    public static string GetAccountAppAutomationId(WinoApplicationMode app) => $"AccountHubApp{app}";
+
     public static string GetItemActionAutomationName(string action, string? item)
         => string.IsNullOrWhiteSpace(item) ? action : string.Format(AppDisplayCulture, Translator.Accessibility_ItemAction, action, item);
 
@@ -837,6 +844,8 @@ public static class XamlHelpers
             MailOperation.DarkEditor => WinoIconGlyph.DarkEditor,
             MailOperation.LightEditor => WinoIconGlyph.LightEditor,
             MailOperation.ViewMessageSource => WinoIconGlyph.ViewMessageSource,
+            MailOperation.CreateTask => WinoIconGlyph.TaskList,
+            MailOperation.CreateEvent => WinoIconGlyph.Calendar,
             _ => WinoIconGlyph.None,
         };
     }
@@ -844,6 +853,10 @@ public static class XamlHelpers
     public static WinoIconGlyph GetPathGeometry(FolderOperation operation) => FolderOperationDisplay.GetGlyph(operation);
 
     public static WinoIconGlyph GetSpecialFolderPathIconGeometry(SpecialFolderType specialFolderType) => SpecialFolderGlyphs.GetGlyph(specialFolderType);
+
+    /// <summary>A folder row's glyph, with the shared glyphs for folders outside the personal namespace.</summary>
+    public static WinoIconGlyph GetFolderGlyph(SpecialFolderType specialFolderType, MailFolderScope scope, bool isContainer, bool isSharedOwnerNode)
+        => SpecialFolderGlyphs.GetGlyph(specialFolderType, scope, isContainer || isSharedOwnerNode);
 
 
     public static WinoIconGlyph GetProviderIcon(MailProviderType providerType, SpecialImapProvider specialImapProvider)
@@ -915,6 +928,8 @@ public static class XamlHelpers
             MailOperation.ViewMessageSource => Translator.MailOperation_ViewMessageSource,
             MailOperation.RetryDraftUpload => Translator.Draft_RetryUpload,
             MailOperation.Navigate => Translator.MailOperation_Navigate,
+            MailOperation.CreateTask => Translator.MailOperation_CreateTask,
+            MailOperation.CreateEvent => Translator.MailOperation_CreateEvent,
             _ => "unknown",
         };
     }

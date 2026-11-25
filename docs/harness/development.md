@@ -26,11 +26,7 @@ The build resolves `WinoTargetPlatform` from the host when it is not passed: `Wi
 
 ## Workspaces
 
-- Opening the repository folder in VS Code keeps the Windows workflow from `.vscode`.
-- [WinoMail.Windows.code-workspace](../../WinoMail.Windows.code-workspace) selects the Windows solution explicitly.
-- [WinoMail.MacOS.code-workspace](../../WinoMail.MacOS.code-workspace) selects the Mac solution, its default build task, and its debugger configuration.
-- [WinoMail.iOS.code-workspace](../../WinoMail.iOS.code-workspace) selects the iOS solution and its Simulator build tasks.
-- [WinoMail.Android.code-workspace](../../WinoMail.Android.code-workspace) selects the Android solution and its build and emulator tasks.
+- Open the repository folder in VS Code. `.vscode` selects `WinoMail.slnx` and holds the build tasks and launch configurations for Windows, macOS, iOS and Android; pick another platform's solution with **.NET: Open Solution**.
 
 ## Scripts
 

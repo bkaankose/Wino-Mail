@@ -12,10 +12,10 @@ using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Translations;
 using Wino.Editor;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.Rendering;
 using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
@@ -171,8 +171,8 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         EnsureSpellCheckLanguages();
     }
 
-    // Hosts may configure the languages themselves. Every other host gets the saved composer choice,
-    // so the split button menu is never empty.
+    // A host may configure the languages itself. Every other host gets the saved composer choice,
+    // so the split button menu is never left unconfigured.
     private void EnsureSpellCheckLanguages()
     {
         if (_areSpellCheckLanguagesConfigured)
@@ -180,18 +180,10 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
             return;
         }
 
-        var services = WinoApplication.Current?.Services;
-        var translationService = services?.GetService<ITranslationService>();
-        var preferencesService = services?.GetService<IPreferencesService>();
-
-        if (translationService == null || preferencesService == null)
+        if (GetPreferencesService() is { } preferencesService)
         {
-            return;
+            ConfigureSpellCheckLanguages(preferencesService.ComposerSpellCheckLanguageCode);
         }
-
-        ConfigureSpellCheckLanguages(
-            translationService.GetAvailableLanguages(),
-            preferencesService.ComposerSpellCheckLanguageCode);
     }
 
     private static IPreferencesService? GetPreferencesService()
@@ -199,6 +191,13 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        // Moving the page into a pop-out window raises Loaded for the new tree before the Unloaded of the old one
+        // arrives. Detaching then would leave the bar in the live tree without the editor's state.
+        if (IsLoaded)
+        {
+            return;
+        }
+
         DetachCommandTarget();
     }
 
@@ -353,7 +352,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     }
 
     // Capabilities carry font names as strings. Each name becomes a ComboBoxItem previewed in its own typeface;
-    // a template typed for EditorFontFamilyOption cannot cast those strings and rendered blank rows in Native AOT.
+    // a template typed for a font option class cannot cast those strings and rendered blank rows in Native AOT.
     private void ApplyFontItems(IEnumerable<string> fontNames)
     {
         FontFamilyComboBox.Items.Clear();
@@ -482,13 +481,10 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         {
             // The composer closed the editor while the command was pending.
         }
-        catch (Exception exception) when (WinoMailEditor.IsStartupFailure(exception))
+        catch (Exception exception)
         {
-            // Toolbar handlers are async void, so a WebView2 that failed to start must not escape.
-            if (target is WinoMailEditor editor)
-            {
-                editor.ReportInitializationFailure(exception);
-            }
+            // Toolbar handlers are async void, so a command the editor could not run must not escape.
+            Serilog.Log.Error(exception, "Editor command {Command} failed.", command.Kind);
         }
     }
 
@@ -574,10 +570,16 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         await ExecuteAsync(EditorCommand.SetTextColor(color.Value));
     }
 
-    public void ConfigureSpellCheckLanguages(
-        IReadOnlyList<AppLanguageModel> languages,
-        string selectedLanguageCode)
+    /// <summary>
+    /// Fills the language menu with the spell-check languages installed in Windows and checks the one the saved
+    /// choice stands for. Nothing is checked when Windows has no checker for it; the editor then uses the system language.
+    /// </summary>
+    public void ConfigureSpellCheckLanguages(string savedLanguageCode)
     {
+        var languages = EngineSpellCheckLanguages.GetInstalled(WinoApplication.Current.Services.GetRequiredService<MailEngineHost>());
+        var selectedLanguageCode = EngineSpellCheckLanguages.Resolve(savedLanguageCode, languages.Select(language => language.Code).ToArray())
+            ?? string.Empty;
+
         _selectedSpellCheckLanguageCode = selectedLanguageCode;
         _areSpellCheckLanguagesConfigured = true;
         SpellCheckLanguageFlyout.Items.Clear();

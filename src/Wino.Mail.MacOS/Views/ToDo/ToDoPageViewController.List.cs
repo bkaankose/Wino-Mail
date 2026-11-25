@@ -135,7 +135,11 @@ public sealed partial class ToDoPageViewController
         surface.AddSubview(header);
         surface.AddSubview(_scroll);
         surface.AddSubview(_emptyState);
+        _flaggedSurface = BuildFlaggedMailSurface();
+        surface.AddSubview(_flaggedSurface);
         surface.AddSubview(_quickAdd);
+        var bars = BuildBars();
+        surface.AddSubview(bars);
         NSLayoutConstraint.ActivateConstraints(
         [
             header.TopAnchor.ConstraintEqualTo(surface.TopAnchor),
@@ -144,10 +148,17 @@ public sealed partial class ToDoPageViewController
             _scroll.TopAnchor.ConstraintEqualTo(header.BottomAnchor),
             _scroll.LeadingAnchor.ConstraintEqualTo(surface.LeadingAnchor),
             _scroll.TrailingAnchor.ConstraintEqualTo(surface.TrailingAnchor),
-            _scroll.BottomAnchor.ConstraintEqualTo(_quickAdd.TopAnchor, -4),
+            _scroll.BottomAnchor.ConstraintEqualTo(bars.TopAnchor, -4),
+            bars.LeadingAnchor.ConstraintEqualTo(surface.LeadingAnchor, 20),
+            bars.TrailingAnchor.ConstraintEqualTo(surface.TrailingAnchor, -20),
+            bars.BottomAnchor.ConstraintEqualTo(_quickAdd.TopAnchor, -8),
             _emptyState.CenterXAnchor.ConstraintEqualTo(_scroll.CenterXAnchor),
             _emptyState.CenterYAnchor.ConstraintEqualTo(_scroll.CenterYAnchor),
             _emptyState.WidthAnchor.ConstraintLessThanOrEqualTo(320),
+            _flaggedSurface.TopAnchor.ConstraintEqualTo(header.BottomAnchor),
+            _flaggedSurface.LeadingAnchor.ConstraintEqualTo(surface.LeadingAnchor),
+            _flaggedSurface.TrailingAnchor.ConstraintEqualTo(surface.TrailingAnchor),
+            _flaggedSurface.BottomAnchor.ConstraintEqualTo(bars.TopAnchor, -4),
             _quickAdd.LeadingAnchor.ConstraintEqualTo(surface.LeadingAnchor, 20),
             _quickAdd.TrailingAnchor.ConstraintEqualTo(surface.TrailingAnchor, -20),
             _quickAdd.BottomAnchor.ConstraintEqualTo(surface.BottomAnchor, -20)
@@ -226,10 +237,7 @@ public sealed partial class ToDoPageViewController
     private void UpdateSortItems()
     {
         foreach (var (kind, item) in _sortItems)
-        {
             item.State = kind == ViewModel.SelectedSort ? NSCellStateValue.On : NSCellStateValue.Off;
-            if (kind == TaskSortKind.Manual) item.Hidden = !ViewModel.IsNamedListSelected;
-        }
     }
 
     private void BindList()
@@ -242,7 +250,7 @@ public sealed partial class ToDoPageViewController
         Bind(nameof(ViewModel.HasSurfaceSubtitle), static vm => vm.HasSurfaceSubtitle, value => _subtitle.Hidden = !value);
         Bind(nameof(ViewModel.CanEditSelectedList), static vm => vm.CanEditSelectedList, value => _renameButton.Hidden = !value);
         Bind(nameof(ViewModel.IsMyDaySelected), static vm => vm.IsMyDaySelected, value => _suggestionsButton.Hidden = !value);
-        Bind(nameof(ViewModel.IsNamedListSelected), static vm => vm.IsNamedListSelected, value => { _moreButton.Hidden = !value; UpdateSortItems(); });
+        Bind(nameof(ViewModel.IsNamedListSelected), static vm => vm.IsNamedListSelected, value => _moreButton.Hidden = !value);
         Bind(nameof(ViewModel.SelectedSort), static vm => vm.SelectedSort, _ => UpdateSortItems());
         Bind(nameof(ViewModel.FilterText), static vm => vm.FilterText, value => { if (_search.StringValue != (value ?? string.Empty)) _search.StringValue = value ?? string.Empty; });
         Bind(nameof(ViewModel.CompletionScopeDisplayText), static vm => vm.CompletionScopeDisplayText, value => _scopeChip.Title = value);
@@ -254,16 +262,11 @@ public sealed partial class ToDoPageViewController
             _compactImportantItem.State = value ? NSCellStateValue.On : NSCellStateValue.Off;
         });
         Bind(nameof(ViewModel.IsFiltered), static vm => vm.IsFiltered, value => { _clearChip.Enabled = value; _compactClearItem.Enabled = value; });
-        Bind(nameof(ViewModel.IsCompletedScopeAvailable), static vm => vm.IsCompletedScopeAvailable, value =>
-        {
-            _scopeCompletedItem.Hidden = !value; _scopeAllItem.Hidden = !value;
-            _compactScopeCompletedItem.Hidden = !value; _compactScopeAllItem.Hidden = !value;
-        });
         Bind(nameof(ViewModel.IsCompactLayout), static vm => vm.IsCompactLayout, value => { _expandedFilters.Hidden = value; _compactFilterChip.Hidden = !value; });
         Bind(nameof(ViewModel.IsEmpty), static vm => vm.IsEmpty, value =>
         {
             _emptyIcon.Icon = EmptyStateGlyph();
-            _emptyState.Hidden = !value || _previewGroups is not null;
+            _emptyState.Hidden = !value || _previewGroups is not null || ViewModel.IsFlaggedMailSelected;
         });
         Bind(nameof(ViewModel.EmptyStateTitle), static vm => vm.EmptyStateTitle, value =>
         {
@@ -279,6 +282,8 @@ public sealed partial class ToDoPageViewController
 
         ViewModel.TaskComposerFocusRequested += ComposerFocusRequested;
         ViewModel.TaskSelectionRestored += SelectionRestored;
+        BindFlaggedMail();
+        BindBars();
         ((INotifyCollectionChanged)ViewModel.TaskGroups).CollectionChanged += GroupsChanged;
         WinoStyle.AccentChanged += AccentChanged;
         ObserveGroups();
@@ -291,6 +296,7 @@ public sealed partial class ToDoPageViewController
         _listBound = false;
         ViewModel.TaskComposerFocusRequested -= ComposerFocusRequested;
         ViewModel.TaskSelectionRestored -= SelectionRestored;
+        ReleaseFlaggedMail();
         ((INotifyCollectionChanged)ViewModel.TaskGroups).CollectionChanged -= GroupsChanged;
         WinoStyle.AccentChanged -= AccentChanged;
         foreach (var group in _observedGroups) { group.CollectionChanged -= GroupChanged; ((INotifyPropertyChanged)group).PropertyChanged -= GroupPropertyChanged; }
@@ -529,6 +535,14 @@ public sealed partial class ToDoPageViewController
     {
         var menu = new NSMenu { AutoEnablesItems = false };
         menu.AddItem(MenuItem(Translator.ToDoPage_RenameList, () => Observe(ViewModel.RenameSelectedListCommand.ExecuteAsync(null)), WinoIconGlyph.Rename, enabled: ViewModel.CanEditSelectedList));
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        menu.AddItem(MenuItem(Translator.ToDoPage_CopyListTo, () => Observe(ViewModel.CopySelectedListCommand.ExecuteAsync(null)), WinoIconGlyph.Copy));
+        var export = new NSMenu { AutoEnablesItems = false };
+        export.AddItem(MenuItem(Translator.ToDoPage_ExportIcs, () => Observe(ViewModel.ExportTasksCommand.ExecuteAsync("ics"))));
+        export.AddItem(MenuItem(Translator.ToDoPage_ExportCsv, () => Observe(ViewModel.ExportTasksCommand.ExecuteAsync("csv"))));
+        var exportItem = new NSMenuItem(Translator.ToDoPage_ExportTasks) { Submenu = export, Image = WinoIcons.Image(WinoIconGlyph.ArrowUpload, 14) };
+        menu.AddItem(exportItem);
+        menu.AddItem(MenuItem(Translator.ToDoPage_ImportTasks, () => Observe(ViewModel.ImportTasksCommand.ExecuteAsync(null)), WinoIconGlyph.ArrowDownload));
         menu.AddItem(NSMenuItem.SeparatorItem);
         menu.AddItem(MenuItem(Translator.ToDoPage_PrintList, () => ViewModel.PrintListCommand.Execute(null), WinoIconGlyph.Print));
         menu.AddItem(MenuItem(Translator.ToDoPage_EmailList, () => ViewModel.EmailListCommand.Execute(null), WinoIconGlyph.Mail));

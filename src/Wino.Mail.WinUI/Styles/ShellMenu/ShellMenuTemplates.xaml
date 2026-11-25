@@ -58,11 +58,16 @@
             Height="50"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
+            AllowDrop="True"
             AutomationProperties.AutomationId="ShellAccountSelector"
             AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
             BindingData="{x:Bind}"
             ContextRequested="AccountContextRequested"
             DataContext="{x:Bind}"
+            DragEnter="ItemDragOverAccount"
+            DragLeave="ItemDragLeaveFromFolder"
+            DragOver="ItemDragOverAccount"
+            Drop="ItemDroppedOnAccount"
             IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
             IsEnabled="{x:Bind IsNavigationEnabled, Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
@@ -136,11 +141,16 @@
             Height="40"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
+            AllowDrop="True"
             AutomationProperties.AutomationId="ShellAccountSelector"
             AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
             BindingData="{x:Bind}"
             ContextRequested="AccountContextRequested"
             DataContext="{x:Bind}"
+            DragEnter="ItemDragOverAccount"
+            DragLeave="ItemDragLeaveFromFolder"
+            DragOver="ItemDragOverAccount"
+            Drop="ItemDroppedOnAccount"
             IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
             IsEnabled="{x:Bind IsNavigationEnabled, Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
@@ -272,13 +282,13 @@
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
             MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
-            SelectsOnInvoked="{x:Bind IsMoveTarget, Mode=OneWay}"
+            SelectsOnInvoked="{x:Bind IsSelectable, Mode=OneWay}"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
             <animations:Implicit.Animations>
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind winuiHelpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind winuiHelpers:XamlHelpers.GetFolderGlyph(Parameter.SpecialFolderType, Parameter.Scope, Parameter.IsContainer, Parameter.IsSharedOwnerNode)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -1035,6 +1045,28 @@
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
                     AutomationProperties.AutomationId="ToDoImportantViewCount"
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                    Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Value="{x:Bind Count, Mode=OneWay}" />
+            </muxc:NavigationViewItem.InfoBadge>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <DataTemplate x:Key="FlaggedMailTaskTemplate" x:DataType="menuitems:FlaggedMailTaskMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="38"
+            AutomationProperties.AutomationId="ToDoFlaggedMailView"
+            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_FlaggedMail, Mode=OneTime}"
+            Content="{x:Bind domain:Translator.ToDoPage_FlaggedMail, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="True">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Flag" />
+            </muxc:NavigationViewItem.Icon>
+            <muxc:NavigationViewItem.InfoBadge>
+                <muxc:InfoBadge
+                    AutomationProperties.AutomationId="ToDoFlaggedMailViewCount"
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                     Visibility="{x:Bind winuiHelpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"

@@ -51,6 +51,9 @@ public sealed class GmailProviderModule(
         SupportsProfileInfoSync = true,
         StoresMessageInSeveralFolders = true,
         UsesQuotaWindowForTasksAndContacts = true,
+        AppliesMailSynchronizationRange = true,
+        SupportsMailSynchronizationRangeChange = true,
+        TracksMailChangesPerAccount = true,
         LiveCoverage = LiveCoverageKind.RelayMailbox
     };
 

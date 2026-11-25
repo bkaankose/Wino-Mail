@@ -8,7 +8,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using CommunityToolkit.WinUI;
 using Itenso.TimePeriod;
-using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
@@ -33,7 +32,7 @@ namespace Wino.Mail.WinUI.Controls.Calendar;
 /// timed views, week rows for the month view, see <see cref="CalendarRailSpace"/>). Only the
 /// units around the viewport are realized; see CalendarPeriodControl.Rail.cs.
 /// </summary>
-public sealed partial class CalendarPeriodControl : UserControl, INotifyPropertyChanged
+public sealed partial class CalendarPeriodControl : UserControl, INotifyPropertyChanged, IDisposable
 {
     private static readonly TimeSpan SizeRefreshDebounceInterval = TimeSpan.FromMilliseconds(75);
     private const double SizeChangeThreshold = 0.5d;
@@ -57,6 +56,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private DayOfWeek _lastFirstDayOfWeek = DayOfWeek.Monday;
     private readonly DispatcherQueueTimer _sizeRefreshTimer;
     private readonly DispatcherQueueTimer _wheelSettleTimer;
+    private readonly DispatcherQueueTimer _monthTapTimer;
+    private CalendarEmptySlotTappedEventArgs? _pendingMonthTap;
+    private UIElement? _pressWatchRoot;
+    private PointerEventHandler? _outsidePressHandler;
+    private VisibleDateRange? _shownRange;
 
     [GeneratedDependencyProperty]
     public partial VisibleDateRange? VisibleRange { get; set; }
@@ -101,6 +105,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         AddHandler(PointerReleasedEvent, new PointerEventHandler(ControlPointerReleased), true);
         AddHandler(PointerCanceledEvent, new PointerEventHandler(ControlPointerCanceled), true);
         AddHandler(PointerCaptureLostEvent, new PointerEventHandler(ControlPointerCaptureLost), true);
+        AddHandler(PointerExitedEvent, new PointerEventHandler(ControlPointerExited), true);
 
         _sizeRefreshTimer = DispatcherQueue.CreateTimer();
         _sizeRefreshTimer.Interval = SizeRefreshDebounceInterval;
@@ -112,7 +117,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         _wheelSettleTimer.IsRepeating = false;
         _wheelSettleTimer.Tick += WheelSettleTimerTick;
 
-        StartCurrentTimeTimer();
+        _monthTapTimer = DispatcherQueue.CreateTimer();
+        _monthTapTimer.IsRepeating = false;
+        _monthTapTimer.Tick += MonthTapTimerTick;
+
+        Loaded += ControlLoaded;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -134,6 +143,16 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     /// Raised when the user asks for today with the keyboard (Home).
     /// </summary>
     public event EventHandler? TodayRequested;
+
+    /// <summary>
+    /// Raised when a month day is double-clicked; its anchor is that day.
+    /// </summary>
+    public event EventHandler<CalendarPeriodEventArgs>? MonthDayDoubleTapped;
+
+    /// <summary>
+    /// Raised when an empty hour slot, day header, all-day strip day or month day is right-clicked.
+    /// </summary>
+    public event EventHandler<CalendarEmptyAreaContextRequestedEventArgs>? EmptyAreaContextRequested;
 
     private ObservableCollection<HeaderTextLayout> MonthHeaderTextsCollection { get; } = [];
 
@@ -161,6 +180,18 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     partial void OnVisibleRangeChanged(VisibleDateRange? newValue)
     {
+        // The view model publishes a new range object on every load, also for the period already shown
+        // (a settle, a sync, a settings change). Only a different period drops a click waiting to open
+        // the quick event popup; otherwise a click right after a load opened nothing.
+        if (newValue is null || _shownRange is null ||
+            newValue.DisplayType != _shownRange.DisplayType ||
+            newValue.StartDate != _shownRange.StartDate ||
+            newValue.EndDate != _shownRange.EndDate)
+        {
+            CancelPendingMonthTap();
+        }
+
+        _shownRange = newValue;
         CancelRangeSelection();
         _rangeRefreshPending = true;
         QueueRefresh();
@@ -412,6 +443,37 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         });
     }
 
+    /// <summary>A bar shows the whole event, so its title carries the start and end times.</summary>
+    private void PrepareSpanDisplayMetadata(CalendarItemViewModel item)
+    {
+        if (CalendarSettings is null || item is not ICalendarItemViewModel calendarItemViewModel)
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            calendarItemViewModel.DisplayingPeriod = new TimeRange(item.StartDate, item.EndDate);
+            calendarItemViewModel.CalendarSettings = CalendarSettings;
+        });
+    }
+
+    // The calendar page is cached for the life of the shell, so leaving the tree only pauses the
+    // control. Dispose releases it when the shell goes away.
+    private void ControlLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_areCanvasesReleased)
+        {
+            return;
+        }
+
+        DetachCurrentItemsSource();
+        AttachItemsSource(CalendarItems);
+        StartCurrentTimeTimer();
+        MarkAllUnitsDirty();
+        RequestRefresh();
+    }
+
     private void ControlUnloaded(object sender, RoutedEventArgs e)
     {
         CancelRangeSelection();
@@ -420,21 +482,26 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         StopWheelScrolling();
         DetachCurrentItemsSource();
         _sizeRefreshTimer.Stop();
+        CancelPendingMonthTap();
+        StopCurrentTimeTimer();
+    }
+
+    public void Dispose()
+    {
+        if (_areCanvasesReleased)
+        {
+            return;
+        }
+
+        Loaded -= ControlLoaded;
+        ControlUnloaded(this, new RoutedEventArgs());
         _sizeRefreshTimer.Tick -= SizeRefreshTimerTick;
         _wheelSettleTimer.Tick -= WheelSettleTimerTick;
-        StopCurrentTimeTimer();
+        _monthTapTimer.Tick -= MonthTapTimerTick;
         ReleaseCanvases();
         ReleaseRail();
     }
 
-    /// <summary>
-    /// A Win2D canvas holds its Draw handler and its parent with references the garbage
-    /// collector cannot see through. Left alone, canvas, handler and this control keep each
-    /// other alive, and with them the calendar page and every event it shows. The handlers are
-    /// removed by hand, the canvases take themselves out of the tree, and in XAML each canvas
-    /// has a parent of its own so that nothing else hangs off the reference it keeps. The page
-    /// is not cached, so leaving the tree is final.
-    /// </summary>
     private void ReleaseCanvases()
     {
         if (_areCanvasesReleased)
@@ -444,15 +511,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
         _areCanvasesReleased = true;
 
-        TimedHeaderCanvas.Draw -= TimedHeaderCanvasDraw;
-        TimedAllDayCanvas.Draw -= TimedAllDayCanvasDraw;
-        TimedStructureCanvas.Draw -= TimedStructureCanvasDraw;
-        MonthStructureCanvas.Draw -= MonthStructureCanvasDraw;
-
-        TimedHeaderCanvas.RemoveFromVisualTree();
-        TimedAllDayCanvas.RemoveFromVisualTree();
-        TimedStructureCanvas.RemoveFromVisualTree();
-        MonthStructureCanvas.RemoveFromVisualTree();
+        TimedHeaderCanvas.Dispose();
+        TimedAllDayCanvas.Dispose();
+        TimedStructureCanvas.Dispose();
+        MonthStructureCanvas.Dispose();
     }
 
     [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
@@ -479,7 +541,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         QueueRefresh();
     }
 
-    private void TimedHeaderCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
+    private void TimedHeaderCanvasDraw(CompositionCanvas sender, CompositionCanvasDrawEventArgs args)
     {
         MarkCanvasDrawn(ref _timedHeaderCanvasStart, TimedHeaderCanvasHost);
 
@@ -504,7 +566,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         drawingSession.DrawLine(0, height - 1, (float)sender.ActualWidth, height - 1, borderColor);
     }
 
-    private void TimedAllDayCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
+    private void TimedAllDayCanvasDraw(CompositionCanvas sender, CompositionCanvasDrawEventArgs args)
     {
         MarkCanvasDrawn(ref _timedAllDayCanvasStart, TimedAllDayCanvasHost);
 
@@ -536,7 +598,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         drawingSession.DrawLine(0, height - 1, (float)sender.ActualWidth, height - 1, borderColor);
     }
 
-    private void TimedStructureCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
+    private void TimedStructureCanvasDraw(CompositionCanvas sender, CompositionCanvasDrawEventArgs args)
     {
         MarkCanvasDrawn(ref _timedStructureCanvasStart, TimedStructureCanvasHost);
 
@@ -616,7 +678,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         }
     }
 
-    private void MonthStructureCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
+    private void MonthStructureCanvasDraw(CompositionCanvas sender, CompositionCanvasDrawEventArgs args)
     {
         MarkCanvasDrawn(ref _monthStructureCanvasStart, MonthStructureCanvasHost);
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Calendar;
@@ -28,4 +29,7 @@ public class CalendarEventComposeResult
     public List<CalendarEventComposeAttachmentDraft> Attachments { get; set; } = [];
     public string Recurrence { get; set; } = string.Empty;
     public string RecurrenceSummary { get; set; } = string.Empty;
+
+    /// <summary>Links from the item the event was created from. They are stored once the server confirms the event.</summary>
+    public List<ItemLink> PendingLinks { get; set; } = [];
 }

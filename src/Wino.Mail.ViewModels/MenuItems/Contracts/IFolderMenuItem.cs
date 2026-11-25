@@ -39,6 +39,7 @@ public interface IBaseFolderMenuItem : IMenuItem
     IEnumerable<IMailItemFolder> HandlingFolders { get; }
     ObservableCollection<IMenuItem> SubMenuItems { get; }
     bool IsMoveTarget { get; }
+    bool IsSelectable { get; }
     bool IsSticky { get; }
     bool IsSystemFolder { get; }
     bool ShowUnreadCount { get; }

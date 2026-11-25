@@ -167,8 +167,19 @@ public partial class AccountSetupPageViewModel
         CancelOperation();
         await DiscardSignInAsync();
 
+        // Discovery already found no servers for this address, so the generic choices go straight to manual setup.
+        if (Phase == AccountSetupPhase.NotFound && IsManualServerChoice(choice))
+        {
+            _forcedChoice = choice;
+            await OpenAdvancedSetupAsync();
+            return;
+        }
+
         await ResolveAsync(address, choice);
     }
+
+    private static bool IsManualServerChoice(AccountSetupProviderChoice? choice)
+        => choice?.Kind is AccountSetupProviderChoiceKind.Imap or AccountSetupProviderChoiceKind.Pop3;
 
     public List<AccountSetupProviderShelfItem> ProviderShelfItems { get; private set; } = [];
 

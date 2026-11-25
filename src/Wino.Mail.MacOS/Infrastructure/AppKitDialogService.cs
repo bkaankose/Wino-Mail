@@ -285,7 +285,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         var picked = await PickAsync(Translator.MoveMailDialog_Title, null, availableFolders,
             folder => folder.ChildFolders ?? (IEnumerable<IMailItemFolder>)Array.Empty<IMailItemFolder>(),
             folder => folder.ResolvedDisplayName ?? string.Empty,
-            folder => WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 14),
+            folder => WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder), 14),
             folder => WinoStyle.FromHexString(folder.TextColorHex),
             folder => folder.IsMoveTarget,
             Translator.MailOperation_Move,
@@ -592,7 +592,8 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         [
             KeyboardShortcutAction.NewMail, KeyboardShortcutAction.ToggleReadUnread, KeyboardShortcutAction.ToggleFlag,
             KeyboardShortcutAction.ToggleArchive, KeyboardShortcutAction.Delete, KeyboardShortcutAction.Move,
-            KeyboardShortcutAction.Reply, KeyboardShortcutAction.ReplyAll, KeyboardShortcutAction.Forward, KeyboardShortcutAction.Send
+            KeyboardShortcutAction.Reply, KeyboardShortcutAction.ReplyAll, KeyboardShortcutAction.Forward, KeyboardShortcutAction.Send,
+            KeyboardShortcutAction.CreateTaskFromMail
         ],
         WinoApplicationMode.Calendar => [KeyboardShortcutAction.NewEvent, KeyboardShortcutAction.Delete],
         _ => Enum.GetValues<KeyboardShortcutAction>().Where(action => action != KeyboardShortcutAction.None).ToArray()

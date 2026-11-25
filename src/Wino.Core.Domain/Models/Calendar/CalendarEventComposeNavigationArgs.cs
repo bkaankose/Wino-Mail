@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Calendar;
@@ -23,6 +24,9 @@ public class CalendarEventComposeNavigationArgs
     /// <summary>Transferred quick-event input remains unsaved until explicit creation or discard.</summary>
     public bool HasPendingInput { get; set; }
     public Guid? EditCalendarItemId { get; set; }
+
+    /// <summary>Links to the mail or task the event is created from, stored once the server confirms the event.</summary>
+    public List<ItemLink> PendingLinks { get; set; } = [];
 }
 
 public sealed record CalendarEventAttendeeDraft(string Name, string Email);

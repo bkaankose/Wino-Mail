@@ -640,7 +640,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
     internal void BeginTileDrag(TileHostView host, WinoCalendarItemView tile, CGPoint downPoint, UIGestureRecognizer recognizer)
     {
         EndTileDrag(commit: false);
-        if (tile.Item is not ICalendarItem item || tile.Kind == CalendarPlacementKind.MultiDayGhost) return;
+        if (tile.Item is not ICalendarItem item) return;
         if (CanDragItem?.Invoke(item) == false)
         {
             ItemDragRefused?.Invoke(this, new CalendarItemClickedEventArgs(item, tile, recognizer));
@@ -902,8 +902,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
                 view.Frame = placement.Bounds;
                 view.AllowsResize = Owner.AllowsResize(placement.Item, placement.Kind);
                 // Reused tiles keep their old stacking; cascaded tiles must stack in placement order.
-                if (placement.Kind == CalendarPlacementKind.MultiDayGhost) SendSubviewToBack(view);
-                else BringSubviewToFront(view);
+                BringSubviewToFront(view);
             }
             foreach (var key in _active.Keys.Where(k => !seen.Contains(k)).ToList())
             {
@@ -944,7 +943,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
 
         /// <summary>The tile currently showing <paramref name="item"/>, if any.</summary>
         internal WinoCalendarItemView? FindTile(ICalendarItem item)
-            => _active.FirstOrDefault(pair => ReferenceEquals(pair.Key.Item, item) && pair.Value.Kind != CalendarPlacementKind.MultiDayGhost).Value;
+            => _active.FirstOrDefault(pair => ReferenceEquals(pair.Key.Item, item)).Value;
 
         /// <summary>Where a dragged tile lands for a point in host coordinates; null to keep the last target.</summary>
         internal virtual WinoCalendarDragTarget? ResolveDrag(DragSession session, CGPoint point) => null;
@@ -966,7 +965,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         }
 
         private WinoCalendarItemView? TileAt(CGPoint point)
-            => HitTest(point, null) is WinoCalendarItemView { Kind: not CalendarPlacementKind.MultiDayGhost, Hidden: false } tile ? tile : null;
+            => HitTest(point, null) is WinoCalendarItemView { Hidden: false } tile ? tile : null;
 
         private void Tapped(UITapGestureRecognizer recognizer)
         {

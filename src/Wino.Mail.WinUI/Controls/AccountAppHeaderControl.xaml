@@ -1,0 +1,166 @@
+﻿<UserControl
+    x:Class="Wino.Mail.WinUI.Controls.AccountAppHeaderControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountSettings="using:Wino.Mail.ViewModels.AccountSettings"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    mc:Ignorable="d">
+
+    <!--
+        The first two blocks of every app page of an account: the switch, then "Syncs with" with the
+        source and, for CalDAV or CardDAV, the server. The app's own settings follow on the page.
+    -->
+    <StackPanel Spacing="4">
+        <InfoBar
+            AutomationProperties.AutomationId="AccountAppSignInInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.NeedsSignIn, Mode=OneWay}"
+            Message="{x:Bind winuiHelpers:XamlHelpers.FormatAutomationName(domain:Translator.AccountApps_SignInNeededMessage, ViewModel.AppItem.Title), Mode=OneWay}"
+            Severity="Warning">
+            <InfoBar.ActionButton>
+                <Button
+                    AutomationProperties.AutomationId="AccountAppSignInButton"
+                    Command="{x:Bind ViewModel.SignInAgainCommand, Mode=OneWay}"
+                    Content="{x:Bind domain:Translator.AccountApps_SignIn, Mode=OneTime}" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AccountAppSwitchCard"
+            Description="{x:Bind ViewModel.AppItem.UseDescription, Mode=OneWay}"
+            Header="{x:Bind ViewModel.AppItem.UseTitle, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind ViewModel.AppItem.Icon, Mode=OneWay}" />
+            </controls:SettingsCard.HeaderIcon>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <ProgressRing
+                    Width="16"
+                    Height="16"
+                    AutomationProperties.Name="{x:Bind domain:Translator.ExchangeSetup_Checking, Mode=OneTime}"
+                    IsActive="{x:Bind ViewModel.AppItem.IsBusy, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.AppItem.IsBusy, Mode=OneWay}" />
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="AccountAppSwitch"
+                    AutomationProperties.HelpText="{x:Bind ViewModel.AppItem.ToggleHint, Mode=OneWay}"
+                    AutomationProperties.Name="{x:Bind ViewModel.AppItem.UseTitle, Mode=OneWay}"
+                    IsEnabled="{x:Bind ViewModel.AppItem.CanToggle, Mode=OneWay}"
+                    IsOn="{x:Bind ViewModel.AppItem.IsOn, Mode=TwoWay}" />
+            </StackPanel>
+        </controls:SettingsCard>
+
+        <TextBlock
+            Margin="2,0,2,4"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Style="{StaticResource CaptionTextBlockStyle}"
+            Text="{x:Bind ViewModel.AppItem.ToggleHint, Mode=OneWay}"
+            TextWrapping="WrapWholeWords"
+            Visibility="{x:Bind ViewModel.AppItem.IsLastApp, Mode=OneWay}" />
+
+        <TextBlock
+            Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+            Text="{x:Bind domain:Translator.AccountApps_SyncsWith, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.IsOn, Mode=OneWay}" />
+
+        <ItemsView
+            x:Name="SourceChoiceView"
+            HorizontalContentAlignment="Stretch"
+            AutomationProperties.AutomationId="AccountAppSourceChoice"
+            AutomationProperties.Name="{x:Bind domain:Translator.AccountApps_SyncsWith, Mode=OneTime}"
+            IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsChangingSource), Mode=OneWay}"
+            ItemsSource="{x:Bind ViewModel.SourceOptions, Mode=OneWay}"
+            SelectionChanged="SourceChoiceSelectionChanged"
+            SelectionMode="Single"
+            Visibility="{x:Bind ViewModel.IsSourceChoiceVisible, Mode=OneWay}">
+            <ItemsView.Layout>
+                <UniformGridLayout
+                    ItemsStretch="Fill"
+                    MaximumRowsOrColumns="2"
+                    MinColumnSpacing="4"
+                    MinRowSpacing="4"
+                    Orientation="Horizontal" />
+            </ItemsView.Layout>
+            <ItemsView.ItemTemplate>
+                <DataTemplate x:DataType="accountSettings:AccountAppSourceOption">
+                    <ItemContainer
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.HelpText="{x:Bind Description}"
+                        AutomationProperties.Name="{x:Bind Title}">
+                        <Grid
+                            MinHeight="72"
+                            Padding="16,12"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            ColumnSpacing="16"
+                            CornerRadius="{ThemeResource ControlCornerRadius}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <coreControls:WinoFontIcon
+                                VerticalAlignment="Center"
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="24"
+                                Icon="{x:Bind winuiHelpers:XamlHelpers.GetAppSourceGlyph(Mode)}" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Text="{x:Bind Title}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind Description}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Grid>
+                    </ItemContainer>
+                </DataTemplate>
+            </ItemsView.ItemTemplate>
+        </ItemsView>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AccountAppSourceCard"
+            Description="{x:Bind ViewModel.SourceDescription, Mode=OneWay}"
+            Header="{x:Bind ViewModel.SourceText, Mode=OneWay}"
+            Visibility="{x:Bind ViewModel.IsSourceTextVisible, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Sync" />
+            </controls:SettingsCard.HeaderIcon>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AccountAppServerCard"
+            Description="{x:Bind ViewModel.ServerRowDescription, Mode=OneWay}"
+            Header="{x:Bind ViewModel.ServerRowTitle, Mode=OneWay}"
+            Visibility="{x:Bind ViewModel.IsServerRowVisible, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="GlobeDesktop" />
+            </controls:SettingsCard.HeaderIcon>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="AccountAppServerStatus"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind ViewModel.ServerStatusText, Mode=OneWay}" />
+                <Button
+                    AutomationProperties.AutomationId="AccountAppServerButton"
+                    Command="{x:Bind ViewModel.OpenServerSettingsCommand, Mode=OneWay}"
+                    Content="{x:Bind ViewModel.ServerActionText, Mode=OneWay}" />
+            </StackPanel>
+        </controls:SettingsCard>
+
+        <TextBlock
+            Margin="2,8,2,0"
+            AutomationProperties.AutomationId="AccountAppOffNote"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="{x:Bind ViewModel.OffNote, Mode=OneWay}"
+            TextWrapping="WrapWholeWords"
+            Visibility="{x:Bind ViewModel.IsOff, Mode=OneWay}" />
+    </StackPanel>
+</UserControl>

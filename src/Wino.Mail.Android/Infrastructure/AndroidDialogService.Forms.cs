@@ -143,7 +143,10 @@ public sealed partial class AndroidDialogService
     {
         try
         {
-            var folders = await folderService.GetFoldersAsync(accountId) ?? [];
+            // Special-folder roles belong to the account's own folders only.
+            var folders = (await folderService.GetFoldersAsync(accountId) ?? [])
+                .Where(folder => folder.Scope == MailFolderScope.Personal && !folder.IsContainer)
+                .ToList();
             var configuration = await FormAsync<SystemFolderConfiguration?>(activity => SystemFolderForm(activity, folders), null);
             if (configuration is null) return;
 
@@ -213,12 +216,14 @@ public sealed partial class AndroidDialogService
                 accountLine, Translator.Buttons_Save);
             var name = form.AddTextField(Translator.SignatureEditorDialog_SignatureName_TitleNew, signatureModel?.Name);
             var editor = form.Add(new WinoHtmlTextEditor(activity, Translator.SignatureEditorDialog_Title, Resource.Dimension.wino_editor_compact_min_height));
-            editor.Html = signatureModel?.HtmlBody ?? string.Empty;
+            _ = ShowSignatureAsync(editor, signatureModel?.HtmlBody);
             form.CanConfirm = () => !string.IsNullOrWhiteSpace(name.Text);
-            form.Primary = () =>
+            form.Primary = async () =>
             {
-                form.Finish(((name.Text ?? string.Empty).Trim(), editor.Html));
-                return Task.CompletedTask;
+                // The dialog stays open until the editor has handed over its content; an editor that never showed the
+                // signature would replace the saved one with nothing.
+                if (await editor.GetHtmlAsync() is not { } html) return;
+                form.Finish(((name.Text ?? string.Empty).Trim(), html));
             };
             return form;
         }, null);
@@ -226,6 +231,13 @@ public sealed partial class AndroidDialogService
         if (signatureModel is null)
             return new AccountSignature { Id = Guid.NewGuid(), Name = result.Name, HtmlBody = result.Html };
         return new AccountSignature { Id = signatureModel.Id, Name = result.Name, MailAccountId = signatureModel.MailAccountId, HtmlBody = result.Html };
+    }
+
+    private static async Task ShowSignatureAsync(WinoHtmlTextEditor editor, string? html)
+    {
+        try { await editor.SetHtmlAsync(html); }
+        catch (ObjectDisposedException) { }
+        catch (Exception exception) { Serilog.Log.Error(exception, "The signature editor failed to load the signature."); }
     }
 
     /// <summary>"Account name · address" under the signature title, when the signature's account is known.</summary>

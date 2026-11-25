@@ -1,0 +1,167 @@
+﻿<viewsAbstract:AccountCalendarSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Account.AccountCalendarSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:calendar="using:Wino.Core.Domain.Entities.Calendar"
+    xmlns:calendarViewModels="using:Wino.Mail.ViewModels.Calendar"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mailViewModels="using:Wino.Mail.ViewModels"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="4">
+        <coreControls:AccountAppHeaderControl ViewModel="{x:Bind ViewModel}" />
+
+        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsOn, Mode=OneWay}">
+            <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.AccountApps_CalendarsHeader, Mode=OneTime}" />
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountCalendarPrimaryCard"
+                Description="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendarDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendar, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.HasCalendars, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Star" />
+                </controls:SettingsCard.HeaderIcon>
+                <ComboBox
+                    MinWidth="200"
+                    AutomationProperties.AutomationId="AccountCalendarPrimaryComboBox"
+                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendar, Mode=OneTime}"
+                    ItemsSource="{x:Bind ViewModel.AccountCalendars, Mode=OneWay}"
+                    SelectedItem="{x:Bind ViewModel.SelectedPrimaryCalendar, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="calendar:AccountCalendar">
+                            <TextBlock Text="{x:Bind Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </controls:SettingsCard>
+
+            <TextBlock
+                Margin="2,4"
+                AutomationProperties.AutomationId="AccountCalendarEmptyText"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind domain:Translator.AccountApps_NoCalendars, Mode=OneTime}"
+                Visibility="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasCalendars), Mode=OneWay}" />
+
+            <!--  Each calendar: the sync switch in the header, the rest inside.  -->
+            <ItemsControl AutomationProperties.AutomationId="AccountCalendarList" ItemsSource="{x:Bind ViewModel.CalendarItems, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="mailViewModels:AccountCalendarSettingsItemViewModel">
+                        <controls:SettingsExpander
+                            Margin="0,0,0,4"
+                            AutomationProperties.AutomationId="AccountCalendarExpander"
+                            AutomationProperties.Name="{x:Bind Name}"
+                            Description="{x:Bind TimeZone, Mode=OneWay}"
+                            Header="{x:Bind Name, Mode=OneWay}"
+                            IsExpanded="False">
+                            <controls:SettingsExpander.HeaderIcon>
+                                <coreControls:WinoFontIcon
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    Foreground="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                    Icon="Calendar" />
+                            </controls:SettingsExpander.HeaderIcon>
+                            <ToggleSwitch
+                                MinWidth="0"
+                                AutomationProperties.AutomationId="AccountCalendarSyncToggle"
+                                AutomationProperties.Name="{x:Bind winuiHelpers:XamlHelpers.FormatAutomationName(domain:Translator.AccountApps_SyncCalendarName, Name)}"
+                                IsOn="{x:Bind IsSynchronizationEnabled, Mode=OneWay}"
+                                OffContent="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}"
+                                OnContent="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}"
+                                Tag="{x:Bind}"
+                                Toggled="CalendarSynchronizationToggled"
+                                Visibility="{x:Bind IsSynchronizationConfigurable}" />
+                            <controls:SettingsExpander.Items>
+                                <controls:SettingsCard
+                                    AutomationProperties.AutomationId="AccountCalendarColorCard"
+                                    Description="{x:Bind domain:Translator.AccountApps_CalendarColorDescription, Mode=OneTime}"
+                                    Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
+                                    <controls:SettingsCard.HeaderIcon>
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Color" />
+                                    </controls:SettingsCard.HeaderIcon>
+                                    <Button
+                                        MinWidth="40"
+                                        MinHeight="40"
+                                        Padding="4"
+                                        AutomationProperties.AutomationId="AccountCalendarColorButton"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}"
+                                        Tag="{x:Bind}">
+                                        <Button.Flyout>
+                                            <Flyout Placement="BottomEdgeAlignedLeft">
+                                                <GridView
+                                                    Width="220"
+                                                    AutomationProperties.AutomationId="AccountCalendarColorGridView"
+                                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}"
+                                                    IsItemClickEnabled="True"
+                                                    ItemClick="CalendarColorItemClick"
+                                                    ItemTemplate="{StaticResource AccountColorTemplate}"
+                                                    ItemsSource="{x:Bind AvailableColors, Mode=OneWay}"
+                                                    SelectedItem="{x:Bind SelectedColor, Mode=TwoWay}"
+                                                    SelectionMode="Single"
+                                                    Tag="{x:Bind}" />
+                                            </Flyout>
+                                        </Button.Flyout>
+                                        <Border
+                                            Width="24"
+                                            Height="24"
+                                            Background="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                            CornerRadius="4" />
+                                    </Button>
+                                </controls:SettingsCard>
+
+                                <controls:SettingsCard
+                                    AutomationProperties.AutomationId="AccountCalendarShowAsCard"
+                                    Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}"
+                                    Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
+                                    <controls:SettingsCard.HeaderIcon>
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Calendar" />
+                                    </controls:SettingsCard.HeaderIcon>
+                                    <ComboBox
+                                        AutomationProperties.AutomationId="AccountCalendarShowAsComboBox"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}"
+                                        ItemsSource="{x:Bind ShowAsOptions, Mode=OneWay}"
+                                        SelectedItem="{x:Bind SelectedShowAsOption, Mode=OneWay}"
+                                        SelectionChanged="CalendarShowAsSelectionChanged"
+                                        Tag="{x:Bind}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="mailViewModels:AccountCalendarShowAsOption">
+                                                <TextBlock Text="{x:Bind DisplayText}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </controls:SettingsCard>
+
+                                <controls:SettingsCard
+                                    AutomationProperties.AutomationId="AccountCalendarDefaultReminderCard"
+                                    Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminderDescription, Mode=OneTime}"
+                                    Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminder, Mode=OneTime}">
+                                    <controls:SettingsCard.HeaderIcon>
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Reminder" />
+                                    </controls:SettingsCard.HeaderIcon>
+                                    <ComboBox
+                                        AutomationProperties.AutomationId="AccountCalendarDefaultReminderComboBox"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarAccountSettings_DefaultReminder, Mode=OneTime}"
+                                        ItemsSource="{x:Bind DefaultReminderOptions, Mode=OneTime}"
+                                        SelectedItem="{x:Bind SelectedDefaultReminderOption, Mode=OneWay}"
+                                        SelectionChanged="CalendarDefaultReminderSelectionChanged"
+                                        Tag="{x:Bind}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="calendarViewModels:CalendarDefaultReminderOption">
+                                                <TextBlock Text="{x:Bind DisplayText}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </controls:SettingsCard>
+                            </controls:SettingsExpander.Items>
+                        </controls:SettingsExpander>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </StackPanel>
+</viewsAbstract:AccountCalendarSettingsPageAbstract>

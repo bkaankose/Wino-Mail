@@ -49,13 +49,16 @@ public sealed partial class AppKitDialogService
         });
 
     /// <summary>Windows TaskListPickerDialog: "List — Account · address", the default list preselected.</summary>
-    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(IReadOnlyList<AccountTaskList> taskLists, IReadOnlyList<MailAccount> accounts)
+    public Task<AccountTaskList?> ShowTaskListPickerDialogAsync(IReadOnlyList<AccountTaskList> taskLists, IReadOnlyList<MailAccount> accounts)
+        => ShowTaskListPickerDialogAsync(taskLists, accounts, null);
+
+    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(IReadOnlyList<AccountTaskList> taskLists, IReadOnlyList<MailAccount> accounts, string? title)
     {
         var items = (taskLists ?? [])
             .Select(list => new TaskListPickerNode(list, (accounts ?? []).FirstOrDefault(account => account.Id == list.MailAccountId)))
             .ToList();
         var initial = items.FirstOrDefault(item => item.List.IsDefault && !item.List.IsReadOnly) ?? items.FirstOrDefault(item => !item.List.IsReadOnly);
-        var picked = await PickSheetAsync(Translator.ToDoSettings_ListPicker_Title, null, items,
+        var picked = await PickSheetAsync(string.IsNullOrWhiteSpace(title) ? Translator.ToDoSettings_ListPicker_Title : title, null, items,
             _ => Array.Empty<TaskListPickerNode>(),
             item => item.Text,
             _ => WinoIcons.Image(WinoIconGlyph.TaskList, 14),

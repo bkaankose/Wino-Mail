@@ -35,6 +35,15 @@ public interface IMailShellClient : IShellMenuProvider
     /// </summary>
     Task MarkAccountInboxesAsReadAsync(IAccountMenuItem accountMenuItem);
     Task PerformMoveOperationAsync(IEnumerable<MailCopy> items, IBaseFolderMenuItem targetFolderMenuItem);
+
+    /// <summary>The dragged mails a drop on the folder moves (<see cref="MenuItems.MailDropRules"/>); empty when the drop is refused.</summary>
+    List<MailCopy> GetMailsToMove(IBaseFolderMenuItem targetFolderMenuItem, IEnumerable<MailCopy> items);
+
+    /// <summary>The dragged mails a drop on an account row moves (<see cref="MenuItems.MailDropRules.MailsForAccount"/>); empty when the drop is refused.</summary>
+    List<MailCopy> GetMailsToMoveToAccount(IAccountMenuItem targetAccountMenuItem, IEnumerable<MailCopy> items);
+
+    /// <summary>Asks for a folder of the dropped-on account and moves the mails there. Cancelling the question moves nothing.</summary>
+    Task MoveMailsToAccountAsync(IEnumerable<MailCopy> items, IAccountMenuItem targetAccountMenuItem);
     Task CreateRootFolderAsync(IAccountMenuItem accountMenuItem);
     Task CreateNewMailForAsync(MailAccount account);
 
@@ -61,6 +70,7 @@ public interface ICalendarShellClient : IShellMenuProvider
     ICommand PreviousDateRangeCommand { get; }
     ICommand NextDateRangeCommand { get; }
     IEnumerable GroupedAccountCalendars { get; }
+    void OpenDayView(System.DateOnly date);
 }
 
 /// <summary>

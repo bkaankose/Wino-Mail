@@ -2,13 +2,14 @@ using AppKit;
 using CoreAnimation;
 using CoreGraphics;
 using Foundation;
-using WebKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
-using Wino.Editor.WebKit;
-using AppKitHtmlMailEditorSession = Wino.Editor.WebKit.WebKitHtmlMailEditorSession;
+using Microsoft.Extensions.DependencyInjection;
+using Wino.Mail.Rendering;
+using AppKitHtmlMailEditorSession = Wino.Mail.MacOS.Views.Mail.Compose.MacEngineEditor;
+using EngineMailView = Wino.Renderer.AppKit.MailView;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Views.Mail.Compose;
 using Wino.Presentation.AppKit;
@@ -50,7 +51,7 @@ internal sealed record WinoRichTextEditorOptions(
     bool FollowsAppearance = true);
 
 /// <summary>
-/// The shared <see cref="EditorFormatToolbar"/> over the composer's own WKWebView HTML editor session.
+/// The shared <see cref="EditorFormatToolbar"/> over the composer's native renderer editor session.
 /// Used by the signature editor sheet, the email template editor page and event notes. The caller sizes
 /// <see cref="EditorSurface"/>, calls <see cref="LoadAsync"/> once the view is in a window, reads HTML with
 /// <see cref="GetHtmlBodyAsync"/> and disposes the session with <see cref="DisposeAsync"/>. Use on the main thread.
@@ -58,7 +59,7 @@ internal sealed record WinoRichTextEditorOptions(
 internal sealed class WinoRichTextEditorView : NSView
 {
     private readonly WinoRichTextEditorOptions _options;
-    private readonly WKWebView _webView;
+    private readonly EngineMailView _webView;
     private readonly AppKitHtmlMailEditorSession _editor;
     private readonly EditorFormatToolbar _toolbar;
     private readonly EditorFormatButton? _themeButton;
@@ -84,11 +85,13 @@ internal sealed class WinoRichTextEditorView : NSView
         _preferences = preferences;
         _error = error;
 
-        // ---- Editor (the composer's WKWebView editor session) ----
-        _webView = new WKWebView(CGRect.Empty, new WKWebViewConfiguration()) { TranslatesAutoresizingMaskIntoConstraints = false };
-        _webView.SetValueForKey(NSNumber.FromBoolean(false), new NSString("drawsBackground"));
+        // ---- Editor (the composer's editor session on the native renderer) ----
+        _webView = new EngineMailView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoAccessibility.Label(_webView, accessibilityLabel);
-        _editor = new AppKitHtmlMailEditorSession(_webView);
+        var services = ((AppDelegate)NSApplication.SharedApplication.Delegate).Services
+            ?? throw new InvalidOperationException("The app's services are not ready.");
+        _editor = new AppKitHtmlMailEditorSession(_webView, services.GetRequiredService<IDispatcher>(), services.GetRequiredService<MailEngineHost>(),
+            services.GetRequiredService<IMailDialogService>());
         if (launcher is not null) _editor.Configure(launcher);
         _editor.OperationFailed += (_, exception) => _error?.Invoke(exception);
         _editor.Restarted += EditorRestarted;

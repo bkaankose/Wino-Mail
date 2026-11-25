@@ -96,7 +96,8 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
         // Skip the Gmail "Categories" virtual bucket entity — Categories are rendered
         // as an inline section, not as a regular folder row.
-        foreach (var folder in allFolders.Where(f => f.SpecialFolderType != SpecialFolderType.Category))
+        // A namespace level the folder list skips (one shared mailbox below it) is not listed here either.
+        foreach (var folder in allFolders.Where(f => f.SpecialFolderType != SpecialFolderType.Category && !(f.IsSkippedSharedLevel && !f.IsHidden)))
         {
             var item = new FolderCustomizationItemViewModel(folder);
 
@@ -143,7 +144,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
         foreach (var item in PinnedFolders)
         {
-            if (!item.Folder.IsSticky)
+            if (!item.Folder.IsSticky && item.CanPinAndRename)
             {
                 item.Folder.IsSticky = true;
                 touchedFolders.Add(item.Folder);
@@ -187,10 +188,10 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
     public async Task RenameFolderAsync(FolderCustomizationItemViewModel item)
     {
-        if (item == null) return;
+        if (item == null || !item.CanPinAndRename) return;
 
         var folder = item.Folder;
-        var canRenameOnServer = !folder.IsSystemFolder;
+        var canRenameOnServer = !folder.IsSystemFolder && (folder.Scope == MailFolderScope.Personal || folder.HasKnownRight('x'));
 
         var result = await _dialogService.ShowRenameFolderDialogAsync(folder.FolderName, folder.DisplayName, canRenameOnServer);
         if (result == null) return;
@@ -241,7 +242,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
     public async Task TogglePinAsync(FolderCustomizationItemViewModel item)
     {
-        if (item == null) return;
+        if (item == null || !item.CanPinAndRename) return;
 
         // Categories sub-items cannot be pinned individually; they always travel
         // with the virtual Categories group.

@@ -7,7 +7,7 @@ namespace Wino.Mail.MacOS.Views.Onboarding;
 /// <summary>
 /// Debug bridge commands for the address-first setup page: <c>acct-state</c>, <c>acct-email ADDRESS</c>,
 /// <c>acct-name NAME</c>, <c>acct-color first|none</c>, <c>acct-primary</c>, <c>acct-back</c>, <c>acct-local</c>,
-/// <c>acct-choice INDEX</c>, <c>acct-provider KIND</c> and <c>acct-picker</c>. They only type an address or a name and
+/// <c>acct-choice INDEX</c>, <c>acct-provider KIND</c>, <c>acct-advanced</c> and <c>acct-picker</c>. They only type an address or a name and
 /// press the page's buttons; no credential is ever filled.
 /// </summary>
 public sealed partial class AccountSetupPageViewController
@@ -35,6 +35,12 @@ public sealed partial class AccountSetupPageViewController
         {
             if (!ViewModel.BackCommand.CanExecute(null)) return "back disabled; " + DescribeState();
             await ViewModel.BackCommand.ExecuteAsync(null);
+            return DescribeState();
+        });
+        MacDebugBridge.Register("acct-advanced", async _ =>
+        {
+            if (!ViewModel.OpenAdvancedSetupCommand.CanExecute(null)) return "advanced disabled; " + DescribeState();
+            await ViewModel.OpenAdvancedSetupCommand.ExecuteAsync(null);
             return DescribeState();
         });
         MacDebugBridge.Register("acct-local", async _ =>

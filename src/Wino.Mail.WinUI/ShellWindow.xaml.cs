@@ -8,6 +8,7 @@ using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
@@ -409,6 +410,13 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             if (reminderServer != null)
             {
                 await reminderServer.StartAsync();
+            }
+
+            // Reminders of the coming days are handed to Windows so they also fire while Wino is closed.
+            var toastScheduler = WinoApplication.Current.Services.GetService<CalendarReminderToastScheduler>();
+            if (toastScheduler != null)
+            {
+                await toastScheduler.StartAsync();
             }
         }
         catch (Exception ex)
@@ -1276,6 +1284,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
     }
 
+    private const int InfoBarDismissSeconds = 5;
+    private const int InfoBarWithActionDismissSeconds = 10;
+
     private readonly Queue<InfoBarMessageRequested> _pendingInfoBarMessages = new();
 
     private void ShellInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
@@ -1298,15 +1309,29 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             if (string.IsNullOrEmpty(message.ActionButtonTitle) || message.Action == null)
             {
                 ShellInfoBar.ActionButton = null;
+                ShellInfoBar.DismissInterval = InfoBarDismissSeconds;
             }
             else
             {
-                ShellInfoBar.ActionButton = new Button()
+                var actionButton = new Button()
                 {
                     Content = message.ActionButtonTitle,
-                    Command = new RelayCommand(message.Action)
+                    // The button usually navigates; the bar must not stay over the page it opens.
+                    Command = new RelayCommand(() =>
+                    {
+                        ShellInfoBar.IsOpen = false;
+                        message.Action();
+                    })
                 };
+                AutomationProperties.SetAutomationId(actionButton, "ShellInfoBarActionButton");
+                AutomationProperties.SetName(actionButton, message.ActionButtonTitle);
+                ShellInfoBar.ActionButton = actionButton;
+
+                // A bar with a button stays long enough to reach the button, as on iOS.
+                ShellInfoBar.DismissInterval = InfoBarWithActionDismissSeconds;
             }
+
+            AutomationProperties.SetName(ShellInfoBar, string.IsNullOrEmpty(message.Title) ? message.Message : message.Title);
 
             ShellInfoBar.Message = message.Message;
             ShellInfoBar.Title = message.Title;

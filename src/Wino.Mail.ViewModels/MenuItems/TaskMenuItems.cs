@@ -38,6 +38,9 @@ public sealed partial class PlannedTaskMenuItem() : TaskSmartViewMenuItem(TaskVi
 
 public sealed partial class ImportantTaskMenuItem() : TaskSmartViewMenuItem(TaskViewKind.Important);
 
+/// <summary>Flagged mail of every account. Its count is the number of flagged mails, not of tasks.</summary>
+public sealed partial class FlaggedMailTaskMenuItem() : TaskSmartViewMenuItem(TaskViewKind.FlaggedMail);
+
 public sealed class AccountTaskListAccountMenuItem : MenuItemBase<MailAccount, IMenuItem>, IAccountNavigationMenuItem
 {
     private readonly Func<Guid, Task> _synchronizeAccount;

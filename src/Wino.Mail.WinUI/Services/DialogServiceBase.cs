@@ -22,6 +22,7 @@ using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Platform.Windows.Services;
+using WinUIEx;
 using WinRT;
 using WinRT.Interop;
 
@@ -263,6 +264,10 @@ public class DialogServiceBase : IDialogServiceBase
     {
         await _presentationSemaphore.WaitAsync();
 
+        WindowEx? hostWindow = null;
+        var hostClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnHostWindowClosed(object sender, WindowEventArgs args) => hostClosed.TrySetResult();
+
         try
         {
             // A dialog keeps the XamlRoot it was first given. Assigning a different one throws
@@ -270,7 +275,18 @@ public class DialogServiceBase : IDialogServiceBase
             // is rooted here.
             dialog.XamlRoot ??= GetXamlRoot();
 
-            return await dialog.ShowAsync();
+            // Closing a window to the tray destroys its XAML tree without completing ShowAsync, which would
+            // keep every later dialog waiting here. The dialog ends with its window instead.
+            hostWindow = FindWindow(dialog.XamlRoot);
+            if (hostWindow != null)
+                hostWindow.Closed += OnHostWindowClosed;
+
+            var showTask = dialog.ShowAsync().AsTask();
+            if (await Task.WhenAny(showTask, hostClosed.Task) == showTask)
+                return await showTask;
+
+            _ = showTask.ContinueWith(task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            Log.Information("{Dialog} ended because its window closed.", dialog.GetType().Name);
         }
         catch (Exception ex)
         {
@@ -278,10 +294,34 @@ public class DialogServiceBase : IDialogServiceBase
         }
         finally
         {
+            if (hostWindow != null)
+                hostWindow.Closed -= OnHostWindowClosed;
+
             _presentationSemaphore.Release();
         }
 
         return ContentDialogResult.None;
+    }
+
+    private static WindowEx? FindWindow(XamlRoot? xamlRoot)
+    {
+        if (xamlRoot == null)
+            return null;
+
+        if (WinoApplication.MainWindow is { } mainWindow && ReferenceEquals(mainWindow.Content?.XamlRoot, xamlRoot))
+            return mainWindow;
+
+        var windows = WinoApplication.Current.Services.GetService<IWinoWindowManager>()?.GetWindows();
+        if (windows == null)
+            return null;
+
+        foreach (var window in windows)
+        {
+            if (ReferenceEquals(window.Content?.XamlRoot, xamlRoot))
+                return window;
+        }
+
+        return null;
     }
 
     /// <summary>

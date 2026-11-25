@@ -78,6 +78,15 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public Func<string, Task> RenderHtmlAsyncFunc { get; set; }
     public Func<Task> ClearRenderedHtmlAsyncFunc { get; set; }
 
+    /// <summary>
+    /// Set by a head whose reader renders MIME itself. While it is set, <see cref="RenderHtmlAsyncFunc"/> and
+    /// <see cref="ClearRenderedHtmlAsyncFunc"/> are not called and no HTML is prepared for the message.
+    /// </summary>
+    public IMailMessageReader? MessageReader { get; set; }
+
+    /// <summary>Creates the S/MIME context a message reader verifies and decrypts with.</summary>
+    public Func<SecureMimeContext> SecureMimeContextFactory => _mimeFileService.SecureMimeContextFactory;
+
     #region Properties
 
     public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
@@ -114,13 +123,22 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     /// <summary>
     /// False from the moment a message starts loading until its body has been handed to the renderer.
-    /// The reader shows skeletons while it is false, so no half-populated header is ever on screen.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsLoadingMailContent))]
     public partial bool IsMailContentReady { get; set; }
 
-    public bool IsLoadingMailContent => !IsMailContentReady;
+    /// <summary>
+    /// True while the reader shows its loading skeleton instead of a message.
+    /// </summary>
+    /// <remarks>
+    /// A cached MIME renders almost instantly, so switching between two cached messages keeps the
+    /// previous one on screen and swaps it in one pass; a skeleton there only flashes. The skeleton
+    /// is for a fresh reader, a MIME that has to be downloaded, and a cached load that runs long.
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool IsLoadingMailContent { get; set; }
+
+    private static readonly TimeSpan CachedLoadSkeletonDelay = TimeSpan.FromMilliseconds(300);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
@@ -177,19 +195,38 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     /// parameters and asking for confirmation when the privacy settings say so.
     /// </summary>
     /// <param name="linkText">The anchor's visible text, when the renderer captured the click.</param>
-    public async Task<PlatformOperationResult> OpenLinkAsync(Uri uri, string? linkText = null)
+    public Task<PlatformOperationResult> OpenLinkAsync(Uri uri, string? linkText = null)
     {
         ArgumentNullException.ThrowIfNull(uri);
 
-        var originalUri = uri;
+        var cleanedUri = uri;
         var removedCount = 0;
 
-        if (PreferencesService.StripLinkTrackingParameters)
-            uri = _linkSanitizer.Clean(uri, out removedCount);
+        if (ShouldStripLinkTrackingParameters)
+            cleanedUri = _linkSanitizer.Clean(uri, out removedCount);
+
+        return OpenLinkAsync(new ResolvedMailLink(cleanedUri, linkText, removedCount, uri));
+    }
+
+    /// <summary>
+    /// True when links lose their tracking parameters before they open. A renderer that resolves links itself
+    /// reads this, strips accordingly and opens the result with <see cref="OpenLinkAsync(ResolvedMailLink)"/>.
+    /// </summary>
+    public bool ShouldStripLinkTrackingParameters => PreferencesService.StripLinkTrackingParameters;
+
+    /// <summary>
+    /// Opens a link the renderer already resolved. The address is not cleaned again; confirmation and the
+    /// browser choice are the same as for <see cref="OpenLinkAsync(Uri, string?)"/>.
+    /// </summary>
+    public async Task<PlatformOperationResult> OpenLinkAsync(ResolvedMailLink link)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+
+        var uri = link.Address;
 
         if (PreferencesService.ConfirmBeforeOpeningLinks)
         {
-            var confirmed = await _dialogService.ShowOpenLinkConfirmationAsync(linkText, originalUri, uri, removedCount, GetLinkBrowserName());
+            var confirmed = await _dialogService.ShowOpenLinkConfirmationAsync(link.LinkText, link.OriginalAddress ?? uri, uri, link.RemovedTrackingParameterCount, GetLinkBrowserName());
 
             if (!confirmed)
                 return new PlatformOperationResult(PlatformOperationStatus.Succeeded);
@@ -231,6 +268,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             KeyboardShortcutAction.Reply => MailOperation.Reply,
             KeyboardShortcutAction.ReplyAll => MailOperation.ReplyAll,
             KeyboardShortcutAction.Forward => MailOperation.Forward,
+            KeyboardShortcutAction.CreateTaskFromMail => MailOperation.CreateTask,
             _ => MailOperation.None
         };
 
@@ -267,8 +305,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         ICalendarService calendarService,
         IAttachmentFileService attachmentFileService = null,
         ILinkBrowserService linkBrowserService = null,
-        IMailInvitationService mailInvitationService = null) : base(messenger)
+        IMailInvitationService mailInvitationService = null,
+        Links.ConnectedItemsCoordinator connectedItems = null) : base(messenger)
     {
+        _connectedItems = connectedItems;
         _synchronizationManager = synchronizationManager;
         _dialogService = dialogService;
         ExternalLauncher = externalLauncher;
@@ -345,24 +385,15 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         // Selecting another mail while a confirmation or request is pending replaces the render model,
         // so the target and sender name are captured before the first await.
         var unsubscribeInfo = CurrentRenderModel?.UnsubscribeInfo;
-        if (unsubscribeInfo == null || !unsubscribeInfo.CanUnsubscribe) return;
+        if (unsubscribeInfo?.Preferred is not { } method) return;
 
         var senderName = FromName;
         bool confirmed;
 
-        // Try to unsubscribe by http first.
-        if (unsubscribeInfo.HttpLink is not null)
+        // The renderer decided the method: the one-click POST (RFC 8058), the list's web page, or a mail to the list.
+        switch (method.Method)
         {
-            if (!Uri.IsWellFormedUriString(unsubscribeInfo.HttpLink, UriKind.RelativeOrAbsolute))
-            {
-                _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
-                return;
-            }
-
-            // Support for List-Unsubscribe-Post header. It can be done without launching browser.
-            // https://datatracker.ietf.org/doc/html/rfc8058
-            if (unsubscribeInfo.IsOneClick)
-            {
+            case UnsubscribeMethod.OneClick:
                 confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, senderName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
                 if (!confirmed) return;
 
@@ -376,24 +407,39 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 {
                     _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Info_UnsubscribeErrorMessage, InfoBarMessageType.Error);
                 }
-            }
-            else
-            {
+
+                break;
+            case UnsubscribeMethod.Website:
+                if (!Uri.TryCreate(method.Uri, UriKind.Absolute, out var webUri))
+                {
+                    _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
+                    return;
+                }
+
                 confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, senderName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
                 if (!confirmed) return;
 
-                (await OpenLinkAsync(new Uri(unsubscribeInfo.HttpLink))).ThrowIfNotSucceeded();
-            }
-        }
-        else if (unsubscribeInfo.MailToLink is not null)
-        {
-            confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, senderName, new string(unsubscribeInfo.MailToLink.Skip(7).ToArray())), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+                (await OpenLinkAsync(webUri)).ThrowIfNotSucceeded();
+                break;
+            case UnsubscribeMethod.Mail:
+                if (!Uri.TryCreate(method.Uri, UriKind.Absolute, out var mailUri))
+                {
+                    _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
+                    return;
+                }
 
-            if (!confirmed) return;
+                var recipients = method.MailRecipients.Count > 0
+                    ? string.Join(", ", method.MailRecipients)
+                    : new string(method.Uri.Skip(7).TakeWhile(c => c != '?').ToArray());
 
-            // TODO: Implement automatic mail send after user confirms the action.
-            // Currently it will launch compose page and user should manually press send button.
-            (await ExternalLauncher.LaunchUriAsync(new Uri(unsubscribeInfo.MailToLink))).ThrowIfNotSucceeded();
+                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, senderName, recipients), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+
+                if (!confirmed) return;
+
+                // TODO: Implement automatic mail send after user confirms the action.
+                // Currently it will launch compose page and user should manually press send button.
+                (await ExternalLauncher.LaunchUriAsync(mailUri)).ThrowIfNotSucceeded();
+                break;
         }
     }
 
@@ -518,6 +564,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private CancellationTokenSource renderCancellationTokenSource = new CancellationTokenSource();
     private int _loadVersion;
     private int _downloadLoadVersion;
+    private int _messageRenderVersion;
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
@@ -527,10 +574,15 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         base.OnNavigatedTo(mode, parameters);
 
         BeginMailContentLoad();
+        ShowLoadingSkeleton();
 
         // Only a fresh navigation blanks the renderer. Re-entry keeps the previous body on screen
-        // behind the loading treatment, which is what removes the flash between two messages.
-        if (ClearRenderedHtmlAsyncFunc != null)
+        // until the next one replaces it, which is what removes the flash between two messages.
+        if (MessageReader is { } messageReader)
+        {
+            await ExecuteUIThreadAsync(messageReader.ClearAsync);
+        }
+        else if (ClearRenderedHtmlAsyncFunc != null)
         {
             await ExecuteUIThreadAsync(ClearRenderedHtmlAsyncFunc);
         }
@@ -539,11 +591,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     /// <summary>
-    /// Puts the reader into its loading state and drops every trace of the message it was showing.
+    /// Starts loading another message and detaches the reader from the one it was showing.
     /// </summary>
     /// <remarks>
-    /// The page is reused across selections, so this is the only thing standing between the previous
-    /// message's sender, date, recipients and attachments and the next message's body.
+    /// The previous message stays on screen: either RenderAsync replaces every part of it in one UI
+    /// pass, or <see cref="ShowLoadingSkeleton"/> clears it. Nothing message-specific stays
+    /// invocable meanwhile, because every command reads the initialized item, which is cleared here.
     /// </remarks>
     public void BeginMailContentLoad()
     {
@@ -562,10 +615,26 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
-        CurrentMailItemDisplayInformation = null;
         CurrentRenderModel = null;
+
+        ResetProgress();
+    }
+
+    /// <summary>
+    /// Shows the loading skeleton and drops every visible trace of the previous message.
+    /// </summary>
+    private void ShowLoadingSkeleton()
+    {
+        ClearDisplayedMessage();
+        IsLoadingMailContent = true;
+    }
+
+    private void ClearDisplayedMessage()
+    {
+        CurrentMailItemDisplayInformation = null;
         ResetPrivacyState();
         ResetInvitation();
+        ResetLinkedItems();
 
         Subject = string.Empty;
         FromName = string.Empty;
@@ -578,11 +647,38 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         // them, which a fast switch can interleave with that repopulation.
         IsShowingAllAttachments = false;
 
-        ResetProgress();
-
-        // With no initialized item this leaves only Save As and Print, so nothing message-specific
-        // is invocable while the reader is loading.
+        // With no initialized item this leaves only Save As and Print.
         InitializeCommandBarItems();
+    }
+
+    private async Task ShowSkeletonIfStillLoadingAsync(int loadVersion)
+    {
+        await Task.Delay(CachedLoadSkeletonDelay).ConfigureAwait(false);
+
+        // Only covers the reader. The render may already have filled in the new header, and clearing it here
+        // would leave it blank once the skeleton lifts.
+        await ExecuteUIThread(() =>
+        {
+            if (loadVersion == _loadVersion && !IsMailContentReady)
+                IsLoadingMailContent = true;
+        });
+    }
+
+    private async Task CompleteMailContentLoadAsync(int loadVersion)
+    {
+        await ExecuteUIThread(() =>
+        {
+            if (loadVersion != _loadVersion)
+                return;
+
+            // A load that rendered nothing (missing or corrupt MIME) must not leave the previous
+            // message on screen as if it were this one.
+            if (initializedMimeMessageInformation == null)
+                ClearDisplayedMessage();
+
+            IsLoadingMailContent = false;
+            IsMailContentReady = true;
+        });
     }
 
     /// <summary>
@@ -609,8 +705,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             InitializeCommandBarItems();
 
-            if (loadVersion == _loadVersion)
-                await ExecuteUIThread(() => IsMailContentReady = true);
+            await CompleteMailContentLoadAsync(loadVersion);
         }
         catch (OperationCanceledException)
         {
@@ -624,16 +719,15 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             Log.Error(ex, "Failed to render mail.");
 
             // Leave an empty reader behind the error rather than a skeleton that never resolves.
-            if (loadVersion == _loadVersion)
-                await ExecuteUIThread(() => IsMailContentReady = true);
+            await CompleteMailContentLoadAsync(loadVersion);
         }
     }
 
     private void ShowMailRenderingFailedMessage(Exception ex)
     {
-        if (string.Equals(ex.Message, Translator.Exception_WebView2RuntimeMissing_Message, StringComparison.Ordinal))
+        if (string.Equals(ex.Message, Translator.Exception_ReaderRuntimeMissing_Message, StringComparison.Ordinal))
         {
-            _dialogService.InfoBarMessage(Translator.Exception_WebView2RuntimeMissing_Title, Translator.Exception_WebView2RuntimeMissing_Message, InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(Translator.Exception_ReaderRuntimeMissing_Title, Translator.Exception_ReaderRuntimeMissing_Message, InfoBarMessageType.Error);
         }
         else
         {
@@ -700,12 +794,23 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private async Task RenderAsync(MailItemViewModel mailItemViewModel, CancellationToken cancellationToken = default)
     {
         ResetProgress();
+        var loadVersion = _loadVersion;
         var isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.MailCopy.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!isMimeExists)
+        if (isMimeExists)
         {
+            _ = ShowSkeletonIfStillLoadingAsync(loadVersion);
+        }
+        else
+        {
+            await ExecuteUIThread(() =>
+            {
+                if (loadVersion == _loadVersion)
+                    ShowLoadingSkeleton();
+            });
+
             var downloadFailureReported = await HandleSingleItemDownloadAsync(mailItemViewModel);
 
             // A download can take seconds, which is long enough for the user to select something else.
@@ -744,8 +849,16 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
 
         initializedMailItemViewModel = mailItemViewModel;
+
+        // The invitation load reads the card's version, so the reset has to land before it starts.
+        await ExecuteUIThread(() =>
+        {
+            ResetInvitation();
+            CurrentMailItemDisplayInformation = mailItemViewModel;
+        });
+
         BeginInvitationLoad(mailItemViewModel, mimeMessageInformation.MimeMessage, cancellationToken);
-        await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
+        BeginLinkedItemsLoad(mailItemViewModel);
         await RenderAsync(mimeMessageInformation);
     }
 
@@ -775,10 +888,20 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         var ccAccountContacts = await GetAccountContacts(message.Cc);
         var bccAccountContacts = await GetAccountContacts(message.Bcc);
 
+        var messageReader = MessageReader;
+        var cancellationToken = renderCancellationTokenSource.Token;
+        var messageRenderVersion = Interlocked.Increment(ref _messageRenderVersion);
+
         await ExecuteUIThread(() =>
         {
-            Attachments.Clear();
-            DisplayedAttachments.Clear();
+            // A message reader returns the attachments later, and ApplyRenderModel swaps them in with the
+            // body, so the previous message's stay on screen until then instead of blinking out.
+            if (messageReader == null)
+            {
+                Attachments.Clear();
+                DisplayedAttachments.Clear();
+            }
+
             ToItems.Clear();
             CcItems.Clear();
             BccItems.Clear();
@@ -800,30 +923,66 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
             CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.UtcDateTime;
 
-            var renderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
+            if (messageReader != null)
+                return;
 
-            // Heads refresh their remote content bars when CurrentRenderModel changes, so the
-            // privacy state has to be current before it is assigned.
-            ApplyPrivacyState(renderModel, decision, isJunk, transientMode.HasValue);
-            CurrentRenderModel = renderModel;
-
-            foreach (var attachment in CurrentRenderModel.Attachments)
-            {
-                var attachmentViewModel = new MailAttachmentViewModel(attachment);
-                Attachments.Add(attachmentViewModel);
-                BeginAttachmentInspection(attachmentViewModel, renderCancellationTokenSource.Token);
-            }
-
-            RefreshDisplayedAttachments();
-
-            StatePersistenceService.IsReadingMail = true;
+            ApplyRenderModel(_mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions), decision, isJunk, transientMode.HasValue);
         });
+
+        if (messageReader != null)
+        {
+            var request = new MailMessageRenderRequest(message, messagePath, renderingOptions, IsReaderViewEnabled);
+            MailRenderModel? readerModel = null;
+
+            await ExecuteUIThreadAsync(async () => readerModel = await messageReader.RenderAsync(request, cancellationToken))
+                .ConfigureAwait(false);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (readerModel == null)
+                throw new InvalidOperationException("The message reader returned no render model.");
+
+            await ExecuteUIThread(() =>
+            {
+                // A newer load or a newer render of this message owns the reader page now.
+                if (cancellationToken.IsCancellationRequested || messageRenderVersion != _messageRenderVersion)
+                    return;
+
+                ApplyRenderModel(readerModel, decision, isJunk, transientMode.HasValue);
+            }).ConfigureAwait(false);
+
+            return;
+        }
 
         if (RenderHtmlAsyncFunc != null)
         {
             await ExecuteUIThreadAsync(() => RenderHtmlAsyncFunc(CurrentRenderModel.RenderHtml))
                 .ConfigureAwait(false);
         }
+    }
+
+    private void ApplyRenderModel(MailRenderModel renderModel, RemoteContentDecision decision, bool isJunk, bool isTransient)
+    {
+        ResetPrivacyState();
+
+        // Heads refresh their remote content bars when CurrentRenderModel changes, so the
+        // privacy state has to be current before it is assigned.
+        ApplyPrivacyState(renderModel, decision, isJunk, isTransient);
+        CurrentRenderModel = renderModel;
+
+        Attachments.Clear();
+        DisplayedAttachments.Clear();
+
+        foreach (var attachment in renderModel.Attachments)
+        {
+            var attachmentViewModel = new MailAttachmentViewModel(attachment);
+            Attachments.Add(attachmentViewModel);
+            BeginAttachmentInspection(attachmentViewModel, renderCancellationTokenSource.Token);
+        }
+
+        RefreshDisplayedAttachments();
+
+        StatePersistenceService.IsReadingMail = true;
     }
 
     private async Task<List<AccountContactViewModel>> GetAccountContacts(InternetAddressList internetAddresses)
@@ -869,11 +1028,13 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         CurrentDownloadPercentage = 0d;
         IsMailContentReady = false;
+        IsLoadingMailContent = false;
 
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
         CurrentMailItemDisplayInformation = null;
         ResetInvitation();
+        ResetLinkedItems();
 
         StatePersistenceService.IsReadingMail = false;
     }
@@ -1368,6 +1529,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         Messenger.Register<ThumbnailAdded>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
         Messenger.Register<RemoteContentRulesChangedMessage>(this);
+        Messenger.Register<ItemLinksChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -1377,5 +1539,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ThumbnailAdded>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
         Messenger.Unregister<RemoteContentRulesChangedMessage>(this);
+        Messenger.Unregister<ItemLinksChanged>(this);
     }
 }

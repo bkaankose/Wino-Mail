@@ -1,0 +1,85 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Wino Mail
+Upstream-Contact: @MAINTAINER@
+Source: https://github.com/bkaankose/Wino-Mail
+
+Files: *
+Copyright: Burak Kaan Köse and the Wino Mail contributors
+License: GPL-3.0-only
+
+Files: usr/lib/wino-mail/libSkiaSharp.so
+Copyright: Microsoft Corporation, Xamarin Inc. and the Skia authors (Google LLC)
+License: BSD-3-Clause and Expat
+Comment: SkiaSharp.NativeAssets.Linux.NoDependencies (https://github.com/mono/SkiaSharp). The full license texts are
+ in the NuGet package and at https://github.com/mono/SkiaSharp/blob/main/LICENSE.md.
+
+Files: usr/lib/wino-mail/libe_sqlite3.so
+Copyright: none (SQLite is in the public domain); SQLitePCLRaw by Eric Sink
+License: public-domain and Apache-2.0
+Comment: SQLite from SQLitePCLRaw.lib.e_sqlite3 (https://github.com/ericsink/SQLitePCL.raw).
+
+Files: usr/lib/wino-mail/libonnxruntime.so usr/lib/wino-mail/libonnxruntime_providers_shared.so
+Copyright: Microsoft Corporation
+License: Expat
+Comment: ONNX Runtime (https://github.com/microsoft/onnxruntime).
+
+Files: usr/lib/wino-mail/Models/Magika/*
+Copyright: Google LLC
+License: Apache-2.0
+Comment: Google Magika standard_v3_3 model (https://github.com/google/magika). See LICENSE and THIRD-PARTY-NOTICES.md
+ in that folder.
+
+Files: usr/lib/wino-mail/Fonts/*
+Copyright: Microsoft Corporation (Fluent UI System Icons); Burak Kaan Köse (Wino icon fonts)
+License: Expat
+Comment: Icon fonts built from Fluent UI System Icons (https://github.com/microsoft/fluentui-system-icons).
+
+License: GPL-3.0-only
+ This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+ License as published by the Free Software Foundation, version 3.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU General Public License version 3 can be found in
+ "/usr/share/common-licenses/GPL-3".
+
+License: Apache-2.0
+ Licensed under the Apache License, Version 2.0 (the "License"); you may not use these files except in compliance with
+ the License. You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
+ .
+ On Debian systems, the complete text of the Apache License version 2.0 can be found in
+ "/usr/share/common-licenses/Apache-2.0".
+
+License: Expat
+ Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+ documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+ rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+ persons to whom the Software is furnished to do so, subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+ Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+License: BSD-3-Clause
+ Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+ following conditions are met: 1. Redistributions of source code must retain the above copyright notice, this list of
+ conditions and the following disclaimer. 2. Redistributions in binary form must reproduce the above copyright notice,
+ this list of conditions and the following disclaimer in the documentation and/or other materials provided with the
+ distribution. 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or
+ promote products derived from this software without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+License: public-domain
+ The SQLite source code is in the public domain (https://www.sqlite.org/copyright.html).

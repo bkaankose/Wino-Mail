@@ -7,6 +7,9 @@ using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
@@ -17,7 +20,7 @@ namespace Wino.Mail.ViewModels;
 /// The guided flow of the IMAP server page: sign in, then check the servers. Also carries the
 /// connection states and the capability choices that the edit page shares with the wizard.
 /// </summary>
-public partial class ImapCalDavSettingsPageViewModel
+public partial class ImapCalDavSettingsPageViewModel : IConfirmBackNavigation
 {
     private AccountCapabilityMode _initialContactMode = AccountCapabilityMode.Off;
     private AccountCapabilityMode _initialTaskMode = AccountCapabilityMode.Off;
@@ -28,6 +31,8 @@ public partial class ImapCalDavSettingsPageViewModel
     // the server values the user already edited.
     private string _lastDiscoveredAddress;
     private bool _isSpecialImapProviderInferred;
+    private bool _hasFeaturesStep;
+    private ImapSetupStep _stepAfterFeatures = ImapSetupStep.SignIn;
 
     /// <summary>
     /// What this account is used for. Editable on the edit page through the capability picker;
@@ -41,6 +46,8 @@ public partial class ImapCalDavSettingsPageViewModel
     [NotifyPropertyChangedFor(nameof(IsSignInStepCurrent))]
     [NotifyPropertyChangedFor(nameof(IsServersStepCurrent))]
     [NotifyPropertyChangedFor(nameof(IsSignInStepDone))]
+    [NotifyPropertyChangedFor(nameof(IsFeaturesStepVisible))]
+    [NotifyPropertyChangedFor(nameof(IsFeaturesStepCurrent))]
     [NotifyPropertyChangedFor(nameof(PrimaryActionText))]
     [NotifyPropertyChangedFor(nameof(IsDiscoveryFoundVisible))]
     [NotifyPropertyChangedFor(nameof(IsDiscoveryNotFoundVisible))]
@@ -74,6 +81,35 @@ public partial class ImapCalDavSettingsPageViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasMailConnectionError))]
     public partial string MailConnectionError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The incoming and outgoing servers each on their own. <see cref="MailConnectionState"/> stays the result of the
+    /// whole mail test for the heads that show one state for both rows.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIncomingConnectionError))]
+    public partial ConnectionTestState IncomingConnectionState { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIncomingConnectionError))]
+    public partial string IncomingConnectionError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOutgoingConnectionError))]
+    [NotifyPropertyChangedFor(nameof(MailValidationFailedTitle))]
+    public partial ConnectionTestState OutgoingConnectionState { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOutgoingConnectionError))]
+    public partial string OutgoingConnectionError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCardDavConnectionError))]
+    public partial ConnectionTestState CardDavConnectionState { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCardDavConnectionError))]
+    public partial string CardDavConnectionError { get; set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCalDavConnectionError))]
@@ -123,13 +159,22 @@ public partial class ImapCalDavSettingsPageViewModel
     public bool IsServersStepCurrent => CurrentSetupStep == ImapSetupStep.Servers;
     public bool IsSignInStepDone => CurrentSetupStep == ImapSetupStep.Servers;
 
+    /// <summary>Set by a head that shows the capability picker on the Features step.</summary>
+    public bool IsFeaturesStepSupportedByHost { get; set; }
+
+    public bool IsFeaturesStepVisible => IsCreateMode && CurrentSetupStep == ImapSetupStep.Features;
+    public bool IsFeaturesStepCurrent => CurrentSetupStep == ImapSetupStep.Features;
+
     public bool IsEditSignInVisible => IsEditMode && Capabilities.RequiresRemoteService;
 
     public string PrimaryActionText => IsEditMode
         ? Translator.Buttons_Save
-        : CurrentSetupStep == ImapSetupStep.SignIn
-            ? SignInStage == ImapSignInStage.Method ? Translator.ImapSetup_Next : Translator.ProviderSelection_ContinueButton
-            : Translator.ProviderSelection_AddAccountButton;
+        : CurrentSetupStep switch
+        {
+            ImapSetupStep.Features => Translator.ProviderSelection_ContinueButton,
+            ImapSetupStep.SignIn => SignInStage == ImapSignInStage.Method ? Translator.ImapSetup_Next : Translator.ProviderSelection_ContinueButton,
+            _ => Translator.ProviderSelection_AddAccountButton
+        };
 
     public bool IsDiscoveryFoundVisible => IsCreateMode && IsServersStepCurrent && DiscoveryState == ServerDiscoveryState.Found;
     public bool IsDiscoveryNotFoundVisible => IsCreateMode && IsServersStepCurrent && DiscoveryState == ServerDiscoveryState.NotFound;
@@ -172,6 +217,9 @@ public partial class ImapCalDavSettingsPageViewModel
 
     public bool HasMailConnectionError => MailConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(MailConnectionError);
     public bool HasCalDavConnectionError => CalDavConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(CalDavConnectionError);
+    public bool HasIncomingConnectionError => IncomingConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(IncomingConnectionError);
+    public bool HasOutgoingConnectionError => OutgoingConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(OutgoingConnectionError);
+    public bool HasCardDavConnectionError => CardDavConnectionState == ConnectionTestState.Failed && !string.IsNullOrWhiteSpace(CardDavConnectionError);
     public bool HasAppPasswordHelpLink => !string.IsNullOrWhiteSpace(AppPasswordHelpUrl);
 
     public bool IsMailAdvancedOptionsVisible => IsMailSupportEnabled;
@@ -187,7 +235,13 @@ public partial class ImapCalDavSettingsPageViewModel
 
     // Without mail the sign-in step is the DAV sign-in, so the DAV fields are used as they are.
     private bool IsDavSharingMailCredentials => IsMailSupportEnabled && UseMailCredentialsForDav && !IsIncomingOAuthSelected;
-    private string EffectiveDavUsername => IsDavSharingMailCredentials ? IncomingServerUsername : CalDavUsername;
+    private string EffectiveDavUsername => IsDavSharingMailCredentials ? MailSharedDavUsername : CalDavUsername;
+
+    // A catalog provider names its DAV sign-in, which can differ from the mail user name (iCloud signs in to mail with
+    // the local part and to CalDAV with the address) while the password is the same.
+    private string MailSharedDavUsername => _editingSpecialImapProvider != SpecialImapProvider.None && !string.IsNullOrWhiteSpace(CalDavUsername)
+        ? CalDavUsername
+        : IncomingServerUsername;
     private string EffectiveDavPassword => IsDavSharingMailCredentials ? IncomingServerPassword : CalDavPassword;
 
     private string AddressDomain => MailAccountAddressValidator.TryGetDomain(EmailAddress?.Trim(), out var domain)
@@ -197,6 +251,12 @@ public partial class ImapCalDavSettingsPageViewModel
     [RelayCommand(CanExecute = nameof(IsNotBusy))]
     private async Task PrimaryActionAsync()
     {
+        if (IsFeaturesStepVisible)
+        {
+            await ContinueFromFeaturesAsync();
+            return;
+        }
+
         if (IsCreateMode && CurrentSetupStep == ImapSetupStep.SignIn)
         {
             if (SignInStage == ImapSignInStage.Identity)
@@ -213,22 +273,106 @@ public partial class ImapCalDavSettingsPageViewModel
     [RelayCommand(CanExecute = nameof(IsNotBusy))]
     private void Back()
     {
-        if (IsCreateMode && CurrentSetupStep == ImapSetupStep.Servers)
+        // The first step goes back to the page Advanced setup was opened from.
+        if (!TryGoBackOneStep())
+            Cancel();
+    }
+
+    /// <summary>
+    /// The window's Back button, the mouse back button and the breadcrumb leave the page through here. While adding
+    /// an account they go back one step like the page's own Back, so the apps chosen on Features are kept.
+    /// </summary>
+    public ValueTask<bool> CanNavigateBackAsync()
+        => ValueTask.FromResult(_isLeavingPage || IsBusy || !TryGoBackOneStep());
+
+    private bool TryGoBackOneStep()
+    {
+        if (!IsCreateMode || IsFeaturesStepVisible)
+            return false;
+
+        if (CurrentSetupStep == ImapSetupStep.Servers)
         {
             CurrentSetupStep = ImapSetupStep.SignIn;
-            return;
+            return true;
         }
 
-        if (IsCreateMode && SignInStage == ImapSignInStage.Method)
+        if (SignInStage == ImapSignInStage.Method)
         {
             CancelOAuthSignIn();
             HideOAuthInfoBar();
             SignInStage = ImapSignInStage.Identity;
-            return;
+            return true;
         }
 
-        // The first step goes back to the provider page, where the capabilities were chosen.
-        Cancel();
+        if (_hasFeaturesStep)
+        {
+            CurrentSetupStep = ImapSetupStep.Features;
+            return true;
+        }
+
+        return false;
+    }
+
+    partial void OnCurrentSetupStepChanged(ImapSetupStep value) => NotifySecureSignInLayoutChanged();
+
+    private async Task ContinueFromFeaturesAsync()
+    {
+        await HidePageErrorAsync();
+
+        try
+        {
+            ValidateCapabilitySelection();
+
+            // The setup page found the mail servers before the apps were chosen, so the calendar and contacts servers
+            // of an app turned on here are looked up now.
+            if (_stepAfterFeatures == ImapSetupStep.Servers)
+                await DiscoverDavServersForServersStepAsync();
+
+            CurrentSetupStep = _stepAfterFeatures;
+        }
+        catch (Exception ex)
+        {
+            await ShowImapValidationFailureAsync(ex);
+        }
+    }
+
+    private async Task DiscoverDavServersForServersStepAsync()
+    {
+        if (!MailAccountAddressValidator.IsValid(EmailAddress?.Trim()))
+            return;
+
+        var needsCalDav = IsCalDavSettingsVisible && string.IsNullOrWhiteSpace(CalDavServiceUrl);
+        var needsCardDav = IsCardDavSettingsVisible && string.IsNullOrWhiteSpace(CardDavServiceUrl);
+        if (!needsCalDav && !needsCardDav)
+            return;
+
+        IsBusy = true;
+        BusyText = string.Format(Translator.ImapSetup_LookingUp, AddressDomain);
+
+        try
+        {
+            if (needsCalDav)
+                await DiscoverCalDavServiceUrlAsync();
+
+            await ResolveCardDavServiceUrlAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        IsCalDavExpanded = IsCalDavSettingsVisible && string.IsNullOrWhiteSpace(CalDavServiceUrl);
+        IsCardDavExpanded = IsCardDavSettingsVisible && string.IsNullOrWhiteSpace(CardDavServiceUrl);
+    }
+
+    /// <summary>Opens on the Features step when the setup page had not asked for the apps yet.</summary>
+    private void ApplyFeaturesStep(ImapSetupPrefill prefill)
+    {
+        _hasFeaturesStep = IsFeaturesStepSupportedByHost && prefill?.StartOnFeatures == true;
+        _stepAfterFeatures = CurrentSetupStep;
+
+        if (_hasFeaturesStep)
+            CurrentSetupStep = ImapSetupStep.Features;
     }
 
     /// <summary>
@@ -360,6 +504,19 @@ public partial class ImapCalDavSettingsPageViewModel
                     SetCalDavConnectionFailed(ex);
                 }
             }
+
+            if (IsCardDavSettingsVisible)
+            {
+                try
+                {
+                    await ResolveCardDavServiceUrlAsync();
+                    await TestCardDavConnectionAsync(BuildServerInformationForTest());
+                }
+                catch (Exception)
+                {
+                    // The cause is already on the CardDAV row.
+                }
+            }
         }
         finally
         {
@@ -380,12 +537,18 @@ public partial class ImapCalDavSettingsPageViewModel
     {
         MailConnectionState = ConnectionTestState.Testing;
         MailConnectionError = string.Empty;
+        IncomingConnectionState = ConnectionTestState.Testing;
+        IncomingConnectionError = string.Empty;
+        OutgoingConnectionState = ConnectionTestState.Testing;
+        OutgoingConnectionError = string.Empty;
 
         try
         {
             await ValidateImapConnectivityAsync(serverInformation);
 
             MailConnectionState = ConnectionTestState.Succeeded;
+            IncomingConnectionState = ConnectionTestState.Succeeded;
+            OutgoingConnectionState = ConnectionTestState.Succeeded;
             IsImapValidationSucceeded = true;
         }
         catch (Exception ex)
@@ -416,12 +579,47 @@ public partial class ImapCalDavSettingsPageViewModel
         }
     }
 
+    /// <summary>The test signs in to the incoming server first, so an outgoing failure means the incoming one answered.</summary>
     private void SetMailConnectionFailed(Exception exception)
     {
+        IsImapValidationSucceeded = false;
         MailConnectionState = ConnectionTestState.Failed;
         MailConnectionError = exception.Message;
-        IsImapValidationSucceeded = false;
+
+        if (exception is ImapValidationException { IsOutgoingServer: true } or Pop3ValidationException { IsOutgoingServer: true })
+        {
+            IncomingConnectionState = ConnectionTestState.Succeeded;
+            IncomingConnectionError = string.Empty;
+            OutgoingConnectionState = ConnectionTestState.Failed;
+            OutgoingConnectionError = exception.Message;
+            IsOutgoingExpanded = true;
+            return;
+        }
+
+        IncomingConnectionState = ConnectionTestState.Failed;
+        IncomingConnectionError = exception.Message;
+        OutgoingConnectionState = ConnectionTestState.NotTested;
+        OutgoingConnectionError = string.Empty;
         IsIncomingExpanded = true;
+    }
+
+    private async Task TestCardDavConnectionAsync(CustomServerInformation serverInformation)
+    {
+        CardDavConnectionState = ConnectionTestState.Testing;
+        CardDavConnectionError = string.Empty;
+
+        try
+        {
+            await ValidateCardDavConnectivityAsync(serverInformation);
+            CardDavConnectionState = ConnectionTestState.Succeeded;
+        }
+        catch (Exception ex)
+        {
+            CardDavConnectionState = ConnectionTestState.Failed;
+            CardDavConnectionError = ex.Message;
+            IsCardDavExpanded = true;
+            throw;
+        }
     }
 
     private void SetCalDavConnectionFailed(Exception exception)
@@ -475,23 +673,34 @@ public partial class ImapCalDavSettingsPageViewModel
 
         if (IsCalDavSettingsVisible && string.IsNullOrWhiteSpace(CalDavServiceUrl))
         {
-            try
-            {
-                var discoveredUri = await _autoDiscoveryService.DiscoverCalDavServiceUriAsync(EmailAddress.Trim());
-                if (discoveredUri != null)
-                    CalDavServiceUrl = discoveredUri.ToString();
-            }
-            catch (Exception)
-            {
-                // A missing CalDAV address is reported through the result, not as an error.
-            }
-
+            await DiscoverCalDavServiceUrlAsync();
             isCalendarFound = !string.IsNullOrWhiteSpace(CalDavServiceUrl);
         }
 
         await ResolveCardDavServiceUrlAsync();
 
         return isMailFound && isCalendarFound;
+    }
+
+    private async Task DiscoverCalDavServiceUrlAsync()
+    {
+        var knownUrl = _knownImapProviderCatalog.ResolveCalDavServiceUrl(_editingSpecialImapProvider, IncomingServer);
+        if (!string.IsNullOrWhiteSpace(knownUrl))
+        {
+            CalDavServiceUrl = knownUrl;
+            return;
+        }
+
+        try
+        {
+            var discoveredUri = await _autoDiscoveryService.DiscoverCalDavServiceUriAsync(EmailAddress.Trim());
+            if (discoveredUri != null)
+                CalDavServiceUrl = discoveredUri.ToString();
+        }
+        catch (Exception)
+        {
+            // A missing CalDAV address is reported through the result, not as an error.
+        }
     }
 
     /// <summary>
@@ -536,8 +745,14 @@ public partial class ImapCalDavSettingsPageViewModel
     {
         MailConnectionState = ConnectionTestState.NotTested;
         MailConnectionError = string.Empty;
+        IncomingConnectionState = ConnectionTestState.NotTested;
+        IncomingConnectionError = string.Empty;
+        OutgoingConnectionState = ConnectionTestState.NotTested;
+        OutgoingConnectionError = string.Empty;
         CalDavConnectionState = ConnectionTestState.NotTested;
         CalDavConnectionError = string.Empty;
+        CardDavConnectionState = ConnectionTestState.NotTested;
+        CardDavConnectionError = string.Empty;
     }
 
     /// <summary>
@@ -669,6 +884,7 @@ public partial class ImapCalDavSettingsPageViewModel
         OnPropertyChanged(nameof(IsCardDavCredentialsVisible));
         OnPropertyChanged(nameof(IncomingSettingsTitle));
         NotifySecureSignInLayoutChanged();
+        NotifyAccountSettingsLayoutChanged();
     }
 
     partial void OnMaxConcurrentClientsChanged(int value) => OnPropertyChanged(nameof(MaxConcurrentClientsValue));

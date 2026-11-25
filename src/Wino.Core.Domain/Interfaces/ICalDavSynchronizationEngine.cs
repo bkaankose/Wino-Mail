@@ -39,6 +39,10 @@ public interface ICalDavSynchronizationEngine
         CancellationToken cancellationToken = default);
 
     /// <param name="attendees">Null loads the stored attendees of the item.</param>
+    /// <param name="reminders">
+    /// All reminders of the item. The ones the server stores are written as alarms; null leaves the
+    /// stored alarms unchanged.
+    /// </param>
     /// <param name="attachments">
     /// Null leaves the attachments unchanged. Otherwise the complete wanted list: a draft whose
     /// <see cref="CalendarEventComposeAttachmentDraft.Id"/> equals a stored
@@ -50,6 +54,7 @@ public interface ICalDavSynchronizationEngine
         MailAccount account,
         CalendarItem item,
         List<CalendarEventAttendee>? attendees,
+        List<Reminder>? reminders = null,
         IReadOnlyList<CalendarEventComposeAttachmentDraft>? attachments = null,
         CancellationToken cancellationToken = default);
 

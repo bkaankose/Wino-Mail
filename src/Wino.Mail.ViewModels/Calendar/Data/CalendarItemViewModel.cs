@@ -78,6 +78,12 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
 
     public bool IsAllDayEvent => CalendarItem.IsAllDayEvent;
     public bool IsMultiDayEvent => CalendarItem.IsMultiDayEvent;
+
+    /// <summary>
+    /// All-day events and timed events of 24 hours or more are drawn as bars in the all-day area of the
+    /// day and week views and across the month cells, as Outlook and Google Calendar do.
+    /// </summary>
+    public bool ShowsInAllDayArea => IsAllDayEvent || IsMultiDayEvent;
     public bool IsRecurringEvent => CalendarItem.IsRecurringEvent;
     public bool IsRecurringChild => CalendarItem.IsRecurringChild;
     public bool IsRecurringParent => CalendarItem.IsRecurringParent;
@@ -207,6 +213,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
         OnPropertyChanged(nameof(Period));
         OnPropertyChanged(nameof(IsAllDayEvent));
         OnPropertyChanged(nameof(IsMultiDayEvent));
+        OnPropertyChanged(nameof(ShowsInAllDayArea));
         OnPropertyChanged(nameof(IsRecurringEvent));
         OnPropertyChanged(nameof(IsRecurringChild));
         OnPropertyChanged(nameof(IsRecurringParent));
@@ -234,15 +241,21 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
 
         var periodRelation = Period.GetRelation(displayingPeriod);
 
+        if (periodRelation is PeriodRelation.ExactMatch or PeriodRelation.Inside or PeriodRelation.InsideStartTouching or PeriodRelation.InsideEndTouching)
+        {
+            // The whole event is shown at once, as a bar: "HH:mm → Title ← HH:mm"
+            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} → {Title} ← {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
+        }
+
         if (periodRelation == PeriodRelation.StartInside || periodRelation == PeriodRelation.EnclosingStartTouching)
         {
-            // Event starts within this day: "HH:mm -> Title"
-            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} -> {Title}";
+            // Event starts within this day: "HH:mm → Title"
+            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} → {Title}";
         }
         else if (periodRelation == PeriodRelation.EndInside || periodRelation == PeriodRelation.EnclosingEndTouching)
         {
-            // Event ends within this day: "Title <- HH:mm"
-            return $"{Title} <- {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
+            // Event ends within this day: "Title ← HH:mm"
+            return $"{Title} ← {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
         }
         else if (periodRelation == PeriodRelation.Enclosing)
         {

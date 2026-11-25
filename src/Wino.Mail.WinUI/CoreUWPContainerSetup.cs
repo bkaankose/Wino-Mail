@@ -30,13 +30,15 @@ public static class CoreUWPContainerSetup
 
         services.AddSingleton<IWinoWindowManager, WinoWindowManager>();
         services.AddSingleton<IWindowsMainWindowHost, WindowsMainWindowHost>();
-        services.AddSingleton<IWindowsPrintService, PrintService>();
+        // The engine host, its unsubscribe reader (in place of the header reader of the web view heads) and the
+        // spell-check languages; this head supplies the Windows backend.
+        services.AddSingleton<Wino.Mail.Rendering.IMailEngineBackendFactory, Rendering.WindowsMailEngineBackendFactory>();
+        Wino.Mail.Rendering.MailRenderingRegistration.AddMailRendering(services);
         // Capture the host UI dispatcher before background initialization resolves it.
         var platformDispatcher = DispatcherQueue.GetForCurrentThread();
         services.AddWindowsPlatformServices(new NativeAppService(
             platformDispatcher == null ? null : new DispatcherQueueThreadQueue(platformDispatcher),
-            SessionStartActivation.SyncRegistrationAsync,
-            WebViewExtensions.GetSharedEnvironmentAsync));
+            SessionStartActivation.SyncRegistrationAsync));
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<WindowsShellPreferences>();
         services.AddSingleton<WidgetsAndTilesService>();
@@ -49,7 +51,7 @@ public static class CoreUWPContainerSetup
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
             ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true, WidgetsAndLiveTiles: true,
-            AttachmentSecurityCheck: true, VoiceControl: true, AppLock: true));
+            AttachmentSecurityCheck: true, VoiceControl: true, AppLock: true, FlaggedMailTaskView: true));
         // The desktop socket (Wino.PushRelay.Socket): the key is a DPAPI-protected file. ApplicationRuntimeInitialization
         // starts the socket after the relay registration in background startup.
         services.AddSingleton<IPushRelaySocketKeyStore, ProtectedFilePushRelaySocketKeyStore>();
@@ -90,5 +92,7 @@ public static class CoreUWPContainerSetup
             provider.GetRequiredService<WinUIDispatcher>(),
             () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
+        services.AddSingleton<CalendarReminderToastPlan>();
+        services.AddSingleton<CalendarReminderToastScheduler>();
     }
 }

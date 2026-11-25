@@ -9,6 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
+using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
@@ -21,13 +22,6 @@ namespace Wino.Mail.WinUI.MenuFlyouts;
 /// </summary>
 internal static class MailContextFlyoutBuilder
 {
-    private static readonly MailOperation[] HeaderOperations =
-    [
-        MailOperation.Reply,
-        MailOperation.ReplyAll,
-        MailOperation.Forward
-    ];
-
     public static MailContextFlyoutMenu Build(
         IEnumerable<MailOperationMenuItem> availableActions,
         IReadOnlyList<MailCategory> availableCategories,
@@ -45,10 +39,26 @@ internal static class MailContextFlyoutBuilder
         var shortcutResolver = new ContextFlyoutShortcutResolver(shortcutService);
         var focusedInboxActions = actions.Where(action => IsFocusedInboxMoveOperation(action.Operation)).ToList();
 
-        foreach (var action in actions)
+        for (var index = 0; index < actions.Count; index++)
         {
-            if (HeaderOperations.Contains(action.Operation))
+            var action = actions[index];
+
+            if (action.Placement == MailOperationMenuPlacement.QuickActions)
             {
+                continue;
+            }
+
+            if (action.Placement != MailOperationMenuPlacement.Menu)
+            {
+                var submenuActions = new List<MailOperationMenuItem>();
+                while (index < actions.Count && actions[index].Placement == action.Placement)
+                {
+                    submenuActions.Add(actions[index]);
+                    index++;
+                }
+
+                index--;
+                items.Add(CreateSubmenuItem(action.Placement, submenuActions, shortcutResolver, selected));
                 continue;
             }
 
@@ -119,20 +129,34 @@ internal static class MailContextFlyoutBuilder
     {
         var headerItems = new List<ContextFlyoutHeaderEntry>();
 
-        foreach (var operation in HeaderOperations)
+        foreach (var action in actions)
         {
-            var action = actions.FirstOrDefault(candidate => candidate.Operation == operation);
-            var isEnabled = action?.IsEnabled == true;
+            if (action.Placement != MailOperationMenuPlacement.QuickActions)
+            {
+                continue;
+            }
+
+            var operation = action.Operation;
+            if (operation == MailOperation.Seperator)
+            {
+                if (headerItems.Count > 0 && !headerItems[^1].IsSeparator)
+                {
+                    headerItems.Add(ContextFlyoutHeaderEntry.Separator);
+                }
+
+                continue;
+            }
+
+            var isEnabled = action.IsEnabled;
 
             headerItems.Add(new ContextFlyoutHeaderEntry
             {
                 Label = XamlHelpers.GetOperationString(operation),
                 Icon = CreateIcon(XamlHelpers.GetWinoIconGlyph(operation)),
                 IsEnabled = isEnabled,
-                Command = action is null
-                    ? null
-                    : CreateCommand(() => selected(new MailContextFlyoutSelection(Operation: action)), isEnabled),
+                Command = CreateCommand(() => selected(new MailContextFlyoutSelection(Operation: action)), isEnabled),
                 Shortcut = isEnabled ? shortcutResolver.Resolve(operation) : null,
+                IsDestructive = IsDestructive(operation),
                 AutomationId = $"MailContextHeader{operation}"
             });
         }
@@ -140,16 +164,39 @@ internal static class MailContextFlyoutBuilder
         return headerItems;
     }
 
+    private static ContextFlyoutSubMenuEntry CreateSubmenuItem(
+        MailOperationMenuPlacement placement,
+        IReadOnlyList<MailOperationMenuItem> actions,
+        ContextFlyoutShortcutResolver shortcutResolver,
+        Action<MailContextFlyoutSelection> selected)
+    {
+        var children = new List<ContextFlyoutMenuEntry>(actions.Count);
+        foreach (var action in actions)
+        {
+            children.Add(CreateOperationItem(action, shortcutResolver, selected, MailOperationDisplay.GetSubmenuItemTitle(action.Operation)));
+        }
+
+        return new ContextFlyoutSubMenuEntry
+        {
+            Text = MailOperationDisplay.GetSubmenuTitle(placement),
+            Icon = CreateIcon(MailOperationDisplay.GetSubmenuGlyph(placement)),
+            IsEnabled = children.Any(CanActivate),
+            Items = children,
+            AutomationId = $"MailContext{placement}"
+        };
+    }
+
     private static ContextFlyoutCommandEntry CreateOperationItem(
         MailOperationMenuItem action,
         ContextFlyoutShortcutResolver shortcutResolver,
-        Action<MailContextFlyoutSelection> selected)
+        Action<MailContextFlyoutSelection> selected,
+        string? text = null)
         => new()
         {
-            Text = XamlHelpers.GetOperationString(action.Operation),
+            Text = text ?? XamlHelpers.GetOperationString(action.Operation),
             Icon = CreateIcon(XamlHelpers.GetWinoIconGlyph(action.Operation)),
             IsEnabled = action.IsEnabled,
-            IsDestructive = action.Operation is MailOperation.SoftDelete or MailOperation.HardDelete or MailOperation.DiscardLocalDraft,
+            IsDestructive = IsDestructive(action.Operation),
             Command = CreateCommand(() => selected(new MailContextFlyoutSelection(Operation: action)), action.IsEnabled),
             Shortcut = shortcutResolver.Resolve(action.Operation),
             AutomationId = $"MailContextOperation_{action.Operation}"
@@ -208,7 +255,7 @@ internal static class MailContextFlyoutBuilder
                 continue;
             }
 
-            var folderName = folder.ResolvedDisplayName ?? string.Empty;
+            var folderName = (folder.IsSticky ? folder.QualifiedDisplayName : folder.ResolvedDisplayName) ?? string.Empty;
             var childItems = new List<ContextFlyoutMenuEntry>();
             if (folder.ChildFolders?.Count > 0)
             {
@@ -257,7 +304,7 @@ internal static class MailContextFlyoutBuilder
             {
                 Text = folderName,
                 SearchKeywords = "folder destination",
-                Icon = CreateIcon(XamlHelpers.GetSpecialFolderPathIconGeometry(folder.SpecialFolderType)),
+                Icon = CreateIcon(XamlHelpers.GetFolderGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer, folder.IsSharedOwnerNode)),
                 Items = groupItems,
                 AutomationId = $"MoveFolderGroup_{folder.Id:N}"
             });
@@ -273,7 +320,7 @@ internal static class MailContextFlyoutBuilder
         {
             Text = text,
             SearchKeywords = $"folder destination {folder.ResolvedDisplayName}",
-            Icon = CreateIcon(XamlHelpers.GetSpecialFolderPathIconGeometry(folder.SpecialFolderType)),
+            Icon = CreateIcon(XamlHelpers.GetFolderGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer, folder.IsSharedOwnerNode)),
             Command = CreateCommand(() => selected(new MailContextFlyoutSelection(
                 Operation: moveAction,
                 MoveTargetFolder: folder))),
@@ -342,6 +389,9 @@ internal static class MailContextFlyoutBuilder
 
     private static ICommand CreateCommand(Action execute, bool canExecute = true)
         => new RelayCommand(execute, () => canExecute);
+
+    private static bool IsDestructive(MailOperation operation)
+        => operation is MailOperation.SoftDelete or MailOperation.HardDelete or MailOperation.DiscardLocalDraft;
 
     private static bool IsFocusedInboxMoveOperation(MailOperation operation)
         => operation is MailOperation.MoveToFocused

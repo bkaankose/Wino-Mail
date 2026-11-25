@@ -11,6 +11,13 @@ public interface IMailItemFolder
     string FolderName { get; set; }
     string DisplayName { get; set; }
     string ResolvedDisplayName { get; }
+    string QualifiedDisplayName { get; }
+    string OwnerName { get; set; }
+    MailFolderScope Scope { get; set; }
+    bool IsContainer { get; set; }
+    bool IsSharedOwnerNode { get; set; }
+    string MyRights { get; set; }
+    bool HasKnownRight(char right);
     long HighestModeSeq { get; set; }
     uint HighestKnownUid { get; set; }
     Guid Id { get; set; }
@@ -29,6 +36,7 @@ public interface IMailItemFolder
     uint UidValidity { get; set; }
     List<IMailItemFolder> ChildFolders { get; set; }
     bool IsMoveTarget { get; }
+    bool IsSelectable { get; }
     bool ShowUnreadCount { get; set; }
     bool IsCountedInAccountTotal { get; set; }
 

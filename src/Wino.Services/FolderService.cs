@@ -216,7 +216,7 @@ public class FolderService : BaseDatabaseService, IFolderService
     /// </summary>
     private static List<MailItemFolder> GetCountedFolders(List<MailItemFolder> folders, UnreadBadgeCountSource countSource)
         => countSource == UnreadBadgeCountSource.SelectedFolders
-            ? folders.Where(folder => folder.IsCountedInAccountTotal && folder.IsMoveTarget).ToList()
+            ? folders.Where(folder => folder.IsCountedInAccountTotal && folder.IsSelectable).ToList()
             : folders.Where(folder => folder.SpecialFolderType == SpecialFolderType.Inbox).ToList();
 
     private async Task<int> GetFolderUnreadCountAsync(MailItemFolder folder, MailAccount account)
@@ -273,6 +273,8 @@ public class FolderService : BaseDatabaseService, IFolderService
             .ConfigureAwait(false);
 
         allFolders = allFolders.Where(folder => folder.IsMailFolder).ToList();
+        AssignSharedFolderDetails(allFolders);
+
         var folders = includeHiddenFolders ? allFolders : FilterVisibleFolders(allFolders);
         var hierarchy = FolderHierarchy.Build(folders, pinnedFoldersAreRoots: false, accountId, _logger);
 
@@ -466,6 +468,9 @@ public class FolderService : BaseDatabaseService, IFolderService
         /// <summary>Listed under the virtual More folder.</summary>
         More,
 
+        /// <summary>Listed directly under the account, after the pinned folders: another user's or a shared mailbox.</summary>
+        Shared,
+
         /// <summary>Not listed at this level.</summary>
         Nested
     }
@@ -479,6 +484,9 @@ public class FolderService : BaseDatabaseService, IFolderService
         if (folder.IsSticky)
             return FolderDisplayPlacement.Root;
 
+        if (folder.Scope != MailFolderScope.Personal)
+            return FolderDisplayPlacement.Shared;
+
         return ServiceConstants.SubCategoryFolderLabelIds.Contains(folder.FolderName?.ToUpper())
             ? FolderDisplayPlacement.Categories
             : FolderDisplayPlacement.More;
@@ -486,9 +494,100 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     private async Task<FolderHierarchy> GetDisplayHierarchyAsync(Guid accountId)
     {
-        var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
+        var folders = RemoveEmptyContainers(await GetVisibleFoldersAsync(accountId).ConfigureAwait(false));
 
         return FolderHierarchy.Build(folders, pinnedFoldersAreRoots: true, accountId, _logger);
+    }
+
+    /// <summary>A container only groups folders; one whose folders are all hidden or gone is not listed.</summary>
+    internal static List<MailItemFolder> RemoveEmptyContainers(List<MailItemFolder> folders)
+    {
+        var result = folders;
+
+        while (true)
+        {
+            var parentIds = result
+                .Where(folder => !string.IsNullOrEmpty(folder.ParentRemoteFolderId))
+                .Select(folder => folder.ParentRemoteFolderId)
+                .ToHashSet(StringComparer.Ordinal);
+            var remaining = result.Where(folder => !folder.IsContainer || parentIds.Contains(folder.RemoteFolderId)).ToList();
+
+            if (remaining.Count == result.Count)
+                return result;
+
+            result = remaining;
+        }
+    }
+
+    /// <summary>
+    /// The roots of the shared tree in menu order. When the account sees exactly one other mailbox, the namespace
+    /// level above it ("Shared Folders", "shared", "user") is skipped and the mailbox is listed directly.
+    /// </summary>
+    private static List<MailItemFolder> FlattenSingleSharedMailbox(FolderHierarchy hierarchy, List<MailItemFolder> sharedRoots)
+    {
+        if (sharedRoots.Count == 1 && sharedRoots[0].IsContainer && hierarchy.GetChildren(sharedRoots[0]) is { Count: 1 } children)
+            return [children[0]];
+
+        return sharedRoots;
+    }
+
+    /// <summary>
+    /// Fills what the folder lists need to show a shared tree: <see cref="MailItemFolder.OwnerName"/> (the name of the
+    /// level below the namespace root, the owner's mailbox, or the root itself when it is a folder),
+    /// <see cref="MailItemFolder.IsSharedOwnerNode"/> for that owner level when it groups folders, and
+    /// <see cref="MailItemFolder.IsSkippedSharedLevel"/> for a namespace level the navigation menu flattens away.
+    /// </summary>
+    internal static void AssignSharedFolderDetails(IReadOnlyCollection<MailItemFolder> folders)
+    {
+        if (folders.All(folder => folder.Scope == MailFolderScope.Personal))
+            return;
+
+        var foldersByRemoteId = GetFoldersByRemoteId(folders);
+        var childCounts = folders
+            .Where(folder => !folder.IsSticky && TryGetParentFolder(folder, foldersByRemoteId, out _))
+            .GroupBy(folder => folder.ParentRemoteFolderId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+        var sharedRoots = new List<MailItemFolder>();
+
+        foreach (var folder in folders)
+        {
+            folder.OwnerName = null;
+            folder.IsSharedOwnerNode = false;
+            folder.IsSkippedSharedLevel = false;
+
+            if (folder.Scope == MailFolderScope.Personal)
+                continue;
+
+            var path = new List<MailItemFolder> { folder };
+            var visited = new HashSet<MailItemFolder>(ReferenceEqualityComparer.Instance) { folder };
+
+            while (TryGetParentFolder(path[0], foldersByRemoteId, out var parentFolder) &&
+                   parentFolder.Scope == folder.Scope &&
+                   visited.Add(parentFolder))
+            {
+                path.Insert(0, parentFolder);
+            }
+
+            if (path.Count == 1 && !folder.IsSticky)
+                sharedRoots.Add(folder);
+
+            var owner = path[0].IsContainer ? (path.Count > 1 ? path[1] : null) : path[0];
+
+            if (owner == null)
+                continue;
+
+            if (ReferenceEquals(owner, folder))
+                folder.IsSharedOwnerNode = folder.IsContainer || childCounts.ContainsKey(folder.RemoteFolderId ?? string.Empty);
+            else
+                folder.OwnerName = owner.FolderName;
+        }
+
+        // The rule of FlattenSingleSharedMailbox, applied to every folder instead of the visible ones.
+        if (sharedRoots.Count == 1 && sharedRoots[0].IsContainer &&
+            childCounts.TryGetValue(sharedRoots[0].RemoteFolderId ?? string.Empty, out var rootChildren) && rootChildren == 1)
+        {
+            sharedRoots[0].IsSkippedSharedLevel = true;
+        }
     }
 
     private static void LocalizeCategoryFolderName(MailItemFolder folder)
@@ -508,6 +607,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         if (hierarchy.Roots.Count == 0) return [];
 
         var rootFolders = new List<IMailItemFolder>();
+        var sharedRoots = new List<MailItemFolder>();
         var moreFolder = MailItemFolder.CreateMoreFolder();
         var categoryFolder = MailItemFolder.CreateCategoriesFolder();
 
@@ -524,6 +624,9 @@ public class FolderService : BaseDatabaseService, IFolderService
                 case FolderDisplayPlacement.Root:
                     rootFolders.Add(folder);
                     break;
+                case FolderDisplayPlacement.Shared:
+                    sharedRoots.Add(folder);
+                    break;
                 case FolderDisplayPlacement.Categories:
                     categoryFolder.ChildFolders.Add(folder);
                     break;
@@ -532,6 +635,8 @@ public class FolderService : BaseDatabaseService, IFolderService
                     break;
             }
         }
+
+        rootFolders.AddRange(FlattenSingleSharedMailbox(hierarchy, sharedRoots));
 
         // An empty virtual folder would be a dead end here, unlike the navigation menu where
         // Categories is always offered for Gmail.
@@ -567,6 +672,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         if (hierarchy.Roots.Count == 0) return AccountFolderLayout.Empty(account);
 
         var rootFolders = new List<FolderLayoutNode>();
+        var sharedRoots = new List<MailItemFolder>();
         var moreFolder = new FolderLayoutNode(MailItemFolder.CreateMoreFolder(), []);
         var categoriesFolder = new FolderLayoutNode(MailItemFolder.CreateCategoriesFolder(), []);
 
@@ -575,6 +681,12 @@ public class FolderService : BaseDatabaseService, IFolderService
             var placement = GetFolderDisplayPlacement(item);
 
             if (placement == FolderDisplayPlacement.Nested) continue;
+
+            if (placement == FolderDisplayPlacement.Shared)
+            {
+                sharedRoots.Add(item);
+                continue;
+            }
 
             var node = CreateFolderLayoutNode(hierarchy, item);
 
@@ -592,6 +704,8 @@ public class FolderService : BaseDatabaseService, IFolderService
             }
         }
 
+        rootFolders.AddRange(FlattenSingleSharedMailbox(hierarchy, sharedRoots).Select(folder => CreateFolderLayoutNode(hierarchy, folder)));
+
         var favoriteCategories = await _mailCategoryService.GetFavoriteCategoriesAsync(account.Id).ConfigureAwait(false);
 
         return new AccountFolderLayout
@@ -600,7 +714,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             RootFolders = rootFolders,
             FavoriteCategories = favoriteCategories.ToList(),
             CategoryFolders = favoriteCategories.Any()
-                ? hierarchy.Folders.Where(a => a.IsMoveTarget).Cast<IMailItemFolder>().ToList()
+                ? hierarchy.Folders.Where(a => a.IsSelectable).Cast<IMailItemFolder>().ToList()
                 : [],
 
             // An empty Categories item is a dead end after the user hides every Gmail category.
@@ -669,7 +783,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             CommonFolders = commonFolders,
             FavoriteCategoryGroups = favoriteCategoryGroups,
             CategoryFolders = favoriteCategoryGroups.Count > 0
-                ? allAccountFolders.SelectMany(a => a).Where(a => a.IsMoveTarget).Cast<IMailItemFolder>().ToList()
+                ? allAccountFolders.SelectMany(a => a).Where(a => a.IsSelectable).Cast<IMailItemFolder>().ToList()
                 : []
         };
     }
@@ -708,7 +822,9 @@ public class FolderService : BaseDatabaseService, IFolderService
         // is honored. SQLite's default ORDER BY is not culture-aware.
         const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
         var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
-        return ApplyFolderSort(rows.Where(folder => folder.IsMailFolder)).ToList();
+        var mailFolders = rows.Where(folder => folder.IsMailFolder).ToList();
+        AssignSharedFolderDetails(mailFolders);
+        return ApplyFolderSort(mailFolders).ToList();
     }
 
     public async Task<List<MailItemFolder>> GetFoldersByIdsAsync(
@@ -745,7 +861,9 @@ public class FolderService : BaseDatabaseService, IFolderService
         // Visibility depends on the parent chain, so hidden rows are loaded too.
         const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
         var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
-        return ApplyFolderSort(FilterVisibleFolders(rows.Where(folder => folder.IsMailFolder).ToList())).ToList();
+        var mailFolders = rows.Where(folder => folder.IsMailFolder).ToList();
+        AssignSharedFolderDetails(mailFolders);
+        return ApplyFolderSort(FilterVisibleFolders(mailFolders)).ToList();
     }
 
     public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
@@ -790,7 +908,7 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     private Task UpdateSystemFolderInternalAsync(MailItemFolder folder, SpecialFolderType assignedSpecialFolderType)
     {
-        if (folder == null) return Task.CompletedTask;
+        if (folder == null || folder.Scope != MailFolderScope.Personal || folder.IsContainer) return Task.CompletedTask;
 
         folder.IsSticky = true;
         folder.IsSynchronizationEnabled = true;
@@ -990,7 +1108,7 @@ public class FolderService : BaseDatabaseService, IFolderService
                 .OrderBy(a => a.SpecialFolderType)
                 .ToListAsync();
 
-            folders.AddRange(synchronizationFolders);
+            folders.AddRange(synchronizationFolders.Where(folder => !folder.IsContainer));
         }
         else
         {
@@ -1007,11 +1125,14 @@ public class FolderService : BaseDatabaseService, IFolderService
             {
                 // Only get the specified folders.
 
-                var synchronizationFolders = await Connection.Table<MailItemFolder>()
+                // Filtered after the query: rows stored before IsContainer existed hold NULL there.
+                var synchronizationFolders = (await Connection.Table<MailItemFolder>()
                     .Where(a =>
                     a.MailAccountId == options.AccountId &&
                     options.SynchronizationFolderIds.Contains(a.Id))
-                    .ToListAsync();
+                    .ToListAsync())
+                    .Where(folder => !folder.IsContainer)
+                    .ToList();
 
                 if (options.ExcludeMustHaveFolders)
                 {

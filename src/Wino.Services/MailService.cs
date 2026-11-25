@@ -187,6 +187,26 @@ public class MailService : BaseDatabaseService, IMailService
         return draftCount > 0;
     }
 
+    public async Task<List<MailCopy>> GetFlaggedMailsAsync(int maxCount)
+    {
+        // Gmail stores one message once per label, so keep one copy per account and server id.
+        var mails = await Connection.QueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy " +
+            "INNER JOIN MailItemFolder ON MailItemFolder.Id = MailCopy.FolderId " +
+            "WHERE MailCopy.IsFlagged = 1 AND MailCopy.IsDraft = 0 AND MailItemFolder.SpecialFolderType NOT IN (?, ?) " +
+            "ORDER BY MailCopy.CreationDate DESC LIMIT ?",
+            (int)SpecialFolderType.Deleted,
+            (int)SpecialFolderType.Junk,
+            Math.Max(1, maxCount) * 2).ConfigureAwait(false);
+
+        var hydrated = await HydrateMailCopiesAsync(mails).ConfigureAwait(false);
+        return hydrated
+            .Where(static mail => mail.AssignedAccount is not null)
+            .DistinctBy(static mail => (mail.AssignedAccount.Id, string.IsNullOrEmpty(mail.Id) ? mail.UniqueId.ToString() : mail.Id))
+            .Take(Math.Max(1, maxCount))
+            .ToList();
+    }
+
     public async Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId)
     {
         var unreadMails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ? AND IsRead = 0", folderId).ConfigureAwait(false);
@@ -2948,19 +2968,50 @@ WHERE MailItemFolder.MailAccountId = ?
     {
         var mailCopies = new List<MailCopy>();
 
-        foreach (var idChunk in SqliteVariableLimit.Batch(downloadedMailCopyIds, fixedParameters: 3))
+        // Every folder: the account's notification scope decides which of them raise a notification.
+        foreach (var idChunk in SqliteVariableLimit.Batch(downloadedMailCopyIds, fixedParameters: 2))
         {
             var placeholders = string.Join(",", idChunk.Select(_ => "?"));
-            var sql = $"SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.MailAccountId = ? AND MailItemFolder.SpecialFolderType = ?";
+            var sql = $"SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.MailAccountId = ?";
             var parameters = new List<object>();
             parameters.AddRange(idChunk.Cast<object>());
             parameters.Add(false);
             parameters.Add(accountId);
-            parameters.Add((int)SpecialFolderType.Inbox);
 
             mailCopies.AddRange(await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false));
         }
-        return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
+
+        // A message stored in several folders (Gmail labels) is announced once, by its Inbox copy when it has one.
+        var newMails = (await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false))
+            .GroupBy(mail => mail.Id, StringComparer.Ordinal)
+            .Select(copies => copies.FirstOrDefault(mail => mail.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox) ?? copies.First())
+            .ToList();
+
+        // A message another device moved or copied arrives as a new copy in its new folder. It is not new to the
+        // account while an older copy with the same Message-ID is still stored.
+        var batchIds = newMails.Select(mail => mail.Id).ToHashSet(StringComparer.Ordinal);
+        var messageIds = newMails.Select(mail => mail.MessageId).Where(id => !string.IsNullOrEmpty(id)).Distinct(StringComparer.Ordinal).ToList();
+        var knownMessageIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(messageIds, fixedParameters: 1))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT MailCopy.Id, MailCopy.MessageId FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailItemFolder.MailAccountId = ? AND MailCopy.MessageId IN ({placeholders})";
+            var parameters = new List<object> { accountId };
+            parameters.AddRange(idChunk.Cast<object>());
+
+            foreach (var row in await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false))
+            {
+                if (!batchIds.Contains(row.Id))
+                    knownMessageIds.Add(row.MessageId);
+            }
+        }
+
+        return newMails
+            .Where(mail => string.IsNullOrEmpty(mail.MessageId) || !knownMessageIds.Contains(mail.MessageId))
+            .GroupBy(mail => string.IsNullOrEmpty(mail.MessageId) ? mail.Id : mail.MessageId, StringComparer.Ordinal)
+            .Select(copies => copies.FirstOrDefault(mail => mail.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox) ?? copies.First())
+            .ToList();
     }
 
     public Task<MailAccount> GetMailAccountByUniqueIdAsync(Guid uniqueMailId)

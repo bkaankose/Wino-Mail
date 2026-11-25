@@ -49,6 +49,15 @@ public sealed record CalendarCapabilities
     /// <summary>Most reminders one event may keep on the server; null when the server sets no limit.</summary>
     public int? MaxReminders { get; init; }
 
+    /// <summary>The server stores reminders that send an email.</summary>
+    public bool SupportsEmailReminder { get; init; }
+
+    /// <summary>The server stores reminders that fire after the event started.</summary>
+    public bool SupportsReminderAfterStart { get; init; }
+
+    /// <summary>The longest reminder lead time the server stores, in minutes; null when it sets no limit.</summary>
+    public int? MaxReminderOffsetMinutes { get; init; }
+
     /// <summary>The server stores default alarms for new events (CalDAV: calendar-default-alarms).</summary>
     public bool SupportsDefaultAlarms { get; init; }
 
@@ -68,7 +77,8 @@ public sealed record CalendarCapabilities
         Source = CalendarCapabilitySource.Local,
         SupportsAttachments = true,
         SupportsAttendees = true,
-        SupportsReminders = true
+        SupportsReminders = true,
+        SupportsReminderAfterStart = true
     };
 
     public static CalendarCapabilities Outlook { get; } = new()
@@ -90,7 +100,9 @@ public sealed record CalendarCapabilities
         SendsInvitations = true,
         SupportsOnlineMeeting = true,
         SupportsReminders = true,
-        MaxReminders = 5
+        MaxReminders = 5,
+        SupportsEmailReminder = true,
+        MaxReminderOffsetMinutes = 40320
     };
 
     /// <summary>On-premises Exchange over EWS or MAPI over HTTP. Event attachments are not written to the server.</summary>
@@ -108,7 +120,8 @@ public sealed record CalendarCapabilities
     {
         Source = CalendarCapabilitySource.CalDav,
         SupportsAttendees = true,
-        SupportsReminders = true
+        SupportsReminders = true,
+        SupportsReminderAfterStart = true
     };
 
     /// <summary>

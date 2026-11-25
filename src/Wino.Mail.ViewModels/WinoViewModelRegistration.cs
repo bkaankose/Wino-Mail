@@ -2,6 +2,7 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.ViewModels.AccountSettings;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.ViewModels.Settings;
@@ -32,6 +33,7 @@ public static class WinoViewModelRegistration
         // The questions and notices of the request pipeline and the sync snapshot's theme and layout. The backend
         // asks and shows nothing; these hold the dialog and theme services for the ViewModels that start the work.
         services.AddTransient<Requests.WinoRequestCoordinator>();
+        services.AddTransient<Links.ConnectedItemsCoordinator>();
         services.AddTransient<Settings.AppearanceSnapshotService>();
 
         // Notification actions run the same coordinator a page uses, so they ask and report the same way.
@@ -49,8 +51,10 @@ public static class WinoViewModelRegistration
         services.AddSingleton<CalendarAppShellViewModel>();
         services.AddSingleton<SettingsMenuProvider>();
         services.AddSingleton<ContactsPageViewModel>();
+        services.AddSingleton<FlaggedMail.FlaggedMailListViewModel>();
         services.AddSingleton<ToDoPageViewModel>();
         services.AddSingleton<CalendarPageViewModel>();
+        services.AddSingleton<Calendar.CalendarDueTasksViewModel>();
         services.AddSingleton<IShellMenuProviderResolver>(provider => new ShellMenuProviderResolver(
             () => provider.GetRequiredService<IMailShellClient>(),
             () => provider.GetRequiredService<ICalendarShellClient>(),
@@ -120,6 +124,14 @@ public static class WinoViewModelRegistration
         services.AddTransient<StoragePageViewModel>();
         services.AddTransient<AccountManagementViewModel>();
         services.AddTransient<AccountDetailsPageViewModel>();
+        services.AddTransient<AccountAppChangeCoordinator>();
+        services.AddTransient<AccountHubPageViewModel>();
+        services.AddTransient<AccountMailSettingsPageViewModel>();
+        services.AddTransient<AccountCalendarSettingsPageViewModel>();
+        services.AddTransient<AccountPeopleSettingsPageViewModel>();
+        services.AddTransient<AccountToDoSettingsPageViewModel>();
+        services.AddTransient<AccountSignInPageViewModel>();
+        services.AddTransient<AccountTroubleshootingPageViewModel>();
         services.AddTransient<AccountGroupDetailsPageViewModel>();
         services.AddTransient<FolderCustomizationPageViewModel>();
         services.AddTransient<AliasManagementPageViewModel>();

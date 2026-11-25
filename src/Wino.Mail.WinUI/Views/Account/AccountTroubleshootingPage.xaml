@@ -1,0 +1,53 @@
+﻿<viewsAbstract:AccountTroubleshootingPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Account.AccountTroubleshootingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="4">
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AccountTroubleshootingProtocolLogCard"
+            Description="{x:Bind domain:Translator.ProtocolLog_EnableDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ProtocolLog_EnableTitle, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Pulse" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="AccountTroubleshootingProtocolLogToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.ProtocolLog_EnableTitle, Mode=OneTime}"
+                IsOn="{x:Bind ViewModel.IsProtocolLogEnabled, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AccountTroubleshootingExportCard"
+            Description="{x:Bind domain:Translator.ProtocolLog_ExportDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ProtocolLog_ExportTitle, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="ArrowDownload" />
+            </controls:SettingsCard.HeaderIcon>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button
+                    AutomationProperties.AutomationId="AccountTroubleshootingExportButton"
+                    Command="{x:Bind ViewModel.ExportProtocolLogsCommand}"
+                    Content="{x:Bind domain:Translator.ProtocolLog_ExportAction, Mode=OneTime}" />
+                <Button
+                    AutomationProperties.AutomationId="AccountTroubleshootingUploadButton"
+                    Command="{x:Bind ViewModel.UploadProtocolLogsCommand}"
+                    Content="{x:Bind domain:Translator.ProtocolLog_UploadAction, Mode=OneTime}" />
+            </StackPanel>
+        </controls:SettingsCard>
+
+        <InfoBar
+            AutomationProperties.AutomationId="AccountTroubleshootingNoLogsInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsNoLogsNoteVisible, Mode=OneWay}"
+            Message="{x:Bind domain:Translator.AccountTroubleshooting_NoLogsMessage, Mode=OneTime}"
+            Severity="Informational" />
+    </StackPanel>
+</viewsAbstract:AccountTroubleshootingPageAbstract>

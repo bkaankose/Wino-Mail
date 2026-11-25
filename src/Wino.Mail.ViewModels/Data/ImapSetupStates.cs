@@ -1,13 +1,14 @@
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
-/// The steps of the IMAP server page while an account is being added. Choosing capabilities
-/// happens on the provider page before this one; editing an account shows no steps.
+/// The steps of the IMAP server page while an account is being added. Features is shown only when the setup page
+/// opened Advanced setup before its apps were chosen; editing an account shows no steps.
 /// </summary>
 public enum ImapSetupStep
 {
     SignIn = 0,
-    Servers = 1
+    Servers = 1,
+    Features = 2
 }
 
 /// <summary>

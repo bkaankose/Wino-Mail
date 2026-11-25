@@ -169,7 +169,7 @@ public sealed class ControlsGalleryActivity : AppCompatActivity
         var newItem = new WinoShellRowView(this);
         newItem.ConfigureNewItem("New mail");
         var account = new WinoShellRowView(this) { ShowsIndicator = true, IsActiveAccount = true };
-        account.ConfigureAccount(new AccountIconInfo(AccountIconProvider.Microsoft, null, "#2C3E50"), "Burak Kaan Köse", "bkaankose@outlook.com", 12);
+        account.ConfigureAccount(new AccountIconInfo(AccountIconProvider.Microsoft, null, "#2C3E50"), "Alex Morgan", "alex@contoso.example", 12);
         account.SetSync(true);
         var inbox = new WinoShellRowView(this) { IsRowSelected = true };
         inbox.ConfigureFolder(WinoIconGlyph.SpecialFolderInbox, "Inbox", 12);

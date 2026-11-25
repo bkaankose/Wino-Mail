@@ -117,6 +117,28 @@
                         IsOn="{x:Bind ViewModel.PreferencesService.ShowTasksInCompanion, Mode=TwoWay}" />
                 </controls:SettingsCard>
 
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="CompanionSettingsTaskBehaviorCard"
+                    Description="{x:Bind domain:Translator.CompanionSettings_TaskBehavior_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CompanionSettings_TaskBehavior_Title, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.PreferencesService.ShowTasksInCompanion, Mode=OneWay}">
+                    <ComboBox
+                        x:Name="TaskBehaviorComboBox"
+                        MinWidth="200"
+                        AutomationProperties.AutomationId="CompanionSettingsTaskBehaviorComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_TaskBehavior_Title, Mode=OneTime}"
+                        SelectionChanged="TaskBehaviorComboBox_SelectionChanged">
+                        <ComboBoxItem
+                            x:Name="MyDayTasksComboBoxItem"
+                            AutomationProperties.AutomationId="CompanionSettingsTasksMyDayItem"
+                            Content="{x:Bind domain:Translator.CompanionSettings_TaskBehavior_MyDay, Mode=OneTime}" />
+                        <ComboBoxItem
+                            x:Name="DueDateTasksComboBoxItem"
+                            AutomationProperties.AutomationId="CompanionSettingsTasksDueDateItem"
+                            Content="{x:Bind domain:Translator.CompanionSettings_TaskBehavior_DueDate, Mode=OneTime}" />
+                    </ComboBox>
+                </controls:SettingsCard>
+
                 <controls:SettingsCard AutomationProperties.AutomationId="CompanionSettingsShowFavoriteContactsCard" Header="{x:Bind domain:Translator.CompanionSettings_ShowFavoriteContacts_Title, Mode=OneTime}">
                     <ToggleSwitch
                         AutomationProperties.AutomationId="CompanionSettingsShowFavoriteContactsToggle"

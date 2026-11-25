@@ -1,5 +1,6 @@
 #nullable enable
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Presentation;
 
@@ -36,6 +37,8 @@ public static class MailOperationDisplay
         MailOperation.ViewMessageSource => Translator.MailOperation_ViewMessageSource,
         MailOperation.RetryDraftUpload => Translator.Draft_RetryUpload,
         MailOperation.Navigate => Translator.MailOperation_Navigate,
+        MailOperation.CreateTask => Translator.MailOperation_CreateTask,
+        MailOperation.CreateEvent => Translator.MailOperation_CreateEvent,
         _ => string.Empty
     };
 
@@ -65,6 +68,29 @@ public static class MailOperationDisplay
         MailOperation.RetryDraftUpload => WinoIconGlyph.ArrowClockwise,
         MailOperation.MoveToFocused or MailOperation.AlwaysMoveToFocused => WinoIconGlyph.Important,
         MailOperation.MoveToOther or MailOperation.AlwaysMoveToOther => WinoIconGlyph.Inbox,
+        MailOperation.CreateTask => WinoIconGlyph.TaskList,
+        MailOperation.CreateEvent => WinoIconGlyph.Calendar,
+        _ => WinoIconGlyph.None
+    };
+
+    /// <summary>The title inside a submenu, whose own title already names the action.</summary>
+    public static string GetSubmenuItemTitle(MailOperation operation) => operation switch
+    {
+        MailOperation.CreateTask => Translator.MailOperation_CreateSubmenuTask,
+        MailOperation.CreateEvent => Translator.MailOperation_CreateSubmenuEvent,
+        _ => GetTitle(operation)
+    };
+
+    /// <summary>The submenu title; empty for a placement that is not a submenu.</summary>
+    public static string GetSubmenuTitle(MailOperationMenuPlacement placement) => placement switch
+    {
+        MailOperationMenuPlacement.CreateSubmenu => Translator.MailOperation_CreateSubmenu,
+        _ => string.Empty
+    };
+
+    public static WinoIconGlyph GetSubmenuGlyph(MailOperationMenuPlacement placement) => placement switch
+    {
+        MailOperationMenuPlacement.CreateSubmenu => WinoIconGlyph.Add,
         _ => WinoIconGlyph.None
     };
 }
@@ -139,6 +165,24 @@ public static class SpecialFolderGlyphs
     /// <summary>The special folder's glyph, or the plain folder glyph for regular folders.</summary>
     public static WinoIconGlyph GetGlyphOrFolder(SpecialFolderType type)
         => GetGlyph(type) is var glyph && glyph != WinoIconGlyph.None ? glyph : WinoIconGlyph.Folder;
+
+    /// <summary>
+    /// A folder row's glyph: people for a level of a shared tree (a namespace or another user's mailbox), the shared
+    /// folder glyph for a folder outside the personal namespace, otherwise the special folder's glyph.
+    /// </summary>
+    public static WinoIconGlyph GetGlyph(IMailItemFolder folder)
+        => GetGlyph(folder.SpecialFolderType, folder.Scope, folder.IsContainer || folder.IsSharedOwnerNode);
+
+    /// <inheritdoc cref="GetGlyph(IMailItemFolder)"/>
+    /// <param name="isSharedTreeLevel">A container or the node of a mailbox owner.</param>
+    public static WinoIconGlyph GetGlyph(SpecialFolderType type, MailFolderScope scope, bool isSharedTreeLevel)
+        => isSharedTreeLevel ? WinoIconGlyph.People
+            : scope != MailFolderScope.Personal ? WinoIconGlyph.FolderShared
+            : GetGlyph(type);
+
+    /// <inheritdoc cref="GetGlyph(IMailItemFolder)"/>
+    public static WinoIconGlyph GetGlyphOrFolder(IMailItemFolder folder)
+        => GetGlyph(folder) is var glyph && glyph != WinoIconGlyph.None ? glyph : WinoIconGlyph.Folder;
 }
 
 /// <summary>Brand glyphs for mail providers.</summary>

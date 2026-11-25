@@ -84,7 +84,9 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _surface.ItemResizeRequested += SurfaceItemResizeRequested;
         _surface.ItemClicked += SurfaceItemClicked;
         _surface.ItemDoubleClicked += SurfaceItemDoubleClicked;
+        _surface.MonthDayDoubleClicked += SurfaceMonthDayDoubleClicked;
         _surface.ItemRightClicked += SurfaceItemRightClicked;
+        _surface.EmptyAreaContextRequested += SurfaceEmptyAreaContextRequested;
         _surface.SlotClicked += SurfaceSlotClicked;
         _surface.PeriodSettled += SurfacePeriodSettled;
         _surface.ViewportPeriodChanged += SurfaceViewportPeriodChanged;
@@ -99,7 +101,9 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _detailsWidth = _detailsZone.WidthAnchor.ConstraintEqualTo((nfloat)DetailsWidth);
         _detailsWidth.Active = true;
 
+        var dueStrip = BuildDueTasksStrip();
         root.AddSubview(_toolbar);
+        root.AddSubview(dueStrip);
         root.AddSubview(_zone);
         root.AddSubview(_detailsZone);
         var zoneTrailing = WinoZoneInsets.Track(_zone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor), -7);
@@ -110,7 +114,10 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             _toolbar.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
             _toolbar.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
             // The gap between the date row and the calendar surface.
-            _zone.TopAnchor.ConstraintEqualTo(_toolbar.BottomAnchor, 12),
+            _zone.TopAnchor.ConstraintEqualTo(dueStrip.BottomAnchor, 12),
+            dueStrip.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor, 4),
+            dueStrip.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor, -7),
+            _dueStripTop,
             WinoZoneInsets.Track(_zone.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor), 4),
             WinoZoneInsets.Track(_zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor), -7),
             zoneTrailing,
@@ -181,6 +188,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
 
     private void BindAll()
     {
+        BindDueTasks();
         Bind(nameof(ViewModel.VisibleDateRangeText), vm => vm.VisibleDateRangeText, text => _toolbar.RangeText = text);
         Bind(nameof(ViewModel.CurrentVisibleRange), vm => vm.CurrentVisibleRange, range => _surface.VisibleRange = range);
         Bind(nameof(ViewModel.CurrentSettings), vm => vm.CurrentSettings, settings => _surface.Settings = settings);
@@ -271,6 +279,12 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
     {
         CloseQuickEvent();
         if (args.Item is CalendarItemViewModel item) WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(item));
+    }
+
+    private void SurfaceMonthDayDoubleClicked(object? sender, DateTime day)
+    {
+        CloseQuickEvent();
+        _shell.OpenDayView(DateOnly.FromDateTime(day));
     }
 
     private void SurfaceItemDoubleClicked(object? sender, CalendarItemClickedEventArgs args)
@@ -578,6 +592,13 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         // "cal-details-showas N VALUE", "cal-details-reminder N MINUTES", "cal-attach-save N" act on the open details.
         MacDebugBridge.Register("cal-details-showas", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0
             ? details.DebugChooseShowAsAsync(args[^1]) : Task.FromResult("open an event's details first (cal-details N)"));
+#if DEBUG
+        MacDebugBridge.Register("cal-reminder-add", _ => Task.FromResult(Wino.Mail.MacOS.Views.Dialogs.CalendarReminderEditorSheet.DebugAddRow()));
+#endif
+        MacDebugBridge.Register("cal-details-customize", _ => _detailsChild is EventDetailsPageViewController details
+            ? details.DebugCustomizeRemindersAsync() : Task.FromResult("open an event's details first (cal-details N)"));
+        MacDebugBridge.Register("cal-details-followup", _ => _detailsChild is EventDetailsPageViewController details
+            ? details.DebugFollowUpAsync() : Task.FromResult("open an event's details first (cal-details N)"));
         MacDebugBridge.Register("cal-details-reminder", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0 && int.TryParse(args[^1], out var minutes)
             ? details.DebugToggleReminderAsync(minutes) : Task.FromResult("open an event's details first (cal-details N)"));
         MacDebugBridge.Register("cal-attach-save", args => Task.FromResult(_detailsChild is EventDetailsPageViewController details
@@ -613,6 +634,24 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             var date = ViewModel.CurrentVisibleRange?.Dates.FirstOrDefault() ?? _dateContext.GetToday();
             SurfaceSlotClicked(this, new CalendarSlotClickedEventArgs(date.ToDateTime(new TimeOnly(10, 0)), new CGRect(WinoCalendarSurfaceView.HourColumnWidth, 200, 120, 26), false));
             return Task.FromResult("ok");
+        });
+        // cal-copy TITLE copies a loaded event as its "Copy" menu item does; cal-paste YYYY-MM-DDTHH:mm pastes it at that time
+        // as the empty-area "Paste" item does.
+        MacDebugBridge.Register("cal-copy", async args =>
+        {
+            var name = string.Join(' ', args);
+            var item = ViewModel.CalendarItems.FirstOrDefault(candidate => candidate.Title.Contains(name, StringComparison.OrdinalIgnoreCase));
+            if (item is null) return $"no loaded event matches '{name}'";
+            await ViewModel.CopyCalendarItemAsync(item);
+            return ViewModel.HasCopiedCalendarItem ? "copied " + item.Title : "nothing copied";
+        });
+        MacDebugBridge.Register("cal-paste", async args =>
+        {
+            if (args.Length == 0 || !DateTime.TryParse(args[0], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var target))
+                return "usage: cal-paste YYYY-MM-DDTHH:mm";
+            if (!ViewModel.HasCopiedCalendarItem) return "nothing copied";
+            await ViewModel.PasteCalendarItemAsync(target, true);
+            return "pasted at " + target.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
         });
     }
 #endif
@@ -722,6 +761,8 @@ internal static class CalendarContextMenuLabels
             CalendarContextMenuActionType.Delete => Wino.Core.Domain.Translator.Buttons_Delete,
             CalendarContextMenuActionType.ShowAs => Wino.Core.Domain.Translator.CalendarEventDetails_ShowAs,
             CalendarContextMenuActionType.Respond => Wino.Core.Domain.Translator.CalendarContextMenu_Respond,
+            CalendarContextMenuActionType.Copy => Wino.Core.Domain.Translator.Buttons_Copy,
+            CalendarContextMenuActionType.CreateTask => Wino.Core.Domain.Translator.CalendarContextMenu_CreateTask,
             _ => Wino.Core.Domain.Translator.Buttons_Open
         };
     }
@@ -742,6 +783,8 @@ internal static class CalendarContextMenuLabels
     {
         CalendarContextMenuActionType.Open => action.TargetType == CalendarEventTargetType.Series ? WinoIconGlyph.EventEditSeries : WinoIconGlyph.Calendar,
         CalendarContextMenuActionType.JoinOnline => WinoIconGlyph.EventJoinOnline,
+        CalendarContextMenuActionType.Copy => WinoIconGlyph.Copy,
+            CalendarContextMenuActionType.CreateTask => WinoIconGlyph.TaskList,
         CalendarContextMenuActionType.Delete => action.TargetType is null ? WinoIconGlyph.Delete : WinoIconGlyph.None,
         CalendarContextMenuActionType.ShowAs => action.TargetType is null && action.ShowAs is null ? WinoIconGlyph.CalendarShowAs : WinoIconGlyph.None,
         CalendarContextMenuActionType.Respond => action.ResponseStatus switch

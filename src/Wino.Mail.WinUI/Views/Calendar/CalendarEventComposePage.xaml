@@ -10,8 +10,8 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:editor="using:Wino.Editor"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:rendering="using:Wino.Mail.WinUI.Rendering"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     Style="{StaticResource PageStyle}"
@@ -201,23 +201,32 @@
                                 <TextBlock Text="{x:Bind ViewModel.ReminderSummary, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                             <DropDownButton.Flyout>
-                                <Flyout Placement="Bottom">
-                                    <ListView
-                                        Width="200"
-                                        MaxHeight="300"
-                                        AutomationProperties.AutomationId="CalendarEventComposeReminderOptionsList"
-                                        ItemsSource="{x:Bind ViewModel.ReminderOptions}"
-                                        SelectionMode="None">
-                                        <ListView.ItemTemplate>
-                                            <DataTemplate x:DataType="calendar:ReminderOption">
-                                                <CheckBox
-                                                    AutomationProperties.AutomationId="{x:Bind AutomationId}"
-                                                    AutomationProperties.Name="{x:Bind DisplayText}"
-                                                    Content="{x:Bind DisplayText}"
-                                                    IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
-                                            </DataTemplate>
-                                        </ListView.ItemTemplate>
-                                    </ListView>
+                                <Flyout x:Name="ComposeReminderFlyout" Placement="Bottom">
+                                    <StackPanel Spacing="4">
+                                        <ListView
+                                            MinWidth="240"
+                                            MaxWidth="360"
+                                            MaxHeight="300"
+                                            AutomationProperties.AutomationId="CalendarEventComposeReminderOptionsList"
+                                            ItemsSource="{x:Bind ViewModel.ReminderOptions}"
+                                            SelectionMode="None">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate x:DataType="calendar:ReminderOption">
+                                                    <CheckBox
+                                                        AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                                                        AutomationProperties.Name="{x:Bind DisplayText}"
+                                                        IsChecked="{x:Bind IsSelected, Mode=TwoWay}">
+                                                        <TextBlock Text="{x:Bind DisplayText}" TextWrapping="Wrap" />
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                        <Button
+                                            HorizontalAlignment="Stretch"
+                                            AutomationProperties.AutomationId="CalendarEventComposeCustomizeRemindersButton"
+                                            Click="CustomizeRemindersClicked"
+                                            Content="{x:Bind domain:Translator.CalendarReminder_Customize, Mode=OneTime}" />
+                                    </StackPanel>
                                 </Flyout>
                             </DropDownButton.Flyout>
                         </DropDownButton>
@@ -664,7 +673,7 @@
                             BorderThickness="1"
                             CornerRadius="{StaticResource ControlCornerRadius}">
                             <StackPanel>
-                                <coreControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor}">
+                                <coreControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor.Session}">
                                     <coreControls:EditorTabbedCommandBarControl.PaneCustomContent>
                                         <toolkit:TabbedCommandBarItem
                                             CommandAlignment="Right"
@@ -681,15 +690,13 @@
                                         </toolkit:TabbedCommandBarItem>
                                     </coreControls:EditorTabbedCommandBarControl.PaneCustomContent>
                                 </coreControls:EditorTabbedCommandBarControl>
-                                <editor:WinoMailEditor
+                                <rendering:EngineMailEditorView
                                     x:Name="NotesEditor"
-                                    MinHeight="360"
+                                    Height="360"
                                     AutomationProperties.AutomationId="CalendarEventNotesEditor"
+                                    FilesReceived="NotesEditor_FilesReceived"
                                     IsEditorDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
-                                    IsEditorWebViewEditor="False"
-                                    LinkOpenRequested="EditorLinkOpenRequested"
-                                    OpenLinkLabel="{x:Bind domain:Translator.Composer_OpenLink, Mode=OneTime}"
-                                    RemoveLinkLabel="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}" />
+                                    LinkOpenRequested="EditorLinkOpenRequested" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

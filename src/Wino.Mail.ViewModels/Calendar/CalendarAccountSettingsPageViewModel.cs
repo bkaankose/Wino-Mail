@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -25,6 +26,8 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     private readonly ICalendarService _calendarService;
     private readonly IAccountService _accountService;
     private readonly ICalendarCapabilityService _calendarCapabilityService;
+    private readonly IPreferencesService _preferencesService;
+    private bool _isLoadingDefaultReminder;
     private int _capabilityRequestVersion;
     private CalendarCapabilities _accountCapabilities = CalendarCapabilities.None;
     public Task PendingPersistence { get; private set; } = Task.CompletedTask;
@@ -94,13 +97,20 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     [ObservableProperty]
     public partial ShowAsOption SelectedDefaultShowAsOption { get; set; }
 
+    public ObservableCollection<CalendarDefaultReminderOption> DefaultReminderOptions { get; } = [];
+
+    [ObservableProperty]
+    public partial CalendarDefaultReminderOption SelectedDefaultReminderOption { get; set; }
+
     public CalendarAccountSettingsPageViewModel(IMessenger messenger, ICalendarService calendarService,
                                                 IAccountService accountService,
-                                                ICalendarCapabilityService calendarCapabilityService = null) : base(messenger)
+                                                ICalendarCapabilityService calendarCapabilityService = null,
+                                                IPreferencesService preferencesService = null) : base(messenger)
     {
         _calendarService = calendarService;
         _accountService = accountService;
         _calendarCapabilityService = calendarCapabilityService;
+        _preferencesService = preferencesService;
 
         // Initialize ShowAs options
         ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Free));
@@ -140,6 +150,7 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
         AccountColorHex = AccountCalendar.BackgroundColorHex ?? "#0078D4";
         IsSyncEnabled = AccountCalendar.IsSynchronizationEnabled;
         SelectedDefaultShowAsOption = ShowAsOptions.FirstOrDefault(o => o.ShowAs == AccountCalendar.DefaultShowAs) ?? ShowAsOptions[2];
+        LoadDefaultReminderOptions(AccountCalendar.DefaultReminderInSeconds);
 
         await LoadAccountCapabilitiesAsync(Account);
         await PendingPersistence;
@@ -200,6 +211,27 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
         }
     }
 
+    private void LoadDefaultReminderOptions(long? storedValue)
+    {
+        _isLoadingDefaultReminder = true;
+        DefaultReminderOptions.Clear();
+
+        foreach (var option in CalendarDefaultReminderOption.CreateOptions(_preferencesService?.DefaultReminderDurationInSeconds ?? 0, storedValue))
+            DefaultReminderOptions.Add(option);
+
+        SelectedDefaultReminderOption = CalendarDefaultReminderOption.FindSelected(DefaultReminderOptions, storedValue);
+        _isLoadingDefaultReminder = false;
+    }
+
+    partial void OnSelectedDefaultReminderOptionChanged(CalendarDefaultReminderOption value)
+    {
+        if (_isLoadingDefaultReminder || AccountCalendar == null || value == null || AccountCalendar.DefaultReminderInSeconds == value.Seconds)
+            return;
+
+        AccountCalendar.DefaultReminderInSeconds = value.Seconds;
+        SaveChangesAsync();
+    }
+
     public Task RetryPersistenceAsync()
     {
         SaveChangesAsync();
@@ -222,4 +254,36 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
         // Send message to update UI
         Messenger.Send(new CalendarListUpdated(calendar));
     }
+}
+
+/// <summary>One choice for a calendar's default reminder; <see cref="Seconds"/> null uses the app's default.</summary>
+public sealed class CalendarDefaultReminderOption(long? seconds, string displayText)
+{
+    private static readonly long[] Choices = [0, 5 * 60, 10 * 60, 15 * 60, 30 * 60, 3600, 2 * 3600, 86400, 2 * 86400, 7 * 86400];
+
+    public long? Seconds { get; } = seconds;
+    public string DisplayText { get; } = displayText;
+    public override string ToString() => DisplayText;
+
+    /// <summary>The app default, none, and the fixed choices, plus <paramref name="storedValue"/> when it is not one of them.</summary>
+    public static List<CalendarDefaultReminderOption> CreateOptions(long appDefaultReminderInSeconds, long? storedValue)
+    {
+        var options = new List<CalendarDefaultReminderOption>
+        {
+            new(null, string.Format(
+                Translator.CalendarReminder_UseAppDefault,
+                appDefaultReminderInSeconds > 0 ? CalendarReminderFormatter.Format(appDefaultReminderInSeconds) : Translator.CalendarReminder_None)),
+            new(AccountCalendar.NoDefaultReminder, Translator.CalendarReminder_None)
+        };
+
+        var values = Choices.ToList();
+        if (storedValue is { } stored && stored != AccountCalendar.NoDefaultReminder && !values.Contains(stored))
+            values.Add(stored);
+
+        options.AddRange(values.OrderBy(value => value).Select(value => new CalendarDefaultReminderOption(value, CalendarReminderFormatter.Format(value))));
+        return options;
+    }
+
+    public static CalendarDefaultReminderOption FindSelected(IEnumerable<CalendarDefaultReminderOption> options, long? storedValue)
+        => options.FirstOrDefault(option => option.Seconds == storedValue) ?? options.First();
 }

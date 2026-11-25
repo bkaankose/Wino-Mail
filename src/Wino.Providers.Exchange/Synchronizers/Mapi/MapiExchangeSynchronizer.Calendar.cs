@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Bundles;
@@ -331,7 +332,7 @@ public sealed partial class MapiExchangeSynchronizer
                 CalendarItemVisibility.Confidential => 3u,
                 _ => 0u
             },
-            ReminderMinutes = reminders?.FirstOrDefault() is { } reminder ? (int)(reminder.DurationInSeconds / 60) : null,
+            ReminderMinutes = ReminderSyncPlan.Split(reminders, CalendarCapabilities.Exchange).Server.FirstOrDefault() is { } reminder ? (int)(reminder.DurationInSeconds / 60) : null,
             KeepReminder = reminders is null,
             ClientTrackingId = clientTrackingId
         };

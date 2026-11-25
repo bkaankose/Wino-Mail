@@ -363,13 +363,13 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
     private UIView FolderRow(SettingsBinder rows, IMailItemFolder folder, int depth)
     {
-        var icon = new WinoIconView(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), 16);
+        var icon = new WinoIconView(SpecialFolderGlyphs.GetGlyphOrFolder(folder), 16);
         WinoLayout.Size(icon, 16, 16);
         var name = WinoStyle.Label(folder.ResolvedDisplayName, WinoStyle.Body, WinoStyle.PrimaryText);
         name.LineBreakMode = UILineBreakMode.TailTruncation;
         WinoLayout.Priorities(name, UILayoutConstraintAxis.Horizontal, 1, 250);
 
-        // Folders that cannot hold mail (IsMoveTarget false) have no checks on Windows either.
+        // Folders that cannot hold mail (IsSelectable false) have no checks on Windows either.
         var sync = FolderCheck(rows, folder, Translator.SettingsFolderSynchronize_Title, folder.IsSynchronizationEnabled,
             isOn => ViewModel.FolderSyncToggledAsync(folder, isOn));
 
@@ -389,7 +389,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             try { await toggled(toggle.On); }
             catch (Exception ex) { ReportError(ex); }
         }, UIControlEvent.ValueChanged);
-        toggle.Hidden = !folder.IsMoveTarget;
+        toggle.Hidden = !folder.IsSelectable;
         WinoAccessibility.Label(toggle, $"{folder.ResolvedDisplayName}, {column}");
         var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         host.AddSubview(toggle);

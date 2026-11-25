@@ -212,9 +212,9 @@ public class NavigationService : INavigationService
         }
         else
         {
-            // Tear down the previous mode's pages. Mode roots are not cached, so a second
-            // visit rebuilds cleanly instead of resurrecting stale state.
-            WindowCleanupHelper.CleanupFrame(GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame));
+            // Tear down the previous mode's pages. Mode roots are rebuilt on the next visit,
+            // except a page the frame retains (the calendar), which is only prepared for close.
+            WindowCleanupHelper.ReleaseModeContent(GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame));
         }
 
         if (coreFrame.Content is IShellHost shell)

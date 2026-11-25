@@ -27,6 +27,55 @@ public class MailItemFolder : IMailItemFolder
     [Ignore]
     public string ResolvedDisplayName => string.IsNullOrWhiteSpace(DisplayName) ? FolderName : DisplayName;
 
+    /// <summary>
+    /// Name with the owner of a shared folder, for places that list it outside its owner's tree (pinned, flat lists).
+    /// </summary>
+    [Ignore]
+    public string QualifiedDisplayName => !string.IsNullOrWhiteSpace(DisplayName) || string.IsNullOrWhiteSpace(OwnerName)
+        ? ResolvedDisplayName
+        : string.Format(Translator.SharedFolder_NameWithOwner, FolderName, OwnerName);
+
+    /// <summary>
+    /// The mailbox owner of a folder outside the personal namespace. Filled by the folder service when it reads
+    /// folders; empty for personal folders and for the owner's own node.
+    /// </summary>
+    [Ignore]
+    public string OwnerName { get; set; }
+
+    /// <summary>
+    /// The level of a shared tree that stands for its owner's mailbox. It may be a container or, when the owner shares
+    /// the INBOX, that INBOX itself; either way it reads as the owner. Filled by the folder service.
+    /// </summary>
+    [Ignore]
+    public bool IsSharedOwnerNode { get; set; }
+
+    /// <summary>
+    /// A namespace level ("Shared Folders", "shared") the folder list skips because only one mailbox is below it.
+    /// Filled by the folder service.
+    /// </summary>
+    [Ignore]
+    public bool IsSkippedSharedLevel { get; set; }
+
+    /// <remarks>Rows stored before this column existed read as <see cref="MailFolderScope.Personal"/>.</remarks>
+    public MailFolderScope Scope { get; set; }
+
+    /// <summary>
+    /// A level of a shared tree that cannot be opened (\Noselect, or missing on the server). It only groups its
+    /// children: it is never synchronized, selected, renamed, deleted or used as a move target.
+    /// </summary>
+    public bool IsContainer { get; set; }
+
+    /// <summary>
+    /// The user's rights on a folder outside the personal namespace (RFC 4314 MYRIGHTS letters, for example "lrswi"),
+    /// read on folder synchronization when the server supports ACL. Null when unknown, which allows everything.
+    /// </summary>
+    public string MyRights { get; set; }
+
+    /// <summary>Whether the folder's rights are known and include the RFC 4314 right.</summary>
+    public bool HasKnownRight(char right) => MyRights != null && MyRights.Contains(right);
+
+    private bool AllowsRight(char right) => MyRights == null || MyRights.Contains(right);
+
     public SpecialFolderType SpecialFolderType { get; set; }
     public bool IsSystemFolder { get; set; }
     public bool IsSticky { get; set; }
@@ -81,9 +130,11 @@ public class MailItemFolder : IMailItemFolder
     [Ignore]
     public List<IMailItemFolder> ChildFolders { get; set; } = [];
 
-    // Category and Move type folders are not valid move targets.
-    // These folders are virtual. They don't exist on the server.
-    public bool IsMoveTarget => !(SpecialFolderType == SpecialFolderType.More || SpecialFolderType == SpecialFolderType.Category);
+    /// <summary>A folder that holds mail and can be opened: not a virtual group (More, Categories) or a container.</summary>
+    public bool IsSelectable => !IsContainer && !(SpecialFolderType == SpecialFolderType.More || SpecialFolderType == SpecialFolderType.Category);
+
+    /// <summary>A folder mail can be moved or copied into: selectable, and the RFC 4314 insert right when rights are known.</summary>
+    public bool IsMoveTarget => IsSelectable && AllowsRight('i');
 
     public bool ContainsSpecialFolderType(SpecialFolderType type)
     {

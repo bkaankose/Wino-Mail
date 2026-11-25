@@ -250,8 +250,10 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
     // Only preparation reads may be replayed. The lease is returned to the caller before
     // local sync state or remote mutations are changed.
     // With allowCreate false, only a spare connection is leased and null means none exists.
+    // With freshConnection, the read runs on a new session, which replaces an idle one at the connection limit.
     internal async Task<IImapClient> RentForReadAsync(
-        Func<IImapClient, CancellationToken, Task> prepare, CancellationToken cancellationToken, bool allowCreate = true, string purpose = null)
+        Func<IImapClient, CancellationToken, Task> prepare, CancellationToken cancellationToken, bool allowCreate = true, string purpose = null,
+        bool freshConnection = false)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _maintenanceCts.Token);
         deadline.CancelAfter(DefaultAcquireTimeoutMs);
@@ -269,7 +271,7 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
                 }
                 else
                 {
-                    client = attempt == 0
+                    client = attempt == 0 && !freshConnection
                         ? await GetClientAsync(cancellationToken, purpose: purpose).ConfigureAwait(false)
                         : await RentFreshAsync(cancellationToken, purpose).ConfigureAwait(false);
                 }

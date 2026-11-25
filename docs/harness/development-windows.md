@@ -57,7 +57,7 @@ Keep manual lab verification separate: successful compilation and generated acce
 
 ## VS Code F5
 
-1. Open the repository folder, or [WinoMail.Windows.code-workspace](../../WinoMail.Windows.code-workspace), in VS Code. Both select `WinoMail.slnx`.
+1. Open the repository folder in VS Code. It selects `WinoMail.slnx`.
 2. Select **Debug Wino Mail (packaged, x64)** in Run and Debug.
 3. Press **F5**.
 
@@ -213,8 +213,9 @@ To work on the welcome window or account setup, select **Run Wino Mail (Sandbox,
 `-NoAccounts`. It skips seeding, releases the Sandbox lease, and removes the guest's Wino database, credentials and
 seeding marker before Wino starts, so the next launch without the switch leases and seeds lab accounts again.
 
-Windows Sandbox has no WebView2 Runtime, so mail rendering and the composer need a fixed-version runtime, and the
-guest never downloads one. Download the x64 fixed-version `.cab` once from Microsoft's
+Windows Sandbox has no WebView2 Runtime. Mail is read and composed with the native renderer and does not need one;
+the Exchange sign-in dialog and the policy dialogs do, so they need a fixed-version runtime, and the guest never
+downloads one. Download the x64 fixed-version `.cab` once from Microsoft's
 [WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/) and extract it on the host:
 
 ```powershell
@@ -252,7 +253,7 @@ Use manual interaction for UI verification; successful activation alone does not
 
 ## XAML formatting
 
-Format changed XAML with the repository-pinned XAML Styler before building, and run the passive check before handoff:
+Format changed XAML with the repository-pinned XAML Styler before building, and run the passive check before handoff. Claude Code does the formatting itself: the PostToolUse hook in `.claude/settings.json` runs [format-xaml-hook.ps1](../../scripts/maintenance/windows/format-xaml-hook.ps1) on every `.xaml` file an agent writes.
 
 ```powershell
 pwsh -File scripts/maintenance/windows/format-xaml.ps1 -Changed

@@ -14,8 +14,7 @@ $toolManifestPath = Join-Path $repositoryRoot ".config\dotnet-tools.json"
 $defaultRoots = @(
     "src\Wino.Mail.WinUI",
     "controls\Wino.Mail.Controls.WinUI",
-    "controls\Wino.Mail.Controls.Playground.WinUI",
-    "controls\Wino.Editor.WinUI"
+    "controls\Wino.Mail.Controls.Playground.WinUI"
 )
 
 function Get-XamlFilesFromPath {
@@ -119,7 +118,7 @@ if (-not (Test-Path -LiteralPath $toolManifestPath)) {
 $toolManifest = Get-Content -LiteralPath $toolManifestPath -Raw | ConvertFrom-Json
 $toolVersion = $toolManifest.tools.'xamlstyler.console'.version
 $nugetPackagesPath = if ([string]::IsNullOrWhiteSpace($env:NUGET_PACKAGES)) {
-    Join-Path $env:USERPROFILE ".nuget\packages"
+    Join-Path ([Environment]::GetFolderPath("UserProfile")) ".nuget/packages"
 }
 else {
     $env:NUGET_PACKAGES

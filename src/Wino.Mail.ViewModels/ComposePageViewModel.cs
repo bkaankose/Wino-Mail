@@ -49,6 +49,18 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public Func<Task<string>> GetHTMLBodyFunction;
     public Func<string, Task> RenderHtmlBodyAsyncFunc { get; set; }
 
+    /// <summary>
+    /// Set by a head whose composer writes the outgoing body itself. While it is set, saving the draft does not
+    /// call <see cref="GetHTMLBodyFunction"/>.
+    /// </summary>
+    public IComposeBodyWriter? BodyWriter { get; set; }
+
+    /// <summary>
+    /// Set by a head whose composer opens the draft's MIME itself. While it is set, no HTML is prepared for the
+    /// draft and <see cref="RenderHtmlBodyAsyncFunc"/> is not called for it. Called on the UI thread.
+    /// </summary>
+    public Func<ComposeDraftRenderRequest, Task>? RenderDraftAsyncFunc { get; set; }
+
     public bool ShouldBlockRemoteContent { get; private set; }
 
     /// <summary>Wino Intelligence rewrite for this draft. Hidden unless the account is eligible.</summary>
@@ -724,7 +736,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     private async Task SaveBodyAsync()
     {
-        if (GetHTMLBodyFunction != null)
+        if (BodyWriter is { } bodyWriter)
+        {
+            // The builder is reused for every save, and the writer adds the inline images of the current content.
+            bodyBuilder.LinkedResources.Clear();
+            await bodyWriter.ApplyAsync(bodyBuilder, CancellationToken.None);
+        }
+        else if (GetHTMLBodyFunction != null)
         {
             bodyBuilder.SetHtmlBody(await GetHTMLBodyFunction());
         }
@@ -1138,7 +1156,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         var replyingMime = mimeMessageInformation.MimeMessage;
         var mimeFilePath = mimeMessageInformation.Path;
 
-        var renderModel = _mimeFileService.GetMailRenderModel(replyingMime, mimeFilePath);
+        var renderDraftAsync = RenderDraftAsyncFunc;
+        var renderModel = renderDraftAsync == null ? _mimeFileService.GetMailRenderModel(replyingMime, mimeFilePath) : null;
         var shouldBlockRemoteContent = await ShouldBlockRemoteContentAsync(replyingMime).ConfigureAwait(false);
         var toItems = await ResolveAddressInfoAsync(replyingMime.To).ConfigureAwait(false);
         var ccItems = await ResolveAddressInfoAsync(replyingMime.Cc).ConfigureAwait(false);
@@ -1172,7 +1191,14 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             IsReadReceiptRequested = replyingMime.HasReadReceiptRequest();
         }).ConfigureAwait(false);
 
-        if (RenderHtmlBodyAsyncFunc != null)
+        if (renderDraftAsync != null)
+        {
+            var request = new ComposeDraftRenderRequest(replyingMime, mimeFilePath, shouldBlockRemoteContent);
+
+            await ExecuteUIThreadAsync(() => renderDraftAsync(request))
+                .ConfigureAwait(false);
+        }
+        else if (renderModel != null && RenderHtmlBodyAsyncFunc != null)
         {
             await ExecuteUIThreadAsync(() => RenderHtmlBodyAsyncFunc(renderModel.RenderHtml))
                 .ConfigureAwait(false);

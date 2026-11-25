@@ -1159,8 +1159,9 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         IReadOnlyList<CalendarEventComposeAttachmentDraft>? attachments = null,
         CancellationToken cancellationToken = default)
     {
+        var chosenReminders = reminders;
         reminders = await ApplyDefaultAlarmOnCreateAsync(account, item, reminders, cancellationToken).ConfigureAwait(false);
-        await UpsertEventAsync(account, item, attendees, cancellationToken).ConfigureAwait(false);
+        await UpsertEventAsync(account, item, attendees, ServerReminders(chosenReminders), cancellationToken).ConfigureAwait(false);
         await _changeProcessor.PersistCreatedCalendarEventAsync(
             item,
             attendees ?? [],
@@ -1174,10 +1175,11 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         MailAccount account,
         CalendarItem item,
         List<CalendarEventAttendee>? attendees,
+        List<Reminder>? reminders = null,
         IReadOnlyList<CalendarEventComposeAttachmentDraft>? attachments = null,
         CancellationToken cancellationToken = default)
     {
-        var previousIcsContent = await UpsertEventAsync(account, item, attendees, cancellationToken).ConfigureAwait(false);
+        var previousIcsContent = await UpsertEventAsync(account, item, attendees, reminders == null ? null : ServerReminders(reminders), cancellationToken).ConfigureAwait(false);
         await ApplyAttachmentChangesAsync(account, item, attachments, isNewEvent: false, cancellationToken).ConfigureAwait(false);
         await ExpandWrittenSeriesAsync(account, item, previousIcsContent, cancellationToken).ConfigureAwait(false);
     }
@@ -1195,7 +1197,7 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             return;
 
         item.Status = response;
-        var previousIcsContent = await UpsertEventAsync(account, item, null, cancellationToken).ConfigureAwait(false);
+        var previousIcsContent = await UpsertEventAsync(account, item, null, null, cancellationToken).ConfigureAwait(false);
         await ExpandWrittenSeriesAsync(account, item, previousIcsContent, cancellationToken).ConfigureAwait(false);
     }
 
@@ -1248,11 +1250,17 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         await _changeProcessor.DeleteCalendarItemAsync(item.Id).ConfigureAwait(false);
     }
 
+    /// <summary>The reminders a CalDAV server stores as alarms; the rest stay in Wino only.</summary>
+    private static List<Reminder> ServerReminders(IEnumerable<Reminder>? reminders)
+        => ReminderSyncPlan.Split(reminders, CalendarCapabilities.CalDavDefault).Server;
+
+    /// <param name="reminders">The reminders to write as alarms; null leaves the stored alarms of an existing resource.</param>
     /// <returns>The stored ICS the write replaced, or null for a new resource.</returns>
     private async Task<string?> UpsertEventAsync(
         MailAccount account,
         CalendarItem item,
         List<CalendarEventAttendee>? attendees,
+        List<Reminder>? reminders,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(account);
@@ -1276,9 +1284,9 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
         }
 
         if (snapshot != null)
-            return await WriteEventEditAsync(account, item, attendees, identity, connection, calendar, snapshot, cancellationToken).ConfigureAwait(false);
+            return await WriteEventEditAsync(account, item, attendees, reminders, identity, connection, calendar, snapshot, cancellationToken).ConfigureAwait(false);
 
-        var icsContent = CalDavIcsMutator.Normalize(CalendarIcsBuilder.BuildIcsContent(item, attendees));
+        var icsContent = CalDavIcsMutator.Normalize(CalendarIcsBuilder.BuildIcsContent(item, attendees, reminders ?? []));
         icsContent = await PrepareOutgoingIcsAsync(account, item, calendar, snapshot, icsContent, cancellationToken).ConfigureAwait(false);
 
         var result = await _client

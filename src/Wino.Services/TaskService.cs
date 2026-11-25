@@ -24,10 +24,12 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
     private static readonly SemaphoreSlim TaskListColorGate = new(1, 1);
 
     private readonly IMailProviderRegistry _providers;
+    private readonly IItemLinkService _itemLinks;
 
-    public TaskService(IDatabaseService databaseService, IMessenger messenger, IMailProviderRegistry providers) : base(databaseService, messenger)
+    public TaskService(IDatabaseService databaseService, IMessenger messenger, IMailProviderRegistry providers, IItemLinkService itemLinks = null) : base(databaseService, messenger)
     {
         _providers = providers;
+        _itemLinks = itemLinks;
     }
 
     public async Task<List<AccountTaskListGroup>> GetTaskListGroupsAsync(Guid? accountId = null)
@@ -491,6 +493,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         var tasksBefore = tasks.ToDictionary(task => task.Id);
         var signaturesBefore = TaskSignatures(tasks, steps, list.IsReadOnly);
         var removedTaskIds = new HashSet<Guid>();
+        var capabilities = await GetTaskCapabilitiesAsync(list).ConfigureAwait(false);
 
         await Connection.RunInTransactionAsync(transaction =>
         {
@@ -561,8 +564,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
                         stored.DueDate = incoming.DueDate;
                         stored.IsCompleted = incoming.IsCompleted;
                         stored.CompletedAtUtc = incoming.CompletedAtUtc;
-                        if (stored.SourceKind is TaskSourceKind.Outlook or TaskSourceKind.CalDav)
-                            stored.IsImportant = incoming.IsImportant;
+                        TaskFields.MergeServerFields(stored, incoming, stored, capabilities);
                     }
                     stored.ModifiedAtUtc = now;
                     transaction.Update(stored, typeof(AccountTask));
@@ -907,6 +909,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
             TaskViewKind.Planned => filtered.Where(task => task.DueDate.HasValue),
             TaskViewKind.MyDay => filtered.Where(task => task.MyDayDateUtc == today),
             TaskViewKind.Important => filtered.Where(task => task.IsImportant),
+            TaskViewKind.FlaggedMail => filtered.Where(static _ => false),
             _ => filtered
         };
 
@@ -974,6 +977,43 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         return result;
     }
 
+    public async Task<TaskCapabilities> GetTaskCapabilitiesAsync(Guid listId)
+    {
+        var list = await GetTaskListAsync(listId).ConfigureAwait(false);
+        return list is null ? TaskCapabilities.Local : await GetTaskCapabilitiesAsync(list).ConfigureAwait(false);
+    }
+
+    private async Task<TaskCapabilities> GetTaskCapabilitiesAsync(AccountTaskList list)
+    {
+        if (list.SourceKind != TaskSourceKind.Exchange)
+            return TaskCapabilities.ForSource(list.SourceKind);
+
+        var accountId = list.MailAccountId;
+        var server = await Connection.Table<CustomServerInformation>()
+            .FirstOrDefaultAsync(info => info.AccountId == accountId)
+            .ConfigureAwait(false);
+
+        return TaskCapabilities.ForSource(TaskSourceKind.Exchange, server?.EffectiveExchangeTransport ?? ExchangeTransport.Ews);
+    }
+
+    public async Task<List<AccountTask>> GetTasksWithRemindersAsync(DateTime fromUtc, DateTime toUtc)
+    {
+        var tasks = await Connection.QueryAsync<AccountTask>(
+            $"SELECT * FROM TaskCard WHERE {nameof(AccountTask.IsCompleted)} = 0 AND {nameof(AccountTask.PendingMutation)} <> ? AND " +
+            $"(({nameof(AccountTask.ReminderAtUtc)} > ? AND {nameof(AccountTask.ReminderAtUtc)} <= ?) OR " +
+            $"({nameof(AccountTask.ReminderSnoozedUntilUtc)} > ? AND {nameof(AccountTask.ReminderSnoozedUntilUtc)} <= ?))",
+            (int)TaskPendingMutation.Delete, fromUtc, toUtc, fromUtc, toUtc).ConfigureAwait(false);
+
+        return tasks;
+    }
+
+    public async Task SnoozeTaskReminderAsync(Guid taskId, DateTime untilUtc)
+    {
+        await Connection.ExecuteAsync(
+            $"UPDATE TaskCard SET {nameof(AccountTask.ReminderSnoozedUntilUtc)} = ? WHERE {nameof(AccountTask.Id)} = ?",
+            untilUtc, taskId).ConfigureAwait(false);
+    }
+
     public async Task<AccountTask> GetTaskAsync(Guid taskId)
     {
         var task = await Connection.Table<AccountTask>().FirstOrDefaultAsync(item => item.Id == taskId).ConfigureAwait(false);
@@ -989,6 +1029,8 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         task.Title = task.Title?.Trim() ?? string.Empty;
         task.DueDate = NormalizeDate(task.DueDate);
         task.MyDayDateUtc = NormalizeDate(task.MyDayDateUtc);
+        task.StartDate = NormalizeDate(task.StartDate);
+        task.Recurrence = TaskFields.NormalizeRecurrence(task.Recurrence);
         task.CreatedAtUtc = DateTime.UtcNow;
         task.ModifiedAtUtc = task.CreatedAtUtc;
         task.PendingMutation = task.SourceKind == TaskSourceKind.Local ? TaskPendingMutation.None : TaskPendingMutation.Create;
@@ -1002,6 +1044,8 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         task.Title = task.Title?.Trim() ?? string.Empty;
         task.DueDate = NormalizeDate(task.DueDate);
         task.MyDayDateUtc = NormalizeDate(task.MyDayDateUtc);
+        task.StartDate = NormalizeDate(task.StartDate);
+        task.Recurrence = TaskFields.NormalizeRecurrence(task.Recurrence);
         task.ModifiedAtUtc = DateTime.UtcNow;
         if (task.SourceKind != TaskSourceKind.Local && task.PendingMutation == TaskPendingMutation.None)
             task.PendingMutation = TaskPendingMutation.Update;
@@ -1122,7 +1166,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         }
     }
 
-    public async Task CompleteTaskMutationAsync(
+    private async Task CompleteTaskMutationCoreAsync(
         Guid taskId,
         AccountTask remoteTask,
         bool deleted,
@@ -1159,13 +1203,19 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
                     local.RemoteVersion,
                     requestedTask?.RemoteId,
                     requestedTask?.RemoteVersion);
-                await CompleteTaskMutationOnExistingAsync(local, remoteTask, isCurrentMutation, attachRemoteIdentity).ConfigureAwait(false);
+                await CompleteTaskMutationOnExistingAsync(local, remoteTask, isCurrentMutation, attachRemoteIdentity, requestedTask).ConfigureAwait(false);
                 return;
             }
 
             // Provider task deletes retain a local tombstone until their acknowledgement.
             // A missing row here is therefore the normal optimistic-create path. Local-source
             // tasks can be physically deleted, but they never receive a provider acknowledgement.
+            if (requestedTask is not null)
+            {
+                var createCapabilities = await GetTaskCapabilitiesAsync(remoteTask.TaskListId).ConfigureAwait(false);
+                TaskFields.MergeServerFields(remoteTask, remoteTask, requestedTask, createCapabilities);
+            }
+
             remoteTask.Id = taskId;
             remoteTask.PendingMutation = TaskPendingMutation.None;
             remoteTask.CreatedAtUtc = remoteTask.CreatedAtUtc == default ? DateTime.UtcNow : remoteTask.CreatedAtUtc;
@@ -1203,7 +1253,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
             local.RemoteVersion,
             requestedTask?.RemoteId,
             requestedTask?.RemoteVersion);
-        await CompleteTaskMutationOnExistingAsync(local, remoteTask, isCurrentMutation, shouldAttachRemoteIdentity).ConfigureAwait(false);
+        await CompleteTaskMutationOnExistingAsync(local, remoteTask, isCurrentMutation, shouldAttachRemoteIdentity, requestedTask).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1227,8 +1277,13 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
         AccountTask local,
         AccountTask remoteTask,
         bool applyRemoteState,
-        bool attachRemoteIdentity)
+        bool attachRemoteIdentity,
+        AccountTask requestedTask)
     {
+        var capabilities = remoteTask is null
+            ? TaskCapabilities.Local
+            : await GetTaskCapabilitiesAsync(remoteTask.TaskListId == Guid.Empty ? local.TaskListId : remoteTask.TaskListId).ConfigureAwait(false);
+
         var storedSteps = local.Steps?.ToList() ?? [];
 
         // The server can answer with a different state than the optimistic one, e.g. completing a
@@ -1262,6 +1317,7 @@ public sealed partial class TaskService : BaseDatabaseService, ITaskService
             // mutation result. Commit it here so My Day survives the provider round trip.
             local.MyDayDateUtc = NormalizeDate(remoteTask.MyDayDateUtc);
             local.IsImportant = remoteTask.IsImportant;
+            TaskFields.MergeServerFields(local, remoteTask, requestedTask ?? remoteTask, capabilities);
         }
         if (applyRemoteState)
             local.PendingMutation = TaskPendingMutation.None;

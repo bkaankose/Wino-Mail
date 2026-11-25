@@ -2,7 +2,6 @@ using Foundation;
 using ObjCRuntime;
 using UIKit;
 using Wino.Core.Domain;
-using Wino.Editor.WebKit;
 using Wino.Mail.UIKit.Views.Mail.Compose;
 
 namespace Wino.Mail.UIKit.Views.Mail;
@@ -66,7 +65,7 @@ public sealed partial class ComposePageViewController
         if (_editor is { } editor && !_editorDisposed) Observe(CloseFindAsync(editor));
     }
 
-    private async Task CloseFindAsync(WebKitHtmlMailEditorSession editor)
+    private async Task CloseFindAsync(UIKitEngineEditor editor)
     {
         await editor.ClearFindAsync();
         await editor.FocusEditorAsync(true);

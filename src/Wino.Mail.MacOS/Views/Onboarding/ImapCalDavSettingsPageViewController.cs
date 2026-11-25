@@ -33,6 +33,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
     public override void LoadView()
     {
         var vm = ViewModel;
+        vm.IsFeaturesStepSupportedByHost = true;
         _form = new FormBinder<ImapCalDavSettingsPageViewModel>(vm, Bindings, Dispatcher, ReportError);
 
         var content = WinoLayout.VStack(WinoStyle.Space4);
@@ -75,8 +76,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         _form.Visible(pop3, nameof(vm.IsPop3), s => s.IsPop3);
         Add(pop3);
 
+        Add(BuildFeaturesStep());
         Add(BuildSignInStep());
-        Add(BuildEditFeatures());
         Add(BuildEditSignIn());
         Add(BuildServers());
 
@@ -365,11 +366,10 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
     }
 
     /// <summary>
-    /// Editing an account: what it is used for, as the provider step's capability cards (Windows
-    /// AccountCapabilityPicker on ImapCalDavSettingsPage). Turning Calendar or Contacts off hides the
-    /// CalDAV / CardDAV sections; To Do stays on this device because IMAP has no task service.
+    /// Adding an account before its apps were chosen (Windows ImapCalDavSettingsPage Features step): the capability
+    /// cards, shown only while the setup starts on Features.
     /// </summary>
-    private NSView BuildEditFeatures()
+    private NSView BuildFeaturesStep()
     {
         var vm = ViewModel;
         var picker = new AccountCapabilityPicker(vm.Capabilities, () => Translator.ProviderSelection_ModeImap, null, Bindings, Dispatcher, ReportError);
@@ -378,9 +378,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);
         var column = WinoLayout.VStack(WinoStyle.Space3, picker, missing);
         foreach (var view in column.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
-        // The capability cards are cards already; a group surface around them nested cards inside a card.
         var group = OnboardingPageView.Section(Translator.ImapSetup_FeaturesGroup, column);
-        _form.Visible(group, nameof(vm.IsEditMode), s => s.IsEditMode);
+        _form.Visible(group, nameof(vm.IsFeaturesStepVisible), s => s.IsFeaturesStepVisible);
         return group;
     }
 
@@ -738,7 +737,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         // discovering; imap-expand on|off opens every server section. Nothing is typed.
         MacDebugBridge.Register("imap-step", async args =>
         {
-            var step = args.Length > 0 && args[0].Equals("servers", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Servers : ImapSetupStep.SignIn;
+            var step = args.Length > 0 && args[0].Equals("features", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Features
+                : args.Length > 0 && args[0].Equals("servers", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Servers : ImapSetupStep.SignIn;
             await Dispatcher.ExecuteOnUIThread(() => ViewModel.CurrentSetupStep = step);
             return "ok " + step;
         });
@@ -749,12 +749,14 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             await Dispatcher.ExecuteOnUIThread(() => ViewModel.SignInStage = stage);
             return "ok " + stage;
         });
-        // imap-fill KEY: the lab account KEY of the lab manifest (~/.wino-lab/fixtures.json, copied to
-        // {tmp}/wino-debug/lab-fixtures.json): its IMAP, SMTP and DAV endpoints with the lab's test password. imap-save presses Save.
+        // imap-fill KEY [mail]: the lab account KEY of the lab manifest (~/.wino-lab/fixtures.json, copied to
+        // {tmp}/wino-debug/lab-fixtures.json): its IMAP, SMTP and DAV endpoints with the lab's test password. "mail" fills
+        // only the mail servers and leaves the apps as the wizard set them. imap-save presses Save.
         MacDebugBridge.Register("imap-fill", async args =>
         {
             var file = Path.Combine(Path.GetTempPath(), "wino-debug", "lab-fixtures.json");
-            if (args.Length == 0 || !File.Exists(file)) return "usage: imap-fill KEY (needs lab-fixtures.json)";
+            if (args.Length == 0 || !File.Exists(file)) return "usage: imap-fill KEY [mail] (needs lab-fixtures.json)";
+            var mailOnly = args.Length > 1 && args[1].Equals("mail", StringComparison.OrdinalIgnoreCase);
             using var doc = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(file));
             // POP3 lab accounts are listed apart, under pop3Accounts, with pop3Host / pop3Port / pop3Security.
             var account = new[] { "accounts", "pop3Accounts" }
@@ -783,6 +785,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
                 vm.OutgoingServerPassword = S("password");
                 vm.SelectedIncomingServerConnectionSecurityIndex = vm.AvailableConnectionSecurities.FindIndex(c => c.ImapConnectionSecurity == Security("imapSecurity"));
                 vm.SelectedOutgoingServerConnectionSecurityIndex = vm.AvailableConnectionSecurities.FindIndex(c => c.ImapConnectionSecurity == Security("smtpSecurity"));
+                if (mailOnly) return;
                 vm.IsCalendarSupportEnabled = true;
                 vm.UseMailCredentialsForDav = false;
                 vm.CalDavServiceUrl = S("davUrl");
@@ -804,10 +807,73 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
                 ViewModel.IsIncomingExpanded = ViewModel.IsOutgoingExpanded = ViewModel.IsCalDavExpanded = ViewModel.IsCardDavExpanded = expand);
             return "ok";
         });
+        // imap-primary, imap-back and imap-test press the page's Continue, Back and Test connections commands.
+        MacDebugBridge.Register("imap-primary", async _ =>
+        {
+            var pressed = false;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                pressed = ViewModel.PrimaryActionCommand.CanExecute(null);
+                if (pressed) ViewModel.PrimaryActionCommand.Execute(null);
+            });
+            return (pressed ? "pressed " : "disabled ") + ImapStateText();
+        });
+        MacDebugBridge.Register("imap-back", async _ =>
+        {
+            var pressed = false;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                pressed = ViewModel.BackCommand.CanExecute(null);
+                if (pressed) ViewModel.BackCommand.Execute(null);
+            });
+            return (pressed ? "pressed " : "disabled ") + ImapStateText();
+        });
+        MacDebugBridge.Register("imap-test", async _ =>
+        {
+            var pressed = false;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                pressed = ViewModel.TestConnectionsCommand.CanExecute(null);
+                if (pressed) ViewModel.TestConnectionsCommand.Execute(null);
+            });
+            return (pressed ? "pressed " : "disabled ") + ImapStateText();
+        });
+        MacDebugBridge.Register("imap-state", _ => Task.FromResult(ImapStateText()));
+        // imap-feature mail|calendar|contacts|tasks on|off sets an app's switch on the Features step.
+        MacDebugBridge.Register("imap-feature", async args =>
+        {
+            if (args.Length < 2) return "usage: imap-feature mail|calendar|contacts|tasks on|off";
+            var mode = args[1].Equals("on", StringComparison.OrdinalIgnoreCase) ? Wino.Core.Domain.Enums.AccountCapabilityMode.Provider : Wino.Core.Domain.Enums.AccountCapabilityMode.Off;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                var capabilities = ViewModel.Capabilities;
+                switch (args[0].ToLowerInvariant())
+                {
+                    case "mail": capabilities.MailMode = mode; break;
+                    case "calendar": capabilities.CalendarMode = mode; break;
+                    case "contacts": capabilities.ContactMode = mode; break;
+                    case "tasks": capabilities.TaskMode = mode; break;
+                }
+            });
+            return $"{args[0]}={args[1]} " + ImapStateText();
+        });
 #endif
         ViewModel.IsSecureSignInSupportedByHost = true;
         return ViewModel.InitializeAsync(mode, parameter!);
     }
+
+#if DEBUG
+    private string ImapStateText()
+    {
+        var vm = ViewModel;
+        var caps = vm.Capabilities;
+        return $"step={vm.CurrentSetupStep} apps=mail:{caps.MailMode},cal:{caps.CalendarMode},contacts:{caps.ContactMode},tasks:{caps.TaskMode} " +
+               $"calDav={vm.IsCalDavSettingsVisible} cardDav={vm.IsCardDavSettingsVisible} " +
+               $"calDavUrl='{vm.CalDavServiceUrl}' busy={vm.IsBusy} continue={vm.PrimaryActionCommand.CanExecute(null)} " +
+               $"back={vm.BackCommand.CanExecute(null)} test={vm.TestConnectionsCommand.CanExecute(null)} " +
+               $"info={(vm.IsPageInfoBarOpen ? $"{vm.PageInfoBarTitle}: {vm.PageInfoBarMessage}" : "none")}";
+    }
+#endif
 
     private async Task RunAsync(Func<Task> action)
     {

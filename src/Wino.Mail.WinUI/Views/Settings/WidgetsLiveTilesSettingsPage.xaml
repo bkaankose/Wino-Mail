@@ -94,18 +94,17 @@
             Text="{x:Bind domain:Translator.WidgetsLiveTilesSettings_LiveTilesSection, Mode=OneTime}" />
 
         <InfoBar
-            AutomationProperties.AutomationId="WidgetsLiveTilesSettingsLiveTilesUnsupportedInfoBar"
+            AutomationProperties.AutomationId="WidgetsLiveTilesSettingsLiveTilesStartMenuInfoBar"
             IsClosable="False"
-            IsOpen="{x:Bind ViewModel.IsLiveTilesUnsupported, Mode=OneTime}"
-            Message="{x:Bind domain:Translator.WidgetsLiveTilesSettings_LiveTilesUnsupported, Mode=OneTime}"
+            IsOpen="{x:Bind ViewModel.IsLiveTileStartMenuMissing, Mode=OneTime}"
+            Message="{x:Bind domain:Translator.WidgetsLiveTilesSettings_LiveTilesStartMenuMissing, Mode=OneTime}"
             Severity="Informational"
-            Visibility="{x:Bind ViewModel.IsLiveTilesUnsupported, Mode=OneTime}" />
+            Visibility="{x:Bind ViewModel.IsLiveTileStartMenuMissing, Mode=OneTime}" />
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="WidgetsLiveTilesSettingsLiveTilesCard"
             Description="{x:Bind domain:Translator.WidgetsLiveTilesSettings_LiveTiles_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.WidgetsLiveTilesSettings_LiveTiles_Title, Mode=OneTime}"
-            IsEnabled="{x:Bind ViewModel.IsLiveTilesSupported, Mode=OneTime}">
+            Header="{x:Bind domain:Translator.WidgetsLiveTilesSettings_LiveTiles_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="Grid" />
             </controls:SettingsCard.HeaderIcon>
@@ -140,6 +139,20 @@
                     Content="{x:Bind domain:Translator.AccountCapability_ToDo, Mode=OneTime}"
                     IsChecked="{x:Bind ViewModel.ShowTasksOnLiveTiles, Mode=TwoWay}" />
             </StackPanel>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="WidgetsLiveTilesSettingsPinToStartCard"
+            Description="{x:Bind domain:Translator.WidgetsLiveTilesSettings_PinToStart_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.WidgetsLiveTilesSettings_PinToStart_Title, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.CanPinToStart, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Pin" />
+            </controls:SettingsCard.HeaderIcon>
+            <Button
+                AutomationProperties.AutomationId="WidgetsLiveTilesSettingsPinToStartButton"
+                Command="{x:Bind ViewModel.PinToStartCommand}"
+                Content="{x:Bind domain:Translator.WidgetsLiveTilesSettings_PinToStart_Button, Mode=OneTime}" />
         </controls:SettingsCard>
 
         <TextBlock

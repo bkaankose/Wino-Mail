@@ -457,7 +457,7 @@ function New-ActionBody([string]$Type) {
 }
 
 function Invoke-Action([string]$Address, [string]$Type, [Collections.IDictionary]$Overrides = @{}) {
-    if (!$Type) { throw 'Name the action type: deliver, flag, move, copy, delete, create-folder, delete-folder, rename-folder, bump-uidvalidity, event-create, event-update, event-delete, contact-create, contact-update, contact-delete, send-invite.' }
+    if (!$Type) { throw 'Name the action type: deliver, flag, move, copy, delete, create-folder, delete-folder, rename-folder, bump-uidvalidity, share-folder, unshare-folder, event-create, event-update, event-delete, contact-create, contact-update, contact-delete, send-invite.' }
     $payload = New-ActionBody $Type
     foreach ($name in $Overrides.Keys) {
         if ($null -eq $Overrides[$name]) { $payload.Remove($name) } else { $payload[$name] = $Overrides[$name] }

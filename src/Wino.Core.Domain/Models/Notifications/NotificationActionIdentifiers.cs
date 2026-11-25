@@ -17,6 +17,8 @@ public static class NotificationActionIdentifiers
     public const string Dismiss = "wino.dismiss";
     public const string CalendarJoin = "wino.calendar.joinonline";
     public const string CalendarSnooze = "wino.calendar.snooze";
+    public const string TaskComplete = "wino.task.complete";
+    public const string TaskSnooze = "wino.task.snooze";
 
     /// <summary>Snooze length used when neither the notification nor the "Default snooze duration" setting gives one.</summary>
     public const int FallbackSnoozeMinutes = 5;

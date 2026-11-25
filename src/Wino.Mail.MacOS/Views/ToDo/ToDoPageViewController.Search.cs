@@ -24,7 +24,7 @@ public sealed partial class ToDoPageViewController : IShellSearchTarget, IShellS
     private CancellationTokenSource? _searchCancellation;
     private string _searchText = string.Empty;
 
-    string? IShellSearchTarget.SearchPlaceholder => Translator.ToDoPage_Search;
+    public string? SearchPlaceholder => Translator.ToDoPage_Search;
 
     public async Task SearchTextChangedAsync(string text)
     {

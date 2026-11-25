@@ -1,50 +1,45 @@
 using Wino.Mail.UIKit.Views.Settings;
-using CoreGraphics;
+using Microsoft.Extensions.DependencyInjection;
 using UIKit;
-using WebKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
-using Wino.Editor.WebKit;
+using Wino.Mail.Rendering;
+using Wino.Mail.UIKit.Views.Mail.Compose;
+using EngineMailView = Wino.Renderer.UIKit.MailView;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Views.Dialogs;
 
 /// <summary>
 /// A small rich text editor: a formatting toolbar (bold, italic, underline, bullet and numbered lists, link, clear
-/// formatting) over the composer's own WKWebView editor session (<see cref="WebKitHtmlMailEditorSession"/>, shared
-/// with the Mac). The UIKit twin of the Mac WinoRichTextEditorView, used by the signature editor sheet. The caller
+/// formatting) over the composer's own editor on the native mail renderer (<see cref="UIKitEngineEditor"/>). The UIKit twin of the Mac WinoRichTextEditorView, used by the signature editor sheet. The caller
 /// sizes <see cref="EditorSurface"/>, calls <see cref="LoadAsync"/> once the view is in a window, reads HTML with
 /// <see cref="GetHtmlBodyAsync"/> and disposes the session with <see cref="DisposeAsync"/>. Use on the main thread.
 /// </summary>
 internal sealed class WinoRichTextEditorView : UIView
 {
-    private readonly WKWebView _webView;
-    private readonly WebKitHtmlMailEditorSession _editor;
+    private readonly EngineMailView _webView;
+    private readonly UIKitEngineEditor _editor;
     private readonly IPreferencesService? _preferences;
     private readonly Action<Exception>? _error;
     private readonly List<(UIButton Button, Func<EditorState, bool> IsOn)> _toggles = [];
     private EditorState _state = new();
     private bool _disposed;
 
-    public WinoRichTextEditorView(string accessibilityLabel, IExternalLauncher? launcher, IPreferencesService? preferences, Action<Exception>? error)
+    public WinoRichTextEditorView(string accessibilityLabel, IServiceProvider services, Action<Exception>? error)
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
-        _preferences = preferences;
+        _preferences = services.GetService<IPreferencesService>();
         _error = error;
 
-        // ---- Editor (the composer's WKWebView editor session) ----
-        _webView = new WKWebView(CGRect.Empty, WebKitMailConfiguration.Create())
-        {
-            Opaque = false,
-            BackgroundColor = UIColor.Clear,
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        _webView.ScrollView.BackgroundColor = UIColor.Clear;
+        // ---- Editor (the composer's editor on the native mail renderer) ----
+        _webView = new EngineMailView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoAccessibility.Label(_webView, accessibilityLabel);
-        _editor = new WebKitHtmlMailEditorSession(_webView);
-        if (launcher is not null) _editor.Configure(launcher);
+        _editor = new UIKitEngineEditor(_webView, services.GetRequiredService<IDispatcher>(), services.GetRequiredService<MailEngineHost>(),
+            services.GetRequiredService<IMailDialogService>());
+        if (services.GetService<IExternalLauncher>() is { } launcher) _editor.Configure(launcher);
         _editor.OperationFailed += (_, exception) => _error?.Invoke(exception);
         _editor.Restarted += EditorRestarted;
         _editor.StateChanged += (_, state) => OnMain(() => ApplyState(state));

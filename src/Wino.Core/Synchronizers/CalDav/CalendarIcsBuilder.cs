@@ -35,7 +35,8 @@ public static partial class CalendarIcsBuilder
         item.EndTimeZone ??= item.StartTimeZone;
     }
 
-    public static string BuildIcsContent(CalendarItem item, List<CalendarEventAttendee> attendees)
+    /// <param name="reminders">Notification reminders written as VALARMs; null or empty writes none.</param>
+    public static string BuildIcsContent(CalendarItem item, List<CalendarEventAttendee> attendees, IEnumerable<Reminder> reminders = null)
     {
         var uid = item.RemoteEventId?.Split(new[] { "::" }, StringSplitOptions.None)[0] ?? item.Id.ToString("N");
         var dtStamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'");
@@ -118,7 +119,8 @@ public static partial class CalendarIcsBuilder
         lines.Add("END:VEVENT");
         lines.Add("END:VCALENDAR");
 
-        return string.Join(Environment.NewLine, lines);
+        var content = string.Join(Environment.NewLine, lines);
+        return reminders == null ? content : CalDavAlarms.AddAlarms(content, reminders, item.Title);
     }
 
     /// <summary>

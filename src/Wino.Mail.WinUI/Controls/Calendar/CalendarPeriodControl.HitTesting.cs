@@ -1,12 +1,16 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Windows.UI.ViewManagement;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.ViewModels.Calendar.Data;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls.Calendar;
 
@@ -60,12 +64,152 @@ public sealed partial class CalendarPeriodControl
 
         var anchorPoint = MonthViewport.TransformToVisual(Root).TransformPoint(position);
 
-        EmptySlotTapped?.Invoke(
-            this,
-            new CalendarEmptySlotTappedEventArgs(
-                date.ToDateTime(TimeOnly.MinValue),
-                anchorPoint,
-                new Size(_monthCellWidth, _unitSize)));
+        // The quick event popup dismisses on the next press outside it, so opening it on the first
+        // click of a double-click would close it again on the second. The tap waits until a
+        // double-click can no longer follow.
+        _pendingMonthTap = new CalendarEmptySlotTappedEventArgs(
+            date.ToDateTime(TimeOnly.MinValue),
+            anchorPoint,
+            new Size(_monthCellWidth, _unitSize));
+        _monthTapTimer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickMilliseconds());
+        _monthTapTimer.Start();
+        WatchPressesOutside();
+    }
+
+    private void MonthInteractionLayerDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        CancelPendingMonthTap();
+
+        if (_suppressRangeTap || !TryResolveMonthCell(e.GetPosition(MonthViewport), out _, out var date))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        MonthDayDoubleTapped?.Invoke(this, new CalendarPeriodEventArgs(CalendarDisplayType.Day, date));
+    }
+
+    private void MonthTapTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+
+        var pending = _pendingMonthTap;
+        _pendingMonthTap = null;
+        StopWatchingPressesOutside();
+
+        if (pending != null && IsLoaded && VisibleRange?.DisplayType == CalendarDisplayType.Month)
+        {
+            EmptySlotTapped?.Invoke(this, pending);
+        }
+    }
+
+    private void CancelPendingMonthTap()
+    {
+        _monthTapTimer.Stop();
+        _pendingMonthTap = null;
+        StopWatchingPressesOutside();
+    }
+
+    // While a month click waits, a press anywhere outside the surface (the navigation pane, the
+    // toolbar, the title bar) drops it before that press can start a command such as New event.
+    private void WatchPressesOutside()
+    {
+        StopWatchingPressesOutside();
+
+        _pressWatchRoot = XamlRoot?.Content;
+        _pressWatchRoot?.AddHandler(PointerPressedEvent, _outsidePressHandler ??= new PointerEventHandler(WindowPointerPressed), true);
+    }
+
+    private void StopWatchingPressesOutside()
+    {
+        if (_pressWatchRoot != null && _outsidePressHandler != null)
+        {
+            _pressWatchRoot.RemoveHandler(PointerPressedEvent, _outsidePressHandler);
+        }
+
+        _pressWatchRoot = null;
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
+    private void WindowPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var source = e.OriginalSource as DependencyObject;
+
+        while (source != null && !ReferenceEquals(source, this))
+        {
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        if (source == null)
+        {
+            CancelPendingMonthTap();
+        }
+    }
+
+    /// <summary>
+    /// Drops a month click that is still waiting to open the quick event popup. The page calls it
+    /// whenever something else takes over: a dialog, a command, navigation or a closed popup.
+    /// </summary>
+    public void CancelPendingTap() => CancelPendingMonthTap();
+
+    // Exits bubble up from every child, so only a pointer that really left the surface counts.
+    private void ControlPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        var position = e.GetCurrentPoint(this).Position;
+
+        if (position.X < 0d || position.Y < 0d || position.X >= ActualWidth || position.Y >= ActualHeight)
+        {
+            CancelPendingMonthTap();
+        }
+    }
+
+    private static double GetDoubleClickMilliseconds()
+    {
+        try
+        {
+            return Math.Clamp(new UISettings().DoubleClickTime, 200u, 900u);
+        }
+        catch (Exception)
+        {
+            return 500d;
+        }
+    }
+
+    private void TimedInteractionLayerRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (ResolveTimedDropTarget(e.GetPosition(TimedViewport), null) is CalendarDropTargetInfo target)
+        {
+            RaiseEmptyAreaContextRequested(e, target.TargetStart, hasTime: true);
+        }
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(UIElement))]
+    private void TimedDayAreaRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (sender is UIElement element && TryResolveTimedColumn(e.GetPosition(element).X, out _, out var date))
+        {
+            RaiseEmptyAreaContextRequested(e, date.ToDateTime(TimeOnly.MinValue), hasTime: false);
+        }
+    }
+
+    private void MonthInteractionLayerRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (TryResolveMonthCell(e.GetPosition(MonthViewport), out _, out var date))
+        {
+            RaiseEmptyAreaContextRequested(e, date.ToDateTime(TimeOnly.MinValue), hasTime: false);
+        }
+    }
+
+    private void RaiseEmptyAreaContextRequested(RightTappedRoutedEventArgs e, DateTime target, bool hasTime)
+    {
+        if (e.Handled || IsCalendarItemSource(e.OriginalSource))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        CancelPendingMonthTap();
+        EmptyAreaContextRequested?.Invoke(this, new CalendarEmptyAreaContextRequestedEventArgs(target, hasTime, e.GetPosition(this)));
     }
 
     private void TimedViewportPointerMoved(object sender, PointerRoutedEventArgs e)
@@ -274,11 +418,19 @@ public sealed partial class CalendarPeriodControl
 
     private CalendarDropTargetInfo? ResolveTimedAllDayDropTarget(Point position, CalendarItemViewModel? draggedItem)
     {
-        if (draggedItem is { IsAllDayEvent: false } ||
+        if (draggedItem is { ShowsInAllDayArea: false } ||
             TimedAllDayHeight <= 0 ||
             !TryResolveTimedColumn(position.X, out var dayIndex, out var date))
         {
             return null;
+        }
+
+        // A multi-day timed bar keeps its time of day when it moves to another day.
+        var targetStart = date.ToDateTime(TimeOnly.MinValue);
+
+        if (draggedItem is { IsAllDayEvent: false })
+        {
+            targetStart = targetStart.Add(draggedItem.StartDate.TimeOfDay);
         }
 
         return new CalendarDropTargetInfo(
@@ -286,7 +438,7 @@ public sealed partial class CalendarPeriodControl
             date,
             dayIndex,
             -1,
-            date.ToDateTime(TimeOnly.MinValue));
+            targetStart);
     }
 
     private CalendarDropTargetInfo? ResolveMonthDropTarget(Point position, CalendarItemViewModel? draggedItem)

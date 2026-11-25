@@ -179,11 +179,8 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
         if (show is not null)
         {
             Add(show, Translator.ToDoPage_ScopeActive, () => viewModel.SetCompletionScopeCommand.Execute("active"), check: viewModel.SelectedCompletionScope == TaskCompletionScope.Active);
-            if (viewModel.IsCompletedScopeAvailable)
-            {
-                Add(show, Translator.ToDoPage_Completed, () => viewModel.SetCompletionScopeCommand.Execute("completed"), check: viewModel.SelectedCompletionScope == TaskCompletionScope.Completed);
-                Add(show, Translator.ToDoPage_All, () => viewModel.SetCompletionScopeCommand.Execute("all"), check: viewModel.SelectedCompletionScope == TaskCompletionScope.All);
-            }
+            Add(show, Translator.ToDoPage_Completed, () => viewModel.SetCompletionScopeCommand.Execute("completed"), check: viewModel.SelectedCompletionScope == TaskCompletionScope.Completed);
+            Add(show, Translator.ToDoPage_All, () => viewModel.SetCompletionScopeCommand.Execute("all"), check: viewModel.SelectedCompletionScope == TaskCompletionScope.All);
         }
         Add(popup.Menu, Translator.ToDoPage_Important, () => viewModel.IsImportantTasksFilterSelected = !viewModel.IsImportantTasksFilterSelected, check: viewModel.IsImportantTasksFilterSelected);
         var sort = popup.Menu.AddSubMenu(0, 101, 101, $"{Translator.ToDoPage_SortBy}: {viewModel.SortDisplayText}");
@@ -200,9 +197,7 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
             {
                 Add(sort, title, () => viewModel.SetSortCommand.Execute(key), check: viewModel.SelectedSort == kind);
             }
-            // Manual order belongs to a list; smart views have none.
-            if (viewModel.IsNamedListSelected)
-                Add(sort, Translator.ToDoPage_SortManual, () => viewModel.SetSortCommand.Execute("manual"), check: viewModel.SelectedSort == TaskSortKind.Manual);
+            Add(sort, Translator.ToDoPage_SortManual, () => viewModel.SetSortCommand.Execute("manual"), check: viewModel.SelectedSort == TaskSortKind.Manual);
         }
         Add(popup.Menu, Translator.ToDoPage_ClearFilters, () => viewModel.ClearFiltersCommand.Execute(null), viewModel.IsFiltered);
         if (viewModel.IsMyDaySelected) Add(popup.Menu, Translator.ToDoPage_Suggestions, () => ShowSuggestions(context, viewModel));

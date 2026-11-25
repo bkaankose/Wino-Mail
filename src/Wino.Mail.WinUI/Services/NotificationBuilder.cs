@@ -69,6 +69,7 @@ public class NotificationBuilder : INotificationBuilder
     private readonly INotificationPolicyService _notificationPolicyService;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IAppLockService _appLockService;
+    private readonly CalendarReminderToastPlan _calendarReminderToastPlan;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
@@ -80,8 +81,10 @@ public class NotificationBuilder : INotificationBuilder
                                INotificationHostClient notificationHostClient,
                                INotificationPolicyService notificationPolicyService,
                                IApplicationConfiguration applicationConfiguration,
-                               IAppLockService appLockService)
+                               IAppLockService appLockService,
+                               CalendarReminderToastPlan calendarReminderToastPlan)
     {
+        _calendarReminderToastPlan = calendarReminderToastPlan;
         _accountService = accountService;
         _folderService = folderService;
         _unreadBadgeService = unreadBadgeService;
@@ -291,7 +294,7 @@ public class NotificationBuilder : INotificationBuilder
             foreach (var account in accounts.Where(account => account.IsMailAccessGranted && account.Preferences.IsJumpListEnabled))
             {
                 var folders = await _folderService.GetVisibleFoldersAsync(account.Id);
-                foreach (var folder in folders.Where(folder => folder.IsMoveTarget && folder.IsJumpListEnabled))
+                foreach (var folder in folders.Where(folder => folder.IsSelectable && folder.IsJumpListEnabled))
                 {
                     jumpList.Items.Add(CreateMailFolderJumpListItem(account, folder));
                 }
@@ -378,22 +381,64 @@ public class NotificationBuilder : INotificationBuilder
         QueueShowNotification(NotificationHostApplication.Mail, builder, kindOverride: NotificationKind.Other);
     }
 
-    public void CreateWebView2RuntimeMissingNotification()
-    {
-        var builder = CreateBuilder();
-        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Title);
-        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Message);
-        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-        builder.AddButton(CreateDismissButton());
-
-        QueueShowNotification(NotificationHostApplication.Mail, builder, kindOverride: NotificationKind.Other);
-    }
+    // The Windows reader runs in-process and has no runtime that can be missing.
+    public void CreateReaderRuntimeMissingNotification() { }
 
     public async Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
     {
         if (calendarItem == null)
             return;
 
+        var tag = CalendarReminderTags.Create(calendarItem.Id, reminderDurationInSeconds);
+
+        // A reminder handed to Windows is shown by Windows. Only when Windows has not shown it yet (it may be up to
+        // five minutes late) does Wino take the scheduled copy back and show the reminder on time itself.
+        if (_calendarReminderToastPlan.IsPlannedAround(tag, DateTimeOffset.Now))
+        {
+            try
+            {
+                if (!_notificationHostClient.IsScheduled(NotificationHostApplication.Calendar, tag))
+                    return;
+
+                _notificationHostClient.RemoveScheduled(NotificationHostApplication.Calendar, tag);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not check the scheduled calendar reminder toast {Tag}; Windows shows it.", tag);
+                return;
+            }
+
+            _calendarReminderToastPlan.Remove(tag);
+        }
+
+        var (builder, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, DateTime.Now).ConfigureAwait(false);
+
+        await ShowNotificationAsync(NotificationHostApplication.Calendar, builder, tag, accountPreferences).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The reminder toast for Windows to show at <paramref name="triggerLocal"/>, or null when the notification
+    /// settings or quiet hours keep it from showing then.
+    /// </summary>
+    internal async Task<AppNotification?> BuildScheduledCalendarReminderAsync(CalendarItem calendarItem, long reminderDurationInSeconds, DateTime triggerLocal)
+    {
+        // The text is written now and shown later, possibly after the start, so it names the start time only.
+        var (builder, accountPreferences) = await BuildCalendarReminderAsync(calendarItem, reminderDurationInSeconds, shownAtLocal: null).ConfigureAwait(false);
+        var deliveryTime = new DateTimeOffset(DateTime.SpecifyKind(triggerLocal, DateTimeKind.Local));
+
+        if (!_notificationPolicyService.Evaluate(NotificationKind.CalendarReminder, accountPreferences, deliveryTime).ShouldDeliver)
+            return null;
+
+        var notification = builder.BuildNotification();
+        notification.Tag = CalendarReminderTags.Create(calendarItem.Id, reminderDurationInSeconds);
+        return notification;
+    }
+
+    private async Task<(AppNotificationBuilder Builder, MailAccountPreferences? AccountPreferences)> BuildCalendarReminderAsync(
+        CalendarItem calendarItem,
+        long reminderDurationInSeconds,
+        DateTime? shownAtLocal)
+    {
         // Resolved so the account's own calendar-reminder switch and quiet hours stance apply,
         // not just the app-wide default.
         var accountPreferences = await GetCalendarAccountPreferencesAsync(calendarItem).ConfigureAwait(false);
@@ -408,10 +453,10 @@ public class NotificationBuilder : INotificationBuilder
         else
         {
             var localStart = calendarItem.GetLocalStartDate();
-            var reminderContext = GetCalendarReminderContext(localStart, DateTime.Now);
-
             builder.AddText(calendarItem.Title);
-            builder.AddText($"{reminderContext} - {localStart:g}");
+            builder.AddText(shownAtLocal is { } shownAt
+                ? $"{GetCalendarReminderContext(localStart, shownAt)} - {localStart:g}"
+                : $"{localStart:g}");
 
             if (!string.IsNullOrWhiteSpace(calendarItem.Location))
                 builder.AddText(calendarItem.Location);
@@ -468,9 +513,7 @@ public class NotificationBuilder : INotificationBuilder
 
         builder.AddButton(CreateDismissButton());
 
-        var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
-
-        await ShowNotificationAsync(NotificationHostApplication.Calendar, builder, tag, accountPreferences).ConfigureAwait(false);
+        return (builder, accountPreferences);
     }
 
     private async Task<MailAccountPreferences?> GetCalendarAccountPreferencesAsync(CalendarItem calendarItem)
@@ -545,6 +588,53 @@ public class NotificationBuilder : INotificationBuilder
         SetSound(builder, _preferencesService.TaskNotificationSoundEvent);
 
         return ShowNotificationAsync(NotificationHostApplication.Tasks, builder, $"task-test-{task.Id:N}");
+    }
+
+    public async Task CreateTaskReminderNotificationAsync(AccountTask task)
+    {
+        if (task == null)
+            return;
+
+        var account = await _accountService.GetAccountAsync(task.MailAccountId).ConfigureAwait(false);
+        var accountPreferences = account?.Preferences;
+        var builder = CreateBuilder(AppNotificationScenario.Reminder);
+
+        if (NotificationSettingsResolver.HidesNotificationContent(accountPreferences))
+        {
+            builder.AddText(Translator.TaskReminder_HiddenTitle);
+        }
+        else
+        {
+            builder.AddText(string.IsNullOrWhiteSpace(task.Title) ? Translator.ToDoPage_NewTask : task.Title);
+            if (task.DueDate is { } dueDate)
+                builder.AddText(string.Format(Translator.ToDoPage_DueOn, dueDate.ToString("D")));
+        }
+
+        var taskId = task.Id.ToString();
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks);
+        builder.AddArgument(Constants.ToastTaskIdKey, taskId);
+        builder.AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskOpenAction);
+        SetSound(builder, _preferencesService.TaskNotificationSoundEvent);
+
+        if (!_appLockService.AreNotificationsReadOnly)
+        {
+            builder.AddButton(CreateButton(Translator.ToDoPage_MarkCompleted, "task-complete")
+                .AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskCompleteAction)
+                .AddArgument(Constants.ToastTaskIdKey, taskId)
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
+            builder.AddButton(CreateButton(Translator.CalendarReminder_SnoozeAction, "calendar-snooze")
+                .AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskSnoozeAction)
+                .AddArgument(Constants.ToastTaskIdKey, taskId)
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
+        }
+
+        builder.AddButton(CreateOpenButton()
+            .AddArgument(Constants.ToastTaskActionKey, Constants.ToastTaskOpenAction)
+            .AddArgument(Constants.ToastTaskIdKey, taskId)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
+        builder.AddButton(CreateDismissButton());
+
+        await ShowNotificationAsync(NotificationHostApplication.Tasks, builder, $"task-reminder-{task.Id:N}", accountPreferences).ConfigureAwait(false);
     }
 
     private async Task CreateSingleNotificationAsync(MailCopy mailItem, MailAccountPreferences? accountPreferences = null)
@@ -634,27 +724,7 @@ public class NotificationBuilder : INotificationBuilder
         var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
         var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, account?.Preferences);
 
-        return settings.IsEnabled && IsWithinNotificationScope(mailItem, settings.Scope);
-    }
-
-    /// <summary>
-    /// Applies the folder scope. Note this narrows previous behaviour: every downloaded message used
-    /// to raise a notification regardless of the folder it landed in.
-    /// </summary>
-    private static bool IsWithinNotificationScope(MailCopy mailItem, MailNotificationScope scope)
-    {
-        if (scope == MailNotificationScope.AllFolders)
-            return true;
-
-        var isInbox = mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox;
-
-        return scope switch
-        {
-            MailNotificationScope.InboxOnly => isInbox,
-            MailNotificationScope.FocusedInboxOnly => isInbox && mailItem.IsFocused,
-            MailNotificationScope.InboxAndCustomFolders => isInbox || mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Other,
-            _ => true
-        };
+        return settings.IsEnabled && NotificationContentRules.IsWithinNotificationScope(mailItem, settings.Scope);
     }
 
     private void UpdateBadge(string applicationId, int? badgeCount)

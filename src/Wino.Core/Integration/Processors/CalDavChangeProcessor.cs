@@ -121,7 +121,6 @@ public partial class CalDavChangeProcessor : DefaultChangeProcessor, ICalDavChan
             .ToList();
 
         var reminders = calendarEvent.Reminders?
-            .Where(r => r.DurationInSeconds > 0)
             .Select(r => new Reminder
             {
                 Id = Guid.NewGuid(),
@@ -140,11 +139,19 @@ public partial class CalDavChangeProcessor : DefaultChangeProcessor, ICalDavChan
             await CalendarService.UpdateCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
         }
 
-        // Provider reminders initialize newly imported events only. Existing reminder
-        // selections are local state and must survive later CalDAV synchronization.
         if (isNewItem)
         {
             await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+        }
+        else if (reminders?.Count > 0)
+        {
+            // Alarms changed in another client replace the reminders the server holds; reminders kept
+            // only in Wino stay. A resource without alarms leaves the stored reminders alone, because
+            // reminders chosen before Wino wrote alarms never reached the server.
+            var storedReminders = await CalendarService.GetRemindersAsync(savingItemId).ConfigureAwait(false);
+            var reconciled = ReminderSyncPlan.Reconcile(storedReminders, reminders, CalendarCapabilities.CalDavDefault, savingItemId);
+            if (reconciled != null)
+                await CalendarService.SaveRemindersAsync(savingItemId, reconciled).ConfigureAwait(false);
         }
 
         await SaveCalDavAttachmentsAsync(savingItemId, calendarEvent).ConfigureAwait(false);

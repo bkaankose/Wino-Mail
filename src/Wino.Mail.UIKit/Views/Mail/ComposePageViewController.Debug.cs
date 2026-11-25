@@ -12,13 +12,71 @@ namespace Wino.Mail.UIKit.Views.Mail;
 /// <c>compose-test ADDRESS SUBJECT…</c> (sets the only To recipient and the subject), <c>compose-send</c> (sends),
 /// <c>compose-suggest to|cc|bcc QUERY</c>, <c>compose-attach-sample</c>, <c>compose-rewrite-state busy|result|error|off</c>,
 /// <c>compose-syncfail [message|off]</c>, <c>compose-templates</c>, <c>compose-table</c>, <c>compose-link</c>,
-/// <c>compose-hide-keyboard</c>.
+/// <c>compose-hide-keyboard</c>, <c>compose-type TEXT</c> (inserts as the keyboard does), <c>compose-ime MARKED|FINAL</c>
+/// (marked text, then the committed text), <c>compose-key KEY [cmd|alt|shift…]</c>, <c>compose-image PATH</c> (inserts a
+/// picture), <c>compose-body</c> (the body HTML) and <c>compose-discard</c> (discards the draft after its confirmation).
 /// </summary>
 public sealed partial class ComposePageViewController
 {
     private void RegisterComposeDebugCommands()
     {
         UIKitDebugBridge.Register("compose-dump", _ => OnUIAsync(DescribeState));
+        UIKitDebugBridge.Register("compose-type", args => OnUIAsync(() =>
+        {
+            if (!_webView.IsFirstResponder) FocusBody();
+            _webView.InsertText(string.Join(' ', args));
+            return "ok";
+        }));
+        UIKitDebugBridge.Register("compose-ime", args => OnUIAsync(() =>
+        {
+            if (!_webView.IsFirstResponder) FocusBody();
+            var parts = string.Join(' ', args).Split('|', 2);
+            for (var i = 1; i <= parts[0].Length; i++) _webView.SetMarkedText(parts[0][..i], new Foundation.NSRange(i, 0));
+            var marked = _webView.MarkedTextRange is not null;
+            _webView.InsertText(parts.Length > 1 ? parts[1] : parts[0]);
+            return $"marked={marked} after={_webView.MarkedTextRange is not null}";
+        }));
+        UIKitDebugBridge.Register("compose-key", args => OnUIAsync(() =>
+        {
+            var key = Enum.Parse<Wino.Renderer.Platform.Key>(args[0], true);
+            var modifiers = Wino.Renderer.Platform.KeyModifiers.None;
+            foreach (var name in args.Skip(1))
+            {
+                modifiers |= name switch
+                {
+                    "cmd" => Wino.Renderer.Platform.KeyModifiers.Command,
+                    "alt" => Wino.Renderer.Platform.KeyModifiers.Alt,
+                    "shift" => Wino.Renderer.Platform.KeyModifiers.Shift,
+                    "ctrl" => Wino.Renderer.Platform.KeyModifiers.Control,
+                    _ => Wino.Renderer.Platform.KeyModifiers.None
+                };
+            }
+
+            return _webView.Controller.KeyDown(key, modifiers) ? "ok" : "not handled";
+        }));
+        UIKitDebugBridge.Register("compose-image", async args =>
+        {
+            var path = string.Join(' ', args);
+            if (!File.Exists(path) || _editor is not { } editor) return "no file or editor";
+            var data = await File.ReadAllBytesAsync(path);
+            var type = path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg";
+            await Dispatcher.ExecuteOnUIThread(() => Observe(editor.InsertImagesAsync([new Wino.Editor.EditorImageInfo($"data:{type};base64,{Convert.ToBase64String(data)}", Path.GetFileName(path))])));
+            return "ok";
+        });
+        // "compose-drop PATH…" drops files on the body as a drag from Photos or Files does (item providers over file URLs).
+        UIKitDebugBridge.Register("compose-drop", async args =>
+        {
+            Task drop = Task.CompletedTask;
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                var items = args.Select(path => new Foundation.NSItemProvider(Foundation.NSUrl.FromFilename(path))).ToArray();
+                drop = _webView.DropItemsAsync(items, new CoreGraphics.CGPoint(40, 20));
+            });
+            await drop;
+            return "dropped " + args.Length;
+        });
+        UIKitDebugBridge.Register("compose-body", async _ => await GetHtmlBodyAsync());
+        UIKitDebugBridge.Register("compose-discard", _ => OnUIAsync(() => { Observe(DiscardAsync()); return "ok"; }));
         // The bar's "Open in new window" (iPad, docked in the reader column).
         UIKitDebugBridge.Register("compose-popout", async _ =>
         {

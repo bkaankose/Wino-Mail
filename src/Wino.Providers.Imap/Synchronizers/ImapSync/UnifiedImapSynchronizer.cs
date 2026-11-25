@@ -91,13 +91,15 @@ public class UnifiedImapSynchronizer
 
     /// <summary>
     /// Resolves one special role per remote folder. Server-declared roles are always evaluated;
-    /// provider and generic aliases are used only during the one-time account bootstrap.
+    /// provider and generic aliases are used only during the one-time account bootstrap, or when
+    /// <paramref name="includeAliases"/> asks for them to restore a lost role.
     /// </summary>
     public IReadOnlyDictionary<string, SpecialFolderType> ResolveKnownFolders(
         IImapClient client,
         MailAccount account,
         IReadOnlyList<IMailFolder> remoteFolders,
-        IReadOnlyList<MailItemFolder> localFolders)
+        IReadOnlyList<MailItemFolder> localFolders,
+        bool includeAliases = false)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(account);
@@ -145,7 +147,7 @@ public class UnifiedImapSynchronizer
             resolved[selected.FullName] = roleGroup.Key;
         }
 
-        if (account.ImapKnownFolderBootstrapState != ImapKnownFolderBootstrapState.Pending)
+        if (account.ImapKnownFolderBootstrapState != ImapKnownFolderBootstrapState.Pending && !includeAliases)
             return resolved;
 
         var provider = _knownImapProviderCatalog.Match(
@@ -331,6 +333,8 @@ public class UnifiedImapSynchronizer
 
     /// <summary>
     /// Main synchronization entry point. Automatically selects the best strategy.
+    /// A <paramref name="rangeOverride"/> runs the repair pass with that wider range, which downloads only the UIDs
+    /// the folder does not store yet.
     /// </summary>
     public async Task<FolderSyncResult> SynchronizeFolderAsync(
         IImapClient client,
@@ -338,7 +342,8 @@ public class UnifiedImapSynchronizer
         IImapSynchronizer synchronizer,
         string serverHost,
         CancellationToken cancellationToken = default,
-        bool suppressMatchingLocalFilters = false)
+        bool suppressMatchingLocalFilters = false,
+        InitialSynchronizationRange? rangeOverride = null)
     {
         var strategy = DetermineSyncStrategy(client, serverHost);
         _logger.Verbose("Using {Strategy} sync strategy for folder {FolderName}", strategy, folder.FolderName);
@@ -352,7 +357,7 @@ public class UnifiedImapSynchronizer
         {
             var changes = new MailboxChanges();
             await SynchronizeMailboxAsync(
-                client, folder, synchronizer, strategy, changes, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false);
+                client, folder, synchronizer, strategy, changes, cancellationToken, suppressMatchingLocalFilters, rangeOverride).ConfigureAwait(false);
 
             bool highestModeSeqChanged = folder.HighestModeSeq != originalHighestModeSeq;
             bool requiresFullFolderUpdate =
@@ -473,7 +478,7 @@ public class UnifiedImapSynchronizer
                     .FetchAsync(new UniqueIdSet(newBatch.ToList(), SortOrder.Ascending),
                         new FetchRequest(_mailSynchronizationFlags, new[]
                         {
-                            "References", "Subject", "From", "Sender", Wino.Core.Domain.Constants.WinoLocalDraftHeader, Wino.Core.Domain.Constants.LegacyWinoLocalDraftHeader, Wino.Core.Domain.Constants.DispositionNotificationToHeader
+                            "References", "Subject", "From", "Sender", "Reply-To", "To", "Cc", "Bcc", Wino.Core.Domain.Constants.WinoLocalDraftHeader, Wino.Core.Domain.Constants.LegacyWinoLocalDraftHeader, Wino.Core.Domain.Constants.DispositionNotificationToHeader
                         }), cancellationToken)
                     .ConfigureAwait(false);
 
@@ -494,6 +499,7 @@ public class UnifiedImapSynchronizer
                 }
 
                 var calendarMimeByUid = await DownloadCalendarHintedMimeAsync(remoteFolder, newSummaryBatch, cancellationToken).ConfigureAwait(false);
+                var rawHeadersByUid = await DownloadRawHeadersForDowngradedTextAsync(remoteFolder, newSummaryBatch, calendarMimeByUid, cancellationToken).ConfigureAwait(false);
 
                 downloadedMessageIds.AddRange(await ProcessSummariesCoreAsync(
                     synchronizer,
@@ -502,7 +508,8 @@ public class UnifiedImapSynchronizer
                     existingByUid,
                     cancellationToken,
                     suppressMatchingLocalFilters,
-                    calendarMimeByUid).ConfigureAwait(false));
+                    calendarMimeByUid,
+                    rawHeadersByUid).ConfigureAwait(false));
             }
         }
 
@@ -526,7 +533,8 @@ public class UnifiedImapSynchronizer
         ImapSyncStrategy strategy,
         MailboxChanges changes,
         CancellationToken cancellationToken,
-        bool suppressMatchingLocalFilters)
+        bool suppressMatchingLocalFilters,
+        InitialSynchronizationRange? rangeOverride)
     {
         var localMails = await _mailService.GetImapSynchronizationMailsAsync(folder.Id).ConfigureAwait(false) ?? [];
         var known = CreateExistingMailLookup(localMails.Where(mail => !mail.IsLocalDraft));
@@ -610,12 +618,12 @@ public class UnifiedImapSynchronizer
             }
 
             var initial = folder.HighestKnownUid == 0;
-            var repair = initial || !_repairedFolders.ContainsKey(folder.Id) || ShouldRunUidReconcile(folder);
+            var repair = rangeOverride.HasValue || initial || !_repairedFolders.ContainsKey(folder.Id) || ShouldRunUidReconcile(folder);
             IList<UniqueId> discovered = new List<UniqueId>();
             if (repair)
             {
                 // Also repairs rows missing below an old checkpoint, including legacy deduplication losses.
-                discovered = await remote.SearchAsync(BuildInitialSyncQuery(synchronizer).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
+                discovered = await remote.SearchAsync(BuildInitialSyncQuery(synchronizer, rangeOverride).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
                 var flaggedDeleted = await remote.SearchAsync(SearchQuery.Deleted, cancellationToken).ConfigureAwait(false);
                 lock (deletedFlagUids)
                 {
@@ -735,7 +743,7 @@ public class UnifiedImapSynchronizer
             lock (deletedFlagUids)
                 deletedFlagUidsBefore.UnionWith(deletedFlagUids);
             var restored = await RestoreUndeletedMessagesAsync(client, remote, folder, synchronizer, unknownUndeletedUids,
-                deletedFlagUidsBefore, discovered, changes, cancellationToken).ConfigureAwait(false);
+                deletedFlagUidsBefore, discovered, changes, rangeOverride, cancellationToken).ConfigureAwait(false);
             lock (deletedFlagUids)
                 deletedFlagUids.ExceptWith(unknownUndeletedUids.Concat(restored));
 
@@ -763,7 +771,7 @@ public class UnifiedImapSynchronizer
             remote.MessageFlagsChanged -= OnFlags;
 
             await SynchronizeMailboxAsync(client, folder, synchronizer, ImapSyncStrategy.Condstore,
-                changes, cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false);
+                changes, cancellationToken, suppressMatchingLocalFilters, rangeOverride).ConfigureAwait(false);
         }
         finally
         {
@@ -786,12 +794,11 @@ public class UnifiedImapSynchronizer
 
     #region Shared Helpers
 
-    private static SearchQuery BuildInitialSyncQuery(IImapSynchronizer synchronizer)
+    private static SearchQuery BuildInitialSyncQuery(IImapSynchronizer synchronizer, InitialSynchronizationRange? rangeOverride)
     {
         if (synchronizer is IBaseSynchronizer { Account: { } account })
         {
-            var referenceDateUtc = account.CreatedAt ?? DateTime.UtcNow;
-            var cutoffDateUtc = account.InitialSynchronizationRange.ToCutoffDateUtc(referenceDateUtc);
+            var cutoffDateUtc = account.GetMailSynchronizationCutoffUtc(rangeOverride ?? account.InitialSynchronizationRange);
 
             if (cutoffDateUtc.HasValue)
             {
@@ -846,7 +853,8 @@ public class UnifiedImapSynchronizer
         IReadOnlyDictionary<uint, MailCopy> existingByUid,
         CancellationToken cancellationToken,
         bool suppressMatchingLocalFilters,
-        IReadOnlyDictionary<uint, MimeMessage> mimeByUid = null)
+        IReadOnlyDictionary<uint, MimeMessage> mimeByUid = null,
+        IReadOnlyDictionary<uint, HeaderList> rawHeadersByUid = null)
     {
         var downloadedMessageIds = new List<string>();
 
@@ -885,7 +893,9 @@ public class UnifiedImapSynchronizer
                 continue;
             }
 
-            var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage: mimeByUid?.GetValueOrDefault(summary.UniqueId.Id));
+            var creationPackage = new ImapMessageCreationPackage(summary,
+                mimeMessage: mimeByUid?.GetValueOrDefault(summary.UniqueId.Id),
+                rawHeaders: rawHeadersByUid?.GetValueOrDefault(summary.UniqueId.Id));
             var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, localFolder, cancellationToken).ConfigureAwait(false);
 
             if (mailPackages == null)
@@ -947,7 +957,7 @@ public class UnifiedImapSynchronizer
 
             try
             {
-                mimeByUid[summary.UniqueId.Id] = await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
+                mimeByUid[summary.UniqueId.Id] = (await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false)).RecoverHeaderCharsets();
             }
             catch (Exception ex) when (ex is MessageNotFoundException or ImapCommandException or FormatException)
             {
@@ -956,6 +966,45 @@ public class UnifiedImapSynchronizer
         }
 
         return mimeByUid;
+    }
+
+    /// <summary>
+    /// Re-reads the whole header section (BODY.PEEK[HEADER]) of messages whose subject or display names came back
+    /// with '?' or U+FFFD. Servers may downgrade non-ASCII header text in ENVELOPE and HEADER.FIELDS for clients
+    /// that did not enable UTF8=ACCEPT (RFC 6855), but BODY[HEADER] is the stored octets (RFC 3501 6.4.5).
+    /// A message whose header section can't be read keeps the values from the summary.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<uint, HeaderList>> DownloadRawHeadersForDowngradedTextAsync(
+        IMailFolder remoteFolder,
+        IEnumerable<IMessageSummary> summaries,
+        IReadOnlyDictionary<uint, MimeMessage> mimeByUid,
+        CancellationToken cancellationToken)
+    {
+        var suspects = summaries
+            .Where(summary => !mimeByUid.ContainsKey(summary.UniqueId.Id) && summary.MayHaveDowngradedHeaderText())
+            .Select(summary => summary.UniqueId)
+            .ToList();
+
+        if (suspects.Count == 0)
+            return null;
+
+        try
+        {
+            var requested = suspects.ToHashSet();
+            var fetched = await remoteFolder
+                .FetchAsync(new UniqueIdSet(suspects, SortOrder.Ascending), new FetchRequest(MessageSummaryItems.UniqueId) { Headers = HeaderSet.All }, cancellationToken)
+                .ConfigureAwait(false);
+
+            return fetched
+                .Where(summary => summary.Headers != null && requested.Contains(summary.UniqueId))
+                .GroupBy(summary => summary.UniqueId.Id)
+                .ToDictionary(group => group.Key, group => group.First().Headers);
+        }
+        catch (Exception ex) when (ex is ImapCommandException or FormatException)
+        {
+            _logger.Warning(ex, "Could not read the header section of {Count} messages in {FolderName}; their summary values are kept.", suspects.Count, remoteFolder.FullName);
+            return null;
+        }
     }
 
     private async Task<int> ApplySummaryFlagUpdatesAsync(
@@ -1078,6 +1127,7 @@ public class UnifiedImapSynchronizer
         ISet<uint> deletedFlagUids,
         IList<UniqueId> discovered,
         MailboxChanges changes,
+        InitialSynchronizationRange? rangeOverride,
         CancellationToken cancellationToken)
     {
         var alreadyDiscovered = discovered.Select(uid => uid.Id).ToHashSet();
@@ -1089,7 +1139,7 @@ public class UnifiedImapSynchronizer
             return [];
 
         var present = await remote.SearchAsync(SearchQuery.Uids(new UniqueIdSet(candidates, SortOrder.Ascending))
-            .And(BuildInitialSyncQuery(synchronizer)).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
+            .And(BuildInitialSyncQuery(synchronizer, rangeOverride)).And(SearchQuery.NotDeleted), cancellationToken).ConfigureAwait(false);
         if (present.Count == 0)
             return [];
 

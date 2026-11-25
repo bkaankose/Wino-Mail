@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -14,9 +15,16 @@ public partial class FolderCustomizationItemViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsHidden { get; set; }
 
-    public string FolderName => Folder.ResolvedDisplayName;
+    /// <summary>The list is flat, so a shared folder carries its owner's name.</summary>
+    public string FolderName => Folder.QualifiedDisplayName;
     public bool IsSystemFolder => Folder.IsSystemFolder;
-    public Core.Domain.Enums.SpecialFolderType SpecialFolderType => Folder.SpecialFolderType;
+    public SpecialFolderType SpecialFolderType => Folder.SpecialFolderType;
+    public MailFolderScope Scope => Folder.Scope;
+    public bool IsContainer => Folder.IsContainer;
+    public bool IsSharedOwnerNode => Folder.IsSharedOwnerNode;
+
+    /// <summary>A level of a shared tree can only be hidden, which hides everything below it.</summary>
+    public bool CanPinAndRename => !Folder.IsContainer;
 
     public FolderCustomizationItemViewModel(MailItemFolder folder)
     {

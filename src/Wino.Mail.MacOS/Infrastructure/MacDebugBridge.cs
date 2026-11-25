@@ -14,7 +14,7 @@ namespace Wino.Mail.MacOS.Infrastructure;
 /// snapshots to *.png in the same folder. Snapshots render the app's own windows, so they need
 /// no Screen Recording permission (behind-window vibrancy renders as its fallback colour).
 ///
-/// Commands: snap NAME · mode Mail|Calendar|Contacts|Tasks · settings [WinoPage] ·
+/// Commands: snap NAME · snap2x NAME · seedmail · seedstore · mode Mail|Calendar|Contacts|Tasks · settings [WinoPage] ·
 /// page WinoPage · theme NAME|Default · appearance light|dark|system · iconstyle mono|color ·
 /// size WIDTH HEIGHT · sleep MS · front · windows
 /// Feature code can add commands with <see cref="Register"/>.
@@ -128,12 +128,64 @@ public static class MacDebugBridge
             Get<AppKitNavigationService>().ChangeApplicationMode(WinoApplicationMode.Mail);
             return result;
         });
+        // "seedstore" adds the store screenshot demo (StoreListingDebugSeed): Outlook, Gmail and iCloud accounts with mail,
+        // calendars, contacts and tasks. Run it on an empty data folder.
+        Register("seedstore", async _ =>
+        {
+            var result = await Wino.Mail.ViewModels.Diagnostics.StoreListingDebugSeed.SeedAsync(_services!);
+            Get<AppKitNavigationService>().ChangeApplicationMode(WinoApplicationMode.Mail);
+            return result;
+        });
+        // "clearattention" removes the attention state the demo's token-less Outlook and Gmail accounts get after a sync.
+        Register("clearattention", async _ =>
+        {
+            var accounts = Get<IAccountService>();
+            int cleared = 0;
+            foreach (var account in await accounts.GetAccountsAsync())
+            {
+                if (account.AttentionReason == AccountAttentionReason.None) continue;
+                account.AttentionReason = AccountAttentionReason.None;
+                await accounts.UpdateAccountAsync(account);
+                cleared++;
+            }
+            return $"cleared {cleared}";
+        });
+        // "wsnap NAME" captures the shell window as the window server composites it (glass and vibrancy included). It needs
+        // Screen Recording permission for Wino Mail; the first call shows the system prompt.
+        Register("wsnap", args =>
+        {
+            if (!CGPreflightScreenCaptureAccess())
+            {
+                CGRequestScreenCaptureAccess();
+                return Task.FromResult("no screen recording permission; prompt requested");
+            }
+            var window = AllWindows().Where(item => item.IsVisible && item.StyleMask.HasFlag(NSWindowStyle.Titled)).MaxBy(item => item.Frame.Width * item.Frame.Height);
+            if (window is null) return Task.FromResult("no window");
+            // kCGWindowListOptionIncludingWindow, kCGWindowImageBoundsIgnoreFraming | kCGWindowImageBestResolution
+            var handle = CGWindowListCreateImage(CoreGraphics.CGRect.Null, 8, (uint)window.WindowNumber, 9);
+            if (handle == IntPtr.Zero) return Task.FromResult("capture failed");
+            using var image = ObjCRuntime.Runtime.GetINativeObject<CoreGraphics.CGImage>(handle, true)!;
+            using var rep = new NSBitmapImageRep(image);
+            using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
+            var file = Path.Combine(Folder, (args.Length > 0 ? args[0] : "wsnap") + ".png");
+            data?.Save(NSUrl.FromFilename(file), true);
+            return Task.FromResult($"{Path.GetFileName(file)} {image.Width}x{image.Height}");
+        });
+        // "snap2x NAME" is snap at twice the window's point size, for Retina-size store screenshots on a 1x display.
+        Register("snap2x", args => Task.FromResult(Snap(args.Length > 0 ? args[0] : "snap2x", 2)));
         // "pref NAME" prints a preference; "pref NAME VALUE" sets it (bool, number, string or enum member name).
         Register("live", _ =>
         {
             var lines = Wino.Presentation.AppKit.WinoLiveObjects.Snapshot().Select(entry => $"{entry.Type}={entry.Count}({entry.Disposed}d)");
             var rss = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
             return Task.FromResult($"rss={rss}MB managed={GC.GetTotalMemory(false) / (1024 * 1024)}MB " + string.Join(' ', lines));
+        });
+        Register("gc", _ =>
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            return Task.FromResult($"managed={GC.GetTotalMemory(false) / (1024 * 1024)}MB");
         });
         Register("chain", args =>
         {
@@ -325,12 +377,104 @@ public static class MacDebugBridge
         });
         Register("windows", _ => Task.FromResult(string.Join(" | ",
             AllWindows().Where(item => item.IsVisible).Select(item => $"{item.GetType().Name} '{item.Title}' {item.Frame.Width}x{item.Frame.Height}"))));
+        // press WINDOW TITLE|BUTTON TITLE: presses the first enabled button with that title in the visible window with that
+        // title. "type:NSPanel" selects windows by class, and an empty or * title searches every visible window.
+        Register("press", args => Task.FromResult(Press(string.Join(' ', args))));
+        // drawer-menu ROW|ITEM: runs an item of a visible drawer row's menu (Remind me, Repeat, Priority, Categories), as a click does.
+        Register("drawer-menu", args => Task.FromResult(DrawerMenu(string.Join(' ', args))));
+        // choose WINDOW TITLE|ITEM TITLE: selects an item of the first visible pop-up button in that window that has it, and
+        // sends the pop-up's action as a selection does.
+        Register("choose", args => Task.FromResult(Choose(string.Join(' ', args))));
+    }
+
+    private static string Choose(string spec)
+    {
+        var parts = spec.Split('|', 2);
+        if (parts.Length != 2) return "usage: choose WINDOW TITLE|ITEM TITLE";
+        var title = parts[0].Trim();
+        var item = parts[1].Trim();
+        foreach (var window in AllWindows().Where(candidate => candidate.IsVisible && candidate.ContentView is not null && (candidate.Title == title || title is "*")))
+        {
+            var popup = FindPopUp(window.ContentView!, item);
+            if (popup is null) continue;
+            popup.SelectItem(item);
+            popup.SendAction(popup.Action, popup.Target);
+            return "chose " + item;
+        }
+        return "no pop-up with " + item + " in " + title;
+    }
+
+    private static NSPopUpButton? FindPopUp(NSView view, string item)
+    {
+        if (view is NSPopUpButton popup && !popup.Hidden && popup.ItemTitles().Contains(item)) return popup;
+        foreach (var child in view.Subviews.Where(child => !child.Hidden))
+        {
+            var found = FindPopUp(child, item);
+            if (found is not null) return found;
+        }
+        return null;
+    }
+
+    private static string DrawerMenu(string spec)
+    {
+        var parts = spec.Split('|', 2);
+        if (parts.Length != 2) return "usage: drawer-menu ROW|ITEM";
+        var label = parts[0].Trim();
+        var item = parts[1].Trim();
+        Wino.Mail.Controls.AppKit.ToDo.WinoDrawerActionRow? found = null;
+        void Collect(NSView view)
+        {
+            if (view.Hidden || found is not null) return;
+            if (view is Wino.Mail.Controls.AppKit.ToDo.WinoDrawerActionRow drawerRow && drawerRow.Text == label && drawerRow.Menu is not null)
+            {
+                found = drawerRow;
+                return;
+            }
+            foreach (var child in view.Subviews) Collect(child);
+        }
+        foreach (var window in AllWindows().Where(candidate => candidate.IsVisible && candidate.ContentView is not null))
+            Collect(window.ContentView!);
+        if (found?.Menu is not { } menu) return "no visible drawer row " + label;
+        var index = Array.FindIndex(menu.Items, candidate => candidate.Title == item);
+        if (index < 0) return "no item " + item + " in " + label;
+        menu.PerformActionForItem(index);
+        return "ran " + item;
+    }
+
+    private static string Press(string spec)
+    {
+        var parts = spec.Split('|', 2);
+        if (parts.Length != 2) return "usage: press WINDOW TITLE|BUTTON TITLE";
+        var title = parts[0].Trim();
+        var anyWindow = title is "" or "*";
+        var byType = title.StartsWith("type:", StringComparison.Ordinal) ? title[5..] : null;
+        var windows = AllWindows().Where(item => item.IsVisible && item.ContentView is not null
+            && (anyWindow || (byType is null ? item.Title == title : item.GetType().Name == byType)));
+        foreach (var window in windows)
+        {
+            var button = FindButton(window.ContentView!, parts[1].Trim());
+            if (button is null) continue;
+            button.PerformClick(button);
+            return "pressed " + parts[1];
+        }
+        return "no button " + parts[1] + " in " + (anyWindow ? "any window" : title);
+    }
+
+    private static NSButton? FindButton(NSView view, string title)
+    {
+        if (view is NSButton button && button.Title == title && button.Enabled) return button;
+        foreach (var child in view.Subviews.Where(child => !child.Hidden))
+        {
+            var found = FindButton(child, title);
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     private static NSWindow[] AllWindows() => NSApplication.SharedApplication.DangerousWindows.ToArray();
 
     /// <summary>Renders every visible app window (frame view included, so the toolbar shows) to PNG.</summary>
-    public static string Snap(string name)
+    public static string Snap(string name, int scale = 1)
     {
         var saved = new List<string>();
         int index = 0;
@@ -338,7 +482,7 @@ public static class MacDebugBridge
         {
             var view = window.ContentView!.Superview ?? window.ContentView!;
             view.LayoutSubtreeIfNeeded();
-            var rep = view.BitmapImageRepForCachingDisplayInRect(view.Bounds);
+            var rep = scale == 1 ? view.BitmapImageRepForCachingDisplayInRect(view.Bounds) : ScaledRep(view.Bounds.Size, scale);
             if (rep is null) continue;
             view.CacheDisplay(view.Bounds, rep);
             using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
@@ -348,6 +492,28 @@ public static class MacDebugBridge
             index++;
         }
         return saved.Count == 0 ? "no visible windows" : string.Join(", ", saved);
+    }
+
+    private const string CoreGraphicsLibrary = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
+
+    [System.Runtime.InteropServices.DllImport(CoreGraphicsLibrary)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.I1)]
+    private static extern bool CGPreflightScreenCaptureAccess();
+
+    [System.Runtime.InteropServices.DllImport(CoreGraphicsLibrary)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.I1)]
+    private static extern bool CGRequestScreenCaptureAccess();
+
+    // Deprecated in favour of ScreenCaptureKit but still present; this is a debug-only capture path.
+    [System.Runtime.InteropServices.DllImport(CoreGraphicsLibrary)]
+    private static extern IntPtr CGWindowListCreateImage(CoreGraphics.CGRect bounds, uint listOption, uint windowId, uint imageOption);
+
+    // A bitmap with more pixels than points: cacheDisplay then draws the view at that scale.
+    private static NSBitmapImageRep ScaledRep(CoreGraphics.CGSize size, int scale)
+    {
+        var rep = new NSBitmapImageRep(IntPtr.Zero, (nint)(size.Width * scale), (nint)(size.Height * scale), 8, 4, true, false, "NSDeviceRGBColorSpace", 0, 0);
+        rep.Size = size;
+        return rep;
     }
 }
 #endif

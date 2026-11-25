@@ -7,9 +7,9 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:editor="using:Wino.Editor"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:rendering="using:Wino.Mail.WinUI.Rendering"
     Title="{x:Bind domain:Translator.SignatureEditorDialog_Title}"
     HorizontalContentAlignment="Stretch"
     Closed="DialogClosed"
@@ -50,21 +50,17 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="300" />
             </Grid.RowDefinitions>
-            <coreControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind WebViewEditor}" />
+            <coreControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind SignatureEditor.Session}" />
             <Border
                 Grid.Row="1"
                 Margin="0,8,0,0"
                 BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="6">
-                <editor:WinoMailEditor
-                    x:Name="WebViewEditor"
+                <rendering:EngineMailEditorView
+                    x:Name="SignatureEditor"
                     AutomationProperties.AutomationId="SignatureMailEditor"
-                    IsEditorWebViewEditor="False"
-                    IsPasteOptionsEnabled="True"
-                    LinkOpenRequested="EditorLinkOpenRequested"
-                    OpenLinkLabel="{x:Bind domain:Translator.Composer_OpenLink, Mode=OneTime}"
-                    RemoveLinkLabel="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}" />
+                    LinkOpenRequested="EditorLinkOpenRequested" />
             </Border>
         </Grid>
     </Grid>

@@ -7,7 +7,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Calendar.Data"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:win2d="using:Microsoft.Graphics.Canvas.UI.Xaml"
     xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="Root"
     AutomationProperties.AutomationId="CalendarPeriodSurface"
@@ -101,18 +100,14 @@
                 Grid.Column="1"
                 Height="44"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
+                RightTapped="TimedDayAreaRightTapped"
                 SizeChanged="RailHostSizeChanged">
                 <Grid.Clip>
                     <RectangleGeometry x:Name="TimedHeaderClip" />
                 </Grid.Clip>
                 <Canvas x:Name="TimedHeaderRail" IsHitTestVisible="False">
-                    <!--
-                        Every Win2D canvas sits in a panel of its own. The canvas keeps a hard reference
-                        to its parent, so a parent that carries event handlers or interactive siblings
-                        would keep this control and its page alive through them.
-                    -->
                     <Grid x:Name="TimedHeaderCanvasHost" IsHitTestVisible="False">
-                        <win2d:CanvasControl
+                        <calendar:CompositionCanvas
                             x:Name="TimedHeaderCanvas"
                             Draw="TimedHeaderCanvasDraw"
                             IsHitTestVisible="False" />
@@ -142,6 +137,7 @@
                 Drop="TimedAllDayHostDrop"
                 PointerExited="CalendarDropTargetPointerExited"
                 PointerMoved="TimedAllDayHostPointerMoved"
+                RightTapped="TimedDayAreaRightTapped"
                 SizeChanged="RailHostSizeChanged"
                 Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
                 <Grid.Clip>
@@ -149,7 +145,7 @@
                 </Grid.Clip>
                 <Canvas x:Name="TimedAllDayRail">
                     <Grid x:Name="TimedAllDayCanvasHost" IsHitTestVisible="False">
-                        <win2d:CanvasControl
+                        <calendar:CompositionCanvas
                             x:Name="TimedAllDayCanvas"
                             Draw="TimedAllDayCanvasDraw"
                             IsHitTestVisible="False" />
@@ -199,10 +195,11 @@
                             <Border
                                 x:Name="TimedInteractionLayer"
                                 Background="Transparent"
+                                RightTapped="TimedInteractionLayerRightTapped"
                                 Tapped="TimedInteractionLayerTapped" />
                             <Canvas x:Name="TimedBodyRail">
                                 <Grid x:Name="TimedStructureCanvasHost" IsHitTestVisible="False">
-                                    <win2d:CanvasControl
+                                    <calendar:CompositionCanvas
                                         x:Name="TimedStructureCanvas"
                                         Draw="TimedStructureCanvasDraw"
                                         IsHitTestVisible="False" />
@@ -295,10 +292,12 @@
                 <Border
                     x:Name="MonthInteractionLayer"
                     Background="Transparent"
+                    DoubleTapped="MonthInteractionLayerDoubleTapped"
+                    RightTapped="MonthInteractionLayerRightTapped"
                     Tapped="MonthInteractionLayerTapped" />
                 <Canvas x:Name="MonthRail">
                     <Grid x:Name="MonthStructureCanvasHost" IsHitTestVisible="False">
-                        <win2d:CanvasControl
+                        <calendar:CompositionCanvas
                             x:Name="MonthStructureCanvas"
                             Draw="MonthStructureCanvasDraw"
                             IsHitTestVisible="False" />

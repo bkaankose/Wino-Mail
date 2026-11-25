@@ -84,7 +84,7 @@ public sealed partial class WinoCalendarSurfaceView
     internal void BeginTileDrag(TileHostView host, WinoCalendarItemView tile, CGPoint downPoint, NSEvent? press, bool resize)
     {
         EndTileDrag(commit: false);
-        if (tile.Item is not ICalendarItem item || tile.Kind == CalendarPlacementKind.MultiDayGhost) return;
+        if (tile.Item is not ICalendarItem item) return;
         if (CanDragItem?.Invoke(item) == false)
         {
             ItemDragRefused?.Invoke(this, new CalendarItemClickedEventArgs(item, tile, press));

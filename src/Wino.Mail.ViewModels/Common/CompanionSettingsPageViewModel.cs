@@ -9,6 +9,9 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace Wino.Mail.ViewModels.Common;
 
+/// <summary>One choice of which tasks the companion shows, with its display text.</summary>
+public sealed record CompanionTaskBehaviorOption(CompanionTaskBehavior Behavior, string DisplayText);
+
 /// <summary>One choice of the companion's unread message behavior, with its display text.</summary>
 public sealed record CompanionUnreadBehaviorOption(CompanionUnreadMessageBehavior Behavior, string DisplayText);
 
@@ -28,6 +31,24 @@ public partial class CompanionSettingsPageViewModel(IMessenger messenger, IPrefe
         new(CompanionUnreadMessageBehavior.AfterAppSession, Translator.CompanionSettings_UnreadBehavior_AfterAppSession),
         new(CompanionUnreadMessageBehavior.Everything, Translator.CompanionSettings_UnreadBehavior_Everything)
     ];
+
+    public IReadOnlyList<CompanionTaskBehaviorOption> TaskBehaviorOptions { get; } = (CompanionTaskBehaviorOption[])
+    [
+        new(CompanionTaskBehavior.MyDay, Translator.CompanionSettings_TaskBehavior_MyDay),
+        new(CompanionTaskBehavior.DueDate, Translator.CompanionSettings_TaskBehavior_DueDate)
+    ];
+
+    public CompanionTaskBehaviorOption SelectedTaskBehavior
+    {
+        get => TaskBehaviorOptions.FirstOrDefault(option => option.Behavior == PreferencesService.CompanionTaskBehavior)
+            ?? TaskBehaviorOptions[0];
+        set
+        {
+            if (value is null || PreferencesService.CompanionTaskBehavior == value.Behavior) return;
+            PreferencesService.CompanionTaskBehavior = value.Behavior;
+            OnPropertyChanged();
+        }
+    }
 
     public bool IsCompanionEnabled
     {
@@ -140,6 +161,9 @@ public partial class CompanionSettingsPageViewModel(IMessenger messenger, IPrefe
                 break;
             case nameof(IPreferencesService.ShowFavoriteContactsInCompanion):
                 _ = ExecuteUIThread(() => OnPropertyChanged(nameof(ShowFavoriteContacts)));
+                break;
+            case nameof(IPreferencesService.CompanionTaskBehavior):
+                _ = ExecuteUIThread(() => OnPropertyChanged(nameof(SelectedTaskBehavior)));
                 break;
             case nameof(IPreferencesService.CompanionUnreadMessageBehavior):
                 _ = ExecuteUIThread(() => OnPropertyChanged(nameof(SelectedUnreadBehavior)));

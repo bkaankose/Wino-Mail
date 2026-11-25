@@ -378,7 +378,7 @@ public partial class AccountSetupPageViewModel
 
         WizardContext.Reset();
         WizardContext.SelectedProvider = new ProviderDetail(MailProviderType.Exchange, SpecialImapProvider.None);
-        WizardContext.AccountName = GetAdvancedAccountName(address);
+        WizardContext.AccountName = GetAdvancedAccountName();
         WizardContext.AccountColorHex = SelectedColor?.Hex ?? string.Empty;
         WizardContext.SelectedInitialSynchronizationRange = SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths;
         WizardContext.IsMailAccessEnabled = !hasFeatures || Capabilities.IsMailEnabled;

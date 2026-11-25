@@ -6,7 +6,7 @@ namespace Wino.Mail.WinUI.Interfaces;
 
 /// <summary>
 /// A page that can absorb a navigation request aimed at itself instead of being replaced.
-/// Lets the navigation service reuse an expensive page (and its WebView2) without naming
+/// Lets the navigation service reuse an expensive page (and its mail view) without naming
 /// any concrete page type.
 /// </summary>
 public interface IReentryTarget

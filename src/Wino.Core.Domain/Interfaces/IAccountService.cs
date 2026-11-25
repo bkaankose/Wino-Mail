@@ -255,12 +255,20 @@ public interface IAccountService
     /// </summary>
     Task DeleteAccountMailDataAsync(Guid accountId);
 
+    /// <summary>Creates the account's calendar on this device when the account has no calendar yet.</summary>
+    Task EnsureDefaultLocalCalendarAsync(Guid accountId);
+
     /// <summary>
     /// Updates the synchronization identifier for a specific account asynchronously.
     /// </summary>
     /// <param name="accountId">Identifies the account for which the synchronization identifier is being updated.</param>
     /// <param name="syncIdentifier">Represents the new synchronization identifier to be set for the specified account.</param>
     Task<string> UpdateSyncIdentifierRawAsync(Guid accountId, string syncIdentifier);
+
+    /// <summary>
+    /// Stores a widened mail synchronization range once its backfill finished, and reports the reloaded account.
+    /// </summary>
+    Task UpdateInitialSynchronizationRangeAsync(Guid accountId, InitialSynchronizationRange range);
 
 
     /// <summary>

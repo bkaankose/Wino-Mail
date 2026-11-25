@@ -20,6 +20,9 @@ public class ImapConnectivityTestResults
 
     public string FailedReason { get; set; }
     public string ProtocolLog { get; set; }
+
+    /// <summary>The outgoing (SMTP) server failed after the incoming server answered.</summary>
+    public bool IsOutgoingServerFailure { get; set; }
     public MailServerCertificateFailure CertificateFailure { get; set; }
     public static ImapConnectivityTestResults Success() => new ImapConnectivityTestResults() { IsSuccess = true };
     public static ImapConnectivityTestResults Failure(Exception ex)
@@ -30,7 +33,8 @@ public class ImapConnectivityTestResults
         {
             FailedReason = validationException?.Message
                 ?? string.Join(Environment.NewLine, ex.GetInnerExceptions().Select(e => e.Message)),
-            ProtocolLog = validationException?.ProtocolLog
+            ProtocolLog = validationException?.ProtocolLog,
+            IsOutgoingServerFailure = validationException?.IsOutgoingServer == true
         };
     }
 

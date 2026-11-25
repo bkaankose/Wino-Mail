@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The renderer glue both Apple apps share, with no AppKit or UIKit type: the backend factory, PDF export and the
+       memory-pressure trim. It narrows to one target framework by RID like Wino.Platform.Apple. -->
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-macos;net10.0-ios</TargetFrameworks>
+    <TargetFrameworks Condition="$(RuntimeIdentifier.StartsWith('osx-')) or $(RuntimeIdentifiers.StartsWith('osx-'))">net10.0-macos</TargetFrameworks>
+    <TargetFrameworks Condition="$(RuntimeIdentifier.StartsWith('ios-')) or $(RuntimeIdentifier.StartsWith('iossimulator-')) or $(RuntimeIdentifiers.StartsWith('ios'))">net10.0-ios</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <WinoRendererAppleBackendOnly>true</WinoRendererAppleBackendOnly>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.Contains('-macos'))">
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios'))">
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../Wino.Services/Wino.Services.csproj" />
+    <ProjectReference Include="../Wino.Mail.Rendering/Wino.Mail.Rendering.csproj" />
+  </ItemGroup>
+  <Import Project="../../build/Wino.Renderer.Apple.props" />
+</Project>

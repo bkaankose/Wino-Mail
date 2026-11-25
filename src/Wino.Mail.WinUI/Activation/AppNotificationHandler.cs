@@ -153,6 +153,24 @@ internal sealed class AppNotificationHandler
             return route.ExecuteAsync != null;
         }
 
+        if (toastArguments.TryGetValue(Constants.ToastTaskActionKey, out string taskAction) &&
+            toastArguments.TryGetValue(Constants.ToastTaskIdKey, out string taskIdString) &&
+            Guid.TryParse(taskIdString, out _))
+        {
+            route = taskAction switch
+            {
+                Constants.ToastTaskOpenAction => CreateResponseRoute(NotificationActivationPath.TaskNavigation, true,
+                    CreateResponse(toastArguments, userInput, NotificationResponseKind.Default, string.Empty)),
+                Constants.ToastTaskCompleteAction => CreateResponseRoute(NotificationActivationPath.TaskComplete, false,
+                    CreateResponse(toastArguments, userInput, NotificationResponseKind.Action, NotificationActionIdentifiers.TaskComplete)),
+                Constants.ToastTaskSnoozeAction => CreateResponseRoute(NotificationActivationPath.TaskSnooze, false,
+                    CreateResponse(toastArguments, userInput, NotificationResponseKind.Action, NotificationActionIdentifiers.TaskSnooze)),
+                _ => default
+            };
+
+            return route.ExecuteAsync != null;
+        }
+
         if (toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation action) &&
             Guid.TryParse(toastArguments[Constants.ToastMailUniqueIdKey], out Guid mailItemUniqueId))
         {

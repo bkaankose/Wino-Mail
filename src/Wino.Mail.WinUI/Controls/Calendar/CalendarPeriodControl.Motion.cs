@@ -84,7 +84,9 @@ public sealed partial class CalendarPeriodControl
             _requestedUnits.Clear();
         }
 
+        var previousRangeUnit = _rangeUnit;
         _rangeUnit = targetUnit;
+        OnRangeUnitChanged(previousRangeUnit);
 
         if (isStaleAnswer || targetUnit == _settledUnit || (_isGliding && _glideTarget == targetUnit))
         {

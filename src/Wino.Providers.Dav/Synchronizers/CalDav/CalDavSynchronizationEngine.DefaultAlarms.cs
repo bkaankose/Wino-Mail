@@ -31,7 +31,7 @@ public sealed partial class CalDavSynchronizationEngine
     /// <summary>
     /// The default reminders of a calendar for a new event, as stored in <see cref="ICalDavStateStore"/>.
     /// A value on the calendar wins over the home value, even when it means "no alarm". Alarms
-    /// Wino cannot express locally (after the start, relative to the end) are left out.
+    /// Wino cannot express locally (relative to the end) are left out.
     /// </summary>
     public static IReadOnlyList<CalDavEventReminder> GetDefaultReminders(CalDavAccountState state, string? remoteCalendarId, bool isAllDay)
     {

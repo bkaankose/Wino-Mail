@@ -41,7 +41,7 @@ Build, emulator, and verification commands are in [Android development](harness/
 | Drawer | `NavigationView` hosting a `RecyclerView` of account headers, folder rows, info bar, and footer rows; mode card only on expanded |
 | Folder list | `RecyclerView` with the Wino list adapter (`DiffUtil`), sticky group strips, swipes, `SwipeRefreshLayout`, FAB anchored to the zone |
 | Two panes | Fixed `LinearLayout` panes on medium (list 360 dp, reader fills); fixed three-zone grid on expanded (pane 320 dp, list 420 dp, reader fills) |
-| Reader | Header, `WebView` over `Wino.Editor.Core` (`controls/Wino.Editor.Android`), attachments as outlined tiles (`AttachmentTiles`: a file-type badge on the shared accent color, the name ellipsized in the middle, "size · type"; the same tile in compose and the calendar pages, issue #1000); `BottomAppBar` on compact. The intelligence card is not built. |
+| Reader | Header, the native mail renderer's `MailView` (shared `EngineMailMessageReader`), print and Save as PDF through the system print dialog, attachments as outlined tiles (`AttachmentTiles`: a file-type badge on the shared accent color, the name ellipsized in the middle, "size · type"; the same tile in compose and the calendar pages, issue #1000); `BottomAppBar` on compact. The intelligence card is not built. |
 | Compose | Full-screen fragment: recipient `ChipGroup`, subject field, `WebView` body, format bar above the keyboard through the IME insets |
 | Search | An inline 56 dp search bar (not Material `SearchView`) with Local/Online, filter chips, and scope; results in the same list adapter |
 | Calendar | Phone: week strip and agenda list with sticky day headers. Tablet: week grid over the shared calendar layout calculator, month grid in the pane, event details zone. `MaterialDatePicker` and `MaterialTimePicker`. |
@@ -134,7 +134,6 @@ The first canvas's extra boards (T0) were not published there; the Material 3 ca
 | `src/Wino.Platform.Android` | `net10.0-android` | Paths, Keystore key provider, secure item store, dispatcher, launcher, clipboard, reader runtime, presence, authentication hosts |
 | `controls/Wino.Presentation.Android` | `net10.0-android` | Android twin of `Wino.Presentation.UIKit`: units, insets, WinoIcons, colours, theme surfaces, zones, backdrops, bindings |
 | `controls/Wino.Mail.Controls.Android` | `net10.0-android` | Android twin of `Wino.Mail.Controls.UIKit`: mail rows and list adapter, swipes, shell rows, settings cards, avatars, pills, chips, info bar, calendar surfaces, contact and task rows |
-| `controls/Wino.Editor.Android` | `net10.0-android` | `WebView` reader and editor sessions over `Wino.Editor.Core` (`WebViewAssetLoader`, `WebMessageListener` bridge with a Java fallback) |
 
 `Wino.Platform.Android` never references presentation projects. Control logic both Apple and Android need goes to `controls/Wino.Mail.Controls.Core` or `Wino.Presentation.Core`.
 

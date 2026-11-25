@@ -62,7 +62,9 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         var newEvent = Card(Translator.CalendarSettings_NewEventBehavior_Header, Translator.CalendarSettings_NewEventBehavior_Description, WinoIconGlyph.Calendar, behavior);
         newEvent.BottomContent = calendar;
 
-        AddGroup(null, overlap, previewCard, vm.IsSyncIntervalAvailable ? sync : null, grouping, newEvent);
+        var dueTasks = Card(Translator.CalendarSettings_ShowTasks_Header, Translator.CalendarSettings_ShowTasks_Description, WinoIconGlyph.None,
+            Bind.Switch(vm, nameof(vm.ShowTasksInCalendar), s => s.ShowTasksInCalendar, (s, v) => s.ShowTasksInCalendar = v, Translator.CalendarSettings_ShowTasks_Header));
+        AddGroup(null, overlap, previewCard, vm.IsSyncIntervalAvailable ? sync : null, grouping, dueTasks, newEvent);
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)

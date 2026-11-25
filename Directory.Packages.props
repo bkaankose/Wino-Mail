@@ -4,6 +4,17 @@
     <!-- PackageVersion entries also pin transitive dependencies, so security fixes can be applied here. -->
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- The native mail renderer packages (build/Wino.Renderer.Root.props). -->
+    <WinoRendererVersion>0.1.0-preview.1</WinoRendererVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="WinoMail.Renderer" Version="$(WinoRendererVersion)" />
+    <PackageVersion Include="WinoMail.Renderer.Windows" Version="$(WinoRendererVersion)" />
+    <PackageVersion Include="WinoMail.Renderer.Android" Version="$(WinoRendererVersion)" />
+    <PackageVersion Include="WinoMail.Renderer.iOS" Version="$(WinoRendererVersion)" />
+    <PackageVersion Include="WinoMail.Renderer.macOS" Version="$(WinoRendererVersion)" />
+  </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="ColorHashSharp" Version="1.1.0" />
     <PackageVersion Include="CommunityToolkit.Common" Version="8.4.2" />
@@ -21,6 +32,9 @@
     <PackageVersion Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" Version="0.1.250926-build.2293" />
     <PackageVersion Include="EmailValidation" Version="1.4.0" />
     <PackageVersion Include="Exchange.WebServices.NETCore" Version="3.3.1" />
+    <PackageVersion Include="GirCore.Adw-1" Version="0.8.1" />
+    <PackageVersion Include="GirCore.Gtk-4.0" Version="0.8.1" />
+    <PackageVersion Include="GirCore.WebKit-6.0" Version="0.8.1" />
     <PackageVersion Include="HtmlAgilityPack" Version="1.13.0" />
     <PackageVersion Include="Ical.Net" Version="5.2.3" />
     <PackageVersion Include="IsExternalInit" Version="1.0.3" />

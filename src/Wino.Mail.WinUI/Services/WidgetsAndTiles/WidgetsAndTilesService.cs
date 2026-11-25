@@ -19,7 +19,7 @@ namespace Wino.Mail.WinUI.Services.WidgetsAndTiles;
 
 /// <summary>
 /// Shows the companion's content on the Widgets Board (Windows 11), through the snapshot Wino.WidgetHost renders, and
-/// on the Wino Mail Live Tile (Windows 10). The app requests updates when content changes; requests are coalesced
+/// on the Wino Mail Live Tile (any Start menu that shows tiles). The app requests updates when content changes; requests are coalesced
 /// and run on the thread pool, and no failure reaches the caller. With both surfaces off, nothing is loaded.
 /// </summary>
 public sealed partial class WidgetsAndTilesService(
@@ -53,13 +53,16 @@ public sealed partial class WidgetsAndTilesService(
     private bool _widgetsTurnedOffWritten;
     private TimeSpan _retryDelay = InitialRetryDelay;
 
-    /// <summary>Live Tiles exist only on the Windows 10 Start menu. Windows 11 keeps the API but shows nothing.</summary>
-    public static bool AreLiveTilesSupported { get; } = Environment.OSVersion.Version.Build < WindowsElevenBuild;
+    /// <summary>
+    /// The built-in Start menu shows Live Tiles only on Windows 10. Windows 11 keeps the tile API, and Start menu
+    /// replacements that bring the Windows 10 Start menu back show the tiles, so tiles are offered on both.
+    /// </summary>
+    public static bool HasLiveTileStartMenu { get; } = Environment.OSVersion.Version.Build < WindowsElevenBuild;
 
     /// <summary>The Widgets Board, and with it the widget provider, exists only on Windows 11.</summary>
     public static bool AreWidgetsSupported { get; } = Environment.OSVersion.Version.Build >= WindowsElevenBuild;
 
-    private bool UpdatesTiles => AreLiveTilesSupported && shellPreferences.IsLiveTilesEnabled;
+    private bool UpdatesTiles => shellPreferences.IsLiveTilesEnabled;
 
     private bool UpdatesWidgets => AreWidgetsSupported && shellPreferences.IsWinoWidgetsEnabled;
 
@@ -145,7 +148,8 @@ public sealed partial class WidgetsAndTilesService(
                     allowItemActions: !appLock.AreNotificationsReadOnly).ConfigureAwait(false)
                 : null;
 
-            if (AreLiveTilesSupported)
+            // Without a built-in tile Start menu, a tile that was never written this session needs no clearing.
+            if (HasLiveTileStartMenu || tiles || _tileFingerprint != null)
                 LogChange(UpdateLiveTile(tiles ? snapshot : null, tileModes, showDetails));
 
             if (AreWidgetsSupported && (widgets || !_widgetsTurnedOffWritten))

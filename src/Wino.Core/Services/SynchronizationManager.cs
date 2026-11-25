@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Requests.Tasks;
 using Wino.Core.Domain.Messaging.Client.Navigation;
 using Wino.Core.Domain.Messaging.Client.Shell;
 using Wino.Core.Domain.Messaging.Server;
@@ -45,6 +46,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _calendarSynchronizationProgress = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _contactSynchronizationProgress = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _taskSynchronizationProgress = new();
+    private const int TaskUndoIntervalInSeconds = 5;
     private readonly ConcurrentDictionary<Guid, PendingUndoActionPack> _pendingUndoActionPacks = new();
 
     // Accounts whose queued user actions were held back (attention gate, synchronizer teardown).
@@ -60,6 +62,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly bool _notificationsEnabled;
+    private readonly AnnouncedMessageIds _announcedMessageIds = new();
+    private readonly IFolderService _folderService;
     private readonly IPreferencesService _preferencesService;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
     private readonly DraftUpdateCoordinator _draftUpdateCoordinator;
@@ -84,6 +88,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                   TaskQuotaGate taskQuota,
                                   IWinoLogger winoLogger,
                                   DraftUpdateRegistry draftUpdateRegistry,
+                                  IFolderService folderService,
                                   IPlatformCapabilities platformCapabilities = null)
     {
         _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
@@ -98,6 +103,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         _draftSyncRetryService = draftSyncRetryService ?? throw new ArgumentNullException(nameof(draftSyncRetryService));
         _draftMailService = mailService ?? throw new ArgumentNullException(nameof(mailService));
         _taskQuota = taskQuota ?? throw new ArgumentNullException(nameof(taskQuota));
+        _folderService = folderService ?? throw new ArgumentNullException(nameof(folderService));
         _notificationsEnabled = platformCapabilities?.Notifications ?? true;
         _draftUpdateCoordinator = new DraftUpdateCoordinator(this, mailService, winoLogger, draftUpdateRegistry);
 
@@ -110,12 +116,15 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public IDraftUpdateCoordinator DraftUpdates => _draftUpdateCoordinator;
 
     internal static async Task PublishMailSynchronizationNotificationsAsync(
-        MailSynchronizationResult result, MailAccount account, INotificationBuilder notifications, bool notificationsEnabled)
+        MailSynchronizationResult result, MailAccount account, INotificationBuilder notifications, bool notificationsEnabled,
+        AnnouncedMessageIds announcedMessageIds, bool hasSynchronizedBefore)
     {
         // An unavailable native integration must not turn successful provider work into failed sync.
         if (!notificationsEnabled) return;
 
-        var newMessages = GetNotifiableMessages(result.DownloadedMessages, account);
+        var newMessages = GetNotifiableMessages(result.DownloadedMessages, account, hasSynchronizedBefore)
+            .Where(message => string.IsNullOrEmpty(message.MessageId) || announcedMessageIds.TryAdd(account.Id, message.MessageId))
+            .ToList();
         if (newMessages.Count > 0)
             await notifications.CreateNotificationsAsync(newMessages).ConfigureAwait(false);
 
@@ -127,7 +136,14 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// one, or a wider synchronization range downloads it, and none of it is new mail. Accounts created before the
     /// creation date was recorded have no date and keep every message.
     /// </summary>
-    internal static List<MailCopy> GetNotifiableMessages(IEnumerable<MailCopy> downloadedMessages, MailAccount account)
+    /// <remarks>
+    /// The account's creation time comes from this device's clock, a message's time from the server's. Once the
+    /// account has synchronized mail, a message up to <see cref="ClockSkewAllowance"/> older than the creation time
+    /// is still new: a device clock that runs ahead (a virtual machine, a dual-boot clock in local time) would
+    /// otherwise silence every notification until real time caught up. The first synchronization is all backfill,
+    /// so it keeps the exact comparison.
+    /// </remarks>
+    internal static List<MailCopy> GetNotifiableMessages(IEnumerable<MailCopy> downloadedMessages, MailAccount account, bool hasSynchronizedBefore)
     {
         if (downloadedMessages == null)
             return [];
@@ -136,10 +152,26 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return downloadedMessages.ToList();
 
         var accountCreatedAtUtc = createdAt.AsStoredUtc();
+        var newMailSinceUtc = hasSynchronizedBefore ? accountCreatedAtUtc - ClockSkewAllowance : accountCreatedAtUtc;
 
         return downloadedMessages
-            .Where(message => message.CreationDate >= accountCreatedAtUtc)
+            .Where(message => message.CreationDate >= newMailSinceUtc)
             .ToList();
+    }
+
+    internal static readonly TimeSpan ClockSkewAllowance = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// Whether any mail folder of the account finished a synchronization before, or the account holds a mailbox
+    /// delta (Gmail). A first pass is the initial download.
+    /// </summary>
+    private async Task<bool> HasSynchronizedMailBeforeAsync(MailAccount account)
+    {
+        if (!string.IsNullOrEmpty(account.SynchronizationDeltaIdentifier))
+            return true;
+
+        var folders = await _folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
+        return folders.Any(folder => folder.LastSynchronizedDate.HasValue);
     }
 
     /// <summary>
@@ -337,6 +369,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         try
         {
+            var hasSynchronizedBefore = await HasSynchronizedMailBeforeAsync(synchronizer.Account).ConfigureAwait(false);
             var result = await synchronizer.SynchronizeMailsAsync(options, linkedCancellationTokenSource.Token);
 
             _logger.Information("Mail synchronization completed for account {AccountId} with state {State}",
@@ -344,7 +377,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
             await PersistSignInAttentionIfRequiredAsync(synchronizer.Account, result.Exception, result.AllIssues).ConfigureAwait(false);
 
-            await PublishMailSynchronizationNotificationsAsync(result, synchronizer.Account, _notificationBuilder, _notificationsEnabled).ConfigureAwait(false);
+            await PublishMailSynchronizationNotificationsAsync(result, synchronizer.Account, _notificationBuilder, _notificationsEnabled, _announcedMessageIds, hasSynchronizedBefore).ConfigureAwait(false);
 
             return result;
         }
@@ -457,6 +490,33 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     public Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization)
         => QueueRequestPackAsync(requestsByAccount, triggerSynchronization, allowUndo: true);
+
+    public async Task<bool> CanImportMailAsync(Guid accountId)
+        => (await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false))?.SupportsMailImport == true;
+
+    public async Task<MailImportResult> ImportMailAsync(Guid accountId, MailImportPackage package, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(package);
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"A synchronizer is not available for account {accountId}.");
+
+        if (!synchronizer.SupportsMailImport)
+            throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, synchronizer.GetType()));
+
+        return await synchronizer.ImportMailAsync(package, cancellationToken).ConfigureAwait(false);
+    }
+
+    public void SuppressNewMailNotification(Guid accountId, string messageId)
+    {
+        var normalized = MailHeaderExtensions.NormalizeMessageId(messageId);
+        if (string.IsNullOrEmpty(normalized))
+            return;
+
+        // Providers store the Message-ID with or without angle brackets.
+        _announcedMessageIds.TryAdd(accountId, normalized);
+        _announcedMessageIds.TryAdd(accountId, MailHeaderExtensions.ToHeaderMessageId(normalized));
+    }
 
     private async Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization, bool allowUndo)
     {
@@ -789,6 +849,27 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 Math.Clamp(_preferencesService?.UndoSendingDraftsIntervalInSeconds ?? 5, 1, 10));
         }
 
+        if (allRequests.All(request => request is TaskActionRequest { AllowUndo: true }))
+        {
+            var taskRequests = allRequests.Cast<TaskActionRequest>().ToList();
+            var moved = taskRequests.Count(request => request.Operation == TaskSynchronizerOperation.UpdateTask &&
+                                                      request.OriginalTask is { } original && request.Task is { } task && original.TaskListId != task.TaskListId);
+
+            // A completion pack can also hold the next occurrence of a recurring task; only the completions count.
+            string title;
+            if (taskRequests.All(request => request.Operation == TaskSynchronizerOperation.DeleteTask))
+                title = taskRequests.Count == 1 ? Translator.UndoActions_TaskDeleted : string.Format(Translator.UndoActions_TasksDeleted, taskRequests.Count);
+            else if (moved > 0)
+                title = moved == 1 ? Translator.UndoActions_TaskMoved : string.Format(Translator.UndoActions_TasksMoved, moved);
+            else
+            {
+                var completed = taskRequests.Count(request => request.Operation == TaskSynchronizerOperation.UpdateTask);
+                title = completed <= 1 ? Translator.UndoActions_TaskCompleted : string.Format(Translator.UndoActions_TasksCompleted, completed);
+            }
+
+            return new UndoActionSettings(title, string.Empty, InfoBarMessageType.Information, TaskUndoIntervalInSeconds, UndoableActionKind.Task);
+        }
+
         if (allRequests.All(IsDeleteMailRequest))
         {
             if (_preferencesService?.IsUndoDeletingMailsEnabled != true)
@@ -797,7 +878,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return new UndoActionSettings(
                 Translator.UndoActions_DeleteMailInfoBarTitle,
                 Translator.UndoActions_DeleteMailInfoBarMessage,
-                InfoBarMessageType.Error,
+                InfoBarMessageType.Information,
                 Math.Clamp(_preferencesService?.UndoDeletingMailsIntervalInSeconds ?? 5, 1, 10));
         }
 
@@ -812,7 +893,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             undoActionSettings.Title,
             undoActionSettings.Severity,
             pack.ExpiresAt,
-            pack.IntervalInSeconds);
+            pack.IntervalInSeconds)
+        {
+            Kind = undoActionSettings.Kind
+        };
     }
 
     private static bool IsDeleteMailRequest(IRequestBase request)
@@ -1857,5 +1941,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         string Title,
         string Message,
         InfoBarMessageType Severity,
-        int IntervalInSeconds);
+        int IntervalInSeconds,
+        UndoableActionKind Kind = UndoableActionKind.Mail);
 }

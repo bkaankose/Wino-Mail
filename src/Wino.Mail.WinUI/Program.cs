@@ -42,7 +42,8 @@ public class Program
         Wino.NotificationHost.Contracts.ReleaseIdentity.Initialize(
             package.InstalledLocation.Path, package.Id.Name, package.Id.Publisher, package.Id.FamilyName);
 
-        // Set before any editor/renderer creates an environment, including inherited overrides.
+        // The sign-in and policy dialogs are the only WebView2 users. Set before one of them creates an
+        // environment, so an inherited override never moves their profile out of the package's cache folder.
         Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER",
             System.IO.Path.Combine(Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path, "WebView2"));
 

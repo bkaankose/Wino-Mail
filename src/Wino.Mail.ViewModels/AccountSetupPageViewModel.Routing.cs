@@ -157,9 +157,14 @@ public partial class AccountSetupPageViewModel
         if (!IsRouteFound || (resolution.Route == AccountRoute.Imap && resolution.Imap?.IsFound != true))
         {
             Phase = AccountSetupPhase.NotFound;
+
+            if (IsManualServerChoice(forcedChoice))
+                await OpenAdvancedSetupAsync();
+
             return;
         }
 
+        _userAppModes.Clear();
         ConfigureFeatures(resolution);
 
         // The IMAP route signs in first: only the signed-in server can say whether calendar, contacts and tasks are there.

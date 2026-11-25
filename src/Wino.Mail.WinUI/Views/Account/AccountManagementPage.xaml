@@ -34,6 +34,38 @@
                 <winuiControls:SettingsCard.Header>
                     <coreControls:AccountIdentityRowControl Account="{x:Bind Account}" Description="{x:Bind DescriptionText}" />
                 </winuiControls:SettingsCard.Header>
+                <!--  The apps this account provides, read-only. They are switched on the account's page.  -->
+                <StackPanel
+                    AutomationProperties.AutomationId="AccountManagementAppIcons"
+                    AutomationProperties.Name="{x:Bind AppsAutomationName}"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    ToolTipService.ToolTip="{x:Bind CapabilitySummary}">
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="16"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Icon="Mail"
+                        Visibility="{x:Bind IsMailOn}" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="16"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Icon="Calendar"
+                        Visibility="{x:Bind IsCalendarOn}" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="16"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Icon="People"
+                        Visibility="{x:Bind IsPeopleOn}" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="16"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Icon="CheckmarkCircle"
+                        Visibility="{x:Bind IsToDoOn}" />
+                </StackPanel>
             </accessibilityControls:WinoSettingsCard>
         </DataTemplate>
 

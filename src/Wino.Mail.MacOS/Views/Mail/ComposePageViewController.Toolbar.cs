@@ -99,7 +99,7 @@ public sealed partial class ComposePageViewController
 
     // ---- Formatting keys ----
 
-    /// <summary>⌘B, ⌘I and ⌘U in the body run the toolbar commands; WebKit's own handling is not relied on.</summary>
+    /// <summary>⌘B, ⌘I and ⌘U in the body run the toolbar commands, so they match the toolbar's state.</summary>
     private bool TryHandleFormattingKey(string? key, NSEventModifierMask flags, NSResponder? responder)
     {
         if (flags != NSEventModifierMask.CommandKeyMask || !IsInEditor(responder)) return false;

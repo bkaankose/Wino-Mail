@@ -22,8 +22,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     // Predefined reminder options in minutes
     private static readonly int[] PredefinedReminderMinutes = [60, 30, 15, 5, 1];
 
-    public CalendarService(IDatabaseService databaseService, IMessenger messenger) : base(databaseService, messenger)
+    private readonly IItemLinkService _itemLinks;
+
+    public CalendarService(IDatabaseService databaseService, IMessenger messenger, IItemLinkService itemLinks = null) : base(databaseService, messenger)
     {
+        _itemLinks = itemLinks;
     }
 
     public int[] GetPredefinedReminderMinutes() => PredefinedReminderMinutes;
@@ -213,8 +216,17 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         catch (Exception ex)
         {
             Log.Error(ex, "Error creating new calendar item");
+            return;
         }
+
+        await ConfirmPendingLinksAsync(calendarItem).ConfigureAwait(false);
     }
+
+    // Rows are stored only after the server confirmed them, so a stored row ends the wait of links created with it.
+    private Task ConfirmPendingLinksAsync(CalendarItem calendarItem)
+        => _itemLinks is null || calendarItem is null
+            ? Task.CompletedTask
+            : _itemLinks.ConfirmPendingLinksAsync(calendarItem.Id, Wino.Core.Domain.Models.Links.ItemLinkKeys.ForEvent(calendarItem));
 
     public async Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
     {
@@ -241,7 +253,10 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         catch (Exception ex)
         {
             Log.Error(ex, "Error updating calendar item");
+            return;
         }
+
+        await ConfirmPendingLinksAsync(calendarItem).ConfigureAwait(false);
     }
 
     public async Task<List<CalendarItem>> SearchCalendarItemsAsync(string searchQuery, int limit, CancellationToken cancellationToken = default)
@@ -335,6 +350,31 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         return calendarItem;
     }
+
+    public async Task<CalendarItem> GetCalendarItemByLinkKeyAsync(Guid accountId, string linkKey)
+    {
+        if (string.IsNullOrWhiteSpace(linkKey))
+            return null;
+
+        CalendarItem calendarItem = null;
+        if (Guid.TryParse(linkKey, out var itemId))
+            calendarItem = await GetCalendarItemAsync(itemId).ConfigureAwait(false);
+
+        calendarItem ??= await Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT CalendarItem.* FROM CalendarItem " +
+            "INNER JOIN AccountCalendar ON AccountCalendar.Id = CalendarItem.CalendarId " +
+            "WHERE AccountCalendar.AccountId = ? AND (CalendarItem.RemoteEventId = ? OR CalendarItem.RemoteEventId LIKE ? ESCAPE '!') " +
+            "ORDER BY CalendarItem.RecurringCalendarItemId IS NOT NULL LIMIT 1",
+            accountId,
+            linkKey,
+            EscapeLike(linkKey) + "::%").ConfigureAwait(false);
+
+        await LoadAssignedCalendarAsync(calendarItem).ConfigureAwait(false);
+        return calendarItem;
+    }
+
+    private static string EscapeLike(string value)
+        => value.Replace("!", "!!").Replace("%", "!%").Replace("_", "!_");
 
     public async Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId)
     {
@@ -468,11 +508,18 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         });
     }
 
-    public Task SnoozeCalendarItemAsync(Guid calendarItemId, DateTime snoozedUntilLocal)
-        => Connection.ExecuteAsync(
+    public async Task SnoozeCalendarItemAsync(Guid calendarItemId, DateTime snoozedUntilLocal)
+    {
+        await Connection.ExecuteAsync(
             $"UPDATE {nameof(CalendarItem)} SET {nameof(CalendarItem.SnoozedUntil)} = ? WHERE {nameof(CalendarItem.Id)} = ?",
             snoozedUntilLocal,
-            calendarItemId);
+            calendarItemId).ConfigureAwait(false);
+
+        // Heads that hand reminders to the operating system plan the snoozed one again.
+        var calendarItem = await GetCalendarItemAsync(calendarItemId).ConfigureAwait(false);
+        if (calendarItem != null)
+            Messenger.Send(new CalendarItemUpdated(calendarItem, EntityUpdateSource.Server));
+    }
 
     public async Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default)
     {
@@ -504,7 +551,8 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             {
                 CalendarItem = calendarItem,
                 ReminderDurationInSeconds = candidate.ReminderDurationInSeconds,
-                ReminderKey = reminderKey
+                ReminderKey = reminderKey,
+                TriggerLocal = effectiveTriggerTimeLocal
             });
         }
 
@@ -529,9 +577,48 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         return next;
     }
 
+    public async Task<List<CalendarReminderNotificationRequest>> GetUpcomingReminderTriggersAsync(DateTime fromLocal, DateTime untilLocal, int maximum, CancellationToken cancellationToken = default)
+    {
+        var candidates = await GetReminderCandidatesAsync().ConfigureAwait(false);
+        var upcoming = candidates
+            .Select(candidate => (Candidate: candidate, Trigger: GetEffectiveReminderTriggerLocal(candidate)))
+            .Where(entry => entry.Trigger > fromLocal && entry.Trigger <= untilLocal)
+            .OrderBy(entry => entry.Trigger)
+            .Take(Math.Max(0, maximum))
+            .ToList();
+
+        var requests = new List<CalendarReminderNotificationRequest>(upcoming.Count);
+
+        foreach (var (candidate, trigger) in upcoming)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var calendarItem = await GetCalendarItemAsync(candidate.CalendarItemId).ConfigureAwait(false);
+            if (calendarItem == null)
+                continue;
+
+            requests.Add(new CalendarReminderNotificationRequest
+            {
+                CalendarItem = calendarItem,
+                ReminderDurationInSeconds = candidate.ReminderDurationInSeconds,
+                ReminderKey = $"{candidate.CalendarItemId:N}:{candidate.ReminderDurationInSeconds}:{trigger.Ticks}",
+                TriggerLocal = trigger
+            });
+        }
+
+        return requests;
+    }
+
     private static DateTime GetEffectiveReminderTriggerLocal(CalendarReminderCandidate candidate)
     {
-        var eventStartLocal = candidate.StartDate.ToLocalTimeFromTimeZone(candidate.StartTimeZone);
+        // An all-day event starts at local midnight of its date wherever the user is, as the calendar
+        // shows it, so "on the day at 09:00" fires on that day.
+        var eventStartLocal = new CalendarItem
+        {
+            StartDate = candidate.StartDate,
+            DurationInSeconds = candidate.DurationInSeconds,
+            StartTimeZone = candidate.StartTimeZone
+        }.GetLocalStartDate();
         var triggerTimeLocal = eventStartLocal.AddSeconds(-candidate.ReminderDurationInSeconds);
         return candidate.SnoozedUntil.HasValue
             ? MaxDateTime(triggerTimeLocal, candidate.SnoozedUntil.Value)
@@ -545,6 +632,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 c.Id AS CalendarItemId,
                 c.StartDate,
                 c.StartTimeZone,
+                c.DurationInSeconds,
                 r.DurationInSeconds AS ReminderDurationInSeconds,
                 c.SnoozedUntil
             FROM CalendarItem c
@@ -646,6 +734,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         public Guid CalendarItemId { get; set; }
         public DateTime StartDate { get; set; }
         public string StartTimeZone { get; set; }
+        public double DurationInSeconds { get; set; }
         public long ReminderDurationInSeconds { get; set; }
         public DateTime? SnoozedUntil { get; set; }
     }
