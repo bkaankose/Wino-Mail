@@ -41,7 +41,7 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
         var detected = ExchangeTransport.Automatic;
 
         if (serverInformation.EffectiveExchangeTransport == ExchangeTransport.ActiveSync)
-            return await TestActiveSyncAsync(account, cancellationToken).ConfigureAwait(false);
+            return await TestActiveSyncAsync(account, serverInformation, cancellationToken).ConfigureAwait(false);
 
         if (serverInformation.ExchangeTransport != ExchangeTransport.Ews)
         {
@@ -103,9 +103,9 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
         }
     }
 
-    private static async System.Threading.Tasks.Task<ExchangeConnectionTestResult> TestActiveSyncAsync(MailAccount account, CancellationToken cancellationToken)
+    private static async System.Threading.Tasks.Task<ExchangeConnectionTestResult> TestActiveSyncAsync(MailAccount account,
+        CustomServerInformation serverInformation, CancellationToken cancellationToken)
     {
-        var serverInformation = account.ServerInformation!;
         var endpoint = ExchangeServerEndpoint.Normalize(serverInformation.IncomingServer, ExchangeTransport.ActiveSync);
         if (endpoint == null)
             return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, FailureReason: Translator.ExchangeSetup_ServerAddressInvalid);

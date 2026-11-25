@@ -50,10 +50,10 @@ internal sealed class EasClient : IDisposable
     {
         _account = account ?? throw new ArgumentNullException(nameof(account));
         _configuredEndpoint = NormalizeEndpoint(endpoint)
-            ?? throw new ArgumentException("An HTTPS EAS endpoint without credentials, query or fragment is required.", nameof(endpoint));
+            ?? throw new ArgumentException(Translator.ExchangeSetup_ServerAddressInvalid, nameof(endpoint));
 
         if (string.IsNullOrWhiteSpace(user) || user.Contains(':') || string.IsNullOrEmpty(password))
-            throw new ArgumentException("An EAS username and password are required.");
+            throw new ArgumentException(Translator.ExchangeSetup_ActiveSyncCredentialsRequired);
 
         _endpoint = _configuredEndpoint;
         _user = user;
@@ -121,7 +121,7 @@ internal sealed class EasClient : IDisposable
         EnsureHttpSuccess(response);
 
         if (!response.Headers.TryGetValues("MS-ASProtocolVersions", out var advertised))
-            throw new InvalidDataException("The server did not advertise EAS protocol versions.");
+            throw new InvalidDataException(Translator.ExchangeSetup_ActiveSyncVersionsMissing);
 
         var versions = advertised.SelectMany(value => value.Split(',')).Select(value => value.Trim()).ToHashSet(StringComparer.Ordinal);
         _version = SupportedVersions.FirstOrDefault(versions.Contains)
@@ -186,9 +186,9 @@ internal sealed class EasClient : IDisposable
         XNamespace settings = "Settings:";
         var response = await PostAsync("Settings", EasWbxml.Encode(new XElement(settings + "Settings",
             new XElement(settings + "DeviceInformation", DeviceInformationSet()))), "application/vnd.ms-sync.wbxml", cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("The EAS Settings response was empty.");
+            ?? throw InvalidResponse("Settings");
         RequireSuccess(response);
-        RequireSuccess(response.Element(settings + "DeviceInformation") ?? throw new InvalidDataException("The EAS Settings response has no device information status."));
+        RequireSuccess(response.Element(settings + "DeviceInformation") ?? throw InvalidResponse("Settings/DeviceInformation"));
         state.IsDeviceInformationSent = true;
         await SaveStateAsync().ConfigureAwait(false);
     }
@@ -257,11 +257,11 @@ internal sealed class EasClient : IDisposable
         try
         {
             return await PostAsync("Ping", EasWbxml.Encode(request), "application/vnd.ms-sync.wbxml", deadline.Token, http: _longPoll.Value).ConfigureAwait(false)
-                ?? throw new InvalidDataException("The EAS Ping response was empty.");
+                ?? throw InvalidResponse("Ping");
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException("The EAS server did not answer a Ping within " + timeout.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture) + " s.", exception);
+            throw new TimeoutException(string.Format(Translator.ExchangeSetup_ActiveSyncPingTimeout, timeout.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)), exception);
         }
     }
 
@@ -271,10 +271,10 @@ internal sealed class EasClient : IDisposable
         XNamespace settings = "Settings:";
         var response = await CommandAsync("Settings", new XElement(settings + "Settings",
             new XElement(settings + "UserInformation", new XElement(settings + "Get"))), cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("The EAS Settings response was empty.");
+            ?? throw InvalidResponse("Settings");
         RequireSuccess(response);
         var information = response.Element(settings + "UserInformation")
-            ?? throw new InvalidDataException("The EAS Settings response has no user information.");
+            ?? throw InvalidResponse("Settings/UserInformation");
         RequireSuccess(information);
         return information;
     }
@@ -293,7 +293,7 @@ internal sealed class EasClient : IDisposable
                 new XElement(resolve + "Picture",
                     new XElement(resolve + "MaxSize", maxSize.ToString(CultureInfo.InvariantCulture)),
                     new XElement(resolve + "MaxPictures", "1")))), cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("The EAS ResolveRecipients response was empty.");
+            ?? throw InvalidResponse("ResolveRecipients");
         RequireSuccess(response);
         var answer = response.Element(resolve + "Response");
         if (answer == null || StatusOf(answer) is "2" or "4")
@@ -386,7 +386,7 @@ internal sealed class EasClient : IDisposable
         XNamespace provision = "Provision:";
         var response = await PostProvisionAsync(CreatePolicyRequest(), "0", cancellationToken).ConfigureAwait(false);
         var policy = response.Element(provision + "Policies")?.Element(provision + "Policy")
-            ?? throw new InvalidDataException("The EAS provisioning policy is missing.");
+            ?? throw InvalidResponse("Provision/Policy");
 
         // Policy status 2: the server has no policy for this client, so there is nothing to acknowledge.
         if (StatusOf(policy) == "2")
@@ -397,14 +397,14 @@ internal sealed class EasClient : IDisposable
         RequireSuccess(policy);
 
         var document = policy.Element(provision + "Data")?.Element(provision + "EASProvisionDoc")
-            ?? throw new InvalidDataException("The EAS security policy is missing.");
+            ?? throw InvalidResponse("Provision/EASProvisionDoc");
         var evaluation = EasPolicy.Parse(document);
         var unenforceable = evaluation.Unenforceable;
         if (unenforceable.Count > 0)
             Logger.Warning("The EAS policy for account {AccountId} asks for settings Wino cannot enforce: {Settings}. Acknowledging it as not applied.",
                 _account.Id, string.Join(", ", unenforceable));
 
-        var temporaryKey = policy.Element(provision + "PolicyKey")?.Value ?? throw new InvalidDataException("The EAS policy key is missing.");
+        var temporaryKey = policy.Element(provision + "PolicyKey")?.Value ?? throw InvalidResponse("Provision/PolicyKey");
         var acknowledgement = new XElement(provision + "Provision", new XElement(provision + "Policies", new XElement(provision + "Policy",
             new XElement(provision + "PolicyType", PolicyType), new XElement(provision + "PolicyKey", temporaryKey),
             new XElement(provision + "Status", evaluation.AcknowledgementStatus))));
@@ -417,7 +417,7 @@ internal sealed class EasClient : IDisposable
         }
 
         var acceptedPolicy = accepted.Element(provision + "Policies")?.Element(provision + "Policy")
-            ?? throw new InvalidDataException("The EAS accepted policy is missing.");
+            ?? throw InvalidResponse("Provision/Policy");
         RequireSuccess(acceptedPolicy);
         var permanentKey = acceptedPolicy.Element(provision + "PolicyKey")?.Value;
 
@@ -425,7 +425,7 @@ internal sealed class EasClient : IDisposable
         // later request with 144, so the device cannot synchronize under this policy.
         if (permanentKey == null && unenforceable.Count > 0)
             throw new EasPolicyException(string.Format(Translator.ExchangeSetup_ActiveSyncPolicyNotSupported, string.Join(", ", unenforceable)), "3");
-        await SavePolicyAsync(state, permanentKey ?? throw new InvalidDataException("The EAS accepted policy key is missing."), evaluation.Limits).ConfigureAwait(false);
+        await SavePolicyAsync(state, permanentKey ?? throw InvalidResponse("Provision/PolicyKey"), evaluation.Limits).ConfigureAwait(false);
     }
 
     private XElement CreatePolicyRequest()
@@ -442,7 +442,7 @@ internal sealed class EasClient : IDisposable
     private async Task<XElement> PostProvisionAsync(XElement request, string policyKey, CancellationToken cancellationToken)
     {
         var response = await PostAsync("Provision", EasWbxml.Encode(request), "application/vnd.ms-sync.wbxml", cancellationToken, false, policyKey: policyKey).ConfigureAwait(false)
-            ?? throw new InvalidDataException("The EAS provisioning response is empty.");
+            ?? throw InvalidResponse("Provision");
         if (WipeDirectiveOf(response) is { } directive)
             await RemoteWipeAsync(directive, cancellationToken).ConfigureAwait(false);
 
@@ -463,9 +463,9 @@ internal sealed class EasClient : IDisposable
         {
             var response = await PostAsync("Provision", EasWbxml.Encode(new XElement(provision + "Provision")), "application/vnd.ms-sync.wbxml",
                 cancellationToken, false, policyKey: "0").ConfigureAwait(false)
-                ?? throw new InvalidDataException("The EAS provisioning response is empty.");
+                ?? throw InvalidResponse("Provision");
             var directive = WipeDirectiveOf(response)
-                ?? throw new InvalidDataException("The EAS server reported a remote wipe (status 140) but its Provision response carries no wipe directive.");
+                ?? throw new InvalidDataException(Translator.ExchangeSetup_ActiveSyncWipeWithoutDirective);
             await RemoteWipeAsync(directive, cancellationToken).ConfigureAwait(false);
         }
         finally { _provisionGate.Release(); }
@@ -609,7 +609,7 @@ internal sealed class EasClient : IDisposable
         var location = response.Headers.TryGetValues("X-MS-Location", out var values) ? values.FirstOrDefault() : null;
         var target = location == null ? null : NormalizeEndpoint(location);
         if (target == null || target == _endpoint)
-            throw new HttpRequestException("The EAS server moved this mailbox but did not name a usable HTTPS endpoint.", null, response.StatusCode);
+            throw new HttpRequestException(Translator.ExchangeSetup_ActiveSyncMailboxMovedWithoutEndpoint, null, response.StatusCode);
 
         Logger.Information("EAS mailbox for account {AccountId} moved to {Host}.", _account.Id, target.Host);
         _endpoint = target;
@@ -636,7 +636,7 @@ internal sealed class EasClient : IDisposable
     {
         XNamespace folder = "FolderHierarchy:";
         var result = await CommandAsync("FolderSync", new XElement(folder + "FolderSync", new XElement(folder + "SyncKey", key)), cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("The EAS FolderSync response was empty.");
+            ?? throw InvalidResponse("FolderSync");
         RequireSuccess(result);
         return result;
     }
@@ -672,11 +672,11 @@ internal sealed class EasClient : IDisposable
         if (response == null && commands == null && syncKey != "0")
             return new XElement(sync + "Collection", new XElement(sync + "Status", "1"), new XElement(sync + "SyncKey", syncKey));
         if (response == null)
-            throw new InvalidDataException("The EAS Sync response was empty.");
+            throw InvalidResponse("Sync");
         if (response.Element(sync + "Status") != null)
             RequireSuccess(response);
         var result = response.Element(sync + "Collections")?.Element(sync + "Collection")
-            ?? throw new InvalidDataException("The EAS Sync response has no collection.");
+            ?? throw InvalidResponse("Sync/Collection");
         RequireSuccess(result);
         return result;
     }
@@ -709,12 +709,12 @@ internal sealed class EasClient : IDisposable
                 new XElement(sync + "CollectionId", folderId), new XElement(sync + "ServerId", serverId),
                 new XElement(items + "Options", MimeBodyPreference(),
                     new XElement(sync + "MIMESupport", "2")))), cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("The EAS item fetch response was empty.");
+            ?? throw InvalidResponse("ItemOperations");
         RequireSuccess(response);
         var fetch = response.Element(items + "Response")?.Element(items + "Fetch")
-            ?? throw new InvalidDataException("The EAS item fetch response has no item.");
+            ?? throw InvalidResponse("ItemOperations/Fetch");
         RequireSuccess(fetch);
-        return fetch.Element(items + "Properties") ?? throw new InvalidDataException("The EAS item has no properties.");
+        return fetch.Element(items + "Properties") ?? throw InvalidResponse("ItemOperations/Properties");
     }
 
     /// <summary>
@@ -778,6 +778,10 @@ internal sealed class EasClient : IDisposable
         return measure.Length;
     }
 
+    /// <summary>A response that lacks what the protocol requires; <paramref name="detail"/> names the part for the log and support.</summary>
+    private static InvalidDataException InvalidResponse(string detail)
+        => new(string.Format(Translator.ExchangeSetup_ActiveSyncInvalidResponse, detail));
+
     internal static void RequireSuccess(XElement response)
     {
         var status = StatusOf(response);
@@ -793,7 +797,7 @@ internal sealed class EasClient : IDisposable
         var code = (int)response.StatusCode;
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new AuthenticationAttentionException(_account, Translator.ExchangeSetup_ActiveSyncCredentialsRejected,
-                new HttpRequestException("EAS returned HTTP 401.", null, response.StatusCode));
+                new HttpRequestException(string.Format(Translator.ExchangeSetup_ActiveSyncHttpError, 401), null, response.StatusCode));
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
             throw new EasAccessDeniedException(Translator.ExchangeSetup_ActiveSyncAccessDenied, "403");
@@ -802,10 +806,10 @@ internal sealed class EasClient : IDisposable
             throw new EasServerBusyException(Translator.ExchangeSetup_ActiveSyncServerBusy, RetryAfter(response));
 
         if (code is >= 300 and < 400)
-            throw new HttpRequestException("The EAS server redirected the request. Configure its final HTTPS endpoint; credentials were not forwarded.", null, response.StatusCode);
+            throw new HttpRequestException(Translator.ExchangeSetup_ActiveSyncRedirected, null, response.StatusCode);
 
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException("EAS returned HTTP " + code + ".", null, response.StatusCode);
+            throw new HttpRequestException(string.Format(Translator.ExchangeSetup_ActiveSyncHttpError, code), null, response.StatusCode);
     }
 
     private static TimeSpan? RetryAfter(HttpResponseMessage response)

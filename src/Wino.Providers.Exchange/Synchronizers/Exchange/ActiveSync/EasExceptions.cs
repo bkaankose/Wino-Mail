@@ -4,7 +4,7 @@ using System.IO;
 namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 internal sealed class EasCommandException(string command, string status)
-    : IOException("EAS " + command + " failed with status " + status + ".")
+    : IOException(string.Format(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncCommandFailed, command, status))
 {
     internal string Status { get; } = status;
 }
@@ -34,4 +34,4 @@ internal sealed class EasServerBusyException(string message, TimeSpan? retryAfte
 internal sealed class EasResyncRequiredException(string message) : IOException(message);
 
 /// <summary>The response is larger than the client accepts.</summary>
-internal sealed class EasResponseTooLargeException() : IOException("The EAS response exceeds the size limit.");
+internal sealed class EasResponseTooLargeException() : IOException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncResponseTooLarge);
