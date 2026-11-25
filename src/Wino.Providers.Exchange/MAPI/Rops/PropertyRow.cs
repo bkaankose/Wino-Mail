@@ -98,12 +98,12 @@ public static class PropertyRow
     };
 
     /// <summary>
-    /// PtypMultipleBinary in a ROP buffer (MS-OXCDATA 2.11.1): a 16-bit count, then that many counted
-    /// binaries. (The 32-bit count form belongs to the extended-rule encoding, not to ROPs.)
+    /// PtypMultipleBinary in a ROP buffer (MS-OXCDATA 2.11.1): a 32-bit value count, then that many binaries
+    /// with 16-bit byte counts.
     /// </summary>
     private static byte[][] ReadMultipleBinary(RopReader reader)
     {
-        var count = reader.UInt16();
+        var count = ReadMultipleCount(reader, 2);
         var values = new byte[count][];
         for (var i = 0; i < count; i++)
         {
@@ -113,10 +113,10 @@ public static class PropertyRow
         return values;
     }
 
-    /// <summary>PtypMultipleString in a ROP buffer: a 16-bit count, then that many NUL-terminated strings.</summary>
+    /// <summary>PtypMultipleString in a ROP buffer: a 32-bit value count, then that many NUL-terminated strings.</summary>
     private static string[] ReadMultipleUnicode(RopReader reader)
     {
-        var count = reader.UInt16();
+        var count = ReadMultipleCount(reader, 2);
         var values = new string[count];
         for (var i = 0; i < count; i++)
         {
@@ -124,6 +124,15 @@ public static class PropertyRow
         }
 
         return values;
+    }
+
+    private static int ReadMultipleCount(RopReader reader, int minimumBytesPerValue)
+    {
+        var count = reader.UInt32();
+        if (count > (uint)(reader.Remaining / minimumBytesPerValue))
+            throw new MapiFormatException($"A multivalued property claims {count} values in {reader.Remaining} bytes.");
+
+        return (int)count;
     }
 }
 

@@ -251,7 +251,7 @@ public sealed record TaggedPropertyValue(uint Tag, object Value)
                 writer.Bytes(v);
                 break;
             case (PropertyTypes.MultipleUnicode, string[] v):
-                writer.UInt16((ushort)v.Length);
+                writer.UInt32((uint)v.Length);
                 foreach (var item in v)
                 {
                     writer.UnicodeZ(item);
