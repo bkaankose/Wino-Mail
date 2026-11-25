@@ -231,9 +231,8 @@ internal static partial class EasDataMapper
             new XElement(Contact + "FileAs", item.DisplayName ?? item.StructuredName), new XElement(Contact + "CompanyName", item.CompanyName ?? string.Empty),
             new XElement(Contact + "Department", item.Department ?? string.Empty), new XElement(Contact + "JobTitle", item.JobTitle ?? string.Empty),
             new XElement(Contact + "OfficeLocation", item.OfficeLocation ?? string.Empty), new XElement(Contact + "WebPage", item.Website ?? string.Empty), TextBody(item.Notes));
-        var emails = item.EmailAddresses.OrderByDescending(address => address.IsPrimary).ThenBy(address => address.Order).ToList();
-        if (emails.Count > 3)
-            throw new NotSupportedException("EAS contacts support at most three email addresses.");
+        // EAS has three email fields, two home and two work numbers and one postal address per kind; the rest is not written.
+        var emails = item.EmailAddresses.OrderByDescending(address => address.IsPrimary).ThenBy(address => address.Order).Take(3).ToList();
 
         for (var index = 0; index < 3; index++)
             data.Add(new XElement(Contact + ("Email" + (index + 1) + "Address"), index < emails.Count ? emails[index].Address : string.Empty));
@@ -241,9 +240,7 @@ internal static partial class EasDataMapper
         foreach (var (kind, tags) in new[] { (ContactPhoneKind.Mobile, new[] { "MobilePhoneNumber" }),
             (ContactPhoneKind.Home, new[] { "HomePhoneNumber", "Home2PhoneNumber" }), (ContactPhoneKind.Work, new[] { "BusinessPhoneNumber", "Business2PhoneNumber" }) })
         {
-            var numbers = item.PhoneNumbers.Where(number => number.Kind == kind).OrderBy(number => number.Order).ToList();
-            if (numbers.Count > tags.Length)
-                throw new NotSupportedException("The contact contains more phone numbers than EAS can represent.");
+            var numbers = item.PhoneNumbers.Where(number => number.Kind == kind).OrderBy(number => number.Order).Take(tags.Length).ToList();
 
             for (var index = 0; index < tags.Length; index++)
                 data.Add(new XElement(Contact + tags[index], index < numbers.Count ? numbers[index].Number : string.Empty));
@@ -251,12 +248,10 @@ internal static partial class EasDataMapper
 
         foreach (var (prefix, kind) in new[] { ("Home", ContactPostalAddressKind.Home), ("Business", ContactPostalAddressKind.Business), ("Other", ContactPostalAddressKind.Other) })
         {
-            var addresses = item.PostalAddresses.Where(address => address.Kind == kind).ToList();
-            if (addresses.Count > 1 || addresses.Any(address => !string.IsNullOrEmpty(address.PostOfficeBox)))
-                throw new NotSupportedException("The postal address cannot be represented by EAS without losing information.");
-
-            var address = addresses.FirstOrDefault();
-            data.Add(new XElement(Contact + (prefix + "AddressStreet"), address?.Street ?? string.Empty),
+            var address = item.PostalAddresses.FirstOrDefault(address => address.Kind == kind);
+            var street = string.IsNullOrEmpty(address?.PostOfficeBox) ? address?.Street
+                : string.Join('\n', new[] { address.Street, address.PostOfficeBox }.Where(line => !string.IsNullOrEmpty(line)));
+            data.Add(new XElement(Contact + (prefix + "AddressStreet"), street ?? string.Empty),
                 new XElement(Contact + (prefix + "AddressCity"), address?.City ?? string.Empty), new XElement(Contact + (prefix + "AddressState"), address?.Region ?? string.Empty),
                 new XElement(Contact + (prefix + "AddressPostalCode"), address?.PostalCode ?? string.Empty), new XElement(Contact + (prefix + "AddressCountry"), address?.Country ?? string.Empty));
         }
