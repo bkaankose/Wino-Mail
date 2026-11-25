@@ -185,7 +185,8 @@ internal sealed partial class EasSynchronizationEngine
             }
 
             var responseName = command.Name.LocalName;
-            var result = await _client.SyncAsync(folderId, state.SyncKey, "Calendar", new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
+            var result = await SendCommandsAsync(state, new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("The EAS collection is not synchronized yet.");
             // The server has moved to the new key even when the item itself failed.
             await SaveKeyAsync(state, result).ConfigureAwait(false);
             var response = result.Element(sync + "Responses")?.Element(sync + responseName);

@@ -205,7 +205,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 var itemClass = ItemClass(state.Type);
                 command.Add(itemClass is "Email" or "Contacts" ? data : itemClass == "Tasks" ? EasDataMapper.ForTaskChange(Merge(shadow?.ApplicationData, data)) : Merge(shadow?.ApplicationData, data));
             }
-            var result = await _client.SyncAsync(folderId, state.SyncKey, ItemClass(state.Type), new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
+            var result = await SendCommandsAsync(state, new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("The EAS collection is not synchronized yet.");
             // The server has moved to the new key even when the item itself failed.
             await SaveKeyAsync(state, result).ConfigureAwait(false);
             var response = result.Element(sync + "Responses")?.Element(sync + operation);
@@ -267,15 +268,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             {
                 var commands = new XElement(sync + "Commands", chunk.Select(mutation => mutation.ToCommand()));
                 XElement? response;
-                try
-                {
-                    response = await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
-                }
-                catch (EasCommandException exception) when (exception.Status == "3")
-                {
-                    await SynchronizeCollectionAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
-                    response = await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
-                }
+                response = await SendCommandsAsync(state, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
 
                 if (response == null)
                 {
@@ -912,14 +905,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 }
             }
         }
-        if (state.SyncKey == "0")
-        {
-            state.Generation = Guid.NewGuid().ToString("N");
-            var handshake = await SyncWithRecoveryAsync(state, "0", null, cancellationToken).ConfigureAwait(false);
-            if (handshake == null)
-                return;
-            await SaveKeyAsync(state, handshake).ConfigureAwait(false);
-        }
+        if (state.SyncKey == "0" && !await HandshakeAsync(state, cancellationToken).ConfigureAwait(false))
+            return;
 
         var windowSize = DefaultWindowSize;
         var emptyPages = 0;
@@ -929,12 +916,11 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             try { response = await SyncWithRecoveryAsync(state, state.SyncKey, null, cancellationToken, windowSize).ConfigureAwait(false); }
             catch (EasCommandException exception) when (exception.Status == "3" && !recovered)
             {
+                // Once per pass: a second status 3 right after a new key 0 fails the collection for this pass.
                 recovered = true;
-                state.Generation = Guid.NewGuid().ToString("N");
-                var handshake = await SyncWithRecoveryAsync(state, "0", null, cancellationToken).ConfigureAwait(false);
-                if (handshake == null)
+                await DiscardClientCopyAsync(state).ConfigureAwait(false);
+                if (!await HandshakeAsync(state, cancellationToken).ConfigureAwait(false))
                     return;
-                await SaveKeyAsync(state, handshake).ConfigureAwait(false);
                 continue;
             }
             catch (Exception exception) when (windowSize > 1 && IsOversizedPage(exception, cancellationToken))
@@ -974,6 +960,69 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     }
 
     private const int DefaultWindowSize = 100;
+
+    /// <summary>
+    /// Sync key 0 for the collection. Items already stored are marked with a new generation: those the server sends
+    /// again are kept, the others are removed when the full synchronization ends. False when the collection is gone.
+    /// </summary>
+    private async Task<bool> HandshakeAsync(EasCollection state, CancellationToken cancellationToken)
+    {
+        state.Generation = Guid.NewGuid().ToString("N");
+        var handshake = await SyncWithRecoveryAsync(state, "0", null, cancellationToken).ConfigureAwait(false);
+        if (handshake == null)
+            return false;
+        await SaveKeyAsync(state, handshake).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// Before a full synchronization that follows status 3, below 16.1 the client's copy of every object in the
+    /// collection is deleted: only 16.1 keeps an item's ServerId across a resynchronization, so older versions may send
+    /// the same items under new ids. On 16.1 the copies stay and the generation of the full synchronization reconciles
+    /// them by ServerId. Local drafts are not server objects and stay.
+    /// </summary>
+    private async Task DiscardClientCopyAsync(EasCollection state)
+    {
+        if (_client.IsAtLeast("16.1"))
+            return;
+
+        Serilog.Log.Information("EAS collection {Collection} for {Account}: the sync key is invalid; the stored copy is deleted before the full synchronization.",
+            state.Name, _account.Address);
+        foreach (var shadow in await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false))
+            await DeleteProjectionAsync(state, shadow.RemoteId).ConfigureAwait(false);
+        if (state.IsMail)
+            await _mail.DeleteMailsAsync(_account.Id, await ServerMailIdsAsync(state.Id).ConfigureAwait(false)).ConfigureAwait(false);
+        state.SyncKey = "0";
+        state.Generation = string.Empty;
+        await SaveSyncStateAsync(state).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends client commands built against the collection's stored ServerIds. After status 3 the collection is
+    /// synchronized again from key 0 and the commands are sent again only when they cannot name a ServerId from before
+    /// the reset: on 16.1, where ServerIds survive a resynchronization, or when every command is an Add. Otherwise the
+    /// status 3 failure goes to the request's error handling; the full synchronization already brought the server's
+    /// state.
+    /// </summary>
+    private async Task<XElement?> SendCommandsAsync(EasCollection state, XElement commands, CancellationToken cancellationToken,
+        bool getChanges = true, bool deletesAsMoves = true)
+    {
+        try
+        {
+            return await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: getChanges, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
+        }
+        catch (EasCommandException exception) when (exception.Status == "3")
+        {
+            await DiscardClientCopyAsync(state).ConfigureAwait(false);
+            state.SyncKey = "0";
+            await SynchronizeCollectionAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            if (state.SyncKey == "0")
+                return null;
+            if (!_client.IsAtLeast("16.1") && commands.Elements().Any(command => command.Name.LocalName != "Add"))
+                throw;
+            return await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: getChanges, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>
     /// One Sync request for a collection with the recoveries MS-ASCMD asks for: status 12 (the folder hierarchy
