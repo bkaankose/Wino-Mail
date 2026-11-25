@@ -244,38 +244,15 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
         return false;
     }
 
-    public override List<IRequestBundle<EwsRequest>> MarkRead(BatchMarkReadRequest requests) => Bundle(async token =>
-    {
-        XNamespace email = "Email:";
-        foreach (var request in requests)
-        {
-            if (request.Item.IsLocalDraft)
-            {
-                await _mail.ChangeReadStatusAsync(request.Item.Id, request.IsRead).ConfigureAwait(false);
-                continue;
-            }
-            var (folder, id) = await RemoteMailAsync(request.Item).ConfigureAwait(false);
-            await _engine.MutateAsync(folder.RemoteFolderId, "Change", id,
-                new XElement(EasDataMapper.Sync + "ApplicationData", new XElement(email + "Read", request.IsRead ? "1" : "0")), string.Empty, token).ConfigureAwait(false);
-            await _mail.ChangeReadStatusAsync(request.Item.Id, request.IsRead).ConfigureAwait(false);
-        }
-    }, requests.FirstOrDefault(), requests);
+    public override List<IRequestBundle<EwsRequest>> MarkRead(BatchMarkReadRequest requests) => Bundle(token => MutateMailAsync(requests,
+        request => request.Item,
+        (request, id) => EasMutation.Change(id, new XElement(EasDataMapper.Sync + "ApplicationData", new XElement(EasDataMapper.Email + "Read", request.IsRead ? "1" : "0"))),
+        request => _mail.ChangeReadStatusAsync(request.Item.Id, request.IsRead), deletesAsMoves: true, token), requests.FirstOrDefault(), requests);
 
-    public override List<IRequestBundle<EwsRequest>> ChangeFlag(BatchChangeFlagRequest requests) => Bundle(async token =>
-    {
-        foreach (var request in requests)
-        {
-            if (request.Item.IsLocalDraft)
-            {
-                await _mail.ChangeFlagStatusAsync(request.Item.Id, request.IsFlagged).ConfigureAwait(false);
-                continue;
-            }
-            var (folder, id) = await RemoteMailAsync(request.Item).ConfigureAwait(false);
-            await _engine.MutateAsync(folder.RemoteFolderId, "Change", id,
-                EasDataMapper.WriteFlag(request.IsFlagged), string.Empty, token).ConfigureAwait(false);
-            await _mail.ChangeFlagStatusAsync(request.Item.Id, request.IsFlagged).ConfigureAwait(false);
-        }
-    }, requests.FirstOrDefault(), requests);
+    public override List<IRequestBundle<EwsRequest>> ChangeFlag(BatchChangeFlagRequest requests) => Bundle(token => MutateMailAsync(requests,
+        request => request.Item,
+        (request, id) => EasMutation.Change(id, EasDataMapper.WriteFlag(request.IsFlagged)),
+        request => _mail.ChangeFlagStatusAsync(request.Item.Id, request.IsFlagged), deletesAsMoves: true, token), requests.FirstOrDefault(), requests);
 
     public override List<IRequestBundle<EwsRequest>> Move(BatchMoveRequest requests) => Bundle(async token =>
     {
@@ -292,20 +269,58 @@ internal sealed class ActiveSyncExchangeSynchronizer : WinoSynchronizer<EwsReque
     public override List<IRequestBundle<EwsRequest>> ChangeJunkState(BatchChangeJunkStateRequest requests)
         => Move(new BatchMoveRequest(requests.Select(request => new MoveRequest(request.Item, request.FromFolder, request.TargetFolder))));
 
-    public override List<IRequestBundle<EwsRequest>> Delete(BatchDeleteRequest requests) => Bundle(async token =>
+    // A delete request is a permanent delete; moving to Deleted Items arrives as a move.
+    public override List<IRequestBundle<EwsRequest>> Delete(BatchDeleteRequest requests) => Bundle(token => MutateMailAsync(requests,
+        request => request.Item,
+        (_, id) => EasMutation.Delete(id),
+        request => _mail.DeleteMailAsync(Account.Id, request.Item.Id), deletesAsMoves: false, token,
+        request => _mail.DiscardLocalDraftAsync(Account.Id, request.Item.UniqueId)), requests.FirstOrDefault(), requests);
+
+    /// <summary>
+    /// Sends the requests as one batched Sync per folder and stores each result as the server answers it. An item the
+    /// server no longer has is removed locally; the other failed items fail the bundle after the rest are stored.
+    /// Local drafts never reached the server and change only locally.
+    /// </summary>
+    private async Task MutateMailAsync<TRequest>(IEnumerable<TRequest> requests, Func<TRequest, MailCopy> itemOf, Func<TRequest, string, EasMutation> mutationOf,
+        Func<TRequest, Task> commit, bool deletesAsMoves, CancellationToken cancellationToken, Func<TRequest, Task>? commitLocalDraft = null)
     {
+        var remote = new List<(TRequest Request, MailItemFolder Folder, string RemoteId)>();
         foreach (var request in requests)
         {
-            if (request.Item.IsLocalDraft)
+            var item = itemOf(request);
+            if (item.IsLocalDraft)
             {
-                await _mail.DiscardLocalDraftAsync(Account.Id, request.Item.UniqueId).ConfigureAwait(false);
+                await (commitLocalDraft ?? commit)(request).ConfigureAwait(false);
                 continue;
             }
-            var (folder, id) = await RemoteMailAsync(request.Item).ConfigureAwait(false);
-            await _engine.MutateAsync(folder.RemoteFolderId, "Delete", id, null, string.Empty, token).ConfigureAwait(false);
-            await _mail.DeleteMailAsync(Account.Id, request.Item.Id).ConfigureAwait(false);
+            var (folder, remoteId) = await RemoteMailAsync(item).ConfigureAwait(false);
+            remote.Add((request, folder, remoteId));
         }
-    }, requests.FirstOrDefault(), requests);
+
+        var failures = new List<string>();
+        foreach (var group in remote.GroupBy(entry => entry.Folder.Id))
+        {
+            var entries = group.ToList();
+            var results = await _engine.MutateItemsAsync(entries[0].Folder.RemoteFolderId,
+                entries.Select(entry => mutationOf(entry.Request, entry.RemoteId)).ToList(), deletesAsMoves, cancellationToken).ConfigureAwait(false);
+            for (var index = 0; index < entries.Count; index++)
+            {
+                var result = results[index];
+                if (result.Succeeded)
+                    await commit(entries[index].Request).ConfigureAwait(false);
+                else if (result.IsNotFound)
+                {
+                    Logger.Warning("EAS item {RemoteId} is no longer on the server; removing it locally.", entries[index].RemoteId);
+                    await _mail.DeleteMailAsync(Account.Id, itemOf(entries[index].Request).Id).ConfigureAwait(false);
+                }
+                else
+                    failures.Add(result.Status);
+            }
+        }
+
+        if (failures.Count > 0)
+            throw new EasCommandException("Sync", string.Join(", ", failures.Distinct()) + " for " + failures.Count + " item(s)");
+    }
 
     public override List<IRequestBundle<EwsRequest>> EmptyFolder(EmptyFolderRequest request)
         => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(mail => new DeleteRequest(mail))));

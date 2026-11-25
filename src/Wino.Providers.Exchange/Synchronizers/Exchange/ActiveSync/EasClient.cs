@@ -437,9 +437,6 @@ internal sealed class EasClient : IDisposable
         var result = response.Element(sync + "Collections")?.Element(sync + "Collection")
             ?? throw new InvalidDataException("The EAS Sync response has no collection.");
         RequireSuccess(result);
-        foreach (var operation in result.Element(sync + "Responses")?.Elements() ?? Enumerable.Empty<XElement>())
-            RequireSuccess(operation);
-
         return result;
     }
 

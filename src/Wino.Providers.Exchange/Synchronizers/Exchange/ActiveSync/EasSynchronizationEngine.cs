@@ -187,6 +187,8 @@ internal sealed class EasSynchronizationEngine : IDisposable
                     : Merge(shadow?.ApplicationData, data));
             }
             var result = await _client.SyncAsync(folderId, state.SyncKey, ItemClass(state.Type), new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false);
+            // The server has moved to the new key even when the item itself failed.
+            await SaveKeyAsync(state, result).ConfigureAwait(false);
             var response = result.Element(sync + "Responses")?.Element(sync + operation);
             if (response != null)
                 EasClient.RequireSuccess(response);
@@ -210,8 +212,74 @@ internal sealed class EasSynchronizationEngine : IDisposable
                     CollectionId = state.Id, RemoteId = resultId, ApplicationData = Merge(shadow?.ApplicationData, data).ToString(SaveOptions.DisableFormatting),
                     Generation = state.Generation }, typeof(EasItemShadow)).ConfigureAwait(false);
             }
-            await SaveKeyAsync(state, result).ConfigureAwait(false);
             return resultId;
+        }
+        finally { _gate.Release(); }
+    }
+
+    private const int MutationBatchSize = 100;
+
+    /// <summary>
+    /// Sends many item changes to one collection, up to <see cref="MutationBatchSize"/> commands in each Sync
+    /// request, without reading the collection's pending changes first. The new sync key is saved after every request,
+    /// also when single items fail. Results come back in the order of <paramref name="mutations"/>; a Change or
+    /// Delete the server does not answer for succeeded, and an Add result carries the server id it was given.
+    /// <paramref name="deletesAsMoves"/> false deletes permanently instead of moving to Deleted Items.
+    /// </summary>
+    internal async Task<IReadOnlyList<EasMutationResult>> MutateItemsAsync(string folderId, IReadOnlyList<EasMutation> mutations, bool deletesAsMoves,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<EasMutationResult>(mutations.Count);
+        if (mutations.Count == 0)
+            return results;
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var state = await GetCollectionAsync(folderId).ConfigureAwait(false);
+            if (state.SyncKey == "0")
+                await SynchronizeCollectionAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+
+            var sync = EasDataMapper.Sync;
+            foreach (var chunk in mutations.Chunk(MutationBatchSize))
+            {
+                var commands = new XElement(sync + "Commands", chunk.Select(mutation => mutation.ToCommand()));
+                XElement? response;
+                try
+                {
+                    response = await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
+                }
+                catch (EasCommandException exception) when (exception.Status == "3")
+                {
+                    await SynchronizeCollectionAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+                    response = await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
+                }
+
+                if (response == null)
+                {
+                    results.AddRange(chunk.Select(mutation => new EasMutationResult(mutation, "8", null)));
+                    continue;
+                }
+
+                await SaveKeyAsync(state, response).ConfigureAwait(false);
+                var answers = response.Element(sync + "Responses")?.Elements().ToList() ?? new List<XElement>();
+                foreach (var mutation in chunk)
+                {
+                    var answer = answers.FirstOrDefault(element => element.Name.LocalName == mutation.Operation.ToString() &&
+                        element.Element(sync + (mutation.Operation == EasItemOperation.Add ? "ClientId" : "ServerId"))?.Value == mutation.Id);
+                    var status = answer?.Element(sync + "Status")?.Value ?? (mutation.Operation == EasItemOperation.Add ? "missing" : "1");
+                    var serverId = mutation.Operation == EasItemOperation.Add ? answer?.Element(sync + "ServerId")?.Value : mutation.Id;
+                    var result = new EasMutationResult(mutation, status, serverId);
+                    results.Add(result);
+
+                    if (mutation.Operation == EasItemOperation.Delete && (result.Succeeded || result.IsNotFound) ||
+                        mutation.Operation == EasItemOperation.Change && result.IsNotFound)
+                        await _database.Connection.DeleteAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.ServerId, mutation.Id)).ConfigureAwait(false);
+                    else if (mutation.Operation == EasItemOperation.Add && result.Succeeded && !string.IsNullOrEmpty(serverId) && mutation.Data != null)
+                        await WriteShadowAsync(state, serverId, mutation.Data).ConfigureAwait(false);
+                }
+            }
+            return results;
         }
         finally { _gate.Release(); }
     }
