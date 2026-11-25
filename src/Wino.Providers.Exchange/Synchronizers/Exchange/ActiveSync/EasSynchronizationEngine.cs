@@ -155,7 +155,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
     private static bool IsCollectionFailure(Exception exception) => exception switch
     {
         EasCommandException command => !int.TryParse(command.Status, out var status) || status < 100,
-        InvalidDataException or XmlException or FormatException => true,
+        InvalidDataException or XmlException or FormatException or EasResponseTooLargeException => true,
         _ => false
     };
 
@@ -709,40 +709,106 @@ internal sealed class EasSynchronizationEngine : IDisposable
         if (state.SyncKey == "0")
         {
             state.Generation = Guid.NewGuid().ToString("N");
-            var handshake = await _client.SyncAsync(state.ServerId, "0", ItemClass(state.Type), null, cancellationToken).ConfigureAwait(false);
+            var handshake = await SyncWithRecoveryAsync(state, "0", null, cancellationToken).ConfigureAwait(false);
+            if (handshake == null)
+                return;
             await SaveKeyAsync(state, handshake).ConfigureAwait(false);
         }
 
+        var windowSize = DefaultWindowSize;
+        var emptyPages = 0;
         for (var page = 0; page < 10000; page++)
         {
-            XElement response;
-            try { response = await _client.SyncAsync(state.ServerId, state.SyncKey, ItemClass(state.Type), null, cancellationToken).ConfigureAwait(false); }
+            XElement? response;
+            try { response = await SyncWithRecoveryAsync(state, state.SyncKey, null, cancellationToken, windowSize).ConfigureAwait(false); }
             catch (EasCommandException exception) when (exception.Status == "3" && !recovered)
             {
                 recovered = true;
                 state.Generation = Guid.NewGuid().ToString("N");
-                var handshake = await _client.SyncAsync(state.ServerId, "0", ItemClass(state.Type), null, cancellationToken).ConfigureAwait(false);
+                var handshake = await SyncWithRecoveryAsync(state, "0", null, cancellationToken).ConfigureAwait(false);
+                if (handshake == null)
+                    return;
                 await SaveKeyAsync(state, handshake).ConfigureAwait(false);
                 continue;
             }
+            catch (Exception exception) when (windowSize > 1 && IsOversizedPage(exception, cancellationToken))
+            {
+                // The same key is sent again with a smaller window; the server keeps the previous key valid for that.
+                windowSize /= 2;
+                Serilog.Log.Warning(exception, "EAS collection {Collection} for {Account}: a page was too large or too slow; retrying with {WindowSize} items.",
+                    state.Name, _account.Address, windowSize);
+                continue;
+            }
+            if (response == null)
+                return;
             await ApplyPageAsync(state, response, downloaded, cancellationToken).ConfigureAwait(false);
             await SaveKeyAsync(state, response).ConfigureAwait(false);
-            if (response.Element(sync + "MoreAvailable") == null)
+            if (response.Element(sync + "MoreAvailable") != null)
             {
-                if (!string.IsNullOrEmpty(state.Generation))
-                {
-                    var shadows = await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false);
-                    await ReconcileResetAsync(state, shadows.Where(shadow => shadow.Generation == state.Generation).ToList(), downloaded, cancellationToken).ConfigureAwait(false);
-                    foreach (var shadow in shadows.Where(shadow => shadow.Generation != state.Generation))
-                        await DeleteProjectionAsync(state, shadow.RemoteId).ConfigureAwait(false);
-                    state.Generation = string.Empty;
-                    await SaveSyncStateAsync(state).ConfigureAwait(false);
-                }
+                emptyPages = response.Element(sync + "Commands")?.HasElements == true ? 0 : emptyPages + 1;
+                if (emptyPages < 3)
+                    continue;
+                Serilog.Log.Warning("EAS collection {Collection} for {Account} reports more changes but sent none in three pages; continuing next time.",
+                    state.Name, _account.Address);
                 return;
             }
+            if (!string.IsNullOrEmpty(state.Generation))
+            {
+                var shadows = await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false);
+                await ReconcileResetAsync(state, shadows.Where(shadow => shadow.Generation == state.Generation).ToList(), downloaded, cancellationToken).ConfigureAwait(false);
+                foreach (var shadow in shadows.Where(shadow => shadow.Generation != state.Generation))
+                    await DeleteProjectionAsync(state, shadow.RemoteId).ConfigureAwait(false);
+                state.Generation = string.Empty;
+                await SaveSyncStateAsync(state).ConfigureAwait(false);
+            }
+            return;
         }
         throw new InvalidDataException("The EAS server exceeded the synchronization page limit.");
     }
+
+    private const int DefaultWindowSize = 100;
+
+    /// <summary>
+    /// One Sync request for a collection with the recoveries MS-ASCMD asks for: status 12 (the folder hierarchy
+    /// changed) and 8 (the collection is not found) read the hierarchy and retry once; 5 and 16 (transient server
+    /// errors) retry with a growing delay. Null means the collection is gone after the hierarchy was read.
+    /// </summary>
+    private async Task<XElement?> SyncWithRecoveryAsync(EasCollection state, string syncKey, XElement? commands, CancellationToken cancellationToken,
+        int windowSize = DefaultWindowSize, bool getChanges = true, bool deletesAsMoves = true)
+    {
+        var hierarchyRead = false;
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await _client.SyncAsync(state.ServerId, syncKey, ItemClass(state.Type), commands, cancellationToken, windowSize, getChanges, deletesAsMoves).ConfigureAwait(false);
+            }
+            catch (EasCommandException exception) when (exception.Status is "12" or "8" && !hierarchyRead)
+            {
+                hierarchyRead = true;
+                Serilog.Log.Information("EAS collection {Collection} for {Account} returned status {Status}; reading the folder hierarchy again.",
+                    state.Name, _account.Address, exception.Status);
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+                if (!await IsCollectionKnownAsync(state).ConfigureAwait(false))
+                    return null;
+            }
+            catch (EasCommandException exception) when (exception.Status is "5" or "16" && attempt < 3)
+            {
+                var delay = TimeSpan.FromSeconds(2 << attempt);
+                Serilog.Log.Warning("EAS collection {Collection} for {Account} returned transient status {Status}; retrying in {Delay}.",
+                    state.Name, _account.Address, exception.Status, delay);
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task<bool> IsCollectionKnownAsync(EasCollection state) => state.IsMail
+        ? await _database.Connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM MailItemFolder WHERE Id = ? AND RemoteFolderId = ? AND EasFolderType > 0", state.Id, state.ServerId).ConfigureAwait(false) > 0
+        : await _database.Connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM EasCollectionState WHERE Id = ? AND ServerId = ?", state.Id, state.ServerId).ConfigureAwait(false) > 0;
+
+    /// <summary>A page over the response size limit, or one the HTTP timeout cut off; a smaller window can still succeed.</summary>
+    private static bool IsOversizedPage(Exception exception, CancellationToken cancellationToken)
+        => exception is EasResponseTooLargeException || (exception is TaskCanceledException { InnerException: TimeoutException } && !cancellationToken.IsCancellationRequested);
 
     private async Task ReconcileResetAsync(EasCollection state, List<EasItemShadow> snapshot, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {

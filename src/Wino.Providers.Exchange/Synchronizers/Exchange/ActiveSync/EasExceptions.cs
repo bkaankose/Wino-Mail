@@ -29,3 +29,6 @@ internal sealed class EasServerBusyException(string message, TimeSpan? retryAfte
 {
     internal TimeSpan? RetryAfter { get; } = retryAfter;
 }
+
+/// <summary>The response is larger than the client accepts.</summary>
+internal sealed class EasResponseTooLargeException() : IOException("The EAS response exceeds the size limit.");

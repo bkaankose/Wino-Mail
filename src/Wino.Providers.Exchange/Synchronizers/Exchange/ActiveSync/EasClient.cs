@@ -154,7 +154,7 @@ internal sealed class EasClient : IDisposable
 
         EnsureHttpSuccess(response);
         if (response.Content.Headers.ContentLength > MaximumResponseBytes)
-            throw new InvalidDataException("The EAS response exceeds the size limit.");
+            throw new EasResponseTooLargeException();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var buffer = new MemoryStream();
@@ -163,7 +163,7 @@ internal sealed class EasClient : IDisposable
         while ((read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) != 0)
         {
             if (buffer.Length + read > MaximumResponseBytes)
-                throw new InvalidDataException("The EAS response exceeds the size limit.");
+                throw new EasResponseTooLargeException();
 
             buffer.Write(chunk, 0, read);
         }
@@ -403,7 +403,8 @@ internal sealed class EasClient : IDisposable
         return result;
     }
 
-    internal async Task<XElement> SyncAsync(string folderId, string syncKey, string itemClass, XElement? commands, CancellationToken cancellationToken)
+    internal async Task<XElement> SyncAsync(string folderId, string syncKey, string itemClass, XElement? commands, CancellationToken cancellationToken,
+        int windowSize = 100, bool getChanges = true, bool deletesAsMoves = true)
     {
         if (_version == null)
             await ConnectAsync(cancellationToken).ConfigureAwait(false);
@@ -417,9 +418,9 @@ internal sealed class EasClient : IDisposable
             collection.Add(new XElement(sync + "Supported"));
         if (syncKey != "0")
         {
-            collection.Add(new XElement(sync + "DeletesAsMoves", "1"),
-                new XElement(sync + "GetChanges", "1"),
-                new XElement(sync + "WindowSize", "100"),
+            collection.Add(new XElement(sync + "DeletesAsMoves", deletesAsMoves ? "1" : "0"),
+                new XElement(sync + "GetChanges", getChanges ? "1" : "0"),
+                new XElement(sync + "WindowSize", windowSize.ToString(CultureInfo.InvariantCulture)),
                 new XElement(sync + "Options", new XElement(sync + "Conflict", "0"), BodyPreference(itemClass)));
         }
 
