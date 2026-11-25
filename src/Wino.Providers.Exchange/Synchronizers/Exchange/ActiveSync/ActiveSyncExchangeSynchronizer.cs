@@ -750,7 +750,18 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         if (isOrganizer)
             RequireMeetingSupport(isProtocol16, HasAttendees(attendees));
         var occurrence = request.Item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(request.Item.RemoteEventId) : null;
-        var data = EasDataMapper.WriteEvent(request.Item, isOrganizer && occurrence == null ? attendees : null, reminders, isProtocol16);
+        var sendsAttendees = isOrganizer && occurrence == null;
+        var data = EasDataMapper.WriteEvent(request.Item, sendsAttendees ? attendees : null, reminders, isProtocol16);
+        if (isProtocol16)
+        {
+            // 16.x keeps the calendar elements a Change leaves out, and a StartTime, EndTime or Recurrence sent for a
+            // series deletes its exceptions, so only the elements that differ from the stored event are sent.
+            var stored = await _calendars.GetCalendarItemAsync(request.Item.Id).ConfigureAwait(false)
+                ?? throw new InvalidOperationException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncItemRequiresSync);
+            var original = EasDataMapper.WriteEvent(stored, sendsAttendees ? await _calendars.GetAttendeesAsync(stored.Id).ConfigureAwait(false) : null,
+                await _calendars.GetRemindersAsync(stored.Id).ConfigureAwait(false), isProtocol16);
+            data = EasDataMapper.ChangedFields(data, original);
+        }
         await _engine.MutateEventAsync(calendar.RemoteCalendarId, new EasEventMutation("Change",
             occurrence?.SeriesId ?? request.Item.RemoteEventId.GetProviderRemoteEventId(), data, InstanceKey: occurrence?.InstanceKey,
             Persist: async _ =>

@@ -159,7 +159,10 @@ internal sealed partial class EasSynchronizationEngine
             {
                 if (stored == null)
                     throw new InvalidOperationException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncItemRequiresSync);
-                var exception = OccurrenceException(instanceKey, operation == "Delete" ? null : mutation.Data, isProtocol16);
+                // On 16.x the edit holds only the changed elements; the stored exception keeps the others.
+                var exceptionData = operation == "Delete" || mutation.Data == null ? null
+                    : isProtocol16 ? Merge(StoredException(stored, instanceKey)?.ToString(SaveOptions.DisableFormatting), mutation.Data) : mutation.Data;
+                var exception = OccurrenceException(instanceKey, exceptionData, isProtocol16);
                 updated = WithException(stored, exception, instanceKey);
                 if (isProtocol16)
                 {
@@ -176,12 +179,21 @@ internal sealed partial class EasSynchronizationEngine
             else if (mutation.Data != null)
             {
                 updated = operation == "Add" ? new XElement(mutation.Data) : Merge(shadow?.ApplicationData, mutation.Data);
-                var change = EasDataMapper.ForEventChange(updated, isProtocol16);
+                // 16.x ghosts calendar elements: a Change carries only the changed ones (the edit), 14.x the whole event.
+                var change = EasDataMapper.ForEventChange(isProtocol16 ? mutation.Data : updated, isProtocol16);
                 // Only the organizer sends the attendee list; an attendee's copy keeps the server's.
                 if (EasDataMapper.Value(updated, EasDataMapper.Calendar, "OrganizerEmail") is { Length: > 0 } organizer &&
                     !string.Equals(organizer, _account.Address, StringComparison.OrdinalIgnoreCase))
                     change.Elements(EasDataMapper.Calendar + "Attendees").Remove();
                 command.Add(operation == "Add" ? mutation.Data : change);
+            }
+
+            if (isProtocol16 && operation == "Change" && command.Element(sync + "ApplicationData") is { HasElements: false })
+            {
+                // Nothing the server holds changed.
+                if (mutation.Persist != null)
+                    await mutation.Persist(mutation.RemoteId).ConfigureAwait(false);
+                return mutation.RemoteId;
             }
 
             var responseName = command.Name.LocalName;
@@ -254,6 +266,22 @@ internal sealed partial class EasSynchronizationEngine
         else
             exception.Add(OccurrenceData(data).Elements().Where(element => element.Name != calendar + "Attendees" || isProtocol16).Select(element => new XElement(element)));
         return exception;
+    }
+
+    /// <summary>The series' stored exception for the occurrence that originally started at <paramref name="instanceKey"/>, without its key.</summary>
+    private static XElement? StoredException(XElement series, string instanceKey)
+    {
+        var calendar = EasDataMapper.Calendar;
+        var original = EasDataMapper.Date(instanceKey);
+        var existing = series.Element(calendar + "Exceptions")?.Elements(calendar + "Exception").FirstOrDefault(item =>
+            EasDataMapper.Date(EasDataMapper.Value(item, calendar, "ExceptionStartTime") is { Length: > 0 } start ? start
+                : EasDataMapper.Value(item, EasDataMapper.Body, "InstanceId")) == original);
+        if (existing == null)
+            return null;
+        var result = new XElement(EasDataMapper.Sync + "ApplicationData", existing.Elements().Select(element => new XElement(element)));
+        result.Elements().Where(element => element.Name == calendar + "ExceptionStartTime" || element.Name == EasDataMapper.Body + "InstanceId" ||
+            element.Name == calendar + "Deleted").Remove();
+        return result;
     }
 
     /// <summary>The series with <paramref name="exception"/> replacing any exception for the same original start.</summary>
