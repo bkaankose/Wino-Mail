@@ -1326,8 +1326,13 @@
                         <Setter Target="NoMailSelectedPanel.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                 </VisualState>
+                <!--
+                    The single-pane states span both columns. The list column keeps the saved list width
+                    otherwise, which is wider than a narrow window and pushes the pane past its right edge.
+                -->
                 <VisualState x:Name="NarrowMailList">
                     <VisualState.Setters>
+                        <Setter Target="MailListColumn.Width" Value="*" />
                         <Setter Target="MailListContainer.(Grid.ColumnSpan)" Value="2" />
                         <Setter Target="MailListSizer.Visibility" Value="Collapsed" />
                         <Setter Target="RenderingGrid.Visibility" Value="Collapsed" />
@@ -1335,6 +1340,7 @@
                 </VisualState>
                 <VisualState x:Name="NarrowRenderer">
                     <VisualState.Setters>
+                        <Setter Target="MailListColumn.Width" Value="*" />
                         <Setter Target="RenderingGrid.(Grid.Column)" Value="0" />
                         <Setter Target="RenderingGrid.(Grid.ColumnSpan)" Value="2" />
                         <Setter Target="RenderingGrid.Margin" Value="0" />
