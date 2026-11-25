@@ -659,10 +659,7 @@ internal sealed class EasClient : IDisposable
             collection.Add(new XElement(sync + "DeletesAsMoves", deletesAsMoves ? "1" : "0"),
                 new XElement(sync + "GetChanges", getChanges ? "1" : "0"),
                 new XElement(sync + "WindowSize", windowSize.ToString(CultureInfo.InvariantCulture)),
-                new XElement(sync + "Options", new XElement(sync + "Conflict", ServerWins), BodyPreference(itemClass)));
-            var filterType = PolicyLimits.ClampFilterType(itemClass, 0);
-            if (filterType != 0)
-                collection.Element(sync + "Options")!.AddFirst(new XElement(sync + "FilterType", filterType.ToString(CultureInfo.InvariantCulture)));
+                new XElement(sync + "Options", FilterType(itemClass), new XElement(sync + "Conflict", ServerWins), BodyPreference(itemClass)));
         }
 
         if (commands != null)
@@ -687,6 +684,19 @@ internal sealed class EasClient : IDisposable
     /// item keeps the server's version and the user is told; the client never overwrites a change it has not seen.
     /// </summary>
     private const string ServerWins = "1";
+
+    /// <summary>
+    /// The synchronization window the server maintains, adding items that enter it and soft-deleting items that leave it.
+    /// Calendar: 6 (3 months back), the window Wino shows for every Exchange transport; future and endless recurring
+    /// items are sent regardless. Email: none. Its largest window is one month, shorter than every Wino range, and a
+    /// Wino range is a fixed date counted from when the account was added, not a window that slides; the engine skips
+    /// new mail older than that date instead. Tasks and contacts: none, Wino shows completed tasks too.
+    /// </summary>
+    private XElement? FilterType(string itemClass)
+    {
+        var filterType = PolicyLimits.ClampFilterType(itemClass, itemClass == "Calendar" ? 6 : 0);
+        return filterType == 0 ? null : new XElement((XNamespace)"AirSync:" + "FilterType", filterType.ToString(CultureInfo.InvariantCulture));
+    }
 
     /// <summary>
     /// Mail is synchronized without its MIME: 14.0 and later return only a 255-character preview, 12.x a plain-text

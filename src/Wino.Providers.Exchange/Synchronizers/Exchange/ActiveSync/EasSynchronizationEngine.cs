@@ -1149,8 +1149,10 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     }
 
     /// <summary>
-    /// Stores a message from its Sync fields. A new message older than the account's synchronization range is skipped;
-    /// a known message takes only the fields the item carries, so local state such as pinning is kept.
+    /// Stores a message from its Sync fields; a known message takes only the fields the item carries, so local state
+    /// such as pinning is kept. A new message received before the account's range cutoff is not stored: no email
+    /// FilterType expresses a Wino range (see <see cref="EasClient"/>), so mail is synchronized without one and the
+    /// fixed cutoff the other synchronizers apply is applied here.
     /// </summary>
     private async Task ProjectMailAsync(EasCollection state, string remoteId, XElement data, List<MailCopy> downloaded)
     {
@@ -1177,7 +1179,10 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         var package = EasDataMapper.Mail(folder, remoteId, data);
         var cutoff = _account.InitialSynchronizationRange.ToCutoffDateUtc(_account.CreatedAt ?? DateTime.UtcNow);
         if (cutoff.HasValue && package.Copy.CreationDate < cutoff.Value)
+        {
+            Serilog.Log.Debug("EAS message {RemoteId} in {Collection} was received before the range cutoff {Cutoff:u}; not stored.", remoteId, state.Name, cutoff.Value);
             return;
+        }
         if (await _mail.CreateMailAsync(_account.Id, package).ConfigureAwait(false))
             downloaded.Add(package.Copy);
     }
