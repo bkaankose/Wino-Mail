@@ -450,6 +450,15 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         finally { _gate.Release(); }
     }
 
+    /// <summary>The ParentId the folder hierarchy reported for a non-mail collection.</summary>
+    internal async Task<string> GetCollectionParentAsync(string serverId)
+    {
+        var state = await _database.Connection.Table<EasCollectionState>()
+            .FirstOrDefaultAsync(row => row.AccountId == _account.Id && row.ServerId == serverId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The EAS collection is not synchronized yet.");
+        return string.IsNullOrEmpty(state.ParentServerId) ? throw new InvalidOperationException("The EAS collection has no parent in the folder hierarchy.") : state.ParentServerId;
+    }
+
     internal async Task SendAsync(byte[] mime, string clientId, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);

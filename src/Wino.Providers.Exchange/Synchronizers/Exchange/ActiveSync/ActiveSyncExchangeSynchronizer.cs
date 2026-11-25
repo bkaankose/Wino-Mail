@@ -700,7 +700,10 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
                     _ => throw new NotSupportedException("This EAS task list operation is not supported.") };
                 if (action.List.IsDefault && folderCommand == "FolderDelete")
                     throw new InvalidOperationException("The default EAS task list cannot be deleted.");
-                var id = await _engine.ChangeFolderAsync(folderCommand, EasDataMapper.ServerId(action.List.RemoteId), "0", action.List.Title, 15, cancellationToken).ConfigureAwait(false);
+                var listServerId = EasDataMapper.ServerId(action.List.RemoteId);
+                // FolderUpdate's ParentId is where the folder stays; a rename keeps the parent the hierarchy reported.
+                var parentId = folderCommand == "FolderUpdate" ? await _engine.GetCollectionParentAsync(listServerId).ConfigureAwait(false) : "0";
+                var id = await _engine.ChangeFolderAsync(folderCommand, listServerId, parentId, action.List.Title, 15, cancellationToken).ConfigureAwait(false);
                 var committedList = RequestEntityCloner.TaskList(action.List);
                 committedList.RemoteId = EasDataMapper.ProviderId(id);
                 await _tasks.CompleteListMutationAsync(action.List.Id, committedList, folderCommand == "FolderDelete").ConfigureAwait(false);
