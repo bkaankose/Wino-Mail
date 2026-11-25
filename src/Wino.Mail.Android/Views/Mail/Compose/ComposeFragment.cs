@@ -472,6 +472,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         if (!string.IsNullOrWhiteSpace(preferences.ComposerSpellCheckLanguageCode))
             await editor.ExecuteCommandAsync(EditorCommand.SetSpellCheckLanguage(preferences.ComposerSpellCheckLanguageCode));
         await editor.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(preferences.IsComposerAutoCorrectEnabled));
+        await editor.SetPasteFormattingAsync(preferences.IsComposerPasteFormattingEnabled);
         await editor.RenderHtmlAsync(html ?? string.Empty);
     }
 
