@@ -23,6 +23,8 @@ internal static partial class EasDataMapper
     internal static readonly XNamespace Contact = "Contacts:";
     internal static readonly XNamespace Calendar = "Calendar:";
     internal static readonly XNamespace Tasks = "Tasks:";
+    internal static readonly XNamespace Email = "Email:";
+    internal static readonly XNamespace Email2 = "Email2:";
     internal static string Value(XElement data, XNamespace ns, string name) => data.Element(ns + name)?.Value ?? string.Empty;
     internal static Guid StableId(string value) => new(SHA256.HashData(Encoding.UTF8.GetBytes(value)).AsSpan(0, 16));
     internal static string Key(Guid accountId, string folderId, string itemId) => accountId.ToString("N") + "/" + Uri.EscapeDataString(folderId) + "/" + Uri.EscapeDataString(itemId);
@@ -83,25 +85,77 @@ internal static partial class EasDataMapper
         return MimeMessage.Load(stream);
     }
 
-    internal static NewMailItemPackage Mail(MimeMessage message, MailItemFolder folder, string remoteId, XElement data)
+    /// <summary>
+    /// Builds the message row from the Email, Email2 and AirSyncBase fields of a Sync item, as the EWS synchronizer
+    /// builds it from item properties. The MIME is not part of synchronization; it is fetched when the message opens.
+    /// </summary>
+    internal static NewMailItemPackage Mail(MailItemFolder folder, string remoteId, XElement data)
     {
-        XNamespace email = "Email:";
-        var sender = message.From.Mailboxes.FirstOrDefault() ?? message.Sender;
         var key = Key(folder.MailAccountId, folder.RemoteFolderId, remoteId);
         var copy = new MailCopy
         {
             UniqueId = StableId(key), Id = key, FolderId = folder.Id, AssignedFolder = folder,
-            FileId = StableId(key + "/mime"), Subject = message.Subject ?? string.Empty,
-            FromAddress = sender?.Address ?? string.Empty, FromName = sender?.Name ?? sender?.Address ?? string.Empty,
-            MessageId = message.MessageId ?? string.Empty, ThreadId = message.References.FirstOrDefault() ?? message.InReplyTo ?? message.MessageId ?? key,
-            References = string.Join(';', message.References), InReplyTo = message.InReplyTo ?? string.Empty,
-            CreationDate = Date(Value(data, email, "DateReceived")) ?? (message.Date == default ? DateTime.UtcNow : message.Date.UtcDateTime),
-            PreviewText = message.TextBody ?? message.Subject ?? string.Empty, IsRead = Value(data, email, "Read") == "1",
-            IsFlagged = Value(data.Element(email + "Flag") ?? new XElement("Empty"), email, "Status") == "2",
-            HasAttachments = message.Attachments.Any(), IsDraft = folder.SpecialFolderType == SpecialFolderType.Draft,
-            Importance = Value(data, email, "Importance") switch { "2" => MailImportance.High, "0" => MailImportance.Low, _ => MailImportance.Normal }
+            FileId = StableId(key + "/mime"), MessageId = string.Empty, References = string.Empty, InReplyTo = string.Empty,
+            IsDraft = folder.SpecialFolderType == SpecialFolderType.Draft
         };
-        return new NewMailItemPackage(copy, message, folder.RemoteFolderId);
+        ApplyMailFields(copy, data);
+        return new NewMailItemPackage(copy, null, folder.RemoteFolderId);
+    }
+
+    /// <summary>Copies the fields a Sync item carries onto a message row; fields the item does not carry are left as they are.</summary>
+    internal static void ApplyMailFields(MailCopy copy, XElement data)
+    {
+        if (data.Element(Email + "Subject") is XElement subject)
+            copy.Subject = subject.Value;
+        if (data.Element(Email + "From") is XElement from)
+        {
+            var sender = InternetAddressList.TryParse(from.Value, out var list) ? list.Mailboxes.FirstOrDefault() : null;
+            copy.FromAddress = sender?.Address ?? from.Value;
+            copy.FromName = string.IsNullOrWhiteSpace(sender?.Name) ? copy.FromAddress : sender.Name;
+        }
+        if (data.Element(Email + "DateReceived") != null)
+            copy.CreationDate = Date(Value(data, Email, "DateReceived")) ?? (copy.CreationDate == default ? DateTime.UtcNow : copy.CreationDate);
+        else if (copy.CreationDate == default)
+            copy.CreationDate = DateTime.UtcNow;
+        if (data.Element(Email + "Read") != null)
+            copy.IsRead = Value(data, Email, "Read") == "1";
+        if (data.Element(Email + "Flag") is XElement flag)
+            copy.IsFlagged = Value(flag, Email, "Status") == "2";
+        if (data.Element(Email + "Importance") != null)
+            copy.Importance = Value(data, Email, "Importance") switch { "2" => MailImportance.High, "0" => MailImportance.Low, _ => MailImportance.Normal };
+        if (data.Element(Email + "MessageClass") is XElement messageClass)
+            copy.ItemType = ExchangeSynchronizer.MapItemType(messageClass.Value);
+        if (data.Element(Email2 + "ConversationId") is XElement conversation && !string.IsNullOrEmpty(conversation.Value))
+            copy.ThreadId = conversation.Value;
+        if (data.Element(Body + "Attachments") is XElement attachments)
+            copy.HasAttachments = attachments.Elements(Body + "Attachment").Any(attachment => Value(attachment, Body, "IsInline") != "1");
+        if (data.Element(Body + "Body") is XElement body)
+        {
+            var preview = body.Element(Body + "Preview")?.Value ?? (Value(body, Body, "Type") == "1" ? body.Element(Body + "Data")?.Value : null);
+            if (preview != null)
+                copy.PreviewText = Preview(preview);
+        }
+    }
+
+    private static string Preview(string text)
+    {
+        var builder = new StringBuilder(Math.Min(text.Length, 256));
+        var space = false;
+        foreach (var character in text)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                space = builder.Length > 0;
+                continue;
+            }
+            if (space)
+                builder.Append(' ');
+            space = false;
+            builder.Append(character);
+            if (builder.Length >= 255)
+                break;
+        }
+        return builder.ToString();
     }
 
     internal static AccountContact ReadContact(XElement data, Guid accountId, Guid bookId, string remoteId)

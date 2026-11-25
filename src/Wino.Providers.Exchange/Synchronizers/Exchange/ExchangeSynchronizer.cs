@@ -686,7 +686,7 @@ IExchangeAuthenticator exchangeAuthenticator,
     }
 
     /// <summary>The mail item type of a message class (the MS-OXOCAL meeting classes), plain mail otherwise.</summary>
-    private static MailItemType MapItemType(string? itemClass)
+    internal static MailItemType MapItemType(string? itemClass)
     {
         if (string.IsNullOrEmpty(itemClass))
             return MailItemType.Mail;

@@ -408,7 +408,6 @@ internal sealed class EasClient : IDisposable
         if (_version == null)
             await ConnectAsync(cancellationToken).ConfigureAwait(false);
         XNamespace sync = "AirSync:";
-        XNamespace body = "AirSyncBase:";
         var collection = new XElement(sync + "Collection",
             new XElement(sync + "SyncKey", syncKey),
             new XElement(sync + "CollectionId", folderId));
@@ -421,11 +420,7 @@ internal sealed class EasClient : IDisposable
             collection.Add(new XElement(sync + "DeletesAsMoves", "1"),
                 new XElement(sync + "GetChanges", "1"),
                 new XElement(sync + "WindowSize", "100"),
-                new XElement(sync + "Options",
-                    new XElement(sync + "Conflict", "0"),
-                    new XElement(body + "BodyPreference", new XElement(body + "Type", itemClass == "Email" ? "4" : "1"))));
-            if (itemClass == "Email")
-                collection.Element(sync + "Options")!.Add(new XElement(sync + "MIMESupport", "2"), new XElement(sync + "MIMETruncation", "8"));
+                new XElement(sync + "Options", new XElement(sync + "Conflict", "0"), BodyPreference(itemClass)));
         }
 
         if (commands != null)
@@ -445,6 +440,20 @@ internal sealed class EasClient : IDisposable
             RequireSuccess(operation);
 
         return result;
+    }
+
+    /// <summary>
+    /// Mail is synchronized without its MIME: 14.0 and later return only a 255-character preview, 12.x a plain-text
+    /// body cut to the same length. The full message is fetched with ItemOperations when it opens.
+    /// </summary>
+    private XElement BodyPreference(string itemClass)
+    {
+        XNamespace body = "AirSyncBase:";
+        if (itemClass != "Email")
+            return new XElement(body + "BodyPreference", new XElement(body + "Type", "1"));
+        return IsAtLeast("14.0")
+            ? new XElement(body + "BodyPreference", new XElement(body + "Type", "2"), new XElement(body + "TruncationSize", "0"), new XElement(body + "Preview", "255"))
+            : new XElement(body + "BodyPreference", new XElement(body + "Type", "1"), new XElement(body + "TruncationSize", "255"));
     }
 
     internal async Task<XElement> FetchAsync(string folderId, string serverId, CancellationToken cancellationToken)

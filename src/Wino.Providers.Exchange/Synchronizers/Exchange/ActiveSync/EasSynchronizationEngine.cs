@@ -889,42 +889,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
         switch (ItemClass(state.Type))
         {
             case "Email":
-                var folder = await _folders.GetFolderAsync(id).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS mail folder is missing.");
-                var existing = await _mail.GetSingleMailItemAsync(EasDataMapper.Key(_account.Id, state.ServerId, remoteId), state.ServerId).ConfigureAwait(false);
-                var cutoff = _account.InitialSynchronizationRange.ToCutoffDateUtc(_account.CreatedAt ?? DateTime.UtcNow);
-                XNamespace emailFields = "Email:";
-                var received = EasDataMapper.Date(EasDataMapper.Value(data, emailFields, "DateReceived"));
-                if (existing == null && cutoff.HasValue && received.HasValue && received.Value < cutoff.Value)
-                    break;
-                var body = data.Element(EasDataMapper.Body + "Body");
-                if (existing != null && body == null)
-                {
-                    XNamespace email = "Email:";
-                    if (data.Element(email + "Read") != null)
-                        await _mail.ChangeReadStatusAsync(existing.Id, EasDataMapper.Value(data, email, "Read") == "1").ConfigureAwait(false);
-                    if (data.Element(email + "Flag") is XElement flag)
-                        await _mail.ChangeFlagStatusAsync(existing.Id, EasDataMapper.Value(flag, email, "Status") == "2").ConfigureAwait(false);
-                    break;
-                }
-                if (body == null || EasDataMapper.Value(body, EasDataMapper.Body, "Type") != "4" || EasDataMapper.Value(body, EasDataMapper.Body, "Truncated") == "1")
-                {
-                    var fetched = await _client.FetchAsync(state.ServerId, remoteId, cancellationToken).ConfigureAwait(false);
-                    data = Merge(data.ToString(SaveOptions.DisableFormatting), fetched);
-                }
-                var package = EasDataMapper.Mail(EasDataMapper.ReadMime(data), folder, remoteId, data);
-                if (existing == null && cutoff.HasValue && package.Copy.CreationDate < cutoff.Value)
-                    break;
-                if (existing == null)
-                {
-                    if (!await _mail.CreateMailAsync(_account.Id, package).ConfigureAwait(false))
-                        throw new IOException("The EAS message could not be persisted.");
-                    downloaded.Add(package.Copy);
-                }
-                else
-                {
-                    package.Copy.UniqueId = existing.UniqueId; package.Copy.FileId = existing.FileId;
-                    await _mail.UpdateMailAsync(package.Copy).ConfigureAwait(false);
-                }
+                await ProjectMailAsync(state, remoteId, data, downloaded).ConfigureAwait(false);
                 break;
             case "Contacts":
                 var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).First(item => item.RemoteId == EasDataMapper.ProviderId(state.ServerId) && item.SourceKind == ContactSourceKind.Exchange);
@@ -1015,6 +980,40 @@ internal sealed class EasSynchronizationEngine : IDisposable
                     await _calendars.DeleteCalendarItemAsync(stale.Id).ConfigureAwait(false);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Stores a message from its Sync fields. A new message older than the account's synchronization range is skipped;
+    /// a known message takes only the fields the item carries, so local state such as pinning is kept.
+    /// </summary>
+    private async Task ProjectMailAsync(EasCollection state, string remoteId, XElement data, List<MailCopy> downloaded)
+    {
+        var key = EasDataMapper.Key(_account.Id, state.ServerId, remoteId);
+        var existing = await _mail.GetSingleMailItemAsync(key, state.ServerId).ConfigureAwait(false);
+        if (existing != null)
+        {
+            var wasRead = existing.IsRead;
+            var wasFlagged = existing.IsFlagged;
+            EasDataMapper.ApplyMailFields(existing, data);
+            if (data.Elements().Any(element => element.Name != EasDataMapper.Email + "Read" && element.Name != EasDataMapper.Email + "Flag"))
+                await _mail.UpdateMailAsync(existing).ConfigureAwait(false);
+            else
+            {
+                if (existing.IsRead != wasRead)
+                    await _mail.ChangeReadStatusAsync(existing.Id, existing.IsRead).ConfigureAwait(false);
+                if (existing.IsFlagged != wasFlagged)
+                    await _mail.ChangeFlagStatusAsync(existing.Id, existing.IsFlagged).ConfigureAwait(false);
+            }
+            return;
+        }
+
+        var folder = await _folders.GetFolderAsync(state.Id).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS mail folder is missing.");
+        var package = EasDataMapper.Mail(folder, remoteId, data);
+        var cutoff = _account.InitialSynchronizationRange.ToCutoffDateUtc(_account.CreatedAt ?? DateTime.UtcNow);
+        if (cutoff.HasValue && package.Copy.CreationDate < cutoff.Value)
+            return;
+        if (await _mail.CreateMailAsync(_account.Id, package).ConfigureAwait(false))
+            downloaded.Add(package.Copy);
     }
 
     private async Task DeleteProjectionAsync(EasCollection state, string remoteId)
