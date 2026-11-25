@@ -35,9 +35,8 @@ internal static class WinoContextFlyoutHelper
         FrameworkElement target,
         Point position,
         IReadOnlyList<ContextFlyoutMenuEntry> items,
-        FlyoutPlacementMode placement = FlyoutPlacementMode.BottomEdgeAlignedLeft,
-        ElementTheme menuTheme = ElementTheme.Default)
-        => new WinoContextFlyout { ItemsSource = items, MenuTheme = menuTheme }.ShowAt(target, CreatePointerAlignedOptions(position, placement));
+        FlyoutPlacementMode placement = FlyoutPlacementMode.BottomEdgeAlignedLeft)
+        => new WinoContextFlyout { ItemsSource = items }.ShowAt(target, CreatePointerAlignedOptions(position, placement));
 
     public static FlyoutShowOptions CreatePointerAlignedOptions(
         Point position,

@@ -422,7 +422,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             AutomationId = "MailRenderingSelectAll"
         });
 
-        WinoContextFlyoutHelper.Show(_mailView, new Windows.Foundation.Point(request.ViewPoint.X, request.ViewPoint.Y), entries, menuTheme: MailRendererHost.ActualTheme);
+        EngineContextMenu.Show(_mailView, new Windows.Foundation.Point(request.ViewPoint.X, request.ViewPoint.Y), entries, MailRendererHost.ActualTheme);
     }
 
     private static async Task CopyImageToClipboardAsync(MailResource image)

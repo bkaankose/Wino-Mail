@@ -12,7 +12,7 @@ using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.ActionCards;
-using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Rendering;
 using Wino.Renderer;
 using Wino.Renderer.Policy;
 using Wino.Renderer.Primitives;
@@ -56,7 +56,7 @@ public sealed partial class MailRenderingPage
             return;
 
         e.Handled = true;
-        WinoContextFlyoutHelper.Show(_mailView, position, CreateDateEntries(date), menuTheme: MailRendererHost.ActualTheme);
+        EngineContextMenu.Show(_mailView, position, CreateDateEntries(date), MailRendererHost.ActualTheme);
     }
 
     private List<ContextFlyoutMenuEntry> CreateDateEntries(MailDetectedDate date)

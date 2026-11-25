@@ -9,9 +9,7 @@ using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Editor;
-using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
-using Wino.Mail.WinUI.Helpers;
 using Wino.Renderer;
 using Wino.Renderer.Editing;
 
@@ -115,9 +113,7 @@ public sealed partial class EngineMailEditorView
             "EditorContextSelectAll",
             shortcut: new ContextFlyoutShortcut("Ctrl+A", "A", Control: true)));
 
-        new WinoContextFlyout { ItemsSource = entries.ToArray(), MenuTheme = IsEditorDarkMode ? ElementTheme.Dark : ElementTheme.Light }.ShowAt(
-            _view,
-            WinoContextFlyoutHelper.CreatePointerAlignedOptions(new Point(request.ViewPoint.X, request.ViewPoint.Y)));
+        EngineContextMenu.Show(_view, new Point(request.ViewPoint.X, request.ViewPoint.Y), entries, IsEditorDarkMode ? ElementTheme.Dark : ElementTheme.Light);
     }
 
     private ContextFlyoutCommandEntry CreateEntry(
