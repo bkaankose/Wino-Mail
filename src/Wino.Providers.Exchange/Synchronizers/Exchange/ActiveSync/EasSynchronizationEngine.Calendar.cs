@@ -185,11 +185,19 @@ internal sealed partial class EasSynchronizationEngine
             }
 
             var responseName = command.Name.LocalName;
-            var result = await SendCommandsAsync(state, new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("The EAS collection is not synchronized yet.");
-            // The server has moved to the new key even when the item itself failed.
-            await SaveKeyAsync(state, result).ConfigureAwait(false);
-            var response = result.Element(sync + "Responses")?.Element(sync + responseName);
+            XElement? result = null;
+            var response = operation == "Add" ? await TakeAnswerAsync(state, mutation.ClientId).ConfigureAwait(false) : null;
+            if (response == null)
+            {
+                // What the stored copy becomes if this request has to be sent again after its response was lost.
+                var effects = operation == "Add" ? null
+                    : new[] { new EasCommandEffect(mutation.RemoteId, operation == "Delete" && mutation.InstanceKey == null, updated) };
+                result = await SendCommandsAsync(state, new XElement(sync + "Commands", command), cancellationToken, effects: effects).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("The EAS collection is not synchronized yet.");
+                // The server has moved to the new key even when the item itself failed.
+                await SaveKeyAsync(state, result).ConfigureAwait(false);
+                response = result.Element(sync + "Responses")?.Element(sync + responseName);
+            }
             if (response != null)
                 RequireItemSuccess(response);
             else if (operation == "Add")
@@ -203,8 +211,11 @@ internal sealed partial class EasSynchronizationEngine
 
             if (mutation.Persist != null)
                 await mutation.Persist(resultId).ConfigureAwait(false);
-            var unknown = await ApplyPageAsync(state, result, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
-            await FetchUnknownAsync(state, unknown, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            if (result != null)
+            {
+                var unknown = await ApplyPageAsync(state, result, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+                await FetchUnknownAsync(state, unknown, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            }
 
             var key = EasDataMapper.Key(_account.Id, folderId, resultId);
             if (operation == "Delete" && mutation.InstanceKey == null)

@@ -373,6 +373,8 @@ public class AccountService : BaseDatabaseService, IAccountService
             transaction.Execute("UPDATE MailItemFolder SET DeltaToken = NULL, EasSyncGeneration = '' WHERE MailAccountId = ?", accountId);
             transaction.Execute("DELETE FROM EasItemShadow WHERE AccountId = ?", accountId);
             transaction.Execute("DELETE FROM EasCollectionState WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasPendingSync WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasClientAnswer WHERE AccountId = ?", accountId);
         }).ConfigureAwait(false);
 
         await DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.ExpiredCache).ConfigureAwait(false);
@@ -704,6 +706,8 @@ public class AccountService : BaseDatabaseService, IAccountService
         transaction.Execute("DELETE FROM ItemLink WHERE SourceAccountId = ? OR TargetAccountId = ?", accountId, accountId);
         transaction.Execute("DELETE FROM EasItemShadow WHERE AccountId = ?", accountId);
         transaction.Execute("DELETE FROM EasCollectionState WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM EasPendingSync WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM EasClientAnswer WHERE AccountId = ?", accountId);
     }
 
     private static bool UsesOAuth(CustomServerInformation serverInformation)

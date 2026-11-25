@@ -205,11 +205,18 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 var itemClass = ItemClass(state.Type);
                 command.Add(itemClass is "Email" or "Contacts" ? data : itemClass == "Tasks" ? EasDataMapper.ForTaskChange(Merge(shadow?.ApplicationData, data)) : Merge(shadow?.ApplicationData, data));
             }
-            var result = await SendCommandsAsync(state, new XElement(sync + "Commands", command), cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("The EAS collection is not synchronized yet.");
-            // The server has moved to the new key even when the item itself failed.
-            await SaveKeyAsync(state, result).ConfigureAwait(false);
-            var response = result.Element(sync + "Responses")?.Element(sync + operation);
+            XElement? result = null;
+            var response = operation == "Add" ? await TakeAnswerAsync(state, clientId).ConfigureAwait(false) : null;
+            if (response == null)
+            {
+                var effects = data == null || operation != "Change" ? null
+                    : new[] { new EasCommandEffect(remoteId, false, Merge((await _database.Connection.FindAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, folderId, remoteId)).ConfigureAwait(false))?.ApplicationData, data)) };
+                result = await SendCommandsAsync(state, new XElement(sync + "Commands", command), cancellationToken, effects: effects).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("The EAS collection is not synchronized yet.");
+                // The server has moved to the new key even when the item itself failed.
+                await SaveKeyAsync(state, result).ConfigureAwait(false);
+                response = result.Element(sync + "Responses")?.Element(sync + operation);
+            }
             if (response != null)
                 RequireItemSuccess(response);
             else if (operation == "Add")
@@ -221,8 +228,11 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             // Persist acknowledged mutations before projecting server echoes, while the gate is held.
             if (persistMutation != null)
                 await persistMutation(resultId).ConfigureAwait(false);
-            var unknown = await ApplyPageAsync(state, result, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
-            await FetchUnknownAsync(state, unknown, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            if (result != null)
+            {
+                var unknown = await ApplyPageAsync(state, result, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+                await FetchUnknownAsync(state, unknown, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
+            }
             if (operation == "Delete")
                 await _database.Connection.DeleteAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, folderId, resultId)).ConfigureAwait(false);
             else if (data != null)
@@ -260,6 +270,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         try
         {
             var state = await GetCollectionAsync(folderId).ConfigureAwait(false);
+            if (state.SyncKey != "0")
+                await ReplayPendingAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
             if (state.SyncKey == "0")
                 await SynchronizeCollectionAsync(state, new List<MailCopy>(), cancellationToken).ConfigureAwait(false);
 
@@ -294,8 +306,19 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         CancellationToken cancellationToken)
     {
         var sync = EasDataMapper.Sync;
+        var answered = new Dictionary<EasMutation, EasMutationResult>(ReferenceEqualityComparer.Instance);
+        foreach (var add in mutations.Where(mutation => mutation.Operation == EasItemOperation.Add))
+        {
+            if (await TakeAnswerAsync(state, add.Id).ConfigureAwait(false) is not { } answer)
+                continue;
+            var result = new EasMutationResult(add, StatusOf(answer) ?? "missing", answer.Element(sync + "ServerId")?.Value, answer.Element(sync + "ApplicationData"));
+            answered[add] = result;
+            if (result.Succeeded && !string.IsNullOrEmpty(result.ServerId) && add.Data != null)
+                await WriteShadowAsync(state, result.ServerId, add.Data).ConfigureAwait(false);
+        }
+
         var results = new List<EasMutationResult>(mutations.Count);
-        foreach (var chunk in mutations.Chunk(MutationBatchSize))
+        foreach (var chunk in mutations.Where(mutation => !answered.ContainsKey(mutation)).Chunk(MutationBatchSize))
         {
             var commands = new XElement(sync + "Commands", chunk.Select(mutation => mutation.ToCommand()));
             var response = await SendCommandsAsync(state, commands, cancellationToken, getChanges: false, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
@@ -323,7 +346,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                     await WriteShadowAsync(state, serverId, mutation.Data).ConfigureAwait(false);
             }
         }
-        return results;
+        return answered.Count == 0 ? results
+            : mutations.Select(mutation => answered.TryGetValue(mutation, out var answer) ? answer : results.First(result => ReferenceEquals(result.Mutation, mutation))).ToList();
     }
 
     /// <summary>
@@ -907,21 +931,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     {
         var sync = EasDataMapper.Sync;
         var recovered = false;
-        if (ItemClass(state.Type) == "Calendar" && state.SyncKey != "0" && string.IsNullOrEmpty(state.Generation))
-        {
-            var shadows = await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false);
-            var duplicateClientIds = shadows.Select(shadow => EasDataMapper.ClientEventId(Parse(shadow.ApplicationData)))
-                .OfType<Guid>().GroupBy(id => id).Where(group => group.Skip(1).Any()).Select(group => group.Key);
-            foreach (var clientId in duplicateClientIds)
-            {
-                var local = await _database.Connection.FindAsync<CalendarItem>(clientId).ConfigureAwait(false);
-                if (local?.CalendarId == state.Id)
-                {
-                    state.SyncKey = "0";
-                    break;
-                }
-            }
-        }
+        if (state.SyncKey != "0")
+            await ReplayPendingAsync(state, downloaded, cancellationToken).ConfigureAwait(false);
         if (state.SyncKey == "0" && !await HandshakeAsync(state, cancellationToken).ConfigureAwait(false))
             return;
 
@@ -1009,6 +1020,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             await DeleteProjectionAsync(state, shadow.RemoteId).ConfigureAwait(false);
         if (state.IsMail)
             await _mail.DeleteMailsAsync(_account.Id, await ServerMailIdsAsync(state.Id).ConfigureAwait(false)).ConfigureAwait(false);
+        await _database.Connection.ExecuteAsync("DELETE FROM EasClientAnswer WHERE CollectionId = ?", state.Id).ConfigureAwait(false);
         state.SyncKey = "0";
         state.Generation = string.Empty;
         await SaveSyncStateAsync(state).ConfigureAwait(false);
@@ -1022,11 +1034,11 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     /// state.
     /// </summary>
     private async Task<XElement?> SendCommandsAsync(EasCollection state, XElement commands, CancellationToken cancellationToken,
-        bool getChanges = true, bool deletesAsMoves = true)
+        bool getChanges = true, bool deletesAsMoves = true, IReadOnlyList<EasCommandEffect>? effects = null)
     {
         try
         {
-            return await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: getChanges, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
+            return await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: getChanges, deletesAsMoves: deletesAsMoves, effects: effects).ConfigureAwait(false);
         }
         catch (EasCommandException exception) when (exception.Status == "3")
         {
@@ -1037,7 +1049,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 return null;
             if (!_client.IsAtLeast("16.1") && commands.Elements().Any(command => command.Name.LocalName != "Add"))
                 throw;
-            return await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: getChanges, deletesAsMoves: deletesAsMoves).ConfigureAwait(false);
+            return await SyncWithRecoveryAsync(state, state.SyncKey, commands, cancellationToken, getChanges: getChanges, deletesAsMoves: deletesAsMoves, effects: effects).ConfigureAwait(false);
         }
     }
 
@@ -1050,14 +1062,14 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     /// Status 3 is recovered by the callers. Null means the collection is gone after the hierarchy was read.
     /// </summary>
     private async Task<XElement?> SyncWithRecoveryAsync(EasCollection state, string syncKey, XElement? commands, CancellationToken cancellationToken,
-        int windowSize = DefaultWindowSize, bool getChanges = true, bool deletesAsMoves = true)
+        int windowSize = DefaultWindowSize, bool getChanges = true, bool deletesAsMoves = true, IReadOnlyList<EasCommandEffect>? effects = null)
     {
         var hierarchyRead = false;
         for (var attempt = 0; ; attempt++)
         {
             try
             {
-                return await _client.SyncAsync(state.ServerId, syncKey, ItemClass(state.Type), commands, cancellationToken, windowSize, getChanges, deletesAsMoves).ConfigureAwait(false);
+                return await SendSyncAsync(state, syncKey, commands, windowSize, getChanges, deletesAsMoves, effects, cancellationToken).ConfigureAwait(false);
             }
             catch (EasCommandException exception) when (exception.Status is "12" or "8" && !hierarchyRead)
             {
@@ -1076,6 +1088,180 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             }
         }
+    }
+
+    private const int LostResponseResends = 2;
+
+    /// <summary>
+    /// Sends one Sync request. A request with commands is stored before it is sent and stays stored until the key of
+    /// its response is saved (<see cref="SaveSyncStateAsync"/>). When the response is lost (the connection failed or
+    /// timed out after the request went out), the same request with the same key is sent again, twice at most here;
+    /// after that it stays stored and is sent again before anything else goes to the collection
+    /// (<see cref="ReplayPendingAsync"/>). The server recognizes the repeated request and answers it as the first time.
+    /// A collection status error means the server applied nothing, so the stored request is dropped.
+    /// </summary>
+    private async Task<XElement> SendSyncAsync(EasCollection state, string syncKey, XElement? commands, int windowSize, bool getChanges, bool deletesAsMoves,
+        IReadOnlyList<EasCommandEffect>? effects, CancellationToken cancellationToken)
+    {
+        if (commands == null)
+            return await _client.SyncAsync(state.ServerId, syncKey, ItemClass(state.Type), null, cancellationToken, windowSize, getChanges, deletesAsMoves).ConfigureAwait(false);
+
+        await _database.Connection.InsertOrReplaceAsync(new EasPendingSync
+        {
+            CollectionId = state.Id, AccountId = _account.Id, SyncKey = syncKey, Commands = commands.ToString(SaveOptions.DisableFormatting),
+            GetChanges = getChanges, DeletesAsMoves = deletesAsMoves, WindowSize = windowSize, Effects = EasCommandEffect.Write(effects)
+        }, typeof(EasPendingSync)).ConfigureAwait(false);
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await _client.SyncAsync(state.ServerId, syncKey, ItemClass(state.Type), commands, cancellationToken, windowSize, getChanges, deletesAsMoves).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (attempt < LostResponseResends && IsLostResponse(exception, cancellationToken))
+            {
+                Serilog.Log.Warning(exception, "EAS collection {Collection} for {Account}: no response to a Sync with changes; sending the same request again.",
+                    state.Name, _account.Address);
+                await Task.Delay(TimeSpan.FromSeconds(1 << attempt), cancellationToken).ConfigureAwait(false);
+            }
+            catch (EasCommandException)
+            {
+                await _database.Connection.DeleteAsync<EasPendingSync>(state.Id).ConfigureAwait(false);
+                throw;
+            }
+        }
+    }
+
+    /// <summary>The request went out and no answer came back: the connection failed or the HTTP timeout ended it.</summary>
+    private static bool IsLostResponse(Exception exception, CancellationToken cancellationToken)
+        => !cancellationToken.IsCancellationRequested && exception switch
+        {
+            System.Net.Http.HttpRequestException { StatusCode: null } => true,
+            TaskCanceledException { InnerException: TimeoutException } => true,
+            EasCommandException or EasServerBusyException or EasResponseTooLargeException => false,
+            IOException => true,
+            _ => false
+        };
+
+    /// <summary>
+    /// Sends a stored request whose response never arrived, unchanged and with its key, before anything else goes to the
+    /// collection, then applies the answer: changes and deletions the server accepted are applied to the stored copy as
+    /// the request's own effects describe, fetched items are stored, and the answers to additions are kept by ClientId
+    /// until the operation that owns the item asks again (<see cref="TakeAnswerAsync"/>), so it is not added twice. A
+    /// stored request for an older key was answered and its key saved; it is dropped.
+    /// </summary>
+    private async Task ReplayPendingAsync(EasCollection state, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        var pending = await _database.Connection.FindAsync<EasPendingSync>(state.Id).ConfigureAwait(false);
+        if (pending == null)
+            return;
+        if (pending.SyncKey != state.SyncKey)
+        {
+            await _database.Connection.DeleteAsync<EasPendingSync>(state.Id).ConfigureAwait(false);
+            return;
+        }
+
+        Serilog.Log.Information("EAS collection {Collection} for {Account}: sending again the request whose response was lost.", state.Name, _account.Address);
+        var commands = Parse(pending.Commands);
+        var effects = EasCommandEffect.Read(pending.Effects);
+        XElement? response;
+        try
+        {
+            response = await SyncWithRecoveryAsync(state, pending.SyncKey, commands, cancellationToken, pending.WindowSize, pending.GetChanges, pending.DeletesAsMoves, effects).ConfigureAwait(false);
+        }
+        catch (EasCommandException exception) when (exception.Status == "3")
+        {
+            await DiscardClientCopyAsync(state).ConfigureAwait(false);
+            state.SyncKey = "0";
+            await SaveSyncStateAsync(state).ConfigureAwait(false);
+            return;
+        }
+        if (response == null)
+            return;
+
+        var unknown = await ApplyPageAsync(state, response, downloaded, cancellationToken).ConfigureAwait(false);
+        await ApplyReplayedCommandsAsync(state, commands, effects, response, downloaded, cancellationToken).ConfigureAwait(false);
+        await SaveKeyAsync(state, response).ConfigureAwait(false);
+        await FetchUnknownAsync(state, unknown, downloaded, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ApplyReplayedCommandsAsync(EasCollection state, XElement commands, IReadOnlyList<EasCommandEffect> effects, XElement response,
+        List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        var sync = EasDataMapper.Sync;
+        var answers = response.Element(sync + "Responses")?.Elements().ToList() ?? new List<XElement>();
+        foreach (var command in commands.Elements())
+        {
+            var operation = command.Name.LocalName;
+            if (operation == "Add")
+            {
+                var clientId = command.Element(sync + "ClientId")?.Value ?? string.Empty;
+                var answer = answers.FirstOrDefault(element => element.Name.LocalName == "Add" && element.Element(sync + "ClientId")?.Value == clientId);
+                if (answer == null)
+                    continue;
+                await _database.Connection.InsertOrReplaceAsync(new EasClientAnswer
+                {
+                    Id = EasDataMapper.Key(_account.Id, state.ServerId, clientId), AccountId = _account.Id, CollectionId = state.Id, ClientId = clientId,
+                    Status = StatusOf(answer) ?? "missing", ServerId = answer.Element(sync + "ServerId")?.Value ?? string.Empty,
+                    ApplicationData = answer.Element(sync + "ApplicationData")?.ToString(SaveOptions.DisableFormatting) ?? string.Empty
+                }, typeof(EasClientAnswer)).ConfigureAwait(false);
+                continue;
+            }
+
+            var remoteId = command.Element(sync + "ServerId")?.Value;
+            if (string.IsNullOrEmpty(remoteId))
+                continue;
+            var reply = answers.FirstOrDefault(element => element.Name.LocalName == operation && element.Element(sync + "ServerId")?.Value == remoteId);
+            if (operation == "Fetch")
+            {
+                if (reply != null)
+                    await ProjectFetchedAsync(state, reply, downloaded, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+            // No answer for a Change or Delete means the server applied it.
+            if ((reply == null ? "1" : StatusOf(reply)) != "1")
+                continue;
+
+            var effect = effects.FirstOrDefault(item => item.ServerId == remoteId);
+            try
+            {
+                if (operation == "Delete" && effect?.Deletes != false)
+                    await DeleteProjectionAsync(state, remoteId).ConfigureAwait(false);
+                else if (operation is "Change" or "Delete")
+                {
+                    var shadow = await _database.Connection.FindAsync<EasItemShadow>(EasDataMapper.Key(_account.Id, state.ServerId, remoteId)).ConfigureAwait(false);
+                    if (shadow == null)
+                        continue;
+                    var data = effect?.Data ?? (ItemClass(state.Type) == "Email"
+                        ? new XElement(command.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData"))
+                        : Merge(shadow.ApplicationData, command.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData")));
+                    await ProjectAsync(state, remoteId, data, downloaded, cancellationToken, isChange: true).ConfigureAwait(false);
+                    await WriteShadowAsync(state, remoteId, data).ConfigureAwait(false);
+                }
+            }
+            catch (Exception exception) when (IsItemFailure(exception, cancellationToken))
+            {
+                _itemFailed(state, remoteId, exception);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The server's answer to an addition with <paramref name="clientId"/> that reached it in a request sent again after
+    /// its response was lost, as a Responses Add element; null when there is none. It is consumed.
+    /// </summary>
+    private async Task<XElement?> TakeAnswerAsync(EasCollection state, string clientId)
+    {
+        var key = EasDataMapper.Key(_account.Id, state.ServerId, clientId);
+        var answer = await _database.Connection.FindAsync<EasClientAnswer>(key).ConfigureAwait(false);
+        if (answer == null)
+            return null;
+        await _database.Connection.DeleteAsync<EasClientAnswer>(key).ConfigureAwait(false);
+        var sync = EasDataMapper.Sync;
+        var element = new XElement(sync + "Add", new XElement(sync + "ClientId", clientId), new XElement(sync + "ServerId", answer.ServerId),
+            new XElement(sync + "Status", answer.Status));
+        if (!string.IsNullOrEmpty(answer.ApplicationData))
+            element.Add(Parse(answer.ApplicationData));
+        return element;
     }
 
     private async Task<bool> IsCollectionKnownAsync(EasCollection state) => state.IsMail
@@ -1204,32 +1390,36 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 return;
             await SaveKeyAsync(state, response).ConfigureAwait(false);
             foreach (var fetch in response.Element(sync + "Responses")?.Elements(sync + "Fetch") ?? Enumerable.Empty<XElement>())
-            {
-                var remoteId = fetch.Element(sync + "ServerId")?.Value;
-                if (string.IsNullOrEmpty(remoteId))
-                    continue;
-                var status = StatusOf(fetch);
-                if (status != "1")
-                {
-                    Serilog.Log.Information("EAS collection {Collection} for {Account}: fetching changed item {RemoteId} returned status {Status}; it is not stored.",
-                        state.Name, _account.Address, remoteId, status ?? "missing");
-                    continue;
-                }
-
-                XElement? data = null;
-                try
-                {
-                    data = await MergeWithShadowAsync(state, remoteId, fetch.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData")).ConfigureAwait(false);
-                    await ProjectAsync(state, remoteId, data, downloaded, cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception exception) when (IsItemFailure(exception, cancellationToken))
-                {
-                    _itemFailed(state, remoteId, exception);
-                }
-                if (data != null)
-                    await WriteShadowAsync(state, remoteId, data).ConfigureAwait(false);
-            }
+                await ProjectFetchedAsync(state, fetch, downloaded, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private async Task ProjectFetchedAsync(EasCollection state, XElement fetch, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        var sync = EasDataMapper.Sync;
+        var remoteId = fetch.Element(sync + "ServerId")?.Value;
+        if (string.IsNullOrEmpty(remoteId))
+            return;
+        var status = StatusOf(fetch);
+        if (status != "1")
+        {
+            Serilog.Log.Information("EAS collection {Collection} for {Account}: fetching changed item {RemoteId} returned status {Status}; it is not stored.",
+                state.Name, _account.Address, remoteId, status ?? "missing");
+            return;
+        }
+
+        XElement? data = null;
+        try
+        {
+            data = await MergeWithShadowAsync(state, remoteId, fetch.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData")).ConfigureAwait(false);
+            await ProjectAsync(state, remoteId, data, downloaded, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (IsItemFailure(exception, cancellationToken))
+        {
+            _itemFailed(state, remoteId, exception);
+        }
+        if (data != null)
+            await WriteShadowAsync(state, remoteId, data).ConfigureAwait(false);
     }
 
     private async Task<XElement> MergeWithShadowAsync(EasCollection state, string remoteId, XElement incoming)
@@ -1385,6 +1575,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
     private async Task RemoveCollectionAsync(EasCollection state)
     {
+        await _database.Connection.DeleteAsync<EasPendingSync>(state.Id).ConfigureAwait(false);
+        await _database.Connection.ExecuteAsync("DELETE FROM EasClientAnswer WHERE CollectionId = ?", state.Id).ConfigureAwait(false);
         var shadows = await _database.Connection.Table<EasItemShadow>().Where(shadow => shadow.CollectionId == state.Id).ToListAsync().ConfigureAwait(false);
         foreach (var shadow in shadows)
             await DeleteProjectionAsync(state, shadow.RemoteId).ConfigureAwait(false);
@@ -1454,9 +1646,14 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         await SaveSyncStateAsync(state).ConfigureAwait(false);
     }
 
-    private Task SaveSyncStateAsync(EasCollection state) => state.IsMail
-        ? _database.Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = ?, EasSyncGeneration = ? WHERE Id = ?", state.SyncKey, state.Generation, state.Id)
-        : _database.Connection.ExecuteAsync("UPDATE EasCollectionState SET SyncKey = ?, Generation = ? WHERE Id = ?", state.SyncKey, state.Generation, state.Id);
+    /// <summary>Stores the collection's key; a stored request sent with an older key has been answered and is dropped.</summary>
+    private async Task SaveSyncStateAsync(EasCollection state)
+    {
+        await (state.IsMail
+            ? _database.Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = ?, EasSyncGeneration = ? WHERE Id = ?", state.SyncKey, state.Generation, state.Id)
+            : _database.Connection.ExecuteAsync("UPDATE EasCollectionState SET SyncKey = ?, Generation = ? WHERE Id = ?", state.SyncKey, state.Generation, state.Id)).ConfigureAwait(false);
+        await _database.Connection.ExecuteAsync("DELETE FROM EasPendingSync WHERE CollectionId = ? AND SyncKey <> ?", state.Id, state.SyncKey).ConfigureAwait(false);
+    }
 
     internal static XElement Merge(string? previous, XElement incoming)
     {
