@@ -1266,7 +1266,7 @@
   "AccountDetailsPage_ExchangeSignInDescription": "This account signs in on your organization's sign-in page. Sign in again when the sign-in expires.",
   "AccountDetailsPage_ExchangeSignInUnavailable": "This account signs in on your organization's sign-in page, which Wino can't open on this device yet, so it can't sign in again here.",
   "AccountDetailsPage_ExchangeTransportChangeTitle": "Change the connection method?",
-  "AccountDetailsPage_ExchangeTransportChangeMessage": "MAPI over HTTP and Exchange Web Services identify mail differently, so Wino downloads this account's mail again after the change.",
+  "AccountDetailsPage_ExchangeTransportChangeMessage": "Each connection method identifies mail differently, so Wino downloads this account's mail again after the change. Your folders and their settings are kept.",
   "AccountDetailsPage_ExchangeTransportSaved": "Wino uses the new connection method from the next synchronization.",
   "ProviderDetail_IMAP_Title": "IMAP / SMTP Server",
   "ProviderDetail_Yahoo_Description": "Yahoo Account",
