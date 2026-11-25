@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Wino.Renderer;
+using Wino.Renderer.Primitives;
 using Wino.Renderer.Theme;
 
 namespace Wino.Mail.Rendering;
@@ -57,11 +58,17 @@ public sealed class EngineReaderPresentation
         FontSizePx = fontSize is > 0 and < 200 ? (float)fontSize : DefaultFontSizePx;
     }
 
+    // Found dates are marked like Outlook marks them: a dashed blue line, which reads as neither a link nor a spelling mark.
+    private static readonly Rgba FoundItemLineLight = new(15, 108, 189, 255);
+    private static readonly Rgba FoundItemLineDark = new(71, 158, 245, 255);
+
     public ThemeOptions CreateTheme() => new()
     {
         IsDark = IsDark,
         Method = Method,
-        ForcedColors = IsHighContrast
+        ForcedColors = IsHighContrast,
+        HighlightUnderlineColor = IsDark ? FoundItemLineDark : FoundItemLineLight,
+        HighlightUnderlineDashed = true
     };
 
     /// <summary>The system's font scale (Android, iOS Dynamic Type): the mail's text is zoomed by it. 1 on Windows.</summary>
