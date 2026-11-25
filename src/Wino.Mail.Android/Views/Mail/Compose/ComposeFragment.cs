@@ -438,6 +438,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         var editor = _editor = new EngineMailEditorSession(_web, _dispatcher ?? services.GetRequiredService<IDispatcher>(),
             services.GetRequiredService<MailEngineHost>(), services.GetRequiredService<IMailDialogService>());
         viewModel.DraftChecks = editor;
+        _web.ContextMenuRequested += (_, request) => ShowEditorMenu(request);
         editor.ContentChanged += (_, _) => _dispatcher?.ExecuteOnUIThread(ScheduleAutosave);
         editor.StateChanged += (_, state) => _dispatcher?.ExecuteOnUIThread(() => UpdateFormatState(state));
         editor.ShortcutRequested += (_, kind) =>

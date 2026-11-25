@@ -10,7 +10,7 @@ using PopupMenu = AndroidX.AppCompat.Widget.PopupMenu;
 namespace Wino.Mail.Android.Rendering;
 
 /// <summary>One row of an engine menu. A null row in the list is a separator.</summary>
-internal sealed record EngineMenuEntry(string Text, WinoIconGlyph Icon, Action Run, bool IsEnabled = true, string? AutomationId = null);
+internal sealed record EngineMenuEntry(string Text, WinoIconGlyph? Icon, Action Run, bool IsEnabled = true, string? AutomationId = null);
 
 /// <summary>
 /// The menu over a mail view in the reader and the composer (Windows EngineContextMenu): a popup drawn in the theme of
@@ -37,7 +37,7 @@ internal static class EngineContextMenu
             if (rows[index] is not { } row) continue;
             var item = popup.Menu.Add(0, index, index, row.Text);
             item.SetEnabled(row.IsEnabled);
-            item.SetIcon(WinoIcons.Drawable(themed, row.Icon, 20, WinoColors.PrimaryText(themed)));
+            if (row.Icon is { } glyph) item.SetIcon(WinoIcons.Drawable(themed, glyph, 20, WinoColors.PrimaryText(themed)));
         }
 
         popup.MenuItemClick += (_, args) =>
