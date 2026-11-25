@@ -1,5 +1,6 @@
 #if DEBUG
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -165,6 +166,27 @@ internal static class SettingsDebug
                 result = match.AccessibilityActivate() ? "ok" : "not activatable";
             });
             return result;
+        });
+
+        UIKitDebugBridge.Register("pref", args =>
+        {
+            if (args.Length == 0) return Task.FromResult("usage: pref NAME [true|false]");
+            var prefs = services.GetRequiredService<IPreferencesService>();
+            var property = typeof(IPreferencesService).GetProperty(args[0]);
+            if (property is null) return Task.FromResult("no preference " + args[0]);
+            if (args.Length > 1) property.SetValue(prefs, bool.Parse(args[1]));
+            return Task.FromResult($"{args[0]}={property.GetValue(prefs)}");
+        });
+        UIKitDebugBridge.Register("cert-trust", args =>
+        {
+            var answer = args.Length == 0 ? null : args[0].ToLowerInvariant() switch
+            {
+                "yes" => (bool?)true,
+                "no" => false,
+                _ => null
+            };
+            UIKitDialogService.DebugCertificateTrustAnswer = answer;
+            return Task.FromResult("certificate answer " + (answer?.ToString() ?? "asks"));
         });
 
         UIKitDebugBridge.Register("dialog", args =>

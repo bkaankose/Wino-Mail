@@ -18,7 +18,17 @@ public sealed partial class UIKitDialogService
 {
     /// <summary>Fails closed: Cancel, swiping the sheet away or no window answers false.</summary>
     public Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt)
-        => PresentAsync(presenter => new ServerCertificateTrustSheet(prompt).PresentAsync(presenter), false);
+    {
+#if DEBUG
+        if (DebugCertificateTrustAnswer is { } answer) return Task.FromResult(answer);
+#endif
+        return PresentAsync(presenter => new ServerCertificateTrustSheet(prompt).PresentAsync(presenter), false);
+    }
+
+#if DEBUG
+    /// <summary>Debug builds only: the lab's certificate answers without the sheet when the bridge's cert-trust command set it.</summary>
+    public static bool? DebugCertificateTrustAnswer { get; set; }
+#endif
 
     /// <summary>The secret goes straight back to the caller; nothing here logs or keeps it. Null when cancelled.</summary>
     public Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request)
