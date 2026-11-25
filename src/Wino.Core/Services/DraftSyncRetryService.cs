@@ -50,8 +50,7 @@ public class DraftSyncRetryService : IDraftSyncRetryService
 
     public async Task<bool> QueueEligibleRetriesAsync(Guid accountId, IWinoSynchronizerBase synchronizer)
     {
-        // ActiveSync keeps drafts local by design, so they are never retried against the server.
-        if (synchronizer == null || synchronizer.Account.UsesActiveSync)
+        if (synchronizer == null)
             return false;
 
         var queuedAny = false;
@@ -76,7 +75,7 @@ public class DraftSyncRetryService : IDraftSyncRetryService
 
     public async Task RetryNowAsync(MailCopy draftCopy)
     {
-        if (draftCopy?.AssignedAccount == null || !draftCopy.IsLocalDraft || draftCopy.AssignedAccount.UsesActiveSync)
+        if (draftCopy?.AssignedAccount == null || !draftCopy.IsLocalDraft)
             return;
 
         var synchronizer = await _synchronizerFactory

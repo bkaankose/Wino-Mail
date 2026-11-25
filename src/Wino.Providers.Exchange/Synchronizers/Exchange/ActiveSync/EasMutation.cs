@@ -12,6 +12,8 @@ internal enum EasItemOperation
 /// <summary>One Sync command. <see cref="Id"/> is the ClientId of an Add and the ServerId of a Change or Delete.</summary>
 internal sealed record EasMutation(EasItemOperation Operation, string Id, XElement? Data = null)
 {
+    internal static EasMutation Add(string clientId, XElement data) => new(EasItemOperation.Add, clientId, data);
+
     internal static EasMutation Change(string serverId, XElement data) => new(EasItemOperation.Change, serverId, data);
 
     internal static EasMutation Delete(string serverId) => new(EasItemOperation.Delete, serverId);
@@ -27,8 +29,11 @@ internal sealed record EasMutation(EasItemOperation Operation, string Id, XEleme
     }
 }
 
-/// <summary>The server's answer to one command; <see cref="ServerId"/> is the new item's id for an Add.</summary>
-internal sealed record EasMutationResult(EasMutation Mutation, string Status, string? ServerId)
+/// <summary>
+/// The server's answer to one command; <see cref="ServerId"/> is the new item's id for an Add, and
+/// <see cref="Data"/> the application data the server returns with it (for mail, its ConversationId).
+/// </summary>
+internal sealed record EasMutationResult(EasMutation Mutation, string Status, string? ServerId, XElement? Data = null)
 {
     internal bool Succeeded => Status == "1";
 

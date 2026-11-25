@@ -44,10 +44,6 @@ public class MailAccount
     /// </summary>
     public MailProviderType ProviderType { get; set; }
 
-    [Ignore]
-    public bool UsesActiveSync => ProviderType == MailProviderType.Exchange &&
-        ServerInformation?.EffectiveExchangeTransport == ExchangeTransport.ActiveSync;
-
     /// <summary>
     /// For tracking mail change delta.
     /// Gmail  : historyId

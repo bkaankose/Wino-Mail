@@ -65,6 +65,16 @@ internal sealed class EasSynchronizationEngine : IDisposable
     internal async Task<bool> IsProtocol16Async(CancellationToken cancellationToken)
         => Version.Parse(await GetProtocolVersionAsync(cancellationToken).ConfigureAwait(false)) >= new Version(16, 0);
 
+    /// <summary>
+    /// Whether the server keeps drafts, which needs 16.0. The version stored by an earlier session answers it, so a
+    /// draft save does not wait for a connection.
+    /// </summary>
+    internal async Task<bool> SupportsServerDraftsAsync(CancellationToken cancellationToken)
+    {
+        var version = await _client.GetKnownVersionAsync().ConfigureAwait(false) ?? await GetProtocolVersionAsync(cancellationToken).ConfigureAwait(false);
+        return Version.TryParse(version, out var parsed) && parsed >= new Version(16, 0);
+    }
+
     /// <summary>The negotiated MS-ASProtocolVersion; connects first when no request has been made yet.</summary>
     internal async Task<string> GetProtocolVersionAsync(CancellationToken cancellationToken)
     {
@@ -269,7 +279,7 @@ internal sealed class EasSynchronizationEngine : IDisposable
                         element.Element(sync + (mutation.Operation == EasItemOperation.Add ? "ClientId" : "ServerId"))?.Value == mutation.Id);
                     var status = answer?.Element(sync + "Status")?.Value ?? (mutation.Operation == EasItemOperation.Add ? "missing" : "1");
                     var serverId = mutation.Operation == EasItemOperation.Add ? answer?.Element(sync + "ServerId")?.Value : mutation.Id;
-                    var result = new EasMutationResult(mutation, status, serverId);
+                    var result = new EasMutationResult(mutation, status, serverId, answer?.Element(sync + "ApplicationData"));
                     results.Add(result);
 
                     if (mutation.Operation == EasItemOperation.Delete && (result.Succeeded || result.IsNotFound) ||

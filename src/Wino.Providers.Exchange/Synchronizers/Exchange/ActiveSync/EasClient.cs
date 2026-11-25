@@ -65,6 +65,15 @@ internal sealed class EasClient : IDisposable
     /// <summary>The negotiated MS-ASProtocolVersion, or null before the first request.</summary>
     internal string? ProtocolVersion => _version;
 
+    /// <summary>The negotiated version, else the one stored by an earlier session, so the check needs no request.</summary>
+    internal async Task<string?> GetKnownVersionAsync()
+    {
+        if (_version != null)
+            return _version;
+        var stored = (await EnsureStateAsync().ConfigureAwait(false)).ProtocolVersion;
+        return string.IsNullOrEmpty(stored) ? null : stored;
+    }
+
     internal string? DeviceId => _state?.DeviceId;
 
     internal string? PolicyKey => _state?.PolicyKey;
