@@ -19,6 +19,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Messaging.Server;
 using Wino.Core.Domain.Messaging.UI;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.Extensions;
@@ -28,6 +29,7 @@ using Wino.Core.Requests.Bundles;
 using Wino.Providers.Exchange.Interfaces;
 using Wino.Providers.Exchange.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
+using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
@@ -56,17 +58,19 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
     private readonly LocalCalendarOperationHandler _localCalendar;
     private readonly IExchangeSynchronizerErrorHandlerFactory _errorHandlerFactory;
     private readonly IAccountService _accounts;
+    private readonly IMailCategoryService _mailCategories;
 
     internal ActiveSyncExchangeSynchronizer(MailAccount account, IMessenger messenger, RequestUiChangeCoordinator uiChanges,
         IDatabaseService database, IAccountService accounts,
         IFolderService folders, IMailService mail, ICalendarService calendars, IContactService contacts, ITaskService tasks,
         IMimeFileService mime, IPictureStorageService pictures, ICalDavChangeProcessor changeProcessor, string applicationDataFolder,
-        IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory, EasClient? client = null)
+        IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory, IMailCategoryService mailCategories, EasClient? client = null)
         : base(account, messenger, uiChanges)
     {
         _errorHandlerFactory = errorHandlerFactory;
         _accounts = accounts;
-        _engine = new EasSynchronizationEngine(account, database, accounts, folders, mail, calendars, contacts, tasks, pictures,
+        _mailCategories = mailCategories;
+        _engine = new EasSynchronizationEngine(account, database, accounts, folders, mail, calendars, contacts, tasks, pictures, mailCategories,
             () => Messenger.Send(new AccountFolderConfigurationUpdated(account.Id)), ReportCollectionFailure, ReportItemFailure, client);
         _mail = mail; _folders = folders; _contacts = contacts; _tasks = tasks; _calendars = calendars; _mime = mime;
         _pictures = pictures;
@@ -144,6 +148,10 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
     }
 
     protected override bool SerializeMailOperations => true;
+
+    // A Search result names the item by LongId only, and nothing maps a LongId to the Sync ServerId the stored rows are
+    // keyed by (MS-ASCMD 2.2.3.155.3, 2.2.3.98.3), so results cannot be matched to stored mail.
+    public override bool SupportsOnlineSearch => false;
     public override uint BatchModificationSize => 100;
     public override uint InitialMessageDownloadCountPerFolder => 100;
 
@@ -287,8 +295,14 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
     }
 
+    protected override Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
+        => _mail.MarkDraftSyncFailedAsync(mailUniqueId, error);
+
     private async Task HandleFailedRequestAsync(IRequestBundle<EwsRequest> bundle, Exception exception, List<string> errors)
     {
+        if (bundle.Request is CreateDraftRequest createDraftRequest)
+            await _mail.MarkDraftSyncFailedAsync(createDraftRequest.Item.UniqueId, exception.Message).ConfigureAwait(false);
+
         var error = new SynchronizerErrorContext
         {
             Account = Account,
@@ -367,6 +381,44 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         (_, id) => EasMutation.Delete(id),
         request => _mail.DeleteMailAsync(Account.Id, request.Item.Id), deletesAsMoves: false, token,
         request => _mail.DiscardLocalDraftAsync(Account.Id, request.Item.UniqueId)), requests.FirstOrDefault(), requests);
+
+    public override List<IRequestBundle<EwsRequest>> UpdateCategories(BatchMailCategoryAssignmentRequest requests) => Bundle(token =>
+        WriteMailCategoriesAsync(requests.Select(request => (request.Item, request.CategoryNames)).ToList(), token), requests.FirstOrDefault(), requests);
+
+    // ActiveSync has no category list to rename or delete in; the mails that carry the category by name are rewritten.
+    public override List<IRequestBundle<EwsRequest>> UpdateCategory(MailCategoryUpdateRequest request)
+        => RewriteCategoryMessages(request.AffectedMessages, request);
+
+    public override List<IRequestBundle<EwsRequest>> DeleteCategory(MailCategoryDeleteRequest request)
+        => RewriteCategoryMessages(request.AffectedMessages, request);
+
+    private List<IRequestBundle<EwsRequest>> RewriteCategoryMessages(IReadOnlyList<MailCategoryMessageUpdateTarget>? targets, CategoryRequestBase request)
+    {
+        if (targets == null || targets.Count == 0)
+            return [];
+        return Bundle(async token =>
+        {
+            var names = targets.GroupBy(target => target.MessageId, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.Last().CategoryNames, StringComparer.Ordinal);
+            var mails = await _mail.GetMailItemsAsync(names.Keys).ConfigureAwait(false);
+            await WriteMailCategoriesAsync(mails.Where(mail => names.ContainsKey(mail.Id)).Select(mail => (mail, names[mail.Id])).ToList(), token).ConfigureAwait(false);
+        }, request, request);
+    }
+
+    /// <summary>
+    /// A Change that carries only Categories replaces the message's categories and leaves its other properties as they
+    /// are ([MS-ASCMD] 2.2.3.24, [MS-ASEMAIL] 2.2.2.16). Email Categories exist from protocol 14.0.
+    /// </summary>
+    private async Task WriteMailCategoriesAsync(IReadOnlyList<(MailCopy Item, IReadOnlyList<string> Names)> changes, CancellationToken cancellationToken)
+    {
+        if (changes.Count == 0)
+            return;
+        if (Version.Parse(await _engine.GetProtocolVersionAsync(cancellationToken).ConfigureAwait(false)) < new Version(14, 0))
+            throw new NotSupportedException(string.Format(Wino.Core.Domain.Translator.Exception_UnsupportedSynchronizerOperation, GetType()));
+        await MutateMailAsync(changes,
+            change => change.Item,
+            (change, id) => EasMutation.Change(id, EasDataMapper.WriteMailCategories(change.Names ?? Array.Empty<string>())),
+            change => _mailCategories.ReplaceMailAssignmentsAsync(Account.Id, change.Item.UniqueId, change.Names ?? Array.Empty<string>()), deletesAsMoves: true, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Sends the requests as one batched Sync per folder and stores each result as the server answers it. An item the
@@ -616,7 +668,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             {
                 var categoryBook = (await _contacts.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).First(book => book.Id == categories.AddressBookId);
                 await _engine.MutateAsync(EasDataMapper.ServerId(categoryBook.RemoteId), "Change", EasDataMapper.ServerId(categories.Contact.RemoteId),
-                    new XElement(EasDataMapper.Sync + "ApplicationData", new XElement(EasDataMapper.Contact + "Categories",
+                    EasDataMapper.ContactChange(categories.Contact, new XElement(EasDataMapper.Contact + "Categories",
                         categories.CategoryNames.Select(name => new XElement(EasDataMapper.Contact + "Category", name)))), string.Empty, cancellationToken).ConfigureAwait(false);
                 await _contacts.SetContactCategoriesAsync(categories.LocalContactId, categories.CategoryNames).ConfigureAwait(false);
                 continue;
@@ -626,11 +678,11 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
 
             var book = (await _contacts.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).First(book => book.Id == action.AddressBookId);
             var operation = action.Operation switch { ContactSynchronizerOperation.Create => "Add", ContactSynchronizerOperation.Delete => "Delete", _ => "Change" };
-            var data = operation == "Delete" ? null : EasDataMapper.WriteContact(action.Contact);
-            if (operation == "Change" && action.OriginalContact != null && data != null)
-                data = EasDataMapper.ChangedFields(data, EasDataMapper.WriteContact(action.OriginalContact));
+            var data = operation == "Delete" ? null
+                : operation == "Change" && action.OriginalContact != null ? EasDataMapper.ForContactChange(action.Contact, action.OriginalContact)
+                : EasDataMapper.WriteContact(action.Contact);
             if (action.Operation is ContactSynchronizerOperation.SetPhoto or ContactSynchronizerOperation.DeletePhoto)
-                data = new XElement(EasDataMapper.Sync + "ApplicationData", new XElement(EasDataMapper.Contact + "Picture",
+                data = EasDataMapper.ContactChange(action.Contact, new XElement(EasDataMapper.Contact + "Picture",
                     action.Operation == ContactSynchronizerOperation.SetPhoto ? Convert.ToBase64String(action.Photo) : string.Empty));
             async Task PersistContactAsync(string remoteId)
             {
@@ -685,9 +737,9 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             var list = await _tasks.GetTaskListAsync(action.Task.TaskListId).ConfigureAwait(false) ?? throw new InvalidOperationException("The EAS task list is missing.");
             var operation = action.Operation switch { TaskSynchronizerOperation.CreateTask => "Add", TaskSynchronizerOperation.UpdateTask => "Change",
                 TaskSynchronizerOperation.DeleteTask => "Delete", _ => throw new NotSupportedException("This EAS task operation is not supported.") };
-            var data = operation == "Delete" ? null : EasDataMapper.WriteTask(action.Task, clearDueDate: action.OriginalTask?.DueDate != null);
+            var data = operation == "Delete" ? null : EasDataMapper.WriteTask(action.Task, forChange: operation == "Change");
             if (operation == "Change" && action.OriginalTask != null && data != null)
-                data = EasDataMapper.ChangedFields(data, EasDataMapper.WriteTask(action.OriginalTask));
+                data = EasDataMapper.ChangedFields(data, EasDataMapper.WriteTask(action.OriginalTask, forChange: true));
             await _engine.MutateAsync(EasDataMapper.ServerId(list.RemoteId), operation, EasDataMapper.ServerId(action.Task.RemoteId),
                 data, action.Task.Id.ToString("N"), cancellationToken, async remoteId =>
                 {
@@ -706,14 +758,17 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             await _localCalendar.CreateCalendarEventAsync(request).ConfigureAwait(false);
             return;
         }
-        if (request.ComposeResult.Attachments?.Count > 0)
-            throw new NotSupportedException("EAS event attachments are not supported yet.");
         var isProtocol16 = await _engine.IsProtocol16Async(token).ConfigureAwait(false);
+        var hasAttachments = request.ComposeResult.Attachments?.Count > 0;
+        if (hasAttachments)
+            RequireAttachmentSupport(isProtocol16);
         RequireMeetingSupport(isProtocol16, HasAttendees(request.PreparedEvent.Attendees));
         var data = EasDataMapper.WriteEvent(request.PreparedItem, request.PreparedEvent.Attendees, request.PreparedEvent.Reminders, isProtocol16);
         // 16.x generates the UID itself and takes the client's id as ClientUid.
         data.Add(new XElement(EasDataMapper.Calendar + (isProtocol16 ? "ClientUid" : "UID"), request.PreparedItem.Id.ToString("N")));
-        await _engine.MutateEventAsync(request.AssignedCalendar.RemoteCalendarId, new EasEventMutation("Add", string.Empty, data, request.PreparedItem.Id.ToString("N"),
+        if (hasAttachments)
+            data.Add(EasDataMapper.AttachmentChanges([], await ExchangeCalendarAttachments.ReadAsync(request.ComposeResult.Attachments, token).ConfigureAwait(false)));
+        await _engine.MutateEventAsync(EasDataMapper.ServerIdOf(request.AssignedCalendar.RemoteCalendarId), new EasEventMutation("Add", string.Empty, data, request.PreparedItem.Id.ToString("N"), ChangesAttachments: hasAttachments,
             Persist: async id =>
             {
                 var trackedId = id.WithClientTrackingId(request.PreparedItem.Id);
@@ -740,9 +795,8 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             await _localCalendar.UpdateCalendarEventAsync(request).ConfigureAwait(false);
             return;
         }
-        if (request.Attachments?.Count > 0)
-            throw new NotSupportedException("EAS event attachments are not supported yet.");
         var calendar = await _calendars.GetAccountCalendarAsync(request.Item.CalendarId).ConfigureAwait(false);
+        var attachmentPlan = ExchangeCalendarAttachments.Plan(await _calendars.GetAttachmentsAsync(request.Item.Id).ConfigureAwait(false), request.Attachments);
         var attendees = request.Attendees ?? await _calendars.GetAttendeesAsync(request.Item.Id).ConfigureAwait(false);
         var reminders = request.Reminders ?? await _calendars.GetRemindersAsync(request.Item.Id).ConfigureAwait(false);
         var isProtocol16 = await _engine.IsProtocol16Async(token).ConfigureAwait(false);
@@ -756,7 +810,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             ?? throw new InvalidOperationException(Wino.Core.Domain.Translator.ExchangeSetup_ActiveSyncItemRequiresSync);
         // An edit that keeps the event's zone writes back the zone the server holds, which no system zone may match.
         var serverTimeZone = request.Item.StartTimeZone == stored.StartTimeZone
-            ? await _engine.GetStoredTimeZoneAsync(calendar.RemoteCalendarId, seriesId).ConfigureAwait(false) : null;
+            ? await _engine.GetStoredTimeZoneAsync(EasDataMapper.ServerIdOf(calendar.RemoteCalendarId), seriesId).ConfigureAwait(false) : null;
         var data = EasDataMapper.WriteEvent(request.Item, sendsAttendees ? attendees : null, reminders, isProtocol16, serverTimeZone);
         if (isProtocol16)
         {
@@ -766,8 +820,16 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
                 await _calendars.GetRemindersAsync(stored.Id).ConfigureAwait(false), isProtocol16, serverTimeZone);
             data = EasDataMapper.ChangedFields(data, original);
         }
-        await _engine.MutateEventAsync(calendar.RemoteCalendarId, new EasEventMutation("Change",
-            seriesId, data, InstanceKey: occurrence?.InstanceKey,
+        var changesAttachments = false;
+        if (attachmentPlan is { IsEmpty: false } plan)
+        {
+            RequireAttachmentSupport(isProtocol16);
+            data.Add(EasDataMapper.AttachmentChanges(plan.Removed.Select(attachment => attachment.RemoteAttachmentId),
+                await ExchangeCalendarAttachments.ReadAsync(plan.Added, token).ConfigureAwait(false)));
+            changesAttachments = true;
+        }
+        await _engine.MutateEventAsync(EasDataMapper.ServerIdOf(calendar.RemoteCalendarId), new EasEventMutation("Change",
+            seriesId, data, InstanceKey: occurrence?.InstanceKey, ChangesAttachments: changesAttachments,
             Persist: async _ =>
             {
                 await _calendars.UpdateCalendarItemAsync(request.Item, attendees).ConfigureAwait(false);
@@ -776,6 +838,17 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
     }, request, request);
 
     public override List<IRequestBundle<EwsRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request) => UpdateCalendarEvent(request);
+
+    /// <summary>Downloads an event attachment by its FileReference with ItemOperations (MS-ASCMD 2.2.1.10).</summary>
+    public override async Task DownloadCalendarAttachmentAsync(CalendarItem calendarItem, CalendarAttachment attachment, string localFilePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(attachment);
+        if (string.IsNullOrEmpty(attachment.RemoteAttachmentId))
+            throw new InvalidOperationException("The attachment has no ActiveSync file reference.");
+
+        var content = await _engine.FetchAttachmentContentAsync(attachment.RemoteAttachmentId, cancellationToken).ConfigureAwait(false);
+        await File.WriteAllBytesAsync(localFilePath, content, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>Deletes an event or one occurrence. On 16.x the server cancels the meeting for its attendees when the organizer deletes it.</summary>
     public override List<IRequestBundle<EwsRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request) => Bundle(async token =>
@@ -790,7 +863,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
             RequireMeetingSupport(await _engine.IsProtocol16Async(token).ConfigureAwait(false),
                 HasAttendees(await _calendars.GetAttendeesAsync(request.Item.Id).ConfigureAwait(false)));
         var occurrence = request.Item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(request.Item.RemoteEventId) : null;
-        await _engine.MutateEventAsync(calendar.RemoteCalendarId, new EasEventMutation("Delete",
+        await _engine.MutateEventAsync(EasDataMapper.ServerIdOf(calendar.RemoteCalendarId), new EasEventMutation("Delete",
             occurrence?.SeriesId ?? request.Item.RemoteEventId.GetProviderRemoteEventId(), null, InstanceKey: occurrence?.InstanceKey), token).ConfigureAwait(false);
     }, request, request);
 
@@ -810,7 +883,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         RequireMeetingSupport(await _engine.IsProtocol16Async(token).ConfigureAwait(false), true);
         var calendar = await _calendars.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
         var occurrence = item.IsRecurringChild ? EasDataMapper.SplitOccurrenceId(item.RemoteEventId) : null;
-        await _engine.RespondToMeetingAsync(calendar.RemoteCalendarId, occurrence?.SeriesId ?? item.RemoteEventId.GetProviderRemoteEventId(),
+        await _engine.RespondToMeetingAsync(EasDataMapper.ServerIdOf(calendar.RemoteCalendarId), occurrence?.SeriesId ?? item.RemoteEventId.GetProviderRemoteEventId(),
             occurrence?.InstanceKey, response, message, token).ConfigureAwait(false);
 
         var stored = await _calendars.GetCalendarItemAsync(item.Id).ConfigureAwait(false);
@@ -837,6 +910,13 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
 
     private static bool HasAttendees(IEnumerable<CalendarEventAttendee>? attendees)
         => attendees?.Any(attendee => !attendee.IsOrganizer && !string.IsNullOrWhiteSpace(attendee.Email)) == true;
+
+    /// <summary>Calendar items carry attachments, and a client adds or deletes them, only in 16.0 and 16.1 (MS-ASCAL, MS-ASAIRS 2.2.2.2).</summary>
+    private static void RequireAttachmentSupport(bool isProtocol16)
+    {
+        if (!isProtocol16)
+            throw new NotSupportedException("Event attachments need ActiveSync 16.0 or later.");
+    }
 
     /// <summary>
     /// Below 16.0 the server neither sends invitations, updates and cancellations nor delivers meeting answers, so a
@@ -866,4 +946,7 @@ internal sealed partial class ActiveSyncExchangeSynchronizer : WinoSynchronizer<
         await CloseChangeListenerAsync().ConfigureAwait(false);
         _engine.Dispose();
     }
+
+    /// <summary>ActiveSync keeps no session on the server; ending the pending Ping is all there is to release.</summary>
+    public override Task ReleaseServerSessionsAsync(CancellationToken cancellationToken) => KillSynchronizerAsync();
 }

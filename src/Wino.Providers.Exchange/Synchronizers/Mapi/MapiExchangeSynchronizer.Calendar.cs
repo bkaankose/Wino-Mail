@@ -62,6 +62,7 @@ public sealed partial class MapiExchangeSynchronizer
                 foreach (var row in rows.Where(r => r.IsAppointment))
                 {
                     await ReadAttendeesIfMeetingAsync(session, folderId, row, cancellationToken).ConfigureAwait(false);
+                    await ReadAttachmentsAsync(session, folderId, row, tags, cancellationToken).ConfigureAwait(false);
 
                     // The master goes first so its occurrences can link to it.
                     if (MapiCalendarExpander.Master(row) is { } master)
@@ -132,8 +133,69 @@ public sealed partial class MapiExchangeSynchronizer
     }
 
     /// <summary>
-    /// Reconciles the calendar folders. Rows that still carry an EWS id from before the transport changed are re-keyed in
-    /// place (the primary to the default calendar, others by name) so colours and sync preferences survive the switch.
+    /// The appointment's file attachments, read only when PidTagHasAttachments says it has any, and the files of the
+    /// series' changed occurrences whose ExceptionInfo says they have their own. A read that fails leaves them null, so
+    /// the stored ones stay as they are.
+    /// </summary>
+    private async Task ReadAttachmentsAsync(MapiSession session, ulong folderId, MapiAppointmentInfo row, MapiCalendarTags tags, CancellationToken cancellationToken)
+    {
+        if (!row.HasAttachments)
+        {
+            row.Attachments = [];
+            return;
+        }
+
+        try
+        {
+            row.Attachments = await MapiAppointmentAttachments.ReadAsync(session, folderId, row.MessageId, cancellationToken).ConfigureAwait(false);
+            if (row.Recurrence?.Exceptions.Any(exception => exception.HasAttachments == true) == true)
+                row.ExceptionAttachments = await MapiAppointmentAttachments.ReadExceptionsAsync(session, folderId, row.MessageId, tags.ExceptionReplaceTime, cancellationToken).ConfigureAwait(false);
+        }
+        catch (MapiException ex)
+        {
+            Logger.Warning(ex, "MAPI calendar {Account}: attachments of 0x{Id:X16} not read.", Account.Address, row.MessageId);
+        }
+    }
+
+    /// <summary>Stores the attachments the server now holds for the event, once a write that changed them succeeded.</summary>
+    private async Task StoreMapiAttachmentsAsync(MapiSession session, ulong folderId, ulong messageId, Guid calendarItemId, CancellationToken cancellationToken)
+    {
+        var attachments = await MapiAppointmentAttachments.ReadAsync(session, folderId, messageId, cancellationToken).ConfigureAwait(false);
+        await ExchangeChangeProcessor.SaveCalendarAttachmentsAsync(calendarItemId, MapiCalendarExpander.MapAttachments(attachments) ?? []).ConfigureAwait(false);
+    }
+
+    private static List<MapiOutgoingAttachment> ToOutgoingAttachments(IEnumerable<ExchangeAttachmentContent> files)
+        => files.Select(file => new MapiOutgoingAttachment(file.FileName, file.ContentType, file.Content, null, false)).ToList();
+
+    /// <summary>Downloads one file attachment of the appointment, or of the series an occurrence belongs to (MS-OXCMSG PidTagAttachDataBinary).</summary>
+    public override async Task DownloadCalendarAttachmentAsync(CalendarItem calendarItem, CalendarAttachment attachment, string localFilePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(calendarItem);
+        ArgumentNullException.ThrowIfNull(attachment);
+        var remoteId = attachment.RemoteAttachmentId ?? string.Empty;
+        var separator = remoteId.IndexOf(MapiCalendarExpander.ExceptionAttachmentSeparator);
+        uint? exceptionNumber = null;
+        if (separator > 0 && uint.TryParse(remoteId.AsSpan(0, separator), NumberStyles.None, CultureInfo.InvariantCulture, out var parsedException))
+        {
+            exceptionNumber = parsedException;
+            remoteId = remoteId[(separator + 1)..];
+        }
+
+        if (!uint.TryParse(remoteId, NumberStyles.None, CultureInfo.InvariantCulture, out var attachNumber))
+            throw new InvalidOperationException("The attachment is not addressable over MAPI until the next calendar sync.");
+
+        var (folderId, messageId) = TryParseOccurrenceId(calendarItem.AssignedCalendar, calendarItem, out var seriesFolderId, out var masterId, out _)
+            ? (seriesFolderId, masterId)
+            : RequireAppointmentIds(calendarItem.AssignedCalendar, calendarItem);
+
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+        var content = await MapiAppointmentAttachments.ReadContentAsync(lease.Session, folderId, messageId, attachNumber, exceptionNumber, cancellationToken).ConfigureAwait(false);
+        await System.IO.File.WriteAllBytesAsync(localFilePath, content, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reconciles the calendar folders. Rows another transport stored are re-keyed in place first (EWS rows by entry id,
+    /// ActiveSync rows by role and title) so colours and sync preferences survive the switch.
     /// A calendar without a remote id is a local calendar the account kept; it is left alone.
     /// </summary>
     private async Task SynchronizeMapiCalendarsAsync(MapiSession session, CancellationToken cancellationToken)
@@ -142,8 +204,27 @@ public sealed partial class MapiExchangeSynchronizer
         var defaultFolderId = await MapiCalendarOperations.FindCalendarFolderIdAsync(session, logon.InboxFolderId, cancellationToken).ConfigureAwait(false);
         var hierarchy = await MapiFolderOperations.ReadHierarchyAsync(session, logon.IpmSubtreeFolderId, cancellationToken, Diagnostics).ConfigureAwait(false);
 
+        var parents = hierarchy
+            .GroupBy(folder => folder.FolderId)
+            .ToDictionary(group => group.Key, group => group.First().ParentFolderId);
+
+        // Deleted Items sits in the IPM subtree; a calendar moved there is deleted and is not listed, as task folders.
+        bool IsDiscarded(ulong folderId)
+        {
+            for (var depth = 0; depth < 64; depth++)
+            {
+                if (folderId == logon.DeletedItemsFolderId)
+                    return true;
+                if (!parents.TryGetValue(folderId, out var parent))
+                    return false;
+                folderId = parent;
+            }
+
+            return false;
+        }
+
         var remote = new Dictionary<ulong, string>();
-        foreach (var folder in hierarchy.Where(f => string.Equals(f.ContainerClass, PropertyTags.CalendarContainerClass, StringComparison.OrdinalIgnoreCase)))
+        foreach (var folder in hierarchy.Where(f => string.Equals(f.ContainerClass, PropertyTags.CalendarContainerClass, StringComparison.OrdinalIgnoreCase) && !IsDiscarded(f.FolderId)))
             remote[folder.FolderId] = string.IsNullOrWhiteSpace(folder.DisplayName) ? Translator.AccountDetailsPage_TabCalendar : folder.DisplayName;
 
         if (defaultFolderId is { } primary && !remote.ContainsKey(primary))
@@ -153,29 +234,8 @@ public sealed partial class MapiExchangeSynchronizer
             .Where(c => !string.IsNullOrWhiteSpace(c.RemoteCalendarId))
             .ToList();
 
-        foreach (var calendar in local.Where(c => !TryParseMapiId(c.RemoteCalendarId, out _)).ToList())
-        {
-            ulong? target = null;
-            if (calendar.IsPrimary && defaultFolderId is { } primaryId)
-            {
-                target = primaryId;
-            }
-            else
-            {
-                // Otherwise by name, skipping folders another row has already claimed.
-                var byName = remote.FirstOrDefault(r => string.Equals(r.Value, calendar.Name, StringComparison.OrdinalIgnoreCase)
-                                                        && !local.Any(l => l.RemoteCalendarId == ToMapiId(r.Key))).Key;
-                if (byName != 0)
-                    target = byName;
-            }
-
-            if (target is { } folderId && !local.Any(l => l.RemoteCalendarId == ToMapiId(folderId)))
-            {
-                Logger.Information("MAPI calendar {Account}: re-keying '{Name}' from its EWS id to 0x{Folder:X16}.", Account.Address, calendar.Name, folderId);
-                calendar.RemoteCalendarId = ToMapiId(folderId);
-                await ExchangeChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
-            }
-        }
+        await RekeyCarriedCalendarsAsync(local, remote.Select(pair => (ToMapiId(pair.Key), pair.Value, pair.Key == defaultFolderId)).ToList(), cancellationToken)
+            .ConfigureAwait(false);
 
         foreach (var calendar in local)
         {
@@ -227,6 +287,7 @@ public sealed partial class MapiExchangeSynchronizer
                 if (localCalendarItem == null)
                 {
                     await ReadAttendeesIfMeetingAsync(session, calendarFolderId, row, cancellationToken).ConfigureAwait(false);
+                    await ReadAttachmentsAsync(session, calendarFolderId, row, tags, cancellationToken).ConfigureAwait(false);
 
                     if (MapiCalendarExpander.Master(row) is { } master)
                         await ExchangeChangeProcessor.ManageCalendarEventAsync(master, calendar, Account).ConfigureAwait(false);
@@ -398,6 +459,7 @@ public sealed partial class MapiExchangeSynchronizer
         var reminders = request.ComposeResult?.SelectedReminders;
         var calendar = request.AssignedCalendar;
         var attendees = request.ComposeResult?.Attendees is { Count: > 0 } composed ? composed : null;
+        var attachmentDrafts = request.ComposeResult?.Attachments;
 
         return MapiBundle(async (session, cancellationToken) =>
         {
@@ -406,6 +468,7 @@ public sealed partial class MapiExchangeSynchronizer
 
             var tags = await ResolveCalendarTagsAsync(session, cancellationToken).ConfigureAwait(false);
             var write = ToAppointmentWrite(item, reminders, item.Id.ToString("N"), attendees);
+            write.AddedAttachments.AddRange(ToOutgoingAttachments(await ExchangeCalendarAttachments.ReadAsync(attachmentDrafts, cancellationToken).ConfigureAwait(false)));
             var logon = RequireLogon(session);
             var id = write.IsMeeting
                 ? await MapiCalendarOperations.CreateMeetingAsync(session, folderId, logon.OutboxFolderId, logon.SentItemsFolderId, tags, write, cancellationToken, Diagnostics).ConfigureAwait(false)
@@ -419,6 +482,9 @@ public sealed partial class MapiExchangeSynchronizer
                 request.PreparedEvent.Attendees,
                 request.PreparedEvent.Reminders,
                 ToMapiId(id).WithClientTrackingId(item.Id)).ConfigureAwait(false);
+
+            if (write.AddedAttachments.Count > 0)
+                await StoreMapiAttachmentsAsync(session, folderId, id, item.Id, cancellationToken).ConfigureAwait(false);
         }, request, request);
     }
 
@@ -426,11 +492,19 @@ public sealed partial class MapiExchangeSynchronizer
     {
         var item = request.Item;
         var attendees = request.Attendees is { Count: > 0 } requested ? requested : null;
+        var wantedAttachments = request.Attachments;
 
         return MapiBundle(async (session, cancellationToken) =>
         {
+            var attachmentPlan = ExchangeCalendarAttachments.Plan(await ExchangeChangeProcessor.GetCalendarAttachmentsAsync(item.Id).ConfigureAwait(false), wantedAttachments);
+
             if (TryParseOccurrenceId(item.AssignedCalendar, item, out var seriesFolderId, out var masterId, out var originalStartUtc))
             {
+                // One occurrence's files live on its Exception Embedded Message (MS-OXOCAL 2.2.10), which this client
+                // does not write.
+                if (attachmentPlan is { IsEmpty: false })
+                    throw new NotSupportedException("The attachments of one occurrence cannot be changed over MAPI; change them on the series.");
+
                 var seriesTags = await ResolveCalendarTagsAsync(session, cancellationToken).ConfigureAwait(false);
                 var change = ToAppointmentWrite(item, null, null);
                 await MapiOccurrenceOperations.ModifyOccurrenceAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, change, cancellationToken, Diagnostics).ConfigureAwait(false);
@@ -442,6 +516,17 @@ public sealed partial class MapiExchangeSynchronizer
             var (folderId, messageId) = RequireAppointmentIds(item.AssignedCalendar, item);
             var tags = await ResolveCalendarTagsAsync(session, cancellationToken).ConfigureAwait(false);
             var write = ToAppointmentWrite(item, null, null, attendees);
+            if (attachmentPlan is { IsEmpty: false })
+            {
+                foreach (var removed in attachmentPlan.Removed)
+                {
+                    if (!uint.TryParse(removed.RemoteAttachmentId, NumberStyles.None, CultureInfo.InvariantCulture, out var attachNumber))
+                        throw new InvalidOperationException("The attachment is not addressable over MAPI until the next calendar sync.");
+                    write.RemovedAttachments.Add(attachNumber);
+                }
+
+                write.AddedAttachments.AddRange(ToOutgoingAttachments(await ExchangeCalendarAttachments.ReadAsync(attachmentPlan.Added, cancellationToken).ConfigureAwait(false)));
+            }
 
             // Editing a series rewrites its pattern; its deleted and changed occurrences survive when the pattern itself
             // did not change, as Outlook keeps them.
@@ -470,6 +555,9 @@ public sealed partial class MapiExchangeSynchronizer
             }
 
             await ExchangeChangeProcessor.PersistUpdatedCalendarEventAsync(item, request.Attendees, request.Reminders).ConfigureAwait(false);
+
+            if (attachmentPlan is { IsEmpty: false })
+                await StoreMapiAttachmentsAsync(session, folderId, messageId, item.Id, cancellationToken).ConfigureAwait(false);
         }, request, request);
     }
 

@@ -20,7 +20,7 @@ namespace Wino.Mail.ViewModels;
 /// per account and is applied to mails and contacts alike, so the category page and the
 /// contacts pane both edit through here.
 /// The change is stored first and then handed to the account's synchronizer, which sends
-/// it wherever the category also lives: the Outlook category list, the mails and the
+/// it wherever the category also lives: the server's category list, the mails and the
 /// contacts that carry its name.
 /// </summary>
 public sealed class CategoryEditor
@@ -30,19 +30,22 @@ public sealed class CategoryEditor
     private readonly IMailDialogService _dialogService;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly IAppLockService _appLockService;
+    private readonly IMailProviderRegistry _providers;
 
     public CategoryEditor(
         IMailCategoryService categoryService,
         IContactQueryService contactService,
         IMailDialogService dialogService,
         IWinoRequestDelegator requestDelegator,
-        IAppLockService appLockService)
+        IAppLockService appLockService,
+        IMailProviderRegistry providers)
     {
         _categoryService = categoryService;
         _contactService = contactService;
         _dialogService = dialogService;
         _requestDelegator = requestDelegator;
         _appLockService = appLockService;
+        _providers = providers ?? throw new ArgumentNullException(nameof(providers));
     }
 
     // A category is stored before its requests are queued, so the lock is checked before anything is stored.
@@ -107,6 +110,7 @@ public sealed class CategoryEditor
     {
         if (existingCategory == null)
         {
+            var traits = _providers.GetTraits(account);
             var category = new MailCategory
             {
                 Id = Guid.NewGuid(),
@@ -114,7 +118,7 @@ public sealed class CategoryEditor
                 Name = name,
                 BackgroundColorHex = backgroundColorHex,
                 TextColorHex = textColorHex,
-                Source = account.ProviderType == MailProviderType.Outlook ? MailCategorySource.Outlook : MailCategorySource.Local
+                Source = (traits.SupportsCategorySync || traits.SynchronizesCategoryAssignments) && traits.CategorySource is { } source ? source : MailCategorySource.Local
             };
 
             await _categoryService.CreateCategoryAsync(category);
@@ -194,13 +198,14 @@ public sealed class CategoryEditor
     }
 
     /// <summary>
-    /// Outlook stores a mail's categories on the mail by name, so a renamed or removed
-    /// category is rewritten on every mail that carries it. Other providers keep mail
-    /// categories on the device, where the change is already stored.
+    /// A provider that synchronizes category assignments stores a mail's categories on the mail
+    /// by name, so a renamed or removed server category is rewritten on every mail that carries
+    /// it. Other providers keep mail categories on the device, where the change is already stored.
     /// </summary>
     private async Task<IReadOnlyList<MailCategoryMessageUpdateTarget>> GetAffectedMessagesAsync(MailAccount account, MailCategory category, string removedName)
     {
-        if (account.ProviderType != MailProviderType.Outlook || category.Source != MailCategorySource.Outlook)
+        var traits = _providers.GetTraits(account);
+        if (!traits.SynchronizesCategoryAssignments || traits.CategorySource is not { } serverSource || category.Source != serverSource)
             return [];
 
         var mailCopies = await _categoryService.GetMailCopiesForCategoryAsync(category.Id);

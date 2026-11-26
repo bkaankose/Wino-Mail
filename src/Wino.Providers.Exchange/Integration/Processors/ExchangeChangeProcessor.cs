@@ -14,6 +14,7 @@ using Wino.Services;
 using Wino.Core.Domain.Messaging.Client.Calendar;
 using Wino.Core.Integration.Processors;
 using Wino.Services.Interfaces;
+using Wino.Providers.Exchange.Synchronizers.Exchange;
 
 namespace Wino.Providers.Exchange.Integration.Processors;
 
@@ -39,6 +40,15 @@ public interface IExchangeChangeProcessor : IDefaultChangeProcessor
 
     /// <summary>The series masters stored for a calendar, for deletion reconciliation.</summary>
     Task<List<CalendarItem>> GetRecurringMastersAsync(AccountCalendar calendar);
+
+    /// <summary>The attachment rows stored for an event.</summary>
+    Task<List<CalendarAttachment>> GetCalendarAttachmentsAsync(Guid calendarItemId);
+
+    /// <summary>Makes an event's stored attachment rows match the attachments the server reported for it.</summary>
+    Task SaveCalendarAttachmentsAsync(Guid calendarItemId, IReadOnlyList<SyncedCalendarAttachment> attachments);
+
+    /// <summary>Moves a calendar another transport stored to this transport's folder id; see <see cref="ExchangeCalendarRekey"/>.</summary>
+    Task RekeyAccountCalendarAsync(AccountCalendar calendar, string remoteCalendarId);
 }
 
 public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangeProcessor
@@ -63,6 +73,15 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
 
     public Task<List<CalendarItem>> GetRecurringMastersAsync(AccountCalendar calendar)
         => CalendarService.GetRecurringMastersAsync(calendar.Id);
+
+    public Task<List<CalendarAttachment>> GetCalendarAttachmentsAsync(Guid calendarItemId)
+        => CalendarService.GetAttachmentsAsync(calendarItemId);
+
+    public Task SaveCalendarAttachmentsAsync(Guid calendarItemId, IReadOnlyList<SyncedCalendarAttachment> attachments)
+        => ExchangeCalendarAttachments.ReconcileAsync(Connection, calendarItemId, attachments);
+
+    public Task RekeyAccountCalendarAsync(AccountCalendar calendar, string remoteCalendarId)
+        => ExchangeCalendarRekey.RekeyAsync(Connection, CalendarService, calendar, remoteCalendarId);
 
     public async Task ManageCalendarEventAsync(SyncedCalendarEvent occurrence, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {
@@ -152,6 +171,9 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
             if (reconciled != null)
                 await CalendarService.SaveRemindersAsync(savingItemId, reconciled).ConfigureAwait(false);
         }
+
+        if (occurrence.Attachments != null)
+            await ExchangeCalendarAttachments.ReconcileAsync(Connection, savingItemId, occurrence.Attachments).ConfigureAwait(false);
     }
 
     private async Task MergeDuplicateCalendarItemAsync(CalendarItem original, CalendarItem duplicate)

@@ -106,6 +106,137 @@ public static class EwsRecurrenceMapper
         return recurrence;
     }
 
+    /// <summary>
+    /// The RRULE of a series master's EWS recurrence, in the form the MAPI transport writes for the same series
+    /// (<c>AppointmentRecurrence.ToRRule</c>): UNTIL is the end date at the series' wall-clock start time, floating,
+    /// and a day of month of 31 is the last day. <paramref name="firstStartWallClock"/> is the first occurrence's
+    /// start in the appointment's own zone. Null for the regeneration patterns, which only tasks carry.
+    /// </summary>
+    public static string ToRecurrenceRule(Recurrence recurrence, DateTime firstStartWallClock)
+    {
+        if (recurrence == null)
+            return null;
+
+        var parts = new List<string>();
+        switch (recurrence)
+        {
+            case Recurrence.DailyPattern daily:
+                parts.Add("FREQ=DAILY");
+                parts.Add(Invariant($"INTERVAL={Math.Max(1, daily.Interval)}"));
+                break;
+            case Recurrence.WeeklyPattern weekly:
+                parts.Add("FREQ=WEEKLY");
+                parts.Add(Invariant($"INTERVAL={Math.Max(1, weekly.Interval)}"));
+                parts.Add("BYDAY=" + ByDay(Enumerable.Range(0, weekly.DaysOfTheWeek.Count).Select(index => weekly.DaysOfTheWeek[index])));
+                if (TryGetFirstDayOfWeek(weekly) is { } weekStart)
+                    parts.Add("WKST=" + DayTokens[(int)weekStart]);
+                break;
+            case Recurrence.MonthlyPattern monthly:
+                parts.Add("FREQ=MONTHLY");
+                parts.Add(Invariant($"INTERVAL={Math.Max(1, monthly.Interval)}"));
+                parts.Add("BYMONTHDAY=" + MonthDay(monthly.DayOfMonth));
+                break;
+            case Recurrence.RelativeMonthlyPattern relativeMonthly:
+                parts.Add("FREQ=MONTHLY");
+                parts.Add(Invariant($"INTERVAL={Math.Max(1, relativeMonthly.Interval)}"));
+                parts.Add("BYDAY=" + ByDay([relativeMonthly.DayOfTheWeek]));
+                parts.Add("BYSETPOS=" + SetPosition(relativeMonthly.DayOfTheWeekIndex));
+                break;
+            case Recurrence.YearlyPattern yearly:
+                parts.Add("FREQ=YEARLY");
+                parts.Add("INTERVAL=1");
+                parts.Add("BYMONTHDAY=" + MonthDay(yearly.DayOfMonth));
+                parts.Add(Invariant($"BYMONTH={(int)yearly.Month}"));
+                break;
+            case Recurrence.RelativeYearlyPattern relativeYearly:
+                parts.Add("FREQ=YEARLY");
+                parts.Add("INTERVAL=1");
+                parts.Add("BYDAY=" + ByDay([relativeYearly.DayOfTheWeek]));
+                parts.Add("BYSETPOS=" + SetPosition(relativeYearly.DayOfTheWeekIndex));
+                parts.Add(Invariant($"BYMONTH={(int)relativeYearly.Month}"));
+                break;
+            default:
+                return null;
+        }
+
+        if (recurrence.NumberOfOccurrences is int count && count > 0)
+            parts.Add(Invariant($"COUNT={count}"));
+        else if (recurrence.EndDate is DateTime endDate)
+            parts.Add("UNTIL=" + (endDate.Date + firstStartWallClock.TimeOfDay).ToString("yyyyMMdd'T'HHmmss", CultureInfo.InvariantCulture));
+
+        return "RRULE:" + string.Join(";", parts);
+    }
+
+    /// <summary>
+    /// Whether two recurrences describe the same series: the same start date and the same rule. The first day of the
+    /// week is left out, since a recurrence built here does not carry the one the server holds.
+    /// </summary>
+    public static bool IsSamePattern(Recurrence current, Recurrence requested, DateTime firstStartWallClock)
+    {
+        if (current == null || requested == null || current.StartDate.Date != requested.StartDate.Date)
+            return false;
+
+        static string WithoutWeekStart(string rule)
+            => rule == null ? null : string.Join(";", rule.Split(';').Where(part => !part.StartsWith("WKST=", StringComparison.OrdinalIgnoreCase)));
+
+        var currentRule = WithoutWeekStart(ToRecurrenceRule(current, firstStartWallClock));
+        return currentRule != null && currentRule == WithoutWeekStart(ToRecurrenceRule(requested, firstStartWallClock));
+    }
+
+    // The server sends FirstDayOfWeek from Exchange 2013 on; the getter throws when the pattern has none.
+    private static DayOfWeek? TryGetFirstDayOfWeek(Recurrence.WeeklyPattern weekly)
+    {
+        try
+        {
+            return weekly.FirstDayOfWeek;
+        }
+        catch (ServiceValidationException)
+        {
+            return null;
+        }
+    }
+
+    private static string Invariant(FormattableString value) => FormattableString.Invariant(value);
+
+    private static string MonthDay(int dayOfMonth)
+        => dayOfMonth >= 31 ? "-1" : dayOfMonth.ToString(CultureInfo.InvariantCulture);
+
+    private static string SetPosition(DayOfTheWeekIndex index)
+        => index switch
+        {
+            DayOfTheWeekIndex.First => "1",
+            DayOfTheWeekIndex.Second => "2",
+            DayOfTheWeekIndex.Third => "3",
+            DayOfTheWeekIndex.Fourth => "4",
+            _ => "-1"
+        };
+
+    /// <summary>The days as BYDAY tokens; the group values (every day, weekday, weekend day) are listed out.</summary>
+    private static string ByDay(IEnumerable<DayOfTheWeek> days)
+    {
+        var tokens = new List<string>();
+        foreach (var day in days)
+        {
+            IEnumerable<DayOfWeek> expanded = day switch
+            {
+                DayOfTheWeek.Day => Enum.GetValues<DayOfWeek>(),
+                DayOfTheWeek.Weekday => [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday],
+                DayOfTheWeek.WeekendDay => [DayOfWeek.Sunday, DayOfWeek.Saturday],
+                _ => [(DayOfWeek)(int)day]
+            };
+
+            foreach (var dayOfWeek in expanded)
+            {
+                var token = DayTokens[(int)dayOfWeek];
+                if (!tokens.Contains(token))
+                    tokens.Add(token);
+            }
+        }
+
+        // MAPI lists the days in week order from Sunday; the same order keeps both transports' rules equal.
+        return string.Join(",", tokens.OrderBy(token => Array.IndexOf(DayTokens, token)));
+    }
+
     private static int ParseInt(Dictionary<string, string> parts, string key, int fallback)
         => parts.TryGetValue(key, out var value) && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : fallback;
 

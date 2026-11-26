@@ -9,6 +9,7 @@ using Ical.Net.DataTypes;
 using Ical.Net.Evaluation;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
@@ -85,7 +86,7 @@ internal static partial class EasDataMapper
         var zoneId = EasTimeZone.IanaId(zone);
         return new CalendarItem
         {
-            Id = StableId(Key(calendar.AccountId, calendar.RemoteCalendarId, remoteId)), CalendarId = calendar.Id, AssignedCalendar = calendar,
+            Id = StableId(Key(calendar.AccountId, ServerIdOf(calendar.RemoteCalendarId), remoteId)), CalendarId = calendar.Id, AssignedCalendar = calendar,
             RemoteEventId = remoteId, Title = Value(data, Calendar, "Subject"), Description = SafeBodyText(data),
             Location = ReadLocation(data), StartDate = DateTime.SpecifyKind(localStart, DateTimeKind.Unspecified),
             DurationInSeconds = (localEnd - localStart).TotalSeconds, StartTimeZone = zoneId, EndTimeZone = zoneId,
@@ -143,6 +144,34 @@ internal static partial class EasDataMapper
                 { "2" => AttendeeStatus.Tentative, "3" => AttendeeStatus.Accepted, "4" => AttendeeStatus.Declined, _ => AttendeeStatus.NeedsAction }
             }).ToList() ?? [];
 
+    /// <summary>
+    /// The file attachments of an event or exception (MS-ASAIRS 2.2.2.8, on calendar items in 16.x per MS-ASCAL): by
+    /// value (Method 1) and not inline, keyed by FileReference. An item without the element has none.
+    /// </summary>
+    internal static List<SyncedCalendarAttachment> ReadAttachments(XElement data)
+        => data.Element(Body + "Attachments")?.Elements(Body + "Attachment")
+            .Where(attachment => Value(attachment, Body, "Method") == "1" && Value(attachment, Body, "IsInline") != "1" && Value(attachment, Body, "FileReference").Length > 0)
+            .Select(attachment => new SyncedCalendarAttachment
+            {
+                RemoteId = Value(attachment, Body, "FileReference"),
+                FileName = Value(attachment, Body, "DisplayName") is { Length: > 0 } name ? name : "attachment",
+                Size = long.TryParse(Value(attachment, Body, "EstimatedDataSize"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var size) ? size : 0
+            }).ToList() ?? [];
+
+    /// <summary>
+    /// The attachment changes of a 16.x Sync Add or Change (MS-ASAIRS 2.2.2.2 Add, 2.2.2.21 Delete). Each added file's
+    /// ClientId is its draft id, so a Sync sent again names the same attachments.
+    /// </summary>
+    internal static XElement AttachmentChanges(IEnumerable<string> deletedFileReferences, IEnumerable<ExchangeAttachmentContent> added)
+        => new(Body + "Attachments",
+            deletedFileReferences.Select(reference => new XElement(Body + "Delete", new XElement(Body + "FileReference", reference))),
+            added.Select(file => new XElement(Body + "Add",
+                new XElement(Body + "ClientId", file.DraftId.ToString("N")),
+                EasDraftMapper.Opaque(Body + "Content", file.Content),
+                new XElement(Body + "DisplayName", EasWbxml.XmlSafe(file.FileName)),
+                new XElement(Body + "Method", "1"),
+                new XElement(Body + "ContentType", file.ContentType))));
+
     internal static int? ReadReminderMinutes(XElement data)
         => int.TryParse(Value(data, Calendar, "Reminder"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var minutes) && minutes >= 0 && minutes <= 60 * 24 * 365
             ? minutes : null;
@@ -178,22 +207,23 @@ internal static partial class EasDataMapper
             var pattern = new RecurrencePattern(master.Recurrence["RRULE:".Length..]);
             // Floating evaluation needs a floating bound; UNTIL is a UTC instant on the wire.
             if (pattern.Until is { } until)
-                pattern.Until = new CalDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(until.AsUtc, DateTimeKind.Utc), zone), true);
+                pattern.Until = new CalDateTime(Floating(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(until.AsUtc, DateTimeKind.Utc), zone)), true);
             var series = new CalendarEvent
             {
                 Start = new CalDateTime(DateTime.SpecifyKind(masterStart, DateTimeKind.Unspecified), true),
                 End = new CalDateTime(DateTime.SpecifyKind(masterStart.AddSeconds(master.DurationInSeconds), DateTimeKind.Unspecified), true)
             };
             series.RecurrenceRule = pattern;
-            var windowStartLocal = TimeZoneInfo.ConvertTimeFromUtc(windowStartUtc, zone).AddDays(-1);
-            var windowEndLocal = TimeZoneInfo.ConvertTimeFromUtc(windowEndUtc, zone).AddDays(1);
+            var windowStartLocal = Floating(TimeZoneInfo.ConvertTimeFromUtc(windowStartUtc, zone)).AddDays(-1);
+            var windowEndLocal = Floating(TimeZoneInfo.ConvertTimeFromUtc(windowEndUtc, zone)).AddDays(1);
             starts = series.GetOccurrences(new CalDateTime(windowStartLocal, true), new EvaluationOptions { MaxUnmatchedIncrementsLimit = 10_000 })
                 .Select(occurrence => occurrence.Period.StartTime.Value)
                 .TakeWhile(local => local < windowEndLocal)
                 .Take(5000)
                 .ToList();
         }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
+        // Only a rule the evaluator cannot expand within its limits falls back; any other failure is a defect and fails the item.
+        catch (EvaluationException exception)
         {
             Serilog.Log.Warning(exception, "EAS series {RemoteId} could not be expanded; only its first occurrence is shown.", remoteId);
             starts = [masterStart];
@@ -254,6 +284,9 @@ internal static partial class EasDataMapper
             merged.SetElementValue(Calendar + "AllDayEvent", allDay ? "1" : "0");
         return merged;
     }
+
+    // ConvertTimeFromUtc returns Kind=Local when the zone is the machine's own, which CalDateTime rejects.
+    private static DateTime Floating(DateTime wallClock) => DateTime.SpecifyKind(wallClock, DateTimeKind.Unspecified);
 
     private static DateTime ToUtc(DateTime wallClock, TimeZoneInfo zone)
     {
@@ -355,7 +388,7 @@ internal static partial class EasDataMapper
             new XElement(Calendar + "AllDayEvent", item.IsAllDayEvent ? "1" : "0"), new XElement(Calendar + "BusyStatus", (int)item.ShowAs),
             new XElement(Calendar + "Sensitivity", item.Visibility switch { CalendarItemVisibility.Private => "2", CalendarItemVisibility.Confidential => "3", _ => "0" }),
             item.IsAllDayEvent && isProtocol16 ? null : new XElement(Calendar + "TimeZone", serverTimeZone ?? EasTimeZone.Write(zone, start)),
-            TextBody(item.Description));
+            HtmlBody(item.Description));
         if (attendees != null)
             result.Add(new XElement(Calendar + "Attendees", attendees.Where(attendee => !attendee.IsOrganizer && !string.IsNullOrWhiteSpace(attendee.Email)).Select(attendee =>
                 new XElement(Calendar + "Attendee", new XElement(Calendar + "Email", attendee.Email), new XElement(Calendar + "Name", attendee.Name ?? attendee.Email),

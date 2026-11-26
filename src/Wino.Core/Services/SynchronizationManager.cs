@@ -494,6 +494,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<bool> CanImportMailAsync(Guid accountId)
         => (await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false))?.SupportsMailImport == true;
 
+    public async Task<bool> SupportsOnlineSearchAsync(Guid accountId)
+        => (await GetOrCreateSynchronizerAsync(accountId).ConfigureAwait(false))?.SupportsOnlineSearch == true;
+
     public async Task<MailImportResult> ImportMailAsync(Guid accountId, MailImportPackage package, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(package);

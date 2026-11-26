@@ -24,6 +24,7 @@ public partial class AccountSetupPageViewModel
 {
     private bool _isDiscoveryShown;
     private bool _isBuildingChoices;
+    private AccountSetupStep? _choicesStep;
 
     [ObservableProperty]
     public partial bool IsImapOptionChosen { get; set; }
@@ -31,13 +32,14 @@ public partial class AccountSetupPageViewModel
     [ObservableProperty]
     public partial AccountSetupChoice? SelectedChoice { get; set; }
 
-    /// <summary>The sign-in method step's list; the only step that is a single-selection list.</summary>
+    /// <summary>The list of the sign-in method step or the server kind step, the two single-selection steps.</summary>
     public List<AccountSetupChoice> StepChoices { get; private set; } = [];
 
     public ObservableCollection<AccountSetupKnownItem> KnownItems { get; } = [];
 
     public AccountSetupStep Step => Phase switch
     {
+        AccountSetupPhase.Identity when IsChoosingServerKind => AccountSetupStep.ServerKind,
         AccountSetupPhase.Identity => AccountSetupStep.Address,
         AccountSetupPhase.Resolving => _isDiscoveryShown ? AccountSetupStep.Discovery : AccountSetupStep.Address,
         AccountSetupPhase.NotFound => AccountSetupStep.Discovery,
@@ -57,6 +59,7 @@ public partial class AccountSetupPageViewModel
         AccountSetupStep.Address => IsSettingsHost ? string.Empty : Translator.AccountSetup_Title_Address,
         AccountSetupStep.Discovery when Phase == AccountSetupPhase.NotFound => Translator.AccountSetup_Title_NotFound,
         AccountSetupStep.Discovery => Translator.AccountSetup_Title_Discovery,
+        AccountSetupStep.ServerKind => Translator.AccountSetup_ServerKind_Title,
         AccountSetupStep.SignInMethod => Translator.AccountSetup_SignInOptionsHeader,
         AccountSetupStep.SignIn => string.Format(Translator.AccountSetup_SignIn_Title, SignInTargetName),
         AccountSetupStep.Review => Translator.AccountSetup_Review_Title,
@@ -119,10 +122,12 @@ public partial class AccountSetupPageViewModel
         _ => true
     };
 
-    public bool IsKnownCardVisible => Step != AccountSetupStep.Address;
+    /// <summary>The server kind step shows the typed address, if there is one, so the user sees it is kept.</summary>
+    public bool IsKnownCardVisible => Step != AccountSetupStep.Address &&
+                                      (Step != AccountSetupStep.ServerKind || !string.IsNullOrWhiteSpace(EmailAddress));
 
     public bool IsChangeAddressVisible => !IsLocalOnlyMode &&
-                                          Step is not (AccountSetupStep.Address or AccountSetupStep.Discovery or AccountSetupStep.Progress);
+                                          Step is not (AccountSetupStep.Address or AccountSetupStep.ServerKind or AccountSetupStep.Discovery or AccountSetupStep.Progress);
 
     public string ChangeAddressAutomationName => $"{Translator.AccountSetup_ChangeAddress}, {EmailAddress?.Trim()}";
 
@@ -131,6 +136,7 @@ public partial class AccountSetupPageViewModel
     private bool CanExecutePrimary() => Step switch
     {
         AccountSetupStep.Address => CanContinue(),
+        AccountSetupStep.ServerKind => SelectedChoice != null,
         AccountSetupStep.Review => Phase == AccountSetupPhase.Features && !IsReviewBusy && Capabilities.HasAnyCapability && HasAccountName,
         AccountSetupStep.SignIn when IsImapRoute => CanCheckPassword(),
         AccountSetupStep.SignIn when IsSignInValidated => CanAddAccount(),
@@ -148,6 +154,9 @@ public partial class AccountSetupPageViewModel
         {
             case AccountSetupStep.Address:
                 await ContinueAsync();
+                break;
+            case AccountSetupStep.ServerKind:
+                await ContinueWithServerKindAsync();
                 break;
             case AccountSetupStep.Review:
                 await ContinueFromReviewAsync();
@@ -188,6 +197,9 @@ public partial class AccountSetupPageViewModel
                 break;
             case AccountSetupStep.Address:
                 await CancelAsync();
+                break;
+            case AccountSetupStep.ServerKind:
+                IsChoosingServerKind = false;
                 break;
             case AccountSetupStep.Discovery:
             case AccountSetupStep.SignInMethod:
@@ -279,7 +291,8 @@ public partial class AccountSetupPageViewModel
         if (_isBuildingChoices || value == null)
             return;
 
-        if (int.TryParse(value.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < ImapOptions.Count)
+        if (_choicesStep == AccountSetupStep.SignInMethod &&
+            int.TryParse(value.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < ImapOptions.Count)
             SelectedImapOption = ImapOptions[index];
 
         NotifyStepContentChanged();
@@ -304,6 +317,7 @@ public partial class AccountSetupPageViewModel
         _isBuildingChoices = true;
         try
         {
+            _choicesStep = AccountSetupStep.SignInMethod;
             StepChoices = choices;
             OnPropertyChanged(nameof(StepChoices));
             SelectedChoice = choices.FirstOrDefault(choice => choice.Id == selectedId) ?? choices.FirstOrDefault();
@@ -373,8 +387,10 @@ public partial class AccountSetupPageViewModel
     /// <summary>Everything the step host reads changes together when the step does.</summary>
     private void NotifyStepChanged()
     {
-        if (Step == AccountSetupStep.SignInMethod && StepChoices.Count != ImapOptions.Count)
+        if (Step == AccountSetupStep.SignInMethod && (_choicesStep != AccountSetupStep.SignInMethod || StepChoices.Count != ImapOptions.Count))
             BuildStepChoices();
+        else if (Step == AccountSetupStep.ServerKind && _choicesStep != AccountSetupStep.ServerKind)
+            BuildServerKindChoices();
 
         BuildKnownItems();
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -62,6 +63,7 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
     private Task _disposeTask;
     private WinoImapClient _dedicatedIdleClient;
     private volatile bool _disposedValue;
+    private volatile bool _logoutRequested;
     private bool _initialized;
     private Task _maintenanceTask;
     private Task _initialWarmupTask = Task.CompletedTask;
@@ -378,8 +380,59 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
         lock (_idleClientLock)
         {
             if (_dedicatedIdleClient == null) return;
-            Retire(_dedicatedIdleClient);
+            var client = _dedicatedIdleClient;
             _dedicatedIdleClient = null;
+
+            // A connection whose IDLE ended with DONE is in a clean state; during a logout it waits for its LOGOUT.
+            if (_logoutRequested && !isFaulted && client.IsConnected &&
+                _clientStates.TryUpdate(client, ImapClientState.Available, ImapClientState.Idle))
+                return;
+
+            Retire(client);
+        }
+    }
+
+    /// <summary>
+    /// The pool takes no new work, and the IDLE connection, once its IDLE ended with DONE, stays for
+    /// <see cref="LogoutAsync"/> instead of being dropped.
+    /// </summary>
+    public void BeginLogout()
+    {
+        _logoutRequested = true;
+        _disposedValue = true;
+        _maintenanceCts.Cancel();
+    }
+
+    /// <summary>
+    /// Sends LOGOUT (RFC 9051 section 6.1.3) on every connection nobody is using, so the server ends those sessions now,
+    /// and closes them. Leased connections are left to <see cref="DisposeAsync"/>. Call <see cref="BeginLogout"/> first.
+    /// </summary>
+    public Task LogoutAsync(CancellationToken cancellationToken)
+    {
+        var clients = new List<WinoImapClient>();
+        foreach (var entry in _clientStates)
+        {
+            if (_clientStates.TryUpdate(entry.Key, ImapClientState.InUse, ImapClientState.Available))
+                clients.Add(entry.Key);
+        }
+
+        return Task.WhenAll(clients.Select(client => LogoutClientAsync(client, cancellationToken)));
+    }
+
+    private async Task LogoutClientAsync(WinoImapClient client, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (client.IsConnected)
+                await client.DisconnectAsync(quit: true, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "IMAP LOGOUT failed for connection {ConnectionId} on {Server}.", client.ConnectionId, _customServerInformation.IncomingServer);
+        }
+        finally
+        {
+            Retire(client);
         }
     }
 

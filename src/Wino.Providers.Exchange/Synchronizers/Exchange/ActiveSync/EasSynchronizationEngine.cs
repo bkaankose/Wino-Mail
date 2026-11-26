@@ -18,6 +18,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
+using Wino.Core.Misc;
 using Wino.Services;
 using Wino.Services.Interfaces;
 
@@ -36,6 +37,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     private readonly IContactService _contacts;
     private readonly ITaskService _tasks;
     private readonly IPictureStorageService _pictures;
+    private readonly IMailCategoryService _mailCategories;
     private readonly EasClient _client;
     private readonly Action _hierarchyChanged;
     private readonly Action<EasCollection, Exception> _collectionFailed;
@@ -46,12 +48,13 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
     internal EasSynchronizationEngine(MailAccount account, IDatabaseService database, IAccountService accounts,
         IFolderService folders, IMailService mail, ICalendarService calendars, IContactService contacts, ITaskService tasks, IPictureStorageService pictures,
-        Action hierarchyChanged, Action<EasCollection, Exception> collectionFailed, Action<EasCollection, string, Exception> itemFailed,
-        EasClient? client = null)
+        IMailCategoryService mailCategories, Action hierarchyChanged, Action<EasCollection, Exception> collectionFailed,
+        Action<EasCollection, string, Exception> itemFailed, EasClient? client = null)
     {
         _account = account; _database = database; _accounts = accounts; _folders = folders;
         _mail = mail; _calendars = calendars; _contacts = contacts; _tasks = tasks;
         _pictures = pictures;
+        _mailCategories = mailCategories;
         _hierarchyChanged = hierarchyChanged;
         _collectionFailed = collectionFailed;
         _itemFailed = itemFailed;
@@ -96,6 +99,10 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     }
 
     private const int DraftsFolderType = 3;
+
+    // Calendars, books and lists of another transport matched to the collections of the running full hierarchy read.
+    private Dictionary<string, Guid> _carriedContainers = [];
+    private const int GenericFolderType = 1;
 
     /// <summary>
     /// Synchronizes the mail folders the options select, the way the other synchronizers pick them: every enabled
@@ -425,6 +432,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     {
         var source = await GetCollectionAsync(move.SourceFolderId).ConfigureAwait(false);
         var existing = await _mail.GetSingleMailItemAsync(EasDataMapper.Key(_account.Id, source.ServerId, move.SourceId), source.ServerId).ConfigureAwait(false);
+        var categories = existing == null ? null : await _mailCategories.GetCategoryNamesForMailAsync(existing.UniqueId).ConfigureAwait(false);
         await DeleteProjectionAsync(source, move.SourceId).ConfigureAwait(false);
         if (existing == null || string.IsNullOrEmpty(destinationId))
             return;
@@ -435,7 +443,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             return;
 
         var destination = EasCollection.From(folder);
-        var package = EasDataMapper.Mail(folder, destinationId, new XElement(EasDataMapper.Sync + "ApplicationData"));
+        var package = EasDataMapper.Mail(folder, destinationId, new XElement(EasDataMapper.Sync + "ApplicationData")) with { CategoryNames = categories };
         var copy = package.Copy;
         copy.Subject = existing.Subject; copy.FromName = existing.FromName; copy.FromAddress = existing.FromAddress;
         copy.CreationDate = existing.CreationDate; copy.PreviewText = existing.PreviewText; copy.IsRead = existing.IsRead;
@@ -575,6 +583,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         var staleRows = new List<MailItemFolder>();
         if (fullRead && _account.IsMailAccessGranted)
             mailChanged |= await RematchFoldersAsync(mailRows, staleRows, entries).ConfigureAwait(false);
+        _carriedContainers = fullRead ? await MatchCarriedContainersAsync(entries, states).ConfigureAwait(false) : [];
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var change in entries)
@@ -631,6 +640,10 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             if (state.EntityId != entityId)
                 await _database.Connection.ExecuteAsync("UPDATE EasCollectionState SET EntityId = ? WHERE Id = ?", state.EntityId, state.Id).ConfigureAwait(false);
         }
+
+        if (fullRead)
+            await RemoveOtherTransportContainersAsync().ConfigureAwait(false);
+        _carriedContainers = [];
 
         await SaveHierarchyKeyAsync(Required(response, FolderHierarchy + "SyncKey")).ConfigureAwait(false);
         if (mailChanged)
@@ -691,6 +704,112 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     }
 
     /// <summary>
+    /// Calendars, address books and task lists another transport stored (EWS or MAPI ids), each matched to the
+    /// collection of a full hierarchy read it continues, by ServerId. ActiveSync ServerIds are opaque, so the default
+    /// container takes the default collection (FolderSync types 8, 9 and 7) and the others match by display name when
+    /// it is unique on both sides (<see cref="ExchangeTransportRekey.MatchContainers"/>). The directory book has no
+    /// ActiveSync collection and is never matched.
+    /// </summary>
+    private async Task<Dictionary<string, Guid>> MatchCarriedContainersAsync(List<XElement> entries, List<EasCollectionState> states)
+    {
+        var result = new Dictionary<string, Guid>(StringComparer.Ordinal);
+        var adds = new List<(string ServerId, string Name, int Type)>();
+        foreach (var add in entries.Where(entry => entry.Name == FolderHierarchy + "Add"))
+        {
+            var serverId = add.Element(FolderHierarchy + "ServerId")?.Value;
+            if (!string.IsNullOrEmpty(serverId) && int.TryParse(add.Element(FolderHierarchy + "Type")?.Value, out var type))
+                adds.Add((serverId, add.Element(FolderHierarchy + "DisplayName")?.Value ?? string.Empty, type));
+        }
+
+        void Match(string itemClass, int defaultType, IEnumerable<(Guid Id, string Title, bool IsDefault)> candidates, ISet<string> claimed)
+        {
+            var open = adds.Where(add => ItemClass(add.Type) == itemClass && !claimed.Contains(add.ServerId))
+                .Select(add => (add.ServerId, add.Name, add.Type == defaultType))
+                .ToList();
+            foreach (var (id, serverId) in ExchangeTransportRekey.MatchContainers(candidates.ToList(), open))
+                result[serverId] = id;
+        }
+
+        if (_account.IsCalendarAccessGranted && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider)
+        {
+            var stateIds = states.Select(state => state.Id).ToHashSet();
+            var calendars = await _calendars.GetAccountCalendarsAsync(_account.Id).ConfigureAwait(false);
+            var claimed = adds.Select(add => add.ServerId)
+                .Where(serverId => calendars.Any(calendar => IsOwnCalendar(calendar, serverId))).ToHashSet(StringComparer.Ordinal);
+            Match("Calendar", 8, calendars
+                .Where(calendar => !stateIds.Contains(calendar.Id) && IsOtherTransportCalendar(calendar) && !adds.Any(add => IsOwnCalendar(calendar, add.ServerId)))
+                .Select(calendar => (calendar.Id, calendar.Name ?? string.Empty, calendar.IsPrimary)), claimed);
+        }
+
+        if (_account.IsContactAccessGranted && _account.ContactIntegrationSource == AccountIntegrationSource.Provider)
+        {
+            var books = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).Where(book => book.SourceKind == ContactSourceKind.Exchange).ToList();
+            var claimed = books.Where(book => !IsOtherTransportContainer(book.RemoteId)).Select(book => EasDataMapper.ServerIdOf(book.RemoteId)).ToHashSet(StringComparer.Ordinal);
+            Match("Contacts", 9, books.Where(book => IsOtherTransportContainer(book.RemoteId) && book.RemoteId != DirectoryBookRemoteId)
+                .Select(book => (book.Id, book.DisplayName ?? string.Empty, book.IsDefault)), claimed);
+        }
+
+        if (_account.IsTaskAccessGranted && _account.TaskIntegrationSource == AccountIntegrationSource.Provider)
+        {
+            var lists = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false)).Where(list => list.SourceKind == TaskSourceKind.Exchange).ToList();
+            var claimed = lists.Where(list => !IsOtherTransportContainer(list.RemoteId)).Select(list => EasDataMapper.ServerIdOf(list.RemoteId)).ToHashSet(StringComparer.Ordinal);
+            Match("Tasks", 7, lists.Where(list => IsOtherTransportContainer(list.RemoteId) && list.PendingMutation == TaskPendingMutation.None)
+                .Select(list => (list.Id, list.Title ?? string.Empty, list.IsDefault)), claimed);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Removes the calendars, address books (the directory book among them) and task lists that another transport stored
+    /// and no collection continued, after a full hierarchy read: a fresh ActiveSync account has none of them.
+    /// </summary>
+    private async Task RemoveOtherTransportContainersAsync()
+    {
+        if (_account.IsCalendarAccessGranted && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider)
+        {
+            foreach (var calendar in (await _calendars.GetAccountCalendarsAsync(_account.Id).ConfigureAwait(false)).Where(IsOtherTransportCalendar).ToList())
+            {
+                calendar.MailAccount = _account;
+                await _calendars.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+            }
+        }
+
+        if (_account.IsContactAccessGranted && _account.ContactIntegrationSource == AccountIntegrationSource.Provider)
+        {
+            foreach (var book in (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false))
+                         .Where(book => book.SourceKind == ContactSourceKind.Exchange && IsOtherTransportContainer(book.RemoteId)).ToList())
+                await _contacts.DeleteAddressBookAsync(book.Id).ConfigureAwait(false);
+        }
+
+        if (_account.IsTaskAccessGranted && _account.TaskIntegrationSource == AccountIntegrationSource.Provider)
+        {
+            foreach (var list in (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false))
+                         .Where(list => list.SourceKind == TaskSourceKind.Exchange && IsOtherTransportContainer(list.RemoteId)).ToList())
+                await _tasks.RemoveTaskListAsync(list.Id).ConfigureAwait(false);
+        }
+    }
+
+    // The read-only Global Address List book EWS and MAPI keep (ExchangeSynchronizer.DirectoryBookRemoteId).
+    private const string DirectoryBookRemoteId = "wino:directory";
+
+    private static bool IsOtherTransportContainer(string? remoteId)
+        => !string.IsNullOrWhiteSpace(remoteId) && !remoteId.StartsWith("eas:", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether a calendar row came from EWS or MAPI: ActiveSync calendars carry "eas:" ids once their collection was
+    /// read, and "local" and "http" ids belong to other calendar sources.
+    /// </summary>
+    private static bool IsOtherTransportCalendar(AccountCalendar calendar)
+        => !string.IsNullOrWhiteSpace(calendar.RemoteCalendarId) && !calendar.RemoteCalendarId.StartsWith("eas:", StringComparison.Ordinal) &&
+           !calendar.RemoteCalendarId.StartsWith("local", StringComparison.Ordinal) &&
+           !calendar.RemoteCalendarId.StartsWith("http", StringComparison.OrdinalIgnoreCase);
+
+    // Calendars stored before ActiveSync calendar ids carried the prefix hold the bare ServerId.
+    private static bool IsOwnCalendar(AccountCalendar calendar, string serverId)
+        => calendar.RemoteCalendarId == EasDataMapper.ProviderId(serverId) || calendar.RemoteCalendarId == serverId;
+
+    /// <summary>
     /// Inserts or updates a mail folder row. Inbox, Drafts, Deleted Items and Sent Items take their role from the
     /// server type with the flags the EWS synchronizer gives the same roles. ActiveSync has no Junk or Archive role, so
     /// a special type the user assigned to any other folder is kept.
@@ -714,7 +833,9 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 SpecialFolderType = role,
                 IsSystemFolder = isSystem,
                 IsSticky = isSystem,
-                IsSynchronizationEnabled = true,
+                // A generic folder (type 1) is one without a container class; EWS and MAPI list it with
+                // synchronization off too.
+                IsSynchronizationEnabled = type != GenericFolderType,
                 ShowUnreadCount = role != SpecialFolderType.Deleted,
                 IsCountedInAccountTotal = role != SpecialFolderType.Deleted,
             };
@@ -761,7 +882,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         var state = states.FirstOrDefault(state => state.ServerId == serverId);
         if (state == null)
         {
-            state = new EasCollectionState { Id = EasDataMapper.StableId(EasDataMapper.Key(_account.Id, serverId, string.Empty)),
+            state = new EasCollectionState { Id = await NewCollectionIdAsync(serverId, type).ConfigureAwait(false),
                 AccountId = _account.Id, ServerId = serverId, SyncKey = "0" };
             states.Add(state);
         }
@@ -770,6 +891,25 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         state.Type = type;
         await EnsureCollectionAsync(state).ConfigureAwait(false);
         await _database.Connection.InsertOrReplaceAsync(state, typeof(EasCollectionState)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The id of a new collection state. A calendar collection's state shares its id with the calendar row, so a
+    /// calendar row this collection already has (after the account's sync state was reset) or one another transport
+    /// stored and this collection continues gives its id; otherwise the id is derived from the ServerId.
+    /// </summary>
+    private async Task<Guid> NewCollectionIdAsync(string serverId, int type)
+    {
+        if (ItemClass(type) == "Calendar" && _account.IsCalendarAccessGranted && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider)
+        {
+            var calendars = await _calendars.GetAccountCalendarsAsync(_account.Id).ConfigureAwait(false);
+            if (calendars.FirstOrDefault(calendar => IsOwnCalendar(calendar, serverId)) is { } own)
+                return own.Id;
+            if (_carriedContainers.TryGetValue(serverId, out var carried) && calendars.Any(calendar => calendar.Id == carried))
+                return carried;
+        }
+
+        return EasDataMapper.StableId(EasDataMapper.Key(_account.Id, serverId, string.Empty));
     }
 
     /// <summary>Removes a collection and everything below it; a parent's delete is not always reported per child.</summary>
@@ -818,16 +958,43 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         {
             case "Calendar" when _account.IsCalendarAccessGranted && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider:
                 var calendar = await _database.Connection.FindAsync<AccountCalendar>(id).ConfigureAwait(false);
+                // ActiveSync carries no calendar colour; each calendar takes one that no preceding calendar uses, as on
+                // EWS. The account's calendars precede in a fixed order (primary first, then by id), so they settle.
+                var isPrimary = state.Type == 8;
+                var usedColors = (await _calendars.GetPrecedingAccountsCalendarColorsAsync(_account.Id).ConfigureAwait(false))
+                    .Concat((await _calendars.GetAccountCalendarsAsync(_account.Id).ConfigureAwait(false))
+                        .Where(other => other.Id != id && !string.IsNullOrWhiteSpace(other.BackgroundColorHex) &&
+                            (other.IsPrimary && !isPrimary || other.IsPrimary == isPrimary && other.Id.CompareTo(id) < 0))
+                        .Select(other => other.BackgroundColorHex))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var calendarColor = ColorHelpers.ResolveDistinctCalendarColor(null, calendar, usedColors);
+                var remoteCalendarId = EasDataMapper.ProviderId(state.ServerId);
+                if (calendar != null && calendar.RemoteCalendarId != remoteCalendarId)
+                {
+                    calendar.MailAccount = _account;
+                    if (calendar.RemoteCalendarId == state.ServerId)
+                    {
+                        calendar.RemoteCalendarId = remoteCalendarId;
+                        await _calendars.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        Serilog.Log.Information("EAS calendar {Collection} for {Account}: re-keying calendar {CalendarId} from another transport.",
+                            state.DisplayName, _account.Address, calendar.Id);
+                        await ExchangeCalendarRekey.RekeyAsync(_database.Connection, _calendars, calendar, remoteCalendarId).ConfigureAwait(false);
+                    }
+                }
                 if (calendar == null)
                     await _calendars.InsertAccountCalendarAsync(new AccountCalendar { Id = id, AccountId = _account.Id,
-                        RemoteCalendarId = state.ServerId, Name = state.DisplayName, IsPrimary = state.Type == 8,
-                        BackgroundColorHex = color, MailAccount = _account, TimeZone = "UTC" }).ConfigureAwait(false);
-                else if (calendar.Name != state.DisplayName || string.IsNullOrWhiteSpace(calendar.BackgroundColorHex))
+                        RemoteCalendarId = remoteCalendarId, Name = state.DisplayName, IsPrimary = isPrimary,
+                        BackgroundColorHex = calendarColor, TextColorHex = ColorHelpers.GetReadableTextColorHex(calendarColor),
+                        MailAccount = _account, TimeZone = "UTC" }).ConfigureAwait(false);
+                else if (calendar.Name != state.DisplayName || !string.Equals(calendar.BackgroundColorHex, calendarColor, StringComparison.OrdinalIgnoreCase))
                 {
                     calendar.MailAccount = _account;
                     calendar.Name = state.DisplayName;
-                    if (string.IsNullOrWhiteSpace(calendar.BackgroundColorHex))
-                        calendar.BackgroundColorHex = color;
+                    calendar.BackgroundColorHex = calendarColor;
+                    calendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(calendarColor);
                     await _calendars.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
                 }
                 state.EntityId = id;
@@ -835,6 +1002,15 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             case "Contacts" when _account.IsContactAccessGranted && _account.ContactIntegrationSource == AccountIntegrationSource.Provider:
                 var bookId = EasDataMapper.ProviderId(state.ServerId);
                 var books = await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false);
+                if (_carriedContainers.TryGetValue(state.ServerId, out var carriedBookId) &&
+                    books.FirstOrDefault(book => book.Id == carriedBookId) is { } carriedBook && carriedBook.RemoteId != bookId &&
+                    !books.Any(book => book.SourceKind == ContactSourceKind.Exchange && book.RemoteId == bookId))
+                {
+                    Serilog.Log.Information("EAS contacts {Collection} for {Account}: re-keying address book {BookId} from another transport.",
+                        state.DisplayName, _account.Address, carriedBook.Id);
+                    await _contacts.RekeyAddressBookAsync(carriedBook.Id, bookId, new Dictionary<Guid, string>()).ConfigureAwait(false);
+                    books = await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false);
+                }
                 if (state.Type == 9 && !books.Any(book => book.SourceKind == ContactSourceKind.Exchange && book.RemoteId == bookId))
                 {
                     var carried = books.Where(book => book.SourceKind == ContactSourceKind.Exchange && book.IsDefault &&
@@ -842,17 +1018,22 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                     if (carried.Count == 1)
                         await _contacts.RekeyAddressBookAsync(carried[0].Id, bookId, new Dictionary<Guid, string>()).ConfigureAwait(false);
                 }
-                var book = await _contacts.GetOrCreateProviderAddressBookAsync(_account.Id, ContactSourceKind.Exchange, bookId, state.DisplayName, state.Type == 9).ConfigureAwait(false);
+                // The default book carries the account's name, as on EWS and MAPI.
+                var book = await _contacts.GetOrCreateProviderAddressBookAsync(_account.Id, ContactSourceKind.Exchange, bookId,
+                    state.Type == 9 ? _account.Name : state.DisplayName, state.Type == 9).ConfigureAwait(false);
                 state.EntityId = book?.Id;
                 break;
             case "Tasks" when _account.IsTaskAccessGranted && _account.TaskIntegrationSource == AccountIntegrationSource.Provider:
                 var listId = EasDataMapper.ProviderId(state.ServerId);
                 var lists = await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false);
                 var list = lists.FirstOrDefault(list => list.RemoteId == listId && list.SourceKind == TaskSourceKind.Exchange);
-                if (list == null && state.Type == 7)
+                if (list == null)
                 {
-                    var carried = lists.Where(item => item.SourceKind == TaskSourceKind.Exchange && item.IsDefault &&
-                        ExchangeTransportRekey.IsOtherTransport(item.RemoteId, listId)).ToList();
+                    // A list this collection created before keeps its row id across transport changes; it is re-keyed,
+                    // not inserted again under the same id. Otherwise only the default list is carried by role.
+                    var carried = lists.Where(item => item.SourceKind == TaskSourceKind.Exchange && ExchangeTransportRekey.IsOtherTransport(item.RemoteId, listId)
+                        && (item.Id == id || (state.Type == 7 && item.IsDefault) ||
+                            (_carriedContainers.TryGetValue(state.ServerId, out var carriedListId) && item.Id == carriedListId))).ToList();
                     if (carried.Count == 1)
                     {
                         list = carried[0];
@@ -1379,12 +1560,22 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
     }
 
     /// <summary>
-    /// Reads items the server reported a Change for but Wino never received, with Sync Fetch, and stores them as if
-    /// they had been added. The request carries no changes, so it only moves the collection to a new key; an item the
-    /// server no longer has (status 8) is left out, and its Delete follows in a later synchronization.
+    /// Reads items the server reported a Change for but Wino never received and stores them as if they had been added.
+    /// Mail is read with Sync Fetch: the request carries no changes, so it only moves the collection to a new key, and
+    /// an item the server no longer has (status 8) is left out; its Delete follows in a later synchronization. Sync
+    /// Fetch cannot return calendar, contact or task items ([MS-ASCMD] 2.2.3.67.2), so those are read with
+    /// ItemOperations Fetch (<see cref="FetchUnknownItemsAsync"/>).
     /// </summary>
     private async Task FetchUnknownAsync(EasCollection state, List<string> remoteIds, List<MailCopy> downloaded, CancellationToken cancellationToken)
     {
+        if (remoteIds.Count == 0)
+            return;
+        if (ItemClass(state.Type) != "Email")
+        {
+            await FetchUnknownItemsAsync(state, remoteIds, downloaded, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         var sync = EasDataMapper.Sync;
         foreach (var chunk in remoteIds.Distinct(StringComparer.Ordinal).Chunk(MutationBatchSize))
         {
@@ -1412,10 +1603,57 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             return;
         }
 
+        await StoreFetchedAsync(state, remoteId, fetch.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData"), downloaded, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// ItemOperations Fetch from the mailbox store by CollectionId and ServerId ([MS-ASCMD] 2.2.1.10, 2.2.3.67.1;
+    /// [MS-ASCAL], [MS-ASCNTC] and [MS-ASTASK] 3.1.5.1), with the body preference the collection's Sync uses. It
+    /// touches no sync key. The item's Properties carry the same elements as Sync ApplicationData. Status 6 (object
+    /// not found) leaves the item out, and the server's Delete follows; any other item status is reported as that
+    /// item's failure.
+    /// </summary>
+    private async Task FetchUnknownItemsAsync(EasCollection state, List<string> remoteIds, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
+        XNamespace items = "ItemOperations:";
+        var sync = EasDataMapper.Sync;
+        foreach (var chunk in remoteIds.Distinct(StringComparer.Ordinal).Chunk(MutationBatchSize))
+        {
+            var request = new XElement(items + "ItemOperations", chunk.Select(id => new XElement(items + "Fetch",
+                new XElement(items + "Store", "Mailbox"), new XElement(sync + "CollectionId", state.ServerId), new XElement(sync + "ServerId", id),
+                new XElement(items + "Options", new XElement(EasDataMapper.Body + "BodyPreference", new XElement(EasDataMapper.Body + "Type", EasClient.NonMailBodyType(ItemClass(state.Type))))))));
+            var response = await _client.CommandAsync("ItemOperations", request, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidDataException("The EAS ItemOperations response is empty.");
+            EasClient.RequireSuccess(response);
+            foreach (var fetch in response.Element(items + "Response")?.Elements(items + "Fetch") ?? Enumerable.Empty<XElement>())
+            {
+                var remoteId = fetch.Element(sync + "ServerId")?.Value;
+                if (string.IsNullOrEmpty(remoteId))
+                    continue;
+                var status = StatusOf(fetch);
+                if (status == "6")
+                {
+                    Serilog.Log.Information("EAS collection {Collection} for {Account}: changed item {RemoteId} is no longer on the server; it is not stored.",
+                        state.Name, _account.Address, remoteId);
+                    continue;
+                }
+                if (status != "1")
+                {
+                    _itemFailed(state, remoteId, new EasCommandException("ItemOperations", status ?? "missing"));
+                    continue;
+                }
+                await StoreFetchedAsync(state, remoteId, new XElement(sync + "ApplicationData", fetch.Element(items + "Properties")?.Elements() ?? Enumerable.Empty<XElement>()),
+                    downloaded, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task StoreFetchedAsync(EasCollection state, string remoteId, XElement applicationData, List<MailCopy> downloaded, CancellationToken cancellationToken)
+    {
         XElement? data = null;
         try
         {
-            data = await MergeWithShadowAsync(state, remoteId, fetch.Element(sync + "ApplicationData") ?? new XElement(sync + "ApplicationData")).ConfigureAwait(false);
+            data = await MergeWithShadowAsync(state, remoteId, applicationData).ConfigureAwait(false);
             await ProjectAsync(state, remoteId, data, downloaded, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (IsItemFailure(exception, cancellationToken))
@@ -1509,20 +1747,23 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
     /// <summary>
     /// Stores a message from its Sync fields; a known message takes only the fields the item carries, so local state
-    /// such as pinning is kept. A new message received before the account's range cutoff is not stored: no email
-    /// FilterType expresses a Wino range (see <see cref="EasClient"/>), so mail is synchronized without one and the
-    /// fixed cutoff the other synchronizers apply is applied here.
+    /// such as pinning is kept. Every message the server reports is stored, as on EWS and MAPI: mail is synchronized
+    /// without a FilterType unless the device policy sets one (see <see cref="EasClient"/>).
     /// </summary>
     private async Task ProjectMailAsync(EasCollection state, string remoteId, XElement data, List<MailCopy> downloaded, bool isChange)
     {
         var key = EasDataMapper.Key(_account.Id, state.ServerId, remoteId);
         var existing = await _mail.GetSingleMailItemAsync(key, state.ServerId).ConfigureAwait(false);
+        var categories = EasDataMapper.MailCategories(data);
+        if (categories != null)
+            await EnsureMailCategoriesAsync(categories).ConfigureAwait(false);
         if (existing != null)
         {
             var wasRead = existing.IsRead;
             var wasFlagged = existing.IsFlagged;
             EasDataMapper.ApplyMailFields(existing, data);
-            if (data.Elements().Any(element => element.Name != EasDataMapper.Email + "Read" && element.Name != EasDataMapper.Email + "Flag"))
+            if (data.Elements().Any(element => element.Name != EasDataMapper.Email + "Read" && element.Name != EasDataMapper.Email + "Flag" &&
+                element.Name != EasDataMapper.Email + "Categories"))
                 await _mail.UpdateMailAsync(existing).ConfigureAwait(false);
             else
             {
@@ -1531,25 +1772,36 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 if (existing.IsFlagged != wasFlagged)
                     await _mail.ChangeFlagStatusAsync(existing.Id, existing.IsFlagged).ConfigureAwait(false);
             }
+            if (categories != null)
+                await _mailCategories.ReplaceMailAssignmentsAsync(_account.Id, existing.UniqueId, categories).ConfigureAwait(false);
             return;
         }
         if (isChange)
         {
-            // Received before, but not stored because it is older than the range cutoff; a Change carries no full message.
+            // Known to the collection but without a row (removed locally); a Change carries no full message.
             Serilog.Log.Debug("EAS message {RemoteId} in {Collection} changed, but Wino does not keep it; not stored.", remoteId, state.Name);
             return;
         }
 
         var folder = await _folders.GetFolderAsync(state.Id).ConfigureAwait(false) ?? throw new InvalidOperationException("The EAS mail folder is missing.");
-        var package = EasDataMapper.Mail(folder, remoteId, data);
-        var cutoff = _account.InitialSynchronizationRange.ToCutoffDateUtc(_account.CreatedAt ?? DateTime.UtcNow);
-        if (cutoff.HasValue && package.Copy.CreationDate < cutoff.Value)
-        {
-            Serilog.Log.Debug("EAS message {RemoteId} in {Collection} was received before the range cutoff {Cutoff:u}; not stored.", remoteId, state.Name, cutoff.Value);
-            return;
-        }
+        var package = EasDataMapper.Mail(folder, remoteId, data) with { CategoryNames = categories };
         if (await _mail.CreateMailAsync(_account.Id, package).ConfigureAwait(false))
             downloaded.Add(package.Copy);
+    }
+
+    /// <summary>
+    /// ActiveSync carries a message's categories by name only and has no command for the mailbox's category list
+    /// ([MS-ASEMAIL] 2.2.2.16), so a name Wino does not know yet becomes a category without a colour.
+    /// </summary>
+    private async Task EnsureMailCategoriesAsync(IReadOnlyList<string> names)
+    {
+        if (names.Count == 0)
+            return;
+        var known = (await _mailCategories.GetCategoriesAsync(_account.Id).ConfigureAwait(false))
+            .Select(category => category.Name?.Trim() ?? string.Empty)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in names.Select(name => name.Trim()).Where(name => name.Length > 0 && known.Add(name)))
+            await _mailCategories.CreateCategoryAsync(new MailCategory { MailAccountId = _account.Id, Name = name, Source = MailCategorySource.Exchange }).ConfigureAwait(false);
     }
 
     private async Task DeleteProjectionAsync(EasCollection state, string remoteId)

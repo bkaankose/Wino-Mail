@@ -51,31 +51,22 @@ public static class ExchangeTransportRekey
             TaskKey);
 
     /// <summary>
-    /// Stored task lists to re-key, by local id, with the folder id they take. The default list takes the default
-    /// folder; the others are matched by title, only when the title is unique on both sides. A list left unmatched is
-    /// dropped by the topology reconciliation and its folder imported as a new list.
+    /// Stored containers (calendars, address books, task lists) to re-key, by local id, with the folder id they take,
+    /// for rows whose folder ids have no documented relationship to the incoming ones (rows going to or from ActiveSync).
+    /// The default container takes the default folder; the others match by title, only when the title is unique on
+    /// both sides. The caller passes only the candidates and the folders no row holds yet.
     /// </summary>
-    public static Dictionary<Guid, string> MatchTaskLists(IEnumerable<AccountTaskList> stored, IReadOnlyList<(string RemoteId, string Title, bool IsDefault)> incoming)
+    public static Dictionary<Guid, string> MatchContainers(IReadOnlyList<(Guid Id, string Title, bool IsDefault)> candidates,
+        IReadOnlyList<(string RemoteId, string Title, bool IsDefault)> open)
     {
         var result = new Dictionary<Guid, string>();
-        if (incoming.Count == 0)
+        if (candidates.Count == 0 || open.Count == 0)
             return result;
 
-        var storedLists = stored.ToList();
-        var sample = incoming[0].RemoteId;
-        var claimed = storedLists.Select(list => list.RemoteId).Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
-        var candidates = storedLists
-            .Where(list => list.PendingMutation == TaskPendingMutation.None && IsOtherTransport(list.RemoteId, sample))
-            .ToList();
-        var open = incoming.Where(folder => !claimed.Contains(folder.RemoteId)).ToList();
-
-        var incomingDefault = open.FindIndex(folder => folder.IsDefault);
-        if (candidates.FirstOrDefault(list => list.IsDefault) is { } storedDefault && incomingDefault >= 0)
-        {
-            result[storedDefault.Id] = open[incomingDefault].RemoteId;
-            candidates.Remove(storedDefault);
-            open.RemoveAll(folder => folder.IsDefault);
-        }
+        var storedDefaults = candidates.Where(container => container.IsDefault).ToList();
+        var incomingDefaults = open.Where(folder => folder.IsDefault).ToList();
+        if (storedDefaults.Count == 1 && incomingDefaults.Count == 1)
+            result[storedDefaults[0].Id] = incomingDefaults[0].RemoteId;
 
         static string TitleKey(string title) => title?.Trim().ToLowerInvariant() ?? string.Empty;
 
@@ -86,8 +77,8 @@ public static class ExchangeTransportRekey
             .ToDictionary(group => group.Key, group => group.First().RemoteId, StringComparer.Ordinal);
 
         foreach (var group in candidates
-                     .Where(list => !list.IsDefault && TitleKey(list.Title).Length > 0)
-                     .GroupBy(list => TitleKey(list.Title), StringComparer.Ordinal)
+                     .Where(container => !container.IsDefault && TitleKey(container.Title).Length > 0)
+                     .GroupBy(container => TitleKey(container.Title), StringComparer.Ordinal)
                      .Where(group => group.Count() == 1))
         {
             if (openByTitle.TryGetValue(group.Key, out var remoteId))
@@ -96,6 +87,30 @@ public static class ExchangeTransportRekey
 
         return result;
     }
+
+    /// <summary>
+    /// The GlobalCounter of a MAPI folder id ("mapi:" + the FID as hex). A FID is ReplicaId (2 bytes) followed by
+    /// GlobalCounter (6 bytes), little-endian on the wire (MS-OXCDATA 2.2.1.1), so the counter is bytes 2 to 7.
+    /// </summary>
+    public static string? GlobalCounterOfMapiId(string? remoteId)
+    {
+        if (remoteId is null || !remoteId.StartsWith(MapiIdPrefix, StringComparison.Ordinal) ||
+            !ulong.TryParse(remoteId.AsSpan(MapiIdPrefix.Length), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var folderId))
+            return null;
+
+        Span<byte> bytes = stackalloc byte[8];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(bytes, folderId);
+        return Convert.ToHexString(bytes[2..]);
+    }
+
+    /// <summary>
+    /// The GlobalCounter of a folder entry id in hex (EWS ConvertId HexEntryId): Flags (4), ProviderUID (16),
+    /// FolderType (2), DatabaseGuid (16), GlobalCounter (6), Pad (2) (MS-OXCDATA 2.2.4.1).
+    /// </summary>
+    public static string? GlobalCounterOfEntryId(string? hexEntryId)
+        => hexEntryId is { Length: FolderEntryIdLength * 2 } ? hexEntryId.Substring(38 * 2, 6 * 2).ToUpperInvariant() : null;
+
+    private const int FolderEntryIdLength = 46;
 
     /// <summary>
     /// The transport whose id scheme a stored folder row carries. ActiveSync rows are marked by their folder type,

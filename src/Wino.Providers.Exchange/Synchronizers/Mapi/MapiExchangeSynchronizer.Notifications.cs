@@ -13,6 +13,8 @@ public sealed partial class MapiExchangeSynchronizer
 {
     protected override string TransportName => "MAPI notifications";
 
+    protected override bool ListenerHoldsServerSession => true;
+
     /// <summary>
     /// A dedicated session (the shared one serves sync passes and must not sit in a long poll) subscribes to the whole
     /// store, then loops on NotificationWait. Each wake-up collects the pending RopNotify responses with an empty

@@ -30,7 +30,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
 
     public ObservableCollection<MailCategory> Categories { get; } = [];
 
-    public bool CanRefresh => Account != null && _providers.GetTraits(Account.ProviderType).SupportsCategorySync;
+    public bool CanRefresh => Account != null && _providers.GetTraits(Account) is { SupportsCategorySync: true, CategorySource: not null };
     public bool HasCategories => Categories.Count > 0;
 
     private readonly ISynchronizationManager _synchronizationManager;
@@ -52,7 +52,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         _mailCategoryService = mailCategoryService;
         _accountService = accountService;
         _dialogService = dialogService;
-        _categoryEditor = new CategoryEditor(mailCategoryService, contactService, dialogService, winoRequestDelegator, appLockService);
+        _categoryEditor = new CategoryEditor(mailCategoryService, contactService, dialogService, winoRequestDelegator, appLockService, providers);
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
@@ -81,7 +81,7 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
     [RelayCommand]
     private async Task RefreshCategoriesAsync()
     {
-        if (!CanRefresh)
+        if (!CanRefresh || _providers.GetTraits(Account).CategorySource is not { } serverSource)
             return;
 
         var shouldContinue = await ExecuteUIThreadAsync(() =>
@@ -93,8 +93,8 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         if (!shouldContinue)
             return;
 
-        // Only the categories Outlook owns are rebuilt. Those kept on the device stay.
-        await _mailCategoryService.DeleteCategoriesAsync(Account.Id, MailCategorySource.Outlook).ConfigureAwait(false);
+        // Only the categories the server owns are rebuilt. Those kept on the device stay.
+        await _mailCategoryService.DeleteCategoriesAsync(Account.Id, serverSource).ConfigureAwait(false);
         await _synchronizationManager.SynchronizeCategoriesAsync(Account.Id).ConfigureAwait(false);
 
         await LoadCategoriesAsync().ConfigureAwait(false);

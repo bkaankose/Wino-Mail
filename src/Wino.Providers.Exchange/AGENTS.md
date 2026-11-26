@@ -25,6 +25,7 @@ A transport change is one shared operation (`ExchangeTransportChange` in the Vie
 
 - EWS and MAPI re-key by the folder's entry id: MAPI records it (`MapiEntryId`, with `MapiFolderId`), EWS gets it from ConvertId (HexEntryId).
 - Matching by server role and path (`ExchangeTransportRekey.MatchFolders`) is only for rows going to or from ActiveSync, whose server ids are opaque.
+- Calendars, address books and task lists follow the same rules (`MatchCarriedContainersAsync` on EWS and MAPI, `MatchCarriedContainersAsync` in the ActiveSync engine): EWS and MAPI by entry id (the HexEntryId's GlobalCounter is the one in the MAPI folder id), rows going to or from ActiveSync by default container and unique title. A re-keyed calendar keeps its row and drops its events, which the new transport stores again (`ExchangeCalendarRekey`). ActiveSync calendar ids carry the `eas:` prefix like its books and lists. Containers the new transport does not have (the MAPI directory book on EWS without FindPeople and on ActiveSync) are removed.
 - Each transport's folder pass re-keys before it deletes missing folders, sends `AccountFolderConfigurationUpdated` when its hierarchy changes, and does nothing extra in a steady-state pass.
 
 ## ActiveSync conformance

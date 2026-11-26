@@ -13,9 +13,12 @@ using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
-/// <summary>One calendar write: a series or single event, or one occurrence of a series when <see cref="InstanceKey"/> is set.</summary>
+/// <summary>
+/// One calendar write: a series or single event, or one occurrence of a series when <see cref="InstanceKey"/> is set.
+/// <see cref="ChangesAttachments"/> marks data that adds or deletes attachments (MS-ASAIRS Add and Delete, 16.x).
+/// </summary>
 internal sealed record EasEventMutation(string Operation, string RemoteId, XElement? Data, string ClientId = "", string? InstanceKey = null,
-    Func<string, Task>? Persist = null);
+    Func<string, Task>? Persist = null, bool ChangesAttachments = false);
 
 internal sealed partial class EasSynchronizationEngine
 {
@@ -74,6 +77,8 @@ internal sealed partial class EasSynchronizationEngine
         else
             await _calendars.CreateNewCalendarItemAsync(item, attendees).ConfigureAwait(false);
 
+        await ExchangeCalendarAttachments.ReconcileAsync(_database.Connection, item.Id, EasDataMapper.ReadAttachments(data)).ConfigureAwait(false);
+
         List<Reminder> server = EasDataMapper.ReadReminderMinutes(data) is { } minutes
             ? [new Reminder { Id = EasDataMapper.StableId(item.Id.ToString("N") + "/reminder"), CalendarItemId = item.Id, DurationInSeconds = minutes * 60L }]
             : [];
@@ -124,9 +129,9 @@ internal sealed partial class EasSynchronizationEngine
                     foreach (var child in children.Values.Where(child => !expected.Contains(child.Id) && child.StartDate >= windowStart.AddDays(1)))
                         await _calendars.DeleteCalendarItemAsync(child.Id).ConfigureAwait(false);
                 }
-                catch (Exception exception) when (exception is InvalidDataException or System.Xml.XmlException)
+                catch (Exception exception) when (IsItemFailure(exception, CancellationToken.None))
                 {
-                    Serilog.Log.Warning(exception, "EAS series {RemoteId} of {Account} could not be expanded.", shadow.RemoteId, _account.Address);
+                    _itemFailed(EasCollection.From(state), shadow.RemoteId, exception);
                 }
             }
         }
@@ -188,6 +193,10 @@ internal sealed partial class EasSynchronizationEngine
                 command.Add(operation == "Add" ? mutation.Data : change);
             }
 
+            // The stored copy takes the attachments the server reports after the write, not the Add and Delete instructions.
+            if (mutation.ChangesAttachments && updated != null)
+                RemoveAttachmentInstructions(updated);
+
             if (isProtocol16 && operation == "Change" && command.Element(sync + "ApplicationData") is { HasElements: false })
             {
                 // Nothing the server holds changed.
@@ -220,6 +229,10 @@ internal sealed partial class EasSynchronizationEngine
             // 16.x answers an Add with the UID it generated.
             if (updated != null && response?.Element(sync + "ApplicationData") is { } echoed)
                 updated = Merge(updated.ToString(SaveOptions.DisableFormatting), echoed);
+            // The Sync response names an added attachment only by ClientId and FileReference (MS-ASAIRS 2.2.2.7), so the
+            // event's attachments, and for an occurrence its exceptions, are read back from the server.
+            if (mutation.ChangesAttachments && updated != null)
+                await ApplyServerAttachmentsAsync(folderId, resultId, updated, mutation.InstanceKey != null, cancellationToken).ConfigureAwait(false);
 
             if (mutation.Persist != null)
                 await mutation.Persist(resultId).ConfigureAwait(false);
@@ -245,6 +258,67 @@ internal sealed partial class EasSynchronizationEngine
             return resultId;
         }
         finally { _gate.Release(); }
+    }
+
+    private static void RemoveAttachmentInstructions(XElement data)
+    {
+        var body = EasDataMapper.Body;
+        data.DescendantsAndSelf(body + "Attachments")
+            .Where(attachments => attachments.Elements(body + "Add").Any() || attachments.Elements(body + "Delete").Any())
+            .ToList()
+            .ForEach(attachments => attachments.Remove());
+    }
+
+    /// <summary>
+    /// Replaces the stored copy's attachments with the server's, read with ItemOperations Fetch (MS-ASCMD 2.2.1.10). For
+    /// an occurrence the exceptions are replaced too, since an occurrence's attachments are on its exception.
+    /// </summary>
+    private async Task ApplyServerAttachmentsAsync(string folderId, string serverId, XElement updated, bool replaceExceptions, CancellationToken cancellationToken)
+    {
+        XNamespace items = "ItemOperations:";
+        var response = await _client.CommandAsync("ItemOperations", new XElement(items + "ItemOperations",
+            new XElement(items + "Fetch", new XElement(items + "Store", "Mailbox"),
+                new XElement(EasDataMapper.Sync + "CollectionId", folderId), new XElement(EasDataMapper.Sync + "ServerId", serverId),
+                new XElement(items + "Options", new XElement(EasDataMapper.Body + "BodyPreference", new XElement(EasDataMapper.Body + "Type", "1"), new XElement(EasDataMapper.Body + "TruncationSize", "0"))))),
+            cancellationToken).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS ItemOperations response is missing.");
+        EasClient.RequireSuccess(response);
+        var fetch = response.Element(items + "Response")?.Element(items + "Fetch") ?? throw new InvalidDataException("The EAS ItemOperations response has no Fetch.");
+        EasClient.RequireSuccess(fetch);
+        var properties = fetch.Element(items + "Properties") ?? throw new InvalidDataException("The EAS ItemOperations response has no Properties.");
+
+        updated.Elements(EasDataMapper.Body + "Attachments").Remove();
+        if (properties.Element(EasDataMapper.Body + "Attachments") is { } attachments)
+            updated.Add(new XElement(attachments));
+
+        if (replaceExceptions && properties.Element(EasDataMapper.Calendar + "Exceptions") is { } exceptions)
+        {
+            updated.Elements(EasDataMapper.Calendar + "Exceptions").Remove();
+            updated.Add(new XElement(exceptions));
+        }
+    }
+
+    /// <summary>
+    /// The content of an attachment, fetched by its FileReference with ItemOperations (MS-ASCMD 2.2.1.10, Data
+    /// 2.2.3.39.2: base64). The device policy's attachment rules (MS-ASPROV AttachmentsEnabled, MaxAttachmentSize) apply.
+    /// </summary>
+    internal async Task<byte[]> FetchAttachmentContentAsync(string fileReference, CancellationToken cancellationToken)
+    {
+        if (_client.PolicyLimits.AttachmentsDisabled)
+            throw new InvalidOperationException("The ActiveSync policy of this account does not allow attachments.");
+
+        XNamespace items = "ItemOperations:";
+        var response = await _client.CommandAsync("ItemOperations", new XElement(items + "ItemOperations",
+            new XElement(items + "Fetch", new XElement(items + "Store", "Mailbox"), new XElement(EasDataMapper.Body + "FileReference", fileReference))),
+            cancellationToken).ConfigureAwait(false) ?? throw new InvalidDataException("The EAS ItemOperations response is missing.");
+        EasClient.RequireSuccess(response);
+        var fetch = response.Element(items + "Response")?.Element(items + "Fetch") ?? throw new InvalidDataException("The EAS ItemOperations response has no Fetch.");
+        EasClient.RequireSuccess(fetch);
+        var data = fetch.Element(items + "Properties")?.Element(items + "Data") ?? throw new InvalidDataException("The EAS attachment response has no Data.");
+        var content = Convert.FromBase64String(data.Value);
+
+        if (_client.PolicyLimits.MaxAttachmentSize is { } maximum && content.LongLength > maximum)
+            throw new InvalidOperationException("The attachment is larger than the ActiveSync policy of this account allows.");
+        return content;
     }
 
     /// <summary>The TimeZone element of the server's copy of an event, as stored; null when there is none.</summary>

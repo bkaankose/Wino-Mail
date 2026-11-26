@@ -652,8 +652,10 @@ internal sealed class EasClient : IDisposable
             new XElement(sync + "CollectionId", folderId));
         if (_version == "12.0")
             collection.AddFirst(new XElement(sync + "Class", itemClass));
+        // Every contact element is ghosted except Birthday: a Change keeps what it leaves out, but an empty dateTime is
+        // invalid (status 6), so a birthday can only be deleted by leaving out an element that is not ghosted.
         if (syncKey == "0" && itemClass == "Contacts")
-            collection.Add(new XElement(sync + "Supported"));
+            collection.Add(new XElement(sync + "Supported", new XElement((XNamespace)"Contacts:" + "Birthday")));
         if (syncKey != "0")
         {
             collection.Add(new XElement(sync + "DeletesAsMoves", deletesAsMoves ? "1" : "0"),
@@ -688,9 +690,9 @@ internal sealed class EasClient : IDisposable
     /// <summary>
     /// The synchronization window the server maintains, adding items that enter it and soft-deleting items that leave it.
     /// Calendar: 6 (3 months back), the window Wino shows for every Exchange transport; future and endless recurring
-    /// items are sent regardless. Email: none. Its largest window is one month, shorter than every Wino range, and a
-    /// Wino range is a fixed date counted from when the account was added, not a window that slides; the engine skips
-    /// new mail older than that date instead. Tasks and contacts: none, Wino shows completed tasks too.
+    /// items are sent regardless. Email: none, so the whole folder is synchronized as on EWS and MAPI; its largest
+    /// window is one month ([MS-ASCMD] 2.2.3.68), which no Wino range matches. Tasks and contacts: none, Wino shows
+    /// completed tasks too.
     /// </summary>
     private XElement? FilterType(string itemClass)
     {
@@ -706,12 +708,18 @@ internal sealed class EasClient : IDisposable
     {
         XNamespace body = "AirSyncBase:";
         if (itemClass != "Email")
-            return new XElement(body + "BodyPreference", new XElement(body + "Type", "1"));
+            return new XElement(body + "BodyPreference", new XElement(body + "Type", NonMailBodyType(itemClass)));
         return IsAtLeast("14.0")
             ? new XElement(body + "BodyPreference", new XElement(body + "Type", "2"), new XElement(body + "TruncationSize", "0"), new XElement(body + "Preview", "255"))
             : new XElement(body + "BodyPreference", new XElement(body + "Type", "1"),
                 new XElement(body + "TruncationSize", Math.Min(255, PolicyLimits.MaxEmailBodyTruncationSize ?? 255).ToString(CultureInfo.InvariantCulture)));
     }
+
+    /// <summary>
+    /// Event descriptions are HTML, as EWS stores them; MS-ASAIRS 2.2.2.41.1 allows 1 (plain text) and 2 (HTML) for
+    /// calendar items. Contact and task notes are plain text.
+    /// </summary>
+    internal static string NonMailBodyType(string itemClass) => itemClass == "Calendar" ? "2" : "1";
 
     internal async Task<XElement> FetchAsync(string folderId, string serverId, CancellationToken cancellationToken)
     {

@@ -25,8 +25,24 @@ public partial class ExchangeSynchronizer
 
     #region Contacts
 
-    // The mailbox's default Contacts folder is the account's one provider address book. Address books are not managed
-    // from this client, and a contact photo is not written back.
+    // Every contact folder of the mailbox (IPF.Contact, not hidden, outside Deleted Items) is an address book; the
+    // well-known Contacts folder is the default one. Address books are not created, renamed or deleted from this client.
+
+    protected const string ContactFolderClass = "IPF.Contact";
+
+    /// <summary>A contact folder of the mailbox, keyed by the transport's folder id.</summary>
+    protected sealed record ExchangeContactFolder(string RemoteId, string? Title, bool IsDefault);
+
+    // PidTagAttributeHidden (MS-OXPROPS 2.602): the mailbox's system contact folders (Recipient Cache, the Skype and GAL
+    // contact caches) are hidden and are not address books.
+    private static readonly ExtendedPropertyDefinition AttributeHiddenProperty = new(0x10F4, MapiPropertyType.Boolean);
+
+    // PidTagBirthday (MS-OXOCNTC 2.2.1.5.1) is read and written as itself: the EWS API's Birthday is a non-nullable
+    // date that cannot tell "none" apart and cannot be removed. PidLidBirthdayLocal (2.2.1.5.2) and
+    // PidTagDisplayNamePrefix (2.2.1.1.3) are not in the EWS contact schema.
+    private static readonly ExtendedPropertyDefinition BirthdayProperty = new(0x3A42, MapiPropertyType.SystemTime);
+    private static readonly ExtendedPropertyDefinition BirthdayLocalProperty = new(DefaultExtendedPropertySet.Address, 0x80DE, MapiPropertyType.SystemTime);
+    private static readonly ExtendedPropertyDefinition DisplayNamePrefixProperty = new(0x3A45, MapiPropertyType.String);
 
     protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
         => Account.ContactIntegrationSource switch
@@ -56,9 +72,37 @@ public partial class ExchangeSynchronizer
         => Account.ContactIntegrationSource switch
         {
             AccountIntegrationSource.Local => _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken),
-            AccountIntegrationSource.Provider when Account.IsContactAccessGranted && ContactService is not null => ExecuteProviderContactRequestsAsync(requests, cancellationToken),
+            AccountIntegrationSource.Provider when Account.IsContactAccessGranted && ContactService is not null => ExecuteRoutedContactRequestsAsync(requests, cancellationToken),
             _ => throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)
         };
+
+    /// <summary>
+    /// Contact lists and contacts kept in a local address book have no Exchange counterpart and are committed locally,
+    /// as the Outlook and ActiveSync paths do; the rest go to the transport, in request order.
+    /// </summary>
+    private async Task ExecuteRoutedContactRequestsAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken)
+    {
+        var pending = new List<IContactActionRequest>();
+        foreach (var request in requests)
+        {
+            if (request is not ContactListRequest && request.SourceKind != ContactSourceKind.Local)
+            {
+                pending.Add(request);
+                continue;
+            }
+
+            if (pending.Count > 0)
+            {
+                await ExecuteProviderContactRequestsAsync([.. pending], cancellationToken).ConfigureAwait(false);
+                pending.Clear();
+            }
+
+            await _localContactSynchronizer.ExecuteRequestsAsync([request], cancellationToken).ConfigureAwait(false);
+        }
+
+        if (pending.Count > 0)
+            await ExecuteProviderContactRequestsAsync([.. pending], cancellationToken).ConfigureAwait(false);
+    }
 
     protected IContactService RequireContactService()
         => ContactService ?? throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable);
@@ -66,30 +110,72 @@ public partial class ExchangeSynchronizer
     protected ITaskService RequireTaskService()
         => TaskService ?? throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable);
 
+    protected static bool IsContactFolderClass(string? folderClass)
+        => folderClass is not null &&
+           (string.Equals(folderClass, ContactFolderClass, StringComparison.OrdinalIgnoreCase) ||
+            folderClass.StartsWith(ContactFolderClass + ".", StringComparison.OrdinalIgnoreCase));
+
     /// <summary>
-    /// The account's Exchange address book, created on first use. The account has one, the mailbox's Contacts folder,
-    /// so a book stored under another id is that folder as the other transport addressed it: it is re-pointed in place
-    /// rather than dropped and imported again.
+    /// Reconciles the account's Exchange address books with the mailbox's contact folders and returns the books in
+    /// folder order. Books another transport stored are re-keyed in place first (between EWS and MAPI by entry id; books
+    /// ActiveSync stored by role and title, as task lists are), so favourites, list memberships and pictures survive a
+    /// transport change. Books whose folder is gone are removed.
     /// </summary>
-    protected async Task<ContactAddressBook> GetOrCreateContactsBookAsync(string remoteFolderId)
+    protected async Task<List<ContactAddressBook>> EnsureContactBooksAsync(IReadOnlyList<ExchangeContactFolder> folders, CancellationToken cancellationToken = default)
     {
         var contactService = RequireContactService();
-        var books = (await contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false))
+        var stored = (await contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false))
             .Where(b => b.SourceKind == ContactSourceKind.Exchange && !IsDirectoryBook(b))
             .ToList();
-        var current = books.FirstOrDefault(b => string.Equals(b.RemoteId, remoteFolderId, StringComparison.Ordinal));
 
-        if (current is null && books.OrderByDescending(b => b.IsDefault).FirstOrDefault() is { } carried)
+        var folderIds = folders.Select(f => f.RemoteId).ToHashSet(StringComparer.Ordinal);
+        var matches = await MatchCarriedContainersAsync(
+            stored.Select(b => (b.Id, b.RemoteId ?? string.Empty, b.DisplayName ?? string.Empty, b.IsDefault)).ToList(),
+            folders.Select(f => (f.RemoteId, f.Title ?? string.Empty, f.IsDefault)).ToList(),
+            cancellationToken).ConfigureAwait(false);
+
+        foreach (var book in stored)
         {
-            _logger.Information("Exchange contacts {Account}: re-keying the address book to the current transport.", Account.Name);
-            await contactService.RekeyAddressBookAsync(carried.Id, remoteFolderId, new Dictionary<Guid, string>()).ConfigureAwait(false);
-            current = carried;
+            if (!matches.TryGetValue(book.Id, out var remoteId))
+                continue;
+
+            _logger.Information("Exchange contacts {Account}: re-keying address book {BookId} to the current transport.", Account.Name, book.Id);
+            await contactService.RekeyAddressBookAsync(book.Id, remoteId, new Dictionary<Guid, string>()).ConfigureAwait(false);
+            book.RemoteId = remoteId;
         }
 
-        foreach (var stale in books.Where(b => b.Id != current?.Id))
+        // A transport change also changes where the directory book comes from; it is read again in this pass.
+        if (matches.Count > 0)
+            _isDirectoryRefreshRequired = true;
+
+        foreach (var stale in stored.Where(b => !folderIds.Contains(b.RemoteId ?? string.Empty)))
             await contactService.DeleteAddressBookAsync(stale.Id).ConfigureAwait(false);
 
-        return await contactService.GetOrCreateProviderAddressBookAsync(Account.Id, ContactSourceKind.Exchange, remoteFolderId, Account.Name, true).ConfigureAwait(false);
+        var books = new List<ContactAddressBook>();
+        foreach (var folder in folders)
+        {
+            var title = folder.IsDefault || string.IsNullOrWhiteSpace(folder.Title) ? Account.Name : folder.Title;
+            books.Add(await contactService.GetOrCreateProviderAddressBookAsync(Account.Id, ContactSourceKind.Exchange, folder.RemoteId, title, folder.IsDefault).ConfigureAwait(false));
+        }
+
+        return books;
+    }
+
+    /// <summary>The books a pass reads: the one the options name, or all of them.</summary>
+    protected static List<ContactAddressBook> SelectContactBooksToSynchronize(List<ContactAddressBook> books, ContactSynchronizationOptions? options)
+        => options?.AddressBookId is Guid bookId && books.Any(book => book.Id == bookId)
+            ? books.Where(book => book.Id == bookId).ToList()
+            : books;
+
+    /// <summary>The Exchange address book a contact request writes to; the directory book is read-only.</summary>
+    protected async Task<ContactAddressBook> ResolveRequestedContactBookAsync(IContactActionRequest request, AccountContact? local)
+    {
+        var bookId = local?.AddressBookId is Guid id && id != Guid.Empty ? id : request.AddressBookId;
+        var book = (await RequireContactService().GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).FirstOrDefault(b => b.Id == bookId);
+        if (book is null || book.SourceKind != ContactSourceKind.Exchange || IsDirectoryBook(book) || string.IsNullOrWhiteSpace(book.RemoteId))
+            throw new InvalidOperationException($"Address book {bookId} is unavailable for {request.Operation}.");
+
+        return book;
     }
 
     /// <summary>
@@ -148,81 +234,150 @@ public partial class ExchangeSynchronizer
         }
     }
 
-    // FirstClassProperties loads the full contact (names, e-mail addresses, phones, addresses, company, notes) in one
-    // batch; the attachments tell whether a contact photo exists.
-    private static readonly PropertySet ContactPropertySet = new(BasePropertySet.FirstClassProperties, ItemSchema.Attachments)
+    /// <summary>
+    /// Commits a photo write: the stored picture follows the server's (MS-OXOCNTC 2.2.1.8), under the photo key the
+    /// next pull reports for it so the picture is not downloaded again.
+    /// </summary>
+    protected async Task CommitContactPhotoAsync(ContactActionRequest request, AccountContact local, string? remoteVersion, string? remotePhotoKey)
+    {
+        var committed = RequestEntityCloner.Contact(local);
+        if (remoteVersion is not null)
+            committed.RemoteVersion = remoteVersion;
+
+        if (request.Operation == ContactSynchronizerOperation.SetPhoto)
+        {
+            var pictures = ContactPictureService ?? throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable);
+            committed.ContactPictureFileId = await pictures.SavePictureAsync(PictureKind.Contact, request.Photo).ConfigureAwait(false);
+            committed.RemotePhotoKey = remotePhotoKey;
+            await ExchangeChangeProcessor.CommitContactMutationAsync(local.Id, committed, false).ConfigureAwait(false);
+            return;
+        }
+
+        committed.ContactPictureFileId = null;
+        committed.RemotePhotoKey = null;
+        await ExchangeChangeProcessor.CommitContactMutationAsync(local.Id, committed, false).ConfigureAwait(false);
+        await RequireContactService().SuppressContactPictureAsync(local.Id, string.Empty).ConfigureAwait(false);
+    }
+
+    // FirstClassProperties loads the full contact (names, e-mail addresses, phones, addresses, company, notes,
+    // categories, birthday) in one batch; the attachments tell whether a contact photo exists.
+    private static readonly PropertySet ContactPropertySet = new(BasePropertySet.FirstClassProperties, ItemSchema.Attachments, BirthdayProperty, BirthdayLocalProperty, DisplayNamePrefixProperty)
     {
         RequestedBodyType = BodyType.Text
     };
 
+    private static readonly PropertySet ContactFolderPropertySet = new(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass, AttributeHiddenProperty);
+
+    // Birthdays are dates stored as UTC instants (MS-OXOCNTC 2.2.1.5); a UTC service zone makes EWS return and
+    // accept them unconverted.
+    private Task<ExchangeService> CreateContactServiceAsync(CancellationToken cancellationToken)
+        => CreateServiceAsync(cancellationToken, TimeZoneInfo.Utc);
+
+    /// <summary>The mailbox's contact folders: the default Contacts folder first, then every other one outside Deleted Items.</summary>
+    private static async Task<List<ExchangeContactFolder>> ReadEwsContactFoldersAsync(ExchangeService service, CancellationToken cancellationToken)
+    {
+        var defaultFolder = await Folder.Bind(service, WellKnownFolderName.Contacts, ContactFolderPropertySet).ConfigureAwait(false);
+        var filter = new SearchFilter.ContainsSubstring(FolderSchema.FolderClass, ContactFolderClass, ContainmentMode.Prefixed, ComparisonMode.IgnoreCase);
+
+        var discarded = (await FindEwsFoldersAsync(service, WellKnownFolderName.DeletedItems, filter, ContactFolderPropertySet, cancellationToken).ConfigureAwait(false))
+            .Select(folder => folder.Id.UniqueId)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var folders = new List<ExchangeContactFolder> { new(defaultFolder.Id.UniqueId, SafeGet(() => defaultFolder.DisplayName), true) };
+        foreach (var folder in await FindEwsFoldersAsync(service, WellKnownFolderName.MsgFolderRoot, filter, ContactFolderPropertySet, cancellationToken).ConfigureAwait(false))
+        {
+            var remoteId = folder.Id.UniqueId;
+            if (folders.Any(existing => string.Equals(existing.RemoteId, remoteId, StringComparison.Ordinal)) || discarded.Contains(remoteId))
+                continue;
+
+            if (!IsContactFolderClass(SafeGet(() => folder.FolderClass)) ||
+                (folder.TryGetProperty(AttributeHiddenProperty, out bool hidden) && hidden))
+                continue;
+
+            folders.Add(new ExchangeContactFolder(remoteId, SafeGet(() => folder.DisplayName), false));
+        }
+
+        return folders;
+    }
+
     /// <summary>
-    /// One-way pull of the default Contacts folder into the address book: page the items, batch-load their properties,
-    /// then replace the book's rows. Favourites and downloaded pictures survive the rebuild by remote id.
+    /// One-way pull of every contact folder into its address book: page the items, batch-load their properties, then
+    /// replace the book's rows. Favourites and downloaded pictures survive the rebuild by remote id.
     /// </summary>
     protected virtual async Task<ContactSynchronizationResult> SynchronizeProviderContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken)
     {
-        var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
-        var contactsFolder = await ContactsFolder
-            .Bind(service, WellKnownFolderName.Contacts, new PropertySet(BasePropertySet.IdOnly))
-            .ConfigureAwait(false);
+        var service = await CreateContactServiceAsync(cancellationToken).ConfigureAwait(false);
+        var books = await EnsureContactBooksAsync(await ReadEwsContactFoldersAsync(service, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
 
-        var book = await GetOrCreateContactsBookAsync(contactsFolder.Id.UniqueId).ConfigureAwait(false);
-        var upserts = new List<AccountContact>();
-        var photos = new List<(AccountContact, Func<Task<byte[]?>>)>();
-
-        var view = new ItemView(ItemDownloadPageSize);
-        FindItemsResults<Item> results;
-        do
+        var total = 0;
+        foreach (var book in SelectContactBooksToSynchronize(books, options))
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            var upserts = new List<AccountContact>();
+            var photos = new List<(AccountContact, Func<Task<byte[]?>>)>();
 
-            results = await service.FindItems(contactsFolder.Id, view).ConfigureAwait(false);
-
-            var contacts = results.Items.OfType<Contact>().ToList();
-            if (contacts.Count > 0)
+            var view = new ItemView(ItemDownloadPageSize);
+            FindItemsResults<Item> results;
+            do
             {
-                await service.LoadPropertiesForItems(contacts, ContactPropertySet).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                foreach (var contact in contacts)
+                results = await service.FindItems(new FolderId(book.RemoteId), view).ConfigureAwait(false);
+
+                var contacts = results.Items.OfType<Contact>().ToList();
+                if (contacts.Count > 0)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var mapped = MapToAccountContact(contact, book);
-                    upserts.Add(mapped);
+                    await service.LoadPropertiesForItems(contacts, ContactPropertySet).ConfigureAwait(false);
 
-                    if (BuildContactPhotoFetcher(contact) is { } fetch)
-                        photos.Add((mapped, fetch));
+                    foreach (var contact in contacts)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var mapped = MapToAccountContact(contact, book);
+                        upserts.Add(mapped);
+
+                        if (BuildContactPhotoFetcher(contact) is { } fetch)
+                            photos.Add((mapped, fetch));
+                    }
                 }
+
+                view.Offset += results.Items.Count;
             }
+            while (results.MoreAvailable);
 
-            view.Offset += results.Items.Count;
+            await RekeyContactsFromOtherTransportAsync(book, upserts).ConfigureAwait(false);
+            await DownloadContactPhotosAsync(photos, book, cancellationToken).ConfigureAwait(false);
+            await RequireContactService().ReplaceAddressBookAsync(book.Id, upserts, null).ConfigureAwait(false);
+            total += upserts.Count;
         }
-        while (results.MoreAvailable);
 
-        await RekeyContactsFromOtherTransportAsync(book, upserts).ConfigureAwait(false);
-        await DownloadContactPhotosAsync(photos, book, cancellationToken).ConfigureAwait(false);
-        await RequireContactService().ReplaceAddressBookAsync(book.Id, upserts, null).ConfigureAwait(false);
+        _logger.Information("Exchange contacts sync for {Account}: {Books} address books, {Count} server contacts.", Account.Name, books.Count, total);
 
-        _logger.Information("Exchange contacts sync for {Account}: {Count} server contacts.", Account.Name, upserts.Count);
-
-        return ContactSynchronizationResult.Completed(upserts.Count, upserts.Count, 0);
+        return ContactSynchronizationResult.Completed(total, total, 0);
     }
 
     protected virtual async Task ExecuteProviderContactRequestsAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken)
     {
-        var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
+        var service = await CreateContactServiceAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var request in requests)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (request is ContactCategoryRequest categoryRequest)
+            {
+                await SetEwsContactCategoriesAsync(service, categoryRequest).ConfigureAwait(false);
+                continue;
+            }
+
             var local = await ResolveRequestedContactAsync(request).ConfigureAwait(false);
 
             switch (request.Operation)
             {
                 case ContactSynchronizerOperation.Create when local is not null:
                 {
+                    var book = await ResolveRequestedContactBookAsync(request, local).ConfigureAwait(false);
                     var contact = new Contact(service);
-                    ApplyContactProperties(contact, local);
-                    await contact.Save(WellKnownFolderName.Contacts).ConfigureAwait(false);
+                    ApplyContactProperties(contact, local, null, isNew: true);
+                    await contact.Save(new FolderId(book.RemoteId)).ConfigureAwait(false);
 
                     var mapped = RequestEntityCloner.Contact(local);
                     mapped.RemoteId = contact.Id.UniqueId;
@@ -233,13 +388,18 @@ public partial class ExchangeSynchronizer
                 }
                 case ContactSynchronizerOperation.Update when local is not null:
                 {
-                    var contact = await Contact.Bind(service, new ItemId(local.RemoteId)).ConfigureAwait(false);
-                    ApplyContactProperties(contact, local);
+                    var contact = await Contact.Bind(service, new ItemId(local.RemoteId), ContactPropertySet).ConfigureAwait(false);
+                    ApplyContactProperties(contact, local, (request as ContactActionRequest)?.OriginalContact, isNew: false);
                     await contact.Update(ConflictResolutionMode.AutoResolve).ConfigureAwait(false);
 
                     var mapped = RequestEntityCloner.Contact(local);
                     mapped.RemoteVersion = contact.Id.ChangeKey;
                     await ExchangeChangeProcessor.CommitContactMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
+                    break;
+                }
+                case ContactSynchronizerOperation.SetPhoto or ContactSynchronizerOperation.DeletePhoto when local is not null && request is ContactActionRequest photoRequest:
+                {
+                    await WriteEwsContactPhotoAsync(service, photoRequest, local).ConfigureAwait(false);
                     break;
                 }
                 case ContactSynchronizerOperation.Delete:
@@ -267,6 +427,48 @@ public partial class ExchangeSynchronizer
         }
     }
 
+    /// <summary>Writes the contact's categories (t:Categories) and commits them locally once the server took them.</summary>
+    private async Task SetEwsContactCategoriesAsync(ExchangeService service, ContactCategoryRequest request)
+    {
+        var stored = await RequireContactService().GetContactAsync(request.LocalContactId).ConfigureAwait(false);
+        var remoteId = stored?.RemoteId ?? request.Contact.RemoteId;
+        if (string.IsNullOrWhiteSpace(remoteId))
+            throw new InvalidOperationException($"Contact {request.LocalContactId} has no server identity for {request.Operation}.");
+
+        var contact = await Contact.Bind(service, new ItemId(remoteId), new PropertySet(BasePropertySet.IdOnly, ItemSchema.Categories)).ConfigureAwait(false);
+        contact.Categories = new StringList(request.CategoryNames.Where(name => !string.IsNullOrWhiteSpace(name)).Select(name => name.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
+        await contact.Update(ConflictResolutionMode.AutoResolve).ConfigureAwait(false);
+
+        await RequireContactService().SetContactCategoriesAsync(request.LocalContactId, request.CategoryNames).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Replaces or removes the contact photo: a file attachment with IsContactPhoto (MS-OXWSATT 2.2.4.5), which the
+    /// EWS contact API adds as "ContactPicture.jpg" after removing the previous one.
+    /// </summary>
+    private async Task WriteEwsContactPhotoAsync(ExchangeService service, ContactActionRequest request, AccountContact local)
+    {
+        var contact = await Contact.Bind(service, new ItemId(local.RemoteId), new PropertySet(BasePropertySet.IdOnly, ItemSchema.Attachments)).ConfigureAwait(false);
+
+        if (request.Operation == ContactSynchronizerOperation.SetPhoto)
+        {
+            if (request.Photo is not { Length: > 0 })
+                throw new InvalidOperationException($"Contact {local.Id} has no photo to write.");
+
+            contact.SetContactPicture(request.Photo);
+        }
+        else
+        {
+            contact.RemoveContactPicture();
+        }
+
+        await contact.Update(ConflictResolutionMode.AutoResolve).ConfigureAwait(false);
+
+        // The attachment change gives the item a new change key, which the next pull reports as the photo key.
+        var current = await Contact.Bind(service, contact.Id, new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+        await CommitContactPhotoAsync(request, local, current.Id.ChangeKey, current.Id.ChangeKey).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// The contact a request acts on: the request's snapshot, or the stored row when the snapshot lacks the server id.
     /// Null only for a delete of a contact that no longer exists anywhere.
@@ -286,55 +488,132 @@ public partial class ExchangeSynchronizer
         if (local is null && request.Operation != ContactSynchronizerOperation.Delete)
             throw new InvalidOperationException($"Contact {request.LocalContactId} is unavailable for {request.Operation}.");
 
-        if (request.Operation is ContactSynchronizerOperation.Update && string.IsNullOrWhiteSpace(local?.RemoteId))
+        if (request.Operation is ContactSynchronizerOperation.Update or ContactSynchronizerOperation.SetPhoto or ContactSynchronizerOperation.DeletePhoto &&
+            string.IsNullOrWhiteSpace(local?.RemoteId))
             throw new InvalidOperationException($"Contact {request.LocalContactId} has no server identity for {request.Operation}.");
 
         return local;
     }
 
     protected static NotSupportedException UnsupportedContactOperation(ContactSynchronizerOperation operation)
-        => operation is ContactSynchronizerOperation.SetPhoto or ContactSynchronizerOperation.DeletePhoto
-            ? new NotSupportedException(Translator.Synchronizer_ExchangeContactPhotoUnsupported)
-            : new NotSupportedException(Translator.Synchronizer_ExchangeAddressBooksUnsupported);
+        => new(Translator.Synchronizer_ExchangeAddressBooksUnsupported);
 
-    // Indexed properties (e-mail addresses, phones) are only set when present, since clearing an EWS dictionary entry
-    // is unreliable across server versions. Postal addresses are not written back.
-    private static void ApplyContactProperties(Contact contact, AccountContact item)
+    private static readonly EmailAddressKey[] EmailKeys = [EmailAddressKey.EmailAddress1, EmailAddressKey.EmailAddress2, EmailAddressKey.EmailAddress3];
+
+    /// <summary>
+    /// Writes every field the contact editor offers (MS-OXWSCDATA t:ContactItemType). On an update a field the contact
+    /// no longer has is removed from the server, and an e-mail slot whose address did not change is left alone, so an
+    /// address-book entry stored in it is not replaced by its SMTP form.
+    /// </summary>
+    private static void ApplyContactProperties(Contact contact, AccountContact item, AccountContact? original, bool isNew)
     {
-        contact.DisplayName = string.IsNullOrWhiteSpace(item.DisplayName) ? item.PrimaryEmailAddress : item.DisplayName;
-        contact.GivenName = item.GivenName;
-        contact.Surname = item.Surname;
-        contact.CompanyName = item.CompanyName;
-        contact.JobTitle = item.JobTitle;
+        contact.DisplayName = FirstText(item.DisplayName, item.StructuredName, item.CompanyName, item.PrimaryEmailAddress) ?? string.Empty;
+        SetText(isNew, () => contact.GivenName, value => contact.GivenName = value, item.GivenName);
+        SetText(isNew, () => contact.MiddleName, value => contact.MiddleName = value, item.MiddleName);
+        SetText(isNew, () => contact.Surname, value => contact.Surname = value, item.Surname);
+        SetText(isNew, () => contact.Generation, value => contact.Generation = value, item.HonorificSuffix);
+        SetText(isNew, () => contact.NickName, value => contact.NickName = value, item.Nickname);
+        SetText(isNew, () => contact.CompanyName, value => contact.CompanyName = value, item.CompanyName);
+        SetText(isNew, () => contact.Department, value => contact.Department = value, item.Department);
+        SetText(isNew, () => contact.JobTitle, value => contact.JobTitle = value, item.JobTitle);
+        SetText(isNew, () => contact.OfficeLocation, value => contact.OfficeLocation = value, item.OfficeLocation);
+        SetText(isNew, () => contact.BusinessHomePage, value => contact.BusinessHomePage = value, item.Website);
 
-        var keys = new[] { EmailAddressKey.EmailAddress1, EmailAddressKey.EmailAddress2, EmailAddressKey.EmailAddress3 };
-        var addresses = (item.EmailAddresses ?? [])
-            .OrderByDescending(a => a.IsPrimary)
-            .ThenBy(a => a.Order)
-            .Select(a => a.Address)
-            .Where(a => !string.IsNullOrWhiteSpace(a))
-            .Take(keys.Length)
-            .ToList();
+        if (Clean(item.HonorificPrefix) is { } prefix)
+            contact.SetExtendedProperty(DisplayNamePrefixProperty, prefix);
+        else if (!isNew)
+            contact.RemoveExtendedProperty(DisplayNamePrefixProperty);
 
-        for (var i = 0; i < addresses.Count; i++)
-            contact.EmailAddresses[keys[i]] = new EmailAddress(addresses[i]);
+        if (Clean(item.Notes) is { } notes)
+            contact.Body = new MessageBody(BodyType.Text, notes);
+        else if (!isNew && !string.IsNullOrEmpty(SafeGet(() => contact.Body?.Text)))
+            contact.Body = new MessageBody(BodyType.Text, string.Empty);
 
-        SetPhone(contact, PhoneNumberKey.BusinessPhone, FirstPhone(item, ContactPhoneKind.Work));
-        SetPhone(contact, PhoneNumberKey.HomePhone, FirstPhone(item, ContactPhoneKind.Home));
-        SetPhone(contact, PhoneNumberKey.MobilePhone, FirstPhone(item, ContactPhoneKind.Mobile));
+        var emails = ExchangeContactFields.Emails(item);
+        var originalEmails = original is null ? null : ExchangeContactFields.Emails(original);
+        for (var slot = 0; slot < EmailKeys.Length; slot++)
+        {
+            var current = GetEmail(contact, EmailKeys[slot]);
+            if (!isNew && (string.Equals(emails[slot], current, StringComparison.OrdinalIgnoreCase) ||
+                           (originalEmails is not null && string.Equals(emails[slot], originalEmails[slot], StringComparison.OrdinalIgnoreCase))))
+                continue;
 
-        if (!string.IsNullOrWhiteSpace(item.Notes))
-            contact.Body = new MessageBody(BodyType.Text, item.Notes);
+            if (emails[slot] is { } address)
+                contact.EmailAddresses[EmailKeys[slot]] = new EmailAddress(address);
+            else if (current is not null)
+                contact.EmailAddresses[EmailKeys[slot]] = null;
+        }
+
+        var work = ExchangeContactFields.Phones(item, ContactPhoneKind.Work, 2);
+        var home = ExchangeContactFields.Phones(item, ContactPhoneKind.Home, 2);
+        SetPhone(contact, PhoneNumberKey.BusinessPhone, work[0]);
+        SetPhone(contact, PhoneNumberKey.BusinessPhone2, work[1]);
+        SetPhone(contact, PhoneNumberKey.HomePhone, home[0]);
+        SetPhone(contact, PhoneNumberKey.HomePhone2, home[1]);
+        SetPhone(contact, PhoneNumberKey.MobilePhone, ExchangeContactFields.Phones(item, ContactPhoneKind.Mobile, 1)[0]);
+
+        SetAddress(contact, PhysicalAddressKey.Home, item, ContactPostalAddressKind.Home);
+        SetAddress(contact, PhysicalAddressKey.Business, item, ContactPostalAddressKind.Business);
+        SetAddress(contact, PhysicalAddressKey.Other, item, ContactPostalAddressKind.Other);
+
+        if (ExchangeContactBirthday.FromContact(item) is { } birthday)
+        {
+            contact.SetExtendedProperty(BirthdayProperty, ExchangeContactBirthday.ToBirthdayUtc(birthday));
+            contact.SetExtendedProperty(BirthdayLocalProperty, ExchangeContactBirthday.ToBirthdayLocalRaw(birthday));
+        }
+        else if (!isNew)
+        {
+            contact.RemoveExtendedProperty(BirthdayProperty);
+            contact.RemoveExtendedProperty(BirthdayLocalProperty);
+        }
+
+        if (isNew && ExchangeContactFields.CategoryNames(item) is { Length: > 0 } categories)
+            contact.Categories = new StringList(categories);
     }
 
-    private static string? FirstPhone(AccountContact item, ContactPhoneKind kind)
-        => item.PhoneNumbers?.Where(p => p.Kind == kind).OrderBy(p => p.Order).Select(p => p.Number).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
+    private static void SetText(bool isNew, Func<string?> current, Action<string?> set, string? value)
+    {
+        if (Clean(value) is { } text)
+            set(text);
+        else if (!isNew && !string.IsNullOrEmpty(SafeGet(current)))
+            set(null);
+    }
 
     private static void SetPhone(Contact contact, PhoneNumberKey key, string? value)
     {
-        if (!string.IsNullOrWhiteSpace(value))
+        if (value is not null)
             contact.PhoneNumbers[key] = value;
+        else if (GetPhone(contact, key) is not null)
+            contact.PhoneNumbers[key] = null;
     }
+
+    // t:PhysicalAddressDictionaryEntryType has no post office box; it is kept on its own street line, as ActiveSync writes it.
+    private static void SetAddress(Contact contact, PhysicalAddressKey key, AccountContact item, ContactPostalAddressKind kind)
+    {
+        var address = item.PostalAddresses?.FirstOrDefault(a => a.Kind == kind);
+        var street = Clean(string.Join('\n', new[] { address?.Street, address?.PostOfficeBox }.Select(Clean).OfType<string>()));
+        var parts = new[] { street, Clean(address?.City), Clean(address?.Region), Clean(address?.PostalCode), Clean(address?.Country) };
+
+        if (parts.All(part => part is null))
+        {
+            if (GetAddress(contact, key) is not null)
+                contact.PhysicalAddresses[key] = null;
+            return;
+        }
+
+        contact.PhysicalAddresses[key] = new PhysicalAddressEntry
+        {
+            Street = parts[0],
+            City = parts[1],
+            State = parts[2],
+            PostalCode = parts[3],
+            CountryOrRegion = parts[4]
+        };
+    }
+
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? FirstText(params string?[] values) => values.Select(Clean).FirstOrDefault(value => value is not null);
 
     private AccountContact MapToAccountContact(Contact remote, ContactAddressBook book)
     {
@@ -348,9 +627,11 @@ public partial class ExchangeSynchronizer
             RemoteVersion = remote.Id.ChangeKey,
             RemotePhotoKey = HasContactPhoto(remote) ? remote.Id.ChangeKey : null,
             DisplayName = SafeGet(() => remote.DisplayName),
+            HonorificPrefix = remote.TryGetProperty(DisplayNamePrefixProperty, out string? prefix) ? Clean(prefix) : null,
             GivenName = SafeGet(() => remote.GivenName),
             MiddleName = SafeGet(() => remote.MiddleName),
             Surname = SafeGet(() => remote.Surname),
+            HonorificSuffix = SafeGet(() => remote.Generation),
             Nickname = SafeGet(() => remote.NickName),
             FileAs = SafeGet(() => remote.FileAs),
             CompanyName = SafeGet(() => remote.CompanyName),
@@ -360,18 +641,16 @@ public partial class ExchangeSynchronizer
             Profession = SafeGet(() => remote.Profession),
             Notes = SafeGet(() => remote.Body?.Text),
             Website = SafeGet(() => remote.BusinessHomePage),
+            CategoryNames = (SafeGet(() => remote.Categories) is { } categories ? categories.Select(Clean).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList() : []),
             PendingMutation = ContactPendingMutation.None
         };
 
-        if (SafeGet(() => remote.Birthday) is { } birthday)
-        {
-            contact.BirthdayYear = birthday.Year;
-            contact.BirthdayMonth = birthday.Month;
-            contact.BirthdayDay = birthday.Day;
-        }
+        var birthdayLocal = remote.TryGetProperty(BirthdayLocalProperty, out DateTime? local) ? local : null;
+        var birthday = remote.TryGetProperty(BirthdayProperty, out DateTime? utc) ? utc : null;
+        ExchangeContactBirthday.Apply(contact, ExchangeContactBirthday.Read(birthdayLocal, birthday));
 
         var order = 0;
-        foreach (var key in new[] { EmailAddressKey.EmailAddress1, EmailAddressKey.EmailAddress2, EmailAddressKey.EmailAddress3 })
+        foreach (var key in EmailKeys)
         {
             var address = GetEmail(remote, key);
             if (string.IsNullOrWhiteSpace(address))
@@ -389,12 +668,14 @@ public partial class ExchangeSynchronizer
             order++;
         }
 
-        AddPhone(contact, GetPhone(remote, PhoneNumberKey.BusinessPhone), ContactPhoneKind.Work);
-        AddPhone(contact, GetPhone(remote, PhoneNumberKey.HomePhone), ContactPhoneKind.Home);
         AddPhone(contact, GetPhone(remote, PhoneNumberKey.MobilePhone), ContactPhoneKind.Mobile);
+        AddPhone(contact, GetPhone(remote, PhoneNumberKey.BusinessPhone), ContactPhoneKind.Work);
+        AddPhone(contact, GetPhone(remote, PhoneNumberKey.BusinessPhone2), ContactPhoneKind.Work);
+        AddPhone(contact, GetPhone(remote, PhoneNumberKey.HomePhone), ContactPhoneKind.Home);
+        AddPhone(contact, GetPhone(remote, PhoneNumberKey.HomePhone2), ContactPhoneKind.Home);
 
-        AddAddress(contact, GetAddress(remote, PhysicalAddressKey.Business), ContactPostalAddressKind.Business);
         AddAddress(contact, GetAddress(remote, PhysicalAddressKey.Home), ContactPostalAddressKind.Home);
+        AddAddress(contact, GetAddress(remote, PhysicalAddressKey.Business), ContactPostalAddressKind.Business);
         AddAddress(contact, GetAddress(remote, PhysicalAddressKey.Other), ContactPostalAddressKind.Other);
 
         return contact;
@@ -441,10 +722,10 @@ public partial class ExchangeSynchronizer
     // A key that was never set throws on some servers instead of reporting absence, and one such contact would
     // otherwise fail the whole book.
     private static string? GetEmail(Contact contact, EmailAddressKey key)
-        => SafeGet(() => contact.EmailAddresses != null && contact.EmailAddresses.TryGetValue(key, out var email) ? email?.Address?.Trim() : null);
+        => SafeGet(() => contact.EmailAddresses != null && contact.EmailAddresses.TryGetValue(key, out var email) ? Clean(email?.Address) : null);
 
     private static string? GetPhone(Contact contact, PhoneNumberKey key)
-        => SafeGet(() => contact.PhoneNumbers != null && contact.PhoneNumbers.TryGetValue(key, out var number) ? number : null);
+        => SafeGet(() => contact.PhoneNumbers != null && contact.PhoneNumbers.TryGetValue(key, out var number) ? Clean(number) : null);
 
     private static PhysicalAddressEntry? GetAddress(Contact contact, PhysicalAddressKey key)
         => SafeGet(() => contact.PhysicalAddresses != null && contact.PhysicalAddresses.TryGetValue(key, out var address) ? address : null);
@@ -519,17 +800,22 @@ public partial class ExchangeSynchronizer
 
     /// <summary>
     /// Reconciles the account's Exchange task lists with the mailbox's task folders and returns the lists in folder
-    /// order. Lists stored under the other transport's ids are re-keyed in place first (the default list to the default
-    /// folder, the others by title), so colour, group, placement and the tasks' My Day dates survive a transport change.
+    /// order. Lists another transport stored are re-keyed in place first (between EWS and MAPI by entry id; lists
+    /// ActiveSync stored by role and title), so colour, group, placement and the tasks' My Day dates survive a transport
+    /// change.
     /// </summary>
-    protected async Task<List<AccountTaskList>> EnsureTaskListsAsync(IReadOnlyList<ExchangeTaskFolder> folders)
+    protected async Task<List<AccountTaskList>> EnsureTaskListsAsync(IReadOnlyList<ExchangeTaskFolder> folders, CancellationToken cancellationToken = default)
     {
         var taskService = RequireTaskService();
         var stored = (await taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
             .Where(list => list.SourceKind == TaskSourceKind.Exchange)
             .ToList();
 
-        var rekeyed = ExchangeTransportRekey.MatchTaskLists(stored, folders.Select(folder => (folder.RemoteId, folder.Title ?? string.Empty, folder.IsDefault)).ToList());
+        var rekeyed = await MatchCarriedContainersAsync(
+            stored.Where(list => list.PendingMutation == TaskPendingMutation.None)
+                .Select(list => (list.Id, list.RemoteId ?? string.Empty, list.Title ?? string.Empty, list.IsDefault)).ToList(),
+            folders.Select(folder => (folder.RemoteId, folder.Title ?? string.Empty, folder.IsDefault)).ToList(),
+            cancellationToken).ConfigureAwait(false);
         foreach (var (listId, remoteId) in rekeyed)
         {
             _logger.Information("Exchange tasks {Account}: re-keying task list {ListId} to the current transport.", Account.Name, listId);
@@ -786,12 +1072,12 @@ public partial class ExchangeSynchronizer
         var defaultFolder = await Folder.Bind(service, WellKnownFolderName.Tasks, TaskFolderPropertySet).ConfigureAwait(false);
         var filter = new SearchFilter.ContainsSubstring(FolderSchema.FolderClass, TaskFolderClass, ContainmentMode.Prefixed, ComparisonMode.IgnoreCase);
 
-        var discarded = (await FindEwsFoldersAsync(service, WellKnownFolderName.DeletedItems, filter, cancellationToken).ConfigureAwait(false))
+        var discarded = (await FindEwsFoldersAsync(service, WellKnownFolderName.DeletedItems, filter, TaskFolderPropertySet, cancellationToken).ConfigureAwait(false))
             .Select(folder => folder.Id.UniqueId)
             .ToHashSet(StringComparer.Ordinal);
 
         var folders = new List<ExchangeTaskFolder> { new(defaultFolder.Id.UniqueId, SafeGet(() => defaultFolder.DisplayName), true) };
-        foreach (var folder in await FindEwsFoldersAsync(service, WellKnownFolderName.MsgFolderRoot, filter, cancellationToken).ConfigureAwait(false))
+        foreach (var folder in await FindEwsFoldersAsync(service, WellKnownFolderName.MsgFolderRoot, filter, TaskFolderPropertySet, cancellationToken).ConfigureAwait(false))
         {
             var remoteId = folder.Id.UniqueId;
             if (folders.Any(existing => string.Equals(existing.RemoteId, remoteId, StringComparison.Ordinal)) || discarded.Contains(remoteId))
@@ -803,10 +1089,10 @@ public partial class ExchangeSynchronizer
         return folders;
     }
 
-    private static async Task<List<Folder>> FindEwsFoldersAsync(ExchangeService service, WellKnownFolderName root, SearchFilter filter, CancellationToken cancellationToken)
+    private static async Task<List<Folder>> FindEwsFoldersAsync(ExchangeService service, WellKnownFolderName root, SearchFilter filter, PropertySet propertySet, CancellationToken cancellationToken)
     {
         var folders = new List<Folder>();
-        var view = new FolderView(500) { Traversal = FolderTraversal.Deep, PropertySet = TaskFolderPropertySet };
+        var view = new FolderView(500) { Traversal = FolderTraversal.Deep, PropertySet = propertySet };
         FindFoldersResults page;
         do
         {
@@ -824,7 +1110,7 @@ public partial class ExchangeSynchronizer
     protected virtual async Task<TaskSynchronizationResult> SynchronizeProviderTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
     {
         var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
-        var lists = await EnsureTaskListsAsync(await ReadEwsTaskFoldersAsync(service, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+        var lists = await EnsureTaskListsAsync(await ReadEwsTaskFoldersAsync(service, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
 
         var results = new List<TaskSynchronizationResult>();
         foreach (var list in SelectTaskListsToSynchronize(lists, options))

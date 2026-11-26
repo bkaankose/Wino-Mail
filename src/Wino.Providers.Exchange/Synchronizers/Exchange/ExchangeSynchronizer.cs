@@ -60,6 +60,7 @@ public partial class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, A
     protected IContactService? ContactService { get; }
     protected IPictureStorageService? ContactPictureService { get; }
     protected ITaskService? TaskService { get; }
+    protected IMailCategoryService? MailCategoryService { get; }
 
     public ExchangeSynchronizer(MailAccount account,
                                                                 IMessenger messenger,
@@ -69,7 +70,8 @@ IExchangeAuthenticator exchangeAuthenticator,
                                 IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
                                 IContactService? contactService = null,
                                 IPictureStorageService? contactPictureService = null,
-                                ITaskService? taskService = null)
+                                ITaskService? taskService = null,
+                                IMailCategoryService? mailCategoryService = null)
         : base(account, messenger, uiChanges)
     {
         ExchangeAuthenticator = exchangeAuthenticator;
@@ -78,6 +80,7 @@ IExchangeAuthenticator exchangeAuthenticator,
         ContactService = contactService;
         ContactPictureService = contactPictureService;
         TaskService = taskService;
+        MailCategoryService = mailCategoryService;
         _localContactSynchronizer = new LocalContactSynchronizer(contactService, contactPictureService);
         _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
     }
@@ -96,7 +99,8 @@ IExchangeAuthenticator exchangeAuthenticator,
         ItemSchema.Flag,
         ItemSchema.ItemClass,
         ItemSchema.Preview,
-        EmailMessageSchema.InternetMessageId);
+        EmailMessageSchema.InternetMessageId,
+        ItemSchema.Categories);
 
     protected async Task<ExchangeService> CreateServiceAsync(CancellationToken cancellationToken = default, TimeZoneInfo? timeZone = null)
     {
@@ -182,6 +186,94 @@ IExchangeAuthenticator exchangeAuthenticator,
         return result;
     }
 
+    /// <summary>
+    /// Stored calendar, address book and task list ids of the other transport between EWS and MAPI, each with the
+    /// incoming id of the same folder, matched by entry id: ConvertId gives the HexEntryId of each EWS id, and its
+    /// GlobalCounter is the one in the MAPI folder id (MS-OXCDATA 2.2.1.1, 2.2.4.1). Ids ConvertId does not accept
+    /// (ActiveSync's) get no entry. Steady-state passes hold no id of the other transport and make no request.
+    /// </summary>
+    protected async Task<Dictionary<string, string>> MatchEwsMapiContainerIdsAsync(IReadOnlyCollection<string> storedIds, IReadOnlyCollection<string> openIds,
+        CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        static bool IsMapi(string id) => ExchangeTransportRekey.GlobalCounterOfMapiId(id) != null;
+        static bool IsEws(string id) => !string.IsNullOrWhiteSpace(id) && !id.StartsWith("mapi:", StringComparison.Ordinal) &&
+            !id.StartsWith("eas:", StringComparison.Ordinal) && !id.StartsWith("wino:", StringComparison.Ordinal);
+
+        Dictionary<string, string> UniqueByCounter(IEnumerable<(string Id, string? Counter)> pairs)
+            => pairs.Where(pair => pair.Counter != null)
+                .GroupBy(pair => pair.Counter!, StringComparer.Ordinal)
+                .Where(group => group.Count() == 1)
+                .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
+
+        var storedMapi = storedIds.Where(IsMapi).ToList();
+        var openEws = openIds.Where(IsEws).ToList();
+        if (storedMapi.Count > 0 && openEws.Count > 0)
+        {
+            var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
+            var entryIds = await ConvertFolderIdsToHexEntryIdsAsync(service, openEws, cancellationToken).ConfigureAwait(false);
+            var ewsByCounter = UniqueByCounter(entryIds.Select(pair => (pair.Key, ExchangeTransportRekey.GlobalCounterOfEntryId(pair.Value))));
+            foreach (var id in storedMapi)
+            {
+                if (ExchangeTransportRekey.GlobalCounterOfMapiId(id) is { } counter && ewsByCounter.TryGetValue(counter, out var ewsId))
+                    result[id] = ewsId;
+            }
+        }
+
+        var storedEws = storedIds.Where(IsEws).ToList();
+        var openMapi = openIds.Where(IsMapi).ToList();
+        if (storedEws.Count > 0 && openMapi.Count > 0)
+        {
+            var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
+            var entryIds = await ConvertFolderIdsToHexEntryIdsAsync(service, storedEws, cancellationToken).ConfigureAwait(false);
+            var mapiByCounter = UniqueByCounter(openMapi.Select(id => (id, ExchangeTransportRekey.GlobalCounterOfMapiId(id))));
+            foreach (var (ewsId, entryId) in entryIds)
+            {
+                if (ExchangeTransportRekey.GlobalCounterOfEntryId(entryId) is { } counter && mapiByCounter.TryGetValue(counter, out var mapiId))
+                    result[ewsId] = mapiId;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Re-keys the stored rows of one kind of container (calendars, address books, task lists) that another transport
+    /// stored: between EWS and MAPI by entry id, and rows going to or from ActiveSync (whose ids are opaque) by
+    /// <see cref="ExchangeTransportRekey.MatchContainers"/>. Returns the local ids with the folder ids they take.
+    /// </summary>
+    protected async Task<Dictionary<Guid, string>> MatchCarriedContainersAsync(IReadOnlyList<(Guid Id, string RemoteId, string Title, bool IsDefault)> stored,
+        IReadOnlyList<(string RemoteId, string Title, bool IsDefault)> incoming, CancellationToken cancellationToken)
+    {
+        var incomingIds = incoming.Select(folder => folder.RemoteId).ToHashSet(StringComparer.Ordinal);
+        var carried = stored.Where(row => !string.IsNullOrWhiteSpace(row.RemoteId) && !incomingIds.Contains(row.RemoteId)).ToList();
+        var result = new Dictionary<Guid, string>();
+        if (carried.Count == 0)
+            return result;
+
+        var claimed = stored.Select(row => row.RemoteId).Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
+        var open = incoming.Where(folder => !claimed.Contains(folder.RemoteId)).ToList();
+
+        var byEntryId = await MatchEwsMapiContainerIdsAsync(carried.Select(row => row.RemoteId).ToList(), open.Select(folder => folder.RemoteId).ToList(), cancellationToken)
+            .ConfigureAwait(false);
+        foreach (var row in carried)
+        {
+            if (byEntryId.TryGetValue(row.RemoteId, out var remoteId))
+                result[row.Id] = remoteId;
+        }
+
+        // Only rows ActiveSync stored ("eas:" ids) go by role and title: ids of the EWS and MAPI schemes have their
+        // own relation.
+        var taken = result.Values.ToHashSet(StringComparer.Ordinal);
+        var activeSyncRows = carried.Where(row => !result.ContainsKey(row.Id) && row.RemoteId.StartsWith("eas:", StringComparison.Ordinal))
+            .Select(row => (row.Id, row.Title, row.IsDefault))
+            .ToList();
+        foreach (var (id, remoteId) in ExchangeTransportRekey.MatchContainers(activeSyncRows, open.Where(folder => !taken.Contains(folder.RemoteId)).ToList()))
+            result[id] = remoteId;
+
+        return result;
+    }
+
     private static ExchangeCredentials ToEwsCredentials(ExchangeCredential credential) => credential switch
     {
         ExchangeCredential.Password password => new WebCredentials(password.Credential),
@@ -189,115 +281,15 @@ IExchangeAuthenticator exchangeAuthenticator,
         _ => throw new InvalidOperationException($"Unsupported Exchange credential {credential.GetType().Name}.")
     };
 
-    public override Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Item message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
+    public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Item message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
     {
-        List<NewMailItemPackage> packages = [new NewMailItemPackage(MapToMailCopy(message, assignedFolder), null, assignedFolder.RemoteFolderId)];
-        return Task.FromResult(packages);
-    }
-
-    /// <summary>
-    /// Best-effort proxy address discovery. EWS has no call for the mailbox's own proxy addresses, so the mailbox's
-    /// directory entry is resolved, and the account address stays the root alias either way.
-    /// </summary>
-    protected override async Task SynchronizeAliasesAsync()
-    {
-        var aliases = new Dictionary<string, RemoteAccountAlias>(StringComparer.OrdinalIgnoreCase);
-
-        void AddAlias(string? rawAddress)
-        {
-            var normalized = CleanSmtpAddress(rawAddress);
-            if (normalized == null)
-                return;
-
-            var isAccountAddress = normalized.Equals(Account.Address, StringComparison.OrdinalIgnoreCase);
-
-            if (aliases.TryGetValue(normalized, out var existing))
-            {
-                existing.IsPrimary |= isAccountAddress;
-                existing.IsRootAlias |= isAccountAddress;
-                return;
-            }
-
-            aliases[normalized] = new RemoteAccountAlias
-            {
-                AliasAddress = normalized,
-                ReplyToAddress = normalized,
-                IsPrimary = isAccountAddress,
-                IsRootAlias = isAccountAddress,
-                IsVerified = true,
-                Source = AliasSource.ProviderDiscovered,
-                SendCapability = AliasSendCapability.Confirmed
-            };
-        }
-
-        AddAlias(Account.Address);
-
-        try
-        {
-            var service = await CreateServiceAsync().ConfigureAwait(false);
-
-            var resolutions = await service
-                .ResolveName(Account.Address, ResolveNameSearchLocation.DirectoryOnly, returnContactDetails: true, CancellationToken.None)
-                .ConfigureAwait(false);
-
-            foreach (var resolution in resolutions)
-            {
-                // ResolveName can be ambiguous; only the entry of this mailbox counts.
-                if (!string.Equals(CleanSmtpAddress(resolution.Mailbox?.Address), Account.Address, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                AddAlias(resolution.Mailbox?.Address);
-
-                var contact = resolution.Contact;
-                if (contact?.EmailAddresses == null)
-                    continue;
-
-                foreach (var key in new[] { EmailAddressKey.EmailAddress1, EmailAddressKey.EmailAddress2, EmailAddressKey.EmailAddress3 })
-                {
-                    if (contact.EmailAddresses.TryGetValue(key, out var emailAddress))
-                        AddAlias(emailAddress?.Address);
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.Debug(ex, "Exchange alias discovery through ResolveName failed for {Account}.", Account.Name);
-        }
-
-        await ExchangeChangeProcessor
-            .UpdateRemoteAliasInformationAsync(Account, aliases.Values.ToList())
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// A usable SMTP address, or null. Strips an "SMTP:" prefix and rejects other routing types (EX:, X500:, EUM:)
-    /// and anything that does not look like an email address.
-    /// </summary>
-    private static string? CleanSmtpAddress(string? address)
-    {
-        if (string.IsNullOrWhiteSpace(address))
-            return null;
-
-        var normalized = address.Trim();
-
-        var colonIndex = normalized.IndexOf(':');
-        if (colonIndex >= 0)
-        {
-            if (!normalized[..colonIndex].Equals("SMTP", StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            normalized = normalized[(colonIndex + 1)..].Trim();
-        }
-
-        return normalized.Contains('@') && normalized.Contains('.') ? normalized : null;
+        var categoryNames = await PrepareItemCategoriesAsync(message, cancellationToken).ConfigureAwait(false);
+        return [new NewMailItemPackage(MapToMailCopy(message, assignedFolder), null, assignedFolder.RemoteFolderId, null, categoryNames)];
     }
 
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
+        BeginCategoryPass();
         var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
 
         if (options.Type is MailSynchronizationType.FullFolders or MailSynchronizationType.FoldersOnly)
@@ -322,9 +314,7 @@ IExchangeAuthenticator exchangeAuthenticator,
             {
                 throw;
             }
-            catch (ServiceResponseException ex) when (
-                ex.ErrorCode is ServiceError.ErrorFolderNotFound or ServiceError.ErrorItemNotFound or ServiceError.ErrorNonExistentMailbox
-                || ex.Message.Contains("could not be found", StringComparison.OrdinalIgnoreCase))
+            catch (ServiceResponseException ex) when (IsNotFoundError(ex.ErrorCode))
             {
                 // The folder was deleted on the server. Dropping it locally stops it failing every sync.
                 _logger.Warning("Exchange folder {Folder} no longer exists on the server; removing it locally.", folder.FolderName);
@@ -365,7 +355,7 @@ IExchangeAuthenticator exchangeAuthenticator,
         var view = new FolderView(500)
         {
             Traversal = FolderTraversal.Deep,
-            PropertySet = new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass, FolderSchema.ParentFolderId)
+            PropertySet = new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass, FolderSchema.ParentFolderId, AttributeHiddenProperty)
         };
 
         var remoteFolders = new List<Folder>();
@@ -374,7 +364,7 @@ IExchangeAuthenticator exchangeAuthenticator,
         {
             cancellationToken.ThrowIfCancellationRequested();
             page = await service.FindFolders(WellKnownFolderName.MsgFolderRoot, view).ConfigureAwait(false);
-            remoteFolders.AddRange(page.Folders.Where(IsMailFolder));
+            remoteFolders.AddRange(page.Folders.Where(f => IsMailFolder(f) || IsUntypedFolder(f)));
             if (page.NextPageOffset.HasValue)
                 view.Offset = page.NextPageOffset.Value;
         }
@@ -471,7 +461,7 @@ IExchangeAuthenticator exchangeAuthenticator,
                     SpecialFolderType = specialType,
                     IsSticky = isSystem,
                     IsSystemFolder = isSystem,
-                    IsSynchronizationEnabled = true,
+                    IsSynchronizationEnabled = isSystem || IsMailFolder(remote),
                     ShowUnreadCount = specialType != SpecialFolderType.Deleted,
                     IsCountedInAccountTotal = specialType != SpecialFolderType.Deleted,
                 }).ConfigureAwait(false);
@@ -544,6 +534,14 @@ IExchangeAuthenticator exchangeAuthenticator,
     private static bool IsMailFolder(Folder folder)
         => !string.IsNullOrEmpty(folder.FolderClass)
            && folder.FolderClass.StartsWith(MailFolderClass, StringComparison.OrdinalIgnoreCase);
+
+    // MS-OXCFOLD 2.2.2.2.2.3 requires the class to begin with "IPF.", so a folder with no class (or a bare "IPF")
+    // has no declared content. Outlook still lists it, and ActiveSync reports it as a generic folder (type 1), so it
+    // is listed as a plain folder whose synchronization the user turns on. Hidden folders and search folders stay out.
+    private static bool IsUntypedFolder(Folder folder)
+        => folder is not SearchFolder
+           && (string.IsNullOrEmpty(folder.FolderClass) || string.Equals(folder.FolderClass, "IPF", StringComparison.OrdinalIgnoreCase))
+           && !(folder.TryGetProperty(AttributeHiddenProperty, out bool hidden) && hidden);
 
     // Folder writes only touch the server. The FoldersOnly sync the request delegator queues afterwards reconciles
     // the local tree by remote folder id.
@@ -867,7 +865,11 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
 
-        return Bundle((service, _) => service.MoveItems(ids, new FolderId(destination)), requests[0], requests);
+        return Bundle(async (service, cancellationToken) =>
+        {
+            var responses = await service.MoveItems(ids, new FolderId(destination), cancellationToken).ConfigureAwait(false);
+            EnsureSucceeded(responses, "MoveItem");
+        }, requests[0], requests);
     }
 
     // A plain move to or from the junk folder. The server's blocked senders list is not edited.
@@ -882,9 +884,17 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
 
-        return Bundle((service, _) => service.MoveItems(ids, new FolderId(destination)), requests[0], requests);
+        return Bundle(async (service, cancellationToken) =>
+        {
+            var responses = await service.MoveItems(ids, new FolderId(destination), cancellationToken).ConfigureAwait(false);
+            EnsureSucceeded(responses, "MoveItem");
+        }, requests[0], requests);
     }
 
+    /// <summary>
+    /// A permanent delete. A delete request is never a move to Deleted Items (that is a move request), so the items
+    /// go to the dumpster (SoftDelete), where the server keeps them recoverable as Outlook and OWA do.
+    /// </summary>
     public override List<IRequestBundle<EwsRequest>> Delete(BatchDeleteRequest requests)
     {
         if (requests == null || requests.Count == 0)
@@ -892,10 +902,38 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
 
-        return Bundle(
-            (service, _) => service.DeleteItems(ids, DeleteMode.MoveToDeletedItems, SendCancellationsMode.SendToNone, AffectedTaskOccurrence.AllOccurrences),
-            requests[0], requests);
+        return Bundle(async (service, cancellationToken) =>
+        {
+            foreach (var chunk in ids.Chunk((int)BatchModificationSize))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var responses = await service.DeleteItems(chunk, DeleteMode.SoftDelete, SendCancellationsMode.SendToNone,
+                    AffectedTaskOccurrence.AllOccurrences, cancellationToken).ConfigureAwait(false);
+                EnsureSucceeded(responses, "DeleteItem");
+            }
+        }, requests[0], requests);
     }
+
+    /// <summary>
+    /// Batch calls report a failure per item inside a successful response instead of throwing. Items the server reports
+    /// as not found are gone already; any other error fails the request.
+    /// </summary>
+    private static void EnsureSucceeded<T>(ServiceResponseCollection<T> responses, string operation) where T : ServiceResponse
+    {
+        var errors = responses.Where(response => response.Result == ServiceResult.Error).ToList();
+        if (errors.Count == 0)
+            return;
+
+        var codes = string.Join(", ", errors.Select(error => error.ErrorCode).Distinct());
+        if (errors.All(error => IsNotFoundError(error.ErrorCode)))
+            throw new Wino.Core.Domain.Exceptions.SynchronizerEntityNotFoundException($"EWS {operation}: {errors.Count} item(s) no longer exist on the server ({codes}).");
+
+        throw new InvalidOperationException($"EWS {operation} failed for {errors.Count} of {responses.Count} item(s): {codes}.");
+    }
+
+    /// <summary>The MS-OXWSCDATA response codes that say the item or folder an operation names does not exist.</summary>
+    private static bool IsNotFoundError(ServiceError errorCode)
+        => errorCode is ServiceError.ErrorItemNotFound or ServiceError.ErrorFolderNotFound;
 
     // The mailbox has no archive action of its own; Archive moves to the account's Archive folder.
     public override List<IRequestBundle<EwsRequest>> Archive(BatchArchiveRequest request)
@@ -1108,8 +1146,9 @@ IExchangeAuthenticator exchangeAuthenticator,
     }
 
     /// <summary>
-    /// Whether a failed operation on an existing item failed because the item or folder is gone. The MAPI over HTTP
-    /// synchronizer raises <see cref="Domain.Exceptions.SynchronizerEntityNotFoundException"/> for the same case.
+    /// Whether a failed operation on an existing item failed because the item or folder is gone, decided by protocol
+    /// codes only: the EWS response code, or MAPI_E_NOT_FOUND from a ROP on the MAPI over HTTP transport that shares
+    /// this path.
     /// </summary>
     private static bool IsEntityNotFound(Exception exception, IUIChangeRequest? uiChangeRequest)
     {
@@ -1121,16 +1160,10 @@ IExchangeAuthenticator exchangeAuthenticator,
             if (current is Wino.Core.Domain.Exceptions.SynchronizerEntityNotFoundException)
                 return true;
 
-            if (current is ServiceResponseException serviceResponse &&
-                serviceResponse.ErrorCode is ServiceError.ErrorItemNotFound
-                    or ServiceError.ErrorFolderNotFound
-                    or ServiceError.ErrorNonExistentMailbox)
-            {
+            if (current is ServiceResponseException serviceResponse && IsNotFoundError(serviceResponse.ErrorCode))
                 return true;
-            }
 
-            var message = current.Message?.ToLowerInvariant() ?? string.Empty;
-            if (message.Contains("not found") || message.Contains("does not exist") || message.Contains("cannot be found"))
+            if (current is MAPI.MapiRopException { ReturnValue: MAPI.MapiRopException.NotFound })
                 return true;
         }
 

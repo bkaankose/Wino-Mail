@@ -67,6 +67,15 @@ public sealed record MapiAppointmentInfo(
 
     /// <summary>The recipient table, read for meetings by <see cref="MapiCalendarOperations.ReadAttendeesAsync"/>; null when not read.</summary>
     public List<OpenRecipient>? Attendees { get; set; }
+
+    /// <summary>PidTagHasAttachments: true also when the only attachments are a series' exceptions.</summary>
+    public bool HasAttachments { get; init; }
+
+    /// <summary>The user's file attachments, read by <see cref="MapiAppointmentAttachments.ReadAsync"/>; null when not read.</summary>
+    public List<MapiAppointmentAttachment>? Attachments { get; set; }
+
+    /// <summary>A series' changed occurrences that have files of their own; null when not read.</summary>
+    public List<MapiExceptionAttachments>? ExceptionAttachments { get; set; }
 }
 
 /// <summary>
@@ -174,6 +183,7 @@ public static class MapiCalendarOperations
             PropertyTags.SentRepresentingName, PropertyTags.SentRepresentingSmtpAddress,
             PropertyTags.CreationTime, PropertyTags.LastModificationTime,
             tags.ReminderSet, tags.ReminderDelta, tags.TimeZoneDefinitionStart, tags.AppointmentRecur, tags.CleanGlobalObjectId,
+            PropertyTags.HasAttachments,
         };
         if (tags.ClientTrackingId != 0)
             columns.Add(tags.ClientTrackingId);
@@ -254,7 +264,10 @@ public static class MapiCalendarOperations
                             row[18].AsUInt32,
                             tags.ClientTrackingId != 0 ? Cell(tags.ClientTrackingId).AsString : null,
                             TimeZoneKeyName(row[19].AsBinary),
-                            row[21].AsBinary);
+                            row[21].AsBinary)
+                        {
+                            HasAttachments = Cell(PropertyTags.HasAttachments).AsBoolean ?? false
+                        };
 
                         if (info.IsRecurring)
                         {
@@ -534,6 +547,12 @@ public static class MapiCalendarOperations
 
         /// <summary>The people invited; a meeting when non-empty. The organizer is not listed here.</summary>
         public List<MeetingAttendee> Attendees { get; } = [];
+
+        /// <summary>Files to attach, committed with the appointment's own save.</summary>
+        public List<MapiOutgoingAttachment> AddedAttachments { get; } = [];
+
+        /// <summary>PidTagAttachNumber of the file attachments to remove, committed with the appointment's own save.</summary>
+        public List<uint> RemovedAttachments { get; } = [];
         public string? OrganizerName { get; set; }
         public string? OrganizerAddress { get; set; }
 
@@ -580,10 +599,10 @@ public static class MapiCalendarOperations
     }
 
     private static Task<ulong> SetAndSaveAsync(MapiSession session, uint[] handles, MapiCalendarTags tags, AppointmentWrite appointment, bool includeClass, CancellationToken cancellationToken)
-        => SetAndSaveAsync(session, handles, Properties(tags, appointment, includeClass), null, cancellationToken);
+        => SetAndSaveAsync(session, handles, Properties(tags, appointment, includeClass), null, cancellationToken, attachments: appointment);
 
     private static async Task<ulong> SetAndSaveAsync(MapiSession session, uint[] handles, IReadOnlyList<TaggedPropertyValue> values, IReadOnlyList<RopMessageWrite.Recipient>? recipients, CancellationToken cancellationToken,
-        bool clearRecipientsFirst = false, Action<string>? diagnostics = null)
+        bool clearRecipientsFirst = false, Action<string>? diagnostics = null, AppointmentWrite? attachments = null)
     {
         var (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSetProperties(1, values), handles, cancellationToken).ConfigureAwait(false);
         var problems = RopMessageOps.ParseSetProperties(new RopReader(rops));
@@ -612,6 +631,9 @@ public static class MapiCalendarOperations
                 throw;
             }
         }
+
+        if (attachments is { RemovedAttachments.Count: > 0 } or { AddedAttachments.Count: > 0 })
+            await MapiAppointmentAttachments.ApplyAsync(session, handles, attachments.RemovedAttachments, attachments.AddedAttachments, cancellationToken).ConfigureAwait(false);
 
         (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSaveChangesMessage(2, 1), handles, cancellationToken).ConfigureAwait(false);
         return RopMessageOps.ParseSaveChangesMessage(new RopReader(rops));
@@ -751,7 +773,7 @@ public static class MapiCalendarOperations
         ulong id;
         try
         {
-            var savedId = await SetAndSaveAsync(session, handles, values, MeetingRecipients(appointment, includeOrganizer: true), cancellationToken).ConfigureAwait(false);
+            var savedId = await SetAndSaveAsync(session, handles, values, MeetingRecipients(appointment, includeOrganizer: true), cancellationToken, attachments: appointment).ConfigureAwait(false);
             id = savedId != 0 ? savedId : createdId ?? 0;
         }
         finally
@@ -759,7 +781,10 @@ public static class MapiCalendarOperations
             await session.ReleaseAsync(handles[1], cancellationToken).ConfigureAwait(false);
         }
 
-        await MapiMessageComposer.SendAsync(session, outboxFolderId, sentItemsFolderId, BuildMeetingRequest(tags, appointment, goid, 0, now), cancellationToken, diagnostics).ConfigureAwait(false);
+        // The request carries the meeting's files, as the attendee's copy is made from it.
+        var request = BuildMeetingRequest(tags, appointment, goid, 0, now);
+        request.Attachments.AddRange(appointment.AddedAttachments);
+        await MapiMessageComposer.SendAsync(session, outboxFolderId, sentItemsFolderId, request, cancellationToken, diagnostics).ConfigureAwait(false);
         diagnostics?.Invoke($"meeting 0x{id:X16}: request sent to {appointment.Attendees.Count} attendees");
         return id;
     }
@@ -786,14 +811,17 @@ public static class MapiCalendarOperations
         handles = MapiSession.MergeHandles(handles, returned, Slots);
         try
         {
-            await SetAndSaveAsync(session, handles, values, MeetingRecipients(appointment, includeOrganizer: true), cancellationToken, clearRecipientsFirst: true, diagnostics).ConfigureAwait(false);
+            await SetAndSaveAsync(session, handles, values, MeetingRecipients(appointment, includeOrganizer: true), cancellationToken, clearRecipientsFirst: true, diagnostics, attachments: appointment).ConfigureAwait(false);
         }
         finally
         {
             await session.ReleaseAsync(handles[1], cancellationToken).ConfigureAwait(false);
         }
 
-        await MapiMessageComposer.SendAsync(session, outboxFolderId, sentItemsFolderId, BuildMeetingRequest(tags, appointment, goid, sequence, now), cancellationToken, diagnostics).ConfigureAwait(false);
+        // The update replaces the attendee's copy, so it carries every file the meeting now has, not only new ones.
+        var request = BuildMeetingRequest(tags, appointment, goid, sequence, now);
+        request.Attachments.AddRange(await MapiAppointmentAttachments.ReadFilesAsync(session, calendarFolderId, messageId, cancellationToken).ConfigureAwait(false));
+        await MapiMessageComposer.SendAsync(session, outboxFolderId, sentItemsFolderId, request, cancellationToken, diagnostics).ConfigureAwait(false);
         diagnostics?.Invoke($"meeting 0x{messageId:X16}: update (sequence {sequence}) sent to {appointment.Attendees.Count} attendees");
     }
 

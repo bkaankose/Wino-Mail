@@ -17,6 +17,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
@@ -25,6 +26,15 @@ public sealed class ExchangeTransportOption(ExchangeTransport transport, string 
 {
     public ExchangeTransport Transport { get; } = transport;
     public string Title { get; } = title;
+
+    /// <summary>What the connection method does and when to choose it, for the help text under the drop-down.</summary>
+    public string Description => Transport switch
+    {
+        ExchangeTransport.MapiHttp => Translator.ExchangeSetup_TransportDescriptionMapi,
+        ExchangeTransport.Ews => Translator.ExchangeSetup_TransportDescriptionEws,
+        ExchangeTransport.ActiveSync => Translator.ExchangeSetup_TransportDescriptionActiveSync,
+        _ => Translator.ExchangeSetup_TransportDescription
+    };
 
     public override string ToString() => Title;
 
@@ -53,6 +63,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly IAccountSetupRunner _setupRunner;
     private readonly IExchangeInteractiveSignInService? _signInService;
+    private readonly IMailProviderRegistry _providers;
 
     private CancellationTokenSource? _operation;
     private string? _authority;
@@ -74,7 +85,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     public partial string ServerAddress { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedTransportDescription))]
     public partial ExchangeTransportOption? SelectedTransport { get; set; }
+
+    public string SelectedTransportDescription => SelectedTransport?.Description ?? Translator.ExchangeSetup_TransportDescription;
 
     [ObservableProperty]
     public partial string UserName { get; set; } = string.Empty;
@@ -91,6 +105,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(IsPrimaryVisible))]
     [NotifyPropertyChangedFor(nameof(PrimaryText))]
     [NotifyPropertyChangedFor(nameof(ServerSummary))]
+    [NotifyPropertyChangedFor(nameof(SignInDescription))]
     [NotifyPropertyChangedFor(nameof(IsModernAuthUnavailableNoticeVisible))]
     [NotifyCanExecuteChangedFor(nameof(PrimaryCommand))]
     public partial bool IsSignInStage { get; set; }
@@ -156,8 +171,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         IExchangeConnectionTester connectionTester,
         IAccountService accountService,
         IAccountSetupRunner setupRunner,
+        IMailProviderRegistry providers,
         IExchangeInteractiveSignInService? signInService = null) : base(messenger)
     {
+        _providers = providers;
         _wizardContext = wizardContext;
         _autoDiscoveryService = autoDiscoveryService;
         _authCapabilityProbe = authCapabilityProbe;
@@ -467,6 +484,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private void PrepareWizardContext()
     {
         _wizardContext.SelectedProvider = new ProviderDetail(MailProviderType.Exchange, SpecialImapProvider.None);
+
+        if (!_providers.GetTraits(MailProviderType.Exchange).AppliesMailSynchronizationRange)
+            _wizardContext.SelectedInitialSynchronizationRange = InitialSynchronizationRange.Everything;
 
         if (_wizardContext.CalendarIntegrationSource == AccountIntegrationSource.Dav)
             _wizardContext.CalendarIntegrationSource = AccountIntegrationSource.Provider;

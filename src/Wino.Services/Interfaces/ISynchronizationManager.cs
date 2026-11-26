@@ -68,6 +68,9 @@ public interface ISynchronizationManager
     /// <summary>Whether the account's synchronizer can store mail moved from another account.</summary>
     Task<bool> CanImportMailAsync(Guid accountId);
 
+    /// <summary>Whether the account's synchronizer can search the server.</summary>
+    Task<bool> SupportsOnlineSearchAsync(Guid accountId);
+
     /// <summary>Stores a message moved from another account through the account's synchronizer.</summary>
     Task<MailImportResult> ImportMailAsync(Guid accountId, MailImportPackage package, CancellationToken cancellationToken = default);
 

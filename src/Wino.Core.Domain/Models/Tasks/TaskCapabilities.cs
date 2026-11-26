@@ -98,8 +98,25 @@ public sealed record TaskCapabilities
     public static TaskCapabilities ExchangeMapi { get; } = new()
     {
         Source = TaskSourceKind.Exchange,
+        SupportsReminder = true,
+        SupportsCategories = true,
+        SupportsStartDate = true,
         SupportsPriorityLevels = true,
         SupportsImportance = true
+    };
+
+    /// <summary>
+    /// ActiveSync Tasks class: ReminderSet and ReminderTime, Categories, StartDate and Importance with three levels.
+    /// Recurrence is not written by Wino, so Wino creates the next occurrence itself.
+    /// </summary>
+    public static TaskCapabilities ExchangeActiveSync { get; } = new()
+    {
+        Source = TaskSourceKind.Exchange,
+        SupportsReminder = true,
+        SupportsPriorityLevels = true,
+        SupportsImportance = true,
+        SupportsCategories = true,
+        SupportsStartDate = true
     };
 
     public static TaskCapabilities ForSource(TaskSourceKind source, ExchangeTransport exchangeTransport = ExchangeTransport.Ews)
@@ -108,7 +125,12 @@ public sealed record TaskCapabilities
             TaskSourceKind.Outlook => Outlook,
             TaskSourceKind.Gmail => Gmail,
             TaskSourceKind.CalDav => CalDav,
-            TaskSourceKind.Exchange => exchangeTransport == ExchangeTransport.Ews ? ExchangeEws : ExchangeMapi,
+            TaskSourceKind.Exchange => exchangeTransport switch
+            {
+                ExchangeTransport.Ews => ExchangeEws,
+                ExchangeTransport.ActiveSync => ExchangeActiveSync,
+                _ => ExchangeMapi
+            },
             _ => Local
         };
 }

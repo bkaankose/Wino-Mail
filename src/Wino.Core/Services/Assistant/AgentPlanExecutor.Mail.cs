@@ -426,7 +426,7 @@ public sealed partial class AgentPlanExecutor
         else
             await mailCategoryService.UnassignCategoryAsync(category.Id, ids).ConfigureAwait(false);
 
-        if (providers.GetTraits(unique[0].AssignedAccount!.ProviderType).SupportsCategorySync)
+        if (unique[0].AssignedAccount is { } assignedAccount && providers.GetTraits(assignedAccount).SynchronizesCategoryAssignments)
         {
             var requests = new List<IRequestBase>();
             foreach (var mail in unique)

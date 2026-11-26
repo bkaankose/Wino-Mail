@@ -22,6 +22,10 @@ public sealed class MapiOutgoingMessage
     public string? InReplyTo { get; set; }
     public string? References { get; set; }
     public bool ReadReceiptRequested { get; set; }
+
+    /// <summary>PidTagTransportMessageHeaders (MS-OXOMSG 2.2.1.61): the headers of a message that arrived over SMTP. Null on composed mail.</summary>
+    public string? TransportHeaders { get; set; }
+
     public List<RopMessageWrite.Recipient> Recipients { get; } = [];
     public List<MapiOutgoingAttachment> Attachments { get; } = [];
 
@@ -150,6 +154,9 @@ public static class MapiMessageComposer
 
         if (message.HtmlBody is { } html)
             await WritePropertyAsync(session, handles, 1, 2, PropertyTags.Html, Encoding.UTF8.GetBytes(html), isUnicodeString: false, cancellationToken).ConfigureAwait(false);
+
+        if (message.TransportHeaders is { } headers)
+            await WritePropertyAsync(session, handles, 1, 2, PropertyTags.TransportMessageHeaders, Encoding.Unicode.GetBytes(headers + "\0"), isUnicodeString: true, cancellationToken).ConfigureAwait(false);
 
         if (message.Recipients.Count > 0)
         {

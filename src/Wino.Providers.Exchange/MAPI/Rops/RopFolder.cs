@@ -158,7 +158,37 @@ public static class RopFolder
 
     public const byte RopSetColumns = 0x12;
     public const byte RopSortTable = 0x13;
+    public const byte RopRestrict = 0x14;
     public const byte RopQueryRows = 0x15;
+
+    /// <summary>
+    /// RopRestrict (MS-OXCROPS 2.2.5.3, MS-OXCTABL 2.2.2.4): limits the table to the rows that match the restriction,
+    /// in the ROP form of MS-OXCDATA 2.12; synchronous. The server moves the cursor to the beginning (3.2.5.4).
+    /// </summary>
+    public static byte[] BuildRestrict(byte tableHandleIndex, Wino.Providers.Exchange.MAPI.Restrictions.RestrictionNode restriction)
+    {
+        var data = new RopWriter();
+        Wino.Providers.Exchange.MAPI.Restrictions.Restriction.Encode(data, restriction, extendedFormat: false);
+        var bytes = data.ToArray();
+        if (bytes.Length > ushort.MaxValue)
+            throw new MapiFormatException("The restriction is too large for RopRestrict.");
+
+        var rop = new RopWriter();
+        rop.UInt8(RopRestrict);
+        rop.UInt8(0);
+        rop.UInt8(tableHandleIndex);
+        rop.UInt8(0);                    // RestrictFlags: synchronous
+        rop.UInt16((ushort)bytes.Length);
+        rop.Bytes(bytes);
+        return rop.ToArray();
+    }
+
+    /// <summary>Returns TableStatus.</summary>
+    public static byte ParseRestrict(RopReader reader)
+    {
+        RopExecute.ExpectSuccess(reader, RopRestrict, nameof(RopRestrict));
+        return reader.UInt8();
+    }
 
     /// <summary>One sort key for RopSortTable (MS-OXCDATA 2.13.1).</summary>
     public readonly record struct SortOrder(uint PropertyTag, bool Descending);

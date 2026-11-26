@@ -21,7 +21,7 @@ public class ProviderFeatureAuthorizationService(
     public bool IsSupported(MailAccount account, ProviderFeature feature)
         => account != null && feature switch
         {
-            ProviderFeature.MailFilters => providers.GetTraits(account.ProviderType).SupportsProviderMailFilters,
+            ProviderFeature.MailFilters => providers.GetTraits(account).SupportsProviderMailFilters,
             ProviderFeature.CrossAccountMoveImport => providers.GetTraits(account.ProviderType).MailImportRequiresAuthorization,
             _ => false
         };

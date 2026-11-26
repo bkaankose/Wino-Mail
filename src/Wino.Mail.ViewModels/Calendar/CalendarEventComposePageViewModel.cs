@@ -261,8 +261,10 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     // Kept for the heads; attachment gating comes from the capabilities, not the provider.
     public bool IsSelectedCalendarCalDav => SelectedCalendar?.Account?.ProviderType == MailProviderType.IMAP4 &&
                                             SelectedCalendar.Account.ServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.CalDav;
-    // Only the CalDAV update path applies attachment changes; Outlook and Gmail updates leave attachments as they are.
-    public bool CanAddAttachments => CalendarCapabilities.SupportsAttachments && !IsCalendarReadOnly && (!IsEditMode || IsSelectedCalendarCalDav);
+    // An edit changes attachments only where the provider's update path applies them; Outlook and Gmail updates leave
+    // attachments as they are, and some providers cannot change the attachments of one occurrence.
+    public bool CanAddAttachments => CalendarCapabilities.SupportsAttachments && !IsCalendarReadOnly
+        && (!IsEditMode || (CalendarCapabilities.SupportsAttachmentChanges && (!IsEditingOccurrence || CalendarCapabilities.SupportsOccurrenceAttachmentChanges)));
     public string AttachmentsDisabledTooltipText => CanAddAttachments
         ? string.Empty
         : IsCalendarReadOnly

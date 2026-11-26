@@ -27,7 +27,8 @@ IExchangeAuthenticator exchangeAuthenticator,
                                               IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
                                               IContactService? contactService = null,
                                               IPictureStorageService? contactPictureService = null,
-                                              ITaskService? taskService = null)
+                                              ITaskService? taskService = null,
+                                              IMailCategoryService? mailCategoryService = null)
     {
         ArgumentNullException.ThrowIfNull(account);
 
@@ -38,18 +39,19 @@ IExchangeAuthenticator exchangeAuthenticator,
             throw new InvalidOperationException("ActiveSync requires its configured synchronizer factory.");
 
         return serverInformation.EffectiveExchangeTransport == ExchangeTransport.Ews
-            ? new ExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService)
-            : new MapiExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService);
+            ? new ExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService, mailCategoryService)
+            : new MapiExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService, mailCategoryService);
     }
 
     public static IWinoSynchronizerBase Create(MailAccount account, IMessenger messenger, RequestUiChangeCoordinator uiChanges,
         IExchangeAuthenticator exchangeAuthenticator, IExchangeChangeProcessor exchangeChangeProcessor,
         IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory, IContactService? contactService,
-        IPictureStorageService? contactPictureService, ITaskService? taskService, Func<IWinoSynchronizerBase> activeSyncFactory)
+        IPictureStorageService? contactPictureService, ITaskService? taskService, IMailCategoryService? mailCategoryService,
+        Func<IWinoSynchronizerBase> activeSyncFactory)
     {
         ArgumentNullException.ThrowIfNull(account);
         return account.ServerInformation?.EffectiveExchangeTransport == ExchangeTransport.ActiveSync
             ? activeSyncFactory()
-            : Create(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService);
+            : Create(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService, mailCategoryService);
     }
 }

@@ -688,7 +688,7 @@ public partial class AccountSetupPageViewModel
                 AccountName?.Trim() ?? string.Empty,
                 details,
                 SelectedColor?.Hex ?? string.Empty,
-                SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths,
+                EffectiveInitialSynchronizationRange,
                 Capabilities.IsMailEnabled,
                 Capabilities.IsCalendarEnabled,
                 Capabilities.IsContactEnabled,

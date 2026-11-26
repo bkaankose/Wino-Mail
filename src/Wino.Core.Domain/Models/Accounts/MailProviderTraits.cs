@@ -44,6 +44,18 @@ public sealed record MailProviderTraits
     /// <summary>Category definitions live on the server and synchronize with it.</summary>
     public bool SupportsCategorySync { get; init; }
 
+    /// <summary>
+    /// The categories assigned to a mail are read from and written to the server. A provider can do this without a
+    /// server category list (<see cref="SupportsCategorySync"/> off): it then knows categories by name only.
+    /// </summary>
+    public bool SynchronizesCategoryAssignments { get; init; }
+
+    /// <summary>The source stamped on categories that come from the server; null when categories stay on the device.</summary>
+    public MailCategorySource? CategorySource { get; init; }
+
+    /// <summary>A contact photo can be written to the address books the provider serves (<see cref="ProviderContactSource"/>).</summary>
+    public bool SupportsContactPhotoWrite { get; init; }
+
     /// <summary>The sender addresses (aliases) of the mailbox are read from the server.</summary>
     public bool SupportsAliasSync { get; init; }
 

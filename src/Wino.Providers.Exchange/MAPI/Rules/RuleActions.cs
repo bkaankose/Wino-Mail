@@ -41,15 +41,18 @@ public sealed class RuleAction
     /// <summary>Move/Copy: the destination folder's EntryID (the FolderEID inside the action data).</summary>
     public byte[]? FolderEntryId { get; init; }
 
-    /// <summary>Move/Copy: the store EntryID; empty when the folder is in this store.</summary>
+    /// <summary>Move/Copy: the store EntryID, which is ignored when the folder is in this store.</summary>
     public byte[]? StoreEntryId { get; init; }
+
+    /// <summary>Move/Copy: FolderInThisStore; when true, <see cref="FolderEntryId"/> is a ServerEid.</summary>
+    public bool FolderInThisStore { get; init; }
 
     /// <summary>
     /// Move/Copy into this store: the folder id, when the FolderEID is a ServerEid (MS-OXORULE
     /// 2.2.5.1.2.1.1: Ours=1, FolderId, MessageId, Instance). Null when it is a real EntryID.
     /// </summary>
     public ulong? ServerFolderId =>
-        FolderEntryId is { Length: 21 } eid && eid[0] == 1 ? BinaryPrimitives.ReadUInt64LittleEndian(eid.AsSpan(1, 8)) : null;
+        FolderInThisStore && FolderEntryId is { Length: 21 } eid && eid[0] == 1 ? BinaryPrimitives.ReadUInt64LittleEndian(eid.AsSpan(1, 8)) : null;
 
     /// <summary>Forward/Delegate: the recipients, when their blocks decoded; null when kept raw.</summary>
     public List<RuleRecipient>? Recipients { get; init; }
@@ -66,8 +69,9 @@ public sealed class RuleAction
 
     // ---- Builders (the actions this client writes) --------------------------------------------
 
-    public static RuleAction MoveTo(ulong folderId) => new() { Type = RuleActionType.Move, FolderEntryId = ServerEid(folderId), StoreEntryId = [] };
-    public static RuleAction CopyTo(ulong folderId) => new() { Type = RuleActionType.Copy, FolderEntryId = ServerEid(folderId), StoreEntryId = [] };
+    // MS-OXORULE 2.2.5.1.2.1: with FolderInThisStore set, StoreEID can be any non-null value and is ignored.
+    public static RuleAction MoveTo(ulong folderId) => new() { Type = RuleActionType.Move, FolderInThisStore = true, FolderEntryId = ServerEid(folderId), StoreEntryId = [0x00] };
+    public static RuleAction CopyTo(ulong folderId) => new() { Type = RuleActionType.Copy, FolderInThisStore = true, FolderEntryId = ServerEid(folderId), StoreEntryId = [0x00] };
     public static RuleAction Delete() => new() { Type = RuleActionType.Delete };
     public static RuleAction MarkAsRead() => new() { Type = RuleActionType.MarkAsRead };
     public static RuleAction ForwardTo(IReadOnlyList<RuleRecipient> recipients) => new() { Type = RuleActionType.Forward, Recipients = [.. recipients] };
@@ -135,13 +139,12 @@ public static class RuleActions
             {
                 // MoveCopyActionData (2.2.5.1.2.1): FolderInThisStore (1), StoreEIDSize + StoreEID, FolderEIDSize + FolderEID.
                 // The extended form has no FolderInThisStore byte and uses 32-bit sizes.
-                if (!extendedFormat)
-                    data.UInt8();
+                var inThisStore = !extendedFormat && data.UInt8() != 0;
                 var storeSize = extendedFormat ? (int)data.UInt32() : data.UInt16();
                 var store = data.Bytes(storeSize).ToArray();
                 var folderSize = extendedFormat ? (int)data.UInt32() : data.UInt16();
                 var folder = data.Bytes(folderSize).ToArray();
-                return new RuleAction { Type = type, Flavor = flavor, Flags = flags, StoreEntryId = store, FolderEntryId = folder };
+                return new RuleAction { Type = type, Flavor = flavor, Flags = flags, FolderInThisStore = inThisStore, StoreEntryId = store, FolderEntryId = folder };
             }
 
             case RuleActionType.Forward:
@@ -221,7 +224,7 @@ public static class RuleActions
             {
                 var store = action.StoreEntryId ?? [];
                 var folder = action.FolderEntryId ?? throw new MapiFormatException("A move/copy action needs a folder.");
-                block.UInt8(store.Length == 0 ? (byte)1 : (byte)0);     // FolderInThisStore
+                block.UInt8(action.FolderInThisStore ? (byte)1 : (byte)0);
                 block.UInt16((ushort)store.Length);
                 block.Bytes(store);
                 block.UInt16((ushort)folder.Length);

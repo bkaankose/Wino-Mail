@@ -3,13 +3,14 @@ using System.Linq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Providers.Exchange.MAPI;
+using Wino.Providers.Exchange.Synchronizers.Exchange;
 
 namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 
 /// <summary>A contacts-folder row to the local contact, and a local contact to the fields written back.</summary>
 internal static class MapiContactMapper
 {
-    /// <summary>The photo key stamped on a row that carries an attachment; the photo is pulled once per row, not per sync.</summary>
+    /// <summary>The photo key stamped on a row that has a contact photo; the photo is pulled once per row, not per sync.</summary>
     internal const string PhotoKey = "mapi-photo";
 
     internal static AccountContact ToAccountContact(MapiContactInfo row, string remoteId, Guid accountId, Guid addressBookId)
@@ -21,19 +22,30 @@ internal static class MapiContactMapper
             AddressBookId = addressBookId,
             SourceKind = ContactSourceKind.Exchange,
             RemoteId = remoteId,
-            RemotePhotoKey = row.HasAttachments ? PhotoKey : null,
-            DisplayName = FirstNonEmpty(row.DisplayName, Join(" ", row.GivenName, row.Surname), row.Company),
+            RemotePhotoKey = row.HasPicture ? PhotoKey : null,
+            DisplayName = FirstNonEmpty(row.DisplayName, Join(" ", row.GivenName, row.MiddleName, row.Surname), row.Company),
+            HonorificPrefix = Clean(row.Prefix),
             GivenName = Clean(row.GivenName),
+            MiddleName = Clean(row.MiddleName),
             Surname = Clean(row.Surname),
+            HonorificSuffix = Clean(row.Generation),
+            Nickname = Clean(row.Nickname),
+            FileAs = Clean(row.FileUnder),
             CompanyName = Clean(row.Company),
+            Department = Clean(row.Department),
             JobTitle = Clean(row.JobTitle),
+            OfficeLocation = Clean(row.OfficeLocation),
+            Website = Clean(row.Website),
             Notes = Clean(row.Notes),
+            CategoryNames = (row.Categories ?? []).Select(Clean).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             PendingMutation = ContactPendingMutation.None
         };
 
-        contact.EmailAddresses = new[] { row.Email1, row.Email2, row.Email3 }
+        ExchangeContactBirthday.Apply(contact, ExchangeContactBirthday.Read(row.BirthdayLocal, row.Birthday));
+
+        contact.EmailAddresses = row.Emails
             .Select(Clean)
-            .Where(e => e != null)
+            .OfType<string>()
             .Select((address, index) => new ContactEmailAddress
             {
                 Id = Guid.NewGuid(),
@@ -45,39 +57,64 @@ internal static class MapiContactMapper
             })
             .ToList();
 
-        AddPhone(contact, row.BusinessPhone, ContactPhoneKind.Work);
-        AddPhone(contact, row.HomePhone, ContactPhoneKind.Home);
         AddPhone(contact, row.MobilePhone, ContactPhoneKind.Mobile);
+        AddPhone(contact, row.BusinessPhone, ContactPhoneKind.Work);
+        AddPhone(contact, row.BusinessPhone2, ContactPhoneKind.Work);
+        AddPhone(contact, row.HomePhone, ContactPhoneKind.Home);
+        AddPhone(contact, row.HomePhone2, ContactPhoneKind.Home);
 
-        if (new[] { row.WorkStreet, row.WorkCity, row.WorkState, row.WorkPostalCode, row.WorkCountry }.Any(p => Clean(p) != null))
-        {
-            contact.PostalAddresses.Add(new ContactPostalAddress
-            {
-                Id = Guid.NewGuid(),
-                ContactId = contact.Id,
-                Kind = ContactPostalAddressKind.Business,
-                Street = Clean(row.WorkStreet),
-                City = Clean(row.WorkCity),
-                Region = Clean(row.WorkState),
-                PostalCode = Clean(row.WorkPostalCode),
-                Country = Clean(row.WorkCountry)
-            });
-        }
+        AddAddress(contact, row.HomeAddress, ContactPostalAddressKind.Home);
+        AddAddress(contact, row.WorkAddress, ContactPostalAddressKind.Business);
+        AddAddress(contact, row.OtherAddress, ContactPostalAddressKind.Other);
 
         return contact;
     }
 
-    internal static MapiContactWrite ToWrite(AccountContact item) => new()
+    /// <summary>
+    /// The fields written back. <paramref name="original"/> is the contact before the edit (null for a new one); its
+    /// e-mail slots let an unchanged slot keep the server's entry. Categories are written on create only: an update
+    /// leaves them to the category request, which carries them explicitly.
+    /// </summary>
+    internal static MapiContactWrite ToWrite(AccountContact item, AccountContact? original)
     {
-        DisplayName = string.IsNullOrWhiteSpace(item.DisplayName) ? item.PrimaryEmailAddress : item.DisplayName,
-        Company = item.CompanyName,
-        JobTitle = item.JobTitle,
-        BusinessPhone = Phone(item, ContactPhoneKind.Work),
-        HomePhone = Phone(item, ContactPhoneKind.Home),
-        MobilePhone = Phone(item, ContactPhoneKind.Mobile),
-        Email = item.PrimaryEmailAddress,
-        Notes = item.Notes
-    };
+        var work = ExchangeContactFields.Phones(item, ContactPhoneKind.Work, 2);
+        var home = ExchangeContactFields.Phones(item, ContactPhoneKind.Home, 2);
+        var birthday = ExchangeContactBirthday.FromContact(item);
+
+        return new MapiContactWrite
+        {
+            DisplayName = string.IsNullOrWhiteSpace(item.DisplayName) ? item.StructuredName : item.DisplayName,
+            Prefix = item.HonorificPrefix,
+            GivenName = item.GivenName,
+            MiddleName = item.MiddleName,
+            Surname = item.Surname,
+            Generation = item.HonorificSuffix,
+            Nickname = item.Nickname,
+            Company = item.CompanyName,
+            Department = item.Department,
+            JobTitle = item.JobTitle,
+            OfficeLocation = item.OfficeLocation,
+            Website = item.Website,
+            BusinessPhone = work[0],
+            BusinessPhone2 = work[1],
+            HomePhone = home[0],
+            HomePhone2 = home[1],
+            MobilePhone = ExchangeContactFields.Phones(item, ContactPhoneKind.Mobile, 1)[0],
+            Emails = ExchangeContactFields.Emails(item),
+            OriginalEmails = original is null ? null : ExchangeContactFields.Emails(original),
+            WorkAddress = Address(item, ContactPostalAddressKind.Business),
+            HomeAddress = Address(item, ContactPostalAddressKind.Home),
+            OtherAddress = Address(item, ContactPostalAddressKind.Other),
+            Birthday = birthday is { } day ? (ExchangeContactBirthday.ToBirthdayUtc(day), ExchangeContactBirthday.ToBirthdayLocalRaw(day)) : null,
+            Categories = original is null ? ExchangeContactFields.CategoryNames(item) : null,
+            Notes = item.Notes
+        };
+    }
+
+    private static MapiPostalAddress? Address(AccountContact item, ContactPostalAddressKind kind)
+        => item.PostalAddresses?.FirstOrDefault(address => address.Kind == kind) is { } address
+            ? new MapiPostalAddress(address.Street, address.PostOfficeBox, address.City, address.Region, address.PostalCode, address.Country)
+            : null;
 
     private static void AddPhone(AccountContact contact, string? number, ContactPhoneKind kind)
     {
@@ -95,8 +132,24 @@ internal static class MapiContactMapper
         });
     }
 
-    private static string? Phone(AccountContact item, ContactPhoneKind kind)
-        => item.PhoneNumbers?.Where(p => p.Kind == kind).OrderBy(p => p.Order).Select(p => Clean(p.Number)).FirstOrDefault(p => p != null);
+    private static void AddAddress(AccountContact contact, MapiPostalAddress? address, ContactPostalAddressKind kind)
+    {
+        if (address is null || address.IsEmpty)
+            return;
+
+        contact.PostalAddresses.Add(new ContactPostalAddress
+        {
+            Id = Guid.NewGuid(),
+            ContactId = contact.Id,
+            Kind = kind,
+            Street = Clean(address.Street),
+            PostOfficeBox = Clean(address.PostOfficeBox),
+            City = Clean(address.City),
+            Region = Clean(address.State),
+            PostalCode = Clean(address.PostalCode),
+            Country = Clean(address.Country)
+        });
+    }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

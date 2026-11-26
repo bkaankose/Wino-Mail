@@ -1675,7 +1675,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         await ApplyCategoryAssignmentToVisibleItemsAsync(category, targetList, isAssignedToAll).ConfigureAwait(false);
 
-        if (!_providers.GetTraits(targetList.First().MailCopy.AssignedAccount.ProviderType).SupportsCategorySync)
+        if (targetList.First().MailCopy.AssignedAccount is not { } assignedAccount || !_providers.GetTraits(assignedAccount).SynchronizesCategoryAssignments)
             return;
 
         var requests = new List<IRequestBase>();
@@ -3178,8 +3178,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             {
                 foreach (var accountId in context.HandlingFolders.Select(folder => folder.MailAccountId).Distinct())
                 {
-                    var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-                    if (account?.ProviderType == MailProviderType.POP3)
+                    if (!await _synchronizationManager.SupportsOnlineSearchAsync(accountId).ConfigureAwait(false))
                     {
                         supportsOnlineSearch = false;
                         break;

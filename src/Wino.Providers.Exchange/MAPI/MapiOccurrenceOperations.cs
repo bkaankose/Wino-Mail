@@ -285,7 +285,7 @@ public static class MapiOccurrenceOperations
         var attachmentHandles = MapiSession.MergeHandles(handles, returned, Slots);
         try
         {
-            (rops, returned) = await session.ExecuteAsync(RopMessageWrite.BuildOpenEmbeddedMessage(3, 4, create: false), attachmentHandles, cancellationToken).ConfigureAwait(false);
+            (rops, returned) = await session.ExecuteAsync(RopMessageWrite.BuildOpenEmbeddedMessageReadOnly(3, 4), attachmentHandles, cancellationToken).ConfigureAwait(false);
             RopMessageWrite.ParseOpenEmbeddedMessage(new RopReader(rops));
             var embeddedHandles = MapiSession.MergeHandles(attachmentHandles, returned, Slots);
             try

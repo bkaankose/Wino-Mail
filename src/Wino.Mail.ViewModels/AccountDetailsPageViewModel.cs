@@ -1282,7 +1282,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 Type = MailSynchronizationType.FullFolders
             });
 
-            if (_providers.GetTraits(Account.ProviderType).SupportsCategorySync)
+            if (_providers.GetTraits(Account).SupportsCategorySync)
             {
                 await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
                 {

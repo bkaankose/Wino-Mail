@@ -107,6 +107,32 @@ public partial class ExchangeSynchronizer : IExchangeSynchronizer, ILiveChangeLi
         await StopChangeListenerAsync().ConfigureAwait(false);
     }
 
+    /// <summary>Whether the change listener holds a server session that must be ended with an answered request.</summary>
+    protected virtual bool ListenerHoldsServerSession => false;
+
+    /// <summary>
+    /// On MAPI the listener and the kept sessions send Disconnect (MS-OXCMAPIHTTP 3.1.5.4). EWS streaming keeps no
+    /// session: the subscription ends with its connection (EWS defines Unsubscribe for pull subscriptions only), and
+    /// the connection closes with the process, so its slow close is not waited for at shutdown.
+    /// </summary>
+    public override Task ReleaseServerSessionsAsync(CancellationToken cancellationToken)
+    {
+        if (ListenerHoldsServerSession)
+            return KillSynchronizerAsync();
+
+        SetNotificationStatus(ExchangeNotificationState.Stopped, "synchronizer closed");
+        _notificationStatusClosed = true;
+        try
+        {
+            _listenerCancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        return Task.CompletedTask;
+    }
+
     private async Task RunChangeListenerAsync(CancellationToken cancellationToken)
     {
         // Yield first so the caller (synchronizer creation) is never held up by the first connection attempt.

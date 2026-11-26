@@ -735,6 +735,14 @@ public partial class MailFilterEditorPageViewModel(IMessenger messenger,
                 return false;
             }
         }
+        else if (Account.ProviderType == MailProviderType.Exchange)
+        {
+            if (!IsExchangeRuleExpressible(filter))
+            {
+                reason = Translator.MailFilterEditor_ExchangeUnsupported;
+                return false;
+            }
+        }
         else
         {
             reason = Translator.MailFilterEditor_ProviderUnavailable;
@@ -744,6 +752,46 @@ public partial class MailFilterEditorPageViewModel(IMessenger messenger,
         reason = string.Empty;
         return true;
     }
+
+    // An Exchange Inbox rule ORs the values of one condition and ANDs different conditions (MS-OXWSRULES, MS-OXORULE),
+    // and moves a message to one folder only.
+    private static bool IsExchangeRuleExpressible(MailFilter filter)
+    {
+        if (filter.Conditions.Count == 0 || filter.Actions.Count == 0)
+            return false;
+
+        var fields = filter.Conditions.Select(condition => condition.Field).ToList();
+        if (filter.MatchMode == MailFilterMatchMode.Any)
+        {
+            if (fields.Distinct().Count() > 1 || fields[0] is not (MailFilterConditionField.FromAddress or MailFilterConditionField.FromName
+                or MailFilterConditionField.Subject or MailFilterConditionField.PreviewText))
+                return false;
+        }
+        else if (fields.Count != fields.Distinct().Count())
+        {
+            return false;
+        }
+
+        if (filter.Conditions.Any(condition => !IsExchangeConditionSupported(condition)))
+            return false;
+
+        var moveTargets = filter.Actions
+            .Where(action => action.Type is MailFilterActionType.Move or MailFilterActionType.Archive or MailFilterActionType.MoveToJunk or MailFilterActionType.MarkAsNotJunk)
+            .Select(action => action.TargetRemoteFolderId)
+            .Distinct()
+            .ToList();
+        return moveTargets.Count <= 1
+            && filter.Actions.All(action => action.Type is MailFilterActionType.MarkRead or MailFilterActionType.Move or MailFilterActionType.Archive
+                or MailFilterActionType.MoveToJunk or MailFilterActionType.MarkAsNotJunk or MailFilterActionType.SoftDelete or MailFilterActionType.HardDelete);
+    }
+
+    private static bool IsExchangeConditionSupported(MailFilterCondition condition)
+        => condition.Field switch
+        {
+            MailFilterConditionField.HasAttachments => condition.Operator == MailFilterConditionOperator.Equals
+                && bool.TryParse(condition.Value, out var hasAttachments) && hasAttachments,
+            _ => IsOutlookConditionSupported(condition)
+        };
 
     private static bool IsOutlookConditionSupported(MailFilterCondition condition)
         => condition.Field switch

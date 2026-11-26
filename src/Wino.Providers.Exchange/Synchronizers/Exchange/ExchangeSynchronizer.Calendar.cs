@@ -95,16 +95,25 @@ public partial class ExchangeSynchronizer
 
         var defaultCalendar = await CalendarFolder.Bind(service, WellKnownFolderName.Calendar, properties).ConfigureAwait(false);
 
-        var view = new FolderView(1000) { Traversal = FolderTraversal.Deep, PropertySet = properties };
-        var appointmentFolders = await service
-            .FindFolders(WellKnownFolderName.MsgFolderRoot, new SearchFilter.IsEqualTo(FolderSchema.FolderClass, CalendarFolderClass), view)
-            .ConfigureAwait(false);
+        // Deleted Items is under the message folder root, so a deleted calendar would otherwise still be listed; it is
+        // left out as deleted task folders are.
+        var filter = new SearchFilter.IsEqualTo(FolderSchema.FolderClass, CalendarFolderClass);
+        var discarded = (await FindEwsFoldersAsync(service, WellKnownFolderName.DeletedItems, filter, properties, cancellationToken).ConfigureAwait(false))
+            .Select(folder => folder.Id.UniqueId)
+            .ToHashSet(StringComparer.Ordinal);
 
         var remoteFolders = new Dictionary<string, Folder>(StringComparer.Ordinal) { [defaultCalendar.Id.UniqueId] = defaultCalendar };
-        foreach (var folder in appointmentFolders.Folders)
-            remoteFolders[folder.Id.UniqueId] = folder;
+        foreach (var folder in await FindEwsFoldersAsync(service, WellKnownFolderName.MsgFolderRoot, filter, properties, cancellationToken).ConfigureAwait(false))
+        {
+            if (!discarded.Contains(folder.Id.UniqueId))
+                remoteFolders.TryAdd(folder.Id.UniqueId, folder);
+        }
 
         var localCalendars = await ExchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+        await RekeyCarriedCalendarsAsync(localCalendars,
+            remoteFolders.Select(pair => (pair.Key, pair.Value.DisplayName ?? string.Empty, pair.Key == defaultCalendar.Id.UniqueId)).ToList(),
+            cancellationToken).ConfigureAwait(false);
 
         foreach (var local in localCalendars)
         {
@@ -122,6 +131,29 @@ public partial class ExchangeSynchronizer
             var name = string.IsNullOrWhiteSpace(folder.DisplayName) ? Translator.AccountDetailsPage_TabCalendar : folder.DisplayName;
 
             await UpsertAccountCalendarAsync(localCalendars.FirstOrDefault(c => c.RemoteCalendarId == remoteId), remoteId, name, isPrimary, usedColors).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Moves the calendars another transport stored onto this transport's folders before missing calendars are removed,
+    /// so a transport change keeps each calendar row (its id, colour and synchronization setting).
+    /// </summary>
+    protected async Task RekeyCarriedCalendarsAsync(List<AccountCalendar> localCalendars, IReadOnlyList<(string RemoteId, string Title, bool IsDefault)> incoming,
+        CancellationToken cancellationToken)
+    {
+        var rows = localCalendars
+            .Where(calendar => !string.IsNullOrWhiteSpace(calendar.RemoteCalendarId))
+            .Select(calendar => (calendar.Id, calendar.RemoteCalendarId, calendar.Name ?? string.Empty, calendar.IsPrimary))
+            .ToList();
+        var matches = await MatchCarriedContainersAsync(rows, incoming, cancellationToken).ConfigureAwait(false);
+
+        foreach (var calendar in localCalendars)
+        {
+            if (!matches.TryGetValue(calendar.Id, out var remoteId))
+                continue;
+
+            _logger.Information("Exchange calendar {Account}: re-keying calendar {CalendarId} to the current transport.", Account.Name, calendar.Id);
+            await ExchangeChangeProcessor.RekeyAccountCalendarAsync(calendar, remoteId).ConfigureAwait(false);
         }
     }
 
@@ -181,8 +213,12 @@ public partial class ExchangeSynchronizer
         AppointmentSchema.RequiredAttendees, AppointmentSchema.OptionalAttendees,
         AppointmentSchema.MyResponseType, AppointmentSchema.IsAllDayEvent,
         AppointmentSchema.StartTimeZone, AppointmentSchema.EndTimeZone,
+        AppointmentSchema.AppointmentType,
+        ItemSchema.Attachments,
         ExchangeCalendarSchema.WinoClientTrackingId)
     { RequestedBodyType = BodyType.HTML };
+
+    private static readonly PropertySet MasterPropertySet = new(EventPropertySet) { AppointmentSchema.Recurrence };
 
     private async Task SynchronizeCalendarEventsForCalendarAsync(ExchangeService service, AccountCalendar calendar, DateTime windowStartUtc, DateTime windowEndUtc, CancellationToken cancellationToken)
     {
@@ -191,6 +227,10 @@ public partial class ExchangeSynchronizer
             .ConfigureAwait(false);
 
         var seenRemoteIds = new HashSet<string>(StringComparer.Ordinal);
+
+        // Series masters stored in this pass by their EWS id, with the remote id their occurrences link to; null when
+        // the master's pattern has no RRULE form and its occurrences stay unlinked.
+        var storedMasters = new Dictionary<string, string?>(StringComparer.Ordinal);
 
         // Deletions are reconciled only when no chunk hit the server's result cap.
         var windowComplete = true;
@@ -212,11 +252,18 @@ public partial class ExchangeSynchronizer
             {
                 await service.LoadPropertiesForItems(appointments, EventPropertySet).ConfigureAwait(false);
 
+                var masterIds = await StoreRecurringMastersAsync(service, calendar, appointments, storedMasters, seenRemoteIds, cancellationToken).ConfigureAwait(false);
+
                 foreach (var appointment in appointments)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     seenRemoteIds.Add(appointment.Id.UniqueId);
-                    await ExchangeChangeProcessor.ManageCalendarEventAsync(MapToSyncedEvent(appointment), calendar, Account).ConfigureAwait(false);
+
+                    var occurrence = MapToSyncedEvent(appointment);
+                    if (masterIds.TryGetValue(appointment.Id.UniqueId, out var masterId) && storedMasters.TryGetValue(masterId, out var masterRemoteId))
+                        occurrence.RecurringParentRemoteId = masterRemoteId;
+
+                    await ExchangeChangeProcessor.ManageCalendarEventAsync(occurrence, calendar, Account).ConfigureAwait(false);
                 }
             }
 
@@ -241,13 +288,118 @@ public partial class ExchangeSynchronizer
                 await ExchangeChangeProcessor.DeleteCalendarItemAsync(local.Id).ConfigureAwait(false);
             }
         }
+
+        // Masters are outside the range query; a series gone from the server, or with no occurrence left in the window,
+        // takes its stored occurrences with it.
+        foreach (var master in await ExchangeChangeProcessor.GetRecurringMastersAsync(calendar).ConfigureAwait(false))
+        {
+            if (!string.IsNullOrEmpty(master.RemoteEventId) &&
+                !seenRemoteIds.Contains(master.RemoteEventId.GetProviderRemoteEventId()))
+            {
+                await ExchangeChangeProcessor.DeleteCalendarItemAsync(master.Id).ConfigureAwait(false);
+            }
+        }
     }
 
-    /// <summary>An EWS appointment (one occurrence; the calendar view expands series) in the neutral shape.</summary>
+    /// <summary>
+    /// Stores the series master of every occurrence and exception in a calendar view chunk, each master read once per
+    /// pass. The calendar view never returns masters, so each occurrence's master id is resolved through
+    /// RecurringMasterItemId in one batched GetItem (MS-OXWSCORE, MS-OXWSMTGS), then the masters not stored yet are
+    /// read in a second one. Returns the master id of each occurrence by the occurrence's id.
+    /// </summary>
+    private async Task<Dictionary<string, string>> StoreRecurringMastersAsync(ExchangeService service, AccountCalendar calendar, IReadOnlyList<Appointment> appointments,
+        Dictionary<string, string?> storedMasters, HashSet<string> seenRemoteIds, CancellationToken cancellationToken)
+    {
+        var masterIds = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        var children = appointments
+            .Where(appointment => SafeGet(() => (AppointmentType?)appointment.AppointmentType) is AppointmentType.Occurrence or AppointmentType.Exception)
+            .ToList();
+        if (children.Count == 0)
+            return masterIds;
+
+        var lookups = await service
+            .BindToItems(children.Select(child => (ItemId)new RecurringAppointmentMasterId(child.Id.UniqueId)), new PropertySet(BasePropertySet.IdOnly), cancellationToken)
+            .ConfigureAwait(false);
+
+        for (var index = 0; index < children.Count; index++)
+        {
+            var response = lookups[index];
+            if (response.Result == ServiceResult.Success && response.Item?.Id is { } masterId)
+            {
+                masterIds[children[index].Id.UniqueId] = masterId.UniqueId;
+                continue;
+            }
+
+            // The occurrence stays visible as its own row; the series cannot be edited as a whole until its master is read.
+            _logger.Warning("EWS calendar {Calendar}: master of occurrence '{Title}' not read ({Error}: {Message}).",
+                calendar.Name, SafeGet(() => children[index].Subject), response.ErrorCode, response.ErrorMessage);
+        }
+
+        var newMasterIds = masterIds.Values.Distinct(StringComparer.Ordinal).Where(id => !storedMasters.ContainsKey(id)).ToList();
+        if (newMasterIds.Count == 0)
+            return masterIds;
+
+        var masters = await service
+            .BindToItems(newMasterIds.Select(id => new ItemId(id)), MasterPropertySet, cancellationToken)
+            .ConfigureAwait(false);
+
+        for (var index = 0; index < newMasterIds.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var response = masters[index];
+            if (response.Result != ServiceResult.Success || response.Item is not Appointment master)
+            {
+                _logger.Warning("EWS calendar {Calendar}: series master not read ({Error}: {Message}); its occurrences are stored unlinked.",
+                    calendar.Name, response.ErrorCode, response.ErrorMessage);
+                storedMasters[newMasterIds[index]] = null;
+                continue;
+            }
+
+            var synced = MapToSyncedMaster(master);
+            storedMasters[newMasterIds[index]] = synced?.RemoteId;
+            if (synced == null)
+            {
+                _logger.Warning("EWS calendar {Calendar}: the pattern of series '{Title}' has no RRULE form; its occurrences are stored unlinked.",
+                    calendar.Name, SafeGet(() => master.Subject));
+                continue;
+            }
+
+            seenRemoteIds.Add(master.Id.UniqueId);
+            await ExchangeChangeProcessor.ManageCalendarEventAsync(synced, calendar, Account).ConfigureAwait(false);
+        }
+
+        return masterIds;
+    }
+
+    /// <summary>A series master as the stored, never rendered, row its occurrences link to; null when its pattern has no RRULE form.</summary>
+    private static SyncedCalendarEvent? MapToSyncedMaster(Appointment master)
+    {
+        var recurrence = SafeGet(() => master.Recurrence);
+        if (recurrence == null)
+            return null;
+
+        var synced = MapToSyncedEvent(master);
+        var firstStartWallClock = synced.StartUtc;
+        if (!string.IsNullOrEmpty(synced.TimeZoneIana) && TimeZoneInfo.TryFindSystemTimeZoneById(synced.TimeZoneIana, out var zone))
+            firstStartWallClock = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(synced.StartUtc, DateTimeKind.Utc), zone);
+
+        synced.Recurrence = EwsRecurrenceMapper.ToRecurrenceRule(recurrence, firstStartWallClock);
+        return synced.Recurrence == null ? null : synced;
+    }
+
+    /// <summary>
+    /// An EWS appointment in the neutral shape: a single appointment, an occurrence or exception from the calendar view,
+    /// or a series master. Only singles and masters carry the client tracking id; occurrences inherit the master's
+    /// property but are never the item a create made.
+    /// </summary>
     private static SyncedCalendarEvent MapToSyncedEvent(Appointment appointment)
     {
         Guid? clientTrackingId = null;
-        if (appointment.TryGetProperty(ExchangeCalendarSchema.WinoClientTrackingId, out string trackingValue) &&
+        var appointmentType = SafeGet(() => (AppointmentType?)appointment.AppointmentType);
+        if (appointmentType is not (AppointmentType.Occurrence or AppointmentType.Exception) &&
+            appointment.TryGetProperty(ExchangeCalendarSchema.WinoClientTrackingId, out string trackingValue) &&
             Guid.TryParseExact(trackingValue, "N", out var parsedTrackingId))
         {
             clientTrackingId = parsedTrackingId;
@@ -296,8 +448,34 @@ public partial class ExchangeSynchronizer
                 _ => CalendarItemStatus.Accepted
             },
             Attendees = BuildAttendees(appointment),
-            ReminderMinutesBeforeStart = isReminderSet ? SafeGet(() => (int?)appointment.ReminderMinutesBeforeStart) : null
+            ReminderMinutesBeforeStart = isReminderSet ? SafeGet(() => (int?)appointment.ReminderMinutesBeforeStart) : null,
+            Attachments = ReadAttachments(appointment)
         };
+    }
+
+    /// <summary>
+    /// The file attachments of an appointment (MS-OXWSATT); null when they were not loaded. Inline files belong to the
+    /// body and item attachments have no file to download, so neither is listed. An occurrence lists the attachments
+    /// of the series or, for an exception, its own; each downloads by the id given here.
+    /// </summary>
+    private static List<SyncedCalendarAttachment>? ReadAttachments(Item item)
+    {
+        var attachments = SafeGet(() => item.Attachments);
+        if (attachments == null)
+            return null;
+
+        return attachments
+            .OfType<FileAttachment>()
+            .Where(attachment => !attachment.IsInline && !string.IsNullOrEmpty(attachment.Id))
+            .Select(attachment => new SyncedCalendarAttachment
+            {
+                RemoteId = attachment.Id,
+                FileName = string.IsNullOrWhiteSpace(attachment.Name) ? "attachment" : attachment.Name,
+                ContentType = attachment.ContentType,
+                Size = attachment.Size,
+                LastModified = attachment.LastModifiedTime == default ? null : new DateTimeOffset(DateTime.SpecifyKind(attachment.LastModifiedTime, DateTimeKind.Utc))
+            })
+            .ToList();
     }
 
     private static List<SyncedCalendarAttendee>? BuildAttendees(Appointment appointment)
@@ -373,20 +551,14 @@ public partial class ExchangeSynchronizer
                 if (match == null)
                     continue;
 
-                // The calendar stores occurrences, so a series request maps to its first occurrence rather than the
-                // master, which this transport never stores.
-                var appointmentId = match.Id;
-                if (SafeGet(() => (AppointmentType?)match.AppointmentType) == AppointmentType.RecurringMaster)
-                {
-                    var master = await Appointment.Bind(service, match.Id, new PropertySet(BasePropertySet.IdOnly, AppointmentSchema.FirstOccurrence)).ConfigureAwait(false);
-                    appointmentId = SafeGet(() => master.FirstOccurrence?.ItemId);
+                // A series request maps to the stored series master, as on MAPI; the calendar sync links its occurrences.
+                var isMaster = SafeGet(() => (AppointmentType?)match.AppointmentType) == AppointmentType.RecurringMaster;
+                var appointment = await Appointment.Bind(service, match.Id, isMaster ? MasterPropertySet : EventPropertySet).ConfigureAwait(false);
+                var synced = isMaster ? MapToSyncedMaster(appointment) : MapToSyncedEvent(appointment);
+                if (synced == null)
+                    continue;
 
-                    if (appointmentId == null)
-                        continue;
-                }
-
-                var appointment = await Appointment.Bind(service, appointmentId, EventPropertySet).ConfigureAwait(false);
-                await ExchangeChangeProcessor.ManageCalendarEventAsync(MapToSyncedEvent(appointment), calendar, Account).ConfigureAwait(false);
+                await ExchangeChangeProcessor.ManageCalendarEventAsync(synced, calendar, Account).ConfigureAwait(false);
 
                 var localCalendarItem = await ExchangeChangeProcessor.GetCalendarItemAsync(calendar.Id, appointment.Id.UniqueId).ConfigureAwait(false);
                 if (localCalendarItem == null)
@@ -427,11 +599,17 @@ public partial class ExchangeSynchronizer
         var isRecurring = request.IsRecurring;
         var recurrenceRule = EwsRecurrenceMapper.GetRecurrenceRule(item) ?? request.ComposeResult?.Recurrence;
         var title = item.Title;
+        var attachmentDrafts = request.ComposeResult?.Attachments;
 
-        return Bundle(async (service, _) =>
+        return Bundle(async (service, cancellationToken) =>
         {
             var appointment = new Appointment(service);
             ApplyCalendarItem(appointment, item, attendees, reminders);
+
+            // CreateItem carries the files inline, so the invitation goes out with them (MS-OXWSCORE, MS-OXWSATT).
+            var files = await ExchangeCalendarAttachments.ReadAsync(attachmentDrafts, cancellationToken).ConfigureAwait(false);
+            foreach (var file in files)
+                appointment.Attachments.AddFileAttachment(file.FileName, file.Content).ContentType = file.ContentType;
 
             // The local preview id lets the synced event reconcile with the optimistic item.
             appointment.SetExtendedProperty(ExchangeCalendarSchema.WinoClientTrackingId, item.Id.ToString("N"));
@@ -449,16 +627,15 @@ public partial class ExchangeSynchronizer
             var sendMode = HasAttendees(appointment) ? SendInvitationsMode.SendToAllAndSaveCopy : SendInvitationsMode.SendToNone;
             await appointment.Save(new FolderId(calendarRemoteId), sendMode).ConfigureAwait(false);
 
-            // The calendar view returns a series as its occurrences, so a master stored here would never be confirmed
-            // by a sync; the resync after this request stores the occurrences.
-            if (!isRecurring)
-            {
-                await ExchangeChangeProcessor.PersistCreatedCalendarEventAsync(
-                    item,
-                    request.PreparedEvent.Attendees,
-                    request.PreparedEvent.Reminders,
-                    appointment.Id.UniqueId.WithClientTrackingId(item.Id)).ConfigureAwait(false);
-            }
+            // A series is stored as its master, which the sync adopts by the tracking id and links its occurrences to.
+            await ExchangeChangeProcessor.PersistCreatedCalendarEventAsync(
+                item,
+                request.PreparedEvent.Attendees,
+                request.PreparedEvent.Reminders,
+                appointment.Id.UniqueId.WithClientTrackingId(item.Id)).ConfigureAwait(false);
+
+            if (files.Count > 0)
+                await StoreServerAttachmentsAsync(service, appointment.Id.UniqueId, item.Id).ConfigureAwait(false);
         }, request, request);
     }
 
@@ -466,12 +643,27 @@ public partial class ExchangeSynchronizer
     {
         var item = request.Item;
         var attendees = request.Attendees;
+        var wantedAttachments = request.Attachments;
 
-        return Bundle(async (service, _) =>
+        return Bundle(async (service, cancellationToken) =>
         {
-            var appointment = await Appointment.Bind(service, new ItemId(item.RemoteEventId.GetProviderRemoteEventId())).ConfigureAwait(false);
+            var remoteId = item.RemoteEventId.GetProviderRemoteEventId();
+            var attachmentPlan = ExchangeCalendarAttachments.Plan(await ExchangeChangeProcessor.GetCalendarAttachmentsAsync(item.Id).ConfigureAwait(false), wantedAttachments);
+
+            // The managed API sends UpdateItem before it creates or deletes attachments, so the update the attendees get
+            // would carry the old files. The files change first, in their own CreateAttachment and DeleteAttachment calls.
+            if (attachmentPlan is { IsEmpty: false })
+                await ApplyAttachmentPlanAsync(service, remoteId, attachmentPlan, cancellationToken).ConfigureAwait(false);
+
+            // The row's id is the series master's for a whole-series edit and the occurrence's for one occurrence, so the
+            // same UpdateItem changes the series or makes the occurrence an exception (MS-OXWSMTGS).
+            var appointment = await Appointment.Bind(service, new ItemId(remoteId),
+                new PropertySet(BasePropertySet.FirstClassProperties, AppointmentSchema.AppointmentType, AppointmentSchema.Recurrence)).ConfigureAwait(false);
             var isOrganizer = OrganizesAppointment(appointment);
             ApplyCalendarItem(appointment, item, attendees, request.Reminders, isOrganizer ? null : service.TimeZone);
+
+            if (isOrganizer && SafeGet(() => (AppointmentType?)appointment.AppointmentType) == AppointmentType.RecurringMaster)
+                ApplySeriesPattern(appointment, item);
 
             // Only the organizer re-sends the request; an attendee editing their copy just saves it.
             var sendMode = HasAttendees(appointment) && isOrganizer
@@ -479,6 +671,9 @@ public partial class ExchangeSynchronizer
                 : SendInvitationsOrCancellationsMode.SendToNone;
             await appointment.Update(ConflictResolutionMode.AutoResolve, sendMode).ConfigureAwait(false);
             await ExchangeChangeProcessor.PersistUpdatedCalendarEventAsync(item, attendees, request.Reminders).ConfigureAwait(false);
+
+            if (attachmentPlan is { IsEmpty: false })
+                await StoreServerAttachmentsAsync(service, remoteId, item.Id).ConfigureAwait(false);
         }, request, request);
     }
 
@@ -535,6 +730,76 @@ public partial class ExchangeSynchronizer
 
             await accept.SendAndSaveCopy().ConfigureAwait(false);
         }, request, request);
+    }
+
+    /// <summary>
+    /// Writes the series pattern only when the edit changed it: a new pattern makes Exchange drop the series' changed
+    /// and deleted occurrences, so an edit of the title or time keeps them, as on MAPI.
+    /// </summary>
+    private void ApplySeriesPattern(Appointment master, CalendarItem item)
+    {
+        var rule = EwsRecurrenceMapper.GetRecurrenceRule(item);
+        if (string.IsNullOrEmpty(rule))
+        {
+            master.Recurrence = null;
+            return;
+        }
+
+        var requested = EwsRecurrenceMapper.Create(rule, item.StartDate);
+        if (requested is null)
+        {
+            _logger.Warning("The recurrence rule of '{Title}' has no Exchange equivalent; the series keeps its pattern.", item.Title);
+            return;
+        }
+
+        var current = SafeGet(() => master.Recurrence);
+        if (current == null || !EwsRecurrenceMapper.IsSamePattern(current, requested, item.StartDate))
+            master.Recurrence = requested;
+    }
+
+    /// <summary>
+    /// Removes the planned attachments and adds the new files on the appointment (MS-OXWSATT DeleteAttachment and
+    /// CreateAttachment). The item itself is not changed, so no UpdateItem and no meeting message is sent here. An
+    /// attachment to remove that the server no longer has is already gone.
+    /// </summary>
+    private static async Task ApplyAttachmentPlanAsync(ExchangeService service, string remoteId, ExchangeAttachmentPlan plan, CancellationToken cancellationToken)
+    {
+        var files = await ExchangeCalendarAttachments.ReadAsync(plan.Added, cancellationToken).ConfigureAwait(false);
+        var appointment = await Appointment.Bind(service, new ItemId(remoteId), new PropertySet(BasePropertySet.IdOnly, ItemSchema.Attachments)).ConfigureAwait(false);
+
+        var removedIds = plan.Removed.Select(attachment => attachment.RemoteAttachmentId).Where(id => !string.IsNullOrEmpty(id)).ToHashSet(StringComparer.Ordinal);
+        foreach (var attachment in appointment.Attachments.Where(attachment => removedIds.Contains(attachment.Id)).ToList())
+            appointment.Attachments.Remove(attachment);
+
+        foreach (var file in files)
+            appointment.Attachments.AddFileAttachment(file.FileName, file.Content).ContentType = file.ContentType;
+
+        await appointment.Update(ConflictResolutionMode.AutoResolve, SendInvitationsOrCancellationsMode.SendToNone).ConfigureAwait(false);
+    }
+
+    /// <summary>Stores the attachments the server now holds for the event, once a write that changed them succeeded.</summary>
+    private async Task StoreServerAttachmentsAsync(ExchangeService service, string remoteId, Guid calendarItemId)
+    {
+        var appointment = await Appointment.Bind(service, new ItemId(remoteId), new PropertySet(BasePropertySet.IdOnly, ItemSchema.Attachments)).ConfigureAwait(false);
+        await ExchangeChangeProcessor.SaveCalendarAttachmentsAsync(calendarItemId, ReadAttachments(appointment) ?? []).ConfigureAwait(false);
+    }
+
+    /// <summary>Downloads one file attachment of an event with GetAttachment (MS-OXWSATT).</summary>
+    public override async Task DownloadCalendarAttachmentAsync(CalendarItem calendarItem, CalendarAttachment attachment, string localFilePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(attachment);
+        if (string.IsNullOrEmpty(attachment.RemoteAttachmentId))
+            throw new InvalidOperationException("The attachment has no server id.");
+
+        var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
+        var responses = await service.GetAttachments([attachment.RemoteAttachmentId], null, null, cancellationToken).ConfigureAwait(false);
+        var response = responses[0];
+        if (response.Result != ServiceResult.Success)
+            throw new InvalidOperationException($"EWS GetAttachment failed: {response.ErrorCode} {response.ErrorMessage}");
+        if (response.Attachment is not FileAttachment { Content: { } content })
+            throw new InvalidOperationException("The EWS attachment has no file content.");
+
+        await System.IO.File.WriteAllBytesAsync(localFilePath, content, cancellationToken).ConfigureAwait(false);
     }
 
     private static bool HasAttendees(Appointment appointment)

@@ -347,7 +347,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
             await SynchronizeFoldersAsync(run, cancellationToken);
 
-            if (_providers.GetTraits(account.ProviderType).SupportsCategorySync)
+            if (_providers.GetTraits(account).SupportsCategorySync)
             {
                 run.Start(AccountSetupStepKind.SyncingCategories);
                 await TrySynchronizeCategoriesAsync(account, cancellationToken);
@@ -534,6 +534,9 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
             if (_providers.GetTraits(account).SupportsAliasSync)
                 await TrySynchronizeExchangeAliasesAsync(account, cancellationToken);
+
+            if (_providers.GetTraits(account).SupportsCategorySync)
+                await TrySynchronizeCategoriesAsync(account, cancellationToken);
         }
 
         await TryFetchDirectoryProfilePictureAsync(account, cancellationToken);

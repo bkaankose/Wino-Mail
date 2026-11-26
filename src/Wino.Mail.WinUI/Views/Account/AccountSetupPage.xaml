@@ -111,19 +111,27 @@
                         BorderThickness="1"
                         CornerRadius="4">
                         <StackPanel
+                            Padding="0,8"
                             VerticalAlignment="Center"
-                            Orientation="Horizontal"
-                            Spacing="6">
+                            Spacing="2">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource BodyTextBlockStyle}"
+                                    Text="{x:Bind Label}" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind Caption}"
+                                    Visibility="{x:Bind HasCaption}" />
+                            </StackPanel>
                             <TextBlock
-                                VerticalAlignment="Center"
-                                Style="{StaticResource BodyTextBlockStyle}"
-                                Text="{x:Bind Label}" />
-                            <TextBlock
-                                VerticalAlignment="Center"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind Caption}"
-                                Visibility="{x:Bind HasCaption}" />
+                                Text="{x:Bind Description}"
+                                TextWrapping="WrapWholeWords"
+                                Visibility="{x:Bind HasDescription}" />
                         </StackPanel>
                     </Border>
                 </ItemContainer>
@@ -1319,7 +1327,7 @@
                     Visibility="{x:Bind ViewModel.IsFooterVisible, Mode=OneWay}">
                     <HyperlinkButton
                         AutomationProperties.AutomationId="AccountSetupAdvancedSetup"
-                        Command="{x:Bind ViewModel.OpenAdvancedSetupCommand}"
+                        Command="{x:Bind ViewModel.ChooseServerKindCommand}"
                         Content="{x:Bind domain:Translator.AccountSetup_AdvancedSetup}" />
                     <StackPanel Orientation="Horizontal" Spacing="2">
                         <HyperlinkButton

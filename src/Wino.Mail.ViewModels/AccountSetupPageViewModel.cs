@@ -45,6 +45,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
     private readonly IExchangeInteractiveSignInService? _exchangeSignInService;
     private readonly IExchangeConnectionTester? _exchangeConnectionTester;
     private readonly IMailServerTestService? _mailServerTestService;
+    private readonly IMailProviderRegistry _providers;
 
     private ProviderSelectionHostMode _hostMode = ProviderSelectionHostMode.Wizard;
     private CancellationTokenSource? _operation;
@@ -109,6 +110,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         ISynchronizationManager synchronizationManager,
         ICalDavClient calDavClient,
         WelcomeWizardContext wizardContext,
+        IMailProviderRegistry providers,
         ICardDavClient? cardDavClient = null,
         IOAuthTokenService? oauthTokenService = null,
         IDavOAuthAuthenticationProvider? davOAuthAuthenticationProvider = null,
@@ -134,6 +136,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         _exchangeConnectionTester = exchangeConnectionTester;
         _mailServerTestService = mailServerTestService;
         WizardContext = wizardContext;
+        _providers = providers;
 
         SelectedInitialSynchronizationRange = InitialSynchronizationRanges.First(option => option.Range == InitialSynchronizationRange.SixMonths);
         Capabilities.PropertyChanged += OnCapabilitiesPropertyChanged;
@@ -167,6 +170,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
             WizardContext.Reset();
         }
 
+        IsChoosingServerKind = false;
         Phase = AccountSetupPhase.Identity;
         NotifyPhaseLayoutChanged();
         RefreshProviderShelf();

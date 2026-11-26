@@ -99,11 +99,16 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        // CalendarItem has no AccountId column; the calendar id already scopes the rows to one account.
-        await Connection.ExecuteAsync(
-            "DELETE FROM CalendarItem WHERE CalendarId = ?",
-            accountCalendar.Id);
-        await Connection.DeleteAsync<AccountCalendar>(accountCalendar.Id);
+        // CalendarItem has no AccountId column; the calendar id already scopes the rows to one account. The item rows
+        // go last so the subqueries still find them.
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            transaction.Execute("DELETE FROM CalendarEventAttendee WHERE CalendarItemId IN (SELECT Id FROM CalendarItem WHERE CalendarId = ?)", accountCalendar.Id);
+            transaction.Execute("DELETE FROM Reminder WHERE CalendarItemId IN (SELECT Id FROM CalendarItem WHERE CalendarId = ?)", accountCalendar.Id);
+            transaction.Execute("DELETE FROM CalendarAttachment WHERE CalendarItemId IN (SELECT Id FROM CalendarItem WHERE CalendarId = ?)", accountCalendar.Id);
+            transaction.Execute("DELETE FROM CalendarItem WHERE CalendarId = ?", accountCalendar.Id);
+            transaction.Execute("DELETE FROM AccountCalendar WHERE Id = ?", accountCalendar.Id);
+        }).ConfigureAwait(false);
 
         Messenger.Send(new CalendarListDeleted(accountCalendar));
     }

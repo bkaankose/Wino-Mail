@@ -422,7 +422,7 @@ public sealed class MailInvitationService : IMailInvitationService
 
     private CalendarMode ResolveMode(MailAccount account)
     {
-        var traits = _providers.GetTraits(account.ProviderType);
+        var traits = _providers.GetTraits(account);
         if (traits.AnswersInvitationsThroughProvider)
             return CalendarMode.Provider;
 

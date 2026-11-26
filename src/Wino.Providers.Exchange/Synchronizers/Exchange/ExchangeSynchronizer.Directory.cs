@@ -35,6 +35,7 @@ public partial class ExchangeSynchronizer
     private int _isSenderPhotoLookupRunning;
     private DateTime _lastSenderPhotoLookupUtc;
     private bool _isEwsDirectoryUnavailableLogged;
+    private bool _isDirectoryRefreshRequired;
 
     #region Profile picture
 
@@ -162,7 +163,7 @@ public partial class ExchangeSynchronizer
 
     /// <summary>
     /// Refreshes the read-only directory book after the account's own contacts, as a snapshot. It runs at most every
-    /// half hour unless the directory book itself is asked for, and never fails the contact pass.
+    /// half hour unless the directory book itself is asked for or the transport changed, and never fails the contact pass.
     /// </summary>
     private async Task SynchronizeDirectoryContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken)
     {
@@ -174,12 +175,19 @@ public partial class ExchangeSynchronizer
         if (options.AddressBookId is not null && !isDirectoryRequested)
             return;
 
-        if (!isDirectoryRequested && existing?.LastSuccessfulSyncUtc is { } lastSync && DateTime.UtcNow - lastSync < DirectoryRefreshInterval)
+        if (!isDirectoryRequested && !_isDirectoryRefreshRequired && existing?.LastSuccessfulSyncUtc is { } lastSync && DateTime.UtcNow - lastSync < DirectoryRefreshInterval)
             return;
 
+        _isDirectoryRefreshRequired = false;
         var contacts = await ReadDirectoryContactsAsync(cancellationToken).ConfigureAwait(false);
         if (contacts is null)
+        {
+            // The server answered that this transport cannot list the directory (EWS without FindPeople on it): a book
+            // another transport filled is removed, as a fresh account on this transport has none.
+            if (existing != null)
+                await contactService.DeleteAddressBookAsync(existing.Id).ConfigureAwait(false);
             return;
+        }
 
         var book = await contactService
             .GetOrCreateProviderAddressBookAsync(Account.Id, ContactSourceKind.Exchange, DirectoryBookRemoteId, Translator.ContactsPage_DirectoryAddressBook, false, null, isReadOnly: true)

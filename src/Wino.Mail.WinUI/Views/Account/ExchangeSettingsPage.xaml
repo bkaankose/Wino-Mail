@@ -66,9 +66,11 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
                 <TextBlock
+                    AutomationProperties.AutomationId="ExchangeSetupTransportDescription"
+                    AutomationProperties.LiveSetting="Polite"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.ExchangeSetup_TransportDescription, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.SelectedTransportDescription, Mode=OneWay}"
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
         </StackPanel>

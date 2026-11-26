@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Services.Models.MailItem;
 
 namespace Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
@@ -21,15 +22,25 @@ internal static partial class EasDataMapper
     internal static readonly XNamespace Sync = "AirSync:";
     internal static readonly XNamespace Body = "AirSyncBase:";
     internal static readonly XNamespace Contact = "Contacts:";
+    internal static readonly XNamespace Contact2 = "Contacts2:";
     internal static readonly XNamespace Calendar = "Calendar:";
     internal static readonly XNamespace Tasks = "Tasks:";
     internal static readonly XNamespace Email = "Email:";
     internal static readonly XNamespace Email2 = "Email2:";
     internal static string Value(XElement data, XNamespace ns, string name) => data.Element(ns + name)?.Value ?? string.Empty;
+
+    // Contact text fields the server leaves out are stored as absent, as EWS and MAPI store them.
+    private static string? Optional(XElement data, XNamespace ns, string name) => NullIfEmpty(Value(data, ns, name));
+
+    private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
     internal static Guid StableId(string value) => new(SHA256.HashData(Encoding.UTF8.GetBytes(value)).AsSpan(0, 16));
     internal static string Key(Guid accountId, string folderId, string itemId) => accountId.ToString("N") + "/" + Uri.EscapeDataString(folderId) + "/" + Uri.EscapeDataString(itemId);
 
     internal static string ProviderId(string serverId) => "eas:" + serverId;
+
+    /// <summary>The collection ServerId of a stored remote id; calendars stored before they carried the prefix hold it bare.</summary>
+    internal static string ServerIdOf(string? remoteId)
+        => remoteId is null ? string.Empty : remoteId.StartsWith("eas:", StringComparison.Ordinal) ? remoteId[4..] : remoteId;
 
     internal static string ServerId(string? providerId)
         => string.IsNullOrEmpty(providerId) ? string.Empty
@@ -40,6 +51,17 @@ internal static partial class EasDataMapper
         desired.Elements().Where(element => !XNode.DeepEquals(element, original.Element(element.Name))).Select(element => new XElement(element)));
 
     internal static XElement WriteFlag(bool isFlagged) => new(Sync + "ApplicationData", Flag(isFlagged));
+
+    /// <summary>
+    /// The message's category names, or null when the item does not carry Categories: in a Change that means they did
+    /// not change ([MS-ASEMAIL] 2.2.2.16).
+    /// </summary>
+    internal static List<string>? MailCategories(XElement data)
+        => data.Element(Email + "Categories") is XElement categories ? categories.Elements(Email + "Category").Select(category => category.Value).ToList() : null;
+
+    /// <summary>A Change of the message's categories alone; an empty Categories element removes them all.</summary>
+    internal static XElement WriteMailCategories(IEnumerable<string> names)
+        => new(Sync + "ApplicationData", new XElement(Email + "Categories", names.Select(name => new XElement(Email + "Category", name))));
 
     /// <summary>
     /// A follow-up flag for today, with the start and due dates the flag action requires, or the empty Flag that clears
@@ -77,6 +99,7 @@ internal static partial class EasDataMapper
         catch (InvalidDataException) { return null; }
     }
 
+    internal static XElement HtmlBody(string html) => new(Body + "Body", new XElement(Body + "Type", "2"), new XElement(Body + "Data", html ?? string.Empty));
     internal static XElement TextBody(string text) => new(Body + "Body", new XElement(Body + "Type", "1"), new XElement(Body + "Data", text ?? string.Empty));
     internal static string BodyText(XElement data)
     {
@@ -190,16 +213,17 @@ internal static partial class EasDataMapper
         {
             Id = StableId(Key(accountId, bookId.ToString("N"), remoteId)), MailAccountId = accountId, AddressBookId = bookId,
             SourceKind = ContactSourceKind.Exchange, RemoteId = remoteId,
-            GivenName = Value(data, Contact, "FirstName"), MiddleName = Value(data, Contact, "MiddleName"), Surname = Value(data, Contact, "LastName"),
-            HonorificPrefix = Value(data, Contact, "Title"), HonorificSuffix = Value(data, Contact, "Suffix"),
-            FileAs = Value(data, Contact, "FileAs"), DisplayName = Value(data, Contact, "FileAs"),
-            CompanyName = Value(data, Contact, "CompanyName"), Department = Value(data, Contact, "Department"),
-            JobTitle = Value(data, Contact, "JobTitle"), OfficeLocation = Value(data, Contact, "OfficeLocation"),
-            Website = Value(data, Contact, "WebPage"), Notes = BodyText(data),
+            GivenName = Optional(data, Contact, "FirstName"), MiddleName = Optional(data, Contact, "MiddleName"), Surname = Optional(data, Contact, "LastName"),
+            HonorificPrefix = Optional(data, Contact, "Title"), HonorificSuffix = Optional(data, Contact, "Suffix"),
+            Nickname = Optional(data, Contact2, "NickName"), FileAs = Optional(data, Contact, "FileAs"),
+            CompanyName = Optional(data, Contact, "CompanyName"), Department = Optional(data, Contact, "Department"),
+            JobTitle = Optional(data, Contact, "JobTitle"), OfficeLocation = Optional(data, Contact, "OfficeLocation"),
+            Website = Optional(data, Contact, "WebPage"), Notes = NullIfEmpty(BodyText(data)),
             CategoryNames = data.Element(Contact + "Categories")?.Elements(Contact + "Category").Select(element => element.Value).ToList() ?? []
         };
-        if (string.IsNullOrWhiteSpace(result.DisplayName))
-            result.DisplayName = result.StructuredName;
+        // ActiveSync has no display name element; Exchange composes PidTagDisplayName from the name parts
+        // ([MS-OXOCNTC] 2.2.1.1.8), which EWS reports, so the same parts are composed here.
+        result.DisplayName = string.IsNullOrWhiteSpace(result.StructuredName) ? result.FileAs : result.StructuredName;
 
         for (var index = 1; index <= 3; index++)
         {
@@ -229,17 +253,25 @@ internal static partial class EasDataMapper
                 result.PostalAddresses.Add(address);
         }
 
-        var birthday = ReadBirthday(Value(data, Contact, "Birthday"));
+        // [MS-OXOCNTC] 2.2.1.5.1: the birthday is the day at 11:59 UTC, so the UTC calendar date is the day.
+        var birthday = TryDate(Value(data, Contact, "Birthday"));
         result.BirthdayYear = birthday?.Year; result.BirthdayMonth = birthday?.Month; result.BirthdayDay = birthday?.Day;
         return result;
     }
 
+    /// <summary>
+    /// The contact's fields for a Sync Add or Change. Contacts are synchronized with Birthday as the only element
+    /// that is not ghosted (see <see cref="EasClient"/>): a contact without a birthday leaves the element out, because an
+    /// empty dateTime is invalid (status 6), and a Change that leaves it out deletes it on the server.
+    /// </summary>
     internal static XElement WriteContact(AccountContact item)
     {
+        var fileAs = !string.IsNullOrWhiteSpace(item.FileAs) ? item.FileAs : !string.IsNullOrWhiteSpace(item.DisplayName) ? item.DisplayName : item.StructuredName;
         var data = new XElement(Sync + "ApplicationData", new XElement(Contact + "FirstName", item.GivenName ?? string.Empty),
             new XElement(Contact + "MiddleName", item.MiddleName ?? string.Empty), new XElement(Contact + "LastName", item.Surname ?? string.Empty),
             new XElement(Contact + "Title", item.HonorificPrefix ?? string.Empty), new XElement(Contact + "Suffix", item.HonorificSuffix ?? string.Empty),
-            new XElement(Contact + "FileAs", item.DisplayName ?? item.StructuredName), new XElement(Contact + "CompanyName", item.CompanyName ?? string.Empty),
+            new XElement(Contact2 + "NickName", item.Nickname ?? string.Empty),
+            new XElement(Contact + "FileAs", fileAs), new XElement(Contact + "CompanyName", item.CompanyName ?? string.Empty),
             new XElement(Contact + "Department", item.Department ?? string.Empty), new XElement(Contact + "JobTitle", item.JobTitle ?? string.Empty),
             new XElement(Contact + "OfficeLocation", item.OfficeLocation ?? string.Empty), new XElement(Contact + "WebPage", item.Website ?? string.Empty), TextBody(item.Notes));
         // EAS has three email fields, two home and two work numbers and one postal address per kind; the rest is not written.
@@ -267,56 +299,133 @@ internal static partial class EasDataMapper
                 new XElement(Contact + (prefix + "AddressPostalCode"), address?.PostalCode ?? string.Empty), new XElement(Contact + (prefix + "AddressCountry"), address?.Country ?? string.Empty));
         }
 
-        if (item.BirthdayMonth is { } month && item.BirthdayDay is { } day && month is >= 1 and <= 12 && day >= 1 && day <= DateTime.DaysInMonth(item.BirthdayYear ?? 1604, month))
-            data.Add(new XElement(Contact + "Birthday", LocalMidnightUtc(new DateTime(item.BirthdayYear ?? 1604, month, day)).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)));
-        else
-            data.Add(new XElement(Contact + "Birthday"));
+        if (Birthday(item) is { } birthday)
+            data.Add(birthday);
 
         data.Add(new XElement(Contact + "Categories", (item.CategoryNames ?? item.Categories.Select(category => category.Name).ToList()).Select(name => new XElement(Contact + "Category", name))));
         return data;
     }
 
-    /// <summary>
-    /// DueDate is the due day as a local date written with a UTC designator; UtcDueDate is the instant that day starts
-    /// in the user's zone. The day is read from DueDate, or from UtcDueDate in the device's zone when only that is set.
-    /// </summary>
-    internal static AccountTask ReadTask(XElement data, AccountTaskList list, string remoteId) => new()
+    /// <summary>The contact's Birthday element ([MS-OXOCNTC] 2.2.1.5.1: the day at 11:59 UTC), or null when it has none.</summary>
+    internal static XElement? Birthday(AccountContact item)
     {
-        Id = StableId(Key(list.MailAccountId, list.RemoteId, remoteId)), MailAccountId = list.MailAccountId, TaskListId = list.Id,
-        SourceKind = TaskSourceKind.Exchange, RemoteId = remoteId, Title = Value(data, Tasks, "Subject"), Notes = SafeBodyText(data),
-        IsCompleted = Value(data, Tasks, "Complete") == "1", IsImportant = Value(data, Tasks, "Importance") == "2",
-        DueDate = TryDate(Value(data, Tasks, "DueDate"))?.Date
-            ?? (TryDate(Value(data, Tasks, "UtcDueDate")) is { } utcDue ? TimeZoneInfo.ConvertTimeFromUtc(utcDue, TimeZoneInfo.Local).Date : null),
-        CompletedAtUtc = TryDate(Value(data, Tasks, "DateCompleted"))
-    };
+        if (item.BirthdayMonth is not { } month || item.BirthdayDay is not { } day || month is < 1 or > 12)
+            return null;
+        // 1604 is the year Outlook stores for a birthday without a year.
+        var year = item.BirthdayYear is >= 1 and <= 9999 ? item.BirthdayYear.Value : 1604;
+        if (day < 1 || day > DateTime.DaysInMonth(year, month))
+            return null;
+        return new XElement(Contact + "Birthday", new DateTime(year, month, day, 11, 59, 0, DateTimeKind.Utc).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture));
+    }
 
     /// <summary>
-    /// An unset date is left out: an empty Tasks date element fails with status 6 on 16.x. <paramref name="clearDueDate"/>
-    /// writes the due dates empty, which <see cref="ForTaskChange"/> turns into leaving them out of the Change, so the
-    /// server drops its own.
+    /// The fields of a contact Change: those that differ from the stored contact, and the birthday whenever the contact
+    /// has one, because Birthday is not ghosted and a Change without it deletes it.
     /// </summary>
-    internal static XElement WriteTask(AccountTask item, bool clearDueDate = false)
+    internal static XElement ForContactChange(AccountContact desired, AccountContact original)
     {
-        const string format = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
-        var due = item.DueDate?.Date;
-        var data = new XElement(Sync + "ApplicationData",
-            new XElement(Tasks + "Subject", item.Title ?? string.Empty), TextBody(item.Notes), new XElement(Tasks + "Complete", item.IsCompleted ? "1" : "0"),
-            new XElement(Tasks + "Importance", item.IsImportant ? "2" : "1"));
-        if (due is { } day)
-            data.Add(new XElement(Tasks + "DueDate", day.ToString(format, CultureInfo.InvariantCulture)),
-                new XElement(Tasks + "UtcDueDate", LocalMidnightUtc(day).ToString(format, CultureInfo.InvariantCulture)));
-        else if (clearDueDate)
-            data.Add(new XElement(Tasks + "DueDate"), new XElement(Tasks + "UtcDueDate"));
-        if (item.IsCompleted)
-            data.Add(new XElement(Tasks + "DateCompleted", (item.CompletedAtUtc ?? DateTime.UtcNow).ToString(format, CultureInfo.InvariantCulture)));
+        var data = ChangedFields(WriteContact(desired), WriteContact(original));
+        data.Elements(Contact + "Birthday").Remove();
+        if (Birthday(desired) is { } birthday)
+            data.Add(birthday);
         return data;
     }
 
-    /// <summary>The stored task merged with the edit, without the empty date elements a Change may not carry.</summary>
+    /// <summary>A Change that carries only <paramref name="fields"/>, with the contact's birthday kept (see <see cref="ForContactChange"/>).</summary>
+    internal static XElement ContactChange(AccountContact contact, params XElement[] fields)
+    {
+        var data = new XElement(Sync + "ApplicationData", fields);
+        if (Birthday(contact) is { } birthday)
+            data.Add(birthday);
+        return data;
+    }
+
+    /// <summary>
+    /// DueDate and StartDate are days as a local date written with a UTC designator; UtcDueDate and UtcStartDate are
+    /// the instant that day starts in the user's zone. The day is read from the local form, or from the UTC form in
+    /// the device's zone when only that is set. Importance is 0 low, 1 normal, 2 high; ReminderTime is UTC and counts
+    /// only while ReminderSet is 1 ([MS-ASTASK] 2.2.2).
+    /// </summary>
+    internal static AccountTask ReadTask(XElement data, AccountTaskList list, string remoteId)
+    {
+        var importance = data.Element(Tasks + "Importance")?.Value;
+        var task = new AccountTask
+        {
+            Id = StableId(Key(list.MailAccountId, list.RemoteId, remoteId)), MailAccountId = list.MailAccountId, TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Exchange, RemoteId = remoteId, Title = Value(data, Tasks, "Subject"), Notes = SafeBodyText(data),
+            IsCompleted = Value(data, Tasks, "Complete") == "1",
+            DueDate = ReadTaskDay(data, "DueDate", "UtcDueDate"),
+            StartDate = ReadTaskDay(data, "StartDate", "UtcStartDate"),
+            CompletedAtUtc = TryDate(Value(data, Tasks, "DateCompleted")),
+            ReminderAtUtc = Value(data, Tasks, "ReminderSet") == "1" ? TryDate(Value(data, Tasks, "ReminderTime")) : null,
+            Categories = TaskFields.JoinCategories(data.Element(Tasks + "Categories")?.Elements(Tasks + "Category").Select(element => element.Value) ?? [])
+        };
+        TaskFields.SetPriority(task, importance switch { "2" => TaskPriority.High, "1" => TaskPriority.Normal, "0" => TaskPriority.Low, _ => TaskPriority.None });
+        return task;
+    }
+
+    private static DateTime? ReadTaskDay(XElement data, string localName, string utcName)
+        => TryDate(Value(data, Tasks, localName))?.Date
+            ?? (TryDate(Value(data, Tasks, utcName)) is { } utc ? TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZoneInfo.Local).Date : null);
+
+    /// <summary>
+    /// The task's fields. Tasks are not ghosted, so a Change carries the whole task and an element it leaves out is
+    /// deleted on the server ([MS-ASCMD] 2.2.3.24). An unset value is therefore left out of an Add, where an empty
+    /// dateTime fails with status 6, and written empty for a Change (<paramref name="forChange"/>), so it differs
+    /// from a stored value and <see cref="ForTaskChange"/> turns it into leaving the element out.
+    /// </summary>
+    internal static XElement WriteTask(AccountTask item, bool forChange = false)
+    {
+        const string format = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+        var due = item.DueDate?.Date;
+        var start = item.StartDate?.Date is { } startDay && (due == null || startDay <= due) ? startDay : (DateTime?)null;
+        var data = new XElement(Sync + "ApplicationData",
+            new XElement(Tasks + "Subject", item.Title ?? string.Empty), TextBody(item.Notes), new XElement(Tasks + "Complete", item.IsCompleted ? "1" : "0"),
+            new XElement(Tasks + "Importance", TaskFields.GetEffectivePriority(item) switch { TaskPriority.High => "2", TaskPriority.Low => "0", _ => "1" }));
+
+        void AddOrClear(params (string Name, string? Value)[] fields)
+        {
+            foreach (var (name, value) in fields)
+            {
+                if (value != null)
+                    data.Add(new XElement(Tasks + name, value));
+                else if (forChange)
+                    data.Add(new XElement(Tasks + name));
+            }
+        }
+
+        AddOrClear(("DueDate", due?.ToString(format, CultureInfo.InvariantCulture)), ("UtcDueDate", due is { } dueDay ? LocalMidnightUtc(dueDay).ToString(format, CultureInfo.InvariantCulture) : null),
+            ("StartDate", start?.ToString(format, CultureInfo.InvariantCulture)), ("UtcStartDate", start is { } startValue ? LocalMidnightUtc(startValue).ToString(format, CultureInfo.InvariantCulture) : null),
+            ("DateCompleted", item.IsCompleted ? (item.CompletedAtUtc ?? DateTime.UtcNow).ToString(format, CultureInfo.InvariantCulture) : null));
+
+        data.Add(new XElement(Tasks + "ReminderSet", item.ReminderAtUtc.HasValue ? "1" : "0"));
+        AddOrClear(("ReminderTime", item.ReminderAtUtc is { } reminder ? DateTime.SpecifyKind(reminder, DateTimeKind.Utc).ToString(format, CultureInfo.InvariantCulture) : null));
+
+        var categories = TaskFields.GetCategories(item);
+        if (categories.Count > 0 || forChange)
+            data.Add(new XElement(Tasks + "Categories", categories.Select(name => new XElement(Tasks + "Category", name))));
+        return data;
+    }
+
+    /// <summary>
+    /// The stored task merged with the edit, reduced to what a Change may carry: no empty elements (an empty dateTime
+    /// fails with status 6, and a field left out is deleted), and no body fields only a server response has
+    /// ([MS-ASAIRS] 2.2.2.9: EstimatedDataSize, Truncated, Preview; NativeBodyType). Sending the server's EstimatedDataSize
+    /// back fails with status 6 on Exchange SE (16.1). A truncated body is left out, so the server keeps the whole one.
+    /// </summary>
     internal static XElement ForTaskChange(XElement merged)
     {
         var result = new XElement(merged);
-        result.Elements().Where(element => element.Name.Namespace == Tasks && element.Name.LocalName.Contains("Date", StringComparison.Ordinal) && element.Value.Length == 0).Remove();
+        result.Elements().Where(element => element.Name.Namespace == Tasks && !element.HasElements && element.Value.Length == 0 && element.Name.LocalName != "Categories").Remove();
+        result.Elements(Tasks + "Categories").Where(element => !element.HasElements).Remove();
+        result.Elements(Body + "NativeBodyType").Remove();
+        if (result.Element(Body + "Body") is { } body)
+        {
+            if (Value(body, Body, "Truncated") == "1")
+                body.Remove();
+            else
+                body.Elements().Where(element => element.Name.LocalName is "EstimatedDataSize" or "Truncated" or "Preview").Remove();
+        }
         return result;
     }
 
@@ -328,11 +437,4 @@ internal static partial class EasDataMapper
             midnight = midnight.AddMinutes(30);
         return TimeZoneInfo.ConvertTimeToUtc(midnight, TimeZoneInfo.Local);
     }
-
-    /// <summary>
-    /// A birthday is a day stored as an instant: midnight in the zone of whoever wrote it, sent in UTC. The day is the
-    /// one nearest that instant in the device's zone, so a value written in another zone does not move a day back.
-    /// </summary>
-    private static DateTime? ReadBirthday(string text)
-        => TryDate(text) is { } utc ? TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZoneInfo.Local).AddHours(12).Date : null;
 }

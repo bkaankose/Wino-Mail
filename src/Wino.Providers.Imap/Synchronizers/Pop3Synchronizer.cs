@@ -477,6 +477,8 @@ IPop3ClientFactory clientFactory,
         }
     }
 
+    public override bool SupportsOnlineSearch => false;
+
     public override Task<List<MailCopy>> OnlineSearchAsync(
         RemoteMailSearchCriteria criteria,
         List<IMailItemFolder> folders,

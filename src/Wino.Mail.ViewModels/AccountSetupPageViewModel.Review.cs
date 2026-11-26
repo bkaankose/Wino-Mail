@@ -167,6 +167,18 @@ public partial class AccountSetupPageViewModel
 
     private AccountSetupAppRow CreateMailRow()
     {
+        // A single option hides the drop-down on every head; the row says instead that all mail is downloaded.
+        if (!IsMailSynchronizationRangeApplied)
+        {
+            var everything = new AccountSetupSourceOption(nameof(InitialSynchronizationRange.Everything), Translator.AccountSetup_Range_Everything);
+
+            return new AccountSetupAppRow(AccountSetupAppKind.Mail, Translator.ProviderSelection_UseForMail, WinoIconGlyph.Mail, isSwitchVisible: false, [everything])
+            {
+                SelectedOption = everything,
+                StatusText = Translator.AccountSetup_Range_AllMail
+            };
+        }
+
         var options = new List<AccountSetupSourceOption>
         {
             new(nameof(InitialSynchronizationRange.ThreeMonths), Translator.AccountSetup_Range_3Months),
@@ -249,7 +261,7 @@ public partial class AccountSetupPageViewModel
     }
 
     private string GetMailNote()
-        => SelectedInitialSynchronizationRange?.IsEverything == true ? Translator.AccountSetup_Range_EverythingCaption_Device : string.Empty;
+        => IsMailSynchronizationRangeApplied && SelectedInitialSynchronizationRange?.IsEverything == true ?Translator.AccountSetup_Range_EverythingCaption_Device : string.Empty;
 
     private string GetCalendarSyncedText()
         => IsExchangeRoute
