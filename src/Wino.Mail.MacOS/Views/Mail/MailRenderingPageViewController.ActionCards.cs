@@ -33,11 +33,13 @@ public sealed partial class MailRenderingPageViewController
 
         foreach (var card in ViewModel.ActionCards)
         {
-            _actionCardsHost.AddArrangedSubview(new ActionCardView(
+            var view = new ActionCardView(
                 card,
                 expanded => ViewModel.AreActionCardsExpanded = expanded,
                 action => Observe(ViewModel.InvokeActionCardActionCommand.ExecuteAsync(action)),
-                value => Observe(ViewModel.CopyClipboardCommand.ExecuteAsync(value))));
+                value => Observe(ViewModel.CopyClipboardCommand.ExecuteAsync(value)));
+            _actionCardsHost.AddArrangedSubview(view);
+            view.WidthAnchor.ConstraintEqualTo(_actionCardsHost.WidthAnchor).Active = true;
         }
 
         _actionCardsHost.Hidden = ViewModel.ActionCards.Count == 0;

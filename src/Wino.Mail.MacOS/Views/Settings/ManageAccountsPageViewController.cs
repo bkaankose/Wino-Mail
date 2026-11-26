@@ -37,7 +37,7 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         // Narrow windows stack the card under the tile.
         var purchase = Bind.Visible(PurchasePanel(), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
         purchase.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
-        var header = Add(new SettingsAdaptiveRow(HeaderBreakpoint, 12, NSLayoutAttribute.Top, null, AddAccountTile(), purchase));
+        var header = Add(new SettingsAdaptiveRow(HeaderBreakpoint, 12, NSLayoutAttribute.Top, null, purchase, AddAccountTile(), purchase));
         purchase.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor).Active = true;
 
         // Windows list header: Create account group and Reorder, above the accounts.
