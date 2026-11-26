@@ -8,6 +8,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.UIKit.MailList;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Views.Mail;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
@@ -42,6 +43,8 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
             senderPictures,
             Card(Translator.SettingsShowPreviewText_Title, null, WinoIconGlyph.TextDescription,
                 Bind.Switch(p, nameof(p.IsShowPreviewEnabled), s => s.IsShowPreviewEnabled, (s, v) => s.IsShowPreviewEnabled = v, Translator.SettingsShowPreviewText_Title)),
+            Card(Translator.SettingsMailListCategoryIndicators_Title, Translator.SettingsMailListCategoryIndicators_Description, WinoIconGlyph.Tag,
+                Bind.Switch(p, nameof(p.IsMailListCategoryIndicatorsEnabled), s => s.IsMailListCategoryIndicatorsEnabled, (s, v) => s.IsMailListCategoryIndicatorsEnabled = v, Translator.SettingsMailListCategoryIndicators_Title)),
             StackedCard(Translator.SettingsTimeFormat_Title, null, WinoIconGlyph.Clock,
                 Bind.PopUp(vm, vm.TimeFormatPreferenceOptions, nameof(vm.SelectedTimeFormatPreferenceIndex), s => s.SelectedTimeFormatPreferenceIndex, (s, v) => s.SelectedTimeFormatPreferenceIndex = v)),
             StackedCard(Translator.SettingsShowAccountNickname_Title, null, WinoIconGlyph.PersonTag,
@@ -109,54 +112,11 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
         _previewRow.Hidden = item is null;
         if (item is null) return;
 
-        var model = Map(MailListRow.Single(item), ViewModel.PreferencesService);
+        var model = MailRowMapper.TryMap(MailListRow.Single(item), ViewModel.PreferencesService, showAccountColor: false);
         if (model is null) { _previewRow.Hidden = true; return; }
 
         _previewRow.Apply(model);
         if (_previewHeight is { } height) height.Constant = (nfloat)WinoMailRowModel.HeightFor(model.Density, model.Tiles, 0);
-    }
-
-    /// <summary>The shared row description with UIKit colours (the Mac MailRowMapper; the preview shows no account colour).</summary>
-    private static WinoMailRowModel? Map(MailListRow row, IPreferencesService preferences)
-    {
-        if (MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference) is not { } content) return null;
-
-        var tiles = new List<WinoMailRowTile>();
-        if (MailRowPresentation.HasTiles(row))
-        {
-            var leaves = MailRowPresentation.Leaves(row);
-            foreach (var category in leaves.SelectMany(static leaf => leaf.Categories).Where(static category => category is not null).DistinctBy(static category => category.Id))
-                tiles.Add(new WinoMailRowTile(category.Name ?? string.Empty, null, WinoStyle.FromHexString(category.BackgroundColorHex), WinoStyle.FromHexString(category.TextColorHex), false));
-            foreach (var tile in leaves.Where(static leaf => leaf.HasRowIntelligenceTiles).SelectMany(static leaf => leaf.RowIntelligenceTiles).DistinctBy(static tile => tile.Text + tile.Glyph))
-                tiles.Add(new WinoMailRowTile(tile.Text ?? string.Empty, tile.Glyph, null, null, true, tile.IsWarning, tile.AccessibleText));
-        }
-
-        return new WinoMailRowModel
-        {
-            Kind = content.Kind,
-            Sender = content.Sender,
-            SenderAddress = content.SenderAddress,
-            Subject = content.Subject,
-            Preview = content.Preview,
-            DateText = content.DateText,
-            AccessibleDateText = content.AccessibleDateText,
-            IsUnread = content.IsUnread,
-            IsFlagged = content.IsFlagged,
-            IsPinned = content.IsPinned,
-            IsDraft = content.IsDraft,
-            IsBusy = content.IsBusy,
-            HasAttachments = content.HasAttachments,
-            Tiles = tiles,
-            Density = MailRowPresentation.Density(preferences.MailItemDisplayMode),
-            ThreadCount = content.ThreadCount,
-            IsThreadExpanded = content.IsThreadExpanded,
-            AccountNickname = content.AccountNickname,
-            NicknamePosition = preferences.AccountNicknamePosition,
-            ShowPicture = preferences.IsShowSenderPicturesEnabled,
-            ShowPreview = preferences.IsShowPreviewEnabled,
-            DraftLabel = Translator.Draft,
-            AccessibilityText = content.AccessibilityText
-        };
     }
 
     /// <summary>

@@ -42,6 +42,7 @@ public class WinoMailRowView : FrameLayout
     private bool? _shownUnread;
     private (bool Picture, bool CheckAsAvatar, bool SelectionMode, bool Checked, bool Selected, WinoMailRowDensity Density)? _shownSelection;
     private IReadOnlyList<WinoMailRowTile> _shownTiles = Array.Empty<WinoMailRowTile>();
+    private IReadOnlyList<Color?> _shownCategoryColors = Array.Empty<Color?>();
     private bool _shownCompactTiles;
     private bool _isSelectionMode;
     private bool _isChecked;
@@ -129,6 +130,7 @@ public class WinoMailRowView : FrameLayout
         public readonly TextView Sender = root.Require<TextView>(Resource.Id.wino_row_sender);
         public readonly WinoIconView Pin = root.Require<WinoIconView>(Resource.Id.wino_row_pin);
         public readonly WinoIconView Attachment = root.Require<WinoIconView>(Resource.Id.wino_row_attachment);
+        public readonly LinearLayout CategoryDots = root.Require<LinearLayout>(Resource.Id.wino_row_category_dots);
         public readonly WinoIconView Flag = root.Require<WinoIconView>(Resource.Id.wino_row_flag);
         public readonly WinoIconView Busy = root.Require<WinoIconView>(Resource.Id.wino_row_busy);
         public readonly LinearLayout CompactTiles = root.Require<LinearLayout>(Resource.Id.wino_row_compact_tiles);
@@ -230,6 +232,7 @@ public class WinoMailRowView : FrameLayout
         }
         Show(p.Pin, old?.IsPinned, model.IsPinned);
         Show(p.Attachment, old?.HasAttachments, model.HasAttachments);
+        ApplyCategoryDots(model.CategoryColors);
         Show(p.Flag, old?.IsFlagged, model.IsFlagged);
         Show(p.Busy, old?.IsBusy, model.IsBusy);
         Text(p.Date, old?.DateText, model.DateText);
@@ -282,6 +285,32 @@ public class WinoMailRowView : FrameLayout
         chip.Text = model.AccountNickname ?? string.Empty;
         chip.Fill = WinoColors.WithAlpha(tint, 0.16);
         chip.TextColor = tint;
+    }
+
+    private void ApplyCategoryDots(IReadOnlyList<Color?> colors)
+    {
+        var p = Parts;
+        if (!colors.SequenceEqual(_shownCategoryColors))
+        {
+            var context = this.RequireContext();
+            p.CategoryDots.RemoveAllViews();
+            for (int index = 0; index < colors.Count; index++)
+                p.CategoryDots.AddView(CategoryDot(context, colors[index], index == 0));
+            _shownCategoryColors = colors;
+        }
+        p.CategoryDots.Visibility = Visible(colors.Count > 0);
+    }
+
+    private static View CategoryDot(Context context, Color? color, bool first)
+    {
+        var dot = new View(context);
+        var fill = new GradientDrawable();
+        fill.SetShape(ShapeType.Oval);
+        fill.SetColor(color ?? WinoColors.Accent(context));
+        dot.Background = fill;
+        int size = WinoUnits.Dp(context, 8);
+        dot.LayoutParameters = new LinearLayout.LayoutParams(size, size) { MarginStart = first ? 0 : WinoUnits.Dp(context, 3) };
+        return dot;
     }
 
     /// <summary>Rebuilds the tile views only when the tiles change (shared <see cref="WinoListDiff.ReusablePrefix"/>).</summary>

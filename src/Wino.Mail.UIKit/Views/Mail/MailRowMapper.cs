@@ -24,18 +24,16 @@ public static class MailRowMapper
     /// <summary>The density preference (iPad).</summary>
     public static WinoMailRowDensity Density(IPreferencesService preferences) => MailRowPresentation.Density(preferences.MailItemDisplayMode);
 
-    /// <summary>True when a detailed row needs the extra tile line (categories or intelligence tiles).</summary>
+    /// <summary>True when a detailed row needs the extra tile line (intelligence tiles).</summary>
     public static bool HasTiles(MailListRow row) => MailRowPresentation.HasTiles(row);
 
-    /// <summary>The row's category and intelligence tiles, as the row shows them (thread heads merge their leaves).</summary>
+    /// <summary>The row's intelligence tiles, as the row shows them (thread heads merge their leaves).</summary>
     public static IReadOnlyList<WinoMailRowTile> Tiles(MailListRow row)
         => HasTiles(row) ? Tiles(MailRowPresentation.Leaves(row)) : Array.Empty<WinoMailRowTile>();
 
     private static List<WinoMailRowTile> Tiles(MailItemViewModel[] leaves)
     {
         var tiles = new List<WinoMailRowTile>();
-        foreach (var category in leaves.SelectMany(static leaf => leaf.Categories).Where(static category => category is not null).DistinctBy(static category => category.Id))
-            tiles.Add(new WinoMailRowTile(category.Name ?? string.Empty, null, WinoStyle.FromHexString(category.BackgroundColorHex), WinoStyle.FromHexString(category.TextColorHex), false));
         foreach (var tile in leaves.Where(static leaf => leaf.HasRowIntelligenceTiles).SelectMany(static leaf => leaf.RowIntelligenceTiles).DistinctBy(static tile => tile.Text + tile.Glyph))
             tiles.Add(new WinoMailRowTile(tile.Text ?? string.Empty, tile.Glyph, null, null, true, tile.IsWarning, tile.AccessibleText));
         return tiles;
@@ -50,6 +48,8 @@ public static class MailRowMapper
     public static WinoMailRowModel? TryMap(MailListRow row, IPreferencesService preferences, bool showAccountColor, WinoMailRowDensity? densityOverride = null)
     {
         if (MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference, preferences.AlwaysShowSenderAddress) is not { } content) return null;
+        var categories = MailRowPresentation.CategoryIndicators(row, preferences.IsMailListCategoryIndicatorsEnabled);
+        var categoryText = MailRowPresentation.CategoryIndicatorsText(categories);
 
         return new WinoMailRowModel
         {
@@ -67,6 +67,7 @@ public static class MailRowMapper
             IsBusy = content.IsBusy,
             HasAttachments = content.HasAttachments,
             Tiles = Tiles(MailRowPresentation.Leaves(row)),
+            CategoryColors = categories.Select(static category => WinoStyle.FromHexString(category.BackgroundColorHex)).ToArray(),
             Density = densityOverride ?? Density(preferences),
             ThreadCount = content.ThreadCount,
             IsThreadExpanded = content.IsThreadExpanded,
@@ -76,7 +77,7 @@ public static class MailRowMapper
             ShowPicture = preferences.IsShowSenderPicturesEnabled,
             ShowPreview = preferences.IsShowPreviewEnabled,
             DraftLabel = Translator.Draft,
-            AccessibilityText = content.AccessibilityText
+            AccessibilityText = categoryText.Length == 0 ? content.AccessibilityText : $"{content.AccessibilityText}, {categoryText}"
         };
     }
 

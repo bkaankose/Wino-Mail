@@ -14,8 +14,8 @@ namespace Wino.Mail.Controls.AppKit.MailList;
 /// The Wino mail row, laid out like the Windows MailListItemTemplates: a highlight box (inset by
 /// <see cref="WinoMailRowMetrics.RowGap"/> so neighbours do not touch) that holds the selection pill,
 /// the avatar, then three lines that each span to the trailing edge.
-/// Line 1: nickname, draft tag, sender (bold when unread), then the attachment and
-/// flag glyphs right-aligned. Line 2: thread chevron, subject (semibold accent when unread), the
+/// Line 1: nickname, draft tag, sender (bold when unread), then the attachment glyph, the category
+/// dots, and the flag glyph right-aligned. Line 2: thread chevron, subject (semibold accent when unread), the
 /// date right-aligned and the unread dot. Line 3: the preview. Detailed rows add a tile row for
 /// categories and intelligence that wraps onto more lines; compact rows collapse the tiles into line 1.
 /// Hover actions overlay the trailing edge; select mode adds a checkbox before the avatar.
@@ -36,6 +36,8 @@ public class WinoMailRowView : NSTableCellView
     private readonly NSTextField _sender;
     private readonly NSStackView _indicators;
     private readonly NSStackView _compactTiles;
+    private readonly NSStackView _categoryDots;
+    private readonly List<WinoSurfaceView> _categoryDotViews = new();
     private readonly WinoIconView _pinGlyph;
     private readonly WinoIconView _attachmentGlyph;
     private readonly WinoIconView _flagGlyph;
@@ -108,12 +110,14 @@ public class WinoMailRowView : NSTableCellView
         _sender.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
         _compactTiles = WinoLayout.HStack(4);
         _compactTiles.Hidden = true;
+        _categoryDots = WinoLayout.HStack(3);
+        _categoryDots.Hidden = true;
         _pinGlyph = new WinoIconView(WinoIconGlyph.Pin, 12, WinoStyle.SecondaryText) { Hidden = true, ToolTip = "Pinned" };
         _attachmentGlyph = new WinoIconView(WinoIconGlyph.Attachment, 14, WinoStyle.Hex(0xFDCB6E)) { Hidden = true };
         _flagGlyph = new WinoIconView(WinoIconGlyph.Flag, 14, WinoStyle.Hex(0xE74C3C)) { Hidden = true };
         _busy = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Mini, TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
         WinoLayout.Size(_busy, 12, 12);
-        _indicators = WinoLayout.HStack(4, _compactTiles, _pinGlyph, _attachmentGlyph, _flagGlyph, _busy);
+        _indicators = WinoLayout.HStack(4, _compactTiles, _pinGlyph, _attachmentGlyph, _categoryDots, _flagGlyph, _busy);
         _indicators.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Horizontal);
         _indicators.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
         _indicators.EdgeInsets = new NSEdgeInsets(0, 4, 0, 0);
@@ -508,6 +512,7 @@ public class WinoMailRowView : NSTableCellView
         _preview.StringValue = model.Preview;
         _preview.Hidden = compact || !model.ShowPreview || string.IsNullOrWhiteSpace(model.Preview);
 
+        ApplyCategoryDots(model);
         ApplyTiles(model);
 
         ApplyHoverActions();
@@ -515,6 +520,32 @@ public class WinoMailRowView : NSTableCellView
 
         AccessibilityLabel = model.AccessibilityText;
         ApplyColors();
+    }
+
+    private void ApplyCategoryDots(WinoMailRowModel model)
+    {
+        var colors = model.CategoryColors;
+        for (int index = 0; index < colors.Count; index++)
+        {
+            if (index == _categoryDotViews.Count)
+            {
+                var dot = new WinoSurfaceView { CornerRadius = 4 };
+                WinoLayout.Size(dot, 8, 8);
+                _categoryDotViews.Add(dot);
+                _categoryDots.AddArrangedSubview(dot);
+            }
+            _categoryDotViews[index].Fill = colors[index] ?? WinoStyle.Accent;
+        }
+        for (int index = _categoryDotViews.Count - 1; index >= colors.Count; index--)
+        {
+            var dot = _categoryDotViews[index];
+            _categoryDots.RemoveArrangedSubview(dot);
+            dot.RemoveFromSuperview();
+            dot.Dispose();
+            _categoryDotViews.RemoveAt(index);
+        }
+        _categoryDots.Hidden = colors.Count == 0;
+        _categoryDots.ToolTip = model.CategoryIndicatorsText;
     }
 
     private static void ApplyNickname(WinoChipView chip, WinoMailRowModel model, AccountNicknamePosition position)

@@ -2,7 +2,7 @@
 <!-- The Wino mail row (canvas boards Inbox and Components "Mail row"; Windows MailListItemTemplates), inflated into
      WinoMailRowView. The highlight box holds the selection fill and the 3 dp accent pill; the content is the select
      check, the avatar and three lines. Line 1: nickname, draft tag, sender, thread count, pin, attachment and flag
-     glyphs, busy spinner, compact tiles, date. Line 2: thread chevron, subject, unread dot. Line 3: preview; detailed
+     glyphs, category dots, busy spinner, compact tiles, date. Line 2: thread chevron, subject, unread dot. Line 3: preview; detailed
      rows add a wrapping tile line. WinoMailRowView sets densities, colours and visibility. -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
@@ -92,6 +92,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="6dp"
+            android:visibility="gone" />
+        <LinearLayout
+            android:id="@+id/wino_row_category_dots"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
             android:visibility="gone" />
         <com.winomail.presentation.WinoIconView
             android:id="@+id/wino_row_flag"

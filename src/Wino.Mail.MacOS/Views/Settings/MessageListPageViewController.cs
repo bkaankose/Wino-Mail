@@ -45,6 +45,8 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
             senderPictures,
             Card(Translator.SettingsShowPreviewText_Title, Translator.SettingsShowPreviewText_Description, WinoIconGlyph.TextDescription,
                 Bind.Switch(p, nameof(p.IsShowPreviewEnabled), s => s.IsShowPreviewEnabled, (s, v) => s.IsShowPreviewEnabled = v, Translator.SettingsShowPreviewText_Title)),
+            Card(Translator.SettingsMailListCategoryIndicators_Title, Translator.SettingsMailListCategoryIndicators_Description, WinoIconGlyph.Tag,
+                Bind.Switch(p, nameof(p.IsMailListCategoryIndicatorsEnabled), s => s.IsMailListCategoryIndicatorsEnabled, (s, v) => s.IsMailListCategoryIndicatorsEnabled = v, Translator.SettingsMailListCategoryIndicators_Title)),
             Card(Translator.SettingsTimeFormat_Title, Translator.SettingsTimeFormat_Description, WinoIconGlyph.Clock,
                 Bind.PopUp(vm, vm.TimeFormatPreferenceOptions, nameof(vm.SelectedTimeFormatPreferenceIndex), s => s.SelectedTimeFormatPreferenceIndex, (s, v) => s.SelectedTimeFormatPreferenceIndex = v, 180)),
             Card(Translator.SettingsShowAccountNickname_Title, Translator.SettingsShowAccountNickname_Description, WinoIconGlyph.PersonTag,

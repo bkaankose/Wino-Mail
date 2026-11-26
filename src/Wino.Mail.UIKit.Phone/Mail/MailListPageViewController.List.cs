@@ -316,6 +316,7 @@ public sealed partial class MailListPageViewController
         => OnUI(() =>
         {
             if (name is nameof(_preferences.IsShowPreviewEnabled) or nameof(_preferences.IsShowSenderPicturesEnabled)
+                or nameof(_preferences.IsMailListCategoryIndicatorsEnabled)
                 or nameof(_preferences.AccountNicknamePosition) or nameof(_preferences.MailTimeFormatPreference)
                 or nameof(_preferences.AlwaysShowSenderAddress))
                 RefreshVisibleCells(force: true);

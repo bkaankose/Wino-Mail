@@ -355,6 +355,7 @@ public sealed partial class MailListPageViewController
         => OnUI(() =>
         {
             if (name is nameof(_preferences.MailItemDisplayMode) or nameof(_preferences.IsShowPreviewEnabled)
+                or nameof(_preferences.IsMailListCategoryIndicatorsEnabled)
                 or nameof(_preferences.IsShowSenderPicturesEnabled) or nameof(_preferences.IsHoverActionsEnabled)
                 or nameof(_preferences.HoverActionButtonSize) or nameof(_preferences.HoverActionPosition)
                 or nameof(_preferences.HoverActionAnimation) or nameof(_preferences.AccountNicknamePosition)

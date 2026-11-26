@@ -122,6 +122,7 @@ public sealed partial class MailListFragment
         => Entry?.Dispatcher.ExecuteOnUIThread(() =>
         {
             if (name is nameof(IPreferencesService.IsShowPreviewEnabled) or nameof(IPreferencesService.IsShowSenderPicturesEnabled)
+                or nameof(IPreferencesService.IsMailListCategoryIndicatorsEnabled)
                 or nameof(IPreferencesService.AccountNicknamePosition) or nameof(IPreferencesService.MailTimeFormatPreference)
                 or nameof(IPreferencesService.MailItemDisplayMode) or nameof(IPreferencesService.AlwaysShowSenderAddress))
                 RefreshRows();

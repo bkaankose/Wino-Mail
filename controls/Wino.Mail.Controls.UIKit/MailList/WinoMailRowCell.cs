@@ -38,6 +38,8 @@ public class WinoMailRowCell : UITableViewCell
     private readonly UILabel _threadCount;
     private readonly UIStackView _indicators;
     private readonly UIStackView _compactTiles;
+    private readonly UIStackView _categoryDots;
+    private readonly List<WinoSurfaceView> _categoryDotViews = new();
     private readonly WinoIconView _pinGlyph;
     private readonly WinoIconView _attachmentGlyph;
     private readonly WinoIconView _flagGlyph;
@@ -138,13 +140,15 @@ public class WinoMailRowCell : UITableViewCell
         _threadCount.Hidden = true;
         _compactTiles = WinoLayout.HStack(4);
         _compactTiles.Hidden = true;
+        _categoryDots = WinoLayout.HStack(3);
+        _categoryDots.Hidden = true;
         _pinGlyph = new WinoIconView(WinoIconGlyph.Pin, 12, WinoStyle.SecondaryText) { Hidden = true };
         _attachmentGlyph = new WinoIconView(WinoIconGlyph.Attachment, 14, WinoStyle.Hex(0xFDCB6E)) { Hidden = true };
         _flagGlyph = new WinoIconView(WinoIconGlyph.Flag, 14, WinoStyle.Hex(0xE74C3C)) { Hidden = true };
         _busy = new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { HidesWhenStopped = true, TranslatesAutoresizingMaskIntoConstraints = false };
         _busy.Transform = CGAffineTransform.MakeScale(0.6f, 0.6f);
         WinoLayout.Size(_busy, 12, 12);
-        _indicators = WinoLayout.Insets(WinoLayout.HStack(4, _compactTiles, _pinGlyph, _attachmentGlyph, _flagGlyph, _busy), 0, 4, 0, 0);
+        _indicators = WinoLayout.Insets(WinoLayout.HStack(4, _compactTiles, _pinGlyph, _attachmentGlyph, _categoryDots, _flagGlyph, _busy), 0, 4, 0, 0);
         WinoLayout.Priorities(_indicators, UILayoutConstraintAxis.Horizontal, 1000, 1000);
         _line1 = WinoLayout.HStack(4, _nicknameLeft, _draftTag, _sender, _threadCount, _nicknameRight, _indicators);
         _line1.Distribution = UIStackViewDistribution.Fill;
@@ -468,6 +472,7 @@ public class WinoMailRowCell : UITableViewCell
         _preview.Text = model.Preview;
         _preview.Hidden = compact || !model.ShowPreview || string.IsNullOrWhiteSpace(model.Preview);
 
+        ApplyCategoryDots(model);
         ApplyTiles(model);
 
         ApplyHoverActions();
@@ -476,6 +481,31 @@ public class WinoMailRowCell : UITableViewCell
         AccessibilityLabel = model.AccessibilityText;
         AccessibilityValue = model.AccessibleDateText;
         ApplyColors();
+    }
+
+    private void ApplyCategoryDots(WinoMailRowModel model)
+    {
+        var colors = model.CategoryColors;
+        for (int index = 0; index < colors.Count; index++)
+        {
+            if (index == _categoryDotViews.Count)
+            {
+                var dot = new WinoSurfaceView { CornerRadius = 4 };
+                WinoLayout.Size(dot, 8, 8);
+                _categoryDotViews.Add(dot);
+                _categoryDots.AddArrangedSubview(dot);
+            }
+            _categoryDotViews[index].Fill = colors[index] ?? WinoStyle.Accent;
+        }
+        for (int index = _categoryDotViews.Count - 1; index >= colors.Count; index--)
+        {
+            var dot = _categoryDotViews[index];
+            _categoryDots.RemoveArrangedSubview(dot);
+            dot.RemoveFromSuperview();
+            dot.Dispose();
+            _categoryDotViews.RemoveAt(index);
+        }
+        _categoryDots.Hidden = colors.Count == 0;
     }
 
     private static void ApplyNickname(WinoChipView chip, WinoMailRowModel model, AccountNicknamePosition position)

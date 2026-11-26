@@ -23,6 +23,8 @@ public static class MailRowMapper
     public static WinoMailRowModel? TryMap(MailListRow row, IPreferencesService preferences, bool showAccountColor, WinoMailRowDensity density)
     {
         if (MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference, preferences.AlwaysShowSenderAddress) is not { } content) return null;
+        var categories = MailRowPresentation.CategoryIndicators(row, preferences.IsMailListCategoryIndicatorsEnabled);
+        var categoryText = MailRowPresentation.CategoryIndicatorsText(categories);
         return new WinoMailRowModel
         {
             Kind = content.Kind,
@@ -39,6 +41,7 @@ public static class MailRowMapper
             IsBusy = content.IsBusy,
             HasAttachments = content.HasAttachments,
             Tiles = MailRowPresentation.HasTiles(row) ? Tiles(MailRowPresentation.Leaves(row)) : Array.Empty<WinoMailRowTile>(),
+            CategoryColors = categories.Select(static category => WinoColors.FromHexString(category.BackgroundColorHex)).ToArray(),
             Density = density,
             ThreadCount = content.ThreadCount,
             IsThreadExpanded = content.IsThreadExpanded,
@@ -48,15 +51,13 @@ public static class MailRowMapper
             ShowPicture = preferences.IsShowSenderPicturesEnabled,
             ShowPreview = preferences.IsShowPreviewEnabled,
             DraftLabel = Translator.Draft,
-            AccessibilityText = content.AccessibilityText
+            AccessibilityText = categoryText.Length == 0 ? content.AccessibilityText : $"{content.AccessibilityText}, {categoryText}"
         };
     }
 
     private static List<WinoMailRowTile> Tiles(MailItemViewModel[] leaves)
     {
         var tiles = new List<WinoMailRowTile>();
-        foreach (var category in leaves.SelectMany(static leaf => leaf.Categories).Where(static category => category is not null).DistinctBy(static category => category.Id))
-            tiles.Add(new WinoMailRowTile(category.Name ?? string.Empty, null, WinoColors.FromHexString(category.BackgroundColorHex), WinoColors.FromHexString(category.TextColorHex), false));
         foreach (var tile in leaves.Where(static leaf => leaf.HasRowIntelligenceTiles).SelectMany(static leaf => leaf.RowIntelligenceTiles).DistinctBy(static tile => tile.Text + tile.Glyph))
             tiles.Add(new WinoMailRowTile(tile.Text ?? string.Empty, tile.Glyph, null, null, true, tile.IsWarning, tile.AccessibleText));
         return tiles;

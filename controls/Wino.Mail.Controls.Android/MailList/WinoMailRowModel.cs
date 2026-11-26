@@ -33,6 +33,7 @@ public sealed record WinoMailRowModel
     public bool IsBusy { get; init; }
     public bool HasAttachments { get; init; }
     public IReadOnlyList<WinoMailRowTile> Tiles { get; init; } = Array.Empty<WinoMailRowTile>();
+    public IReadOnlyList<Color?> CategoryColors { get; init; } = Array.Empty<Color?>();
     public int ThreadCount { get; init; }
     public bool IsThreadExpanded { get; init; }
     public Color? AccountColor { get; init; }
@@ -44,7 +45,7 @@ public sealed record WinoMailRowModel
     public string DraftLabel { get; init; } = "Draft";
     public string AccessibilityText { get; init; } = string.Empty;
 
-    /// <summary>Detailed rows add a tile line under the preview when categories or intelligence tiles exist.</summary>
+    /// <summary>Detailed rows add a tile line under the preview when intelligence tiles exist.</summary>
     public bool HasTileLine => Tiles.Count > 0 && Density != WinoMailRowDensity.Compact;
 
     public bool ShowNickname => !string.IsNullOrWhiteSpace(AccountNickname) && NicknamePosition != AccountNicknamePosition.None;
