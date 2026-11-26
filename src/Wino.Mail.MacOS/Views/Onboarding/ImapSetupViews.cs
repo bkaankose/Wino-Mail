@@ -64,11 +64,12 @@ internal sealed class ConnectionStatusView : NSStackView
 }
 
 /// <summary>
-/// The add-account steps on the server page: Features (done on the provider page), Sign in and
-/// Servers. The current step has an accent number, a finished one a check mark.
+/// The add-account steps on the server page: Features, Sign in and Servers. Features is current until the apps are
+/// chosen and done after it; the current step has an accent number, a finished one a check mark.
 /// </summary>
 internal sealed class SetupStepIndicator : NSStackView
 {
+    private readonly Step _features;
     private readonly Step _signIn;
     private readonly Step _servers;
 
@@ -80,11 +81,10 @@ internal sealed class SetupStepIndicator : NSStackView
         Alignment = NSLayoutAttribute.CenterY;
         // The indicator keeps its natural width; stretched to the page width, the extra space opened a gap after the first step.
         SetHuggingPriority(751, NSLayoutConstraintOrientation.Horizontal);
-        var features = new Step("1", Translator.ImapSetup_StepFeatures);
+        _features = new Step("1", Translator.ImapSetup_StepFeatures);
         _signIn = new Step("2", Translator.ImapSetup_StepSignIn);
         _servers = new Step("3", Translator.ImapSetup_StepServers);
-        features.Apply(done: true, current: false);
-        AddArrangedSubview(features);
+        AddArrangedSubview(_features);
         AddArrangedSubview(Connector());
         AddArrangedSubview(_signIn);
         AddArrangedSubview(Connector());
@@ -94,6 +94,7 @@ internal sealed class SetupStepIndicator : NSStackView
 
     public void SetCurrent(ImapSetupStep step)
     {
+        _features.Apply(done: step != ImapSetupStep.Features, current: step == ImapSetupStep.Features);
         _signIn.Apply(done: step == ImapSetupStep.Servers, current: step == ImapSetupStep.SignIn);
         _servers.Apply(done: false, current: step == ImapSetupStep.Servers);
     }
