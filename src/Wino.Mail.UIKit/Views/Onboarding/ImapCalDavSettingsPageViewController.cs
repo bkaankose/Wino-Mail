@@ -69,6 +69,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         Form.Visible(pop3, nameof(vm.IsPop3), s => s.IsPop3);
         content.AddArrangedSubview(pop3);
 
+        content.AddArrangedSubview(BuildFeaturesStep());
         content.AddArrangedSubview(BuildSignInStep());
         content.AddArrangedSubview(BuildEditFeatures());
         content.AddArrangedSubview(BuildEditSignIn());
@@ -356,6 +357,40 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             if (active) spinner.StartAnimating(); else spinner.StopAnimating();
         });
         return spinner;
+    }
+
+    /// <summary>
+    /// Adding an account before its apps were chosen (Windows ImapCalDavSettingsPage Features step): the capability
+    /// menus, the download range under Mail with its Everything warning, shown only while the setup starts on Features.
+    /// </summary>
+    private UIView BuildFeaturesStep()
+    {
+        var vm = ViewModel;
+        var capabilities = new FormBinder<AccountCapabilitySelection>(vm.Capabilities, Bindings, Dispatcher, ReportError);
+        var grid = new FormGrid();
+        foreach (var (label, control) in FormBinder<AccountCapabilitySelection>.CapabilityRows(capabilities, () => Translator.ProviderSelection_ModeImap))
+            grid.Row(label, control);
+
+        var range = Form.PopUp(vm.InitialSynchronizationRanges.Select(option => option.DisplayText).ToArray(), nameof(vm.SelectedInitialSynchronizationRange),
+            s => s.SelectedInitialSynchronizationRange is { } selected ? s.InitialSynchronizationRanges.IndexOf(selected) : -1,
+            (s, index) => { if (index >= 0 && index < s.InitialSynchronizationRanges.Count) s.SelectedInitialSynchronizationRange = s.InitialSynchronizationRanges[index]; },
+            Translator.AccountCreation_InitialSynchronization_Title);
+        capabilities.Bind(nameof(AccountCapabilitySelection.IsMailEnabled), s => s.IsMailEnabled, enabled => range.Enabled = enabled);
+        grid.Row(Translator.ProviderSelection_MailRangeHeader, range);
+        var rangeHelp = FormGrid.Help(vm.MailRangeDescription);
+        Form.Bind(nameof(vm.MailRangeDescription), s => s.MailRangeDescription, text => rangeHelp.Text = text);
+        grid.Row((string?)null, rangeHelp);
+        var everythingWarning = new WinoInfoBar(WinoInfoBarSeverity.Warning, Translator.GeneralTitle_Warning, Translator.AccountCreation_InitialSynchronization_EverythingWarning);
+        Form.Visible(everythingWarning, nameof(vm.IsInitialSynchronizationWarningVisible), s => s.IsInitialSynchronizationWarningVisible);
+        grid.Row((string?)null, everythingWarning);
+
+        var missing = WinoStyle.Label(Translator.ProviderSelection_CapabilityValidationMessage, WinoStyle.Caption, WinoStyle.Critical, 0);
+        capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);
+        grid.Row((string?)null, missing);
+
+        var group = OnboardingPageView.Group(Translator.ImapSetup_FeaturesGroup, grid);
+        Form.Visible(group, nameof(vm.IsFeaturesStepVisible), s => s.IsFeaturesStepVisible);
+        return group;
     }
 
     /// <summary>Editing an account: what it is used for, as capability menus.</summary>
@@ -725,6 +760,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
 #endif
         // The page renders the secure sign-in choice after the address step and in edit mode.
         ViewModel.IsSecureSignInSupportedByHost = true;
+        ViewModel.IsFeaturesStepSupportedByHost = true;
         return ViewModel.InitializeAsync(mode, parameter);
     }
 

@@ -55,7 +55,8 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
         var gmail = InfoBar(WinoInfoBarSeverity.Informational, Translator.MailFilters_ProviderFeatureTitle, Translator.MailFilters_GmailProviderUnavailableDescription);
         Bind.Visible(Add(gmail), vm, nameof(vm.IsGmailAccount), s => s.IsGmailAccount);
 
-        var connect = InfoBar(WinoInfoBarSeverity.Informational, Translator.MailFilters_ProviderFeatureTitle, Translator.MailFilters_ProviderFeatureConnectDescription);
+        var connect = InfoBar(WinoInfoBarSeverity.Informational, Translator.MailFilters_ProviderFeatureTitle, vm.ProviderFiltersConnectDescription);
+        Bind.Bind(vm, nameof(vm.ProviderFiltersConnectDescription), s => s.ProviderFiltersConnectDescription, text => connect.Message = text);
         connect.ActionTitle = Translator.MailFilters_ProviderFeatureConnect;
         EventHandler connectHandler = (_, _) => Run(vm.ConnectProviderFiltersAsync());
         connect.ActionInvoked += connectHandler;

@@ -23,6 +23,8 @@ public static class TaskCompletionPlanner
     public static async Task<Plan> BuildAsync(AccountTask task, bool isCompleted, ITaskQueryService taskQueryService, bool allowUndo = false)
     {
         ArgumentNullException.ThrowIfNull(task);
+        // Capabilities depend on the list's account and, for Exchange, its transport, which only the service knows.
+        ArgumentNullException.ThrowIfNull(taskQueryService);
 
         var original = RequestEntityCloner.Task(task);
         var desired = RequestEntityCloner.Task(task);
@@ -32,9 +34,7 @@ public static class TaskCompletionPlanner
         TaskActionRequest next = null;
         if (isCompleted && !task.IsCompleted && task.DueDate is { } due && TaskRecurrenceRule.Parse(task.Recurrence) is { } rule)
         {
-            var capabilities = taskQueryService is null
-                ? TaskCapabilities.ForSource(task.SourceKind)
-                : await taskQueryService.GetTaskCapabilitiesAsync(task.TaskListId).ConfigureAwait(false);
+            var capabilities = await taskQueryService.GetTaskCapabilitiesAsync(task.TaskListId).ConfigureAwait(false);
 
             if (!capabilities.ServerAdvancesRecurrence && rule.NextOccurrence(due) is { } nextDue)
             {

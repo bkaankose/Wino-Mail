@@ -43,7 +43,7 @@
                 AutomationProperties.AutomationId="MailFiltersProviderConnectInfoBar"
                 IsClosable="False"
                 IsOpen="True"
-                Message="{x:Bind domain:Translator.MailFilters_ProviderFeatureConnectDescription, Mode=OneTime}"
+                Message="{x:Bind ViewModel.ProviderFiltersConnectDescription, Mode=OneWay}"
                 Severity="Informational">
                 <InfoBar.ActionButton>
                     <Button

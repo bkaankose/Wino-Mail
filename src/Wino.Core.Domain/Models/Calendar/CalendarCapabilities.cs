@@ -38,6 +38,12 @@ public sealed record CalendarCapabilities
     /// <summary>Files can be attached to an event and reach the server (RFC 8607 on CalDAV).</summary>
     public bool SupportsAttachments { get; init; }
 
+    /// <summary>Editing an existing event can add and remove its attachments on the server, not only creating one.</summary>
+    public bool SupportsAttachmentChanges { get; init; }
+
+    /// <summary>Editing one occurrence of a series can change that occurrence's attachments.</summary>
+    public bool SupportsOccurrenceAttachmentChanges { get; init; }
+
     public bool SupportsAttendees { get; init; }
 
     /// <summary>The server delivers invitations and replies itself (CalDAV: implicit scheduling, RFC 6638).</summary>
@@ -105,10 +111,16 @@ public sealed record CalendarCapabilities
         MaxReminderOffsetMinutes = 40320
     };
 
-    /// <summary>On-premises Exchange over EWS or MAPI over HTTP. Event attachments are not written to the server.</summary>
+    /// <summary>
+    /// On-premises Exchange over EWS. MAPI over HTTP does not change one occurrence's attachments, and ActiveSync has
+    /// calendar attachments only in 16.0 and 16.1.
+    /// </summary>
     public static CalendarCapabilities Exchange { get; } = new()
     {
         Source = CalendarCapabilitySource.Exchange,
+        SupportsAttachments = true,
+        SupportsAttachmentChanges = true,
+        SupportsOccurrenceAttachmentChanges = true,
         SupportsAttendees = true,
         SendsInvitations = true,
         SupportsReminders = true,

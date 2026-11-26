@@ -2056,6 +2056,7 @@ IImapChangeProcessor imapChangeProcessor,
             IImapClient idleClient = null;
             IMailFolder inboxFolder = null;
             bool shouldReconnect = false;
+            bool idleEndedWithDone = false;
             string reconnectReason = "connection lost";
             Exception? reconnectException = null;
 
@@ -2133,6 +2134,8 @@ IImapChangeProcessor imapChangeProcessor,
                         lock (_idleDoneLock) _idleDoneCancellationTokenSource = null;
                     }
                 }
+
+                idleEndedWithDone = true;
             }
             catch (ImapProtocolException protocolException)
             {
@@ -2185,8 +2188,8 @@ IImapChangeProcessor imapChangeProcessor,
                     inboxFolder.MessageExpunged -= IdleInboxChanged;
                     inboxFolder.MessagesVanished -= IdleInboxChanged;
                 }
-                // This socket is retired; no UNSELECT or LOGOUT is needed during cleanup.
-                _clientPool.ReleaseIdleClient(isFaulted: shouldReconnect);
+                // The socket is retired without UNSELECT or LOGOUT, except at shutdown, when the pool logs it out.
+                _clientPool.ReleaseIdleClient(isFaulted: shouldReconnect || !idleEndedWithDone);
             }
 
             if (cancellationToken.IsCancellationRequested || IsDisposing || _idleStopping)
@@ -2367,6 +2370,25 @@ IImapChangeProcessor imapChangeProcessor,
         await base.KillSynchronizerAsync().ConfigureAwait(false);
         try { await StopIdleClientAsync().ConfigureAwait(false); }
         finally { await _clientPool.DisposeAsync().ConfigureAwait(false); }
+    }
+
+    /// <summary>
+    /// Ends IDLE with DONE (RFC 2177), then sends LOGOUT (RFC 9051 section 6.1.3) on the IDLE connection and on every
+    /// pooled connection, so the server ends those sessions instead of waiting for its autologout timer.
+    /// </summary>
+    public override async Task ReleaseServerSessionsAsync(CancellationToken cancellationToken)
+    {
+        await base.KillSynchronizerAsync().ConfigureAwait(false);
+        _clientPool.BeginLogout();
+        try
+        {
+            await StopIdleClientAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            try { await _clientPool.LogoutAsync(cancellationToken).ConfigureAwait(false); }
+            finally { await _clientPool.DisposeAsync().ConfigureAwait(false); }
+        }
     }
 
     public Task PreWarmClientPoolAsync() => _clientPool.PreWarmPoolAsync();

@@ -79,10 +79,9 @@ public sealed class AccountSignInPageViewController(AccountSignInPageViewModel v
     private WinoSettingsCard BuildExchangeTransport()
     {
         var vm = ViewModel;
-        var transport = Bind.PopUp<AccountSignInPageViewModel, ExchangeTransportOption>(vm, s => s.ExchangeTransportOptions, option => option.Title,
-            nameof(vm.SelectedExchangeTransport), s => s.SelectedExchangeTransport, (s, v) => s.SelectedExchangeTransport = v, width: 220);
-        WinoAccessibility.Label(transport, Translator.ExchangeSetup_TransportHeader);
-        Bind.Bind(vm, nameof(vm.IsBusy), s => s.IsBusy, busy => transport.Enabled = !busy);
+        var transport = WinoStyle.Label(vm.ExchangeTransportName, WinoStyle.Body, WinoStyle.SecondaryText);
+        transport.Selectable = true;
+        Bind.Bind(vm, nameof(vm.ExchangeTransportName), s => s.ExchangeTransportName, name => transport.StringValue = name ?? string.Empty);
         var card = Card(Translator.ExchangeSetup_TransportHeader, null, WinoIconGlyph.GlobeDesktop, transport);
         Bind.Bind(vm, nameof(vm.ExchangeServerDescription), s => s.ExchangeServerDescription, text => card.Description = text);
         return card;

@@ -114,6 +114,22 @@ public static class RopMessageWrite
         return rop.ToArray();
     }
 
+    /// <summary>
+    /// RopOpenEmbeddedMessage with OpenModeFlags ReadOnly (0x00, MS-OXCMSG 2.2.3.16.1), for an attachment opened read-only:
+    /// the server refuses a read/write open of its message with MAPI_E_NO_ACCESS.
+    /// </summary>
+    public static byte[] BuildOpenEmbeddedMessageReadOnly(byte attachmentHandleIndex, byte outputHandleIndex)
+    {
+        var rop = new RopWriter();
+        rop.UInt8(RopOpenEmbeddedMessage);
+        rop.UInt8(0);
+        rop.UInt8(attachmentHandleIndex);
+        rop.UInt8(outputHandleIndex);
+        rop.UInt16(0x0FFF);                                  // CodePageId: the logon's
+        rop.UInt8(0x00);
+        return rop.ToArray();
+    }
+
     /// <summary>Returns the embedded message's id; the rest of the response (the RopOpenMessage shape) is left unread.</summary>
     public static ulong ParseOpenEmbeddedMessage(RopReader reader)
     {

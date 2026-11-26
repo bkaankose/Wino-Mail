@@ -74,18 +74,21 @@ public class CustomServerInformation
 
     public string? OAuthRedirectUri { get; set; }
 
-    /// <summary>The user's transport choice for an Exchange account. Automatic follows detection.</summary>
+    /// <summary>
+    /// The transport of an Exchange account, fixed at setup and never changed afterwards. Setup saves a concrete
+    /// transport; only accounts added before that rule still hold Automatic.
+    /// </summary>
     public ExchangeTransport ExchangeTransport { get; set; }
 
     /// <summary>
-    /// The transport Autodiscover reported for the mailbox, recorded by setup or by the MAPI synchronizer when it
-    /// learns the protocol is not offered. Automatic means not detected yet.
+    /// The transport the setup's connection check found under Automatic. Only setup writes it.
     /// </summary>
     public ExchangeTransport DetectedExchangeTransport { get; set; }
 
     /// <summary>
-    /// The transport the synchronizer factory acts on: an explicit choice wins, detection decides under Automatic,
-    /// and an undecided account tries MAPI over HTTP first so the MAPI path can fall back to EWS itself.
+    /// The transport the synchronizer factory acts on. An account added before setup fixed the transport may still hold
+    /// Automatic; it keeps the transport its setup detection gave it, MAPI over HTTP when none was recorded, and never
+    /// changes it at run time.
     /// </summary>
     [Ignore]
     public ExchangeTransport EffectiveExchangeTransport

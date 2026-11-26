@@ -189,17 +189,15 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
     }
 
     /// <summary>
-    /// Exchange accounts: the connection method and the sign-in, a new password or the organization sign-in. iOS cannot
-    /// open the organization sign-in page, so a modern-auth account explains that instead of signing in again.
+    /// Exchange accounts: the connection method fixed at setup, shown read-only, and the sign-in, a new password or the
+    /// organization sign-in. iOS cannot open the organization sign-in page, so a modern-auth account explains that
+    /// instead of signing in again.
     /// </summary>
     private WinoSettingsExpander BuildExchangeSettings()
     {
         var vm = ViewModel;
-        var transport = Bind.PopUp<AccountDetailsPageViewModel, ExchangeTransportOption>(vm, s => s.ExchangeTransportOptions, option => option.Title,
-            nameof(vm.SelectedExchangeTransport), s => s.SelectedExchangeTransport, (s, v) => s.SelectedExchangeTransport = v);
-        WinoAccessibility.Label(transport, Translator.ExchangeSetup_TransportHeader);
-        Bind.Enabled(transport, vm, nameof(vm.IsExchangeBusy), s => !s.IsExchangeBusy);
-        var transportCard = Card(Translator.ExchangeSetup_TransportHeader, Translator.ExchangeSetup_TransportDescription, WinoIconGlyph.None, transport);
+        var transportCard = Card(Translator.ExchangeSetup_TransportHeader, vm.ExchangeTransportName);
+        Bind.Bind(vm, nameof(vm.ExchangeTransportName), s => s.ExchangeTransportName, name => transportCard.Description = name);
 
         var userName = Bind.TextField(vm, nameof(vm.ExchangeUserName), s => s.ExchangeUserName, (s, v) => s.ExchangeUserName = v, vm.Address, 0);
         userName.AutocapitalizationType = UITextAutocapitalizationType.None;

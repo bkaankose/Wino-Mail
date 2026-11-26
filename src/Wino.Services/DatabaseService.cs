@@ -296,6 +296,12 @@ VALUES
             Connection.CreateTableAsync<CardDavAccountState>(),
             Connection.CreateTableAsync<CardDavAddressBookState>(),
             Connection.CreateTableAsync<CardDavResourceShadow>(),
+            Connection.CreateTableAsync<EasItemShadow>(),
+            Connection.CreateTableAsync<EasAccountState>(),
+            Connection.CreateTableAsync<EasCollectionState>(),
+            Connection.CreateTableAsync<EasPendingSync>(),
+            Connection.CreateTableAsync<EasClientAnswer>(),
+            Connection.CreateTableAsync<EasDraftState>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),
@@ -657,6 +663,11 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
 
         var folderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
 
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.EasFolderType)))
+            await Connection.ExecuteAsync("ALTER TABLE MailItemFolder ADD COLUMN EasFolderType INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.EasSyncGeneration)))
+            await Connection.ExecuteAsync("ALTER TABLE MailItemFolder ADD COLUMN EasSyncGeneration TEXT NOT NULL DEFAULT ''").ConfigureAwait(false);
+
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))
         {
             await Connection
@@ -693,6 +704,13 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
         {
             await Connection
                 .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.MapiFolderId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.MapiEntryId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.MapiEntryId)} TEXT NULL")
                 .ConfigureAwait(false);
         }
 

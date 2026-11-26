@@ -61,6 +61,13 @@ public interface IAccountService
     Task DeleteAccountAuthenticationDataAsync(Guid accountId);
 
     /// <summary>
+    /// Carries out a server's remote wipe on this device's copy of the account: deletes everything synchronized from the
+    /// server and the stored credentials, keeps the account row and its local settings, and marks it
+    /// <see cref="Enums.AccountAttentionReason.RemovedByAdministrator"/> so no connection method synchronizes it again.
+    /// </summary>
+    Task EraseAccountDataForRemoteWipeAsync(Guid accountId);
+
+    /// <summary>
     /// Returns the custom server information for the given account id.
     /// </summary>
     Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId);
@@ -254,6 +261,13 @@ public interface IAccountService
     /// Used when the mail mode is turned off for an account that keeps existing.
     /// </summary>
     Task DeleteAccountMailDataAsync(Guid accountId);
+
+    /// <summary>
+    /// Starts an Exchange account's synchronization over when the server requires it (an ActiveSync X-MS-RP or a
+    /// changed protocol version): clears every delta and synchronization state and removes the downloaded messages.
+    /// Folder rows are kept with their settings.
+    /// </summary>
+    Task ResetExchangeSynchronizationStateAsync(Guid accountId);
 
     /// <summary>Creates the account's calendar on this device when the account has no calendar yet.</summary>
     Task EnsureDefaultLocalCalendarAsync(Guid accountId);

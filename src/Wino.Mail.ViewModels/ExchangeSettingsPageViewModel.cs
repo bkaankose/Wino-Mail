@@ -17,6 +17,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Core.Domain.Messaging.Client.Navigation;
+using Wino.Services.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
@@ -26,14 +27,33 @@ public sealed class ExchangeTransportOption(ExchangeTransport transport, string 
     public ExchangeTransport Transport { get; } = transport;
     public string Title { get; } = title;
 
+    /// <summary>What the connection method does and when to choose it, for the help text under the drop-down.</summary>
+    public string Description => Transport switch
+    {
+        ExchangeTransport.MapiHttp => Translator.ExchangeSetup_TransportDescriptionMapi,
+        ExchangeTransport.Ews => Translator.ExchangeSetup_TransportDescriptionEws,
+        ExchangeTransport.ActiveSync => Translator.ExchangeSetup_TransportDescriptionActiveSync,
+        _ => Translator.ExchangeSetup_TransportDescription
+    };
+
     public override string ToString() => Title;
+
+    /// <summary>The name of a concrete transport, for the read-only display of an existing account's connection method.</summary>
+    public static string TitleOf(ExchangeTransport transport) => transport switch
+    {
+        ExchangeTransport.MapiHttp => Translator.ExchangeSetup_TransportMapi,
+        ExchangeTransport.Ews => Translator.ExchangeSetup_TransportEws,
+        ExchangeTransport.ActiveSync => Translator.ExchangeSetup_TransportActiveSync,
+        _ => Translator.ExchangeSetup_TransportAutomatic
+    };
 
     /// <summary>Automatic, MAPI over HTTP and EWS, in the order of <see cref="ExchangeTransport"/>.</summary>
     public static List<ExchangeTransportOption> CreateAll() =>
     [
         new(ExchangeTransport.Automatic, Translator.ExchangeSetup_TransportAutomatic),
         new(ExchangeTransport.MapiHttp, Translator.ExchangeSetup_TransportMapi),
-        new(ExchangeTransport.Ews, Translator.ExchangeSetup_TransportEws)
+        new(ExchangeTransport.Ews, Translator.ExchangeSetup_TransportEws),
+        new(ExchangeTransport.ActiveSync, Translator.ExchangeSetup_TransportActiveSync)
     ];
 }
 
@@ -45,8 +65,6 @@ public sealed class ExchangeTransportOption(ExchangeTransport transport, string 
 /// </summary>
 public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 {
-    private const string DefaultEwsPath = "/EWS/Exchange.asmx";
-
     private readonly WelcomeWizardContext _wizardContext;
     private readonly IExchangeAutoDiscoveryService _autoDiscoveryService;
     private readonly IExchangeAuthCapabilityProbe _authCapabilityProbe;
@@ -54,6 +72,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly IAccountSetupRunner _setupRunner;
     private readonly IExchangeInteractiveSignInService? _signInService;
+    private readonly IMailProviderRegistry _providers;
 
     private CancellationTokenSource? _operation;
     private string? _authority;
@@ -75,7 +94,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     public partial string ServerAddress { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedTransportDescription))]
     public partial ExchangeTransportOption? SelectedTransport { get; set; }
+
+    public string SelectedTransportDescription => SelectedTransport?.Description ?? Translator.ExchangeSetup_TransportDescription;
 
     [ObservableProperty]
     public partial string UserName { get; set; } = string.Empty;
@@ -92,6 +114,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(IsPrimaryVisible))]
     [NotifyPropertyChangedFor(nameof(PrimaryText))]
     [NotifyPropertyChangedFor(nameof(ServerSummary))]
+    [NotifyPropertyChangedFor(nameof(SignInDescription))]
     [NotifyPropertyChangedFor(nameof(IsModernAuthUnavailableNoticeVisible))]
     [NotifyCanExecuteChangedFor(nameof(PrimaryCommand))]
     public partial bool IsSignInStage { get; set; }
@@ -157,8 +180,10 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         IExchangeConnectionTester connectionTester,
         IAccountService accountService,
         IAccountSetupRunner setupRunner,
+        IMailProviderRegistry providers,
         IExchangeInteractiveSignInService? signInService = null) : base(messenger)
     {
+        _providers = providers;
         _wizardContext = wizardContext;
         _autoDiscoveryService = autoDiscoveryService;
         _authCapabilityProbe = authCapabilityProbe;
@@ -333,6 +358,12 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         try
         {
             var serverAddress = ServerAddress?.Trim() ?? string.Empty;
+            var activeSync = SelectedTransport?.Transport == ExchangeTransport.ActiveSync;
+            if (activeSync && serverAddress.Length == 0)
+            {
+                ShowFailure(Translator.ExchangeSetup_ActiveSyncServerRequired);
+                return;
+            }
             if (serverAddress.Length == 0)
             {
                 var discovered = await _autoDiscoveryService.TryDiscoverEwsUrlAsync(address, operation.Token);
@@ -349,7 +380,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
                 serverAddress = discovered;
             }
 
-            var ewsUrl = NormalizeServerAddress(serverAddress);
+            var ewsUrl = ExchangeServerEndpoint.Normalize(serverAddress, SelectedTransport?.Transport ?? ExchangeTransport.Automatic);
             if (ewsUrl == null)
             {
                 ShowFailure(Translator.ExchangeSetup_ServerAddressInvalid);
@@ -363,6 +394,16 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             }
 
             ServerAddress = ewsUrl.AbsoluteUri;
+
+            if (activeSync)
+            {
+                _authority = null;
+                IsModernAuth = false;
+                IsModernAuthUnavailableOnDevice = false;
+                IsSignInStage = true;
+                OnPropertyChanged(nameof(UserNamePlaceholder));
+                return;
+            }
 
             var probe = await _authCapabilityProbe.ProbeAsync(ewsUrl.AbsoluteUri, address, operation.Token);
             if (operation.IsCancellationRequested)
@@ -406,7 +447,8 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             server.IncomingServerUsername = string.IsNullOrEmpty(userName) ? EmailAddress.Trim() : userName;
             server.IncomingServerPassword = Password;
 
-            var result = await _connectionTester.TestAsync(CreateAccount(server), operation.Token);
+            var account = CreateAccount(server);
+            var result = await _connectionTester.TestAsync(account, operation.Token);
             if (operation.IsCancellationRequested)
                 return;
 
@@ -417,7 +459,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             }
 
             ApplyDetectedTransport(server, result);
-            Continue(server, signedInAccountId: null);
+
+            // ActiveSync identifies the device by the account id, so the saved account keeps the id the check used.
+            Continue(server, server.EffectiveExchangeTransport == ExchangeTransport.ActiveSync ? account.Id : null);
         }
         catch (OperationCanceledException) when (operation.IsCancellationRequested)
         {
@@ -449,6 +493,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     private void PrepareWizardContext()
     {
         _wizardContext.SelectedProvider = new ProviderDetail(MailProviderType.Exchange, SpecialImapProvider.None);
+
+        if (!_providers.GetTraits(MailProviderType.Exchange).AppliesMailSynchronizationRange)
+            _wizardContext.SelectedInitialSynchronizationRange = InitialSynchronizationRange.Everything;
 
         if (_wizardContext.CalendarIntegrationSource == AccountIntegrationSource.Dav)
             _wizardContext.CalendarIntegrationSource = AccountIntegrationSource.Provider;
@@ -482,6 +529,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         ServerInformation = server
     };
 
+    /// <summary>Under Automatic, records what the connection check found; the setup runner saves the account with it.</summary>
     private static void ApplyDetectedTransport(CustomServerInformation server, ExchangeConnectionTestResult result)
         => server.DetectedExchangeTransport = server.ExchangeTransport == ExchangeTransport.Automatic
             ? result.DetectedTransport
@@ -491,20 +539,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         => result.Status == ExchangeConnectionTestStatus.CredentialRejected
             ? string.Format(Translator.AccountSetup_Failure_PasswordRejected, ServerHost)
             : string.Format(Translator.AccountSetup_Failure_Connection, ServerHost, result.FailureReason ?? string.Empty);
-
-    /// <summary>
-    /// A bare host becomes its default EWS endpoint; only HTTPS is accepted because the credential is sent to it.
-    /// </summary>
-    private static Uri? NormalizeServerAddress(string value)
-    {
-        var candidate = value.Contains("://", StringComparison.Ordinal) ? value : "https://" + value;
-        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || string.IsNullOrEmpty(uri.Host))
-            return null;
-
-        return uri.AbsolutePath is "" or "/"
-            ? new Uri(uri.GetLeftPart(UriPartial.Authority) + DefaultEwsPath)
-            : uri;
-    }
 
     private void ShowFailure(string message)
     {

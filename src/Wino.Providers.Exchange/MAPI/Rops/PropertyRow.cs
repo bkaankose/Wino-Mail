@@ -98,12 +98,12 @@ public static class PropertyRow
     };
 
     /// <summary>
-    /// PtypMultipleBinary in a ROP buffer (MS-OXCDATA 2.11.1): a 16-bit count, then that many counted
-    /// binaries. (The 32-bit count form belongs to the extended-rule encoding, not to ROPs.)
+    /// PtypMultipleBinary in a ROP buffer (MS-OXCDATA 2.11.1): a 32-bit value count, then that many binaries
+    /// with 16-bit byte counts.
     /// </summary>
     private static byte[][] ReadMultipleBinary(RopReader reader)
     {
-        var count = reader.UInt16();
+        var count = ReadMultipleCount(reader, 2);
         var values = new byte[count][];
         for (var i = 0; i < count; i++)
         {
@@ -113,10 +113,10 @@ public static class PropertyRow
         return values;
     }
 
-    /// <summary>PtypMultipleString in a ROP buffer: a 16-bit count, then that many NUL-terminated strings.</summary>
+    /// <summary>PtypMultipleString in a ROP buffer: a 32-bit value count, then that many NUL-terminated strings.</summary>
     private static string[] ReadMultipleUnicode(RopReader reader)
     {
-        var count = reader.UInt16();
+        var count = ReadMultipleCount(reader, 2);
         var values = new string[count];
         for (var i = 0; i < count; i++)
         {
@@ -124,6 +124,15 @@ public static class PropertyRow
         }
 
         return values;
+    }
+
+    private static int ReadMultipleCount(RopReader reader, int minimumBytesPerValue)
+    {
+        var count = reader.UInt32();
+        if (count > (uint)(reader.Remaining / minimumBytesPerValue))
+            throw new MapiFormatException($"A multivalued property claims {count} values in {reader.Remaining} bytes.");
+
+        return (int)count;
     }
 }
 
@@ -400,6 +409,10 @@ public static class PropertyTags
     public static readonly Guid PublicStringsPropertySet = new("00020329-0000-0000-C000-000000000046");
     public const string KeywordsPropertyName = "Keywords";
 
+    // --- Configuration data (MS-OXOCFG 2.2.2) ---
+    public const uint RoamingDatatypes = 0x7C060003;             // PidTagRoamingDatatypes
+    public const uint RoamingXmlStream = 0x7C080102;             // PidTagRoamingXmlStream
+
     /// <summary>The columns a rules-table read asks for.</summary>
     public static readonly uint[] RulesTableColumns =
         [RuleId, RuleSequence, RuleState, RuleName, RuleProvider, RuleLevel, RuleUserFlags, RuleProviderData, RuleCondition, RuleActions];
@@ -415,13 +428,15 @@ public static class PropertyTags
     public const uint AttributeHidden = 0x10F4000B;              // PidTagAttributeHidden (system folders OWA/Outlook keep out of the tree)
     public const uint LocalCommitTimeMax = 0x670A0040;           // PidTagLocalCommitTimeMax (last change to any item in the folder)
     public const uint DeletedCountTotal = 0x670B0003;            // PidTagDeletedCountTotal
+    public const uint FolderType = 0x36010003;                   // PidTagFolderType (MS-OXCFOLD 2.2.2.2.2.7: 1 generic, 2 search)
+    public const uint FolderTypeSearch = 2;                      // FOLDER_SEARCH
 
     /// <summary>
     /// The hierarchy columns plus the hidden flag and the two change markers Outlook watches to skip unchanged
     /// folders; ToFolderInfo takes any of these widths.
     /// </summary>
     public static readonly uint[] HierarchyColumnsWithHidden =
-        [FolderId, ParentFolderId, DisplayName, ContainerClass, Subfolders, ContentCount, ContentUnreadCount, AttributeHidden, LocalCommitTimeMax, DeletedCountTotal];
+        [FolderId, ParentFolderId, DisplayName, ContainerClass, Subfolders, ContentCount, ContentUnreadCount, AttributeHidden, LocalCommitTimeMax, DeletedCountTotal, FolderType];
 
     /// <summary>MS-OXOSFLD 2.2.4: the index of the Junk E-mail entry id inside PidTagAdditionalRenEntryIds.</summary>
     public const int AdditionalRenEntryIdsJunkIndex = 4;
@@ -442,6 +457,7 @@ public static class PropertyTags
         ContentUnreadCount => "ContentUnreadCount",
         LocalCommitTimeMax => "LocalCommitTimeMax",
         DeletedCountTotal => "DeletedCountTotal",
+        FolderType => "FolderType",
         Subfolders => "Subfolders",
         IpmDraftsEntryId => "IpmDraftsEntryId",
         AdditionalRenEntryIds => "AdditionalRenEntryIds",

@@ -71,9 +71,11 @@ public static class MapiMessageOperations
 
     /// <summary>
     /// Reads up to <paramref name="limit"/> messages of a folder, newest delivered first. The limit
-    /// bounds the initial download the same way the EWS path does; incremental sync is ICS.
+    /// bounds the initial download the same way the EWS path does; incremental sync is ICS. A
+    /// <paramref name="restriction"/> limits the rows to the matching ones (RopRestrict).
     /// </summary>
-    public static async Task<List<MapiMessageInfo>> ReadMessageListAsync(MapiSession session, ulong folderId, int limit, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
+    public static async Task<List<MapiMessageInfo>> ReadMessageListAsync(MapiSession session, ulong folderId, int limit, CancellationToken cancellationToken = default, Action<string>? diagnostics = null,
+        Restrictions.RestrictionNode? restriction = null)
     {
         var handles = MapiSession.MergeHandles([session.LogonHandle], [], Slots);
 
@@ -93,6 +95,12 @@ public static class MapiMessageOperations
             {
                 (rops, _) = await session.ExecuteAsync(RopFolder.BuildSetColumns(2, PropertyTags.MessageListColumns), handles, cancellationToken).ConfigureAwait(false);
                 RopFolder.ParseSetColumns(new RopReader(rops));
+
+                if (restriction is not null)
+                {
+                    (rops, _) = await session.ExecuteAsync(RopFolder.BuildRestrict(2, restriction), handles, cancellationToken).ConfigureAwait(false);
+                    RopFolder.ParseRestrict(new RopReader(rops));
+                }
 
                 (rops, _) = await session.ExecuteAsync(RopFolder.BuildSortTable(2, [new RopFolder.SortOrder(PropertyTags.MessageDeliveryTime, Descending: true)]), handles, cancellationToken).ConfigureAwait(false);
                 RopFolder.ParseSortTable(new RopReader(rops));

@@ -23,7 +23,7 @@ namespace Wino.Mail.ViewModels.AccountSettings;
 
 /// <summary>
 /// Sign-in and servers of an account whose provider serves every app (Outlook, Gmail, Exchange): the sign-in, and for
-/// Exchange its connection method and password. IMAP and POP3 accounts use the server page instead.
+/// Exchange the connection method it was set up with and its password. IMAP and POP3 accounts use the server page instead.
 /// </summary>
 public partial class AccountSignInPageViewModel : CoreBaseViewModel
 {
@@ -34,7 +34,6 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
     private readonly IExchangeConnectionTester? _exchangeConnectionTester;
     private readonly IAccountReauthenticationService? _reauthenticationService;
     private readonly IExchangeInteractiveSignInService? _exchangeSignInService;
-    private bool _isLoading;
 
     public AccountSignInPageViewModel(
         IMessenger messenger,
@@ -55,8 +54,6 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
         _exchangeSignInService = exchangeSignInService;
     }
 
-    public List<ExchangeTransportOption> ExchangeTransportOptions { get; } = ExchangeTransportOption.CreateAll();
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Address))]
     [NotifyPropertyChangedFor(nameof(IsExchangeAccount))]
@@ -72,10 +69,8 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
     [NotifyPropertyChangedFor(nameof(IsSignInAgainVisible))]
     [NotifyPropertyChangedFor(nameof(SignedInTitle))]
     [NotifyPropertyChangedFor(nameof(ExchangeServerDescription))]
+    [NotifyPropertyChangedFor(nameof(ExchangeTransportName))]
     public partial CustomServerInformation? ServerInformation { get; set; }
-
-    [ObservableProperty]
-    public partial ExchangeTransportOption? SelectedExchangeTransport { get; set; }
 
     [ObservableProperty]
     public partial string ExchangeUserName { get; set; } = string.Empty;
@@ -112,6 +107,11 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
 
     public string ExchangeServerDescription => string.Format(Translator.AccountDetailsPage_ExchangeDescription, ExchangeServerHost);
 
+    /// <summary>The connection method fixed when the account was set up; it cannot be changed afterwards.</summary>
+    public string ExchangeTransportName => ServerInformation == null
+        ? string.Empty
+        : ExchangeTransportOption.TitleOf(ServerInformation.EffectiveExchangeTransport);
+
     private string ExchangeServerHost => AccountAppPresenter.GetHost(ServerInformation?.IncomingServer);
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
@@ -130,23 +130,12 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
 
     private void ApplyAccount(MailAccount account)
     {
-        _isLoading = true;
+        Account = account;
+        ServerInformation = account.ProviderType == MailProviderType.Exchange ? account.ServerInformation : null;
 
-        try
-        {
-            Account = account;
-            ServerInformation = account.ProviderType == MailProviderType.Exchange ? account.ServerInformation : null;
-            SelectedExchangeTransport = ExchangeTransportOptions.FirstOrDefault(option => option.Transport == ServerInformation?.ExchangeTransport)
-                                        ?? ExchangeTransportOptions[0];
-
-            var userName = ServerInformation?.IncomingServerUsername?.Trim() ?? string.Empty;
-            ExchangeUserName = string.Equals(userName, account.Address, StringComparison.OrdinalIgnoreCase) ? string.Empty : userName;
-            ExchangePassword = string.Empty;
-        }
-        finally
-        {
-            _isLoading = false;
-        }
+        var userName = ServerInformation?.IncomingServerUsername?.Trim() ?? string.Empty;
+        ExchangeUserName = string.Equals(userName, account.Address, StringComparison.OrdinalIgnoreCase) ? string.Empty : userName;
+        ExchangePassword = string.Empty;
 
         UpdateExchangePasswordCommand.NotifyCanExecuteChanged();
         SignInAgainCommand.NotifyCanExecuteChanged();
@@ -194,85 +183,6 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
         }
     }
 
-    partial void OnSelectedExchangeTransportChanged(ExchangeTransportOption? oldValue, ExchangeTransportOption? newValue)
-    {
-        if (_isLoading || oldValue == null || newValue == null || ReferenceEquals(oldValue, newValue))
-            return;
-
-        _ = ChangeExchangeTransportAsync(oldValue, newValue);
-    }
-
-    /// <summary>
-    /// Saves a new connection method and forgets the detected one. The two transports key mail differently, so a
-    /// change of the transport in use downloads the mailbox again; the user confirms that first.
-    /// </summary>
-    private async Task ChangeExchangeTransportAsync(ExchangeTransportOption previous, ExchangeTransportOption selected)
-    {
-        var account = Account;
-        var server = ServerInformation;
-        if (account == null || server == null || !IsExchangeAccount || server.ExchangeTransport == selected.Transport)
-            return;
-
-        var updated = server.CloneForCredentialStorage();
-        updated.ExchangeTransport = selected.Transport;
-        updated.DetectedExchangeTransport = ExchangeTransport.Automatic;
-
-        var isTransportSwitch = updated.EffectiveExchangeTransport != server.EffectiveExchangeTransport;
-        if (isTransportSwitch &&
-            !await _dialogService.ShowConfirmationDialogAsync(
-                Translator.AccountDetailsPage_ExchangeTransportChangeMessage,
-                Translator.AccountDetailsPage_ExchangeTransportChangeTitle,
-                Translator.Buttons_Apply))
-        {
-            RestoreExchangeTransport(previous);
-            return;
-        }
-
-        IsBusy = true;
-
-        try
-        {
-            await _accountService.UpdateAccountCustomServerInformationAsync(updated);
-            account.ServerInformation = updated;
-            ServerInformation = updated;
-
-            await _synchronizationManager.DestroySynchronizerAsync(account.Id);
-
-            if (isTransportSwitch)
-                await _accountService.DeleteAccountMailCacheAsync(account.Id, AccountCacheResetReason.ExpiredCache);
-
-            RequestMailSynchronization(account);
-
-            // Calendars, address books and task lists keep the old transport's ids until their own pass re-keys them.
-            if (isTransportSwitch && account.IsCalendarAccessGranted)
-            {
-                Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
-                {
-                    AccountId = account.Id,
-                    Type = CalendarSynchronizationType.Strict
-                }));
-            }
-
-            if (isTransportSwitch)
-            {
-                Messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions { AccountId = account.Id, Type = ContactSynchronizationType.Full }));
-                Messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions { AccountId = account.Id, Type = TaskSynchronizationType.Full }));
-            }
-
-            _dialogService.InfoBarMessage(Translator.EditAccountDetailsPage_SaveSuccess_Title, Translator.AccountDetailsPage_ExchangeTransportSaved, InfoBarMessageType.Success);
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Changing the Exchange connection method of {AccountId} failed.", account.Id);
-            RestoreExchangeTransport(previous);
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
     private bool CanUpdateExchangePassword() => IsExchangePasswordAuth && !IsBusy && !string.IsNullOrEmpty(ExchangePassword);
 
     /// <summary>Checks the new password against the server before it replaces the stored one.</summary>
@@ -297,7 +207,7 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
             {
                 var result = await _exchangeConnectionTester.TestAsync(new MailAccount
                 {
-                    Id = Guid.NewGuid(),
+                    Id = account.Id,
                     Name = account.Name,
                     Address = account.Address,
                     ProviderType = MailProviderType.Exchange,
@@ -353,19 +263,5 @@ public partial class AccountSignInPageViewModel : CoreBaseViewModel
             AccountId = account.Id,
             Type = MailSynchronizationType.FullFolders
         }));
-    }
-
-    private void RestoreExchangeTransport(ExchangeTransportOption previous)
-    {
-        _isLoading = true;
-
-        try
-        {
-            SelectedExchangeTransport = previous;
-        }
-        finally
-        {
-            _isLoading = false;
-        }
     }
 }

@@ -179,7 +179,13 @@ public partial class ExchangeSynchronizer
 
         var contacts = await ReadDirectoryContactsAsync(cancellationToken).ConfigureAwait(false);
         if (contacts is null)
+        {
+            // The server answered that this transport cannot list the directory (EWS without FindPeople on it): a book
+            // filled while it could is removed, as a fresh account on this server has none.
+            if (existing != null)
+                await contactService.DeleteAddressBookAsync(existing.Id).ConfigureAwait(false);
             return;
+        }
 
         var book = await contactService
             .GetOrCreateProviderAddressBookAsync(Account.Id, ContactSourceKind.Exchange, DirectoryBookRemoteId, Translator.ContactsPage_DirectoryAddressBook, false, null, isReadOnly: true)

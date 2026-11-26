@@ -1051,6 +1051,20 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 return;
             }
 
+            if (account.AttentionReason == AccountAttentionReason.RemovedByAdministrator)
+            {
+                // Nothing on this device can undo a remote wipe; the account page offers removing the account.
+                NavigationService.Navigate(WinoPage.SettingsPage, new SettingsPageActivationContext(
+                    WinoPage.ManageAccountsPage,
+                    new AccountDetailsNavigationContext(account.Id, AccountDetailsTab.General)));
+
+                _dialogService.InfoBarMessage(
+                    Translator.Info_AccountRemovedByAdministratorTitle,
+                    Translator.Info_AccountRemovedByAdministratorMessage,
+                    InfoBarMessageType.Warning);
+                return;
+            }
+
             if (account.AttentionReason is AccountAttentionReason.InvalidCredentials or AccountAttentionReason.CertificateValidationFailed)
             {
                 // Settings > Accounts > account (General tab) > server settings, so back and the

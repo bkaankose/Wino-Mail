@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 
@@ -17,4 +18,10 @@ public interface IMailProviderRegistry
 
     /// <summary>The module's traits, or <see cref="MailProviderTraits.None"/> for an unregistered provider type.</summary>
     MailProviderTraits GetTraits(MailProviderType providerType);
+
+    /// <summary>
+    /// The traits for this account, which can differ from the provider's by the account's connection method (an Exchange
+    /// account over ActiveSync, for example). <see cref="MailProviderTraits.None"/> for an unregistered provider type.
+    /// </summary>
+    MailProviderTraits GetTraits(MailAccount account);
 }

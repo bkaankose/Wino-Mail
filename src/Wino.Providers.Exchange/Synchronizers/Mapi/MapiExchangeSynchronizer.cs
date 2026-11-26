@@ -36,8 +36,7 @@ namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 /// <summary>
 /// Synchronizes on-premises Exchange accounts over native MAPI over HTTP. It derives from the EWS synchronizer and replaces
 /// every surface: folder hierarchy, incremental message sync over ICS, message bodies with attachments,
-/// read/flag/move/delete, drafts with native send, folder operations, calendars, contacts and tasks. A server found not to advertise MAPI over
-/// HTTP is recorded on the account, and the next synchronizer built for it is the EWS one.
+/// read/flag/move/delete, drafts with native send, folder operations, calendars, contacts and tasks.
 ///
 /// Identity: a mail row's id is the MAPI message id, "mapi:" plus 16 hex digits. It is unique within the mailbox
 /// database and survives moves between folders, which the (Id, FolderId) upsert relies on. Folder rows are keyed the
@@ -76,8 +75,9 @@ IExchangeAuthenticator exchangeAuthenticator,
                                     IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
                                     IContactService? contactService = null,
                                     IPictureStorageService? contactPictureService = null,
-                                    ITaskService? taskService = null)
-        : base(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService)
+                                    ITaskService? taskService = null,
+                                    IMailCategoryService? mailCategoryService = null)
+        : base(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService, mailCategoryService)
     {
     }
 
@@ -246,8 +246,7 @@ IExchangeAuthenticator exchangeAuthenticator,
     }
 
     /// <summary>
-    /// POX Autodiscover once per synchronizer instance; the endpoint and DN do not change under a session. A server
-    /// that answers without MAPI over HTTP is recorded on an Automatic account as an EWS server.
+    /// POX Autodiscover once per synchronizer instance; the endpoint and DN do not change under a session.
     /// </summary>
     private async Task<MapiEndpointInfo> ResolveEndpointAsync(MapiCredential credential, CancellationToken cancellationToken)
     {
@@ -260,36 +259,9 @@ IExchangeAuthenticator exchangeAuthenticator,
         if (!Uri.TryCreate(server.IncomingServer, UriKind.Absolute, out var ewsUri))
             throw new InvalidOperationException("The Exchange account has no valid server URL.");
 
-        MapiEndpointInfo endpoint;
-        try
-        {
-            endpoint = await MapiAutodiscover.DiscoverAsync(MapiConnectionProbe.AutodiscoverUrl(ewsUri), Account.Address, credential, cancellationToken).ConfigureAwait(false);
-        }
-        catch (MapiNotAdvertisedException ex) when (server.ExchangeTransport == ExchangeTransport.Automatic)
-        {
-            Logger.Warning("MAPI {Account}: {Reason} Falling back to Exchange Web Services.", Account.Address, ex.Message);
-
-            // Only a change of the recorded transport asks for another pass: a synchronizer that is still MAPI-based
-            // would otherwise request one on every failure.
-            if (server.DetectedExchangeTransport != ExchangeTransport.Ews)
-            {
-                server.DetectedExchangeTransport = ExchangeTransport.Ews;
-                await ExchangeChangeProcessor.UpdateAccountServerInformationAsync(server).ConfigureAwait(false);
-                Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
-                {
-                    AccountId = Account.Id,
-                    Type = MailSynchronizationType.FullFolders
-                }));
-            }
-
-            throw;
-        }
-
-        if (server.DetectedExchangeTransport != ExchangeTransport.MapiHttp)
-        {
-            server.DetectedExchangeTransport = ExchangeTransport.MapiHttp;
-            await ExchangeChangeProcessor.UpdateAccountServerInformationAsync(server).ConfigureAwait(false);
-        }
+        // The transport is fixed at setup: a server that stops advertising MAPI over HTTP fails the synchronization
+        // with MapiNotAdvertisedException instead of switching the account to EWS.
+        var endpoint = await MapiAutodiscover.DiscoverAsync(MapiConnectionProbe.AutodiscoverUrl(ewsUri), Account.Address, credential, cancellationToken).ConfigureAwait(false);
 
         _endpoint = endpoint;
         return endpoint;
@@ -324,6 +296,7 @@ IExchangeAuthenticator exchangeAuthenticator,
 
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
+        BeginCategoryPass();
         var isFullPass = options.Type == MailSynchronizationType.FullFolders;
 
         if (options.Type == MailSynchronizationType.FoldersOnly || (isFullPass && DateTime.UtcNow - _hierarchyReadUtc > HierarchyReuseWindow))
@@ -370,7 +343,8 @@ IExchangeAuthenticator exchangeAuthenticator,
                     // Taken before the sync, so a change that lands during it moves the marker past the recorded one.
                     _hierarchyMarkers.TryGetValue(folder.RemoteFolderId ?? string.Empty, out var marker);
 
-                    downloaded.AddRange(await SynchronizeFolderMessagesAsync(session, folder, cancellationToken).ConfigureAwait(false));
+                    var keywordsTag = await ResolveKeywordsTagAsync(session, cancellationToken).ConfigureAwait(false);
+                    downloaded.AddRange(await SynchronizeFolderMessagesAsync(session, folder, keywordsTag, cancellationToken).ConfigureAwait(false));
 
                     if (marker is not null && folder.RemoteFolderId is { } synchronizedId)
                         _synchronizedMarkers[synchronizedId] = marker;
@@ -431,11 +405,11 @@ IExchangeAuthenticator exchangeAuthenticator,
     /// folder yields everything. If ICS fails for any reason the folder's state is cleared and the folder falls back
     /// to a full read for this pass.
     /// </summary>
-    private async Task<List<MailCopy>> SynchronizeFolderMessagesAsync(MapiSession session, MailItemFolder folder, CancellationToken cancellationToken)
+    private async Task<List<MailCopy>> SynchronizeFolderMessagesAsync(MapiSession session, MailItemFolder folder, uint keywordsTag, CancellationToken cancellationToken)
     {
         try
         {
-            return await SynchronizeFolderMessagesIncrementalAsync(session, folder, cancellationToken).ConfigureAwait(false);
+            return await SynchronizeFolderMessagesIncrementalAsync(session, folder, keywordsTag, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -452,12 +426,12 @@ IExchangeAuthenticator exchangeAuthenticator,
         }
     }
 
-    private async Task<List<MailCopy>> SynchronizeFolderMessagesIncrementalAsync(MapiSession session, MailItemFolder folder, CancellationToken cancellationToken)
+    private async Task<List<MailCopy>> SynchronizeFolderMessagesIncrementalAsync(MapiSession session, MailItemFolder folder, uint keywordsTag, CancellationToken cancellationToken)
     {
         var folderId = RequireFolderId(folder);
         var state = IcsState.Deserialize(folder.DeltaToken);
 
-        var sync = await MapiIcsOperations.SyncContentsAsync(session, folderId, state, PropertyTags.MessageListColumns, cancellationToken, Diagnostics).ConfigureAwait(false);
+        var sync = await MapiIcsOperations.SyncContentsAsync(session, folderId, state, [.. PropertyTags.MessageListColumns, keywordsTag], cancellationToken, Diagnostics).ConfigureAwait(false);
 
         if (sync.NewState.IsEmpty)
             throw new InvalidOperationException("ICS returned no state; the transfer state stream was not understood.");
@@ -466,7 +440,7 @@ IExchangeAuthenticator exchangeAuthenticator,
         var localById = IndexById(local);
 
         var stateUpdates = new List<MailCopyStateUpdate>();
-        var downloaded = await UpsertRemoteMessagesAsync(sync.Changes, folder, localById, stateUpdates, cancellationToken).ConfigureAwait(false);
+        var downloaded = await UpsertRemoteMessagesAsync(sync.Changes, folder, localById, stateUpdates, keywordsTag, cancellationToken).ConfigureAwait(false);
 
         if (stateUpdates.Count > 0)
             await ExchangeChangeProcessor.ApplyMailStateUpdatesAsync(stateUpdates).ConfigureAwait(false);
@@ -515,7 +489,7 @@ IExchangeAuthenticator exchangeAuthenticator,
         var localById = IndexById(local);
 
         var stateUpdates = new List<MailCopyStateUpdate>();
-        var downloaded = await UpsertRemoteMessagesAsync(remote, folder, localById, stateUpdates, cancellationToken).ConfigureAwait(false);
+        var downloaded = await UpsertRemoteMessagesAsync(remote, folder, localById, stateUpdates, keywordsTag: null, cancellationToken).ConfigureAwait(false);
 
         if (stateUpdates.Count > 0)
             await ExchangeChangeProcessor.ApplyMailStateUpdatesAsync(stateUpdates).ConfigureAwait(false);
@@ -548,13 +522,14 @@ IExchangeAuthenticator exchangeAuthenticator,
 
     /// <summary>
     /// Folds server rows into the folder. A row that already exists locally only contributes a read/flag state
-    /// update: creating it again would mint a new FileId and orphan the cached body. Anything else is new here, or
+    /// update and its categories: creating it again would mint a new FileId and orphan the cached body. Anything else is new here, or
     /// moved here from another folder (the upsert removes the other row by id), and is inserted.
     /// </summary>
     private async Task<List<MailCopy>> UpsertRemoteMessagesAsync(IEnumerable<MapiMessageInfo> messages,
                                                                  MailItemFolder folder,
                                                                  IReadOnlyDictionary<string, MailCopy> localById,
                                                                  List<MailCopyStateUpdate> stateUpdates,
+                                                                 uint? keywordsTag,
                                                                  CancellationToken cancellationToken)
     {
         var downloaded = new List<MailCopy>();
@@ -564,6 +539,13 @@ IExchangeAuthenticator exchangeAuthenticator,
             cancellationToken.ThrowIfCancellationRequested();
             var id = ToMapiId(message.MessageId);
 
+            // Null when the rows were read without PidNameKeywords: the mail's categories stay as they are.
+            var categoryNames = keywordsTag is { } tag && MapiCategoryOperations.ReadKeywords(message, tag) is { } keywords
+                ? NormalizeCategoryNames(keywords)
+                : null;
+            if (categoryNames is not null)
+                await EnsureMailCategoriesAsync(categoryNames, cancellationToken).ConfigureAwait(false);
+
             if (localById.TryGetValue(id, out var existing))
             {
                 var readChanged = existing.IsRead != message.IsRead;
@@ -571,10 +553,13 @@ IExchangeAuthenticator exchangeAuthenticator,
                 if (readChanged || flagChanged)
                     stateUpdates.Add(new MailCopyStateUpdate(id, readChanged ? message.IsRead : null, flagChanged ? message.IsFlagged : null));
 
+                if (categoryNames is not null)
+                    await ReplaceMailCategoryAssignmentsAsync(existing.UniqueId, categoryNames).ConfigureAwait(false);
+
                 continue;
             }
 
-            var package = new NewMailItemPackage(MapToMailCopy(message, folder), null, folder.RemoteFolderId);
+            var package = new NewMailItemPackage(MapToMailCopy(message, folder), null, folder.RemoteFolderId, null, categoryNames);
             if (await ExchangeChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false))
                 downloaded.Add(package.Copy);
         }
@@ -805,7 +790,11 @@ IExchangeAuthenticator exchangeAuthenticator,
         return Move(new BatchMoveRequest(requests.Select(r => new MoveRequest(r.Item, r.FromFolder, r.TargetFolder))));
     }
 
-    /// <summary>Soft delete: a move to Deleted Items. Items already there, and drafts, are deleted for good.</summary>
+    /// <summary>
+    /// A permanent delete, in place in every source folder. A delete request is never a move to Deleted Items (that is
+    /// a move request). RopDeleteMessages soft-deletes (MS-OXCFOLD 2.2.1.11), so the server keeps the messages
+    /// recoverable, the same as the EWS SoftDelete.
+    /// </summary>
     public override List<IRequestBundle<EwsRequest>> Delete(BatchDeleteRequest requests)
     {
         if (requests == null || requests.Count == 0)
@@ -816,37 +805,21 @@ IExchangeAuthenticator exchangeAuthenticator,
         return MapiBundle(async (session, cancellationToken) =>
         {
             var folders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
-            var deletedItemsId = RequireFolderId(folders.FirstOrDefault(f => f.SpecialFolderType == SpecialFolderType.Deleted));
+            var incomplete = new List<string>();
 
             foreach (var group in byFolder)
             {
                 var sourceFolder = folders.FirstOrDefault(f => f.Id == group.Key);
                 var source = RequireFolderId(sourceFolder);
-                var sourceIsDrafts = sourceFolder?.SpecialFolderType == SpecialFolderType.Draft;
+                var ids = group.Select(r => RequireMessageId(r.MailItem)).ToList();
 
-                // A draft moved to Deleted Items would come back on the next sync as an empty draft row there.
-                var drafts = new List<ulong>();
-                var mails = new List<ulong>();
-                foreach (var request in group)
-                {
-                    var messageId = RequireMessageId(request.MailItem);
-                    if (sourceIsDrafts || request.MailItem.IsDraft)
-                        drafts.Add(messageId);
-                    else
-                        mails.Add(messageId);
-                }
-
-                if (drafts.Count > 0)
-                    await MapiMessageOperations.DeleteAsync(session, source, drafts, cancellationToken).ConfigureAwait(false);
-
-                if (mails.Count == 0)
-                    continue;
-
-                if (source == deletedItemsId)
-                    await MapiMessageOperations.DeleteAsync(session, source, mails, cancellationToken).ConfigureAwait(false);
-                else
-                    await MapiMessageOperations.MoveAsync(session, source, deletedItemsId, mails, copy: false, cancellationToken).ConfigureAwait(false);
+                if (!await MapiMessageOperations.DeleteAsync(session, source, ids, cancellationToken).ConfigureAwait(false))
+                    incomplete.Add(sourceFolder?.FolderName ?? group.Key.ToString());
             }
+
+            // PartialCompletion: the server failed to delete at least one message and does not say which.
+            if (incomplete.Count > 0)
+                throw new MapiException($"RopDeleteMessages did not delete every message in {string.Join(", ", incomplete)}.");
         }, requests[0], requests);
     }
 
@@ -1127,27 +1100,23 @@ IExchangeAuthenticator exchangeAuthenticator,
                 specialByFolderId[folder.FolderId] = SpecialFolderType.Junk;
         }
 
-        // Mail folders only, as on EWS; a special folder always counts even if its class is unusual.
+        // Mail folders and folders without a class, as on EWS; a special folder always counts even if its class is unusual.
         var mailFolders = remoteFolders
-            .Where(f => f.IsMailFolder || specialByFolderId.ContainsKey(f.FolderId))
+            .Where(f => f.IsMailFolder || f.IsUntypedFolder || specialByFolderId.ContainsKey(f.FolderId))
             .ToList();
 
         var localFolders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
 
-        // A row still carrying an EWS id (the account ran on EWS before the transport changed) is matched by its
-        // MapiFolderId and re-keyed in place, so nothing under it moves: mail rows key on the folder row's Guid.
         var mailFolderIds = mailFolders.Select(f => f.FolderId).ToHashSet();
+
         var localByRemoteId = localFolders
             .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
             .GroupBy(f => f.RemoteFolderId)
             .ToDictionary(g => g.Key, g => g.First());
-        var localByMapiId = localFolders
-            .Where(f => !string.IsNullOrEmpty(f.MapiFolderId))
-            .GroupBy(f => f.MapiFolderId)
-            .ToDictionary(g => g.Key, g => g.First());
 
         var structureChanged = false;
         var seenRemoteIds = new HashSet<string>(StringComparer.Ordinal);
+        var assignedRoles = specialByFolderId.Values.ToHashSet();
 
         foreach (var remote in mailFolders)
         {
@@ -1161,17 +1130,17 @@ IExchangeAuthenticator exchangeAuthenticator,
             var isSystem = specialType != SpecialFolderType.Other;
             var mapiFolderId = remote.FolderId.ToString("X16", CultureInfo.InvariantCulture);
 
-            if (localByRemoteId.TryGetValue(remoteId, out var existing) || localByMapiId.TryGetValue(mapiFolderId, out existing))
+            if (localByRemoteId.TryGetValue(remoteId, out var existing))
             {
-                if (existing.RemoteFolderId != remoteId)
-                {
-                    Logger.Information("MAPI folder sync: re-keying {Name} from its EWS id to {Key}.", remote.DisplayName, remoteId);
-                    existing.RemoteFolderId = remoteId;
-                    structureChanged = true;
-                }
-
                 if (existing.FolderName != remote.DisplayName || existing.ParentRemoteFolderId != parentRemoteId)
                     structureChanged = true;
+
+                // A type no folder holds on the server (Archive, or one the user assigned) stays as it is.
+                if (existing.IsSystemFolder && !isSystem && !assignedRoles.Contains(existing.SpecialFolderType))
+                {
+                    specialType = existing.SpecialFolderType;
+                    isSystem = true;
+                }
 
                 // Classification here comes from ids, not from a bind that may have failed, so both corrections are
                 // safe. The Inbox is never left unpinned: the navigation only looks for it at the top level.
@@ -1192,6 +1161,7 @@ IExchangeAuthenticator exchangeAuthenticator,
                 existing.SpecialFolderType = specialType;
                 existing.IsSystemFolder = isSystem;
                 existing.MapiFolderId = mapiFolderId;
+                existing.MapiEntryId = remote.EntryIdHex;
                 await ExchangeChangeProcessor.UpdateFolderAsync(existing).ConfigureAwait(false);
             }
             else
@@ -1204,11 +1174,12 @@ IExchangeAuthenticator exchangeAuthenticator,
                     RemoteFolderId = remoteId,
                     ParentRemoteFolderId = parentRemoteId,
                     MapiFolderId = mapiFolderId,
+                    MapiEntryId = remote.EntryIdHex,
                     FolderName = remote.DisplayName,
                     SpecialFolderType = specialType,
                     IsSticky = isSystem,
                     IsSystemFolder = isSystem,
-                    IsSynchronizationEnabled = true,
+                    IsSynchronizationEnabled = isSystem || remote.IsMailFolder,
                     ShowUnreadCount = specialType != SpecialFolderType.Deleted,
                     IsCountedInAccountTotal = specialType != SpecialFolderType.Deleted,
                 }).ConfigureAwait(false);

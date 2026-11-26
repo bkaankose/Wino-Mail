@@ -179,14 +179,16 @@ public sealed partial class AccountSetupPageFragment
 
     #endregion
 
-    #region Sign-in method
+    #region Sign-in method and server kind
 
     private void BuildSignInMethodStep(Form form, AccountSetupPageViewModel viewModel)
     {
         var context = form.Context;
         CaptionWhen(form, vm => vm.HasStepCaption ? vm.StepCaption : null, topDp: 0).AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
-        var group = new RadioGroup(context) { Orientation = Orientation.Vertical, ContentDescription = Translator.AccountSetup_SignInOptionsHeader };
+        var group = new RadioGroup(context) { Orientation = Orientation.Vertical };
         form.Add(group);
+        form.Binder.BindAny(viewModel, vm => vm.Step == AccountSetupStep.ServerKind ? vm.StepTitle : Translator.AccountSetup_SignInOptionsHeader,
+            name => group.ContentDescription = name);
         var buttons = new List<(MaterialRadioButton Button, AccountSetupChoice Choice)>();
         form.Binder.Bind(viewModel, nameof(viewModel.StepChoices), vm => vm.StepChoices, choices =>
         {
@@ -203,8 +205,21 @@ public sealed partial class AccountSetupPageFragment
                     label.SetSpan(new global::Android.Text.Style.ForegroundColorSpan(WinoColors.SecondaryText(context)), start, label.Length(), SpanTypes.ExclusiveExclusive);
                     label.SetSpan(new global::Android.Text.Style.RelativeSizeSpan(0.86f), start, label.Length(), SpanTypes.ExclusiveExclusive);
                 }
+                if (choice.HasDescription)
+                {
+                    var start = label.Length();
+                    label.Append("\n" + choice.Description);
+                    label.SetSpan(new global::Android.Text.Style.ForegroundColorSpan(WinoColors.SecondaryText(context)), start, label.Length(), SpanTypes.ExclusiveExclusive);
+                    label.SetSpan(new global::Android.Text.Style.RelativeSizeSpan(0.86f), start, label.Length(), SpanTypes.ExclusiveExclusive);
+                }
                 button.TextFormatted = label;
                 button.SetMinHeight(WinoUnits.Dp(context, 48));
+                if (choice.HasGlyph)
+                {
+                    button.SetCompoundDrawablesRelativeWithIntrinsicBounds(WinoIcons.Drawable(context, choice.Glyph, 20, colorful: true), null, null, null);
+                    button.CompoundDrawablePadding = WinoUnits.Dp(context, 12);
+                }
+                if (choice.HasDescription) button.SetPadding(button.PaddingLeft, WinoUnits.Dp(context, 8), button.PaddingRight, WinoUnits.Dp(context, 8));
                 button.Click += (_, _) => { if (!ReferenceEquals(viewModel.SelectedChoice, choice)) viewModel.SelectedChoice = choice; };
                 group.AddView(button, new RadioGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
                 buttons.Add((button, choice));

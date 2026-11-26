@@ -10,7 +10,11 @@ using Wino.Providers.Exchange.MAPI.Wire;
 
 namespace Wino.Providers.Exchange.MAPI.Calendar;
 
-/// <summary>A modified instance of a series (MS-OXOCAL 2.2.1.44.4 ExceptionInfo), with the fields this client uses.</summary>
+/// <summary>
+/// A modified instance of a series (MS-OXOCAL 2.2.1.44.2 ExceptionInfo), with the fields this client uses.
+/// <see cref="HasAttachments"/> is the Attachment field (ARO_ATTACHMENT): whether the exception's embedded message has
+/// attachments of its own; null when the exception does not override them.
+/// </summary>
 public sealed record RecurrenceException(
     DateTime OriginalStart,
     DateTime Start,
@@ -18,7 +22,8 @@ public sealed record RecurrenceException(
     string? Subject,
     string? Location,
     uint? BusyStatus,
-    bool? AllDay);
+    bool? AllDay,
+    bool? HasAttachments = null);
 
 /// <summary>
 /// PidLidAppointmentRecur (MS-OXOCAL 2.2.1.44), decoded: the pattern, its bounds, the deleted and
@@ -128,7 +133,7 @@ public sealed record AppointmentRecurrence
         var endOffset = TimeSpan.FromMinutes(r.UInt32());
         var exceptionCount = r.UInt16();
 
-        var infos = new List<(DateTime Start, DateTime End, DateTime Original, ushort Flags, string? Subject, string? Location, uint? Busy, bool? AllDay)>(exceptionCount);
+        var infos = new List<(DateTime Start, DateTime End, DateTime Original, ushort Flags, string? Subject, string? Location, uint? Busy, bool? AllDay, bool? HasAttachments)>(exceptionCount);
         for (var i = 0; i < exceptionCount; i++)
         {
             var start = FromMinutes(r.UInt32());
@@ -138,6 +143,7 @@ public sealed record AppointmentRecurrence
             string? subject = null, location = null;
             uint? busy = null;
             bool? allDay = null;
+            bool? hasAttachments = null;
 
             if ((flags & 0x0001) != 0) { r.UInt16(); var len = r.UInt16(); subject = Encoding.Latin1.GetString(r.Bytes(len).Span); }
             if ((flags & 0x0002) != 0) r.UInt32();          // MeetingType
@@ -145,11 +151,11 @@ public sealed record AppointmentRecurrence
             if ((flags & 0x0008) != 0) r.UInt32();          // ReminderSet
             if ((flags & 0x0010) != 0) { r.UInt16(); var len = r.UInt16(); location = Encoding.Latin1.GetString(r.Bytes(len).Span); }
             if ((flags & 0x0020) != 0) busy = r.UInt32();
-            if ((flags & 0x0040) != 0) r.UInt32();          // Attachment
+            if ((flags & 0x0040) != 0) hasAttachments = r.UInt32() != 0;
             if ((flags & 0x0080) != 0) allDay = r.UInt32() != 0;
             if ((flags & 0x0100) != 0) r.UInt32();          // AppointmentColor
 
-            infos.Add((start, end, original, flags, subject, location, busy, allDay));
+            infos.Add((start, end, original, flags, subject, location, busy, allDay, hasAttachments));
         }
 
         var reserved1 = r.UInt32();
@@ -183,7 +189,7 @@ public sealed record AppointmentRecurrence
                 }
             }
 
-            exceptions.Add(new RecurrenceException(info.Original, info.Start, info.End, subject, location, info.Busy, info.AllDay));
+            exceptions.Add(new RecurrenceException(info.Original, info.Start, info.End, subject, location, info.Busy, info.AllDay, info.HasAttachments));
         }
 
         return new AppointmentRecurrence

@@ -137,11 +137,21 @@ public static class MapiRulesOperations
 
     /// <summary>Adds a rule. The server assigns the rule id; read the table again to learn it.</summary>
     public static Task AddRuleAsync(MapiSession session, ulong folderId, MapiRuleDefinition rule, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
-        => ModifyRulesAsync(session, folderId, [new RopFolder.RuleData(RopFolder.RuleDataFlags.Add, RuleProperties(rule, ruleId: null))], cancellationToken, diagnostics);
+        => ModifyRulesAsync(session, folderId, [new RopFolder.RuleData(RopFolder.RuleDataFlags.Add, RuleProperties(rule, ruleId: null, PropertyTags.RuleOrganizerProvider))], cancellationToken, diagnostics);
 
-    /// <summary>Rewrites every property of an existing rule.</summary>
-    public static Task UpdateRuleAsync(MapiSession session, ulong folderId, ulong ruleId, MapiRuleDefinition rule, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
-        => ModifyRulesAsync(session, folderId, [new RopFolder.RuleData(RopFolder.RuleDataFlags.Modify, RuleProperties(rule, ruleId))], cancellationToken, diagnostics);
+    /// <summary>
+    /// Rewrites an existing rule, sending back the provider that owns it and that provider's opaque PidTagRuleUserFlags
+    /// and PidTagRuleProviderData (MS-OXORULE 2.2.1.3.1.7, 2.2.1.3.1.8; a modify without them clears them, as the lab showed).
+    /// </summary>
+    public static Task UpdateRuleAsync(MapiSession session, ulong folderId, MapiRuleInfo current, MapiRuleDefinition rule, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
+    {
+        var values = RuleProperties(rule, current.RuleId, current.Provider);
+        values.Add(TaggedPropertyValue.Long(PropertyTags.RuleUserFlags, current.UserFlags));
+        if (current.ProviderData is { } providerData)
+            values.Add(TaggedPropertyValue.Binary(PropertyTags.RuleProviderData, providerData));
+
+        return ModifyRulesAsync(session, folderId, [new RopFolder.RuleData(RopFolder.RuleDataFlags.Modify, values)], cancellationToken, diagnostics);
+    }
 
     /// <summary>Changes only sequence, state or name; condition and actions are left as stored.</summary>
     public static Task UpdateRuleHeaderAsync(MapiSession session, ulong folderId, ulong ruleId, uint sequence, uint state, string name, CancellationToken cancellationToken = default)
@@ -180,7 +190,7 @@ public static class MapiRulesOperations
         }
     }
 
-    private static List<TaggedPropertyValue> RuleProperties(MapiRuleDefinition rule, ulong? ruleId)
+    private static List<TaggedPropertyValue> RuleProperties(MapiRuleDefinition rule, ulong? ruleId, string provider)
     {
         var values = new List<TaggedPropertyValue>();
         if (ruleId is { } id)
@@ -190,7 +200,7 @@ public static class MapiRulesOperations
         values.Add(TaggedPropertyValue.Long(PropertyTags.RuleLevel, 0));
         values.Add(TaggedPropertyValue.Long(PropertyTags.RuleState, rule.State));
         values.Add(TaggedPropertyValue.Unicode(PropertyTags.RuleName, rule.Name));
-        values.Add(TaggedPropertyValue.Unicode(PropertyTags.RuleProvider, PropertyTags.RuleOrganizerProvider));
+        values.Add(TaggedPropertyValue.Unicode(PropertyTags.RuleProvider, provider));
         values.Add(new TaggedPropertyValue(PropertyTags.RuleCondition, rule.Condition));
         values.Add(new TaggedPropertyValue(PropertyTags.RuleActions, rule.Actions));
         return values;

@@ -1496,6 +1496,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (targetMail?.MailCopy == null || targetMail.MailCopy.FileId == Guid.Empty)
             return;
 
+        // Providers that synchronize without MIME download it when a message opens; a reply from the list may come first.
+        var accountId = targetMail.MailCopy.AssignedAccount.Id;
+        if (!await _mimeFileService.IsMimeExistAsync(accountId, targetMail.MailCopy.FileId) &&
+            await _synchronizationManager.DownloadMimeMessageAsync(targetMail.MailCopy, accountId) == null)
+        {
+            _mailDialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
+            return;
+        }
+
         var mimeInformation = await _mimeFileService.GetMimeMessageInformationAsync(targetMail.MailCopy.FileId, targetMail.MailCopy.AssignedAccount.Id);
         if (mimeInformation?.MimeMessage == null)
             return;
@@ -1666,7 +1675,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         await ApplyCategoryAssignmentToVisibleItemsAsync(category, targetList, isAssignedToAll).ConfigureAwait(false);
 
-        if (!_providers.GetTraits(targetList.First().MailCopy.AssignedAccount.ProviderType).SupportsCategorySync)
+        if (targetList.First().MailCopy.AssignedAccount is not { } assignedAccount || !_providers.GetTraits(assignedAccount).SynchronizesCategoryAssignments)
             return;
 
         var requests = new List<IRequestBase>();
@@ -3169,8 +3178,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             {
                 foreach (var accountId in context.HandlingFolders.Select(folder => folder.MailAccountId).Distinct())
                 {
-                    var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-                    if (account?.ProviderType == MailProviderType.POP3)
+                    if (!await _synchronizationManager.SupportsOnlineSearchAsync(accountId).ConfigureAwait(false))
                     {
                         supportsOnlineSearch = false;
                         break;
@@ -3640,7 +3648,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() =>
         {
             appliesToActiveFolder =
-                message.Reason is AccountCacheResetReason.ExpiredCache or AccountCacheResetReason.MailAccessDisabled &&
+                message.Reason is AccountCacheResetReason.ExpiredCache or AccountCacheResetReason.MailAccessDisabled or AccountCacheResetReason.RemoteWipe &&
                 ActiveFolder?.HandlingFolders.Any(a => a.MailAccountId == message.AccountId) == true;
         });
 

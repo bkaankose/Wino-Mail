@@ -364,6 +364,147 @@ public sealed class NspiClient(MapiHttpTransport transport, Action<string>? diag
         return rows;
     }
 
+    /// <summary>PidTagAddressBookProxyAddresses (MS-OXOABK 2.2.3.23): every address of the entry, "SMTP:" marking the primary SMTP one.</summary>
+    public const uint ProxyAddresses = 0x800F101F;
+
+    /// <summary>DnToMinId request body (MS-OXCMAPIHTTP 2.2.5.4.1): Reserved, HasNames, NameCount and the DNs as null-terminated ASCII.</summary>
+    public static byte[] BuildDnToMinId(IReadOnlyList<string> distinguishedNames)
+    {
+        var w = new RopWriter();
+        w.UInt32(0);                     // Reserved
+        w.UInt8(1);                      // HasNames
+        w.UInt32((uint)distinguishedNames.Count);
+        foreach (var name in distinguishedNames) w.AsciiZ(name);
+        w.UInt32(0);                     // AuxiliaryBufferSize
+        return w.ToArray();
+    }
+
+    /// <summary>DnToMinId success response (2.2.5.4.2): StatusCode, ErrorCode, HasMinimalIds, MinimalIdCount, MinimalIds.</summary>
+    public static uint[] ParseDnToMinId(byte[] body)
+    {
+        var r = new RopReader(body);
+        var status = r.UInt32();
+        var error = r.UInt32();
+        if (status != 0)
+            throw new MapiFormatException($"NSPI DnToMinId returned StatusCode 0x{status:X8}.");
+        if (error != 0)
+            throw new MapiRopException("NspiDNToMId", error);
+
+        if (r.UInt8() == 0)
+            return [];
+
+        var count = r.UInt32();
+        var ids = new uint[count];
+        for (var i = 0; i < count; i++) ids[i] = r.UInt32();
+        return ids;
+    }
+
+    /// <summary>
+    /// The Minimal Entry ID of each DN (MS-OXNSPI 3.1.4.1.13). An unresolved DN maps to 0, which is not an entry.
+    /// </summary>
+    public async Task<uint[]> DnToMinIdAsync(IReadOnlyList<string> distinguishedNames, CancellationToken cancellationToken = default)
+    {
+        var response = await _transport.SendAddressBookAsync("DNToMId", BuildDnToMinId(distinguishedNames), cancellationToken).ConfigureAwait(false);
+        response.EnsureTransportSucceeded();
+        return ParseDnToMinId(response.Body);
+    }
+
+    /// <summary>
+    /// GetProps request body (MS-OXCMAPIHTTP 2.2.5.7.1). NspiGetProps reads the entry the STAT's CurrentRec names
+    /// (MS-OXNSPI 3.1.4.1.7), so the STAT carries the Minimal Entry ID.
+    /// </summary>
+    public static byte[] BuildGetProps(uint minimalEntryId, IReadOnlyList<uint> columns)
+    {
+        var state = Stat();
+        BitConverter.TryWriteBytes(state.AsSpan(8, 4), minimalEntryId);   // STAT.CurrentRec
+
+        var w = new RopWriter();
+        w.UInt32(0);                     // Flags
+        w.UInt8(1);                      // HasState
+        w.Bytes(state);
+        w.UInt8(1);                      // HasPropertyTags
+        w.UInt32((uint)columns.Count);   // LargePropertyTagArray.PropertyTagCount
+        foreach (var t in columns) w.UInt32(t);
+        w.UInt32(0);                     // AuxiliaryBufferSize
+        return w.ToArray();
+    }
+
+    /// <summary>
+    /// GetProps success response (2.2.5.7.2): StatusCode, ErrorCode, CodePage, HasPropertyValues and an
+    /// AddressBookPropertyValueList (2.2.1.3) of AddressBookTaggedPropertyValues (2.2.1.2). Each value states its own
+    /// type, which is PtypErrorCode for a property the entry lacks. MAPI_W_ERRORS_RETURNED (0x00040380) means some
+    /// properties came back as errors, which their values carry.
+    /// </summary>
+    public static List<PropertyValue> ParseGetProps(byte[] body)
+    {
+        var r = new RopReader(body);
+        var status = r.UInt32();
+        var error = r.UInt32();
+        if (status != 0)
+            throw new MapiFormatException($"NSPI GetProps returned StatusCode 0x{status:X8}.");
+        if (error != 0 && error != 0x00040380)
+            throw new MapiRopException("NspiGetProps", error);
+
+        r.UInt32();                                                           // CodePage
+        var values = new List<PropertyValue>();
+        if (r.UInt8() == 0)                                                   // HasPropertyValues
+            return values;
+
+        var count = r.UInt32();
+        for (var i = 0; i < count; i++)
+        {
+            var type = r.UInt16();
+            var id = r.UInt16();
+            var tag = ((uint)id << 16) | type;
+            if (type == PropertyTypes.ErrorCode)
+            {
+                values.Add(PropertyValue.Failed(tag, r.UInt32()));
+                continue;
+            }
+
+            values.Add(PropertyValue.Of(tag, type == PropertyTypes.MultipleUnicode ? ReadMultipleUnicode(r) : ReadValue(r, type)));
+        }
+
+        return values;
+    }
+
+    /// <summary>
+    /// A PtypMultipleString AddressBookPropertyValue (2.2.1.1): HasValue, a 4-byte count, then each string behind its
+    /// own HasValue byte.
+    /// </summary>
+    private static string[]? ReadMultipleUnicode(RopReader r)
+    {
+        if (r.UInt8() == 0)
+            return null;
+
+        var count = r.UInt32();
+        var values = new List<string>((int)Math.Min(count, 1024));
+        for (var i = 0; i < count; i++)
+        {
+            if (r.UInt8() != 0)
+                values.Add(r.UnicodeZ());
+        }
+
+        return [.. values];
+    }
+
+    /// <summary>The requested properties of one address book entry, by its Minimal Entry ID.</summary>
+    public async Task<List<PropertyValue>> GetPropsAsync(uint minimalEntryId, IReadOnlyList<uint> columns, CancellationToken cancellationToken = default)
+    {
+        var request = BuildGetProps(minimalEntryId, columns);
+        var response = await _transport.SendAddressBookAsync("GetProps", request, cancellationToken).ConfigureAwait(false);
+        response.EnsureTransportSucceeded();
+        try
+        {
+            return ParseGetProps(response.Body);
+        }
+        catch (MapiFormatException)
+        {
+            _diagnostics?.Invoke("NSPI GetProps not decoded; response:" + Environment.NewLine + HexDump.Render(response.Body, 2048));
+            throw;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_bound)

@@ -383,6 +383,7 @@ public sealed class ConnectionStatusView : UIStackView
 /// <summary>The guided IMAP steps (features, sign in, servers) with the current one highlighted (Mac SetupStepIndicator).</summary>
 public sealed class SetupStepIndicator : UIStackView
 {
+    private readonly Step _features;
     private readonly Step _signIn;
     private readonly Step _servers;
 
@@ -392,11 +393,10 @@ public sealed class SetupStepIndicator : UIStackView
         Axis = UILayoutConstraintAxis.Horizontal;
         Spacing = 8;
         Alignment = UIStackViewAlignment.Center;
-        var features = new Step("1", Translator.ImapSetup_StepFeatures);
+        _features = new Step("1", Translator.ImapSetup_StepFeatures);
         _signIn = new Step("2", Translator.ImapSetup_StepSignIn);
         _servers = new Step("3", Translator.ImapSetup_StepServers);
-        features.Apply(done: true, current: false);
-        AddArrangedSubview(features);
+        AddArrangedSubview(_features);
         AddArrangedSubview(_signIn);
         AddArrangedSubview(_servers);
         SetCurrent(ImapSetupStep.SignIn);
@@ -404,6 +404,7 @@ public sealed class SetupStepIndicator : UIStackView
 
     public void SetCurrent(ImapSetupStep step)
     {
+        _features.Apply(done: step != ImapSetupStep.Features, current: step == ImapSetupStep.Features);
         _signIn.Apply(done: step == ImapSetupStep.Servers, current: step == ImapSetupStep.SignIn);
         _servers.Apply(done: false, current: step == ImapSetupStep.Servers);
     }

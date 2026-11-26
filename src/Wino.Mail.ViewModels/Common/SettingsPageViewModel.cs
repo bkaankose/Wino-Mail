@@ -168,7 +168,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
             AccountDetailsTab.Mail,
             "folders folder list");
 
-        var traits = _providers.GetTraits(account.ProviderType);
+        var traits = _providers.GetTraits(account);
 
         if (traits.SupportsAliasSync)
         {

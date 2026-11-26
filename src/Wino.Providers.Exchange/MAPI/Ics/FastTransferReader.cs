@@ -126,14 +126,14 @@ public sealed class FastTransferReader
 
         if (id >= 0x8000)
         {
-            // Named property: GUID, kind, then a dispatch id or a name. Not expected with the
-            // property sets this client asks for; read it so the stream stays aligned.
+            // Named property (MS-OXCFXICS 2.2.4.1): GUID, kind, then a dispatch id or a name. The name is a
+            // PtypString serialized as in MS-OXCDATA, NUL-terminated with no length before it.
             reader.Bytes(16);
             var kind = reader.UInt8();
             if (kind == 0)
                 reader.UInt32();
             else
-                ReadLengthPrefixedUnicode(reader);
+                reader.UnicodeZ();
         }
 
         object? value = tag switch

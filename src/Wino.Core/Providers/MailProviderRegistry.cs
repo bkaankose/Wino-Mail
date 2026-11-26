@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -38,6 +39,12 @@ public sealed class MailProviderRegistry : IMailProviderRegistry
 
     public MailProviderTraits GetTraits(MailProviderType providerType)
         => Find(providerType)?.Traits ?? MailProviderTraits.None;
+
+    public MailProviderTraits GetTraits(MailAccount account)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        return Find(account.ProviderType)?.GetTraits(account) ?? MailProviderTraits.None;
+    }
 
     private static Dictionary<MailProviderType, IMailProviderModule> BuildLookup(IReadOnlyList<IMailProviderModule> modules)
     {

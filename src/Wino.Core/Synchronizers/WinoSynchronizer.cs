@@ -1096,6 +1096,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     public virtual bool SupportsMailImport => false;
 
+    public virtual bool SupportsOnlineSearch => true;
+
     public virtual Task<MailImportResult> ImportMailAsync(MailImportPackage package, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
     /// <summary>
@@ -1128,6 +1130,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
         return Task.CompletedTask;
     }
+
+    public virtual Task ReleaseServerSessionsAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     protected void CancelAllSynchronizations()
     {

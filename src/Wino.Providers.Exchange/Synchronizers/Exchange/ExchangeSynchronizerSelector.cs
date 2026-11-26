@@ -8,6 +8,7 @@ using Wino.Core.Integration.Processors;
 using Wino.Providers.Exchange.Integration.Processors;
 using Wino.Providers.Exchange.Interfaces;
 using Wino.Providers.Exchange.Synchronizers.Mapi;
+using Wino.Services.Interfaces;
 
 namespace Wino.Providers.Exchange.Synchronizers.Exchange;
 
@@ -26,15 +27,31 @@ IExchangeAuthenticator exchangeAuthenticator,
                                               IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
                                               IContactService? contactService = null,
                                               IPictureStorageService? contactPictureService = null,
-                                              ITaskService? taskService = null)
+                                              ITaskService? taskService = null,
+                                              IMailCategoryService? mailCategoryService = null)
     {
         ArgumentNullException.ThrowIfNull(account);
 
         var serverInformation = account.ServerInformation
             ?? throw new InvalidOperationException("The Exchange account has no server information.");
 
+        if (serverInformation.EffectiveExchangeTransport == ExchangeTransport.ActiveSync)
+            throw new InvalidOperationException("ActiveSync requires its configured synchronizer factory.");
+
         return serverInformation.EffectiveExchangeTransport == ExchangeTransport.Ews
-            ? new ExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService)
-            : new MapiExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService);
+            ? new ExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService, mailCategoryService)
+            : new MapiExchangeSynchronizer(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService, mailCategoryService);
+    }
+
+    public static IWinoSynchronizerBase Create(MailAccount account, IMessenger messenger, RequestUiChangeCoordinator uiChanges,
+        IExchangeAuthenticator exchangeAuthenticator, IExchangeChangeProcessor exchangeChangeProcessor,
+        IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory, IContactService? contactService,
+        IPictureStorageService? contactPictureService, ITaskService? taskService, IMailCategoryService? mailCategoryService,
+        Func<IWinoSynchronizerBase> activeSyncFactory)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        return account.ServerInformation?.EffectiveExchangeTransport == ExchangeTransport.ActiveSync
+            ? activeSyncFactory()
+            : Create(account, messenger, uiChanges, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService, mailCategoryService);
     }
 }

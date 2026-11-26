@@ -35,6 +35,17 @@ public partial class AccountSetupPageViewModel
     [ObservableProperty]
     public partial InitialSynchronizationRangeOption? SelectedInitialSynchronizationRange { get; set; }
 
+    /// <summary>
+    /// The route's provider limits the first download by the range. One that stores all mail (Exchange) offers no range,
+    /// and its account is saved with <see cref="InitialSynchronizationRange.Everything"/>.
+    /// </summary>
+    public bool IsMailSynchronizationRangeApplied => _providers.GetTraits(RouteProviderType).AppliesMailSynchronizationRange;
+
+    /// <summary>The range the account is saved with. The user's choice is kept for a route that applies one.</summary>
+    private InitialSynchronizationRange EffectiveInitialSynchronizationRange => IsMailSynchronizationRangeApplied
+        ? SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths
+        : InitialSynchronizationRange.Everything;
+
     [ObservableProperty]
     public partial bool IsCalDavManualEntryVisible { get; set; }
 

@@ -77,7 +77,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public partial bool IsProfilePictureBusy { get; set; }
 
     public bool HasProfilePicture => Account?.ProfilePictureFileId.HasValue == true;
-    public bool CanRefreshProfilePicture => Account != null && _providers.GetTraits(Account.ProviderType).SupportsProfileInfoSync;
+    public bool CanRefreshProfilePicture => Account != null && _providers.GetTraits(Account).SupportsProfileInfoSync;
     public string ProfilePictureDescription => CanRefreshProfilePicture
         ? Translator.AccountDetailsPage_ProfilePictureDescription
         : Translator.AccountDetailsPage_ProfilePictureChooseDescription;
@@ -1282,7 +1282,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 Type = MailSynchronizationType.FullFolders
             });
 
-            if (_providers.GetTraits(Account.ProviderType).SupportsCategorySync)
+            if (_providers.GetTraits(Account).SupportsCategorySync)
             {
                 await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
                 {

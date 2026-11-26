@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
@@ -123,6 +124,14 @@ internal static class MapiCalendarExpander
             var id = $"{baseId}:{originalStartUtc:yyyyMMdd'T'HHmmss'Z'}";
             var occurrenceEvent = Build(row, id, startUtc, endUtc, iana, subject, location, busy, allDay);
             occurrenceEvent.RecurringParentRemoteId = baseId;
+
+            // An exception that overrides the attachments (MS-OXOCAL 2.2.1.44.2 ARO_ATTACHMENT) has them on its embedded
+            // message; one whose files were not read keeps its stored ones. Every other occurrence shows the series' files.
+            if (exception?.HasAttachments == false)
+                occurrenceEvent.Attachments = [];
+            else if (exception?.HasAttachments == true)
+                occurrenceEvent.Attachments = MapAttachments(row.ExceptionAttachments?
+                    .FirstOrDefault(files => Math.Abs((files.OriginalStartUtc - originalStartUtc).TotalMinutes) < 1)?.Files);
             result.Add(occurrenceEvent);
         }
 
@@ -166,8 +175,28 @@ internal static class MapiCalendarExpander
             _ => CalendarItemStatus.Accepted
         },
         ReminderMinutesBeforeStart = row.ReminderSet ? (int?)(row.ReminderMinutes ?? 15) : null,
-        Attendees = MapAttendees(row.Attendees)
+        Attendees = MapAttendees(row.Attendees),
+        Attachments = MapAttachments(row.Attachments)
     };
+
+    /// <summary>Separates a changed occurrence's Exception Attachment number from its file's number in an attachment's remote id.</summary>
+    internal const char ExceptionAttachmentSeparator = '/';
+
+    /// <summary>
+    /// The appointment's file attachments, each keyed by its PidTagAttachNumber, preceded for a changed occurrence's own
+    /// file by its Exception Attachment's number; null when they were not read.
+    /// </summary>
+    internal static List<SyncedCalendarAttachment>? MapAttachments(List<MapiAppointmentAttachment>? attachments)
+        => attachments?.Select(attachment => new SyncedCalendarAttachment
+        {
+            RemoteId = attachment.ExceptionAttachNumber is { } exceptionNumber
+                ? exceptionNumber.ToString(CultureInfo.InvariantCulture) + ExceptionAttachmentSeparator + attachment.AttachNumber.ToString(CultureInfo.InvariantCulture)
+                : attachment.AttachNumber.ToString(CultureInfo.InvariantCulture),
+            FileName = attachment.FileName,
+            ContentType = attachment.MimeType,
+            Size = attachment.Size,
+            LastModified = attachment.LastModified is { } modified ? new DateTimeOffset(DateTime.SpecifyKind(modified, DateTimeKind.Utc)) : null
+        }).ToList();
 
     /// <summary>Recipient rows to attendees; the organizer row is not an attendee (EWS listed only Required/Optional).</summary>
     internal static List<SyncedCalendarAttendee>? MapAttendees(List<OpenRecipient>? recipients)

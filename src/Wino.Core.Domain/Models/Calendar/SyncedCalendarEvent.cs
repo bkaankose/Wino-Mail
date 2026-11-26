@@ -13,6 +13,18 @@ public sealed class SyncedCalendarAttendee
     public AttendeeStatus Status { get; set; } = AttendeeStatus.NeedsAction;
 }
 
+/// <summary>A file attached to an event on the server, as metadata; the content is downloaded on demand.</summary>
+public sealed class SyncedCalendarAttachment
+{
+    /// <summary>The transport's id of the attachment, which its download takes.</summary>
+    public string RemoteId { get; set; } = string.Empty;
+
+    public string FileName { get; set; } = string.Empty;
+    public string? ContentType { get; set; }
+    public long Size { get; set; }
+    public DateTimeOffset? LastModified { get; set; }
+}
+
 /// <summary>
 /// One calendar occurrence or series master pulled from an on-premises Exchange server, in the provider-neutral shape
 /// the Exchange change processor maps onto a calendar item. The EWS appointment and the MAPI appointment row (after
@@ -60,4 +72,7 @@ public sealed class SyncedCalendarEvent
 
     /// <summary>For an occurrence of a series: the master's <see cref="RemoteId"/>, so the row links to it.</summary>
     public string? RecurringParentRemoteId { get; set; }
+
+    /// <summary>The event's file attachments; null when the transport did not read them, which leaves the stored ones as they are.</summary>
+    public List<SyncedCalendarAttachment>? Attachments { get; set; }
 }

@@ -440,7 +440,7 @@ public partial class AccountSetupPageViewModel
         ProviderName = NativeProviderName,
         AccountName = AccountName?.Trim(),
         AccountColorHex = SelectedColor?.Hex ?? string.Empty,
-        InitialSynchronizationRange = SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths,
+        InitialSynchronizationRange = EffectiveInitialSynchronizationRange,
         IsMailAccessEnabled = Capabilities.IsMailEnabled,
         IsCalendarAccessEnabled = Capabilities.IsCalendarEnabled,
         IsContactAccessEnabled = Capabilities.IsContactEnabled,
@@ -494,6 +494,7 @@ public partial class AccountSetupPageViewModel
         OnPropertyChanged(nameof(IsNotFoundVisible));
         OnPropertyChanged(nameof(NotFoundMessage));
         OnPropertyChanged(nameof(RouteProviderType));
+        OnPropertyChanged(nameof(IsMailSynchronizationRangeApplied));
         OnPropertyChanged(nameof(RouteSpecialImapProvider));
         OnPropertyChanged(nameof(RouteEvidenceText));
         OnPropertyChanged(nameof(RouteShortTitle));

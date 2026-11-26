@@ -113,9 +113,12 @@ public static class ShellMenuRowPresentation
                 return row with
                 {
                     Glyph = WinoIconGlyph.Warning,
-                    Title = fix.Account?.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration
-                        ? Translator.Shell_FixMissingSystemFolders
-                        : Translator.Shell_FixInvalidCredentials,
+                    Title = fix.Account?.AttentionReason switch
+                    {
+                        AccountAttentionReason.MissingSystemFolderConfiguration => Translator.Shell_FixMissingSystemFolders,
+                        AccountAttentionReason.RemovedByAdministrator => Translator.Shell_FixRemovedByAdministrator,
+                        _ => Translator.Shell_FixInvalidCredentials
+                    },
                     Indent = 0,
                     IsExpanded = null
                 };

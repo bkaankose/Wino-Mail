@@ -22,7 +22,7 @@ public class MailFilterProviderService(
     IMailProviderRegistry providers) : IMailFilterProviderService
 {
     public bool SupportsProviderFilters(MailAccount account)
-        => account != null && providers.GetTraits(account.ProviderType).SupportsProviderMailFilters;
+        => account != null && providers.GetTraits(account).SupportsProviderMailFilters;
 
     public Task<bool> IsProviderFiltersEnabledAsync(
         Guid accountId,

@@ -27,7 +27,7 @@ Before you edit under one of these folders, read its `AGENTS.md`. It is binding 
 | `src/Wino.Providers.Outlook` (Graph synchronizer, MSAL sign-in) | [src/Wino.Providers.Outlook/AGENTS.md](src/Wino.Providers.Outlook/AGENTS.md) |
 | `src/Wino.Providers.Gmail` (Gmail synchronizer, Google REST clients) | [src/Wino.Providers.Gmail/AGENTS.md](src/Wino.Providers.Gmail/AGENTS.md) |
 | `src/Wino.Providers.Imap` (IMAP and POP3) | [src/Wino.Providers.Imap/AGENTS.md](src/Wino.Providers.Imap/AGENTS.md) |
-| `src/Wino.Providers.Exchange` (EWS and MAPI) | [src/Wino.Providers.Exchange/AGENTS.md](src/Wino.Providers.Exchange/AGENTS.md) |
+| `src/Wino.Providers.Exchange` (EWS, MAPI and ActiveSync) | [src/Wino.Providers.Exchange/AGENTS.md](src/Wino.Providers.Exchange/AGENTS.md) |
 | `src/Wino.Providers.Dav` (CalDAV and CardDAV) | [src/Wino.Providers.Dav/AGENTS.md](src/Wino.Providers.Dav/AGENTS.md) |
 | `src/Wino.Mail.ViewModels` | [src/Wino.Mail.ViewModels/AGENTS.md](src/Wino.Mail.ViewModels/AGENTS.md) |
 | `src/Wino.Hosting` (the host that runs the backend without an app), or you add a contract a host must supply | [src/Wino.Hosting/AGENTS.md](src/Wino.Hosting/AGENTS.md) |

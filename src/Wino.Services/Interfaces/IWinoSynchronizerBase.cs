@@ -44,6 +44,9 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     /// <summary>Whether this account can store an exact copy of a message moved from another account.</summary>
     bool SupportsMailImport { get; }
 
+    /// <summary>Whether <see cref="OnlineSearchAsync"/> can search the server for this account.</summary>
+    bool SupportsOnlineSearch { get; }
+
     /// <summary>
     /// Stores the message in the target folder on the server, outside the request queue. The database is not written:
     /// the next synchronization of the folder brings the copy.
@@ -56,6 +59,13 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     /// 3. Dispose all resources.
     /// </summary>
     Task KillSynchronizerAsync();
+
+    /// <summary>
+    /// Ends the sessions this synchronizer holds open on the server (IMAP LOGOUT, MAPI Disconnect, the ActiveSync Ping)
+    /// so the server frees them now instead of when they expire. Runs once when the application stops; the synchronizer
+    /// is not used afterwards. Providers without server-side sessions do nothing.
+    /// </summary>
+    Task ReleaseServerSessionsAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Perform online search on the server.

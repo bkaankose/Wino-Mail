@@ -49,6 +49,7 @@ public sealed class GmailProviderModule(
         ManagesProviderContactCollections = true,
         ManagesProviderTaskSteps = true,
         AnswersInvitationsThroughProvider = true,
+        SupportsContactPhotoWrite = true,
         SupportsAliasSync = true,
         SupportsProfileInfoSync = true,
         StoresMessageInSeveralFolders = true,

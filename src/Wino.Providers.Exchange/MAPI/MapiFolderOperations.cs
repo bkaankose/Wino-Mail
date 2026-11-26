@@ -24,6 +24,17 @@ public sealed record MapiFolderInfo(
     /// <summary>MS-OXOSFLD: mail folders carry a container class of "IPF.Note" (or a subclass of it).</summary>
     public bool IsMailFolder => ContainerClass is { Length: > 0 } c && c.StartsWith("IPF.Note", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>PidTagFolderType (MS-OXCFOLD 2.2.2.2.2.7); null when the server did not report it.</summary>
+    public uint? FolderType { get; init; }
+
+    /// <summary>
+    /// A visible, non-search folder without a container class, or with a bare "IPF". MS-OXCFOLD 2.2.2.2.2.3 requires
+    /// the class to begin with "IPF.", so such a folder declares no content; Outlook lists it and ActiveSync reports it
+    /// as a generic folder (FolderSync type 1).
+    /// </summary>
+    public bool IsUntypedFolder => !IsHidden && FolderType != PropertyTags.FolderTypeSearch &&
+        (string.IsNullOrEmpty(ContainerClass) || string.Equals(ContainerClass, "IPF", StringComparison.OrdinalIgnoreCase));
+
     /// <summary>DatabaseGuid + GlobalCounter (22 bytes), set by <see cref="MapiFolderOperations.ResolveEntryIdsAsync"/>.</summary>
     public byte[]? LongTermId { get; set; }
 
@@ -196,8 +207,8 @@ public static class MapiFolderOperations
 
             try
             {
-                // A folder without a container class is not a mail folder to anyone (the hierarchy sync's
-                // IsMailFolder filter would drop it, as would Outlook's mail view).
+                // Without a container class the folder would come back from the hierarchy sync as an untyped folder
+                // with synchronization off, and Outlook's mail view would not treat it as mail.
                 (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSetProperties(2, [TaggedPropertyValue.Unicode(PropertyTags.ContainerClass, containerClass)]), handles, cancellationToken).ConfigureAwait(false);
                 var problems = RopMessageOps.ParseSetProperties(new RopReader(rops));
                 if (problems.Count > 0)
@@ -359,6 +370,7 @@ public static class MapiFolderOperations
             unreadCount,
             row.Length > 7 && (row[7].AsBoolean ?? false))
         {
+            FolderType = row.Length > 10 ? row[10].AsUInt32 : null,
             ChangeMarker = commitTime is { } time
                 ? FormattableString.Invariant($"{time.Ticks}/{deletedTotal}/{contentCount}/{unreadCount}")
                 : null

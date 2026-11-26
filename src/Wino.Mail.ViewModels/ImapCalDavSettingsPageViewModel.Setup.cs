@@ -372,7 +372,10 @@ public partial class ImapCalDavSettingsPageViewModel : IConfirmBackNavigation
         _stepAfterFeatures = CurrentSetupStep;
 
         if (_hasFeaturesStep)
+        {
+            ApplyInitialSynchronizationRangeFromWizard();
             CurrentSetupStep = ImapSetupStep.Features;
+        }
     }
 
     /// <summary>

@@ -18,18 +18,11 @@ using Wino.Core.Domain.Messaging.Server;
 namespace Wino.Mail.ViewModels;
 
 /// <summary>
-/// The Exchange settings of an Exchange account: its connection method, and the sign-in it was added with, a password
-/// that can be replaced or an organization sign-in that can run again.
+/// The Exchange settings of an Exchange account: the connection method fixed at setup, and the sign-in it was added
+/// with, a password that can be replaced or an organization sign-in that can run again.
 /// </summary>
 public partial class AccountDetailsPageViewModel
 {
-    private bool _isLoadingExchangeSettings;
-
-    public List<ExchangeTransportOption> ExchangeTransportOptions { get; } = ExchangeTransportOption.CreateAll();
-
-    [ObservableProperty]
-    public partial ExchangeTransportOption? SelectedExchangeTransport { get; set; }
-
     [ObservableProperty]
     public partial bool IsExchangeSettingsExpanded { get; set; }
 
@@ -58,6 +51,11 @@ public partial class AccountDetailsPageViewModel
 
     public string ExchangeServerDescription => string.Format(Translator.AccountDetailsPage_ExchangeDescription, ExchangeServerHost);
 
+    /// <summary>The connection method fixed when the account was set up; it cannot be changed afterwards.</summary>
+    public string ExchangeTransportName => IsExchangeAccount && ServerInformation != null
+        ? ExchangeTransportOption.TitleOf(ServerInformation.EffectiveExchangeTransport)
+        : string.Empty;
+
     /// <summary>
     /// Whether the account's modes can be switched here. Exchange serves calendar, contacts and To Do from its server
     /// with the mailbox credential, so switching one on asks for no new consent.
@@ -74,105 +72,13 @@ public partial class AccountDetailsPageViewModel
     /// <summary>Fills the Exchange settings from the loaded account; Fix account opens them for a refused password.</summary>
     private void LoadExchangeSettings(bool isRepairRequested)
     {
-        _isLoadingExchangeSettings = true;
-
-        try
-        {
-            var server = IsExchangeAccount ? ServerInformation : null;
-            SelectedExchangeTransport = ExchangeTransportOptions.FirstOrDefault(option => option.Transport == server?.ExchangeTransport)
-                                        ?? ExchangeTransportOptions[0];
-
-            var userName = server?.IncomingServerUsername?.Trim() ?? string.Empty;
-            ExchangeUserName = string.Equals(userName, Account?.Address, StringComparison.OrdinalIgnoreCase) ? string.Empty : userName;
-            ExchangePassword = string.Empty;
-            IsExchangeSettingsExpanded = server != null && isRepairRequested;
-        }
-        finally
-        {
-            _isLoadingExchangeSettings = false;
-        }
+        var server = IsExchangeAccount ? ServerInformation : null;
+        var userName = server?.IncomingServerUsername?.Trim() ?? string.Empty;
+        ExchangeUserName = string.Equals(userName, Account?.Address, StringComparison.OrdinalIgnoreCase) ? string.Empty : userName;
+        ExchangePassword = string.Empty;
+        IsExchangeSettingsExpanded = server != null && isRepairRequested;
 
         NotifyExchangeSettingsChanged();
-    }
-
-    partial void OnSelectedExchangeTransportChanged(ExchangeTransportOption? oldValue, ExchangeTransportOption? newValue)
-    {
-        if (_isLoadingExchangeSettings || oldValue == null || newValue == null || ReferenceEquals(oldValue, newValue))
-            return;
-
-        _ = ChangeExchangeTransportAsync(oldValue, newValue);
-    }
-
-    /// <summary>
-    /// Saves a new connection method and forgets the detected one, so an account that once fell back to EWS tries MAPI
-    /// over HTTP again. The two transports key mail differently, so a change of the transport in use downloads the
-    /// mailbox again; the user confirms that first.
-    /// </summary>
-    private async Task ChangeExchangeTransportAsync(ExchangeTransportOption previous, ExchangeTransportOption selected)
-    {
-        var account = Account;
-        var server = ServerInformation;
-        if (account == null || server == null || !IsExchangeAccount || server.ExchangeTransport == selected.Transport)
-            return;
-
-        var updated = server.CloneForCredentialStorage();
-        updated.ExchangeTransport = selected.Transport;
-        updated.DetectedExchangeTransport = ExchangeTransport.Automatic;
-
-        var isTransportSwitch = updated.EffectiveExchangeTransport != server.EffectiveExchangeTransport;
-        if (isTransportSwitch &&
-            !await _dialogService.ShowConfirmationDialogAsync(
-                Translator.AccountDetailsPage_ExchangeTransportChangeMessage,
-                Translator.AccountDetailsPage_ExchangeTransportChangeTitle,
-                Translator.Buttons_Apply))
-        {
-            RestoreExchangeTransport(previous);
-            return;
-        }
-
-        IsExchangeBusy = true;
-
-        try
-        {
-            await _accountService.UpdateAccountCustomServerInformationAsync(updated);
-            account.ServerInformation = updated;
-            ServerInformation = updated;
-
-            await _synchronizationManager.DestroySynchronizerAsync(account.Id);
-
-            if (isTransportSwitch)
-                await _accountService.DeleteAccountMailCacheAsync(account.Id, AccountCacheResetReason.ExpiredCache);
-
-            RequestExchangeMailSynchronization(account);
-
-            // Calendars, address books and task lists keep the old transport's ids until their own pass re-keys them;
-            // until then the change listener's events do not match them.
-            if (isTransportSwitch && account.IsCalendarAccessGranted)
-            {
-                Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
-                {
-                    AccountId = account.Id,
-                    Type = CalendarSynchronizationType.Strict
-                }));
-            }
-
-            if (isTransportSwitch)
-            {
-                Messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions { AccountId = account.Id, Type = ContactSynchronizationType.Full }));
-                Messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions { AccountId = account.Id, Type = TaskSynchronizationType.Full }));
-            }
-            _dialogService.InfoBarMessage(Translator.EditAccountDetailsPage_SaveSuccess_Title, Translator.AccountDetailsPage_ExchangeTransportSaved, InfoBarMessageType.Success);
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Changing the Exchange connection method of {AccountId} failed.", account.Id);
-            RestoreExchangeTransport(previous);
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
-        }
-        finally
-        {
-            IsExchangeBusy = false;
-        }
     }
 
     private bool CanUpdateExchangePassword() => IsExchangePasswordAuth && !IsExchangeBusy && !string.IsNullOrEmpty(ExchangePassword);
@@ -199,7 +105,7 @@ public partial class AccountDetailsPageViewModel
             {
                 var result = await _exchangeConnectionTester.TestAsync(new MailAccount
                 {
-                    Id = Guid.NewGuid(),
+                    Id = account.Id,
                     Name = account.Name,
                     Address = account.Address,
                     ProviderType = MailProviderType.Exchange,
@@ -297,26 +203,13 @@ public partial class AccountDetailsPageViewModel
         }));
     }
 
-    private void RestoreExchangeTransport(ExchangeTransportOption previous)
-    {
-        _isLoadingExchangeSettings = true;
-
-        try
-        {
-            SelectedExchangeTransport = previous;
-        }
-        finally
-        {
-            _isLoadingExchangeSettings = false;
-        }
-    }
-
     private void NotifyExchangeSettingsChanged()
     {
         OnPropertyChanged(nameof(IsExchangeAccount));
         OnPropertyChanged(nameof(IsExchangeModernAuth));
         OnPropertyChanged(nameof(IsExchangePasswordAuth));
         OnPropertyChanged(nameof(ExchangeServerDescription));
+        OnPropertyChanged(nameof(ExchangeTransportName));
         UpdateExchangePasswordCommand.NotifyCanExecuteChanged();
         SignInExchangeAgainCommand.NotifyCanExecuteChanged();
     }

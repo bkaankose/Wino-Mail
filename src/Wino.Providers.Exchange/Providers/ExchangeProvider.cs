@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Helpers;
@@ -16,7 +17,9 @@ using Wino.Providers.Exchange.Services;
 using Wino.Providers.Exchange.Synchronizers.Errors.Exchange;
 using Wino.Providers.Exchange.Synchronizers.Exchange;
 using Wino.Providers.Exchange.Synchronizers.Mapi;
+using Wino.Services;
 using Wino.Services.Interfaces;
+using Wino.Providers.Exchange.Synchronizers.Exchange.ActiveSync;
 
 namespace Wino.Providers.Exchange.Providers;
 
@@ -29,12 +32,14 @@ public sealed class ExchangeProviderModule(
     IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
     IContactService contactService,
     IPictureStorageService contactPictureService,
-    ITaskService taskService) : IMailProviderModule
+    ITaskService taskService,
+    IMailCategoryService mailCategoryService,
+    Func<MailAccount, IWinoSynchronizerBase> activeSyncFactory) : IMailProviderModule
 {
     public MailProviderType ProviderType => MailProviderType.Exchange;
 
-    // Exchange serves one Contacts folder from this client, so no address books are written back. Its task folders are
-    // task lists, but Exchange tasks have no checklist steps.
+    // Exchange address books are the mailbox's contact folders and are not written back. Its task folders are task lists,
+    // but Exchange tasks have no checklist steps.
     public MailProviderTraits Traits { get; } = new()
     {
         ServesModesFromProvider = true,
@@ -44,8 +49,53 @@ public sealed class ExchangeProviderModule(
         ManagesProviderTaskSteps = false,
         ArchiveRequiresArchiveFolder = true,
         SupportsProfileInfoSync = true,
+        SupportsContactPhotoWrite = true,
         LiveCoverage = LiveCoverageKind.ExchangeNotifications
     };
+
+    // ActiveSync reads the mailbox's addresses from Settings UserInformation. It carries a message's categories by name but
+    // has no command for the category list, so assignments synchronize and the list does not. It has no rules command.
+    private MailProviderTraits ActiveSyncTraits => field ??= Traits with
+    {
+        SupportsAliasSync = true,
+        SynchronizesCategoryAssignments = true,
+        CategorySource = MailCategorySource.Exchange
+    };
+
+    // EWS and MAPI read and write the mailbox's category list (MS-OXOCFG) and each mail's categories, and reach the Inbox
+    // rules (MS-OXWSRULES, MS-OXORULE).
+    private MailProviderTraits EwsTraits => field ??= Traits with
+    {
+        SupportsCategorySync = true,
+        SynchronizesCategoryAssignments = true,
+        CategorySource = MailCategorySource.Exchange,
+        SupportsProviderMailFilters = true
+    };
+
+    // MAPI reads the mailbox's addresses from its address book entry; EWS has no operation that returns all of them.
+    private MailProviderTraits MapiTraits => field ??= EwsTraits with { SupportsAliasSync = true };
+
+    // An invitation in the mail is answered through the stored event, which exists only when the calendar comes from
+    // the server. On a local calendar the answer is a reply sent from the mail instead.
+    private MailProviderTraits ActiveSyncProviderCalendarTraits => field ??= ActiveSyncTraits with { AnswersInvitationsThroughProvider = true };
+    private MailProviderTraits EwsProviderCalendarTraits => field ??= EwsTraits with { AnswersInvitationsThroughProvider = true };
+    private MailProviderTraits MapiProviderCalendarTraits => field ??= MapiTraits with { AnswersInvitationsThroughProvider = true };
+
+    public MailProviderTraits GetTraits(MailAccount account)
+    {
+        var isCalendarFromServer = account.IsCalendarAccessGranted
+            && account.GetEffectiveCalendarIntegrationSource() == AccountIntegrationSource.Provider;
+
+        return (account.ServerInformation?.EffectiveExchangeTransport, isCalendarFromServer) switch
+        {
+            (ExchangeTransport.ActiveSync, true) => ActiveSyncProviderCalendarTraits,
+            (ExchangeTransport.ActiveSync, false) => ActiveSyncTraits,
+            (ExchangeTransport.MapiHttp, true) => MapiProviderCalendarTraits,
+            (ExchangeTransport.MapiHttp, false) => MapiTraits,
+            (_, true) => EwsProviderCalendarTraits,
+            _ => EwsTraits
+        };
+    }
 
     public IAuthenticator CreateAuthenticator() => authenticator();
 
@@ -59,21 +109,12 @@ public sealed class ExchangeProviderModule(
             errorHandlerFactory ?? throw new InvalidOperationException("The Exchange error handler factory is not registered."),
             contactService,
             contactPictureService,
-            taskService);
+            taskService,
+            mailCategoryService,
+            () => activeSyncFactory(account));
 
-    /// <summary>
-    /// A synchronizer runs on another transport than the account now asks for when the connection method was changed,
-    /// or when a MAPI over HTTP attempt recorded that the server does not offer it. The MAPI synchronizer records that on
-    /// its own account object, so comparing the settings alone never sees it.
-    /// </summary>
-    public bool CanReuseSynchronizer(IWinoSynchronizerBase existing, MailAccount account)
-    {
-        if (account.ServerInformation == null)
-            return true;
-
-        var wantsMapi = account.ServerInformation.EffectiveExchangeTransport != ExchangeTransport.Ews;
-        return wantsMapi == (existing is MapiExchangeSynchronizer);
-    }
+    // The transport is fixed when the account is set up, so a synchronizer never runs on another one.
+    public bool CanReuseSynchronizer(IWinoSynchronizerBase existing, MailAccount account) => true;
 
     public bool IsAuthorizationFailure(Exception exception) => false;
 }
@@ -90,7 +131,24 @@ public static class ExchangeProviderRegistration
             provider.GetService<IExchangeSynchronizerErrorHandlerFactory>(),
             provider.GetRequiredService<IContactService>(),
             provider.GetRequiredService<IPictureStorageService>(),
-            provider.GetService<ITaskService>()));
+            provider.GetService<ITaskService>(),
+            provider.GetRequiredService<IMailCategoryService>(),
+            account => new ActiveSyncExchangeSynchronizer(account,
+                provider.GetRequiredService<IMessenger>(),
+                provider.GetRequiredService<RequestUiChangeCoordinator>(),
+                provider.GetRequiredService<IDatabaseService>(),
+                provider.GetRequiredService<IAccountService>(),
+                provider.GetRequiredService<IFolderService>(),
+                provider.GetRequiredService<IMailService>(),
+                provider.GetRequiredService<ICalendarService>(),
+                provider.GetRequiredService<IContactService>(),
+                provider.GetRequiredService<ITaskService>(),
+                provider.GetRequiredService<IMimeFileService>(),
+                provider.GetRequiredService<IPictureStorageService>(),
+                provider.GetRequiredService<ICalDavChangeProcessor>(),
+                provider.GetRequiredService<IApplicationConfiguration>().ApplicationDataFolderPath,
+                provider.GetRequiredService<IExchangeSynchronizerErrorHandlerFactory>(),
+                provider.GetRequiredService<IMailCategoryService>())));
 
         services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();

@@ -166,7 +166,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         IAppModeReadinessService appModeReadinessService = null,
         IMailShellClient mailShell = null,
         IMailCategoryService mailCategoryService = null,
-        IAppLockService appLockService = null) : base(messenger)
+        IAppLockService appLockService = null,
+        IMailProviderRegistry providers = null) : base(messenger)
     {
         Readiness = new ModeReadinessViewModel(
             WinoApplicationMode.Contacts,
@@ -191,9 +192,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         _listFilterGroup = [];
         _categoryFilterGroup = [];
         _mailCategoryService = mailCategoryService;
-        _categoryEditor = mailCategoryService is null
+        _categoryEditor = mailCategoryService is null || providers is null
             ? null
-            : new CategoryEditor(mailCategoryService, contactService, dialogService, requestDelegator, appLockService);
+            : new CategoryEditor(mailCategoryService, contactService, dialogService, requestDelegator, appLockService, providers);
         _categoriesExpander.NewCategoryRequested = () => CreateCategoryAsync(GetActiveAccountId());
         Contacts.CollectionChanged += ContactsCollectionChanged;
     }

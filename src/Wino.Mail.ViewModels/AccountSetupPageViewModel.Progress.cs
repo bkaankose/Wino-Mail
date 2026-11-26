@@ -205,7 +205,7 @@ public partial class AccountSetupPageViewModel
     {
         var accountName = AccountName?.Trim() ?? string.Empty;
         var colorHex = SelectedColor?.Hex ?? string.Empty;
-        var range = SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths;
+        var range = EffectiveInitialSynchronizationRange;
 
         if (IsLocalOnlyMode || !Capabilities.RequiresRemoteService)
         {
@@ -386,7 +386,7 @@ public partial class AccountSetupPageViewModel
         WizardContext.SelectedProvider = provider;
         WizardContext.AccountName = accountName;
         WizardContext.AccountColorHex = SelectedColor?.Hex ?? string.Empty;
-        WizardContext.SelectedInitialSynchronizationRange = SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths;
+        WizardContext.SelectedInitialSynchronizationRange = EffectiveInitialSynchronizationRange;
         WizardContext.IsMailAccessEnabled = isMailEnabled;
         WizardContext.IsCalendarAccessEnabled = calendarMode != AccountCapabilityMode.Off;
         WizardContext.IsContactAccessEnabled = contactMode != AccountCapabilityMode.Off;

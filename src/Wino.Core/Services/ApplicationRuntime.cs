@@ -32,6 +32,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private static readonly TimeSpan QuotaDueCheckInterval = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan InboxRerunPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan InboxRerunWaitLimit = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// How long the stop waits, for all accounts together, for servers to acknowledge the end of their sessions. A slow
+    /// or unreachable server must not hold up quitting; its sessions then expire on the server as before.
+    /// </summary>
+    private static readonly TimeSpan ServerSessionReleaseBudget = TimeSpan.FromSeconds(2);
     private readonly object _gate = new();
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IPreferencesService _preferencesService;
@@ -175,17 +181,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
         try
         {
-            // A runtime stopped before initialization step 2 completed has no synchronizers to drain,
-            // and the manager throws rather than returning an empty set in that state.
-            IEnumerable<IWinoSynchronizerBase> synchronizers;
-            try
-            {
-                synchronizers = _synchronizationManager.GetAllSynchronizers();
-            }
-            catch (InvalidOperationException)
-            {
-                synchronizers = Array.Empty<IWinoSynchronizerBase>();
-            }
+            var synchronizers = GetSynchronizersForStop();
 
             var cancellation = synchronizers
                 .Select(x => _synchronizationManager.CancelSynchronizationsAsync(x.Account.Id));
@@ -198,10 +194,70 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         {
             _logger.CaptureException(ex, "ApplicationRuntimeStop");
             lock (_gate) ChangeState(ApplicationRuntimeState.Faulted);
+            await ReleaseServerSessionsAsync().ConfigureAwait(false);
             throw;
         }
 
+        // After the drain, so no synchronization is using a session while it is closed.
+        await ReleaseServerSessionsAsync().ConfigureAwait(false);
+
         lock (_gate) ChangeState(ApplicationRuntimeState.Stopped);
+    }
+
+    /// <summary>
+    /// A runtime stopped before initialization step 2 completed has no synchronizers, and the manager throws rather
+    /// than returning an empty set in that state.
+    /// </summary>
+    private IReadOnlyList<IWinoSynchronizerBase> GetSynchronizersForStop()
+    {
+        try
+        {
+            return _synchronizationManager.GetAllSynchronizers().ToList();
+        }
+        catch (InvalidOperationException)
+        {
+            return Array.Empty<IWinoSynchronizerBase>();
+        }
+    }
+
+    /// <summary>
+    /// Asks every synchronizer to end its server sessions, all accounts at once, and waits at most
+    /// <see cref="ServerSessionReleaseBudget"/>. A process that exits before a request is written leaves the session
+    /// on the server until it expires, which is why the stop waits at all; Exchange, for one, caps open sessions per mailbox.
+    /// </summary>
+    private async Task ReleaseServerSessionsAsync()
+    {
+        var synchronizers = GetSynchronizersForStop();
+        if (synchronizers.Count == 0) return;
+
+        using var budget = new CancellationTokenSource(ServerSessionReleaseBudget);
+        var releases = synchronizers
+            .Select(synchronizer => (synchronizer.Account, Task: Task.Run(() => ReleaseServerSessionsAsync(synchronizer, budget.Token), CancellationToken.None)))
+            .ToList();
+
+        try
+        {
+            await Task.WhenAll(releases.Select(release => release.Task)).WaitAsync(budget.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            foreach (var release in releases.Where(release => !release.Task.IsCompleted))
+                Log.Information("Server sessions of account {AccountId} were not released within {Budget}; the server ends them when they expire.",
+                    release.Account?.Id, ServerSessionReleaseBudget);
+        }
+    }
+
+    private static async Task ReleaseServerSessionsAsync(IWinoSynchronizerBase synchronizer, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await synchronizer.ReleaseServerSessionsAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Releasing the server sessions of account {AccountId} failed.", synchronizer.Account?.Id);
+        }
     }
 
     public ValueTask DisposeAsync() => new(StopAsync());

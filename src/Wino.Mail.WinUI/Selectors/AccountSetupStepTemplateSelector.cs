@@ -24,7 +24,7 @@ public partial class AccountSetupStepTemplateSelector : DataTemplateSelector
         var template = step switch
         {
             AccountSetupStep.Discovery => DiscoveryTemplate,
-            AccountSetupStep.SignInMethod => SignInMethodTemplate,
+            AccountSetupStep.ServerKind or AccountSetupStep.SignInMethod => SignInMethodTemplate,
             AccountSetupStep.SignIn => SignInTemplate,
             AccountSetupStep.Review => ReviewTemplate,
             AccountSetupStep.Progress => ProgressTemplate,

@@ -6,10 +6,8 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:mailViewModels="using:Wino.Mail.ViewModels"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
-    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     mc:Ignorable="d">
 
     <!--  Sign-in and servers of an Outlook, Gmail or Exchange account. IMAP and POP3 accounts use the server page.  -->
@@ -102,19 +100,12 @@
                 <controls:SettingsCard.HeaderIcon>
                     <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="GlobeDesktop" />
                 </controls:SettingsCard.HeaderIcon>
-                <ComboBox
-                    MinWidth="220"
+                <TextBlock
+                    VerticalAlignment="Center"
                     AutomationProperties.AutomationId="AccountSignInExchangeTransport"
-                    AutomationProperties.Name="{x:Bind domain:Translator.ExchangeSetup_TransportHeader, Mode=OneTime}"
-                    IsEnabled="{x:Bind winuiHelpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsBusy), Mode=OneWay}"
-                    ItemsSource="{x:Bind ViewModel.ExchangeTransportOptions}"
-                    SelectedItem="{x:Bind ViewModel.SelectedExchangeTransport, Mode=TwoWay}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="mailViewModels:ExchangeTransportOption">
-                            <TextBlock Text="{x:Bind Title}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    IsTextSelectionEnabled="True"
+                    Text="{x:Bind ViewModel.ExchangeTransportName, Mode=OneWay}" />
             </controls:SettingsCard>
         </StackPanel>
     </StackPanel>

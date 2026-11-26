@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Requests;
@@ -38,6 +39,9 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     private IReadOnlyList<ContactList> _allLists = [];
     private IReadOnlyList<MailCategory> _allCategories = [];
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly IAccountService _accountService;
+    private readonly IMailProviderRegistry _providers;
+    private IReadOnlyDictionary<Guid, MailProviderTraits> _destinationTraits = new Dictionary<Guid, MailProviderTraits>();
 
     public ObservableCollection<ContactCreateDestination> Destinations { get; } = [];
     public ObservableCollection<ContactEmailAddress> EmailAddresses { get; } = [];
@@ -91,10 +95,13 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     public byte[] PreviewPhotoBytes => _photoBytes;
     public string PreviewPhotoPath => _previewPhotoPath;
     /// <summary>
-    /// Exchange contact photos are read from the server but never written back, so the photo actions are not offered
-    /// for an Exchange address book and an imported photo is not sent to one.
+    /// A provider that cannot write contact photos to its own address books gets no photo actions for them, and an
+    /// imported photo is not sent to one.
     /// </summary>
-    public bool CanEditPhoto => SelectedDestination?.SourceKind != ContactSourceKind.Exchange;
+    public bool CanEditPhoto => SelectedDestination is not { } destination
+        || !_destinationTraits.TryGetValue(destination.MailAccountId, out var traits)
+        || destination.SourceKind != traits.ProviderContactSource
+        || traits.SupportsContactPhotoWrite;
 
     public string RemovePhotoLabel => SelectedDestination?.SourceKind == ContactSourceKind.Outlook
         ? Translator.ContactEditDialog_HidePhotoInWino
@@ -133,8 +140,11 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
 
     public ContactEditPageViewModel(IMessenger messenger, IContactQueryService contactService, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService, IPictureStorageService pictureFileService,
-        IPreferencesService preferencesService = null, IMailCategoryService mailCategoryService = null) : base(messenger)
+        IPreferencesService preferencesService = null, IMailCategoryService mailCategoryService = null,
+        IAccountService accountService = null, IMailProviderRegistry providers = null) : base(messenger)
     {
+        _accountService = accountService;
+        _providers = providers;
         _mailCategoryService = mailCategoryService;
         _contactService = contactService;
         _requestDelegator = requestDelegator;
@@ -163,6 +173,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
             ? await _contactService.GetContactAsync(contactId).ConfigureAwait(false)
             : null;
 
+        var destinationTraits = await LoadDestinationTraitsAsync(destinations).ConfigureAwait(false);
         var lists = await _contactService.GetContactListsAsync().ConfigureAwait(false);
         List<Guid> memberListIds = original is null
             ? []
@@ -188,6 +199,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
 
         await ExecuteUIThread(() =>
         {
+            _destinationTraits = destinationTraits;
             Destinations.Clear();
             foreach (var destination in destinations)
                 Destinations.Add(destination);
@@ -254,7 +266,24 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
             OnPropertyChanged(nameof(PreviewSubtitle));
             OnPropertyChanged(nameof(PreviewPhotoBytes));
             OnPropertyChanged(nameof(PreviewPhotoPath));
+            OnPropertyChanged(nameof(CanEditPhoto));
         });
+    }
+
+    private async Task<IReadOnlyDictionary<Guid, MailProviderTraits>> LoadDestinationTraitsAsync(IEnumerable<ContactCreateDestination> destinations)
+    {
+        var traits = new Dictionary<Guid, MailProviderTraits>();
+        if (_accountService is null || _providers is null)
+            return traits;
+
+        foreach (var accountId in destinations.Select(destination => destination.MailAccountId).Distinct())
+        {
+            var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+            if (account is not null)
+                traits[accountId] = _providers.GetTraits(account);
+        }
+
+        return traits;
     }
 
     private bool CanSave() => !IsSaving && !IsFavoriteSaving && SelectedDestination?.IsReadOnly != true;

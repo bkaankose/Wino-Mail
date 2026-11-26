@@ -79,6 +79,12 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         oauthNotice.Closed += oauthClosed;
         binder.Scope.Own(new Wino.Presentation.Android.Bindings.ActionDisposable(() => oauthNotice.Closed -= oauthClosed));
 
+        var steps = new ImapSetupStepIndicator(context);
+        form.Add(steps);
+        form.ShowWhen(steps, vm => vm.IsCreateMode);
+        binder.BindAny(viewModel, vm => vm.CurrentSetupStep, step => steps.SetCurrent(step));
+
+        form.Group(() => BuildFeatures(form, viewModel), nameof(viewModel.IsFeaturesStepVisible), vm => vm.IsFeaturesStepVisible);
         form.Group(() => BuildSignIn(form, viewModel), nameof(viewModel.IsSignInStepVisible), vm => vm.IsSignInStepVisible);
         form.Group(() => BuildEditSignIn(form, viewModel), nameof(viewModel.IsEditSignInVisible), vm => vm.IsEditSignInVisible);
         var advanced = (Entry?.State.TryGetValue(AdvancedStateKey, out var stored) == true && stored is AdvancedState state) ? state : new AdvancedState();
@@ -132,6 +138,64 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         }
         if (view.FindViewById<AndroidX.Core.Widget.NestedScrollView>(Resource.Id.onboarding_scroll) is { } formScroll)
             binder.Bind(viewModel, nameof(viewModel.CurrentSetupStep), vm => vm.CurrentSetupStep, _ => formScroll.ScrollTo(0, 0));
+    }
+
+    /// <summary>
+    /// Adding an account before its apps were chosen (Windows Features step): each capability is a switch with its mode
+    /// (provider or this device); Mail carries the download range with its Everything warning.
+    /// </summary>
+    private static void BuildFeatures(OnboardingForm<ImapCalDavSettingsPageViewModel> form, ImapCalDavSettingsPageViewModel viewModel)
+    {
+        form.Section(Translator.ImapSetup_FeaturesGroup);
+        var capabilities = form.For(viewModel.Capabilities);
+
+        capabilities.Switch(Translator.ProviderSelection_UseForMail, nameof(AccountCapabilitySelection.IsMailEnabled), s => s.IsMailEnabled, (s, v) => s.IsMailEnabled = v);
+        capabilities.Help(null, nameof(AccountCapabilitySelection.MailDescription), s => s.MailDescription);
+        capabilities.GroupWhen(s => s.IsMailEnabled, () =>
+        {
+            var settings = capabilities.For(viewModel);
+            var ranges = viewModel.InitialSynchronizationRanges;
+            settings.Dropdown(Translator.ProviderSelection_MailRangeHeader, ranges.Select(range => range.DisplayText).ToList(),
+                nameof(viewModel.SelectedInitialSynchronizationRange),
+                vm => vm.SelectedInitialSynchronizationRange is { } selected ? ranges.IndexOf(selected) : -1,
+                (vm, index) => { if (index >= 0 && index < ranges.Count) vm.SelectedInitialSynchronizationRange = ranges[index]; });
+            settings.Help(null, nameof(viewModel.MailRangeDescription), vm => vm.MailRangeDescription);
+            var warning = settings.InfoBar(WinoInfoBarSeverity.Warning, Translator.GeneralTitle_Warning);
+            warning.Message = Translator.AccountCreation_InitialSynchronization_EverythingWarning;
+            settings.Binder.BindAny(viewModel, vm => vm.IsInitialSynchronizationWarningVisible, open => warning.IsOpen = open);
+        });
+
+        capabilities.Switch(Translator.ProviderSelection_UseForCalendar, nameof(AccountCapabilitySelection.IsCalendarEnabled), s => s.IsCalendarEnabled, (s, v) => s.IsCalendarEnabled = v);
+        capabilities.Help(Translator.ProviderSelection_CalendarStepDescription);
+        AddModeChoice(capabilities, Translator.ProviderSelection_UseForCalendar, viewModel.Capabilities.CalendarProviderOptionText,
+            nameof(AccountCapabilitySelection.CalendarMode), s => s.CalendarMode, (s, v) => s.CalendarMode = v,
+            s => s.IsCalendarEnabled, s => s.IsCalendarModeChoiceVisible, Translator.ProviderSelection_Why_CalendarLocal_Device);
+
+        capabilities.Switch(Translator.ProviderSelection_UseForContacts, nameof(AccountCapabilitySelection.IsContactEnabled), s => s.IsContactEnabled, (s, v) => s.IsContactEnabled = v);
+        capabilities.Help(Translator.ProviderSelection_ContactsStepDescription);
+        AddModeChoice(capabilities, Translator.ProviderSelection_UseForContacts, viewModel.Capabilities.ContactProviderOptionText,
+            nameof(AccountCapabilitySelection.ContactMode), s => s.ContactMode, (s, v) => s.ContactMode = v,
+            s => s.IsContactEnabled, s => s.IsContactModeChoiceVisible, Translator.ProviderSelection_Why_ContactsLocal_Device);
+
+        capabilities.Switch(Translator.ProviderSelection_UseForTasks, nameof(AccountCapabilitySelection.IsTaskEnabled), s => s.IsTaskEnabled, (s, v) => s.IsTaskEnabled = v);
+        capabilities.Help(Translator.ProviderSelection_TasksStepDescription);
+        AddModeChoice(capabilities, Translator.ProviderSelection_UseForTasks, viewModel.Capabilities.TaskProviderOptionText,
+            nameof(AccountCapabilitySelection.TaskMode), s => s.TaskMode, (s, v) => s.TaskMode = v,
+            s => s.IsTaskEnabled, s => s.IsTaskModeChoiceVisible, viewModel.Capabilities.TaskLocalOnlyNote);
+
+        capabilities.ShowWhen(capabilities.Help(Translator.ProviderSelection_CapabilityValidationMessage), s => s.IsSelectionMissing);
+    }
+
+    /// <summary>The provider or this-device dropdown of a capability, with its note while the choice is not offered.</summary>
+    private static void AddModeChoice(OnboardingForm<AccountCapabilitySelection> capabilities, string title, string providerText,
+        string modeProperty, Func<AccountCapabilitySelection, AccountCapabilityMode> read, Action<AccountCapabilitySelection, AccountCapabilityMode> write,
+        Func<AccountCapabilitySelection, bool> enabled, Func<AccountCapabilitySelection, bool> choiceVisible, string localOnlyNote)
+    {
+        var items = new[] { providerText, Translator.ProviderSelection_Choice_Local_Device };
+        capabilities.GroupWhen(s => enabled(s) && choiceVisible(s), () => capabilities.Dropdown(title, items,
+            modeProperty, s => read(s) == AccountCapabilityMode.Local ? 1 : 0,
+            (s, index) => write(s, index == 1 ? AccountCapabilityMode.Local : AccountCapabilityMode.Provider)));
+        capabilities.GroupWhen(s => enabled(s) && !choiceVisible(s), () => capabilities.Help(localOnlyNote));
     }
 
     /// <summary>

@@ -32,6 +32,7 @@ public partial class MailFiltersPageViewModel(IMessenger messenger,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsGmailAccount))]
+    [NotifyPropertyChangedFor(nameof(ProviderFiltersConnectDescription))]
     public partial MailAccount Account { get; set; }
 
     [ObservableProperty]
@@ -55,6 +56,11 @@ public partial class MailFiltersPageViewModel(IMessenger messenger,
     public bool IsProviderFiltersConnectVisible => IsProviderFiltersSupported && !IsProviderFiltersEnabled;
     public bool IsProviderFiltersConnectedVisible => IsProviderFiltersSupported && IsProviderFiltersEnabled;
     public bool IsGmailAccount => Account?.ProviderType == MailProviderType.Gmail;
+
+    // Exchange Inbox rules need no extra sign-in or permission; the shared text describes Outlook's consent.
+    public string ProviderFiltersConnectDescription => Account?.ProviderType == MailProviderType.Exchange
+        ? Translator.MailFilters_ProviderFeatureConnectDescriptionExchange
+        : Translator.MailFilters_ProviderFeatureConnectDescription;
 
     public ObservableCollection<MailFilterListItemViewModel> Filters { get; } = [];
 
@@ -314,7 +320,12 @@ public partial class MailFiltersPageViewModel(IMessenger messenger,
                 ? Translator.MailFilters_ProviderScope
                 : sourceName;
 
-        var providerName = Account.ProviderType == MailProviderType.Outlook ? "Outlook" : "Gmail";
+        var providerName = Account.ProviderType switch
+        {
+            MailProviderType.Outlook => "Outlook",
+            MailProviderType.Exchange => "Exchange",
+            _ => "Gmail"
+        };
         var management = filter.ManagementType == MailFilterManagementType.Provider
             ? string.Format(Translator.MailFilters_ManagedByProvider, providerName)
             : Translator.MailFilters_ManagedByWino;

@@ -111,10 +111,23 @@ public class MailItemFolder : IMailItemFolder
     public string DeltaToken { get; set; }
 
     /// <summary>
+    /// The Exchange ActiveSync folder type of a mail folder synchronized over ActiveSync, 0 for other transports.
+    /// Only mail types (1 to 6 and 12) are stored here; other collections live in EasCollectionState.
+    /// </summary>
+    public int EasFolderType { get; set; }
+    public string EasSyncGeneration { get; set; } = string.Empty;
+
+    /// <summary>
     /// The MAPI folder id (16 hex digits) for on-premises Exchange accounts synchronized over MAPI over HTTP.
     /// Rows keyed by an EWS RemoteFolderId are re-keyed in place through this column when the transport changes.
     /// </summary>
     public string MapiFolderId { get; set; }
+
+    /// <summary>
+    /// The folder's entry id as uppercase hex (the HexEntryId form of EWS ConvertId), stored by MAPI over HTTP. A row
+    /// MAPI stored is re-keyed to its EWS id through this column when the account changes to EWS.
+    /// </summary>
+    public string MapiEntryId { get; set; }
 
     // For GMail Labels
     public string TextColorHex { get; set; }

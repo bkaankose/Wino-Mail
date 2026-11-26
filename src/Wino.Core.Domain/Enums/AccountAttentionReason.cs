@@ -5,5 +5,8 @@ public enum AccountAttentionReason
     None,
     InvalidCredentials,
     MissingSystemFolderConfiguration,
-    CertificateValidationFailed
+    CertificateValidationFailed,
+
+    /// <summary>The server's administrator wiped the account from this device; only removing the account resolves it.</summary>
+    RemovedByAdministrator
 }

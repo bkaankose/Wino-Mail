@@ -345,6 +345,11 @@ public class AccountService : BaseDatabaseService, IAccountService
     public async Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason)
     {
         await Connection.ExecuteAsync(
+            "DELETE FROM EasItemShadow WHERE CollectionId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?)", accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM EasDraftState WHERE AccountId = ? AND DeletePending = 0", accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync(
+            "UPDATE MailItemFolder SET DeltaToken = '0', EasSyncGeneration = '' WHERE MailAccountId = ? AND EasFolderType > 0", accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync(
             "DELETE FROM MailCopy WHERE Id IN (SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?))",
             accountId);
 
@@ -359,6 +364,22 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.ExecuteAsync("UPDATE MailAccount SET SynchronizationDeltaIdentifier = NULL WHERE Id = ?", accountId).ConfigureAwait(false);
 
         await DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.MailAccessDisabled).ConfigureAwait(false);
+    }
+
+    public async Task ResetExchangeSynchronizationStateAsync(Guid accountId)
+    {
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            transaction.Execute("UPDATE MailAccount SET SynchronizationDeltaIdentifier = NULL WHERE Id = ?", accountId);
+            transaction.Execute("UPDATE MailItemFolder SET DeltaToken = NULL, EasSyncGeneration = '' WHERE MailAccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasItemShadow WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasCollectionState WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasPendingSync WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasClientAnswer WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM EasDraftState WHERE AccountId = ?", accountId);
+        }).ConfigureAwait(false);
+
+        await DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.ExpiredCache).ConfigureAwait(false);
     }
 
     public async Task DeleteAccountAsync(MailAccount account)
@@ -444,28 +465,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         await Connection.RunInTransactionAsync(transaction =>
         {
-            foreach (var contact in accountContacts)
-            {
-                transaction.Execute("DELETE FROM ContactEmailAddress WHERE ContactId = ?", contact.Id);
-                transaction.Execute("DELETE FROM ContactPhoneNumber WHERE ContactId = ?", contact.Id);
-                transaction.Execute("DELETE FROM ContactPostalAddress WHERE ContactId = ?", contact.Id);
-                transaction.Execute("DELETE FROM ContactImAddress WHERE ContactId = ?", contact.Id);
-                transaction.Execute("DELETE FROM ContactRelation WHERE ContactId = ?", contact.Id);
-            }
-
-            transaction.Execute("DELETE FROM ContactListMember WHERE ListId IN (SELECT Id FROM ContactList WHERE MailAccountId = ?)", account.Id);
-            transaction.Execute("DELETE FROM ContactList WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM ContactCategoryAssignment WHERE ContactId IN (SELECT Id FROM ContactCard WHERE MailAccountId = ?) OR MailCategoryId IN (SELECT Id FROM MailCategory WHERE MailAccountId = ?)", account.Id, account.Id);
-            transaction.Execute("DELETE FROM MailCategoryAssignment WHERE MailCategoryId IN (SELECT Id FROM MailCategory WHERE MailAccountId = ?)", account.Id);
-            transaction.Execute("DELETE FROM MailCategory WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM ContactCard WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM ContactAddressBook WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM RecipientHistory WHERE AccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM DirectoryPhotoLookup WHERE MailAccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM SentMailReceiptState WHERE AccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM MailInvitationCalendarMapping WHERE AccountId = ?", account.Id);
-            transaction.Execute("DELETE FROM ItemLink WHERE SourceAccountId = ? OR TargetAccountId = ?", account.Id, account.Id);
+            DeleteSynchronizedRows(transaction, account.Id, accountContacts);
             transaction.Execute("DELETE FROM MailAccountPreferences WHERE AccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM EasAccountState WHERE AccountId = ?", account.Id);
         }).ConfigureAwait(false);
 
         await _taskService.DeleteAccountTasksAsync(account.Id).ConfigureAwait(false);
@@ -590,6 +592,125 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         account.AttentionReason = AccountAttentionReason.InvalidCredentials;
         await UpdateAccountAsync(account).ConfigureAwait(false);
+    }
+
+    public async Task EraseAccountDataForRemoteWipeAsync(Guid accountId)
+    {
+        var account = await GetAccountAsync(accountId).ConfigureAwait(false);
+        Guard.IsNotNull(account);
+
+        // The gate closes first, so nothing synchronizes the account again while its data is erased.
+        account.AttentionReason = AccountAttentionReason.RemovedByAdministrator;
+        await UpdateAccountAsync(account).ConfigureAwait(false);
+
+        if (_semanticIndexJobRegistry is not null)
+            await _semanticIndexJobRegistry.CancelAndWaitAsync(account.Id).ConfigureAwait(false);
+
+        if (_localIntelligenceStore is not null)
+            await _localIntelligenceStore.DeleteAccountAsync(account.Id).ConfigureAwait(false);
+
+        var accountCalendars = await Connection.Table<AccountCalendar>().Where(a => a.AccountId == account.Id).ToListAsync().ConfigureAwait(false);
+        var deletedCalendarItems = new List<CalendarItem>();
+        foreach (var accountCalendar in accountCalendars)
+            deletedCalendarItems.AddRange(await Connection.Table<CalendarItem>().Where(a => a.CalendarId == accountCalendar.Id).ToListAsync().ConfigureAwait(false));
+
+        await DeleteAccountMailCacheAsync(account.Id, AccountCacheResetReason.RemoteWipe).ConfigureAwait(false);
+
+        foreach (var calendarItem in deletedCalendarItems)
+        {
+            await Connection.Table<CalendarEventAttendee>().DeleteAsync(a => a.CalendarItemId == calendarItem.Id).ConfigureAwait(false);
+            await Connection.Table<Reminder>().DeleteAsync(a => a.CalendarItemId == calendarItem.Id).ConfigureAwait(false);
+            await Connection.Table<CalendarAttachment>().DeleteAsync(a => a.CalendarItemId == calendarItem.Id).ConfigureAwait(false);
+        }
+
+        foreach (var accountCalendar in accountCalendars)
+            await Connection.Table<CalendarItem>().DeleteAsync(a => a.CalendarId == accountCalendar.Id).ConfigureAwait(false);
+
+        await Connection.Table<AccountCalendar>().DeleteAsync(a => a.AccountId == account.Id).ConfigureAwait(false);
+        await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id).ConfigureAwait(false);
+        await Connection.Table<FolderConfigurationOverride>().DeleteAsync(a => a.MailAccountId == account.Id).ConfigureAwait(false);
+        await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == account.Id).ConfigureAwait(false);
+
+        var accountContacts = await Connection.Table<AccountContact>().Where(contact => contact.MailAccountId == account.Id).ToListAsync().ConfigureAwait(false);
+        if (_cardDavSynchronizationStore is not null)
+            await _cardDavSynchronizationStore.DeleteAccountStateAsync(account.Id).ConfigureAwait(false);
+
+        await Connection.RunInTransactionAsync(transaction => DeleteSynchronizedRows(transaction, account.Id, accountContacts)).ConfigureAwait(false);
+        await _taskService.DeleteAccountTasksAsync(account.Id).ConfigureAwait(false);
+        await _mimeFileService.DeleteUserMimeCacheAsync(account.Id).ConfigureAwait(false);
+
+        if (_pictureStorageService is not null)
+        {
+            foreach (var contactPictureFileId in accountContacts
+                         .Where(contact => contact.ContactPictureFileId.HasValue)
+                         .Select(contact => contact.ContactPictureFileId.Value)
+                         .Distinct())
+            {
+                await _pictureStorageService.DeletePictureAsync(PictureKind.Contact, contactPictureFileId).ConfigureAwait(false);
+            }
+
+            if (account.ProfilePictureFileId is { } profilePictureFileId)
+                await _pictureStorageService.DeletePictureAsync(PictureKind.AccountProfile, profilePictureFileId).ConfigureAwait(false);
+        }
+
+        await DeleteProviderTokenAsync(account).ConfigureAwait(false);
+        var serverInformation = await ReadServerInformationMetadataAsync(account.Id).ConfigureAwait(false);
+        if (serverInformation is not null)
+        {
+            serverInformation.IncomingServerPassword = string.Empty;
+            serverInformation.OutgoingServerPassword = string.Empty;
+            serverInformation.CalDavPassword = string.Empty;
+            var stored = await _credentialPersistence.PrepareServerInformationForStorageAsync(serverInformation).ConfigureAwait(false);
+            await Connection.UpdateAsync(stored, typeof(CustomServerInformation)).ConfigureAwait(false);
+            account.ServerInformation = serverInformation;
+        }
+        await _credentialPersistence.DeleteMailAccountSecretsAsync(account.Id).ConfigureAwait(false);
+        await DeleteLegacyDavPasswordAsync(account.Id).ConfigureAwait(false);
+        if (_davCredentialStore is not null)
+            await _davCredentialStore.DeleteAsync(account.Id).ConfigureAwait(false);
+
+        account.ProfilePictureFileId = null;
+        account.SynchronizationDeltaIdentifier = null;
+        await UpdateAccountAsync(account).ConfigureAwait(false);
+
+        foreach (var calendarItem in deletedCalendarItems)
+            Messenger.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
+
+        foreach (var accountCalendar in accountCalendars)
+            Messenger.Send(new CalendarListDeleted(accountCalendar));
+
+        ReportUIChange(new AccountFolderConfigurationUpdated(account.Id));
+    }
+
+    /// <summary>Everything an account holds that was synchronized from its servers, apart from mail, calendars, folders and tasks.</summary>
+    private static void DeleteSynchronizedRows(SQLite.SQLiteConnection transaction, Guid accountId, IEnumerable<AccountContact> accountContacts)
+    {
+        foreach (var contact in accountContacts)
+        {
+            transaction.Execute("DELETE FROM ContactEmailAddress WHERE ContactId = ?", contact.Id);
+            transaction.Execute("DELETE FROM ContactPhoneNumber WHERE ContactId = ?", contact.Id);
+            transaction.Execute("DELETE FROM ContactPostalAddress WHERE ContactId = ?", contact.Id);
+            transaction.Execute("DELETE FROM ContactImAddress WHERE ContactId = ?", contact.Id);
+            transaction.Execute("DELETE FROM ContactRelation WHERE ContactId = ?", contact.Id);
+        }
+
+        transaction.Execute("DELETE FROM ContactListMember WHERE ListId IN (SELECT Id FROM ContactList WHERE MailAccountId = ?)", accountId);
+        transaction.Execute("DELETE FROM ContactList WHERE MailAccountId = ?", accountId);
+        transaction.Execute("DELETE FROM ContactCategoryAssignment WHERE ContactId IN (SELECT Id FROM ContactCard WHERE MailAccountId = ?) OR MailCategoryId IN (SELECT Id FROM MailCategory WHERE MailAccountId = ?)", accountId, accountId);
+        transaction.Execute("DELETE FROM MailCategoryAssignment WHERE MailCategoryId IN (SELECT Id FROM MailCategory WHERE MailAccountId = ?)", accountId);
+        transaction.Execute("DELETE FROM MailCategory WHERE MailAccountId = ?", accountId);
+        transaction.Execute("DELETE FROM ContactCard WHERE MailAccountId = ?", accountId);
+        transaction.Execute("DELETE FROM ContactAddressBook WHERE MailAccountId = ?", accountId);
+        transaction.Execute("DELETE FROM RecipientHistory WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM DirectoryPhotoLookup WHERE MailAccountId = ?", accountId);
+        transaction.Execute("DELETE FROM SentMailReceiptState WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM MailInvitationCalendarMapping WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM ItemLink WHERE SourceAccountId = ? OR TargetAccountId = ?", accountId, accountId);
+        transaction.Execute("DELETE FROM EasItemShadow WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM EasCollectionState WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM EasPendingSync WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM EasClientAnswer WHERE AccountId = ?", accountId);
+        transaction.Execute("DELETE FROM EasDraftState WHERE AccountId = ?", accountId);
     }
 
     private static bool UsesOAuth(CustomServerInformation serverInformation)

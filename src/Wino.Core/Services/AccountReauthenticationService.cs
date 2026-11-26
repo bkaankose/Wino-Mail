@@ -159,7 +159,7 @@ public sealed class AccountReauthenticationService(
 
     private async Task SynchronizeMailSetupDataAsync(MailAccount account, CancellationToken cancellationToken)
     {
-        var traits = providers.GetTraits(account.ProviderType);
+        var traits = providers.GetTraits(account);
 
         if (traits.SupportsProfileInfoSync)
         {

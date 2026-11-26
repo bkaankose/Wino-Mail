@@ -10,10 +10,11 @@ using Wino.Providers.Exchange.MAPI.Wire;
 
 namespace Wino.Providers.Exchange.MAPI;
 
-/// <summary>The store's tags for the task named properties (PSETID_Task and PSETID_Common), resolved once per session.</summary>
+/// <summary>The store's tags for the task named properties (PSETID_Task, PSETID_Common, PS_PUBLIC_STRINGS), resolved once per session.</summary>
 public sealed record MapiTaskTags(
     uint TaskStatus, uint PercentComplete, uint TaskStartDate, uint TaskDueDate, uint TaskDateCompleted, uint TaskComplete,
-    uint ReminderSet, uint ReminderTime, uint CommonStart, uint CommonEnd);
+    uint ReminderSet, uint ReminderTime, uint CommonStart, uint CommonEnd,
+    uint ReminderSignalTime, uint ReminderDelta, uint Keywords);
 
 /// <summary>One row of a Tasks folder, as this client reads it.</summary>
 public sealed record MapiTaskInfo(
@@ -29,7 +30,8 @@ public sealed record MapiTaskInfo(
     double? PercentComplete,
     bool? IsComplete,
     bool? ReminderSet,
-    DateTime? ReminderTime)
+    DateTime? ReminderTime,
+    string[]? Categories)
 {
     public const uint StatusNotStarted = 0;
     public const uint StatusInProgress = 1;
@@ -49,10 +51,28 @@ public sealed class MapiTaskWrite
 {
     public string? Subject { get; set; }
     public string? Body { get; set; }
+    /// <summary>The due day (date part only).</summary>
     public DateTime? DueDate { get; set; }
+
+    /// <summary>The start day (date part only).</summary>
+    public DateTime? StartDate { get; set; }
+
     public uint Importance { get; set; } = 1;
     public bool IsComplete { get; set; }
     public DateTime? CompletedDate { get; set; }
+
+    /// <summary>When the reminder signals, in UTC; null for no reminder.</summary>
+    public DateTime? ReminderAtUtc { get; set; }
+
+    public string[] Categories { get; set; } = [];
+
+    /// <summary>
+    /// Whether the local task's start date, reminder and categories are the server's. A field the task capabilities
+    /// keep local is left as the server has it, so the write does not clear what another client set.
+    /// </summary>
+    public bool WritesStartDate { get; set; }
+    public bool WritesReminder { get; set; }
+    public bool WritesCategories { get; set; }
 }
 
 /// <summary>
@@ -66,6 +86,15 @@ public static class MapiTaskOperations
     public const uint ImportanceLow = 0;
     public const uint ImportanceNormal = 1;
     public const uint ImportanceHigh = 2;
+
+    /// <summary>PidLidReminderSignalTime (MS-OXORMDR 2.2.1.2), PSETID_Common.</summary>
+    private const uint LidReminderSignalTime = 0x8560;
+
+    /// <summary>
+    /// The "no date" value of PidLidTaskStartDate and PidLidTaskDueDate (MS-OXOTASK 2.2.2.2.4): 0x5AE980E0 minutes
+    /// after 1601-01-01, which is 4501-01-01.
+    /// </summary>
+    private static readonly DateTime NoTaskDate = new(4501, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
     public static async Task<MapiTaskTags> ResolveTagsAsync(MapiSession session, CancellationToken cancellationToken = default)
     {
@@ -81,11 +110,15 @@ public static class MapiTaskOperations
             RopProperties.PropertyName.ById(PropertyTags.CommonPropertySet, PropertyTags.LidReminderTime),
             RopProperties.PropertyName.ById(PropertyTags.CommonPropertySet, PropertyTags.LidCommonStart),
             RopProperties.PropertyName.ById(PropertyTags.CommonPropertySet, PropertyTags.LidCommonEnd),
+            RopProperties.PropertyName.ById(PropertyTags.CommonPropertySet, LidReminderSignalTime),
+            RopProperties.PropertyName.ById(PropertyTags.CommonPropertySet, PropertyTags.LidReminderDelta),
+            RopProperties.PropertyName.ByName(PropertyTags.PublicStringsPropertySet, PropertyTags.KeywordsPropertyName),
         };
         ushort[] types =
         [
             PropertyTypes.Long, PropertyTypes.Double, PropertyTypes.SysTime, PropertyTypes.SysTime, PropertyTypes.SysTime, PropertyTypes.Boolean,
             PropertyTypes.Boolean, PropertyTypes.SysTime, PropertyTypes.SysTime, PropertyTypes.SysTime,
+            PropertyTypes.SysTime, PropertyTypes.Long, PropertyTypes.MultipleUnicode,
         ];
 
         var handles = MapiSession.MergeHandles([session.LogonHandle], [], 1);
@@ -95,7 +128,7 @@ public static class MapiTaskOperations
             throw new MapiFormatException("The store did not map every task named property.");
 
         uint Tag(int i) => ((uint)ids[i] << 16) | types[i];
-        return new MapiTaskTags(Tag(0), Tag(1), Tag(2), Tag(3), Tag(4), Tag(5), Tag(6), Tag(7), Tag(8), Tag(9));
+        return new MapiTaskTags(Tag(0), Tag(1), Tag(2), Tag(3), Tag(4), Tag(5), Tag(6), Tag(7), Tag(8), Tag(9), Tag(10), Tag(11), Tag(12));
     }
 
     public static Task<ulong?> FindTasksFolderIdAsync(MapiSession session, ulong inboxFolderId, CancellationToken cancellationToken = default)
@@ -106,7 +139,7 @@ public static class MapiTaskOperations
         PropertyTags.Mid, PropertyTags.MessageClass, PropertyTags.Subject, PropertyTags.Body,
         tags.TaskStartDate, tags.TaskDueDate, tags.TaskDateCompleted,
         PropertyTags.Importance, tags.TaskStatus, tags.PercentComplete, tags.TaskComplete,
-        tags.ReminderSet, tags.ReminderTime,
+        tags.ReminderSet, tags.ReminderTime, tags.Keywords,
     ];
 
     public static async Task<List<MapiTaskInfo>> ReadTasksAsync(MapiSession session, ulong folderId, MapiTaskTags tags, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
@@ -126,15 +159,16 @@ public static class MapiTaskOperations
                 row[1].AsString ?? string.Empty,
                 row[2].AsString,
                 row[3].AsString,
-                row[4].Value as DateTime?,
-                row[5].Value as DateTime?,
+                TaskDate(row[4].Value as DateTime?),
+                TaskDate(row[5].Value as DateTime?),
                 row[6].Value as DateTime?,
                 row[7].AsUInt32,
                 row[8].AsUInt32,
                 row[9].Value as double?,
                 row[10].AsBoolean,
                 row[11].AsBoolean,
-                row[12].Value as DateTime?);
+                row[12].Value as DateTime?,
+                row[13].Value as string[]);
 
             // The table refuses or cuts a long body. Taking that as the note would replace the local note with a
             // partial or empty one, and the next write-back would push it to the server.
@@ -152,6 +186,10 @@ public static class MapiTaskOperations
         diagnostics?.Invoke($"tasks 0x{folderId:X16}: {tasks.Count} rows ({tasks.Count(t => t.IsTask)} tasks, {tasks.Count(t => t.Completed)} complete, {partialBodies} bodies read off the message)");
         return tasks;
     }
+
+    /// <summary>A task date as stored: the day itself, without time zone conversion; null when unset.</summary>
+    private static DateTime? TaskDate(DateTime? value)
+        => value is { } date && date < NoTaskDate ? date : null;
 
     private static async Task<List<PropertyValue[]>> ReadTableAsync(MapiSession session, ulong folderId, uint[] columns, ushort pageSize, CancellationToken cancellationToken)
     {
@@ -269,7 +307,7 @@ public static class MapiTaskOperations
             uint[] stateTags = [tags.TaskStartDate, PropertyTags.Importance, tags.TaskStatus];
             (rops, _) = await session.ExecuteAsync(RopProperties.BuildGetPropertiesSpecific(1, stateTags), handles, cancellationToken).ConfigureAwait(false);
             var values = RopProperties.ParseGetPropertiesSpecific(new RopReader(rops), stateTags);
-            var existing = new MapiTaskState(values[0].AsDateTime, values[1].AsUInt32, values[2].AsUInt32);
+            var existing = new MapiTaskState(TaskDate(values[0].AsDateTime), values[1].AsUInt32, values[2].AsUInt32);
 
             await SetAndSaveAsync(session, handles, tags, task, existing, includeClass: false, cancellationToken).ConfigureAwait(false);
         }
@@ -281,25 +319,27 @@ public static class MapiTaskOperations
 
     private static async Task<ulong> SetAndSaveAsync(MapiSession session, uint[] handles, MapiTaskTags tags, MapiTaskWrite task, MapiTaskState? existing, bool includeClass, CancellationToken cancellationToken)
     {
-        var (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSetProperties(1, Properties(tags, task, includeClass, existing)), handles, cancellationToken).ConfigureAwait(false);
-        var problems = RopMessageOps.ParseSetProperties(new RopReader(rops));
-        if (problems.Count > 0)
-            throw new MapiFormatException($"The store refused task properties: {string.Join(", ", problems.Select(p => $"0x{p.Tag:X8}=0x{p.Error:X8}"))}");
+        await MapiPropertyEdits.ApplyAsync(session, handles, 1, Properties(tags, task, includeClass, existing), "task", cancellationToken).ConfigureAwait(false);
 
-        (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSaveChangesMessage(2, 1), handles, cancellationToken).ConfigureAwait(false);
+        var (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSaveChangesMessage(2, 1), handles, cancellationToken).ConfigureAwait(false);
         return RopMessageOps.ParseSaveChangesMessage(new RopReader(rops));
     }
 
     /// <summary>
-    /// The task properties (MS-OXOTASK 2.2.2): status, complete flag and percent kept in step, due and
-    /// start dates mirrored into the PSETID_Common start/end Outlook reads for its views.
-    /// <paramref name="existing"/> is the task's server state on an update. The local model has no start date, no
-    /// in-progress state and no low importance, so those are kept as the server has them unless the edit contradicts
-    /// them (a completed task, or a start after the new due date).
+    /// The task properties (MS-OXOTASK 2.2.2): status, complete flag and percent kept in step. The start and due dates
+    /// are the days in the user's zone at midnight, stored without conversion (2.2.2.2.4, 2.2.2.2.5), with
+    /// PidLidCommonStart and PidLidCommonEnd as their UTC equivalents (2.2.2.1.3); a start date needs a due date
+    /// (2.2.2.2.4), so a task given only a start is due that day, and a start after the due date is not written. A
+    /// reminder sets PidLidReminderSet, PidLidReminderTime and PidLidReminderSignalTime, with PidLidReminderDelta 0
+    /// (MS-OXORMDR 2.2.1, 3.1.4.1.1). Categories are PidNameKeywords (MS-OXCMSG 2.2.1.17).
+    /// <paramref name="existing"/> is the task's server state on an update: an in-progress status and a low importance
+    /// the edit does not contradict are kept as the server has them.
     /// </summary>
-    public static List<TaggedPropertyValue> Properties(MapiTaskTags tags, MapiTaskWrite task, bool includeClass, MapiTaskState? existing = null)
+    public static MapiPropertyEdits.Changes Properties(MapiTaskTags tags, MapiTaskWrite task, bool includeClass, MapiTaskState? existing = null)
     {
-        var values = new List<TaggedPropertyValue>();
+        var isUpdate = existing is not null;
+        var changes = new MapiPropertyEdits.Changes();
+        var values = changes.Set;
         if (includeClass)
             values.Add(TaggedPropertyValue.Unicode(PropertyTags.MessageClass, PropertyTags.TaskMessageClass));
 
@@ -326,21 +366,102 @@ public static class MapiTaskOperations
             values.Add(TaggedPropertyValue.Boolean(tags.TaskComplete, false));
         }
 
-        if (task.DueDate is { } due)
-        {
-            values.Add(TaggedPropertyValue.SysTime(tags.TaskDueDate, due));
-            values.Add(TaggedPropertyValue.SysTime(tags.CommonEnd, due));
+        if (task.WritesStartDate)
+            AddDates(changes, tags, task, isUpdate);
+        else
+            AddDueDateKeepingStart(changes, tags, task, existing);
 
-            if (existing?.StartDate is not { } start || start.Date > due.Date)
-            {
-                values.Add(TaggedPropertyValue.SysTime(tags.TaskStartDate, due));
-                values.Add(TaggedPropertyValue.SysTime(tags.CommonStart, due));
-            }
+        // PidLidTaskDateCompleted (2.2.2.2.9): midnight of the completion day in the user's zone, converted to UTC.
+        if (task.IsComplete && task.CompletedDate is { } completed)
+        {
+            var completedUtc = completed.Kind == DateTimeKind.Local ? completed.ToUniversalTime() : DateTime.SpecifyKind(completed, DateTimeKind.Utc);
+            values.Add(TaggedPropertyValue.SysTime(tags.TaskDateCompleted, LocalMidnightUtc(TimeZoneInfo.ConvertTimeFromUtc(completedUtc, TimeZoneInfo.Local).Date)));
         }
 
-        if (task.IsComplete && task.CompletedDate is { } completed)
-            values.Add(TaggedPropertyValue.SysTime(tags.TaskDateCompleted, completed));
+        if (task.WritesReminder)
+            AddReminder(changes, tags, task);
 
-        return values;
+        if (task.WritesCategories)
+            MapiContactOperations.AddCategories(changes, tags.Keywords, task.Categories, deleteWhenEmpty: isUpdate);
+
+        return changes;
+    }
+
+    /// <summary>The start and due days as the task has them; a task given only a start is due that day.</summary>
+    private static void AddDates(MapiPropertyEdits.Changes changes, MapiTaskTags tags, MapiTaskWrite task, bool isUpdate)
+    {
+        var values = changes.Set;
+        var start = task.StartDate?.Date;
+        var due = task.DueDate?.Date ?? start;
+        if (start is { } startCandidate && due is { } dueCandidate && startCandidate > dueCandidate)
+            start = null;
+
+        if (due is { } dueDay)
+        {
+            values.Add(TaggedPropertyValue.SysTime(tags.TaskDueDate, AsStoredDay(dueDay)));
+            values.Add(TaggedPropertyValue.SysTime(tags.CommonEnd, LocalMidnightUtc(dueDay)));
+        }
+        else if (isUpdate)
+        {
+            changes.Delete.AddRange([tags.TaskDueDate, tags.CommonEnd]);
+        }
+
+        if (start is { } startDay)
+        {
+            values.Add(TaggedPropertyValue.SysTime(tags.TaskStartDate, AsStoredDay(startDay)));
+            values.Add(TaggedPropertyValue.SysTime(tags.CommonStart, LocalMidnightUtc(startDay)));
+        }
+        else if (isUpdate)
+        {
+            changes.Delete.AddRange([tags.TaskStartDate, tags.CommonStart]);
+        }
+    }
+
+    /// <summary>
+    /// The due day when the start date stays the server's: the start is kept unless the task has none or it falls
+    /// after the new due day, in which case it moves to the due day (2.2.2.2.5: the due date is not before the start).
+    /// </summary>
+    private static void AddDueDateKeepingStart(MapiPropertyEdits.Changes changes, MapiTaskTags tags, MapiTaskWrite task, MapiTaskState? existing)
+    {
+        if (task.DueDate?.Date is not { } due)
+            return;
+
+        changes.Set.Add(TaggedPropertyValue.SysTime(tags.TaskDueDate, AsStoredDay(due)));
+        changes.Set.Add(TaggedPropertyValue.SysTime(tags.CommonEnd, LocalMidnightUtc(due)));
+
+        if (existing?.StartDate is not { } start || start.Date > due)
+        {
+            changes.Set.Add(TaggedPropertyValue.SysTime(tags.TaskStartDate, AsStoredDay(due)));
+            changes.Set.Add(TaggedPropertyValue.SysTime(tags.CommonStart, LocalMidnightUtc(due)));
+        }
+    }
+
+    private static void AddReminder(MapiPropertyEdits.Changes changes, MapiTaskTags tags, MapiTaskWrite task)
+    {
+        var values = changes.Set;
+        if (task.ReminderAtUtc is { } reminder)
+        {
+            var utc = reminder.Kind == DateTimeKind.Local ? reminder.ToUniversalTime() : DateTime.SpecifyKind(reminder, DateTimeKind.Utc);
+            values.Add(TaggedPropertyValue.Boolean(tags.ReminderSet, true));
+            values.Add(TaggedPropertyValue.SysTime(tags.ReminderTime, utc));
+            values.Add(TaggedPropertyValue.SysTime(tags.ReminderSignalTime, utc));
+            values.Add(TaggedPropertyValue.Long(tags.ReminderDelta, 0));
+        }
+        else
+        {
+            values.Add(TaggedPropertyValue.Boolean(tags.ReminderSet, false));
+        }
+    }
+
+    /// <summary>The day as a task date stores it: midnight of that day, without time zone conversion.</summary>
+    private static DateTime AsStoredDay(DateTime day) => new(day.Year, day.Month, day.Day, 0, 0, 0, DateTimeKind.Utc);
+
+    /// <summary>The UTC instant the day starts in the user's zone.</summary>
+    private static DateTime LocalMidnightUtc(DateTime day)
+    {
+        var midnight = DateTime.SpecifyKind(day.Date, DateTimeKind.Unspecified);
+        while (TimeZoneInfo.Local.IsInvalidTime(midnight))
+            midnight = midnight.AddMinutes(30);
+        return TimeZoneInfo.ConvertTimeToUtc(midnight, TimeZoneInfo.Local);
     }
 }

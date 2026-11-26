@@ -65,6 +65,9 @@ public enum AccountSetupCheckKind
 public enum AccountSetupStep
 {
     Address,
+
+    /// <summary>After Advanced setup on the address step: an IMAP or POP3 server, or an Exchange Server.</summary>
+    ServerKind,
     Discovery,
     SignInMethod,
     SignIn,
@@ -179,24 +182,36 @@ public sealed record AccountSetupResultRow(WinoIconGlyph Glyph, string Title, st
 /// <summary>One item of a step's single-selection list.</summary>
 public sealed class AccountSetupChoice
 {
-    public AccountSetupChoice(string id, string label, bool isRecommended = false, string? caption = null)
+    public AccountSetupChoice(string id, string label, bool isRecommended = false, string? caption = null, string? description = null, WinoIconGlyph glyph = WinoIconGlyph.None)
     {
         Id = id;
         Label = label;
         IsRecommended = isRecommended;
         CaptionText = caption ?? (isRecommended ? Translator.AccountSetup_Recommended : string.Empty);
+        Description = description ?? string.Empty;
+        Glyph = glyph;
     }
+
+    /// <summary>The icon before the label, such as the server kind's brand mark. None for a choice without one.</summary>
+    public WinoIconGlyph Glyph { get; }
+
+    public bool HasGlyph => Glyph != WinoIconGlyph.None;
 
     public string Id { get; }
     public string Label { get; }
     public bool IsRecommended { get; }
     public string CaptionText { get; }
 
+    /// <summary>A sentence under the label that says what choosing it leads to. Empty for a choice that needs none.</summary>
+    public string Description { get; }
+
     public bool HasCaption => !string.IsNullOrEmpty(CaptionText);
+
+    public bool HasDescription => !string.IsNullOrEmpty(Description);
 
     public string Caption => HasCaption ? $"({CaptionText})" : string.Empty;
 
-    public string AutomationName => HasCaption ? $"{Label}, {CaptionText}" : Label;
+    public string AutomationName => (HasCaption ? $"{Label}, {CaptionText}" : Label) + (HasDescription ? $", {Description}" : string.Empty);
 
     public override string ToString() => AutomationName;
 }

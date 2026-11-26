@@ -347,7 +347,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
             await SynchronizeFoldersAsync(run, cancellationToken);
 
-            if (_providers.GetTraits(account.ProviderType).SupportsCategorySync)
+            if (_providers.GetTraits(account).SupportsCategorySync)
             {
                 run.Start(AccountSetupStepKind.SyncingCategories);
                 await TrySynchronizeCategoriesAsync(account, cancellationToken);
@@ -362,7 +362,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         {
             run.Start(AccountSetupStepKind.SyncingAliases);
 
-            if (_providers.GetTraits(account.ProviderType).SupportsAliasSync)
+            if (_providers.GetTraits(account).SupportsAliasSync)
             {
                 var aliasResult = await _synchronizationManager.SynchronizeAliasesAsync(account.Id, cancellationToken);
                 if (aliasResult.CompletedState != SynchronizationCompletedState.Success)
@@ -490,9 +490,9 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
     }
 
     /// <summary>
-    /// Saves an Exchange account the caller already checked. A modern-auth sign-in stored its refresh token under
-    /// <see cref="ExchangeAccountSetupData.SignedInAccountId"/>, so the account takes that id; a password goes to the
-    /// credential store with the server information.
+    /// Saves an Exchange account the caller already checked. A modern-auth sign-in stored its refresh token, and an
+    /// ActiveSync check registered its device, under <see cref="ExchangeAccountSetupData.SignedInAccountId"/>, so the
+    /// account takes that id; a password goes to the credential store with the server information.
     /// </summary>
     private async Task RunExchangeAsync(SetupRun run, CancellationToken cancellationToken)
     {
@@ -509,6 +509,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         serverInformation.Id = Guid.NewGuid();
         serverInformation.AccountId = account.Id;
         serverInformation.IncomingServerType = CustomIncomingServerType.Exchange;
+        serverInformation.ExchangeTransport = ResolveSetupExchangeTransport(serverInformation);
 
         account.Address = setupData.EmailAddress ?? string.Empty;
         account.SenderName = setupData.DisplayName ?? string.Empty;
@@ -529,9 +530,47 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             await SynchronizeCalendarMetadataAsync(run, cancellationToken);
 
         if (account.IsMailAccessGranted)
+        {
             await _accountService.CreateRootAliasAsync(account.Id, account.Address);
 
+            if (_providers.GetTraits(account).SupportsAliasSync)
+                await TrySynchronizeExchangeAliasesAsync(account, cancellationToken);
+
+            if (_providers.GetTraits(account).SupportsCategorySync)
+                await TrySynchronizeCategoriesAsync(account, cancellationToken);
+        }
+
         await TryFetchDirectoryProfilePictureAsync(account, cancellationToken);
+    }
+
+    /// <summary>
+    /// The transport an Exchange account is saved with and keeps for good: an explicit choice stays, and Automatic
+    /// becomes what the caller's connection check recorded in <see cref="CustomServerInformation.DetectedExchangeTransport"/>,
+    /// MAPI over HTTP when Autodiscover advertised it and the check passed, Exchange Web Services otherwise. ActiveSync is
+    /// only ever an explicit choice.
+    /// </summary>
+    private static ExchangeTransport ResolveSetupExchangeTransport(CustomServerInformation serverInformation)
+        => serverInformation.ExchangeTransport switch
+        {
+            ExchangeTransport.Automatic => serverInformation.DetectedExchangeTransport == ExchangeTransport.MapiHttp
+                ? ExchangeTransport.MapiHttp
+                : ExchangeTransport.Ews,
+            var explicitTransport => explicitTransport
+        };
+
+    // The root alias is already in place; the server's other addresses are an addition that must not fail the setup.
+    private async Task TrySynchronizeExchangeAliasesAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _synchronizationManager.SynchronizeAliasesAsync(account.Id, cancellationToken);
+            if (result.CompletedState != SynchronizationCompletedState.Success)
+                Log.Warning("The Exchange aliases of {AccountId} could not be read during account setup.", account.Id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Warning(ex, "The Exchange aliases could not be read during account setup.");
+        }
     }
 
     // The directory photo is a nicety: a server without one, or without GetUserPhoto, must not fail the setup.
