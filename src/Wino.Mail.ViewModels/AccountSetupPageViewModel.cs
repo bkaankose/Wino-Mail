@@ -170,6 +170,8 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
             WizardContext.Reset();
         }
 
+        LoadImportedAccount(parameters as ProviderSelectionNavigationContext, mode == NavigationMode.Back);
+
         IsChoosingServerKind = false;
         Phase = AccountSetupPhase.Identity;
         NotifyPhaseLayoutChanged();
@@ -232,7 +234,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         EmailAddress = address;
         SaveIdentityDraft();
 
-        await ResolveAsync(address);
+        await ResolveAsync(address, GetImportedProviderChoice(address));
     }
 
     private bool CanChangeAddress() => IsChangeAddressVisible;

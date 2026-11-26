@@ -344,6 +344,13 @@
                             Visibility="{x:Bind ViewModel.HasIdentityError, Mode=OneWay}" />
                     </StackPanel>
 
+                    <HyperlinkButton
+                        Padding="0"
+                        AutomationProperties.AutomationId="AccountSetupSkipImportedAccount"
+                        Command="{x:Bind ViewModel.SkipImportedAccountCommand}"
+                        Content="{x:Bind ViewModel.SkipImportedAccountText, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.IsSkipImportedAccountVisible, Mode=OneWay}" />
+
                     <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsLocalOnlyMode, Mode=OneWay}">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>

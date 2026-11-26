@@ -102,6 +102,7 @@ public static class CoreContainerSetup
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
         services.AddTransient<IAccountRouteResolver, AccountRouteResolver>();
         services.AddTransient<IAccountSetupRunner, AccountSetupRunner>();
+        services.AddTransient<IMailClientAccountImportService, Services.MailClientImport.MailClientAccountImportService>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IMailInvitationService, MailInvitationService>();
         services.AddWinoOAuth();

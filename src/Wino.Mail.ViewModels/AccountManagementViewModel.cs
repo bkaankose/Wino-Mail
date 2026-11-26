@@ -164,6 +164,29 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     public Task StartAddNewAccountAsync() => AddNewAccountAsync();
 
+    /// <summary>
+    /// Opens account setup once for each account the user picked from other mail clients. Nothing is added before the
+    /// user finishes an account's setup.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImportFromOtherMailClientsAsync()
+    {
+        if (IsAccountCreationBlocked)
+        {
+            await AddNewAccountAsync();
+            return;
+        }
+
+        var selected = await MailDialogService.ShowMailClientImportDialogAsync();
+        if (selected is not { Count: > 0 })
+            return;
+
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.MailClientImport_Title,
+            WinoPage.AccountSetupPage,
+            ProviderSelectionNavigationContext.CreateForImport(selected)));
+    }
+
     [RelayCommand]
     private async Task PurchaseUnlimitedAccountAsync()
     {

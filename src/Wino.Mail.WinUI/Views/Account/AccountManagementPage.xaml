@@ -276,6 +276,17 @@
             <ListView.Header>
                 <StackPanel>
                     <accessibilityControls:WinoSettingsCard
+                        AutomationProperties.AutomationId="AccountManagementImportFromOtherClientsCard"
+                        Command="{x:Bind ViewModel.ImportFromOtherMailClientsCommand}"
+                        Description="{x:Bind domain:Translator.MailClientImport_Description}"
+                        Header="{x:Bind domain:Translator.MailClientImport_Title}"
+                        IsActionIconVisible="False"
+                        IsClickEnabled="True">
+                        <winuiControls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                        </winuiControls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                    <accessibilityControls:WinoSettingsCard
                         AutomationProperties.AutomationId="AccountManagementPageSettingsCard7"
                         Command="{x:Bind ViewModel.CreateAccountGroupCommand}"
                         Description="{x:Bind domain:Translator.SettingsLinkAccounts_Description}"

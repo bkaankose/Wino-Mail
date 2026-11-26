@@ -27,7 +27,7 @@ namespace Wino.Mail.ViewModels.Navigation;
 /// <see cref="INavigationHost"/> only creates, shows and releases pages.
 /// </summary>
 public sealed partial class NavigationCoordinator : INavigationService, IDisposable,
-    IRecipient<BreadcrumbNavigationRequested>, IRecipient<BackBreadcrumNavigationRequested>, IRecipient<AccountCreatedMessage>,
+    IRecipient<BreadcrumbNavigationRequested>, IRecipient<BackBreadcrumNavigationRequested>, IRecipient<AccountCreatedMessage>, IRecipient<CreatedAccountShowRequested>,
     IRecipient<WelcomeImportCompletedMessage>, IRecipient<AccountRemovedMessage>
 {
     private readonly INavigationHost _host;
@@ -63,6 +63,7 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
         _messenger.Register<BreadcrumbNavigationRequested>(this);
         _messenger.Register<BackBreadcrumNavigationRequested>(this);
         _messenger.Register<AccountCreatedMessage>(this);
+        _messenger.Register<CreatedAccountShowRequested>(this);
         _messenger.Register<WelcomeImportCompletedMessage>(this);
         _messenger.Register<AccountRemovedMessage>(this);
     }
@@ -355,10 +356,18 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
         GoBack();
     }
 
-    public void Receive(AccountCreatedMessage message) => _pending = ObserveAsync(AccountCreatedAsync(message.Account));
+    public void Receive(AccountCreatedMessage message) => _pending = ObserveAsync(AccountCreatedAsync(message.Account, message.ShowsAccount));
 
-    private async Task AccountCreatedAsync(MailAccount account)
+    public void Receive(CreatedAccountShowRequested message) => _pending = ObserveAsync(ShowCreatedAccountAsync(message.Account, shellExisted: true));
+
+    private async Task AccountCreatedAsync(MailAccount account, bool showsAccount)
     {
+        if (!showsAccount)
+        {
+            await _services.GetRequiredService<IApplicationRuntime>().SynchronizeCreatedAccountAsync(account);
+            return;
+        }
+
         // From Settings > Add account the shell already exists: just close the add-account surface.
         if (_host.IsSecondaryWindowShown) await CloseSecondaryWindowAsync();
         var shellExisted = _host.IsShellShown;

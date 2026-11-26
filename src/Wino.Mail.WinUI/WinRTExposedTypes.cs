@@ -38,6 +38,8 @@ using WinRT;
 // Wino.Mail.Controls.Core types are listed in Wino.Mail.Controls.WinUI, which both apps load.
 
 [assembly: GeneratedWinRTExposedExternalType(typeof(AccountCalendarViewModel))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(MailClientImportItem))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableCollection<MailClientImportItem>))]
 [assembly: GeneratedWinRTExposedExternalType(typeof(GroupedAccountCalendarViewModel))]
 
 [assembly: GeneratedWinRTExposedExternalType(typeof(MailNotificationScopeOption))]

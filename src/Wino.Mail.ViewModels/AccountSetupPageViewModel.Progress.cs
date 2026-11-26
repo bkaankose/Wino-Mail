@@ -148,7 +148,8 @@ public partial class AccountSetupPageViewModel
             BuildResultRows();
             Phase = AccountSetupPhase.Added;
             OnPropertyChanged(nameof(AddedMessage));
-            Messenger.Send(new AccountCreatedMessage(result.Account));
+            Messenger.Send(CreateAccountCreatedMessage(result.Account));
+            ContinueImportAfterAdding(result.Account);
             return;
         }
 
@@ -170,7 +171,8 @@ public partial class AccountSetupPageViewModel
             BuildResultRows();
             Phase = AccountSetupPhase.Added;
             OnPropertyChanged(nameof(AddedMessage));
-            Messenger.Send(new AccountCreatedMessage(_createdAccount));
+            Messenger.Send(CreateAccountCreatedMessage(_createdAccount));
+            ContinueImportAfterAdding(_createdAccount);
             return;
         }
 
@@ -182,9 +184,10 @@ public partial class AccountSetupPageViewModel
     {
         if (_isCreatedAccountSaved && _createdAccount != null)
         {
-            Messenger.Send(new AccountCreatedMessage(_createdAccount));
+            Messenger.Send(CreateAccountCreatedMessage(_createdAccount));
             BuildResultRows();
             Phase = AccountSetupPhase.Added;
+            ContinueImportAfterAdding(_createdAccount);
             return;
         }
 
@@ -362,6 +365,8 @@ public partial class AccountSetupPageViewModel
                 Log.Information("Advanced setup opens without the found servers ({ErrorType}).", ex.GetType().Name);
             }
         }
+
+        server ??= GetImportedServerInformation(address);
 
         var specialProvider = isImapResolution ? RouteSpecialImapProvider : SpecialImapProvider.None;
         var isPop3 = IsPop3Route || _forcedChoice?.IsPop3 == true;

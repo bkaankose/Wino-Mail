@@ -56,7 +56,7 @@ public partial class AccountSetupPageViewModel
     {
         AccountSetupStep.Address when IsLocalOnlyMode => Translator.AccountSetup_Title_Local,
         // Settings already names the page in its breadcrumb.
-        AccountSetupStep.Address => IsSettingsHost ? string.Empty : Translator.AccountSetup_Title_Address,
+        AccountSetupStep.Address => IsSettingsHost && !IsImporting ? string.Empty : Translator.AccountSetup_Title_Address,
         AccountSetupStep.Discovery when Phase == AccountSetupPhase.NotFound => Translator.AccountSetup_Title_NotFound,
         AccountSetupStep.Discovery => Translator.AccountSetup_Title_Discovery,
         AccountSetupStep.ServerKind => Translator.AccountSetup_ServerKind_Title,
@@ -69,6 +69,7 @@ public partial class AccountSetupPageViewModel
     public string StepSubtitle => Step switch
     {
         AccountSetupStep.Address when IsLocalOnlyMode => Translator.AccountSetup_Subtitle_Local,
+        AccountSetupStep.Address when IsImporting => ImportedAccountSubtitle,
         AccountSetupStep.Discovery when Phase != AccountSetupPhase.NotFound => Translator.AccountSetup_Subtitle_Discovery,
         AccountSetupStep.Review when !IsLocalOnlyMode => Translator.AccountSetup_Review_Subtitle,
         _ => string.Empty
@@ -276,6 +277,12 @@ public partial class AccountSetupPageViewModel
 
     private void Finish()
     {
+        if (IsImporting)
+        {
+            ContinueImport();
+            return;
+        }
+
         // In the wizard the App opens the shell as soon as AccountCreatedMessage arrives, so there is nothing left to do.
         if (IsSettingsHost)
             Messenger.Send(new BackBreadcrumNavigationRequested(NavigationTransitionEffect.FromLeft));
@@ -407,6 +414,7 @@ public partial class AccountSetupPageViewModel
         OnPropertyChanged(nameof(IsChangeProviderVisible));
         OnPropertyChanged(nameof(ChangeAddressAutomationName));
         OnPropertyChanged(nameof(IsFooterVisible));
+        OnPropertyChanged(nameof(IsSkipImportedAccountVisible));
         NotifyStepContentChanged();
 
         BackCommand.NotifyCanExecuteChanged();

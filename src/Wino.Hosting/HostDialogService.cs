@@ -121,6 +121,9 @@ internal sealed class HostDialogService(HostInteractionLog log, HostDialogAnswer
     public Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
         => DismissAsync(nameof(ShowAccountReorderDialogAsync));
 
+    public Task<List<MailClientImportCandidate>?> ShowMailClientImportDialogAsync()
+        => DismissAsync<List<MailClientImportCandidate>?>(nameof(ShowMailClientImportDialogAsync), null, null);
+
     public Task<IMailItemFolder?> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
         => DismissAsync<IMailItemFolder?>(nameof(PickFolderAsync), reason.ToString(), null);
 

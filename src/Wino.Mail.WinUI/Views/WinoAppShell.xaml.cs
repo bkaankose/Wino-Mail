@@ -22,6 +22,7 @@ using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Core.Domain.Messaging.Client.Shell;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Messaging.UI;
 using Wino.Mail.ViewModels.MenuItems.Contracts;
 using Wino.Mail.ViewModels.Shell;
@@ -41,6 +42,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     IShellMenuSink,
     IWinoFrameProvider,
     IRecipient<AccountCreatedMessage>,
+    IRecipient<CreatedAccountShowRequested>,
     IRecipient<CreateNewMailWithMultipleAccountsRequested>
 {
     private readonly WinUIDispatcher _pageDispatcher;
@@ -522,20 +524,28 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     /// </summary>
     public void Receive(AccountCreatedMessage message)
     {
+        if (message.ShowsAccount)
+            ShowCreatedAccount(message.Account);
+    }
+
+    public void Receive(CreatedAccountShowRequested message) => ShowCreatedAccount(message.Account);
+
+    private void ShowCreatedAccount(MailAccount account)
+    {
         _ = DispatcherQueue.EnqueueAsync(async () =>
         {
-            var targetMode = message.Account.IsMailAccessGranted
+            var targetMode = account.IsMailAccessGranted
                 ? WinoApplicationMode.Mail
-                : message.Account.IsCalendarAccessGranted
+                : account.IsCalendarAccessGranted
                     ? WinoApplicationMode.Calendar
-                    : message.Account.IsTaskAccessGranted
+                    : account.IsTaskAccessGranted
                         ? WinoApplicationMode.Tasks
                         : WinoApplicationMode.Contacts;
 
             if (targetMode == WinoApplicationMode.Mail &&
                 ViewModel.GetProvider(WinoApplicationMode.Mail) is IMailShellClient mailClient)
             {
-                await mailClient.HandleAccountCreatedAsync(message.Account);
+                await mailClient.HandleAccountCreatedAsync(account);
             }
 
             ViewModel.NavigationService.ChangeApplicationMode(targetMode);
@@ -569,6 +579,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         base.RegisterRecipients();
 
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<CreatedAccountShowRequested>(this);
         WeakReferenceMessenger.Default.Register<CreateNewMailWithMultipleAccountsRequested>(this);
     }
 
@@ -577,6 +588,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         base.UnregisterRecipients();
 
         WeakReferenceMessenger.Default.Unregister<AccountCreatedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<CreatedAccountShowRequested>(this);
         WeakReferenceMessenger.Default.Unregister<CreateNewMailWithMultipleAccountsRequested>(this);
     }
 

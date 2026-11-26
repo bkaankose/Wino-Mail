@@ -78,6 +78,14 @@ public interface IMailDialogService : IDialogServiceBase
     }
 
     /// <summary>
+    /// Scans the other mail clients on this device and lets the user pick which of their accounts to import. A head
+    /// without the dialog returns null.
+    /// </summary>
+    /// <returns>The accounts the user picked, or null when the user cancels.</returns>
+    Task<List<MailClientImportCandidate>?> ShowMailClientImportDialogAsync()
+        => Task.FromResult<List<MailClientImportCandidate>?>(null);
+
+    /// <summary>
     /// Displays a dialog to the user for reordering accounts.
     /// </summary>
     /// <param name="availableAccounts">Available accounts in order.</param>

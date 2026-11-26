@@ -366,6 +366,19 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         }
     }
 
+    public async Task<List<MailClientImportCandidate>?> ShowMailClientImportDialogAsync()
+    {
+        var model = new MailClientImportDialogModel(WinoApplication.Current.Services.GetRequiredService<IMailClientAccountImportService>());
+        var dialog = new MailClientImportDialog(model)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        var result = await HandleDialogPresentationAsync(dialog);
+
+        return result == ContentDialogResult.Primary ? model.GetSelectedCandidates() : null;
+    }
+
     /// <remarks>
     /// The dialog reads the current layout itself, because the flat account list the settings pages pass
     /// does not carry the groups.
