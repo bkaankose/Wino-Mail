@@ -417,6 +417,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         // session, templates and signatures.
         var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
         ViewModel.BodyWriter = EditorSession;
+        ViewModel.DraftChecks = EditorSession;
         ViewModel.RenderDraftAsyncFunc = request => RenderComposeDraftAsync(request, editorLifecycleToken);
         ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
         ViewModel.RenderHtmlBodyAsyncFunc = html => RenderComposeHtmlAsync(html, editorLifecycleToken);
@@ -432,6 +433,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         EditorSession.ApplicationShortcutRequested -= ComposeEditor_ApplicationShortcutRequested;
         EditorSession.ApplicationShortcutRequested += ComposeEditor_ApplicationShortcutRequested;
+        SubscribeMentions();
         _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
         _keyboardShortcutService.KeyboardShortcutsChanged += KeyboardShortcutService_KeyboardShortcutsChanged;
 
@@ -821,6 +823,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 state.Owner.ItemsSource = state.Items;
         }
 
+        RemoveMentionSuggestion(suggestion);
+
         try
         {
             await ViewModel.SuppressSuggestionAsync(suggestion);
@@ -1065,8 +1069,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
         finally
         {
             EditorSession.ApplicationShortcutRequested -= ComposeEditor_ApplicationShortcutRequested;
+            UnsubscribeMentions();
             _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
             ViewModel.BodyWriter = null;
+            ViewModel.DraftChecks = null;
             ViewModel.GetHTMLBodyFunction = null;
             _isEditorDisposed = true;
             await EditorSession.DisposeAsync();
@@ -1290,6 +1296,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             await EditorSession.ExecuteCommandAsync(EditorCommand.SetSpellCheckLanguage(_spellCheckLanguageCode));
             await EditorSession.ExecuteCommandAsync(EditorCommand.ToggleSpellCheck(_isSpellCheckEnabled));
             await EditorSession.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(ViewModel.PreferencesService.IsComposerAutoCorrectEnabled));
+            await EditorSession.SetPasteFormattingAsync(ViewModel.PreferencesService.IsComposerPasteFormattingEnabled);
 
             await EditorSession.SetDefaultTypographyAsync(
                 ViewModel.PreferencesService.ComposerFont,

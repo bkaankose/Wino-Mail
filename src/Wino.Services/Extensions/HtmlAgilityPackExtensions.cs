@@ -211,21 +211,6 @@ public static class HtmlAgilityPackExtensions
     }
 
     /// <summary>
-    /// Removes `style` tags from the document.
-    /// </summary>
-    /// <param name="document"></param>
-    public static void ClearStyles(this HtmlDocument document)
-    {
-        document.DocumentNode
-                .Descendants()
-                .Where(n => n.Name.Equals("script", StringComparison.OrdinalIgnoreCase)
-                || n.Name.Equals("style", StringComparison.OrdinalIgnoreCase)
-                || n.Name.Equals("#comment", StringComparison.OrdinalIgnoreCase))
-                .ToList()
-                .ForEach(n => n.Remove());
-    }
-
-    /// <summary>
     /// Returns plain text from the HTML content.
     /// </summary>
     /// <param name="htmlContent">Content to get preview from.</param>

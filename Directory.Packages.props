@@ -6,7 +6,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <!-- The native mail renderer packages (build/Wino.Renderer.Root.props). -->
-    <WinoRendererVersion>0.1.0-preview.1</WinoRendererVersion>
+    <WinoRendererVersion>0.1.0-preview.6</WinoRendererVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="WinoMail.Renderer" Version="$(WinoRendererVersion)" />
@@ -56,7 +56,7 @@
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.260930100" />
     <PackageVersion Include="Microsoft.Windows.CsWinRT" Version="2.3.1" />
-    <PackageVersion Include="Wino.Mail.Contracts" Version="3.1.0-alpha.4" />
+    <PackageVersion Include="Wino.Mail.Contracts" Version="3.1.0-alpha.5" />
     <PackageVersion Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
     <PackageVersion Include="Wino.Mail.AI.Abstractions" Version="3.0.0-alpha.5" />
     <PackageVersion Include="Wino.Mail.AI.ContentProcessing" Version="3.0.0-alpha.6" />

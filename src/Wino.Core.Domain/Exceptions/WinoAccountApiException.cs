@@ -21,6 +21,9 @@ public class WinoAccountApiException : InvalidOperationException
 
     public HttpStatusCode? StatusCode { get; }
 
+    /// <summary>How long the service asked the client to wait (the Retry-After header), when it said.</summary>
+    public TimeSpan? RetryAfter { get; init; }
+
     /// <summary>The service could not be reached or answered with something other than the API.</summary>
     public bool IsServiceUnavailable => WinoAccountClientErrorCodes.IsServiceFailure(ErrorCode);
 

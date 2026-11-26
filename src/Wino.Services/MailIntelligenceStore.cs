@@ -56,7 +56,6 @@ public sealed class MailIntelligenceStore(
 
             await connection.CreateTableAsync<ClassificationArtifactRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<EnrichmentArtifactRow>().ConfigureAwait(false);
-            await connection.CreateTableAsync<MailIntelligenceJobRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<BriefingIgnoreRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<BriefingViewStateRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<MailIntelligenceAccessRow>().ConfigureAwait(false);
@@ -84,73 +83,57 @@ public sealed class MailIntelligenceStore(
         }
     }
 
-    // ---- jobs ----------------------------------------------------------------------
+    // ---- legacy v2 jobs --------------------------------------------------------------
+    // Builds before the streamed route recorded server jobs in a MailIntelligenceJob table.
+    // Nothing creates it any more; the coordinator reads what is left once, deletes the jobs
+    // on the server and the table goes with the last row. Remove with the v2 cleanup.
 
-    public async Task UpsertJobAsync(MailIntelligenceJobState job, CancellationToken cancellationToken = default)
+    private const string LegacyJobTable = "MailIntelligenceJob";
+
+    public async Task<IReadOnlyList<LegacyMailIntelligenceJob>> GetLegacyJobsAsync(CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        await lease.Connection.InsertOrReplaceAsync(new MailIntelligenceJobRow
+        if (!await LegacyJobTableExistsAsync(lease.Connection).ConfigureAwait(false))
         {
-            JobId = job.JobId,
-            LocalAccountId = job.LocalAccountId,
-            MailboxId = job.MailboxId,
-            MessageCount = job.MessageCount,
-            Status = job.Status,
-            ClassificationStatus = job.Classification.Status,
-            ClassificationPageCount = job.Classification.PageCount,
-            ClassificationDigest = job.Classification.Digest,
-            IsClassificationImported = job.Classification.IsImported,
-            IsClassificationAcknowledged = job.Classification.IsAcknowledged,
-            EnrichmentStatus = job.Enrichment.Status,
-            EnrichmentPageCount = job.Enrichment.PageCount,
-            EnrichmentDigest = job.Enrichment.Digest,
-            IsEnrichmentImported = job.Enrichment.IsImported,
-            IsEnrichmentAcknowledged = job.Enrichment.IsAcknowledged,
-            FailedCount = job.FailedCount,
-            LastError = job.LastError,
-            ResultKeyId = job.ResultKeyId,
-            CreatedUtc = job.CreatedUtc,
-            UpdatedUtc = DateTime.UtcNow,
-        }, typeof(MailIntelligenceJobRow)).ConfigureAwait(false);
+            return [];
+        }
+
+        var rows = await lease.Connection.QueryAsync<LegacyJobProjection>(
+            $"SELECT JobId, MailboxId, CreatedUtc FROM {LegacyJobTable}").ConfigureAwait(false);
+        return [.. rows.Select(static row => new LegacyMailIntelligenceJob(row.JobId, row.MailboxId, row.CreatedUtc))];
     }
 
-    public async Task<MailIntelligenceJobState?> GetJobAsync(Guid jobId, CancellationToken cancellationToken = default)
+    public async Task DeleteLegacyJobsAsync(IReadOnlyCollection<Guid> jobIds, CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var row = await lease.Connection.Table<MailIntelligenceJobRow>()
-            .Where(x => x.JobId == jobId)
-            .FirstOrDefaultAsync()
-            .ConfigureAwait(false);
-        return row is null ? null : Map(row);
+        if (!await LegacyJobTableExistsAsync(lease.Connection).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        await lease.Connection.RunInTransactionAsync(connection =>
+        {
+            foreach (var jobId in jobIds)
+            {
+                connection.Execute($"DELETE FROM {LegacyJobTable} WHERE JobId = ?", jobId);
+            }
+
+            if (connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM {LegacyJobTable}") == 0)
+            {
+                connection.Execute($"DROP TABLE {LegacyJobTable}");
+            }
+        }).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<MailIntelligenceJobState>> GetUnfinishedJobsAsync(CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await lease.Connection.Table<MailIntelligenceJobRow>()
-            .Where(x => !x.IsClassificationAcknowledged || !x.IsEnrichmentAcknowledged)
-            .OrderBy(x => x.CreatedUtc)
-            .ToListAsync()
-            .ConfigureAwait(false);
-        return [.. rows.Select(Map)];
-    }
+    private static async Task<bool> LegacyJobTableExistsAsync(SQLiteAsyncConnection connection)
+        => await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", LegacyJobTable).ConfigureAwait(false) > 0;
 
-    public async Task<IReadOnlyList<MailIntelligenceJobState>> GetJobsForAccountAsync(
-        Guid localAccountId, CancellationToken cancellationToken = default)
+    private sealed class LegacyJobProjection
     {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await lease.Connection.Table<MailIntelligenceJobRow>()
-            .Where(x => x.LocalAccountId == localAccountId)
-            .OrderBy(x => x.CreatedUtc)
-            .ToListAsync()
-            .ConfigureAwait(false);
-        return [.. rows.Select(Map)];
-    }
-
-    public async Task DeleteJobAsync(Guid jobId, CancellationToken cancellationToken = default)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        await lease.Connection.DeleteAsync<MailIntelligenceJobRow>(jobId).ConfigureAwait(false);
+        public Guid JobId { get; set; }
+        public Guid MailboxId { get; set; }
+        public DateTime CreatedUtc { get; set; }
     }
 
     // ---- imports -------------------------------------------------------------------
@@ -181,7 +164,6 @@ public sealed class MailIntelligenceStore(
         var existing = await LoadFirstImportedAsync<ClassificationArtifactRow>(
             lease.Connection, localAccountId, fresh.Select(x => x.Key.RemoteMessageId)).ConfigureAwait(false);
 
-        // One transaction per page. The stage is only acknowledged after this commits.
         await lease.Connection.RunInTransactionAsync(connection =>
         {
             foreach (var artifact in fresh)
@@ -307,49 +289,6 @@ public sealed class MailIntelligenceStore(
     {
         public string RemoteMessageId { get; set; } = string.Empty;
         public DateTime FirstImportedUtc { get; set; }
-    }
-
-    public async Task MarkStageImportedAsync(Guid jobId, MailIntelligenceStageKind stage, CancellationToken cancellationToken = default)
-        => await UpdateJobRowAsync(jobId, row =>
-        {
-            if (stage == MailIntelligenceStageKind.Classification)
-            {
-                row.IsClassificationImported = true;
-            }
-            else
-            {
-                row.IsEnrichmentImported = true;
-            }
-        }, cancellationToken).ConfigureAwait(false);
-
-    public async Task MarkStageAcknowledgedAsync(Guid jobId, MailIntelligenceStageKind stage, CancellationToken cancellationToken = default)
-        => await UpdateJobRowAsync(jobId, row =>
-        {
-            if (stage == MailIntelligenceStageKind.Classification)
-            {
-                row.IsClassificationAcknowledged = true;
-            }
-            else
-            {
-                row.IsEnrichmentAcknowledged = true;
-            }
-        }, cancellationToken).ConfigureAwait(false);
-
-    private async Task UpdateJobRowAsync(Guid jobId, Action<MailIntelligenceJobRow> mutate, CancellationToken cancellationToken)
-    {
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var row = await lease.Connection.Table<MailIntelligenceJobRow>()
-            .Where(x => x.JobId == jobId)
-            .FirstOrDefaultAsync()
-            .ConfigureAwait(false);
-        if (row is null)
-        {
-            return;
-        }
-
-        mutate(row);
-        row.UpdatedUtc = DateTime.UtcNow;
-        await lease.Connection.InsertOrReplaceAsync(row, typeof(MailIntelligenceJobRow)).ConfigureAwait(false);
     }
 
     // ---- artifacts -----------------------------------------------------------------
@@ -602,7 +541,6 @@ public sealed class MailIntelligenceStore(
         {
             connection.Execute("DELETE FROM ClassificationArtifact WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM EnrichmentArtifact WHERE LocalAccountId = ?", localAccountId);
-            connection.Execute("DELETE FROM MailIntelligenceJob WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM BriefingIgnore WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM BriefingViewState WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM MailIntelligenceAccess WHERE LocalAccountId = ?", localAccountId);
@@ -654,22 +592,6 @@ public sealed class MailIntelligenceStore(
     }
 
     // ---- mapping -------------------------------------------------------------------
-
-    private static MailIntelligenceJobState Map(MailIntelligenceJobRow row) => new(
-        row.JobId,
-        row.LocalAccountId,
-        row.MailboxId,
-        row.MessageCount,
-        row.Status,
-        new MailIntelligenceStageState(row.ClassificationStatus, row.ClassificationPageCount, row.ClassificationDigest, row.IsClassificationImported, row.IsClassificationAcknowledged),
-        new MailIntelligenceStageState(row.EnrichmentStatus, row.EnrichmentPageCount, row.EnrichmentDigest, row.IsEnrichmentImported, row.IsEnrichmentAcknowledged),
-        row.FailedCount,
-        row.LastError,
-        row.CreatedUtc,
-        row.UpdatedUtc)
-    {
-        ResultKeyId = row.ResultKeyId,
-    };
 
     private static ClassificationArtifact Map(ClassificationArtifactRow row) => new(
         new MailArtifactKey(row.RemoteMessageId, row.ContentHash),

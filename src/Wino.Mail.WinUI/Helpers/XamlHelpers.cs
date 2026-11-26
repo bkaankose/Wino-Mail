@@ -152,6 +152,8 @@ public static class XamlHelpers
     }
 
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
+
+    public static string GetActionCardCopyName(string label) => string.Format(CultureInfo.CurrentCulture, Translator.ActionCard_CopyValueFormat, label);
     public static Visibility BoolToVisibilityConverter(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
     public static double GetShelfItemOpacity(bool isDimmed) => isDimmed ? 0.4 : 1.0;
     public static Thickness GetShelfItemBorderThickness(bool isMatched) => new(isMatched ? 2 : 0);

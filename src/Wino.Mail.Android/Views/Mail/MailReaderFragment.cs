@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Globalization;
 using Android.Content;
 using Android.OS;
 using Android.Views;
@@ -197,6 +198,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _avatar = view.FindViewById<WinoContactPicture>(Resource.Id.reader_avatar);
         _chips = view.FindViewById<LinearLayout>(Resource.Id.reader_chips);
         FindPrivacyViews(view);
+        _actionCards = view.FindViewById<LinearLayout>(Resource.Id.reader_action_cards);
         _attachmentStrip = view.FindViewById(Resource.Id.reader_attachment_strip);
         _attachments = view.FindViewById<LinearLayout>(Resource.Id.reader_attachments);
         if (view.FindViewById<LinearLayout>(Resource.Id.reader_sender_row) is { } senderRow
@@ -513,6 +515,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         ObserveCollection(viewModel.ToItems, attachments: false, dispatcher);
         ObserveCollection(viewModel.CcItems, attachments: false, dispatcher);
         ObserveCollection(viewModel.Attachments, attachments: true, dispatcher);
+        ObserveActionCards(viewModel, dispatcher);
         EventHandler<string?> pictureChanged = (_, address) =>
         {
             if (address is null || string.Equals(ViewModel?.FromAddress?.Trim(), address, StringComparison.OrdinalIgnoreCase)) UpdateSender();
@@ -633,13 +636,18 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         mailView.SetMinimumHeight(WinoTokens.Px(context, Resource.Dimension.wino_m3_reader_body_min_height));
         card.AddView(mailView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
         _messageReader = new EngineMailMessageReader(mailView, services.GetRequiredService<MailEngineHost>(), _presentation,
-            viewModel.SecureMimeContextFactory, () => viewModel.ShouldStripLinkTrackingParameters);
+            viewModel.SecureMimeContextFactory, () => viewModel.ShouldStripLinkTrackingParameters)
+        {
+            FoldRowTemplate = AndroidFoldRowTemplate.Instance,
+        };
+        _messageReader.InsightsChanged += (_, insights) => viewModel.ShowInsights(insights);
         _messageReader.Attach();
         viewModel.PrintPresenter = new AndroidMailPrintPresenter(services.GetRequiredService<MailEngineHost>(), () => Activity,
             () => _messageReader?.HasMessage == true ? _mailView?.Reader : null, () => CreatePrintHeader(viewModel));
         mailView.LinkActivated += (_, args) => Observe(OpenLinkAsync(args));
-        mailView.LinkHoverChanged += (_, args) => ShowLinkTarget(args.Link);
+        mailView.LinkHoverChanged += (_, args) => ShowLinkTarget(args.Link, args.TextMismatch);
         mailView.ContextMenuRequested += (_, args) => ShowBodyMenu(mailView, args);
+        mailView.SetOnTouchListener(new TapListener(ShowDateMenuAt, ViewConfiguration.Get(context).ScaledTouchSlop, ViewConfiguration.LongPressTimeout));
     }
 
     private static Wino.Renderer.Print.PrintHeader CreatePrintHeader(MailRenderingPageViewModel viewModel)
@@ -665,37 +673,11 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         if (_mailView is not null) _presentation.ApplyTo(_mailView);
     }
 
-    /// <summary>Long press in the body: the word is selected; Copy, Select all, and for a link Open and Copy link.</summary>
-    private void ShowBodyMenu(MailView view, ContextMenuRequest request)
-    {
-        if (Context is not { } context) return;
-        var popup = new PopupMenu(context, view, (int)GravityFlags.NoGravity);
-        const int CopyId = 1;
-        const int SelectAllId = 2;
-        const int CopyLinkId = 3;
-        if (request.HasSelection) popup.Menu.Add(0, CopyId, 0, Translator.Buttons_Copy);
-        popup.Menu.Add(0, SelectAllId, 1, Translator.Reader_ContextMenu_SelectAll);
-        if (request.LinkUrl is { Length: > 0 }) popup.Menu.Add(0, CopyLinkId, 2, Translator.Reader_ContextMenu_CopyLink);
-        popup.MenuItemClick += (_, args) =>
-        {
-            switch (args.Item?.ItemId)
-            {
-                case CopyId:
-                    view.CopySelection();
-                    break;
-                case SelectAllId:
-                    view.SelectAll();
-                    break;
-                case CopyLinkId when request.LinkUrl is { } url && context.GetSystemService(Context.ClipboardService) is ClipboardManager clipboard:
-                    clipboard.PrimaryClip = ClipData.NewPlainText("link", url);
-                    break;
-            }
-        };
-        popup.Show();
-    }
-
-    /// <summary>The hovered link's address under a mouse or stylus (Windows link bar); a Safe Links address shows where it leads.</summary>
-    private void ShowLinkTarget(ResolvedLink? link)
+    /// <summary>
+    /// The hovered link's address under a mouse or stylus (Windows link bar); a Safe Links address shows where it leads,
+    /// and a link whose text names another address says so under it.
+    /// </summary>
+    private void ShowLinkTarget(ResolvedLink? link, LinkTextMismatch? mismatch)
     {
         if (_linkTarget is null || _disposed) return;
         if (link is null || string.IsNullOrEmpty(link.Effective))
@@ -703,9 +685,12 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
             HideLinkTarget();
             return;
         }
-        _linkTarget.Text = link.RedirectTarget is { } target
-            ? Translator.Reader_ProtectedLinkFormat.Replace("{0}", target, StringComparison.Ordinal)
+        var target = link.RedirectTarget is { } redirect
+            ? Translator.Reader_ProtectedLinkFormat.Replace("{0}", redirect, StringComparison.Ordinal)
             : link.Effective;
+        _linkTarget.Text = mismatch is null
+            ? target
+            : target + "\n" + string.Format(CultureInfo.CurrentCulture, Translator.Reader_LinkTextMismatchFormat, mismatch.TextHost, mismatch.TargetHost);
         _linkTarget.Visibility = ViewStates.Visible;
     }
 

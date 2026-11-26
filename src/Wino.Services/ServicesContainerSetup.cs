@@ -110,7 +110,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();
         services.AddSingleton<IMailIntelligenceCoordinator, MailIntelligenceCoordinator>();
-        services.AddSingleton<MailIntelligenceUploadBuilder>();
+        services.AddSingleton<MailIntelligenceEnvelopeBuilder>();
         services.AddSingleton<IWinoIntelligenceCoordinator, WinoIntelligenceCoordinator>();
         services.AddSingleton<IIntelligenceCoverageHandoff, IntelligenceCoverageHandoff>();
         services.AddSingleton<MailIntelligenceStore>();
@@ -120,7 +120,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<IIntelligenceResultKeyStore, IntelligenceResultKeyStore>();
         services.AddSingleton<IntelligenceResultKeyLifecycle>();
         services.AddSingleton<IntelligenceTransportKeyProvider>();
-        services.AddSingleton<MailIntelligenceResultPageReader>();
         services.AddSingleton<ILocalIntelligenceService, LocalIntelligenceService>();
         services.AddSingleton<IContentEnvelopeEncryptor>(_ =>
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load()));

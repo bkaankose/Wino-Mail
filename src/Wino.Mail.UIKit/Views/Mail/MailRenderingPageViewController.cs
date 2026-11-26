@@ -61,6 +61,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private readonly MailReaderStatusRow _statusRow = new();
     private readonly UIStackView _chips = WinoLayout.HStack(8);
     private readonly UIView _intelligenceHost = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
+    private readonly UIStackView _actionCardsHost = WinoLayout.VStack(8);
     private readonly EngineMailView _mailView = new() { TranslatesAutoresizingMaskIntoConstraints = false, SizesToContent = true };
     private readonly ReaderLinkTargetBar _linkTarget = new();
     private readonly UIStackView _attachmentTiles = WinoLayout.HStack(10);
@@ -151,7 +152,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var recipients = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(BuildRecipientRows(), recipients, 0, 52, 0, 0);
 
-        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, privacyBars, invitationCard), 12, Gutter, 10, Gutter);
+        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _actionCardsHost, _intelligenceHost, privacyBars, invitationCard), 12, Gutter, 10, Gutter);
         header.Alignment = UIStackViewAlignment.Fill;
         header.SetCustomSpacing(4, senderRow);
         // The chip row hugs its chips from the leading edge.
@@ -254,6 +255,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _currentItem = parameter as MailItemViewModel;
         IntelligenceBeginItem(_currentItem);
         InitializeEngineReader();
+        InitializeActionCards();
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
         ViewModel.MessageReader = this;

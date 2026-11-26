@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.IntelligenceTileBar;
@@ -57,7 +58,12 @@ public sealed partial class WinoIntelligenceHeader : Control
     private WinoIntelligenceProgressRing? _processingProgressRing;
     private TextBlock? _processingStatusTextBlock;
     private FontIcon? _chevronIcon;
+    private Button? _chevronButton;
     private FrameworkElement? _bodyRoot;
+    private FontIcon? _headerIcon;
+    private ContentPresenter? _headerActionsPresenter;
+    private FrameworkElement? _intelligenceBody;
+    private ContentPresenter? _bodyContentPresenter;
     private WinoMailIntelligenceTileBar? _intelligenceTileBar;
     private FrameworkElement? _factsPanel;
     private FrameworkElement? _deadlineFactCard;
@@ -352,6 +358,30 @@ public sealed partial class WinoIntelligenceHeader : Control
     [GeneratedDependencyProperty(DefaultValue = "Collapsed")]
     public partial string CollapsedText { get; set; }
 
+    /// <summary>
+    /// Content the host shows in the expanded body instead of the intelligence panels. While it is set, the header is
+    /// a plain collapsible card: <see cref="HeaderTitle"/>, <see cref="SubtitleText"/>, <see cref="HeaderGlyph"/> and
+    /// <see cref="HeaderActions"/> make up its row, and nothing about processing is shown.
+    /// </summary>
+    [GeneratedDependencyProperty]
+    public partial object? BodyContent { get; set; }
+
+    /// <summary>Content the host shows at the right end of the header row, such as the card's main button.</summary>
+    [GeneratedDependencyProperty]
+    public partial object? HeaderActions { get; set; }
+
+    /// <summary>The one-line summary next to the title while <see cref="BodyContent"/> is set.</summary>
+    [GeneratedDependencyProperty(DefaultValue = "")]
+    public partial string SubtitleText { get; set; }
+
+    /// <summary>The glyph of the header icon; empty keeps the Wino Intelligence mark.</summary>
+    [GeneratedDependencyProperty(DefaultValue = "")]
+    public partial string HeaderGlyph { get; set; }
+
+    /// <summary>The brush of the header icon; null keeps the Wino Intelligence brand color.</summary>
+    [GeneratedDependencyProperty]
+    public partial Brush? HeaderIconBrush { get; set; }
+
     /// <summary>Initializes a new instance of the <see cref="WinoIntelligenceHeader"/> class.</summary>
     public WinoIntelligenceHeader()
     {
@@ -397,10 +427,11 @@ public sealed partial class WinoIntelligenceHeader : Control
                           || SimilarMailState == WinoIntelligenceFeatureState.Busy
                           || IsTranslationBusy;
 
-    private bool HasInsights => IsProcessingAvailable && ProcessingState == WinoIntelligenceProcessingState.Processed;
-    private bool CanRequestProcessing => IsProcessingAvailable && ProcessingState is WinoIntelligenceProcessingState.NotProcessed or WinoIntelligenceProcessingState.Failed;
-    private bool IsProcessingRunning => IsProcessingAvailable && ProcessingState is WinoIntelligenceProcessingState.Queued or WinoIntelligenceProcessingState.Processing;
-    private bool CanExpand => IsSummaryAvailable || IsTranslateAvailable || CanRequestProcessing
+    private bool HasHostContent => BodyContent is not null;
+    private bool HasInsights => !HasHostContent && IsProcessingAvailable && ProcessingState == WinoIntelligenceProcessingState.Processed;
+    private bool CanRequestProcessing => !HasHostContent && IsProcessingAvailable && ProcessingState is WinoIntelligenceProcessingState.NotProcessed or WinoIntelligenceProcessingState.Failed;
+    private bool IsProcessingRunning => !HasHostContent && IsProcessingAvailable && ProcessingState is WinoIntelligenceProcessingState.Queued or WinoIntelligenceProcessingState.Processing;
+    private bool CanExpand => HasHostContent || IsSummaryAvailable || IsTranslateAvailable || CanRequestProcessing
         || (HasInsights && (NeedsReply || !string.IsNullOrWhiteSpace(DeadlineText)
             || !string.IsNullOrWhiteSpace(BriefingFactText)
             || IsSuggestedRepliesAvailable || IsFindSimilarMailAvailable));
@@ -414,6 +445,7 @@ public sealed partial class WinoIntelligenceHeader : Control
     [DynamicWindowsRuntimeCast(typeof(FontIcon))]
     [DynamicWindowsRuntimeCast(typeof(ListView))]
     [DynamicWindowsRuntimeCast(typeof(ComboBox))]
+    [DynamicWindowsRuntimeCast(typeof(ContentPresenter))]
     protected override void OnApplyTemplate()
     {
         DetachTemplateHandlers();
@@ -439,7 +471,12 @@ public sealed partial class WinoIntelligenceHeader : Control
         _processingProgressRing = GetTemplateChild(PartProcessingProgressRingName) as WinoIntelligenceProgressRing;
         _processingStatusTextBlock = GetTemplateChild(PartProcessingStatusTextBlockName) as TextBlock;
         _chevronIcon = GetTemplateChild(PartChevronIconName) as FontIcon;
+        _chevronButton = GetTemplateChild(PartChevronButtonName) as Button;
         _bodyRoot = GetTemplateChild(PartBodyRootName) as FrameworkElement;
+        _headerIcon = GetTemplateChild(PartHeaderIconName) as FontIcon;
+        _headerActionsPresenter = GetTemplateChild(PartHeaderActionsPresenterName) as ContentPresenter;
+        _intelligenceBody = GetTemplateChild(PartIntelligenceBodyName) as FrameworkElement;
+        _bodyContentPresenter = GetTemplateChild(PartBodyContentPresenterName) as ContentPresenter;
         _intelligenceTileBar = GetTemplateChild(PartIntelligenceTileBarName) as WinoMailIntelligenceTileBar;
         _factsPanel = GetTemplateChild(PartFactsPanelName) as FrameworkElement;
         _deadlineFactCard = GetTemplateChild(PartDeadlineFactCardName) as FrameworkElement;
@@ -511,6 +548,8 @@ public sealed partial class WinoIntelligenceHeader : Control
     private void AttachTemplateHandlers()
     {
         if (_headerToggleButton is not null) _headerToggleButton.Click += OnHeaderToggleClicked;
+        if (_chevronButton is not null) _chevronButton.Click += OnHeaderToggleClicked;
+        if (_chevronIcon is not null) _chevronIcon.SizeChanged += OnChevronSizeChanged;
         if (_headerRow is not null)
         {
             _headerRow.PointerEntered += OnHeaderRowPointerEntered;
@@ -549,6 +588,8 @@ public sealed partial class WinoIntelligenceHeader : Control
     private void DetachTemplateHandlers()
     {
         if (_headerToggleButton is not null) _headerToggleButton.Click -= OnHeaderToggleClicked;
+        if (_chevronButton is not null) _chevronButton.Click -= OnHeaderToggleClicked;
+        if (_chevronIcon is not null) _chevronIcon.SizeChanged -= OnChevronSizeChanged;
         if (_headerRow is not null)
         {
             _headerRow.PointerEntered -= OnHeaderRowPointerEntered;
@@ -726,11 +767,32 @@ public sealed partial class WinoIntelligenceHeader : Control
     private void SyncAll(bool animateExpansion)
     {
         if (!CanExpand && IsExpanded) IsExpanded = false;
+        SyncHostContentVisuals();
         SyncHeaderVisuals();
         SyncExpansionVisuals(animateExpansion);
         SyncFactVisuals();
         SyncFeatureVisuals();
         SyncTranslationVisuals();
+    }
+
+    // Host content is a compact card, so its body keeps less room around it than the intelligence panels.
+    private static readonly Thickness HostBodyPadding = new(12, 8, 12, 10);
+    private static readonly Thickness IntelligenceBodyPadding = new(12);
+
+    [DynamicWindowsRuntimeCast(typeof(Border))]
+    private void SyncHostContentVisuals()
+    {
+        var hasHostContent = HasHostContent;
+
+        if (_bodyRoot is Border body) body.Padding = hasHostContent ? HostBodyPadding : IntelligenceBodyPadding;
+
+        if (_intelligenceBody is not null) _intelligenceBody.Visibility = ToVisibility(!hasHostContent);
+        if (_bodyContentPresenter is not null) _bodyContentPresenter.Visibility = ToVisibility(hasHostContent);
+        if (_headerActionsPresenter is not null) _headerActionsPresenter.Visibility = ToVisibility(HeaderActions is not null);
+        if (_headerIcon is null) return;
+
+        if (!string.IsNullOrEmpty(HeaderGlyph)) _headerIcon.Glyph = HeaderGlyph;
+        if (HeaderIconBrush is not null) _headerIcon.Foreground = HeaderIconBrush;
     }
 
     private void SyncIntelligenceTiles()
@@ -771,13 +833,14 @@ public sealed partial class WinoIntelligenceHeader : Control
         if (_headerContentRoot is not null) _headerContentRoot.Opacity = CanExpand ? 1 : 0.6;
         if (_headerToggleButton is not null) _headerToggleButton.IsEnabled = CanExpand;
         if (_chevronIcon is not null) _chevronIcon.Visibility = ToVisibility(CanExpand);
+        if (_chevronButton is not null) _chevronButton.IsEnabled = CanExpand;
         UpdateHeaderRowPointerVisual();
         UpdateHeaderAutomationName(hasBriefingFact);
     }
 
     // A processed message says nothing here: its tiles and chips already show what is on offer, so
     // the row only carries text while processing is pending, running, failed or unavailable.
-    private string ResolveSubtitleText() => ProcessingState switch
+    private string ResolveSubtitleText() => HasHostContent ? SubtitleText : ProcessingState switch
     {
         WinoIntelligenceProcessingState.Queued => QueuedSubtitleText,
         WinoIntelligenceProcessingState.Processing => ProcessingSubtitleText,
@@ -1089,6 +1152,13 @@ public sealed partial class WinoIntelligenceHeader : Control
     }
 
     private void OnHeaderToggleClicked(object sender, RoutedEventArgs e) { if (CanExpand) IsExpanded = !IsExpanded; }
+
+    // A header that starts expanded rotates its chevron before the icon has a size; the center follows the real size.
+    private void OnChevronSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_chevronIcon is null) return;
+        ElementCompositionPreview.GetElementVisual(_chevronIcon).CenterPoint = new Vector3((float)(e.NewSize.Width / 2), (float)(e.NewSize.Height / 2), 0);
+    }
 
     private void OnHeaderRowPointerEntered(object sender, PointerRoutedEventArgs e)
     {

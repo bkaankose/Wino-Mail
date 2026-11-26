@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Tasks;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -167,4 +168,24 @@ public interface IMailDialogService : IDialogServiceBase
     /// <param name="browserName">The browser chosen for the account, or null for the system default.</param>
     /// <returns>True when the user chose to open the link.</returns>
     Task<bool> ShowOpenLinkConfirmationAsync(string? linkText, Uri originalUri, Uri cleanedUri, int removedParameterCount, string? browserName);
+
+    /// <summary>
+    /// Asks before an action card opens a web address the sender put in it. Wino cannot verify that the card comes
+    /// from <paramref name="senderName"/>. A head that shows no cards declines.
+    /// </summary>
+    Task<ActionCardOpenConfirmation> ShowActionCardOpenConfirmationAsync(string actionName, string senderName, Uri address)
+        => Task.FromResult(new ActionCardOpenConfirmation(false, false));
+
+    /// <summary>Lists what the checks before sending found and returns what the user chose. A head without the checks sends.</summary>
+    Task<DraftCheckDialogResult> ShowDraftCheckDialogAsync(IReadOnlyList<DraftCheckIssueItem> issues)
+        => Task.FromResult(new DraftCheckDialogResult(DraftCheckDialogChoice.SendAnyway));
+
+    /// <summary>
+    /// Asks for the description of a picture in the composer. Null when the user cancelled; empty when the user saved
+    /// no description.
+    /// </summary>
+    Task<string?> ShowPictureDescriptionDialogAsync(string? currentDescription) => Task.FromResult<string?>(null);
+
+    /// <summary>Asks for a new size of the selected picture in CSS pixels. Null when the user cancelled.</summary>
+    Task<PictureSize?> ShowPictureResizeDialogAsync(PictureSize currentSize) => Task.FromResult<PictureSize?>(null);
 }

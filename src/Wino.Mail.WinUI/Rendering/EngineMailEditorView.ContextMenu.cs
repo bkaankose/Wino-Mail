@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Windows.Foundation;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Editor;
-using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
-using Wino.Mail.WinUI.Helpers;
 using Wino.Renderer;
 using Wino.Renderer.Editing;
 
@@ -69,6 +70,22 @@ public sealed partial class EngineMailEditorView
                 shortcut: new ContextFlyoutShortcut("Ctrl+Shift+V", "V", Control: true, Shift: true)));
         }
 
+        // A picture in the composer can be resized and described; the reader only copies it.
+        if (request.IsEditable && request.OnImage)
+        {
+            entries.Add(ContextFlyoutSeparatorEntry.Instance);
+            entries.Add(CreateEntry(
+                Translator.Composer_ResizePicture,
+                () => RunPictureCommand(Session.ResizeSelectedImageAsync),
+                "EditorContextResizePicture",
+                icon: WinoIconGlyph.ImageResize));
+            entries.Add(CreateEntry(
+                Translator.Composer_PictureDescription,
+                () => RunPictureCommand(Session.DescribeSelectedImageAsync),
+                "EditorContextPictureDescription",
+                icon: WinoIconGlyph.TextDescription));
+        }
+
         if (request.LinkUrl is { Length: > 0 } linkUrl)
         {
             entries.Add(ContextFlyoutSeparatorEntry.Instance);
@@ -96,9 +113,7 @@ public sealed partial class EngineMailEditorView
             "EditorContextSelectAll",
             shortcut: new ContextFlyoutShortcut("Ctrl+A", "A", Control: true)));
 
-        new WinoContextFlyout { ItemsSource = entries.ToArray() }.ShowAt(
-            _view,
-            WinoContextFlyoutHelper.CreatePointerAlignedOptions(new Point(request.ViewPoint.X, request.ViewPoint.Y)));
+        EngineContextMenu.Show(_view, new Point(request.ViewPoint.X, request.ViewPoint.Y), entries, IsEditorDarkMode ? ElementTheme.Dark : ElementTheme.Light);
     }
 
     private ContextFlyoutCommandEntry CreateEntry(
@@ -106,10 +121,12 @@ public sealed partial class EngineMailEditorView
         Action action,
         string automationId,
         bool isEnabled = true,
-        ContextFlyoutShortcut? shortcut = null)
+        ContextFlyoutShortcut? shortcut = null,
+        WinoIconGlyph? icon = null)
         => new()
         {
             Text = text,
+            Icon = icon is { } glyph ? new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(glyph)) : null,
             Command = new RelayCommand(() =>
             {
                 action();
@@ -119,6 +136,22 @@ public sealed partial class EngineMailEditorView
             Shortcut = shortcut,
             AutomationId = automationId
         };
+
+    private static async void RunPictureCommand(Func<CancellationToken, Task> command)
+    {
+        try
+        {
+            await command(CancellationToken.None);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The editor closed while its dialog was open.
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "A picture command from the composer menu failed.");
+        }
+    }
 
     private void OpenLink(string linkUrl)
     {

@@ -111,7 +111,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             App.Current.Services.GetRequiredService<MailEngineHost>(),
             _readerPresentation,
             ViewModel.SecureMimeContextFactory,
-            () => ViewModel.ShouldStripLinkTrackingParameters);
+            () => ViewModel.ShouldStripLinkTrackingParameters)
+        {
+            FoldRowTemplate = FluentFoldRowTemplate.Instance
+        };
+        _messageReader.InsightsChanged += MessageReader_InsightsChanged;
 
         InitializeWinoIntelligenceHeader();
 
@@ -133,6 +137,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         view.LinkActivated += MailView_LinkActivated;
         view.LinkHoverChanged += MailView_LinkHoverChanged;
         view.ContextMenuRequested += MailView_ContextMenuRequested;
+        view.Tapped += MailView_Tapped;
 
         return view;
     }
@@ -297,6 +302,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             Date = creationDate,
             BodyName = Translator.Reader_MessageBodyAutomationName,
             PlainTextFallbackName = Translator.Reader_PlainTextFallbackAutomationName,
+            TrimmedContentName = Translator.Reader_EarlierMessagesButtonName,
             FallbackText = accessibleText
         };
     }
@@ -344,8 +350,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private void MailView_LinkHoverChanged(object? sender, LinkHoverEventArgs e)
     {
         var text = GetLinkTargetText(e.Link);
+        var mismatch = text.Length == 0 ? string.Empty : GetLinkMismatchText(e.TextMismatch);
 
         ReaderLinkTargetText.Text = text;
+        ReaderLinkMismatchText.Text = mismatch;
+        ReaderLinkMismatchPanel.Visibility = mismatch.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         ReaderLinkTargetBar.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
@@ -367,6 +376,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         List<ContextFlyoutMenuEntry> entries = [];
 
+        AddTargetEntries(request, entries);
+
         if (request.HasSelection)
         {
             entries.Add(new ContextFlyoutCommandEntry
@@ -385,7 +396,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             {
                 Text = Translator.Reader_ContextMenu_CopyLink,
                 Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Link)),
-                Command = ViewModel.CopyClipboardCommand,
+                Command = ViewModel.CopyLinkCommand,
                 CommandParameter = request.LinkUrl,
                 AutomationId = "MailRenderingCopyLink"
             });
@@ -402,6 +413,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             });
         }
 
+        AddTableEntries(request, entries);
+
         entries.Add(ContextFlyoutSeparatorEntry.Instance);
         entries.Add(new ContextFlyoutCommandEntry
         {
@@ -412,7 +425,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             AutomationId = "MailRenderingSelectAll"
         });
 
-        WinoContextFlyoutHelper.Show(_mailView, new Windows.Foundation.Point(request.ViewPoint.X, request.ViewPoint.Y), entries);
+        EngineContextMenu.Show(_mailView, new Windows.Foundation.Point(request.ViewPoint.X, request.ViewPoint.Y), entries, MailRendererHost.ActualTheme);
     }
 
     private static async Task CopyImageToClipboardAsync(MailResource image)
@@ -516,6 +529,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private void HideLinkTargetBar()
     {
         ReaderLinkTargetText.Text = string.Empty;
+        ReaderLinkMismatchText.Text = string.Empty;
+        ReaderLinkMismatchPanel.Visibility = Visibility.Collapsed;
         ReaderLinkTargetBar.Visibility = Visibility.Collapsed;
     }
 

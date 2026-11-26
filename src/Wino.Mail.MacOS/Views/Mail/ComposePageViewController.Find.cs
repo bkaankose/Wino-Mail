@@ -171,6 +171,8 @@ public sealed partial class ComposePageViewController
         var flags = theEvent.ModifierFlags & (NSEventModifierMask.CommandKeyMask | NSEventModifierMask.AlternateKeyMask | NSEventModifierMask.ShiftKeyMask | NSEventModifierMask.ControlKeyMask);
         // The recipient suggestion popup owns the arrow keys, Return and Escape while it is open.
         if (HandleSuggestionKey(theEvent, flags, responder)) return null;
+        // While the mention list is open the engine hands Escape to the ViewModel.
+        if (theEvent.KeyCode == EscapeKeyCode && flags == 0 && ViewModel.IsMentionListOpen && IsInEditor(responder)) return theEvent;
         if (theEvent.KeyCode == EscapeKeyCode && flags == 0)
         {
             if (ViewModel.RewriteSession.IsBusy)

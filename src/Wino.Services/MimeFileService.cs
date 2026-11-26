@@ -249,9 +249,6 @@ public class MimeFileService : IMimeFileService
             else if (options.RemoteContent == RemoteContentMode.BlockTrackers)
                 document.ClearRemoteContent(TrackerDetector.Inspect, blockedResources);
 
-            if (!options.LoadStyles)
-                document.ClearStyles();
-
             // Update final HTML.
             finalRenderHtml = document.DocumentNode.OuterHtml;
         }

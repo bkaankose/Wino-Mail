@@ -3,32 +3,33 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Intelligence.Keys;
+using Wino.Core.Domain.Messaging.UI;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
-using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
+using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Services.Extensions;
-using Wino.Core.Domain.Messaging.UI;
 
 namespace Wino.Services;
 
 /// <summary>
-/// Owns the device side of mail intelligence.
-/// Replaces the revision change feed: work is submitted as jobs, each job's two stages are
-/// downloaded and imported independently, and a stage is acknowledged only after its
-/// import transaction has committed.
-/// Every job is bound to the device result key its results are encrypted to. Nothing here runs
-/// for a user without the Wino Intelligence add-on: no polling, no key store, no endpoints.
+/// Owns the device side of mail intelligence. A run selects messages, splits them into batches
+/// and sends each batch on the streamed route; every result is imported the moment its frame
+/// arrives. The server keeps nothing, so a batch that does not finish simply leaves its messages
+/// without artifacts, and the next run selects them again.
+/// Nothing here runs for a user without the Wino Intelligence add-on.
 /// </summary>
 public sealed class MailIntelligenceCoordinator(
     IDatabaseService databaseService,
@@ -36,10 +37,9 @@ public sealed class MailIntelligenceCoordinator(
     IWinoAccountApiClient apiClient,
     IMailIntelligenceStore store,
     ILocalIntelligenceService localIntelligenceService,
-    MailIntelligenceUploadBuilder uploadBuilder,
+    MailIntelligenceEnvelopeBuilder envelopeBuilder,
     IIntelligenceResultKeyStore resultKeys,
     IntelligenceTransportKeyProvider transportKeys,
-    MailIntelligenceResultPageReader pageReader,
     ISemanticIndexJobRegistry jobRegistry,
     ITranslationService translationService,
     IIntelligenceMessageContextResolver messageResolver,
@@ -51,15 +51,48 @@ public sealed class MailIntelligenceCoordinator(
     private readonly MailIntelligenceDatasetWriter _datasetWriter = new(applicationConfiguration);
 
     /// <summary>
-    /// Server cap per job. A larger selection is split so no single upload is rejected.
+    /// The server allows two streams in flight per user, across every mailbox and device; a third
+    /// is refused with 429. This bound is app-wide, not per run.
     /// </summary>
-    private const int MaxMessagesPerJob = 1_000;
+    private const int MaxConcurrentStreams = 2;
+
+    private readonly SemaphoreSlim _streamSlots = new(MaxConcurrentStreams, MaxConcurrentStreams);
+
+    /// <summary>Room left in a request for the JSON around the envelopes.</summary>
+    private const int RequestFramingBytes = 64 * 1024;
+
+    private const int MaxRateLimitRetries = 5;
+    private static readonly TimeSpan DefaultRateLimitDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan MaxRateLimitDelay = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// After the allowance ran out, automatic submissions after sync wait this long before asking
+    /// again. A manual run always asks.
+    /// </summary>
+    private static readonly TimeSpan QuotaBackoff = TimeSpan.FromHours(1);
+
+    private long _quotaExhaustedUntilTicks;
+
+    /// <summary>Progress is published at most this often; status changes always go out.</summary>
+    private static readonly TimeSpan ProgressPublishInterval = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Imported messages are announced in groups at most this often. Several presenters reload
+    /// their whole state on each announcement.
+    /// </summary>
+    private static readonly TimeSpan MetadataFlushInterval = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// Preparing a message is CPU work (sanitizing and tokenizing the body) after one file read,
     /// so it scales with the cores the machine has.
     /// </summary>
     private static readonly int DocumentPreparationConcurrency = Math.Clamp(Environment.ProcessorCount, 4, 16);
+
+    /// <summary>
+    /// A v2 job older than this is gone on the server already (it expires a day after it ends),
+    /// so its local row is dropped without asking.
+    /// </summary>
+    private static readonly TimeSpan LegacyJobAge = TimeSpan.FromDays(3);
 
     private readonly ConcurrentDictionary<Guid, MailIntelligenceJobSnapshot> _snapshots = new();
 
@@ -77,55 +110,11 @@ public sealed class MailIntelligenceCoordinator(
     private const int MaxQueuedCapturesPerAccount = 10_000;
     private readonly ConcurrentDictionary<string, Task> _singleMessageRuns = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _lifecycle = new();
-    private readonly Lock _resumeLoopGate = new();
-    private Task? _resumeLoop;
     private volatile bool _acceptingWork = true;
+    private int _legacyCleanupRunning;
+    private volatile bool _legacyCleanupDone;
 
     private static readonly Serilog.ILogger Logger = Serilog.Log.ForContext<MailIntelligenceCoordinator>();
-
-    /// <summary>
-    /// How long one status request may wait on the server for a stage to become downloadable.
-    /// The server answers the moment one is, so this only bounds an idle wait.
-    /// </summary>
-    private const int StatusWaitSeconds = 25;
-
-    /// <summary>
-    /// Pause after a round that came back at once with nothing to do, for example from a server
-    /// that ignores the wait. Keeps the loop from spinning.
-    /// </summary>
-    private static readonly TimeSpan IdleRoundDelay = TimeSpan.FromSeconds(3);
-
-    /// <summary>Pause when another poller holds a job, before asking again.</summary>
-    private static readonly TimeSpan BusyJobDelay = TimeSpan.FromMilliseconds(250);
-
-    /// <summary>The long-poll follower of each unfinished job.</summary>
-    private readonly ConcurrentDictionary<Guid, Task> _jobFollowers = new();
-
-    /// <summary>One poller per job at a time, so two paths never import the same stage twice.</summary>
-    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _jobGates = new();
-
-    /// <summary>
-    /// Content hashes computed when messages were prepared for upload. Import compares every
-    /// artifact against the current hash; within a job's lifetime the prepared hash is current,
-    /// so it saves re-reading and re-projecting every body.
-    /// </summary>
-    private readonly ConcurrentDictionary<(Guid AccountId, string RemoteMessageId), (string Hash, DateTime PreparedUtc)> _preparedHashes = new();
-
-    private static readonly TimeSpan PreparedHashLifetime = TimeSpan.FromMinutes(30);
-
-    /// <summary>
-    /// A server job this device does not track is only swept once it is well past the server's
-    /// own 24 hour expiry, so an in-flight job from another device is never touched.
-    /// </summary>
-    private static readonly TimeSpan OrphanAge = TimeSpan.FromDays(3);
-
-    private int _orphanSweepStarted;
-
-    /// <summary>
-    /// Jobs are followed only while the add-on is usable. Quota exhaustion still downloads what
-    /// was already paid for; an unknown or ended entitlement follows nothing and deletes nothing.
-    /// </summary>
-    private bool CanFollowJobs => entitlementService is null || entitlementService.CurrentEntitlement.CanAccessSurfaces;
 
     public Task InitializeAsync()
     {
@@ -137,12 +126,18 @@ public sealed class MailIntelligenceCoordinator(
             ((MailIntelligenceCoordinator)recipient).CaptureSynchronizedMails(message.AddedMails, message.Source));
         messenger.Register<WinoAccountSignedInMessage>(this, static (recipient, _) =>
             ((MailIntelligenceCoordinator)recipient).ResumeWork());
+        messenger.Register<AccountRemovedMessage>(this, static (recipient, message) =>
+        {
+            var coordinator = (MailIntelligenceCoordinator)recipient;
+            coordinator._synchronizedQueues.TryRemove(message.Account.Id, out _);
+            _ = coordinator.CancelAsync(message.Account.Id);
+        });
         messenger.Register<WinoIntelligenceEntitlementChanged>(this, static (recipient, message) =>
         {
             var coordinator = (MailIntelligenceCoordinator)recipient;
             if (message.Entitlement.CanAccessSurfaces)
             {
-                coordinator.EnsureResumeLoopRunning();
+                coordinator.StartLegacyCleanup();
             }
 
             if (message.Entitlement.CanConsumeQuota)
@@ -152,14 +147,9 @@ public sealed class MailIntelligenceCoordinator(
             }
         });
 
-        // A job submitted in an earlier session is still waiting on the server. Nothing
-        // else will ask about it: the only other poll happens at the end of a submission,
-        // so without this a quiet mailbox never collects its results, never acknowledges
-        // the stages, and the server therefore never deletes the job's blobs.
-        // A user without the add-on never gets here; the entitlement message starts it later.
-        if (CanFollowJobs)
+        if (entitlementService is null || entitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
-            EnsureResumeLoopRunning();
+            StartLegacyCleanup();
         }
 
         return Task.CompletedTask;
@@ -167,144 +157,97 @@ public sealed class MailIntelligenceCoordinator(
 
     public Task ResumeAsync(CancellationToken cancellationToken = default)
     {
-        EnsureResumeLoopRunning();
-
-        // The sweep is a network round trip and runs during app activation. Awaiting it held
-        // the first window back for as long as the service took to answer or refuse.
-        if (Interlocked.Exchange(ref _orphanSweepStarted, 1) == 0 && !_lifecycle.IsCancellationRequested)
-        {
-            _ = Task.Run(() => SweepOrphanedJobsAsync(_lifecycle.Token));
-        }
-
+        StartLegacyCleanup();
+        DrainAllSynchronizedQueues();
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Deletes server jobs this device does not track, such as those left behind by a wiped
-    /// install. Best effort and never awaited: the server's own expiry is the backstop.
-    /// TODO: filter by resultKeyId once Contracts 3.0.0-alpha.1 carries it on the job list.
-    /// </summary>
-    private async Task SweepOrphanedJobsAsync(CancellationToken cancellationToken)
+    public async Task CancelAllAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var remote = await apiClient.GetMailIntelligenceJobsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-            var cutoff = DateTimeOffset.UtcNow - OrphanAge;
-            foreach (var job in remote.Jobs)
-            {
-                if (job.CreatedUtc > cutoff ||
-                    await store.GetJobAsync(job.JobId, cancellationToken).ConfigureAwait(false) is not null)
-                {
-                    continue;
-                }
-
-                await apiClient.CancelMailIntelligenceJobAsync(job.MailboxId, job.JobId, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch
-        {
-            // Includes cancellation at shutdown. The server expires these on its own.
-        }
-    }
-
-    public async Task AbandonJobsAsync(CancellationToken cancellationToken = default)
-    {
+        // Each run publishes Cancelled itself when its token fires.
         await jobRegistry.CancelAllAndWaitAsync().ConfigureAwait(false);
-        var jobs = await store.GetUnfinishedJobsAsync(cancellationToken).ConfigureAwait(false);
-        foreach (var job in jobs)
-        {
-            await CancelJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-            SetSnapshot(job.LocalAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Cancelled });
-        }
     }
 
-    /// <summary>
-    /// Starts a follower for every unfinished job that does not have one. Runs at launch, when the
-    /// add-on becomes usable, and after every submission, so a job outlives the session that
-    /// created it and a new job is followed the moment it exists.
-    /// </summary>
-    private void EnsureResumeLoopRunning()
+    // ---- legacy v2 jobs ------------------------------------------------------------
+    // Builds before the streamed route left server jobs (encrypted uploads and result pages in
+    // Blob storage) and recorded them locally. Their messages never got artifacts, so the next
+    // run selects them again; this only asks the server to delete the blobs now rather than at
+    // expiry. Remove together with IWinoAccountApiClient.DeleteLegacyMailIntelligenceJobAsync
+    // once no installed build can still hold v2 job rows.
+
+    private void StartLegacyCleanup()
     {
-        if (_lifecycle.IsCancellationRequested)
+        if (_legacyCleanupDone || _lifecycle.IsCancellationRequested ||
+            Interlocked.CompareExchange(ref _legacyCleanupRunning, 1, 0) != 0)
         {
             return;
         }
 
-        lock (_resumeLoopGate)
+        _ = Task.Run(async () =>
         {
-            _resumeLoop = Task.Run(() => StartJobFollowersAsync(_lifecycle.Token));
-        }
+            try
+            {
+                await CleanUpLegacyJobsAsync(_lifecycle.Token).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Best effort: the server expires these jobs on its own.
+            }
+            finally
+            {
+                Volatile.Write(ref _legacyCleanupRunning, 0);
+            }
+        });
     }
 
-    private async Task StartJobFollowersAsync(CancellationToken cancellationToken)
+    private async Task CleanUpLegacyJobsAsync(CancellationToken cancellationToken)
     {
-        try
+        var jobs = await store.GetLegacyJobsAsync(cancellationToken).ConfigureAwait(false);
+        if (jobs.Count == 0)
         {
-            if (!CanFollowJobs)
+            _legacyCleanupDone = true;
+            return;
+        }
+
+        var forgotten = new List<Guid>(jobs.Count);
+        var cutoff = DateTime.UtcNow - LegacyJobAge;
+        foreach (var job in jobs)
+        {
+            if (job.CreatedUtc < cutoff)
             {
-                // Restarted by the next entitlement change that makes jobs usable again.
-                return;
+                forgotten.Add(job.JobId);
+                continue;
             }
 
-            foreach (var job in await store.GetUnfinishedJobsAsync(cancellationToken).ConfigureAwait(false))
+            try
             {
-                _ = _jobFollowers.GetOrAdd(job.JobId, jobId => Task.Run(() => FollowJobAsync(jobId, cancellationToken)));
+                await apiClient.DeleteLegacyMailIntelligenceJobAsync(job.MailboxId, job.JobId, cancellationToken).ConfigureAwait(false);
+                forgotten.Add(job.JobId);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (WinoAccountApiException exception) when (
+                exception.IsServiceUnavailable ||
+                exception.ErrorCode == WinoAccountClientErrorCodes.SignInRequired ||
+                exception.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                // Not answered: kept for the next launch, until it is old enough to drop.
+            }
+            catch
+            {
+                // Answered (already gone, expired, or refused): the server's expiry is the backstop.
+                forgotten.Add(job.JobId);
             }
         }
-        catch
-        {
-            // Intelligence must never break the app. The next trigger starts them again.
-        }
+
+        await store.DeleteLegacyJobsAsync(forgotten, cancellationToken).ConfigureAwait(false);
+        Logger.Information("Removed {Removed} of {Count} intelligence jobs left by an earlier version.", forgotten.Count, jobs.Count);
+        _legacyCleanupDone = forgotten.Count == jobs.Count;
     }
 
-    /// <summary>
-    /// Follows one job to the end with long polls: each request returns the moment a stage can be
-    /// downloaded, so results are collected as soon as the server publishes them.
-    /// </summary>
-    private async Task FollowJobAsync(Guid jobId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested && CanFollowJobs)
-            {
-                var job = await store.GetJobAsync(jobId, cancellationToken).ConfigureAwait(false);
-                if (job is null)
-                {
-                    return;
-                }
-
-                var started = DateTime.UtcNow;
-                var polled = await TryPollJobAsync(job, StatusWaitSeconds, cancellationToken).ConfigureAwait(false);
-                if (!polled)
-                {
-                    // Another poller holds the job for the moment.
-                    await Task.Delay(BusyJobDelay, cancellationToken).ConfigureAwait(false);
-                }
-                else if (DateTime.UtcNow - started < TimeSpan.FromSeconds(1))
-                {
-                    // Answered at once with nothing new: a server that does not hold requests.
-                    var latest = await store.GetJobAsync(jobId, cancellationToken).ConfigureAwait(false);
-                    if (latest is not null && latest with { UpdatedUtc = job.UpdatedUtc } == job)
-                    {
-                        await Task.Delay(IdleRoundDelay, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch
-        {
-            // Intelligence must never break the app. The next trigger starts a new follower.
-        }
-        finally
-        {
-            _jobFollowers.TryRemove(jobId, out _);
-        }
-    }
-
-    // ---- submission ----------------------------------------------------------------
+    // ---- runs ----------------------------------------------------------------------
 
     public async Task StartProcessingAsync(
         Guid localMailAccountId,
@@ -318,28 +261,25 @@ public sealed class MailIntelligenceCoordinator(
             return;
         }
 
-        if (!jobRegistry.TryStart(
-                localMailAccountId,
-                token => RunSubmissionAsync(localMailAccountId, remoteMessageIds, token),
-                out _))
-        {
-            // A submission is already running for this account.
-            return;
-        }
+        // A run already going for this account wins.
+        jobRegistry.TryStart(
+            localMailAccountId,
+            token => RunAsync(localMailAccountId, remoteMessageIds, token),
+            out _);
 
         await Task.CompletedTask.ConfigureAwait(false);
     }
 
-    private async Task RunSubmissionAsync(
+    private async Task RunAsync(
         Guid localMailAccountId,
         IReadOnlyCollection<string> remoteMessageIds,
         CancellationToken cancellationToken)
     {
-        SetSnapshot(localMailAccountId, snapshot => snapshot with
-        {
-            Status = MailIntelligenceJobStatus.Calculating,
-            SelectedMessageCount = remoteMessageIds.Count,
-        });
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifecycle.Token);
+        cancellationToken = linked.Token;
+
+        var run = new RunState(localMailAccountId, remoteMessageIds.Count);
+        Publish(run, force: true);
 
         try
         {
@@ -348,77 +288,91 @@ public sealed class MailIntelligenceCoordinator(
             var context = await RequireContextAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
             var resultKey = await RequireResultKeyAsync(context.WinoUserId, cancellationToken).ConfigureAwait(false);
 
-            // Messages already processed at the current hash are not resubmitted.
+            // Messages already processed at the current hash are not sent again.
             var alreadyProcessed = await store
                 .GetProcessedMessageIdsAsync(localMailAccountId, remoteMessageIds, cancellationToken)
                 .ConfigureAwait(false);
 
-            var pending = remoteMessageIds.Where(id => !alreadyProcessed.Contains(id)).ToArray();
+            var pending = remoteMessageIds
+                .Where(id => !alreadyProcessed.Contains(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            run.SetSelected(pending.Length);
             if (pending.Length == 0)
             {
-                SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Completed });
+                run.Finish(MailIntelligenceJobStatus.Completed, null);
                 return;
             }
 
-            SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Uploading });
+            run.SetStatus(MailIntelligenceJobStatus.Uploading);
+            Publish(run, force: true);
 
-            var submitted = false;
-            foreach (var chunk in pending.Chunk(MaxMessagesPerJob))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                submitted |= await SubmitJobAsync(account, context, resultKey, chunk, cancellationToken).ConfigureAwait(false);
-            }
+            // One query for the account, then a lookup per id.
+            var byId = await GetCandidatesByIdAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            var batches = new BatchContext(account, context, resultKey, translationService.CurrentLanguageModel?.Code ?? "en-US", run);
 
-            if (!submitted)
-            {
-                // Nothing was uploaded (no readable candidate among the ids), so there is no job
-                // to wait for. Reporting Waiting here left the account on that status for good.
-                SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Completed });
-                return;
-            }
+            // Two chunks are worked on at once: one prepares while the other streams. The stream
+            // slots bound the requests app-wide.
+            await Parallel.ForEachAsync(
+                pending.Chunk(MailIntelligenceStreamLimits.MaxMessagesPerBatch),
+                new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentStreams, CancellationToken = cancellationToken },
+                async (chunk, token) =>
+                {
+                    try
+                    {
+                        await ProcessChunkAsync(batches, byId, chunk, token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        await StopRunAsync(batches, exception).ConfigureAwait(false);
+                    }
+                }).ConfigureAwait(false);
 
-            SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Waiting });
-
-            // Each new job gets a follower that long-polls it, so results are collected the
-            // moment they are published, and still arrive if the app restarts in between.
-            EnsureResumeLoopRunning();
+            FlushMetadata(run);
+            run.Finish(run.FinalStatus, run.FinalErrorCode);
+            Logger.Information(
+                "Intelligence run for {AccountId}: {Selected} selected, {Processed} classified, {Failed} failures, ended {Status}",
+                localMailAccountId, run.Selected, run.Processed, run.Failed, run.Status);
         }
         catch (OperationCanceledException)
         {
-            SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Cancelled });
+            FlushMetadata(run);
+            run.Finish(MailIntelligenceJobStatus.Cancelled, null);
         }
         catch (Exception exception)
         {
+            FlushMetadata(run);
             if (exception.Message == ApiErrorCodes.AiPackRequired)
             {
-                // The server disagrees with the local snapshot. Ask again and let the fresh
-                // answer drive the key lifecycle; one refusal never removes anything by itself.
                 _ = entitlementService?.RefreshEntitlementAsync();
             }
 
-            SetSnapshot(localMailAccountId, snapshot => snapshot with
-            {
-                Status = MailIntelligenceJobStatus.Failed,
-                ErrorCode = exception.Message,
-            });
+            run.Finish(MailIntelligenceJobStatus.Failed, exception.Message);
+        }
+        finally
+        {
+            Publish(run, force: true);
         }
     }
 
-    /// <returns>Whether a job was uploaded. False when none of the ids had a readable candidate.</returns>
-    private async Task<bool> SubmitJobAsync(
-        MailAccount account,
-        MailIntelligenceContext context,
-        IntelligenceResultKey resultKey,
-        IReadOnlyList<string> remoteMessageIds,
+    private async Task ProcessChunkAsync(
+        BatchContext batches,
+        Dictionary<string, IntelligenceMessageCandidate> byId,
+        string[] remoteMessageIds,
         CancellationToken cancellationToken)
     {
-        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var run = batches.Run;
+        if (run.IsStopping)
+        {
+            return;
+        }
 
-        // One query for the account, then a lookup per id. Finding each id separately re-read
-        // every candidate of the account once per message.
-        var byId = await GetCandidatesByIdAsync(account.Id, cancellationToken).ConfigureAwait(false);
-        var candidatesMs = clock.ElapsedMilliseconds;
-        var candidates = new List<IntelligenceMessageCandidate>(remoteMessageIds.Count);
+        var candidates = new List<IntelligenceMessageCandidate>(remoteMessageIds.Length);
         foreach (var remoteMessageId in remoteMessageIds)
         {
             if (byId.TryGetValue(remoteMessageId, out var candidate))
@@ -427,64 +381,330 @@ public sealed class MailIntelligenceCoordinator(
             }
         }
 
-        if (candidates.Count == 0)
-        {
-            return false;
-        }
+        var prepared = candidates.Count == 0
+            ? []
+            : await PrepareAsync(batches.Account, candidates, cancellationToken).ConfigureAwait(false);
 
-        var prepared = await PrepareAsync(account, candidates, cancellationToken).ConfigureAwait(false);
-        var preparedMs = clock.ElapsedMilliseconds;
-        if (prepared.Count == 0)
-        {
-            return false;
-        }
+        // A message without a readable body is not sent and does not count toward the progress.
+        run.Skip(remoteMessageIds.Length - prepared.Count);
+        Publish(run);
 
-        var language = translationService.CurrentLanguageModel?.Code ?? "en-US";
-        long builtMs = 0;
-        var accepted = await WithTransportKeyAsync(async transportKey =>
+        foreach (var batch in SplitBySize(prepared))
         {
-            var upload = uploadBuilder.Build(
-                context.WinoUserId, context.MailboxId, Guid.NewGuid(), prepared, language, transportKey, resultKey);
-            builtMs = clock.ElapsedMilliseconds;
-            try
+            if (run.IsStopping)
             {
-                return await apiClient.SubmitMailIntelligenceJobAsync(
-                    context.MailboxId, upload.JobId, upload.Sha256, upload.Content, cancellationToken).ConfigureAwait(false);
+                return;
             }
-            finally
-            {
-                CryptographicOperations.ZeroMemory(upload.Content);
-            }
-        }, cancellationToken).ConfigureAwait(false);
 
-        Logger.Information(
-            "Intelligence job {JobId}: {Count} messages. Candidates {CandidatesMs} ms, prepare {PrepareMs} ms, build {BuildMs} ms, upload {UploadMs} ms",
-            accepted.JobId, prepared.Count, candidatesMs, preparedMs - candidatesMs, builtMs - preparedMs, clock.ElapsedMilliseconds - builtMs);
-
-        // The job id is persisted before anything else, so a crash right after upload
-        // still leaves the device able to collect the results.
-        await store.UpsertJobAsync(new MailIntelligenceJobState(
-            accepted.JobId,
-            account.Id,
-            context.MailboxId,
-            prepared.Count,
-            MailIntelligenceJobStatuses.Pending,
-            new MailIntelligenceStageState(MailIntelligenceStageStatuses.Pending, 0, null, false, false),
-            new MailIntelligenceStageState(MailIntelligenceStageStatuses.Pending, 0, null, false, false),
-            0,
-            null,
-            DateTime.UtcNow,
-            DateTime.UtcNow)
-        {
-            ResultKeyId = resultKey.KeyId,
-        }, cancellationToken).ConfigureAwait(false);
-
-        return true;
+            await SendBatchAsync(batches, batch, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
-    /// Runs one upload against the current transport key. When the server no longer knows that
-    /// key (it rotated), the key is fetched again and the upload rebuilt once.
+    /// Splits prepared messages so each request stays under the server's body limit. The size
+    /// is estimated from the plaintext; the client checks the real body before sending.
+    /// </summary>
+    internal static List<List<MailIntelligenceUploadEnvelopeDto>> SplitBySize(IReadOnlyList<MailIntelligenceUploadEnvelopeDto> messages)
+    {
+        var batches = new List<List<MailIntelligenceUploadEnvelopeDto>>();
+        var current = new List<MailIntelligenceUploadEnvelopeDto>();
+        long currentBytes = 0;
+        const long budget = MailIntelligenceStreamLimits.MaxRequestBytes - RequestFramingBytes;
+
+        foreach (var message in messages)
+        {
+            var bytes = MailIntelligenceEnvelopeBuilder.EstimateRequestBytes(MailIntelligenceEnvelopeBuilder.MeasurePlaintext(message));
+            if (current.Count > 0 &&
+                (currentBytes + bytes > budget || current.Count >= MailIntelligenceStreamLimits.MaxMessagesPerBatch))
+            {
+                batches.Add(current);
+                current = [];
+                currentBytes = 0;
+            }
+
+            current.Add(message);
+            currentBytes += bytes;
+        }
+
+        if (current.Count > 0)
+        {
+            batches.Add(current);
+        }
+
+        return batches;
+    }
+
+    /// <summary>
+    /// Sends one batch and imports its results as they stream in. Envelopes are encrypted only
+    /// once a stream slot is held: the server refuses envelopes issued more than five minutes
+    /// before the request.
+    /// </summary>
+    private async Task SendBatchAsync(
+        BatchContext batches,
+        List<MailIntelligenceUploadEnvelopeDto> batch,
+        CancellationToken cancellationToken)
+    {
+        var run = batches.Run;
+        var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var message in batch)
+        {
+            hashes.TryAdd(message.RemoteMessageId, message.ContentHash);
+        }
+
+        for (var attempt = 0; ; attempt++)
+        {
+            var delay = TimeSpan.Zero;
+            var split = false;
+            if (!_streamSlots.Wait(0))
+            {
+                run.SetStatus(MailIntelligenceJobStatus.Waiting);
+                Publish(run, force: true);
+                await _streamSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            if (run.IsStopping)
+            {
+                // Another batch stopped the run (quota, failure) while this one waited.
+                _streamSlots.Release();
+                return;
+            }
+
+            run.BatchStarted();
+            Publish(run, force: true);
+            try
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var outcome = await WithTransportKeyAsync(async transportKey =>
+                {
+                    var batchId = Guid.NewGuid();
+                    var envelopes = envelopeBuilder.BuildBatch(
+                        batches.Context.WinoUserId, batches.Context.MailboxId, batch, transportKey);
+                    try
+                    {
+                        var request = new MailIntelligenceStreamRequest(
+                            batchId, batches.Language, batches.ResultKey.KeyId, batches.ResultKey.PublicKeyPem, envelopes);
+                        return await MailIntelligenceStreamReader.ConsumeAsync(
+                            apiClient.StreamMailIntelligenceAsync(batches.Context.MailboxId, request, cancellationToken),
+                            batches.Context.MailboxId,
+                            batchId,
+                            (envelope, route, token) => resultKeys.DecryptAsync(
+                                batches.ResultKey.KeyId, envelope, batches.Context.MailboxId, route, token),
+                            (item, token) => ImportItemAsync(batches, hashes, item, token),
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        MailIntelligenceEnvelopeBuilder.Clear(envelopes);
+                    }
+                }, cancellationToken).ConfigureAwait(false);
+
+                Logger.Information(
+                    "Intelligence batch of {Count} messages ended {End} after {Frames} results in {ElapsedMs} ms {ErrorCode}",
+                    batch.Count, outcome.End, outcome.ResultFrames, clock.ElapsedMilliseconds, outcome.ErrorCode);
+
+                if (outcome.End != MailIntelligenceStreamEnd.Done)
+                {
+                    // What arrived is imported; the rest has no artifact and is selected again
+                    // by a later run.
+                    run.NoteIncomplete(outcome.End switch
+                    {
+                        MailIntelligenceStreamEnd.Error => outcome.ErrorCode ?? ApiErrorCodes.IntelligenceGenerationRetryable,
+                        MailIntelligenceStreamEnd.Refused => WinoAccountClientErrorCodes.InvalidServiceResponse,
+                        _ => WinoAccountClientErrorCodes.ServiceUnavailable,
+                    });
+                }
+
+                if (outcome.ErrorCode == ApiErrorCodes.AiQuotaExceeded)
+                {
+                    StopForQuota(run);
+                }
+
+                return;
+            }
+            catch (WinoAccountApiException exception) when (
+                exception.StatusCode == HttpStatusCode.TooManyRequests && attempt < MaxRateLimitRetries)
+            {
+                delay = exception.RetryAfter is { } retryAfter && retryAfter > TimeSpan.Zero
+                    ? (retryAfter < MaxRateLimitDelay ? retryAfter : MaxRateLimitDelay)
+                    : DefaultRateLimitDelay;
+            }
+            catch (WinoAccountApiException exception) when (exception.ErrorCode == ApiErrorCodes.IntelligenceUploadTooLarge)
+            {
+                if (batch.Count == 1)
+                {
+                    Logger.Warning("A message is too large for intelligence and was skipped.");
+                    run.Skip(1);
+                    return;
+                }
+
+                split = true;
+            }
+            finally
+            {
+                run.BatchEnded();
+                _streamSlots.Release();
+                FlushMetadata(run);
+                Publish(run, force: true);
+            }
+
+            if (split)
+            {
+                // Refused as too large: the halves go separately.
+                var half = batch.Count / 2;
+                await SendBatchAsync(batches, batch[..half], cancellationToken).ConfigureAwait(false);
+                await SendBatchAsync(batches, batch[half..], cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            run.SetStatus(MailIntelligenceJobStatus.Waiting);
+            Publish(run, force: true);
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Imports one streamed item in its own transaction, so labels and priority show up while the
+    /// rest of the batch is still being worked on, and enrichment fills in later.
+    /// </summary>
+    private async Task ImportItemAsync(
+        BatchContext batches,
+        IReadOnlyDictionary<string, string> hashes,
+        MailIntelligenceStreamItemDto item,
+        CancellationToken cancellationToken)
+    {
+        var run = batches.Run;
+        var accountId = batches.Account.Id;
+        switch (item.Kind)
+        {
+            case MailIntelligenceStreamItemKinds.Classification when item.Classification is { } classification:
+            {
+                var remoteMessageId = classification.Identity.RemoteMessageId;
+                if (!hashes.TryGetValue(remoteMessageId, out var hash))
+                {
+                    return;
+                }
+
+                await store.ImportClassificationPageAsync(
+                    accountId,
+                    [MapClassification(classification)],
+                    [],
+                    new Dictionary<string, string>(StringComparer.Ordinal) { [remoteMessageId] = hash },
+                    cancellationToken).ConfigureAwait(false);
+                run.MessageClassified(remoteMessageId);
+                break;
+            }
+
+            case MailIntelligenceStreamItemKinds.Enrichment when item.Enrichment is { } enrichment:
+            {
+                var remoteMessageId = enrichment.Identity.RemoteMessageId;
+                if (!hashes.TryGetValue(remoteMessageId, out var hash))
+                {
+                    return;
+                }
+
+                await store.ImportEnrichmentPageAsync(
+                    accountId,
+                    [MapEnrichment(enrichment)],
+                    [],
+                    new Dictionary<string, string>(StringComparer.Ordinal) { [remoteMessageId] = hash },
+                    cancellationToken).ConfigureAwait(false);
+                run.MessageEnriched(remoteMessageId);
+                break;
+            }
+
+            case MailIntelligenceStreamItemKinds.Failure when item.Failure is { } failure:
+                run.MessageFailed();
+                if (failure.ErrorCode == ApiErrorCodes.AiQuotaExceeded)
+                {
+                    // The batch was only partly paid for. Nothing more is sent in this run; the
+                    // unpaid messages have no artifact and are selected again later.
+                    StopForQuota(run);
+                }
+
+                break;
+
+            default:
+                // An item kind this build does not know.
+                return;
+        }
+
+        if (run.ShouldFlushMetadata(MetadataFlushInterval))
+        {
+            FlushMetadata(run);
+        }
+
+        Publish(run);
+    }
+
+    private void StopForQuota(RunState run)
+    {
+        Interlocked.Exchange(ref _quotaExhaustedUntilTicks, (DateTime.UtcNow + QuotaBackoff).Ticks);
+        if (run.Stop(MailIntelligenceJobStatus.PausedForQuota, Translator.Intelligence_QuotaExceeded))
+        {
+            // The fresh usage moves the entitlement to QuotaExhausted, which every surface reads.
+            _ = entitlementService?.RefreshEntitlementAsync();
+        }
+    }
+
+    /// <summary>
+    /// A batch failed before or outside its stream. Nothing more is sent in this run; the reason
+    /// decides how the run ends.
+    /// </summary>
+    private async Task StopRunAsync(BatchContext batches, Exception exception)
+    {
+        var run = batches.Run;
+        switch (exception)
+        {
+            case WinoAccountApiException { ErrorCode: ApiErrorCodes.AiQuotaExceeded }:
+                StopForQuota(run);
+                return;
+
+            case IntelligenceResultKeyLostException lost:
+                if (run.Stop(MailIntelligenceJobStatus.Failed, Translator.Intelligence_ResultKeyLost))
+                {
+                    await HandleLostResultKeyAsync(lost.KeyId).ConfigureAwait(false);
+                }
+
+                return;
+
+            default:
+                if (exception.Message == ApiErrorCodes.AiPackRequired)
+                {
+                    // The server disagrees with the local snapshot. Ask again and let the fresh
+                    // answer drive the key lifecycle; one refusal never removes anything by itself.
+                    _ = entitlementService?.RefreshEntitlementAsync();
+                }
+
+                Logger.Warning("An intelligence batch failed: {ErrorCode}", exception.Message);
+                run.Stop(MailIntelligenceJobStatus.Failed, exception.Message);
+                return;
+        }
+    }
+
+    /// <summary>
+    /// The device can no longer open results encrypted to its key. Retrying never helps: the dead
+    /// key is dropped and a fresh key is made while the add-on is active. The messages still lack
+    /// artifacts, so they are offered again.
+    /// </summary>
+    private async Task HandleLostResultKeyAsync(string keyId)
+    {
+        try
+        {
+            await resultKeys.DeleteAsync(keyId).ConfigureAwait(false);
+            if (entitlementService?.CurrentEntitlement is { State: WinoIntelligenceEntitlementState.Active, WinoAccountId: { } winoUserId })
+            {
+                await resultKeys.GetOrCreateAsync(winoUserId).ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception)
+        {
+            Logger.Warning(exception, "Replacing the lost intelligence result key failed.");
+        }
+    }
+
+    /// <summary>
+    /// Runs one request against the current transport key. When the server no longer knows that
+    /// key (it rotated), the key is fetched again and the request rebuilt once.
     /// </summary>
     private async Task<T> WithTransportKeyAsync<T>(
         Func<Mail.AI.Cryptography.ContentEncryptionPublicKey, Task<T>> send,
@@ -527,7 +747,7 @@ public sealed class MailIntelligenceCoordinator(
             var candidate = candidates[index];
             if (!contents.TryGetValue(candidate.RemoteMessageId, out var content))
             {
-                // A message whose body cannot be read is skipped rather than failing the job.
+                // A message whose body cannot be read is skipped rather than failing the run.
                 return;
             }
 
@@ -579,8 +799,6 @@ public sealed class MailIntelligenceCoordinator(
         var processed = new MailContentProcessor(new HtmlContentSanitizer())
             .Prepare(from, candidate.Subject, body, ContentProfile);
 
-        _preparedHashes[(account.Id, candidate.RemoteMessageId)] = (processed.ContentHash, DateTime.UtcNow);
-
         var envelope = new MailIntelligenceUploadEnvelopeDto
         {
             RemoteMessageId = candidate.RemoteMessageId,
@@ -602,324 +820,6 @@ public sealed class MailIntelligenceCoordinator(
         return Task.FromResult(envelope);
     }
 
-    // ---- polling and import --------------------------------------------------------
-
-    public async Task PollAsync(CancellationToken cancellationToken = default)
-    {
-        if (!_acceptingWork || !CanFollowJobs)
-        {
-            return;
-        }
-
-        var jobs = await store.GetUnfinishedJobsAsync(cancellationToken).ConfigureAwait(false);
-        await PollJobsAsync(jobs, 0, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>Polls the jobs side by side. A job another poller is already handling is skipped.</summary>
-    private Task PollJobsAsync(IReadOnlyList<MailIntelligenceJobState> jobs, int waitSeconds, CancellationToken cancellationToken)
-    {
-        if (!_acceptingWork || !CanFollowJobs)
-        {
-            return Task.CompletedTask;
-        }
-
-        return Task.WhenAll(jobs.Select(job => TryPollJobAsync(job, waitSeconds, cancellationToken)));
-    }
-
-    /// <summary>Polls one job unless another poller holds it. Returns whether it polled.</summary>
-    private async Task<bool> TryPollJobAsync(MailIntelligenceJobState job, int waitSeconds, CancellationToken cancellationToken)
-    {
-        var gate = _jobGates.GetOrAdd(job.JobId, static _ => new SemaphoreSlim(1, 1));
-        if (!await gate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
-        {
-            return false;
-        }
-
-        try
-        {
-            // Re-read under the gate: the previous holder may have finished the job.
-            var current = await store.GetJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-            if (current is not null)
-            {
-                await PollJobAsync(current, waitSeconds, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            SetSnapshot(job.LocalAccountId, snapshot => snapshot with { ErrorCode = exception.Message });
-        }
-        finally
-        {
-            gate.Release();
-        }
-
-        return true;
-    }
-
-    private async Task PollJobAsync(MailIntelligenceJobState job, int waitSeconds, CancellationToken cancellationToken)
-    {
-        if (job.ResultKeyId is { } resultKeyId &&
-            !(await resultKeys.GetKeysAsync(cancellationToken).ConfigureAwait(false)).Any(key => key.KeyId == resultKeyId))
-        {
-            // Encrypted to a key this device no longer holds: unreadable by design, so it is
-            // deleted rather than polled again.
-            await CancelJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        MailIntelligenceJobDto? remote;
-        try
-        {
-            remote = await apiClient
-                .GetMailIntelligenceJobAsync(job.MailboxId, job.JobId, waitSeconds, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (InvalidOperationException exception) when (exception.Message == ApiErrorCodes.IntelligenceJobExpired)
-        {
-            // Unacknowledged for too long, so the server deleted it. The messages still lack
-            // artifacts and are picked up again by the next processing run.
-            await store.DeleteJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        if (remote is null)
-        {
-            // The server deleted it, which only happens after both stages were acknowledged.
-            await store.DeleteJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        if (remote.Status == MailIntelligenceJobStatuses.Expired)
-        {
-            // Same as a 410: the results are gone and the messages are picked up again.
-            await store.DeleteJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        var updated = job with
-        {
-            Status = remote.Status,
-            Classification = job.Classification with { Status = remote.Classification.Status, PageCount = remote.Classification.PageCount, Digest = remote.Classification.ResultDigest },
-            Enrichment = job.Enrichment with { Status = remote.Enrichment.Status, PageCount = remote.Enrichment.PageCount, Digest = remote.Enrichment.ResultDigest },
-            FailedCount = remote.Classification.FailedCount + remote.Enrichment.FailedCount,
-        };
-        await store.UpsertJobAsync(updated, cancellationToken).ConfigureAwait(false);
-
-        SetSnapshot(job.LocalAccountId, snapshot => snapshot with
-        {
-            Status = MailIntelligenceJobStatus.Downloading,
-            Classification = new MailIntelligenceStageProgress(remote.Classification.Status, remote.Classification.PageCount, updated.Classification.IsImported, remote.Classification.IsAcknowledged),
-            Enrichment = new MailIntelligenceStageProgress(remote.Enrichment.Status, remote.Enrichment.PageCount, updated.Enrichment.IsImported, remote.Enrichment.IsAcknowledged),
-            FailedMessageCount = updated.FailedCount,
-        });
-
-        try
-        {
-            // Classification is published first and imported first, so labels and priority appear before
-            // any headline exists.
-            if (remote.Classification.Status == MailIntelligenceStageStatuses.Published && !updated.Classification.IsAcknowledged)
-            {
-                await ImportClassificationStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (remote.Enrichment.Status == MailIntelligenceStageStatuses.Published && !updated.Enrichment.IsAcknowledged)
-            {
-                await ImportEnrichmentStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (IntelligenceResultKeyLostException exception)
-        {
-            await HandleLostResultKeyAsync(job, exception.KeyId, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        var latest = await store.GetJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-        if (latest is not null && latest.IsFinished)
-        {
-            await store.DeleteJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-            SetSnapshot(job.LocalAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Completed });
-            messenger.Send(new IntelligenceMetadataChanged(
-            job.LocalAccountId, new HashSet<string>(StringComparer.Ordinal), IntelligenceMetadataChangeScope.Messages));
-        }
-    }
-
-    private async Task ImportClassificationStageAsync(
-        MailIntelligenceJobState job, MailIntelligenceJobDto remote, CancellationToken cancellationToken)
-    {
-        var imported = 0;
-        var pageHashes = new List<string?>();
-        for (var page = 0; page < remote.Classification.PageCount; page++)
-        {
-            var read = await pageReader.ReadClassificationAsync(job, page, cancellationToken).ConfigureAwait(false);
-            pageHashes.Add(read.EnvelopeHash);
-            var dto = read.Page;
-
-            var artifacts = dto.Items.Select(MapClassification).ToArray();
-
-            var desired = await ResolveDesiredHashesAsync(
-                job.LocalAccountId, artifacts.Select(static x => x.Key.RemoteMessageId), cancellationToken).ConfigureAwait(false);
-
-            var result = await store.ImportClassificationPageAsync(
-                job.LocalAccountId, artifacts, MapFailures(dto.Failures), desired, cancellationToken).ConfigureAwait(false);
-            imported += result.Imported;
-        }
-
-        // The import has committed, so the stage can be acknowledged.
-        await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Classification, cancellationToken).ConfigureAwait(false);
-        EnsureDigestMatches(job, MailIntelligenceStageIds.Classification, pageHashes, remote.Classification.ResultDigest);
-        await apiClient.AcknowledgeMailIntelligenceStageAsync(
-            job.MailboxId, job.JobId, "classification", remote.Classification.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
-        await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Classification, cancellationToken).ConfigureAwait(false);
-
-        SetSnapshot(job.LocalAccountId, snapshot => snapshot with
-        {
-            ProcessedMessageCount = snapshot.ProcessedMessageCount + imported,
-        });
-        messenger.Send(new IntelligenceMetadataChanged(
-            job.LocalAccountId, new HashSet<string>(StringComparer.Ordinal), IntelligenceMetadataChangeScope.Messages));
-    }
-
-    /// <summary>
-    /// For an encrypted job, checks that the pages read are the set the server published before
-    /// the stage is acknowledged. Each envelope is already authenticated on decrypt; this catches
-    /// a missing, repeated or reordered page. A mismatch leaves the stage unacknowledged.
-    /// </summary>
-    internal static void EnsureDigestMatches(
-        MailIntelligenceJobState job, string stage, IReadOnlyList<string?> pageHashes, string? serverDigest)
-    {
-        if (job.ResultKeyId is null)
-        {
-            return;
-        }
-
-        var digest = MailIntelligenceResultDigest.Compute(pageHashes.Select(static hash =>
-            hash ?? throw new InvalidOperationException("An encrypted result page had no envelope hash.")));
-        if (!string.Equals(digest, serverDigest, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"The {stage} results did not match the server's digest and were not acknowledged.");
-        }
-    }
-
-    private async Task ImportEnrichmentStageAsync(
-        MailIntelligenceJobState job, MailIntelligenceJobDto remote, CancellationToken cancellationToken)
-    {
-        var pageHashes = new List<string?>();
-        for (var page = 0; page < remote.Enrichment.PageCount; page++)
-        {
-            var read = await pageReader.ReadEnrichmentAsync(job, page, cancellationToken).ConfigureAwait(false);
-            pageHashes.Add(read.EnvelopeHash);
-            var dto = read.Page;
-
-            var artifacts = dto.Items.Select(MapEnrichment).ToArray();
-
-            var desired = await ResolveDesiredHashesAsync(
-                job.LocalAccountId, artifacts.Select(static x => x.Key.RemoteMessageId), cancellationToken).ConfigureAwait(false);
-
-            await store.ImportEnrichmentPageAsync(
-                job.LocalAccountId, artifacts, MapFailures(dto.Failures), desired, cancellationToken).ConfigureAwait(false);
-        }
-
-        await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Enrichment, cancellationToken).ConfigureAwait(false);
-        EnsureDigestMatches(job, MailIntelligenceStageIds.Enrichment, pageHashes, remote.Enrichment.ResultDigest);
-        await apiClient.AcknowledgeMailIntelligenceStageAsync(
-            job.MailboxId, job.JobId, MailIntelligenceStageIds.Enrichment, remote.Enrichment.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
-        await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Enrichment, cancellationToken).ConfigureAwait(false);
-
-        messenger.Send(new IntelligenceMetadataChanged(
-            job.LocalAccountId, new HashSet<string>(StringComparer.Ordinal), IntelligenceMetadataChangeScope.Messages));
-    }
-
-    /// <summary>
-    /// The device can no longer open this job's results. Retrying never helps: the job is
-    /// deleted here and on the server, the dead key is dropped, and a fresh key is made while
-    /// the add-on is active. The messages still lack artifacts, so they are offered again.
-    /// </summary>
-    private async Task HandleLostResultKeyAsync(MailIntelligenceJobState job, string keyId, CancellationToken cancellationToken)
-    {
-        await CancelJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-        await resultKeys.DeleteAsync(keyId, cancellationToken).ConfigureAwait(false);
-
-        if (entitlementService?.CurrentEntitlement is { State: WinoIntelligenceEntitlementState.Active, WinoAccountId: { } winoUserId })
-        {
-            await resultKeys.GetOrCreateAsync(winoUserId, cancellationToken).ConfigureAwait(false);
-        }
-
-        SetSnapshot(job.LocalAccountId, snapshot => snapshot with
-        {
-            Status = MailIntelligenceJobStatus.Failed,
-            ErrorCode = Translator.Intelligence_ResultKeyLost,
-        });
-    }
-
-    /// <summary>
-    /// The hash each message currently has locally. An artifact carrying a different hash
-    /// describes content the user no longer has, so the store drops it.
-    /// </summary>
-    private async Task<IReadOnlyDictionary<string, string>> ResolveDesiredHashesAsync(
-        Guid localAccountId, IEnumerable<string> remoteMessageIds, CancellationToken cancellationToken)
-    {
-        var account = await accountService.GetAccountAsync(localAccountId).ConfigureAwait(false);
-        if (account is null)
-        {
-            return new Dictionary<string, string>(StringComparer.Ordinal);
-        }
-
-        var hashes = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
-        var missing = new List<string>();
-        var now = DateTime.UtcNow;
-        foreach (var remoteMessageId in remoteMessageIds.Distinct(StringComparer.Ordinal))
-        {
-            if (_preparedHashes.TryGetValue((localAccountId, remoteMessageId), out var prepared) &&
-                now - prepared.PreparedUtc < PreparedHashLifetime)
-            {
-                hashes[remoteMessageId] = prepared.Hash;
-            }
-            else
-            {
-                missing.Add(remoteMessageId);
-            }
-        }
-
-        if (missing.Count > 0)
-        {
-            var byId = await GetCandidatesByIdAsync(localAccountId, cancellationToken).ConfigureAwait(false);
-            using var gate = new SemaphoreSlim(DocumentPreparationConcurrency, DocumentPreparationConcurrency);
-            await Task.WhenAll(missing.Select(async remoteMessageId =>
-            {
-                if (!byId.TryGetValue(remoteMessageId, out var candidate))
-                {
-                    return;
-                }
-
-                await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-                try
-                {
-                    var projection = await PrepareOneAsync(account, candidate, cancellationToken).ConfigureAwait(false);
-                    hashes[remoteMessageId] = projection.ContentHash;
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch
-                {
-                    // Without a readable body the local hash is unknown, so the artifact is
-                    // accepted rather than discarded on a guess.
-                }
-                finally
-                {
-                    gate.Release();
-                }
-            })).ConfigureAwait(false);
-        }
-
-        return new Dictionary<string, string>(hashes, StringComparer.Ordinal);
-    }
-
     private async Task<Dictionary<string, IntelligenceMessageCandidate>> GetCandidatesByIdAsync(
         Guid localAccountId, CancellationToken cancellationToken)
     {
@@ -932,14 +832,6 @@ public sealed class MailIntelligenceCoordinator(
 
         return byId;
     }
-
-    private static IReadOnlyList<MailIntelligenceItemFailure> MapFailures(IReadOnlyList<MailIntelligenceFailureDto> failures)
-        => [.. failures.Select(failure => new MailIntelligenceItemFailure(
-            new MailArtifactKey(failure.Identity.RemoteMessageId, failure.Identity.ContentHash),
-            string.Equals(failure.Stage, MailIntelligenceStageIds.Enrichment, StringComparison.Ordinal)
-                ? MailIntelligenceStageKind.Enrichment
-                : MailIntelligenceStageKind.Classification,
-            failure.ErrorCode))];
 
     private static readonly MailContentProfile ContentProfile = MailContentProfile.Default;
 
@@ -994,7 +886,7 @@ public sealed class MailIntelligenceCoordinator(
         // the server, so it needs the add-on and the transport key but no result key.
         var response = await WithTransportKeyAsync(async transportKey =>
         {
-            var envelope = uploadBuilder.BuildSingle(context.WinoUserId, context.MailboxId, projection, transportKey);
+            var envelope = envelopeBuilder.BuildSingle(context.WinoUserId, context.MailboxId, projection, transportKey);
             try
             {
                 return await apiClient
@@ -1034,48 +926,15 @@ public sealed class MailIntelligenceCoordinator(
             localMailAccountId, new HashSet<string>(StringComparer.Ordinal) { projection.RemoteMessageId }, IntelligenceMetadataChangeScope.Messages));
     }
 
-    // ---- job control ---------------------------------------------------------------
+    // ---- run control and state -----------------------------------------------------
 
     public async Task CancelAsync(Guid localMailAccountId, CancellationToken cancellationToken = default)
     {
+        var wasRunning = jobRegistry.IsRunning(localMailAccountId);
         await jobRegistry.CancelAndWaitAsync(localMailAccountId).ConfigureAwait(false);
-        var jobs = await store.GetJobsForAccountAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
-        foreach (var job in jobs)
+        if (!wasRunning)
         {
-            await CancelJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
-        }
-
-        SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Cancelled });
-    }
-
-    public async Task CancelJobAsync(Guid jobId, CancellationToken cancellationToken = default)
-    {
-        var job = await store.GetJobAsync(jobId, cancellationToken).ConfigureAwait(false);
-        if (job is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await apiClient.CancelMailIntelligenceJobAsync(job.MailboxId, jobId, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            // The local record is removed either way; the server deletes its own blobs on
-            // consent revocation if the cancel never lands.
-        }
-
-        await store.DeleteJobAsync(jobId, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>Re-polls one job. A failed item is retried by submitting a new job, not here.</summary>
-    public async Task RetryJobAsync(Guid jobId, CancellationToken cancellationToken = default)
-    {
-        var job = await store.GetJobAsync(jobId, cancellationToken).ConfigureAwait(false);
-        if (job is not null)
-        {
-            await PollJobAsync(job, 0, cancellationToken).ConfigureAwait(false);
+            SetSnapshot(GetJobSnapshot(localMailAccountId) with { Status = MailIntelligenceJobStatus.Cancelled, ActiveBatchCount = 0 });
         }
     }
 
@@ -1094,7 +953,6 @@ public sealed class MailIntelligenceCoordinator(
         }
 
         var access = await store.GetAccessAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
-        var jobs = await store.GetJobsForAccountAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
         var candidates = await messageResolver.GetCandidatesAsync(localMailAccountId, cancellationToken: cancellationToken).ConfigureAwait(false);
         var remoteIds = candidates.Select(static candidate => candidate.RemoteMessageId).ToArray();
         var processed = await store.GetProcessedMessageIdsAsync(localMailAccountId, remoteIds, cancellationToken).ConfigureAwait(false);
@@ -1105,12 +963,8 @@ public sealed class MailIntelligenceCoordinator(
             processed.Count,
             Math.Max(0, remoteIds.Length - processed.Count),
             remoteIds.Length > 0,
-            jobs.Count(static job => !job.IsFinished));
+            jobRegistry.IsRunning(localMailAccountId) ? Math.Max(1, GetJobSnapshot(localMailAccountId).ActiveBatchCount) : 0);
     }
-
-    public async Task<IReadOnlyList<MailIntelligenceJobState>> GetJobsAsync(
-        Guid localMailAccountId, CancellationToken cancellationToken = default)
-        => await store.GetJobsForAccountAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
 
     public async Task<MailMessageIntelligenceState> GetMessageStateAsync(
         Guid localMailAccountId, string mailUniqueId, CancellationToken cancellationToken = default)
@@ -1144,15 +998,17 @@ public sealed class MailIntelligenceCoordinator(
     }
 
     /// <summary>
-    /// The only path that removes imported artifacts. Jobs are deleted on the server while a
-    /// token may still exist, then the whole intelligence database goes, keys included.
+    /// The only path that removes imported artifacts. Runs are stopped and jobs an earlier build
+    /// left on the server are deleted while a token may still exist, then the whole intelligence
+    /// database goes, keys included.
     /// </summary>
     public async Task ResetLocalStateAsync(CancellationToken cancellationToken = default)
     {
         _acceptingWork = false;
         try
         {
-            await AbandonJobsAsync(cancellationToken).ConfigureAwait(false);
+            await CancelAllAsync(cancellationToken).ConfigureAwait(false);
+            await CleanUpLegacyJobsAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -1160,7 +1016,7 @@ public sealed class MailIntelligenceCoordinator(
         }
         catch
         {
-            // The server expires them on its own; the local wipe must not depend on it.
+            // The server expires legacy jobs on its own; the local wipe must not depend on it.
         }
 
         await store.DeleteDatabaseAsync(cancellationToken).ConfigureAwait(false);
@@ -1224,11 +1080,10 @@ public sealed class MailIntelligenceCoordinator(
     }
 
     /// <summary>
-    /// Submits the captured mails of one account as a job. When a submission for the account is
-    /// already running (a manual run, or the previous automatic batch), the captures are put
-    /// back and submitted once it ends; they used to be dropped. When the add-on cannot take
-    /// work they stay queued for the next drain. Only the user turning the setting off
-    /// discards them.
+    /// Sends the captured mails of one account as a run. When a run for the account is already
+    /// going (a manual run, or the previous automatic one), the captures are put back and sent
+    /// once it ends. When the add-on cannot take work they stay queued for the next drain. Only
+    /// the user turning the setting off discards them.
     /// </summary>
     private async Task DrainSynchronizedQueueAsync(Guid accountId)
     {
@@ -1281,7 +1136,7 @@ public sealed class MailIntelligenceCoordinator(
 
                 if (jobRegistry.TryStart(
                         accountId,
-                        token => RunSubmissionAsync(accountId, remoteMessageIds, token),
+                        token => RunAsync(accountId, remoteMessageIds, token),
                         out var running))
                 {
                     return;
@@ -1314,7 +1169,7 @@ public sealed class MailIntelligenceCoordinator(
     /// </summary>
     private async Task<bool> CanSubmitAutomaticallyAsync(CancellationToken cancellationToken)
     {
-        if (!_acceptingWork)
+        if (!_acceptingWork || DateTime.UtcNow.Ticks < Interlocked.Read(ref _quotaExhaustedUntilTicks))
         {
             return false;
         }
@@ -1349,11 +1204,17 @@ public sealed class MailIntelligenceCoordinator(
 
     private sealed record MailIntelligenceContext(Guid WinoUserId, Guid MailboxId);
 
+    private sealed record BatchContext(
+        MailAccount Account,
+        MailIntelligenceContext Context,
+        IntelligenceResultKey ResultKey,
+        string Language,
+        RunState Run);
+
     /// <summary>
-    /// Resolves the Wino user and the mailbox id that scopes this account's jobs on the server.
-    /// The server only uses that id to group a user's jobs, so a new mailbox uses its local
-    /// account id. Accounts that already stored a synced mailbox id keep it, so their pending
-    /// jobs stay reachable.
+    /// Resolves the Wino user and the mailbox id that scopes this account's requests on the
+    /// server. A new mailbox uses its local account id; accounts that already stored a synced
+    /// mailbox id keep it.
     /// </summary>
     private async Task<MailIntelligenceContext> RequireContextAsync(Guid localAccountId, CancellationToken cancellationToken)
     {
@@ -1372,8 +1233,8 @@ public sealed class MailIntelligenceCoordinator(
     }
 
     /// <summary>
-    /// The key the job's results will be encrypted to. Created here only when the add-on is
-    /// active and the lifecycle has not made one yet; never falls back to plaintext results.
+    /// The key the results will be encrypted to. Created here only when the add-on is active and
+    /// the lifecycle has not made one yet; there are no plaintext results.
     /// </summary>
     private async Task<IntelligenceResultKey> RequireResultKeyAsync(Guid winoUserId, CancellationToken cancellationToken)
     {
@@ -1416,11 +1277,27 @@ public sealed class MailIntelligenceCoordinator(
         }
     }
 
-    private void SetSnapshot(Guid localAccountId, Func<MailIntelligenceJobSnapshot, MailIntelligenceJobSnapshot> mutate)
+    private void Publish(RunState run, bool force = false)
     {
-        var snapshot = mutate(GetJobSnapshot(localAccountId));
-        _snapshots[localAccountId] = snapshot;
-        messenger.Send(new MailIntelligenceJobChanged(localAccountId, snapshot));
+        if (run.TryTakeSnapshot(force, ProgressPublishInterval) is { } snapshot)
+        {
+            SetSnapshot(snapshot);
+        }
+    }
+
+    private void SetSnapshot(MailIntelligenceJobSnapshot snapshot)
+    {
+        _snapshots[snapshot.LocalAccountId] = snapshot;
+        messenger.Send(new MailIntelligenceJobChanged(snapshot.LocalAccountId, snapshot));
+    }
+
+    private void FlushMetadata(RunState run)
+    {
+        var changed = run.TakeChangedMessages();
+        if (changed.Count > 0)
+        {
+            messenger.Send(new IntelligenceMetadataChanged(run.AccountId, changed, IntelligenceMetadataChangeScope.Messages));
+        }
     }
 
     private static DateTimeOffset ToUtc(DateTime value)
@@ -1434,20 +1311,187 @@ public sealed class MailIntelligenceCoordinator(
         messenger.UnregisterAll(this);
         await _lifecycle.CancelAsync().ConfigureAwait(false);
 
-        var loops = _jobFollowers.Values.ToList();
-        if (_resumeLoop is { } loop)
-        {
-            loops.Add(loop);
-        }
-
         try
         {
-            await Task.WhenAll(loops).ConfigureAwait(false);
+            await jobRegistry.CancelAllAndWaitAsync().ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
         }
 
         _lifecycle.Dispose();
+    }
+
+    /// <summary>
+    /// The in-memory state of one account's run: counts for the progress card, why it stopped, and
+    /// the messages whose artifacts changed since the last announcement.
+    /// </summary>
+    private sealed class RunState(Guid accountId, int selected)
+    {
+        private readonly Lock _gate = new();
+        private HashSet<string> _changed = new(StringComparer.Ordinal);
+        private long _lastPublishedTicks;
+        private long _lastFlushTicks = DateTime.UtcNow.Ticks;
+        private bool _dirty = true;
+        private MailIntelligenceJobStatus? _stopStatus;
+        private string? _stopCode;
+        private string? _incompleteCode;
+
+        public Guid AccountId { get; } = accountId;
+        public int Selected { get; private set; } = selected;
+        public int Processed { get; private set; }
+        public int Failed { get; private set; }
+        public int Active { get; private set; }
+        public MailIntelligenceJobStatus Status { get; private set; } = MailIntelligenceJobStatus.Calculating;
+        public string? ErrorCode { get; private set; }
+
+        public bool IsStopping
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _stopStatus is not null;
+                }
+            }
+        }
+
+        public MailIntelligenceJobStatus FinalStatus
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _stopStatus ?? (_incompleteCode is null ? MailIntelligenceJobStatus.Completed : MailIntelligenceJobStatus.Failed);
+                }
+            }
+        }
+
+        public string? FinalErrorCode
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _stopStatus is not null ? _stopCode : _incompleteCode;
+                }
+            }
+        }
+
+        public void SetSelected(int count) => Mutate(() => Selected = count);
+
+        public void Skip(int count)
+        {
+            if (count > 0)
+            {
+                Mutate(() => Selected = Math.Max(0, Selected - count));
+            }
+        }
+
+        public void SetStatus(MailIntelligenceJobStatus status) => Mutate(() =>
+        {
+            // While another batch of the run streams, the run reads as receiving, not waiting.
+            if (Status is not (MailIntelligenceJobStatus.Completed or MailIntelligenceJobStatus.Failed or
+                    MailIntelligenceJobStatus.Cancelled or MailIntelligenceJobStatus.PausedForQuota) &&
+                !(status == MailIntelligenceJobStatus.Waiting && Active > 0))
+            {
+                Status = status;
+            }
+        });
+
+        public void BatchStarted() => Mutate(() =>
+        {
+            Active++;
+            Status = MailIntelligenceJobStatus.Downloading;
+        });
+
+        public void BatchEnded() => Mutate(() =>
+        {
+            Active = Math.Max(0, Active - 1);
+            if (Active == 0 && _stopStatus is null)
+            {
+                Status = MailIntelligenceJobStatus.Uploading;
+            }
+        });
+
+        public void MessageClassified(string remoteMessageId) => Mutate(() =>
+        {
+            Processed++;
+            _changed.Add(remoteMessageId);
+        });
+
+        public void MessageEnriched(string remoteMessageId) => Mutate(() => _changed.Add(remoteMessageId));
+
+        public void MessageFailed() => Mutate(() => Failed++);
+
+        public void NoteIncomplete(string errorCode) => Mutate(() => _incompleteCode = errorCode);
+
+        /// <summary>Asks the run to send nothing more. Returns false when it was already stopping.</summary>
+        public bool Stop(MailIntelligenceJobStatus status, string? errorCode)
+        {
+            lock (_gate)
+            {
+                if (_stopStatus is not null)
+                {
+                    return false;
+                }
+
+                _stopStatus = status;
+                _stopCode = errorCode;
+                _dirty = true;
+                return true;
+            }
+        }
+
+        public void Finish(MailIntelligenceJobStatus status, string? errorCode) => Mutate(() =>
+        {
+            Status = status;
+            ErrorCode = errorCode;
+            Active = 0;
+        });
+
+        public bool ShouldFlushMetadata(TimeSpan interval)
+        {
+            lock (_gate)
+            {
+                return _changed.Count > 0 && DateTime.UtcNow.Ticks - _lastFlushTicks >= interval.Ticks;
+            }
+        }
+
+        public HashSet<string> TakeChangedMessages()
+        {
+            lock (_gate)
+            {
+                var changed = _changed;
+                _changed = new HashSet<string>(StringComparer.Ordinal);
+                _lastFlushTicks = DateTime.UtcNow.Ticks;
+                return changed;
+            }
+        }
+
+        public MailIntelligenceJobSnapshot? TryTakeSnapshot(bool force, TimeSpan interval)
+        {
+            lock (_gate)
+            {
+                var now = DateTime.UtcNow.Ticks;
+                if (!force && (!_dirty || now - _lastPublishedTicks < interval.Ticks))
+                {
+                    return null;
+                }
+
+                _dirty = false;
+                _lastPublishedTicks = now;
+                return new MailIntelligenceJobSnapshot(AccountId, Status, Selected, Processed, Failed, Active, ErrorCode);
+            }
+        }
+
+        private void Mutate(Action change)
+        {
+            lock (_gate)
+            {
+                change();
+                _dirty = true;
+            }
+        }
     }
 }

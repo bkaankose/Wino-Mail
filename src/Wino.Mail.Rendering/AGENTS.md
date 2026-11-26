@@ -9,7 +9,7 @@ The glue between the native mail renderer (`Wino.Renderer`, a separate repositor
 | `MailEngineHost` | The one platform backend and the one `MailEngine` of the process, made on first use through the head's `IMailEngineBackendFactory` |
 | `EngineMailMessageReader` | `IMailMessageReader`: a message from its MIME in the reading pane |
 | `EngineHtmlReaderSession` | `IHtmlMailReaderSession`: an HTML string (the event description) |
-| `EngineMailEditorSession` | `IHtmlMailEditorSession` and `IComposeBodyWriter`: composer, signature, template and event notes |
+| `EngineMailEditorSession` | `IHtmlMailEditorSession` and `IComposeBodyWriter`: composer, signature, template and event notes. Also `IComposeMentions`: the engine's "@" query, the person written into the message and the user's mention settings, which `ComposePageViewModel.Mentions` drives for every head |
 | `EngineReaderPresentation` | Theme, typography, viewport and high contrast of one reader view |
 | `EnginePrintDocuments` | The print options every head lays a message out with |
 | `EngineUnsubscribeReader`, `EngineSpellCheckLanguages` | Unsubscribe information and the spell-check languages from the engine |

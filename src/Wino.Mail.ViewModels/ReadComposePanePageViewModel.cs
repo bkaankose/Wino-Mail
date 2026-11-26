@@ -11,6 +11,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Browsers;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Core.Services;
 using Wino.Core.Domain.Messaging.Client.Navigation;
@@ -20,7 +21,7 @@ namespace Wino.Mail.ViewModels;
 public partial class ReadComposePanePageViewModel : MailBaseViewModel
 {
     public IPreferencesService PreferencesService { get; set; }
-    public List<string> AvailableFonts => FontService.GetFonts();
+    public List<string> AvailableFonts { get; }
     public List<AppLanguageModel> AvailableSpellCheckLanguages { get; }
 
     [ObservableProperty]
@@ -60,12 +61,42 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial int SelectedReaderDarkModeMethodIndex { get; set; }
 
+    private static readonly ComposerMentionRecipient[] MentionRecipients =
+        [ComposerMentionRecipient.None, ComposerMentionRecipient.To, ComposerMentionRecipient.Cc, ComposerMentionRecipient.Bcc];
+    private static readonly ComposerMentionFormat[] MentionFormats =
+        [ComposerMentionFormat.NameAndAddress, ComposerMentionFormat.Name, ComposerMentionFormat.Address];
+
+    public List<string> MentionRecipientOptions { get; } =
+    [
+        Translator.SettingsComposerMentions_AddToNone,
+        Translator.SettingsComposerMentions_AddToTo,
+        Translator.SettingsComposerMentions_AddToCc,
+        Translator.SettingsComposerMentions_AddToBcc
+    ];
+
+    public List<string> MentionFormatOptions { get; } =
+    [
+        Translator.SettingsComposerMentions_FormatNameAndAddress,
+        Translator.SettingsComposerMentions_FormatName,
+        Translator.SettingsComposerMentions_FormatAddress
+    ];
+
+    [ObservableProperty]
+    public partial int SelectedMentionRecipientIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedMentionFormatIndex { get; set; }
+
     public ReadComposePanePageViewModel(IMessenger messenger, IMailDialogService dialogService,
                                     IPreferencesService preferencesService,
                                     ITranslationService translationService,
-                                    IEnumerable<ISpellCheckLanguageSource> spellCheckLanguageSources) : base(messenger)
+                                    IEnumerable<ISpellCheckLanguageSource> spellCheckLanguageSources,
+                                    IEnumerable<IMailFontSource> fontSources) : base(messenger)
     {
         PreferencesService = preferencesService;
+
+        var rendererFonts = fontSources.FirstOrDefault()?.GetFontFamilies() ?? [];
+        AvailableFonts = rendererFonts.Count > 0 ? [.. rendererFonts] : FontService.GetFonts();
 
         var spellCheckSource = spellCheckLanguageSources.FirstOrDefault();
         var savedSpellCheckCode = preferencesService.ComposerSpellCheckLanguageCode;
@@ -91,6 +122,24 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
 
         SelectedReaderContentThemeIndex = Math.Max(0, Array.IndexOf(ReaderContentThemes, preferencesService.ReaderContentTheme));
         SelectedReaderDarkModeMethodIndex = Math.Max(0, Array.IndexOf(ReaderDarkModeMethods, preferencesService.ReaderDarkModeMethod));
+        SelectedMentionRecipientIndex = Math.Max(0, Array.IndexOf(MentionRecipients, preferencesService.ComposerMentionRecipient));
+        SelectedMentionFormatIndex = Math.Max(0, Array.IndexOf(MentionFormats, preferencesService.ComposerMentionFormat));
+    }
+
+    partial void OnSelectedMentionRecipientIndexChanged(int value)
+    {
+        if (value < 0 || value >= MentionRecipients.Length) return;
+
+        if (PreferencesService.ComposerMentionRecipient != MentionRecipients[value])
+            PreferencesService.ComposerMentionRecipient = MentionRecipients[value];
+    }
+
+    partial void OnSelectedMentionFormatIndexChanged(int value)
+    {
+        if (value < 0 || value >= MentionFormats.Length) return;
+
+        if (PreferencesService.ComposerMentionFormat != MentionFormats[value])
+            PreferencesService.ComposerMentionFormat = MentionFormats[value];
     }
 
     partial void OnSelectedReaderContentThemeIndexChanged(int value)
@@ -112,6 +161,10 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     [RelayCommand]
     private void OpenReaderActions()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.ReaderActions_Title, WinoPage.ReaderActionsPage));
+
+    [RelayCommand]
+    private void OpenPrivacySettings()
+        => Messenger.Send(new BreadcrumbNavigationRequested(SettingsCatalog.Title(WinoPage.PrivacySecurityPage), WinoPage.PrivacySecurityPage));
 
     partial void OnCurrentReaderFontChanged(string value)
     {

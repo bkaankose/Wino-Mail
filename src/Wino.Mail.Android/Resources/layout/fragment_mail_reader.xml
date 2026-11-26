@@ -157,6 +157,13 @@
               <include layout="@layout/reader_invitation_card" />
 
               <LinearLayout
+                  android:id="@+id/reader_action_cards"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:orientation="vertical"
+                  android:visibility="gone" />
+
+              <LinearLayout
                   android:id="@+id/reader_attachment_strip"
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"

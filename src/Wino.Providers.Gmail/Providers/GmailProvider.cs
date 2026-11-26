@@ -40,6 +40,8 @@ public sealed class GmailProviderModule(
 
     public MailProviderTraits Traits { get; } = new()
     {
+        // Gmail's documented send limit, which counts the encoded message.
+        MaximumMessageBytes = 25L * 1024 * 1024,
         UsesInteractiveOAuth = true,
         ServesModesFromProvider = true,
         ProviderContactSource = ContactSourceKind.Gmail,

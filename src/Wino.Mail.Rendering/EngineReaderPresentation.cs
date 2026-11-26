@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Wino.Renderer;
+using Wino.Renderer.Primitives;
 using Wino.Renderer.Theme;
 
 namespace Wino.Mail.Rendering;
@@ -55,11 +58,17 @@ public sealed class EngineReaderPresentation
         FontSizePx = fontSize is > 0 and < 200 ? (float)fontSize : DefaultFontSizePx;
     }
 
+    // Found dates are marked like Outlook marks them: a dashed blue line, which reads as neither a link nor a spelling mark.
+    private static readonly Rgba FoundItemLineLight = new(15, 108, 189, 255);
+    private static readonly Rgba FoundItemLineDark = new(71, 158, 245, 255);
+
     public ThemeOptions CreateTheme() => new()
     {
         IsDark = IsDark,
         Method = Method,
-        ForcedColors = IsHighContrast
+        ForcedColors = IsHighContrast,
+        HighlightUnderlineColor = IsDark ? FoundItemLineDark : FoundItemLineLight,
+        HighlightUnderlineDashed = true
     };
 
     /// <summary>The system's font scale (Android, iOS Dynamic Type): the mail's text is zoomed by it. 1 on Windows.</summary>
@@ -67,13 +76,24 @@ public sealed class EngineReaderPresentation
 
     public TypographyOptions CreateTypography() => new(FontFamily, FontSizePx) { TextScale = TextScale };
 
+    /// <summary>What the reader looks for after a message is drawn.</summary>
+    public InsightKinds Insights { get; set; }
+
+    /// <summary>The cultures dates are read in, highest priority first. Null lets the engine use the UI language.</summary>
+    public IReadOnlyList<string>? Languages { get; set; }
+
     public ReaderOptions CreateOptions() => new()
     {
         Theme = CreateTheme(),
         Typography = CreateTypography(),
         Viewport = Viewport,
-        BackgroundUpdates = true
+        BackgroundUpdates = true,
+        Insights = Insights,
+        Languages = Languages
     };
+
+    private static bool SameLanguages(IReadOnlyList<string>? first, IReadOnlyList<string>? second)
+        => first is null || second is null ? first is null && second is null : first.SequenceEqual(second, StringComparer.OrdinalIgnoreCase);
 
     public void ApplyTo(IMailView view)
     {
@@ -87,5 +107,11 @@ public sealed class EngineReaderPresentation
         var typography = CreateTypography();
         if (reader.Typography != typography)
             reader.Typography = typography;
+
+        if (!SameLanguages(reader.Languages, Languages))
+            reader.Languages = Languages;
+
+        if (reader.InsightKinds != Insights)
+            reader.InsightKinds = Insights;
     }
 }

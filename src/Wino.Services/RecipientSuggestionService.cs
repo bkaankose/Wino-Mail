@@ -25,14 +25,14 @@ public class RecipientSuggestionService : IRecipientSuggestionService
         _recipientHistoryService = recipientHistoryService;
     }
 
-    public async Task<List<RecipientSuggestion>> SuggestAsync(Guid? accountId, string query, int limit = 8, bool includeLists = true)
+    public async Task<List<RecipientSuggestion>> SuggestAsync(Guid? accountId, string query, int limit = 8, bool includeLists = true, bool includeWithoutAddress = false)
     {
         var q = query?.Trim();
         if (string.IsNullOrEmpty(q) || q.Length < MinimumQueryLength)
             return [];
 
         var nowUtc = DateTime.UtcNow;
-        var cards = await _contactService.ResolveRecipientCandidatesAsync(accountId, q, CandidateLimit).ConfigureAwait(false) ?? [];
+        var cards = await _contactService.ResolveRecipientCandidatesAsync(accountId, q, CandidateLimit, includeWithoutAddress).ConfigureAwait(false) ?? [];
         var history = accountId is Guid id
             ? await _recipientHistoryService.SearchAsync(id, q, CandidateLimit).ConfigureAwait(false)
             : new List<RecipientHistory>();
@@ -52,6 +52,15 @@ public class RecipientSuggestionService : IRecipientSuggestionService
         foreach (var card in cards)
         {
             bookNames.TryGetValue(card.AddressBookId, out var bookName);
+
+            if (string.IsNullOrWhiteSpace(card.PrimaryEmailAddress))
+            {
+                var nameScore = RecipientSuggestionRanker.MatchScore(q, card.DisplayValue, null);
+                if (nameScore > 0)
+                    people["card:" + card.Id.ToString("N")] = RecipientSuggestion.FromContact(card, string.Empty, bookName, q, nameScore);
+
+                continue;
+            }
 
             foreach (var address in GetSuggestedAddresses(card, q))
             {

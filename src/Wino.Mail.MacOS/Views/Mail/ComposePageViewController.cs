@@ -298,6 +298,8 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         _editor.ContentChanged += (_, _) => ScheduleAutosave();
         _editor.FilesReceived += (_, files) => AttachPastedFiles(files);
         ViewModel.BodyWriter = _editor.Engine;
+        ViewModel.DraftChecks = _editor.Engine;
+        ViewModel.Mentions = _editor.Engine;
         _formatToolbar.Attach(_editor);
         _darkEditor = WinoIcons.IsDark(View.EffectiveAppearance);
         _appearanceDark = _darkEditor;
@@ -365,6 +367,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         BindSecurityOptions();
         BindSendShortcut();
         BindRecipientPopup();
+        BindMentions();
 
         await _editor.SetLinkLabelsAsync(Translator.Composer_OpenLink, Translator.Composer_RemoveLink);
         await _editor.InitializeAsync();
@@ -396,6 +399,8 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         {
             ViewModel.GetHTMLBodyFunction = null;
             ViewModel.BodyWriter = null;
+            ViewModel.DraftChecks = null;
+            ViewModel.Mentions = null;
             await DisposeEditorAsync();
             ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         }
@@ -452,6 +457,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         if (!string.IsNullOrWhiteSpace(preferences.ComposerSpellCheckLanguageCode))
             await _editor.Session.ExecuteCommandAsync(EditorCommand.SetSpellCheckLanguage(preferences.ComposerSpellCheckLanguageCode));
         await _editor.Session.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(preferences.IsComposerAutoCorrectEnabled));
+        await _editor.Engine.SetPasteFormattingAsync(preferences.IsComposerPasteFormattingEnabled);
         await _editor.RenderHtmlAsync(html ?? string.Empty);
     }
 
@@ -675,6 +681,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
             RemoveKeyMonitor();
             DisposeExtras();
             DisposeRecipients();
+            DisposeMentions();
             DisposeAttachments();
             DisposeToolbar();
             if (!_editorDisposed && _editor is not null) _ = DisposeEditorAsync();

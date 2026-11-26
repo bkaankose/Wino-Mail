@@ -168,6 +168,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
             _content.AddArrangedSubview(view);
         WinoLayout.Fill(_content, _zone.ContentView);
         BuildSuggestionList(_zone.ContentView);
+        BuildMentionList(_zone.ContentView);
 
         root.AddSubview(_zone);
         var guide = root.SafeAreaLayoutGuide;
@@ -323,6 +324,9 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         _editor = editor;
         editor.FilesReceived += (_, files) => AttachPastedFiles(files);
         ViewModel.BodyWriter = editor.Engine;
+        ViewModel.DraftChecks = editor.Engine;
+        ViewModel.Mentions = editor.Engine;
+        editor.PresentingController = () => Presenter;
         if (_launcher is not null) editor.Configure(_launcher);
         editor.OperationFailed += (_, exception) => ReportError(exception);
         editor.Restarted += EditorRestarted;
@@ -376,6 +380,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         BindExtras();
         BindSecurityOptions();
         BindRecipientSuggestions();
+        BindMentions();
 
         await editor.SetLinkLabelsAsync(Translator.Composer_OpenLink, Translator.Composer_RemoveLink);
         await editor.InitializeAsync();
@@ -420,6 +425,8 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
             _formatToolbar?.Detach();
             _webView.InputAccessory = null;
             ViewModel.BodyWriter = null;
+            ViewModel.DraftChecks = null;
+            ViewModel.Mentions = null;
         });
         try { await editor.DisposeAsync(); }
         catch (Exception exception) { ReportError(exception); }
@@ -471,6 +478,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         if (!string.IsNullOrWhiteSpace(preferences.ComposerSpellCheckLanguageCode))
             await editor.Session.ExecuteCommandAsync(EditorCommand.SetSpellCheckLanguage(preferences.ComposerSpellCheckLanguageCode));
         await editor.Session.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(preferences.IsComposerAutoCorrectEnabled));
+        await editor.Engine.SetPasteFormattingAsync(preferences.IsComposerPasteFormattingEnabled);
         await editor.RenderHtmlAsync(html ?? string.Empty);
     }
 
@@ -648,6 +656,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
             ViewModel.CancelAutosave();
             ViewModel.CloseRequested -= CloseRequested;
             DisposeRecipients();
+            DisposeMentions();
             DisposeAttachments();
             DisposeToolbar();
             if (!_editorDisposed && _editor is not null) _ = DisposeEditorAsync();

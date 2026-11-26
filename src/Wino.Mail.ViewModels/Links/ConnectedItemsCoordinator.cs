@@ -61,15 +61,20 @@ public sealed partial class ConnectedItemsCoordinator(
         };
     }
 
-    public async Task CreateTaskFromMailAsync(MailCopy mail)
+    /// <summary>
+    /// Creates a task linked to <paramref name="mail"/>. A date or a title found in the message (a due date, an
+    /// invoice) starts the task with them; otherwise it starts with the subject and no due date.
+    /// </summary>
+    public async Task CreateTaskFromMailAsync(MailCopy mail, DateTime? dueDate = null, string? title = null)
     {
         ArgumentNullException.ThrowIfNull(mail);
 
         var mailAccountId = GetMailAccountId(mail);
-        var title = string.IsNullOrWhiteSpace(mail.Subject) ? Translator.MailItemNoSubject : mail.Subject.Trim();
+        title = !string.IsNullOrWhiteSpace(title) ? title.Trim()
+            : string.IsNullOrWhiteSpace(mail.Subject) ? Translator.MailItemNoSubject : mail.Subject.Trim();
 
         await CreateTaskAsync(
-            new TaskSeed(title, Snippet(mail.PreviewText), null, mailAccountId),
+            new TaskSeed(title, Snippet(mail.PreviewText), dueDate?.Date, mailAccountId),
             new ItemLink
             {
                 SourceKind = ItemLinkKind.Mail,

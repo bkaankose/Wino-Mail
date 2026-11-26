@@ -364,6 +364,20 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IsDarkWebviewRenderer = GetReaderThemeIsDark(isUnderlyingThemeDark);
     }
 
+    /// <summary>Copies a link from the message. The link is already visible to the user, so only a failure is reported.</summary>
+    [RelayCommand]
+    private async Task CopyLink(string link)
+    {
+        try
+        {
+            (await _clipboardService.CopyTextAsync(link)).ThrowIfNotSucceeded();
+        }
+        catch (Exception)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, string.Format(Translator.ClipboardTextCopyFailed_Message, link), InfoBarMessageType.Error);
+        }
+    }
+
     [RelayCommand]
     private async Task CopyClipboard(string copyText)
     {

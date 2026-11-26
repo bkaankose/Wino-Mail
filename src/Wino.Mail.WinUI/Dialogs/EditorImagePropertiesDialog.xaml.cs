@@ -20,8 +20,9 @@ public sealed partial class EditorImagePropertiesDialog : ContentDialog
 
     private void ApplyClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
+        // An empty description leaves the picture undescribed; only the checks before sending mark one decorative.
         Result = new EditorImagePropertiesCommandArgs(
-            AltTextBox.Text.Trim(),
+            string.IsNullOrWhiteSpace(AltTextBox.Text) ? null : AltTextBox.Text.Trim(),
             string.IsNullOrWhiteSpace(UrlTextBox.Text) ? null : UrlTextBox.Text.Trim(),
             OpenInNewWindowCheckBox.IsChecked == true);
     }

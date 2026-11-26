@@ -362,8 +362,8 @@ internal sealed partial class MailReaderView : WinoView<MailRenderingPageViewMod
             _provider.GetRequiredService<INavigationService>().Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame);
     }
 
-    // Typography restyles the loaded message; RenderStyles and RenderPlaintextLinks are baked into the rendered HTML and
-    // the ViewModel has no public re-render, so they apply to the next opened message as on Windows and macOS.
+    // Typography restyles the loaded message; RenderPlaintextLinks is baked into the rendered HTML and
+    // the ViewModel has no public re-render, so it applies to the next opened message as on Windows and macOS.
     private void ApplyPreference(string name)
     {
         if (_reader is not { } reader) return;

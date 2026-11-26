@@ -16,33 +16,21 @@ public enum MailIntelligenceJobStatus
 }
 
 /// <summary>
-/// Progress of one stage, as this device sees it. Classification and Enrichment advance independently, so
-/// the UI reports them separately rather than as one blended percentage.
+/// What the management screen shows for one account's current run. A run sends the selection
+/// in batches; results stream back per message, so the counts move while it runs. Nothing of a
+/// run outlives the process.
 /// </summary>
-public sealed record MailIntelligenceStageProgress(
-    string Status,
-    int PageCount,
-    bool IsImported,
-    bool IsAcknowledged)
-{
-    public static MailIntelligenceStageProgress Pending { get; } = new("pending", 0, false, false);
-
-    public bool IsPublished => string.Equals(Status, "published", StringComparison.Ordinal);
-}
-
-/// <summary>
-/// What the management screen shows for one account. Several jobs can be in flight for a
-/// mailbox at once, so this aggregates them.
-/// </summary>
+/// <param name="SelectedMessageCount">Messages the run will send.</param>
+/// <param name="ProcessedMessageCount">Messages that got a classification so far.</param>
+/// <param name="FailedMessageCount">Failure items received so far, either stage.</param>
+/// <param name="ActiveBatchCount">Batches of this run streaming right now.</param>
 public sealed record MailIntelligenceJobSnapshot(
     Guid LocalAccountId,
     MailIntelligenceJobStatus Status,
     int SelectedMessageCount,
     int ProcessedMessageCount,
     int FailedMessageCount,
-    int ActiveJobCount,
-    MailIntelligenceStageProgress Classification,
-    MailIntelligenceStageProgress Enrichment,
+    int ActiveBatchCount,
     string? ErrorCode = null)
 {
     public static MailIntelligenceJobSnapshot Idle(Guid localAccountId) => new(
@@ -51,9 +39,7 @@ public sealed record MailIntelligenceJobSnapshot(
         0,
         0,
         0,
-        0,
-        MailIntelligenceStageProgress.Pending,
-        MailIntelligenceStageProgress.Pending);
+        0);
 
     public bool IsActive => Status is
         MailIntelligenceJobStatus.Calculating or
@@ -83,9 +69,9 @@ public sealed record MailIntelligenceAccountState(
     int ProcessedMessageCount,
     int WaitingMessageCount,
     bool HasEligibleMessages,
-    int ActiveJobCount)
+    int ActiveBatchCount)
 {
-    public bool IsUpToDate => WaitingMessageCount == 0 && ActiveJobCount == 0;
+    public bool IsUpToDate => WaitingMessageCount == 0 && ActiveBatchCount == 0;
 
     public bool HasIntelligenceData => ProcessedMessageCount > 0;
 

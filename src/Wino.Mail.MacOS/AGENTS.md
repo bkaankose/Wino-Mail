@@ -30,7 +30,7 @@ Mail is read, printed and composed with the native mail renderer (`Wino.Renderer
 - The engine's `MailView` (an `NSView` over the shared `MailViewController`) is created in code: the reader in `MailRenderingPageViewController`, the composer and the signature, template and event-notes editors through `Views/Mail/Compose/MacEngineEditor` and `Views/Dialogs/WinoRichTextEditorView`. `Infrastructure/MacEngineMailPrintPresenter` prints through the engine's print panel sheet and exports PDF.
 - Links, remote content, tracking parameters, find, zoom, the caret, IME and spelling are the engine's. Keep this head to wiring and AppKit chrome; an engine fault is fixed in the renderer repository.
 - A closing window clears its content controller with `ClearContentViewController()` (the binding refuses null) before the page is disposed; otherwise the page and the engine view stay alive.
-- Debug bridge: `compose-type`, `compose-key`, `compose-ime`, `compose-body`, `compose-discard`, `reader-pointer X Y [click]`, `reader-print`, `reader-pdf`, `eml-open`, `eml-close`, `gc` and `live` drive and measure the renderer in the running app.
+- Debug bridge: `compose-type`, `compose-key`, `compose-ime`, `compose-body`, `compose-mentions`, `compose-discard`, `reader-pointer X Y [click]`, `reader-print`, `reader-pdf`, `eml-open`, `eml-close`, `gc` and `live` drive and measure the renderer in the running app.
 
 ## How a view consumes a ViewModel
 

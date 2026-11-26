@@ -1,3 +1,4 @@
+using Microsoft.UI.Xaml.Media;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 
@@ -47,6 +48,11 @@ public sealed partial class WinoIntelligenceHeader
     partial void OnTranslateTargetHintFormatChanged(string newValue) => OnStatePropertyChanged(this, TranslateTargetHintFormatProperty);
     partial void OnExpandedTextChanged(string newValue) => OnStatePropertyChanged(this, ExpandedTextProperty);
     partial void OnCollapsedTextChanged(string newValue) => OnStatePropertyChanged(this, CollapsedTextProperty);
+    partial void OnBodyContentChanged(object? newValue) => OnStatePropertyChanged(this, BodyContentProperty);
+    partial void OnHeaderActionsChanged(object? newValue) => OnStatePropertyChanged(this, HeaderActionsProperty);
+    partial void OnSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, SubtitleTextProperty);
+    partial void OnHeaderGlyphChanged(string newValue) => OnStatePropertyChanged(this, HeaderGlyphProperty);
+    partial void OnHeaderIconBrushChanged(Brush? newValue) => OnStatePropertyChanged(this, HeaderIconBrushProperty);
     partial void OnSummaryTextChanged(string newValue) => OnResultsPropertyChanged(this, SummaryTextProperty);
     partial void OnSuggestedRepliesChanged(IEnumerable<WinoIntelligenceReply>? newValue) => OnResultsPropertyChanged(this, SuggestedRepliesProperty);
     partial void OnSimilarMailItemsChanged(IEnumerable<WinoIntelligenceSimilarMailItem>? newValue) => OnResultsPropertyChanged(this, SimilarMailItemsProperty);

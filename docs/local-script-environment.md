@@ -73,6 +73,7 @@ Set these variables in the shell profile, such as `~/.zprofile`, with `export KE
 | `WINO_NOTARY_KEY_PATH` | Full path to `AuthKey_<key id>.p8` | App Store Connect API key file. Users and Access → Integrations → App Store Connect API. The file downloads once; keep it outside the repository. |
 | `WINO_NOTARY_KEY_ID` | Ten-character key ID | The same page → Key ID. Not a secret. |
 | `WINO_NOTARY_ISSUER_ID` | Issuer GUID | The same page → Issuer ID. Not a secret. |
+| `WINO_SPARKLE_KEY_FILE` | Full path to the exported Sparkle private key | Optional. `generate_keys --account com.winomail.macos -x <file>`, run once in Terminal; keep the file outside the repository with mode 600. Without it the DMG script reads the key from the keychain, which Sparkle's tools refuse over SSH. |
 
 The key needs the **Developer** role or higher. The script passes the key to `notarytool` and never prints or copies it.
 `build-macos-appstore.sh` uses the same variables to validate and upload the Mac App Store package with `xcrun altool`.

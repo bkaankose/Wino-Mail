@@ -8,29 +8,31 @@ using Wino.Core.Domain.Models.SemanticIndexing;
 namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
-/// Drives Classification-first, Enrichment-second processing from this device: selects messages, uploads
-/// one encrypted job per mailbox, polls, imports each stage, and acknowledges each stage
-/// only after its import has committed.
+/// Drives Classification-first, Enrichment-second processing from this device: selects messages,
+/// sends them in batches on the streamed route and imports each result the moment it arrives.
+/// The server stores nothing, so there is nothing to poll, acknowledge or resume: a batch that
+/// does not finish leaves its messages unprocessed for the next run.
 /// </summary>
 public interface IMailIntelligenceCoordinator
 {
     Task InitializeAsync();
 
     /// <summary>
-    /// Follows unfinished jobs again and, once per run, deletes server jobs this device does not
-    /// track. Called when the add-on becomes active.
+    /// Called when the add-on becomes active: sends the mails synchronized while it could not take
+    /// work, and once per run removes jobs an earlier build left on the server.
     /// </summary>
     Task ResumeAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Stops every submission and deletes every unfinished job here and, best effort, on the
-    /// server. Imported artifacts are kept. Called when the add-on ends.
+    /// Stops every run; closing the streams makes the server stop and refund what it did not
+    /// deliver. Imported artifacts are kept. Called when the add-on ends.
     /// </summary>
-    Task AbandonJobsAsync(CancellationToken cancellationToken = default);
+    Task CancelAllAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Submits the selected messages. A selection larger than the server's per-job limit
-    /// is split across several jobs, which may run concurrently for one mailbox.
+    /// Processes the selected messages in batches. Runs in the background; progress is published
+    /// as <see cref="Messaging.UI.MailIntelligenceJobChanged"/>. A run already going for the
+    /// account wins and this call does nothing.
     /// </summary>
     Task StartProcessingAsync(
         Guid localMailAccountId,
@@ -40,16 +42,11 @@ public interface IMailIntelligenceCoordinator
     /// <summary>Processes one message synchronously and imports both returned artifacts.</summary>
     Task ProcessMessageAsync(Guid localMailAccountId, string mailUniqueId, CancellationToken cancellationToken = default);
 
-    /// <summary>Polls every unfinished job once and imports whatever is ready.</summary>
-    Task PollAsync(CancellationToken cancellationToken = default);
-
+    /// <summary>Cancels the account's run, closing its streams.</summary>
     Task CancelAsync(Guid localMailAccountId, CancellationToken cancellationToken = default);
-    Task CancelJobAsync(Guid jobId, CancellationToken cancellationToken = default);
-    Task RetryJobAsync(Guid jobId, CancellationToken cancellationToken = default);
 
     MailIntelligenceJobSnapshot GetJobSnapshot(Guid localMailAccountId);
     Task<MailIntelligenceAccountState> GetStateAsync(Guid localMailAccountId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Models.Intelligence.MailIntelligenceJobState>> GetJobsAsync(Guid localMailAccountId, CancellationToken cancellationToken = default);
     Task<MailMessageIntelligenceState> GetMessageStateAsync(Guid localMailAccountId, string mailUniqueId, CancellationToken cancellationToken = default);
 
     Task DeleteLocalIntelligenceAsync(Guid localMailAccountId, CancellationToken cancellationToken = default);

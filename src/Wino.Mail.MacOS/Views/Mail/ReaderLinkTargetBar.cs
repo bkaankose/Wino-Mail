@@ -14,6 +14,7 @@ namespace Wino.Mail.MacOS.Views.Mail;
 internal sealed class ReaderLinkTargetBar : WinoSurfaceView
 {
     private readonly NSTextField _text = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+    private readonly NSTextField _mismatch = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.Critical);
 
     public ReaderLinkTargetBar()
     {
@@ -25,7 +26,12 @@ internal sealed class ReaderLinkTargetBar : WinoSurfaceView
         AccessibilityElement = false;
         _text.AccessibilityElement = false;
         _text.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-        WinoLayout.Fill(_text, this, 4, 10, 4, 10);
+        _mismatch.AccessibilityElement = false;
+        _mismatch.Hidden = true;
+        _mismatch.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        var lines = WinoLayout.VStack(2, _text, _mismatch);
+        lines.DetachesHiddenViews = true;
+        WinoLayout.Fill(lines, this, 4, 10, 4, 10);
     }
 
     /// <summary>Pins the bar to the bottom-leading corner of <paramref name="host"/> (Windows margin 8,0,48,8; at most 720 wide).</summary>
@@ -41,7 +47,7 @@ internal sealed class ReaderLinkTargetBar : WinoSurfaceView
         ]);
     }
 
-    public void Show(RendererLinkHoverEventArgs args)
+    public void Show(RendererLinkHoverEventArgs args, string mismatch = "")
     {
         if (args.Uri is null)
         {
@@ -52,6 +58,8 @@ internal sealed class ReaderLinkTargetBar : WinoSurfaceView
         _text.StringValue = args.SafeLinkTarget is { } target
             ? Translator.Reader_ProtectedLinkFormat.Replace("{0}", target, StringComparison.Ordinal)
             : args.Uri;
+        _mismatch.StringValue = mismatch;
+        _mismatch.Hidden = mismatch.Length == 0;
         Hidden = false;
     }
 
@@ -59,6 +67,8 @@ internal sealed class ReaderLinkTargetBar : WinoSurfaceView
     {
         Hidden = true;
         _text.StringValue = string.Empty;
+        _mismatch.StringValue = string.Empty;
+        _mismatch.Hidden = true;
     }
 
     public override NSView? HitTest(CGPoint point) => null;

@@ -121,12 +121,12 @@ public sealed partial class EngineMailEditorSession
                 return state.IsImageSelected
                     ? _view.Execute(
                         EditCommandKind.SetImageProperties,
-                        new ImagePropertiesArgs(state.ImageAltText ?? string.Empty, url, link.OpenInNewWindow))
+                        new ImagePropertiesArgs(state.ImageAltText, url, link.OpenInNewWindow))
                     : _view.Execute(EditCommandKind.InsertLink, new LinkArgs(url, NullIfBlank(link.Text), link.OpenInNewWindow));
 
             case EditorCommandKind.RemoveLink:
                 return state.IsImageSelected
-                    ? _view.Execute(EditCommandKind.SetImageProperties, new ImagePropertiesArgs(state.ImageAltText ?? string.Empty, null))
+                    ? _view.Execute(EditCommandKind.SetImageProperties, new ImagePropertiesArgs(state.ImageAltText, null))
                     : _view.Execute(EditCommandKind.RemoveLink);
 
             case EditorCommandKind.InsertEmoji:

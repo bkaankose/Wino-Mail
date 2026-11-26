@@ -441,14 +441,39 @@ public interface IPreferencesService : INotifyPropertyChanged
     MailDarkModeMethod ReaderDarkModeMethod { get; set; }
 
     /// <summary>
-    /// Setting: Set whether 'style' tags in rendered HTMls should be removed.
-    /// </summary>
-    bool RenderStyles { get; set; }
-
-    /// <summary>
     /// Setting: Set whether plaintext links should be automatically converted to clickable links.
     /// </summary>
     bool RenderPlaintextLinks { get; set; }
+
+    /// <summary>
+    /// Setting: Show quoted earlier messages and signatures in the reader folded behind a button.
+    /// </summary>
+    bool IsReaderFoldingEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: With folding on, each earlier message of a conversation folds behind its own row instead of the whole history behind one button.
+    /// </summary>
+    bool IsConversationFoldingEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Show the bookings, orders and deliveries a sender describes with structured data as cards above the message.
+    /// </summary>
+    bool IsActionCardsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Ask before an action card opens the sender's web site. Wino cannot verify who sent the card.
+    /// </summary>
+    bool IsActionCardConfirmationEnabled { get; set; }
+
+    /// <summary>
+    /// The state the user last left an action card in; the next card opens the same way.
+    /// </summary>
+    bool IsActionCardExpanded { get; set; }
+
+    /// <summary>
+    /// Setting: Underline dates in messages so they can be added to the calendar or To Do.
+    /// </summary>
+    bool IsDateDetectionEnabled { get; set; }
 
     /// <summary>
     /// Gets the preferred rendering options for HTML rendering.
@@ -560,10 +585,44 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// <summary>Automatically correct unambiguous spelling errors while composing.</summary>
     bool IsComposerAutoCorrectEnabled { get; set; }
 
+    /// <summary>Suggest people when "@" and a name are typed in the message body.</summary>
+    bool IsComposerMentionSuggestionEnabled { get; set; }
+
+    /// <summary>The recipient field a mentioned person with an address is added to.</summary>
+    ComposerMentionRecipient ComposerMentionRecipient { get; set; }
+
+    /// <summary>What a mention reads in the message body.</summary>
+    ComposerMentionFormat ComposerMentionFormat { get; set; }
+
     /// <summary>
     /// Setting: BCP-47 language code used by the composer spellchecker.
     /// </summary>
     string ComposerSpellCheckLanguageCode { get; set; }
+
+    /// <summary>
+    /// Setting: Keep the formatting of pasted content in the composer. Off pastes plain text.
+    /// </summary>
+    bool IsComposerPasteFormattingEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Look over a message for the selected problems when it is sent.
+    /// </summary>
+    bool IsDraftCheckEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Before sending, point out pictures that have no description.
+    /// </summary>
+    bool IsDraftImageDescriptionCheckEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Before sending, point out text colors that are hard to read.
+    /// </summary>
+    bool IsDraftReadableTextCheckEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Before sending, point out a message that is larger than the account accepts.
+    /// </summary>
+    bool IsDraftMessageSizeCheckEnabled { get; set; }
 
 
 

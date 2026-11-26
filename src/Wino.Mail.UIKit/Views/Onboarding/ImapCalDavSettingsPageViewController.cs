@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Collections.Specialized;
 using UIKit;
 using Wino.Core.Domain;
@@ -820,6 +824,53 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
                 type.GetMethod("NotifySecureSignInLayoutChanged", flags)!.Invoke(vm, null);
             });
             return "ok " + mode;
+        });
+        UIKitDebugBridge.Register("imap-fill", async args =>
+        {
+            var file = Path.Combine(Path.GetTempPath(), "wino-debug", "lab-fixtures.json");
+            if (args.Length == 0 || !File.Exists(file)) return "usage: imap-fill KEY [mail] (needs lab-fixtures.json)";
+            var mailOnly = args.Length > 1 && args[1].Equals("mail", StringComparison.OrdinalIgnoreCase);
+            using var doc = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(file));
+            var account = new[] { "accounts", "pop3Accounts" }
+                .SelectMany(list => doc.RootElement.TryGetProperty(list, out var items) ? items.EnumerateArray() : Enumerable.Empty<System.Text.Json.JsonElement>())
+                .FirstOrDefault(a => a.GetProperty("key").GetString() == args[0]);
+            if (account.ValueKind == System.Text.Json.JsonValueKind.Undefined) return "no such lab account";
+            string S(string name) => account.TryGetProperty(name, out var v) ? v.ToString()
+                : name.StartsWith("imap", StringComparison.Ordinal) && account.TryGetProperty("pop3" + name[4..], out var pop) ? pop.ToString()
+                : name == "password" && doc.RootElement.TryGetProperty("password", out var shared) ? shared.ToString() : string.Empty;
+            ImapConnectionSecurity Security(string name)
+                => Enum.TryParse<ImapConnectionSecurity>(S(name), out var security) ? security : ImapConnectionSecurity.None;
+            var smtpUsername = S("smtpUsername") is { Length: > 0 } login ? login : S("address");
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                var vm = ViewModel;
+                vm.DisplayName = S("name");
+                vm.EmailAddress = S("address");
+                vm.Password = S("password");
+                vm.IncomingServer = S("imapHost");
+                vm.IncomingServerPort = S("imapPort");
+                vm.IncomingServerUsername = S("address");
+                vm.IncomingServerPassword = S("password");
+                vm.OutgoingServer = S("smtpHost");
+                vm.OutgoingServerPort = S("smtpPort");
+                vm.OutgoingServerUsername = smtpUsername;
+                vm.OutgoingServerPassword = S("password");
+                vm.SelectedIncomingServerConnectionSecurityIndex = vm.AvailableConnectionSecurities.FindIndex(c => c.ImapConnectionSecurity == Security("imapSecurity"));
+                vm.SelectedOutgoingServerConnectionSecurityIndex = vm.AvailableConnectionSecurities.FindIndex(c => c.ImapConnectionSecurity == Security("smtpSecurity"));
+                if (mailOnly) return;
+                vm.IsCalendarSupportEnabled = true;
+                vm.UseMailCredentialsForDav = false;
+                vm.CalDavServiceUrl = S("davUrl");
+                vm.CardDavServiceUrl = S("cardDavUrl");
+                vm.CalDavUsername = S("davUsername");
+                vm.CalDavPassword = S("password");
+            });
+            return "filled " + S("address");
+        });
+        UIKitDebugBridge.Register("imap-save", async _ =>
+        {
+            await Dispatcher.ExecuteOnUIThread(() => ViewModel.SaveCommand.Execute(null));
+            return "saving";
         });
     }
 #endif

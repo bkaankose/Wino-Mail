@@ -21,7 +21,12 @@ public sealed partial class ConnectedItemsCoordinator
     /// Opens the event composer prefilled from the mail: its subject, a short excerpt, and the sender and the To and
     /// Cc recipients minus the user's own addresses as attendees. The link is stored once the server confirms the event.
     /// </summary>
-    public async Task CreateEventFromMailAsync(MailCopy mail)
+    /// <summary>
+    /// Opens a new event linked to <paramref name="mail"/>. A time, title or place found in the message (a booking, a
+    /// date in the text) prefill it; otherwise it starts at the next full hour with the subject.
+    /// </summary>
+    public async Task CreateEventFromMailAsync(MailCopy mail, DateTime? start = null, DateTime? end = null, bool isAllDay = false,
+                                               string? title = null, string? location = null)
     {
         ArgumentNullException.ThrowIfNull(mail);
 
@@ -30,8 +35,10 @@ public sealed partial class ConnectedItemsCoordinator
         var ownAddresses = await GetOwnAddressesAsync(account).ConfigureAwait(false);
         var attendees = await GetMailParticipantsAsync(mail, accountId, ownAddresses).ConfigureAwait(false);
         var calendar = await GetDefaultWritableCalendarAsync(accountId).ConfigureAwait(false);
-        var title = string.IsNullOrWhiteSpace(mail.Subject) ? Translator.MailItemNoSubject : mail.Subject.Trim();
-        var start = NextFullHour(DateTime.Now);
+        title = !string.IsNullOrWhiteSpace(title) ? title.Trim()
+            : string.IsNullOrWhiteSpace(mail.Subject) ? Translator.MailItemNoSubject : mail.Subject.Trim();
+        var startTime = start ?? NextFullHour(DateTime.Now);
+        var endTime = end is { } endValue && endValue > startTime ? endValue : isAllDay ? startTime.Date.AddDays(1) : startTime.AddHours(1);
 
         var args = new CalendarEventComposeNavigationArgs
         {
@@ -39,8 +46,10 @@ public sealed partial class ConnectedItemsCoordinator
             RequireCalendarPickerWhenUnresolved = calendar is null,
             AccountAddressHints = account?.Address is { Length: > 0 } address ? [address] : [],
             Title = title,
-            StartDate = start,
-            EndDate = start.AddHours(1),
+            Location = location?.Trim() ?? string.Empty,
+            IsAllDay = isAllDay,
+            StartDate = startTime,
+            EndDate = endTime,
             NotesHtml = ToHtmlParagraph(Snippet(mail.PreviewText)),
             Attendees = attendees,
             PendingLinks =

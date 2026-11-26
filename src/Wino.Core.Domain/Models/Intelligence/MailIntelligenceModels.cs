@@ -41,38 +41,14 @@ public sealed record MailIntelligenceItemFailure(
     MailIntelligenceStageKind Stage,
     string ErrorCode);
 
-/// <summary>Outcome of importing one result page.</summary>
+/// <summary>Outcome of one import.</summary>
 public sealed record MailIntelligenceImportResult(
     int Imported,
     int SkippedStale,
     int Failures);
 
-/// <summary>A job this device submitted and is still tracking.</summary>
-public sealed record MailIntelligenceJobState(
-    Guid JobId,
-    Guid LocalAccountId,
-    Guid MailboxId,
-    int MessageCount,
-    string Status,
-    MailIntelligenceStageState Classification,
-    MailIntelligenceStageState Enrichment,
-    int FailedCount,
-    string? LastError,
-    DateTime CreatedUtc,
-    DateTime UpdatedUtc)
-{
-    public bool IsFinished => Classification.IsAcknowledged && Enrichment.IsAcknowledged;
-
-    /// <summary>The device result key the job's results are encrypted to; null for a legacy job.</summary>
-    public string? ResultKeyId { get; init; }
-}
-
-public sealed record MailIntelligenceStageState(
-    string Status,
-    int PageCount,
-    string? Digest,
-    bool IsImported,
-    bool IsAcknowledged);
+/// <summary>A job an earlier build submitted with the v2 job protocol and never finished.</summary>
+public sealed record LegacyMailIntelligenceJob(Guid JobId, Guid MailboxId, DateTime CreatedUtc);
 
 /// <summary>One card in the briefing. Only Classification-included messages become cards.</summary>
 public sealed record BriefingCard(

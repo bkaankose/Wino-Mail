@@ -1,3 +1,4 @@
+using System.Globalization;
 using AppKit;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
@@ -6,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Editor;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.MacOS.Rendering;
 using Wino.Mail.Rendering;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -35,8 +37,14 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
         _mailView.LinkActivated += MailView_LinkActivated;
         _mailView.LinkHoverChanged += MailView_LinkHoverChanged;
         _mailView.ContextMenuRequested += MailView_ContextMenuRequested;
+        // The engine needs the primary press and release itself: a click recognizer that delays them swallows a click on a reply row.
+        _mailView.AddGestureRecognizer(new NSClickGestureRecognizer(MailView_Clicked) { DelaysPrimaryMouseButtonEvents = false });
+        _reader.FoldRowTemplate = AppKitFoldRowTemplate.Instance;
+        _reader.InsightsChanged += Reader_InsightsChanged;
         _reader.Attach();
     }
+
+    private void Reader_InsightsChanged(object? sender, MailReaderInsights insights) => ViewModel.ShowInsights(insights);
 
     private void ApplyReaderPresentation()
     {
@@ -101,6 +109,7 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
             Date = MailRowMapper.FormatReaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference),
             BodyName = Translator.Reader_MessageBodyAutomationName,
             PlainTextFallbackName = Translator.Reader_PlainTextFallbackAutomationName,
+            TrimmedContentName = Translator.Reader_EarlierMessagesButtonName,
             FallbackText = accessibleText
         };
     }
@@ -149,24 +158,10 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
         }
 
         var safeTarget = link.Protection == LinkProtection.OutlookSafeLinks && link.RedirectTarget is { Length: > 0 } target ? target : null;
-        _linkTarget.Show(new RendererLinkHoverEventArgs(link.Kind == LinkKind.Web ? link.Effective : link.Original, safeTarget));
-    }
-
-    private void MailView_ContextMenuRequested(object? sender, ContextMenuRequest request)
-    {
-        var menu = new NSMenu();
-        if (request.HasSelection)
-            menu.AddItem(new NSMenuItem(Translator.Buttons_Copy, (_, _) => _mailView.CopySelection()));
-
-        if (!string.IsNullOrEmpty(request.LinkUrl))
-        {
-            var url = request.LinkUrl;
-            menu.AddItem(new NSMenuItem(Translator.Reader_ContextMenu_CopyLink, (_, _) => Observe(ViewModel.CopyClipboardCommand.ExecuteAsync(url))));
-        }
-
-        menu.AddItem(new NSMenuItem(Translator.Reader_ContextMenu_SelectAll, (_, _) => _mailView.SelectAll()));
-        var location = new CoreGraphics.CGPoint(request.ViewPoint.X, request.ViewPoint.Y);
-        menu.PopUpMenu(null, location, _mailView);
+        var mismatch = e.TextMismatch is { } textMismatch
+            ? string.Format(CultureInfo.CurrentCulture, Translator.Reader_LinkTextMismatchFormat, textMismatch.TextHost, textMismatch.TargetHost)
+            : string.Empty;
+        _linkTarget.Show(new RendererLinkHoverEventArgs(link.Kind == LinkKind.Web ? link.Effective : link.Original, safeTarget), mismatch);
     }
 
     private IMailPrintPresenter CreatePrintPresenter()
