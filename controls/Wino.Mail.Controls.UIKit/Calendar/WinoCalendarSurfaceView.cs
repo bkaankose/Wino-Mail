@@ -1373,15 +1373,15 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             for (int index = 0; index <= dates.Count; index++)
                 FillRect(new CGRect(Math.Round(WinoCalendarSurfaceGeometry.DayX(index, dayWidth)) - 1, 0, 1, bounds.Height));
 
-            // Current time across the period that holds today.
-            if (Owner.TodaySpan() is { } span)
+            // Current time in today's column only, so it never reads as another day's.
+            if (Owner.TodayColumn() is { } todayColumn)
             {
                 var now = DateTime.Now;
                 double y = WinoCalendarSurfaceGeometry.TimeY(now.TimeOfDay, hourHeight);
+                double x = WinoCalendarSurfaceGeometry.DayX(todayColumn, dayWidth);
                 NowColor.SetFill();
-                FillRect(new CGRect(WinoCalendarSurfaceGeometry.DayX(span.First, dayWidth), y - 1, span.Count * dayWidth, 2));
-                if (span.TodayIndex >= 0)
-                    UIBezierPath.FromOval(new CGRect(WinoCalendarSurfaceGeometry.DayX(span.TodayIndex, dayWidth) - 5, y - 5, 10, 10)).Fill();
+                FillRect(new CGRect(x, y - 1, dayWidth, 2));
+                UIBezierPath.FromOval(new CGRect(x - 5, y - 5, 10, 10)).Fill();
             }
             Owner.DrawTimedSelection();
         }
