@@ -66,7 +66,7 @@ public sealed class WinoAccountPresenter : IWinoAccountPresenter
         var popover = new NSPopover { ContentViewController = content, Behavior = NSPopoverBehavior.Transient, Animates = true };
         popover.Delegate = new PopoverDelegate(() => { if (ReferenceEquals(_popover, popover)) _popover = null; });
         _popover = popover;
-        popover.Show(anchor.Bounds, anchor, NSRectEdge.MinYEdge);
+        popover.Show(anchor.Bounds, anchor, NSRectEdge.MaxYEdge);
         Run(RefreshAsync(content, ++_version));
     }
 
