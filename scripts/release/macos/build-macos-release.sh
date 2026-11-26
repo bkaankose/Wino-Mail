@@ -16,8 +16,10 @@ MANIFEST="$REPO_ROOT/src/Wino.Mail.WinUI/Package.appxmanifest"
 ENTITLEMENTS="$REPO_ROOT/src/Wino.Mail.MacOS/Entitlements.plist"
 SPARKLE_PLIST="$REPO_ROOT/src/Wino.Mail.MacOS/Sparkle.plist"
 SPARKLE_VERSION_FILE="$REPO_ROOT/src/Wino.Core.Apple.Bindings/Sparkle/Native/Sparkle.version"
-# Sparkle signing key in the login keychain (generate_keys --account).
+# Sparkle signing key in the login keychain (generate_keys --account), or the file WINO_SPARKLE_KEY_FILE names
+# (generate_keys -x). Sparkle's tools refuse the keychain over SSH, so SSH builds use the file.
 SPARKLE_ACCOUNT="com.winomail.macos"
+SPARKLE_KEY_FILE="${WINO_SPARKLE_KEY_FILE:-}"
 # The DMG and appcast.xml are uploaded here; Sparkle.plist's SUFeedURL points at the appcast.
 DOWNLOAD_BASE_URL="https://download.winomail.app/macos"
 # DMG window layout. The artwork in dmg/background.html is drawn around these icon centres; move them together.
@@ -164,11 +166,25 @@ if [ ! -x "$SPARKLE_TOOLS/bin/sign_update" ]; then
   rm -rf "$SPARKLE_DOWNLOAD"
 fi
 SPARKLE_PUBLIC_KEY="$(plutil -extract SUPublicEDKey raw "$SPARKLE_PLIST")"
-KEYCHAIN_PUBLIC_KEY="$("$SPARKLE_TOOLS/bin/generate_keys" --account "$SPARKLE_ACCOUNT" -p 2>/dev/null || true)"
-[ -n "$KEYCHAIN_PUBLIC_KEY" ] ||
-  fail "No Sparkle signing key for account $SPARKLE_ACCOUNT in the keychain. Import the backup with: $SPARKLE_TOOLS/bin/generate_keys --account $SPARKLE_ACCOUNT -f <file>"
-[ "$KEYCHAIN_PUBLIC_KEY" = "$SPARKLE_PUBLIC_KEY" ] ||
-  fail "The keychain's Sparkle key does not match SUPublicEDKey in Sparkle.plist."
+if [ -n "$SPARKLE_KEY_FILE" ]; then
+  [ -r "$SPARKLE_KEY_FILE" ] || fail "WINO_SPARKLE_KEY_FILE ($SPARKLE_KEY_FILE) is not readable."
+  # LibreSSL in macOS has no Ed25519, so CryptoKit derives the public key of the private seed.
+  FILE_PUBLIC_KEY="$(swift -e 'import Foundation; import CryptoKit
+let seed = try! String(contentsOfFile: CommandLine.arguments[1], encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+guard let data = Data(base64Encoded: seed), let key = try? Curve25519.Signing.PrivateKey(rawRepresentation: data) else { exit(1) }
+print(key.publicKey.rawRepresentation.base64EncodedString())' "$SPARKLE_KEY_FILE" 2>/dev/null || true)"
+  [ -n "$FILE_PUBLIC_KEY" ] || fail "WINO_SPARKLE_KEY_FILE does not hold a Sparkle private key (generate_keys -x)."
+  [ "$FILE_PUBLIC_KEY" = "$SPARKLE_PUBLIC_KEY" ] ||
+    fail "The Sparkle key in WINO_SPARKLE_KEY_FILE does not match SUPublicEDKey in Sparkle.plist."
+  SPARKLE_SIGN_ARGS=(--ed-key-file "$SPARKLE_KEY_FILE")
+else
+  KEYCHAIN_PUBLIC_KEY="$("$SPARKLE_TOOLS/bin/generate_keys" --account "$SPARKLE_ACCOUNT" -p 2>/dev/null || true)"
+  [ -n "$KEYCHAIN_PUBLIC_KEY" ] ||
+    fail "No Sparkle signing key for account $SPARKLE_ACCOUNT in the keychain. Import the backup with: $SPARKLE_TOOLS/bin/generate_keys --account $SPARKLE_ACCOUNT -f <file>, or set WINO_SPARKLE_KEY_FILE."
+  [ "$KEYCHAIN_PUBLIC_KEY" = "$SPARKLE_PUBLIC_KEY" ] ||
+    fail "The keychain's Sparkle key does not match SUPublicEDKey in Sparkle.plist."
+  SPARKLE_SIGN_ARGS=(--account "$SPARKLE_ACCOUNT")
+fi
 info "Sparkle $SPARKLE_VERSION, update key $SPARKLE_PUBLIC_KEY"
 [ -f "$DMG_BACKGROUND" ] || fail "DMG background not found: $DMG_BACKGROUND"
 # Finder addresses disks by name, so the DMG layout would target an already mounted disk with the same name.
@@ -461,7 +477,7 @@ info "App: $(head -2 <<<"$APP_ASSESS" | tr '\n' ' ')(ticket stapled)"
 # ---------------------------------------------------------------- appcast
 # Sparkle signs the final (stapled) DMG; any later change to the file invalidates the signature.
 step "Writing the Sparkle appcast"
-SPARKLE_SIGNATURE="$("$SPARKLE_TOOLS/bin/sign_update" --account "$SPARKLE_ACCOUNT" "$DMG")" || fail "sign_update failed."
+SPARKLE_SIGNATURE="$("$SPARKLE_TOOLS/bin/sign_update" "${SPARKLE_SIGN_ARGS[@]}" "$DMG")" || fail "sign_update failed."
 [[ "$SPARKLE_SIGNATURE" =~ ^sparkle:edSignature=\"[^\"]+\"\ length=\"[0-9]+\"$ ]] || fail "Unexpected sign_update output."
 HARDWARE=""
 [ "$ARCH" = "arm64" ] && HARDWARE="

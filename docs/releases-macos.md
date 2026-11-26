@@ -34,6 +34,9 @@ One-time setup on the Mac:
    On another Mac, import it with `generate_keys --account com.winomail.macos -f <file>`.
    The tools are in `~/Library/Caches/WinoMail/sparkle-<version>/bin` after the first run.
    If the key is lost, installed DMG builds can no longer verify updates, so keep the backup.
+   Sparkle's tools refuse the keychain over SSH. For SSH builds, export the key once in Terminal to a file that only
+   you can read, and set `WINO_SPARKLE_KEY_FILE` to it (see [Local script environment](local-script-environment.md)).
+   The script checks the file's public key against `SUPublicEDKey` before it signs.
 
 Run from the repository root in Terminal:
 
@@ -78,8 +81,10 @@ session, not over SSH. The first run asks to let Terminal control Finder; allow 
 System Settings > Privacy & Security > Automation. To change the artwork, edit `dmg/background.html`, render it at 1x
 and 2x, and combine both with `tiffutil` as its header comment describes. The icon positions are in the script.
 
-Codesign needs the login keychain, which is unavailable to SSH sessions (`errSecInternalComponent`).
-To build over SSH, start `screen -dmS winosign` in Terminal on the Mac and run the script inside that session.
+Codesign needs the login keychain, which is locked in SSH sessions (`errSecInternalComponent`). To build over SSH,
+copy the signing identities into a separate keychain with its own password, put it first in the user keychain search
+list, and unlock it in the SSH login shell. Then run the scripts through a login shell (`zsh -lc '...'`), so the
+profile variables are set. Set `WINO_SPARKLE_KEY_FILE` for the appcast signature, as above.
 This is not required when the script runs in Terminal.
 
 ### DMG updates (Sparkle)
