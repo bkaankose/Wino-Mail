@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Presentation;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
@@ -48,8 +50,10 @@ public partial class AccountSetupPageViewModel
     {
         var choices = new List<AccountSetupChoice>
         {
-            new(ImapServerKindId, Translator.AccountSetup_ServerKind_Imap, description: Translator.AccountSetup_ServerKind_ImapDescription),
-            new(ExchangeServerKindId, Translator.AccountSetup_ProviderChoice_Exchange, description: Translator.AccountSetup_ServerKind_ExchangeDescription)
+            new(ImapServerKindId, Translator.AccountSetup_ServerKind_Imap, description: Translator.AccountSetup_ServerKind_ImapDescription,
+                glyph: MailProviderGlyphs.GetGlyph(MailProviderType.IMAP4, SpecialImapProvider.None)),
+            new(ExchangeServerKindId, Translator.AccountSetup_ProviderChoice_Exchange, description: Translator.AccountSetup_ServerKind_ExchangeDescription,
+                glyph: MailProviderGlyphs.GetGlyph(MailProviderType.Exchange, SpecialImapProvider.None))
         };
 
         _isBuildingChoices = true;

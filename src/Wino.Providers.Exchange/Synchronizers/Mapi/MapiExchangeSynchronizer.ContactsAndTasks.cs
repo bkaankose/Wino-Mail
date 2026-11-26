@@ -131,7 +131,6 @@ public sealed partial class MapiExchangeSynchronizer
             }
 
             // Photos are read on the session this pass holds, so they are fetched before the lease ends.
-            await RekeyContactsFromOtherTransportAsync(book, upserts).ConfigureAwait(false);
             await DownloadContactPhotosAsync(photos, book, cancellationToken).ConfigureAwait(false);
             await RequireContactService().ReplaceAddressBookAsync(book.Id, upserts, null).ConfigureAwait(false);
             total += upserts.Count;

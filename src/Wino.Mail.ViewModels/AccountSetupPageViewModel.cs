@@ -262,7 +262,12 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         IsLocalOnlyMode = true;
         IdentityError = string.Empty;
         AccountNameError = string.Empty;
-        Phase = AccountSetupPhase.Identity;
+
+        // The review asks for the name with the apps and the color, so a local account opens on it.
+        SaveIdentityDraft();
+        ConfigureLocalFeatures();
+        BuildAppRows();
+        Phase = AccountSetupPhase.Features;
         NotifyStepChanged();
     }
 

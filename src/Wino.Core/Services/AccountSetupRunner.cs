@@ -509,6 +509,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         serverInformation.Id = Guid.NewGuid();
         serverInformation.AccountId = account.Id;
         serverInformation.IncomingServerType = CustomIncomingServerType.Exchange;
+        serverInformation.ExchangeTransport = ResolveSetupExchangeTransport(serverInformation);
 
         account.Address = setupData.EmailAddress ?? string.Empty;
         account.SenderName = setupData.DisplayName ?? string.Empty;
@@ -541,6 +542,21 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         await TryFetchDirectoryProfilePictureAsync(account, cancellationToken);
     }
+
+    /// <summary>
+    /// The transport an Exchange account is saved with and keeps for good: an explicit choice stays, and Automatic
+    /// becomes what the caller's connection check recorded in <see cref="CustomServerInformation.DetectedExchangeTransport"/>,
+    /// MAPI over HTTP when Autodiscover advertised it and the check passed, Exchange Web Services otherwise. ActiveSync is
+    /// only ever an explicit choice.
+    /// </summary>
+    private static ExchangeTransport ResolveSetupExchangeTransport(CustomServerInformation serverInformation)
+        => serverInformation.ExchangeTransport switch
+        {
+            ExchangeTransport.Automatic => serverInformation.DetectedExchangeTransport == ExchangeTransport.MapiHttp
+                ? ExchangeTransport.MapiHttp
+                : ExchangeTransport.Ews,
+            var explicitTransport => explicitTransport
+        };
 
     // The root alias is already in place; the server's other addresses are an addition that must not fail the setup.
     private async Task TrySynchronizeExchangeAliasesAsync(MailAccount account, CancellationToken cancellationToken)

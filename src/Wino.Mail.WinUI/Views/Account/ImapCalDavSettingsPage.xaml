@@ -2,6 +2,7 @@
     x:Class="Wino.Mail.WinUI.Views.Account.ImapCalDavSettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -164,7 +165,51 @@
             Spacing="4"
             Visibility="{x:Bind ViewModel.IsFeaturesStepVisible, Mode=OneWay}">
             <TextBlock Style="{StaticResource ImapSetupGroupHeaderStyle}" Text="{x:Bind domain:Translator.ImapSetup_FeaturesGroup, Mode=OneTime}" />
-            <coreControls:AccountCapabilityPicker AutomationProperties.AutomationId="ImapSetupCapabilityPicker" Selection="{x:Bind ViewModel.Capabilities}" />
+            <coreControls:AccountCapabilityPicker
+                AutomationProperties.AutomationId="ImapSetupCapabilityPicker"
+                Selection="{x:Bind ViewModel.Capabilities}"
+                ShowMailOptions="True">
+                <coreControls:AccountCapabilityPicker.MailOptionsContent>
+                    <StackPanel Spacing="12">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.ProviderSelection_MailRangeHeader, Mode=OneTime}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.MailRangeDescription, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="1"
+                                MinWidth="160"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ImapSetupMailSynchronizationRange"
+                                AutomationProperties.Name="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title, Mode=OneTime}"
+                                ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneTime}"
+                                SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
+                                        <TextBlock Text="{x:Bind DisplayText}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
+
+                        <InfoBar
+                            Title="{x:Bind domain:Translator.GeneralTitle_Warning, Mode=OneTime}"
+                            AutomationProperties.AutomationId="ImapSetupMailSynchronizationWarning"
+                            IsClosable="False"
+                            IsOpen="{x:Bind ViewModel.IsInitialSynchronizationWarningVisible, Mode=OneWay}"
+                            Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning, Mode=OneTime}"
+                            Severity="Warning" />
+                    </StackPanel>
+                </coreControls:AccountCapabilityPicker.MailOptionsContent>
+            </coreControls:AccountCapabilityPicker>
         </StackPanel>
 
         <!--  ============ Sign in (adding an account) ============  -->

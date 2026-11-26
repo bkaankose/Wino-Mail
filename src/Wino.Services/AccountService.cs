@@ -366,7 +366,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         await DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.MailAccessDisabled).ConfigureAwait(false);
     }
 
-    public async Task ResetExchangeTransportStateAsync(Guid accountId)
+    public async Task ResetExchangeSynchronizationStateAsync(Guid accountId)
     {
         await Connection.RunInTransactionAsync(transaction =>
         {

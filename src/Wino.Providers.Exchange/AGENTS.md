@@ -4,7 +4,7 @@ On-premises Exchange mailboxes over three transports: EWS, MAPI over HTTP and Ex
 
 ## Hard stops
 
-- **One provider, three transports.** `MapiExchangeSynchronizer` derives from `ExchangeSynchronizer` (EWS); `ActiveSyncExchangeSynchronizer` is separate. `ExchangeProviderModule` picks the synchronizer from the account's transport, and `CanReuseSynchronizer` decides when a transport change needs a new one. Keep all three in this project.
+- **One provider, three transports.** `MapiExchangeSynchronizer` derives from `ExchangeSynchronizer` (EWS); `ActiveSyncExchangeSynchronizer` is separate. `ExchangeProviderModule` picks the synchronizer from the account's transport. Keep all three in this project.
 - **ActiveSync is opt-in.** Automatic transport detection never selects it; the user chooses it. It needs a password (no OAuth) and targets Exchange 2016, 2019 and SE on premises; Microsoft 365 uses the Graph provider.
 - **Sign-in rules** are under "Accounts, OAuth clients and signing" in the [root guidance](../../AGENTS.md). Do not change how credentials or tokens are stored.
 - **No other provider.** This project never references another `Wino.Providers.*` project, and nothing outside the hosts references this one.
@@ -14,23 +14,23 @@ On-premises Exchange mailboxes over three transports: EWS, MAPI over HTTP and Ex
 
 - Register a service only Exchange needs in `AddExchangeProvider` ([Providers/ExchangeProvider.cs](Providers/ExchangeProvider.cs)).
 - The MAPI protocol layer is under [MAPI/](MAPI), namespace `Wino.Providers.Exchange.MAPI`. It was its own project and has no implicit usings: each file lists the `System.*` namespaces it needs.
-- The ActiveSync transport is under [Synchronizers/Exchange/ActiveSync/](Synchronizers/Exchange/ActiveSync): `EasClient` (HTTP, WBXML, provisioning, policy), `EasSynchronizationEngine` (FolderSync, Sync, recovery, mutations, drafts, calendar) and the mappers. Its per-account state is in its own tables (`EasAccountState`, `EasCollectionState`, `EasItemShadow`, `EasPendingSync`, `EasClientAnswer`, `EasDraftState`), deleted with the account and reset on a transport change.
+- The ActiveSync transport is under [Synchronizers/Exchange/ActiveSync/](Synchronizers/Exchange/ActiveSync): `EasClient` (HTTP, WBXML, provisioning, policy), `EasSynchronizationEngine` (FolderSync, Sync, recovery, mutations, drafts, calendar) and the mappers. Its per-account state is in its own tables (`EasAccountState`, `EasCollectionState`, `EasItemShadow`, `EasPendingSync`, `EasClientAnswer`, `EasDraftState`), deleted with the account and reset when the server requires a resynchronization (X-MS-RP or a changed protocol version, `ResetExchangeSynchronizationStateAsync`).
 - Sending builds the message with `MailKitSmtpTransport.CreateSmtpMessage` from `Wino.Core`, on every transport.
 - Exchange autodiscovery skips the SCP lookup off Windows. Keep code that needs Active Directory behind that check.
 - Every file's namespace is `Wino.Providers.Exchange` plus its folder path.
 
-## Changing transports
+## The transport is fixed at setup
 
-A transport change is one shared operation (`ExchangeTransportChange` in the ViewModels, `ResetExchangeTransportStateAsync` in the account service): sync state and the mail cache are reset, and `MailItemFolder` rows stay so the next folder pass re-keys them in place. Folder ids and their settings (pinned, hidden, synchronization, order, a special type the user assigned) must survive every direction.
+An Exchange account's transport is chosen once, when the account is set up, and never changes afterwards (owner decision, 26 Nov 2026).
 
-- EWS and MAPI re-key by the folder's entry id: MAPI records it (`MapiEntryId`, with `MapiFolderId`), EWS gets it from ConvertId (HexEntryId).
-- Matching by server role and path (`ExchangeTransportRekey.MatchFolders`) is only for rows going to or from ActiveSync, whose server ids are opaque.
-- Calendars, address books and task lists follow the same rules (`MatchCarriedContainersAsync` on EWS and MAPI, `MatchCarriedContainersAsync` in the ActiveSync engine): EWS and MAPI by entry id (the HexEntryId's GlobalCounter is the one in the MAPI folder id), rows going to or from ActiveSync by default container and unique title. A re-keyed calendar keeps its row and drops its events, which the new transport stores again (`ExchangeCalendarRekey`). ActiveSync calendar ids carry the `eas:` prefix like its books and lists. Containers the new transport does not have (the MAPI directory book on EWS without FindPeople and on ActiveSync) are removed.
-- Each transport's folder pass re-keys before it deletes missing folders, sends `AccountFolderConfigurationUpdated` when its hierarchy changes, and does nothing extra in a steady-state pass.
+- Setup saves a concrete transport: `AccountSetupRunner` resolves Automatic from the setup's connection check (`ExchangeConnectionTestResult.DetectedTransport`, recorded in `DetectedExchangeTransport`): MAPI over HTTP when Autodiscover advertises it and the check passes, EWS otherwise. ActiveSync is only an explicit choice. Every setup route goes through the runner, so every head gets the same rule.
+- No runtime fallback: a MAPI account whose server stops advertising MAPI over HTTP fails its synchronization with `MapiNotAdvertisedException` through the normal error path; it never switches to EWS. Nothing writes `ExchangeTransport` or `DetectedExchangeTransport` after setup.
+- No user switching: the account settings on every head show the connection method read-only (`ExchangeTransportName`). Only the setup pages offer the choice.
+- There is no re-keying between transports: each transport's folder, calendar, contact and task passes match rows by their own ids only. Accounts saved before this rule with Automatic keep `EffectiveExchangeTransport`, which never flips.
 
 ## ActiveSync conformance
 
-Every ActiveSync behaviour follows Microsoft's open specifications (MS-ASCMD, MS-ASPROV, MS-ASHTTP, MS-ASWBXML, MS-ASEMAIL, MS-ASCAL, MS-ASAIRS, MS-ASDTYPE, and MS-OXWSCVTID or MS-OXCDATA where ids cross transports).
+Every ActiveSync behaviour follows Microsoft's open specifications (MS-ASCMD, MS-ASPROV, MS-ASHTTP, MS-ASWBXML, MS-ASEMAIL, MS-ASCAL, MS-ASAIRS and MS-ASDTYPE).
 
 - Read the section on learn.microsoft.com before you implement or change a behaviour, and cite it in the commit body.
 - Where the protocol defines a mechanism, use it: no heuristics, no name matching where an id or role exists, no swallowed statuses, no guessed fallbacks, no retrying until something works.

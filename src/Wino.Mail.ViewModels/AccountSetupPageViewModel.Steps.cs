@@ -209,8 +209,7 @@ public partial class AccountSetupPageViewModel
                 await LeaveSignInAsync();
                 break;
             case AccountSetupStep.Review when IsLocalOnlyMode:
-                ClearRoute();
-                Phase = AccountSetupPhase.Identity;
+                await LeaveLocalOnlyAsync();
                 break;
             case AccountSetupStep.Review when IsImapRoute:
                 await LeaveImapReviewAsync();
@@ -342,7 +341,9 @@ public partial class AccountSetupPageViewModel
         {
             if (IsLocalOnlyMode)
             {
-                items.Add(new AccountSetupKnownItem(AccountSetupKnownItemKind.Identity, AccountName?.Trim() ?? string.Empty));
+                var name = AccountName?.Trim() ?? string.Empty;
+                if (name.Length > 0)
+                    items.Add(new AccountSetupKnownItem(AccountSetupKnownItemKind.Identity, name));
                 items.Add(new AccountSetupKnownItem(AccountSetupKnownItemKind.Provider, Translator.AccountSetup_Known_ThisDevice));
             }
             else

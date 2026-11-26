@@ -194,8 +194,7 @@ public sealed partial class MapiExchangeSynchronizer
     }
 
     /// <summary>
-    /// Reconciles the calendar folders. Rows another transport stored are re-keyed in place first (EWS rows by entry id,
-    /// ActiveSync rows by role and title) so colours and sync preferences survive the switch.
+    /// Reconciles the calendar folders.
     /// A calendar without a remote id is a local calendar the account kept; it is left alone.
     /// </summary>
     private async Task SynchronizeMapiCalendarsAsync(MapiSession session, CancellationToken cancellationToken)
@@ -233,9 +232,6 @@ public sealed partial class MapiExchangeSynchronizer
         var local = (await ExchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false))
             .Where(c => !string.IsNullOrWhiteSpace(c.RemoteCalendarId))
             .ToList();
-
-        await RekeyCarriedCalendarsAsync(local, remote.Select(pair => (ToMapiId(pair.Key), pair.Value, pair.Key == defaultFolderId)).ToList(), cancellationToken)
-            .ConfigureAwait(false);
 
         foreach (var calendar in local)
         {

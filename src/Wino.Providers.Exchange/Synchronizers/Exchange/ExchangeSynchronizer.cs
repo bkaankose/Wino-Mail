@@ -125,155 +125,6 @@ IExchangeAuthenticator exchangeAuthenticator,
         return service;
     }
 
-    /// <summary>
-    /// Rows MAPI over HTTP stored, matched to EWS folders by entry id: ConvertId gives the HexEntryId of each EWS
-    /// folder id not yet held by an EWS row, and MAPI recorded the HexEntryId of each of its folders (MapiEntryId).
-    /// Steady-state EWS passes have no such rows and make no request.
-    /// </summary>
-    private async Task<Dictionary<Guid, string>> MatchMapiFoldersAsync(ExchangeService service, IReadOnlyList<MailItemFolder> localFolders,
-        IReadOnlyList<string> remoteFolderIds, CancellationToken cancellationToken)
-    {
-        var result = new Dictionary<Guid, string>();
-        var mapiRows = localFolders
-            .Where(folder => ExchangeTransportRekey.FolderTransport(folder) == ExchangeTransport.MapiHttp && !string.IsNullOrEmpty(folder.MapiEntryId))
-            .ToList();
-        if (mapiRows.Count == 0)
-            return result;
-
-        var claimed = localFolders
-            .Where(folder => ExchangeTransportRekey.FolderTransport(folder) == ExchangeTransport.Ews && !string.IsNullOrEmpty(folder.RemoteFolderId))
-            .Select(folder => folder.RemoteFolderId)
-            .ToHashSet(StringComparer.Ordinal);
-        var entryIds = await ConvertFolderIdsToHexEntryIdsAsync(service, remoteFolderIds.Where(id => !claimed.Contains(id)).ToList(), cancellationToken).ConfigureAwait(false);
-        var byEntryId = entryIds
-            .GroupBy(pair => pair.Value, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Count() == 1)
-            .ToDictionary(group => group.Key, group => group.First().Key, StringComparer.OrdinalIgnoreCase);
-        foreach (var row in mapiRows)
-        {
-            if (byEntryId.TryGetValue(row.MapiEntryId, out var ewsId))
-                result[row.Id] = ewsId;
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// The HexEntryId of each EWS folder id, from ConvertId. An id the server reports an error for (a folder deleted
-    /// meanwhile) has no entry; a failed request fails the caller.
-    /// </summary>
-    protected async Task<Dictionary<string, string>> ConvertFolderIdsToHexEntryIdsAsync(ExchangeService service, IReadOnlyList<string> ewsIds,
-        CancellationToken cancellationToken)
-    {
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (ewsIds.Count == 0)
-            return result;
-
-        var mailbox = Account.Address;
-        foreach (var chunk in ewsIds.Chunk(100))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var responses = await service.ConvertIds(chunk.Select(id => (AlternateIdBase)new AlternateId(IdFormat.EwsId, id, mailbox)).ToList(),
-                IdFormat.HexEntryId, cancellationToken).ConfigureAwait(false);
-            for (var index = 0; index < chunk.Length && index < responses.Count; index++)
-            {
-                var response = responses[index];
-                if (response.Result == ServiceResult.Success && response.ConvertedId is AlternateId converted && !string.IsNullOrEmpty(converted.UniqueId))
-                    result[chunk[index]] = converted.UniqueId;
-                else
-                    _logger.Information("EWS ConvertId for folder {FolderId} returned {Error}.", chunk[index], response.ErrorCode);
-            }
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// Stored calendar, address book and task list ids of the other transport between EWS and MAPI, each with the
-    /// incoming id of the same folder, matched by entry id: ConvertId gives the HexEntryId of each EWS id, and its
-    /// GlobalCounter is the one in the MAPI folder id (MS-OXCDATA 2.2.1.1, 2.2.4.1). Ids ConvertId does not accept
-    /// (ActiveSync's) get no entry. Steady-state passes hold no id of the other transport and make no request.
-    /// </summary>
-    protected async Task<Dictionary<string, string>> MatchEwsMapiContainerIdsAsync(IReadOnlyCollection<string> storedIds, IReadOnlyCollection<string> openIds,
-        CancellationToken cancellationToken)
-    {
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        static bool IsMapi(string id) => ExchangeTransportRekey.GlobalCounterOfMapiId(id) != null;
-        static bool IsEws(string id) => !string.IsNullOrWhiteSpace(id) && !id.StartsWith("mapi:", StringComparison.Ordinal) &&
-            !id.StartsWith("eas:", StringComparison.Ordinal) && !id.StartsWith("wino:", StringComparison.Ordinal);
-
-        Dictionary<string, string> UniqueByCounter(IEnumerable<(string Id, string? Counter)> pairs)
-            => pairs.Where(pair => pair.Counter != null)
-                .GroupBy(pair => pair.Counter!, StringComparer.Ordinal)
-                .Where(group => group.Count() == 1)
-                .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
-
-        var storedMapi = storedIds.Where(IsMapi).ToList();
-        var openEws = openIds.Where(IsEws).ToList();
-        if (storedMapi.Count > 0 && openEws.Count > 0)
-        {
-            var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
-            var entryIds = await ConvertFolderIdsToHexEntryIdsAsync(service, openEws, cancellationToken).ConfigureAwait(false);
-            var ewsByCounter = UniqueByCounter(entryIds.Select(pair => (pair.Key, ExchangeTransportRekey.GlobalCounterOfEntryId(pair.Value))));
-            foreach (var id in storedMapi)
-            {
-                if (ExchangeTransportRekey.GlobalCounterOfMapiId(id) is { } counter && ewsByCounter.TryGetValue(counter, out var ewsId))
-                    result[id] = ewsId;
-            }
-        }
-
-        var storedEws = storedIds.Where(IsEws).ToList();
-        var openMapi = openIds.Where(IsMapi).ToList();
-        if (storedEws.Count > 0 && openMapi.Count > 0)
-        {
-            var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
-            var entryIds = await ConvertFolderIdsToHexEntryIdsAsync(service, storedEws, cancellationToken).ConfigureAwait(false);
-            var mapiByCounter = UniqueByCounter(openMapi.Select(id => (id, ExchangeTransportRekey.GlobalCounterOfMapiId(id))));
-            foreach (var (ewsId, entryId) in entryIds)
-            {
-                if (ExchangeTransportRekey.GlobalCounterOfEntryId(entryId) is { } counter && mapiByCounter.TryGetValue(counter, out var mapiId))
-                    result[ewsId] = mapiId;
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Re-keys the stored rows of one kind of container (calendars, address books, task lists) that another transport
-    /// stored: between EWS and MAPI by entry id, and rows going to or from ActiveSync (whose ids are opaque) by
-    /// <see cref="ExchangeTransportRekey.MatchContainers"/>. Returns the local ids with the folder ids they take.
-    /// </summary>
-    protected async Task<Dictionary<Guid, string>> MatchCarriedContainersAsync(IReadOnlyList<(Guid Id, string RemoteId, string Title, bool IsDefault)> stored,
-        IReadOnlyList<(string RemoteId, string Title, bool IsDefault)> incoming, CancellationToken cancellationToken)
-    {
-        var incomingIds = incoming.Select(folder => folder.RemoteId).ToHashSet(StringComparer.Ordinal);
-        var carried = stored.Where(row => !string.IsNullOrWhiteSpace(row.RemoteId) && !incomingIds.Contains(row.RemoteId)).ToList();
-        var result = new Dictionary<Guid, string>();
-        if (carried.Count == 0)
-            return result;
-
-        var claimed = stored.Select(row => row.RemoteId).Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
-        var open = incoming.Where(folder => !claimed.Contains(folder.RemoteId)).ToList();
-
-        var byEntryId = await MatchEwsMapiContainerIdsAsync(carried.Select(row => row.RemoteId).ToList(), open.Select(folder => folder.RemoteId).ToList(), cancellationToken)
-            .ConfigureAwait(false);
-        foreach (var row in carried)
-        {
-            if (byEntryId.TryGetValue(row.RemoteId, out var remoteId))
-                result[row.Id] = remoteId;
-        }
-
-        // Only rows ActiveSync stored ("eas:" ids) go by role and title: ids of the EWS and MAPI schemes have their
-        // own relation.
-        var taken = result.Values.ToHashSet(StringComparer.Ordinal);
-        var activeSyncRows = carried.Where(row => !result.ContainsKey(row.Id) && row.RemoteId.StartsWith("eas:", StringComparison.Ordinal))
-            .Select(row => (row.Id, row.Title, row.IsDefault))
-            .ToList();
-        foreach (var (id, remoteId) in ExchangeTransportRekey.MatchContainers(activeSyncRows, open.Where(folder => !taken.Contains(folder.RemoteId)).ToList()))
-            result[id] = remoteId;
-
-        return result;
-    }
-
     private static ExchangeCredentials ToEwsCredentials(ExchangeCredential credential) => credential switch
     {
         ExchangeCredential.Password password => new WebCredentials(password.Credential),
@@ -372,33 +223,8 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         var localFolders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
 
-        // Rows another transport stored (after a connection method change) take this transport's ids in place: rows
-        // MAPI stored by the folder entry id they recorded, rows ActiveSync stored by role and path.
-        var rekeys = await MatchMapiFoldersAsync(service, localFolders, remoteFolders.Select(f => f.Id.UniqueId).ToList(), cancellationToken).ConfigureAwait(false);
-        foreach (var local in localFolders)
-        {
-            if (rekeys.TryGetValue(local.Id, out var newRemoteId))
-                local.RemoteFolderId = newRemoteId;
-        }
-        foreach (var match in ExchangeTransportRekey.MatchFolders(localFolders,
-            remoteFolders.Select(f => new ExchangeFolderCandidate(f.Id.UniqueId, f.ParentFolderId?.UniqueId, f.DisplayName,
-                specialMap.TryGetValue(f.Id.UniqueId, out var role) ? role : SpecialFolderType.Other)).ToList(),
-            ExchangeTransport.Ews))
-            rekeys[match.Key] = match.Value;
-
-        var structureChanged = rekeys.Count > 0;
+        var structureChanged = false;
         var assignedRoles = specialMap.Values.ToHashSet();
-        foreach (var local in localFolders)
-        {
-            if (!rekeys.TryGetValue(local.Id, out var newRemoteId))
-                continue;
-
-            _logger.Information("Exchange folder sync: re-keying {Name} to its EWS id.", local.FolderName);
-            local.RemoteFolderId = newRemoteId;
-            local.EasFolderType = 0;
-            local.EasSyncGeneration = string.Empty;
-            local.DeltaToken = null;
-        }
 
         var localByRemoteId = localFolders
             .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
@@ -421,7 +247,7 @@ IExchangeAuthenticator exchangeAuthenticator,
 
                 // A well-known bind that failed in this pass says nothing about the folder: keep the known system
                 // type instead of demoting a pinned folder such as the Inbox to a plain user folder. A type no folder
-                // holds on the server (Archive, or one the user assigned on another connection method) stays too.
+                // holds on the server (Archive, or one the user assigned) stays too.
                 if (existing.IsSystemFolder && !isSystem && !assignedRoles.Contains(existing.SpecialFolderType))
                 {
                     specialType = existing.SpecialFolderType;

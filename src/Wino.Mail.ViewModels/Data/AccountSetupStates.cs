@@ -182,14 +182,20 @@ public sealed record AccountSetupResultRow(WinoIconGlyph Glyph, string Title, st
 /// <summary>One item of a step's single-selection list.</summary>
 public sealed class AccountSetupChoice
 {
-    public AccountSetupChoice(string id, string label, bool isRecommended = false, string? caption = null, string? description = null)
+    public AccountSetupChoice(string id, string label, bool isRecommended = false, string? caption = null, string? description = null, WinoIconGlyph glyph = WinoIconGlyph.None)
     {
         Id = id;
         Label = label;
         IsRecommended = isRecommended;
         CaptionText = caption ?? (isRecommended ? Translator.AccountSetup_Recommended : string.Empty);
         Description = description ?? string.Empty;
+        Glyph = glyph;
     }
+
+    /// <summary>The icon before the label, such as the server kind's brand mark. None for a choice without one.</summary>
+    public WinoIconGlyph Glyph { get; }
+
+    public bool HasGlyph => Glyph != WinoIconGlyph.None;
 
     public string Id { get; }
     public string Label { get; }

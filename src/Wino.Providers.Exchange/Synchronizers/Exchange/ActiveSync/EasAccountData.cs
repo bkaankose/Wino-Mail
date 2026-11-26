@@ -11,7 +11,7 @@ internal sealed class EasAccountData(IAccountService accounts, MailAccount accou
     /// <summary>Drops the synchronized mail and every ActiveSync sync key; folder rows stay, so their settings survive the resync.</summary>
     internal async Task DiscardSynchronizationStateAsync()
     {
-        await accounts.ResetExchangeTransportStateAsync(account.Id).ConfigureAwait(false);
+        await accounts.ResetExchangeSynchronizationStateAsync(account.Id).ConfigureAwait(false);
         account.SynchronizationDeltaIdentifier = string.Empty;
     }
 

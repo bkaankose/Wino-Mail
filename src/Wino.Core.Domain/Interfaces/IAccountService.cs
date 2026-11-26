@@ -263,11 +263,11 @@ public interface IAccountService
     Task DeleteAccountMailDataAsync(Guid accountId);
 
     /// <summary>
-    /// Prepares an Exchange account for another connection method (MAPI over HTTP, EWS or ActiveSync): clears every
-    /// delta and synchronization state of the previous transport and removes the downloaded messages. Folder rows are
-    /// kept with their settings so the next folder synchronization can re-key them in place.
+    /// Starts an Exchange account's synchronization over when the server requires it (an ActiveSync X-MS-RP or a
+    /// changed protocol version): clears every delta and synchronization state and removes the downloaded messages.
+    /// Folder rows are kept with their settings.
     /// </summary>
-    Task ResetExchangeTransportStateAsync(Guid accountId);
+    Task ResetExchangeSynchronizationStateAsync(Guid accountId);
 
     /// <summary>Creates the account's calendar on this device when the account has no calendar yet.</summary>
     Task EnsureDefaultLocalCalendarAsync(Guid accountId);

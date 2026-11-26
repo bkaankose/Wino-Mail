@@ -282,7 +282,7 @@ public partial class AccountSetupPageViewModel
         }
     }
 
-    /// <summary>Under Automatic, setup records what Autodiscover said so the first synchronizer picks the right transport.</summary>
+    /// <summary>Under Automatic, records what the connection check found; the setup runner saves the account with it.</summary>
     private static void ApplyDetectedTransport(CustomServerInformation server, ExchangeConnectionTestResult result)
         => server.DetectedExchangeTransport = server.ExchangeTransport == ExchangeTransport.Automatic
             ? result.DetectedTransport

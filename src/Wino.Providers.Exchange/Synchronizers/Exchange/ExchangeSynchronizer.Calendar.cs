@@ -111,10 +111,6 @@ public partial class ExchangeSynchronizer
 
         var localCalendars = await ExchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
-        await RekeyCarriedCalendarsAsync(localCalendars,
-            remoteFolders.Select(pair => (pair.Key, pair.Value.DisplayName ?? string.Empty, pair.Key == defaultCalendar.Id.UniqueId)).ToList(),
-            cancellationToken).ConfigureAwait(false);
-
         foreach (var local in localCalendars)
         {
             if (!string.IsNullOrWhiteSpace(local.RemoteCalendarId) && !remoteFolders.ContainsKey(local.RemoteCalendarId))
@@ -131,29 +127,6 @@ public partial class ExchangeSynchronizer
             var name = string.IsNullOrWhiteSpace(folder.DisplayName) ? Translator.AccountDetailsPage_TabCalendar : folder.DisplayName;
 
             await UpsertAccountCalendarAsync(localCalendars.FirstOrDefault(c => c.RemoteCalendarId == remoteId), remoteId, name, isPrimary, usedColors).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    /// Moves the calendars another transport stored onto this transport's folders before missing calendars are removed,
-    /// so a transport change keeps each calendar row (its id, colour and synchronization setting).
-    /// </summary>
-    protected async Task RekeyCarriedCalendarsAsync(List<AccountCalendar> localCalendars, IReadOnlyList<(string RemoteId, string Title, bool IsDefault)> incoming,
-        CancellationToken cancellationToken)
-    {
-        var rows = localCalendars
-            .Where(calendar => !string.IsNullOrWhiteSpace(calendar.RemoteCalendarId))
-            .Select(calendar => (calendar.Id, calendar.RemoteCalendarId, calendar.Name ?? string.Empty, calendar.IsPrimary))
-            .ToList();
-        var matches = await MatchCarriedContainersAsync(rows, incoming, cancellationToken).ConfigureAwait(false);
-
-        foreach (var calendar in localCalendars)
-        {
-            if (!matches.TryGetValue(calendar.Id, out var remoteId))
-                continue;
-
-            _logger.Information("Exchange calendar {Account}: re-keying calendar {CalendarId} to the current transport.", Account.Name, calendar.Id);
-            await ExchangeChangeProcessor.RekeyAccountCalendarAsync(calendar, remoteId).ConfigureAwait(false);
         }
     }
 

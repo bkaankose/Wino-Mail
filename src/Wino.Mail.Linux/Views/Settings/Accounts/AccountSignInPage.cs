@@ -12,7 +12,7 @@ namespace Wino.Mail.Linux.Views.Settings.Accounts;
 /// <summary>
 /// Sign-in and servers of an Outlook, Gmail or Exchange account (Windows AccountSignInPage, macOS
 /// AccountSignInPageViewController): who is signed in with Sign in again, the Exchange password, then the Exchange
-/// transport. IMAP and POP3 accounts use the server form instead. The navigation parameter is the account id.
+/// transport fixed at setup, shown read-only. IMAP and POP3 accounts use the server form instead. The navigation parameter is the account id.
 /// </summary>
 internal sealed class AccountSignInPage(AccountSignInPageViewModel viewModel, WinoViewServices services)
     : SettingsPageView<AccountSignInPageViewModel>(viewModel, services), ISettingsPageTitleSource
@@ -26,7 +26,7 @@ internal sealed class AccountSignInPage(AccountSignInPageViewModel viewModel, Wi
     {
         var vm = ViewModel;
         return $"page=AccountSignIn title={PageTitle} signedIn={vm.SignedInTitle}|{vm.Address} attention={vm.NeedsAttention} busy={vm.IsBusy} again={vm.IsSignInAgainVisible}"
-               + $" exchange={vm.IsExchangeAccount} password={vm.IsExchangePasswordAuth} transport={vm.SelectedExchangeTransport?.Title}\n";
+               + $" exchange={vm.IsExchangeAccount} password={vm.IsExchangePasswordAuth} transport={vm.ExchangeTransportName}\n";
     }
 #endif
 
@@ -66,11 +66,9 @@ internal sealed class AccountSignInPage(AccountSignInPageViewModel viewModel, Wi
         Settings.Visible(WinoSettingsRows.Suffix(signedIn, again), vm, nameof(vm.IsSignInAgainVisible), static s => s.IsSignInAgainVisible);
         Page.AddGroup(Translator.ImapSetup_SignInGroup, null, signedIn, BuildExchangePassword());
 
-        var transport = Settings.Choice<AccountSignInPageViewModel, ExchangeTransportOption>(vm, Translator.ExchangeSetup_TransportHeader, null, WinoIconGlyph.GlobeDesktop,
-            static s => s.ExchangeTransportOptions, static option => option.Title,
-            nameof(vm.SelectedExchangeTransport), static s => s.SelectedExchangeTransport, static (s, v) => s.SelectedExchangeTransport = v);
-        Settings.Bind(vm, nameof(vm.ExchangeServerDescription), static s => s.ExchangeServerDescription, text => transport.SetSubtitle(text ?? string.Empty));
-        Settings.Enabled(transport, vm, nameof(vm.IsBusy), static s => !s.IsBusy);
+        var transport = WinoSettingsRows.Action(Translator.ExchangeSetup_TransportHeader, vm.ExchangeServerDescription, WinoIconGlyph.GlobeDesktop);
+        Settings.Subtitle(transport, vm, nameof(vm.ExchangeServerDescription), static s => s.ExchangeServerDescription);
+        WinoSettingsRows.Suffix(transport, Settings.LabelSuffix(vm, nameof(vm.ExchangeTransportName), static s => s.ExchangeTransportName));
         var servers = Page.AddGroup(Translator.AccountSignIn_ServersGroup, null, transport);
         Settings.Visible(servers.Root, vm, nameof(vm.Account), static s => s.IsExchangeAccount);
     }

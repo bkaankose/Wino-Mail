@@ -36,8 +36,7 @@ namespace Wino.Providers.Exchange.Synchronizers.Mapi;
 /// <summary>
 /// Synchronizes on-premises Exchange accounts over native MAPI over HTTP. It derives from the EWS synchronizer and replaces
 /// every surface: folder hierarchy, incremental message sync over ICS, message bodies with attachments,
-/// read/flag/move/delete, drafts with native send, folder operations, calendars, contacts and tasks. A server found not to advertise MAPI over
-/// HTTP is recorded on the account, and the next synchronizer built for it is the EWS one.
+/// read/flag/move/delete, drafts with native send, folder operations, calendars, contacts and tasks.
 ///
 /// Identity: a mail row's id is the MAPI message id, "mapi:" plus 16 hex digits. It is unique within the mailbox
 /// database and survives moves between folders, which the (Id, FolderId) upsert relies on. Folder rows are keyed the
@@ -247,8 +246,7 @@ IExchangeAuthenticator exchangeAuthenticator,
     }
 
     /// <summary>
-    /// POX Autodiscover once per synchronizer instance; the endpoint and DN do not change under a session. A server
-    /// that answers without MAPI over HTTP is recorded on an Automatic account as an EWS server.
+    /// POX Autodiscover once per synchronizer instance; the endpoint and DN do not change under a session.
     /// </summary>
     private async Task<MapiEndpointInfo> ResolveEndpointAsync(MapiCredential credential, CancellationToken cancellationToken)
     {
@@ -261,36 +259,9 @@ IExchangeAuthenticator exchangeAuthenticator,
         if (!Uri.TryCreate(server.IncomingServer, UriKind.Absolute, out var ewsUri))
             throw new InvalidOperationException("The Exchange account has no valid server URL.");
 
-        MapiEndpointInfo endpoint;
-        try
-        {
-            endpoint = await MapiAutodiscover.DiscoverAsync(MapiConnectionProbe.AutodiscoverUrl(ewsUri), Account.Address, credential, cancellationToken).ConfigureAwait(false);
-        }
-        catch (MapiNotAdvertisedException ex) when (server.ExchangeTransport == ExchangeTransport.Automatic)
-        {
-            Logger.Warning("MAPI {Account}: {Reason} Falling back to Exchange Web Services.", Account.Address, ex.Message);
-
-            // Only a change of the recorded transport asks for another pass: a synchronizer that is still MAPI-based
-            // would otherwise request one on every failure.
-            if (server.DetectedExchangeTransport != ExchangeTransport.Ews)
-            {
-                server.DetectedExchangeTransport = ExchangeTransport.Ews;
-                await ExchangeChangeProcessor.UpdateAccountServerInformationAsync(server).ConfigureAwait(false);
-                Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
-                {
-                    AccountId = Account.Id,
-                    Type = MailSynchronizationType.FullFolders
-                }));
-            }
-
-            throw;
-        }
-
-        if (server.DetectedExchangeTransport != ExchangeTransport.MapiHttp)
-        {
-            server.DetectedExchangeTransport = ExchangeTransport.MapiHttp;
-            await ExchangeChangeProcessor.UpdateAccountServerInformationAsync(server).ConfigureAwait(false);
-        }
+        // The transport is fixed at setup: a server that stops advertising MAPI over HTTP fails the synchronization
+        // with MapiNotAdvertisedException instead of switching the account to EWS.
+        var endpoint = await MapiAutodiscover.DiscoverAsync(MapiConnectionProbe.AutodiscoverUrl(ewsUri), Account.Address, credential, cancellationToken).ConfigureAwait(false);
 
         _endpoint = endpoint;
         return endpoint;
@@ -1136,60 +1107,11 @@ IExchangeAuthenticator exchangeAuthenticator,
 
         var localFolders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
 
-        // A row another transport stored keeps its row and settings and takes the MAPI id in place; mail rows key on the
-        // folder row's Guid, so nothing under it moves. A row that ran on MAPI before keeps its MapiFolderId; a row EWS
-        // stored is matched by entry id (EWS ConvertId gives the HexEntryId of its EWS id, MAPI the EntryId of each
-        // folder); a row ActiveSync stored, whose ids are opaque, is matched by role and path.
         var mailFolderIds = mailFolders.Select(f => f.FolderId).ToHashSet();
-        var incomingMapiIds = mailFolders.Select(f => f.FolderId.ToString("X16", CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
-        var localMapiIds = localFolders.Where(f => !string.IsNullOrEmpty(f.MapiFolderId)).Select(f => f.MapiFolderId).ToHashSet(StringComparer.Ordinal);
-
-        var ewsRows = localFolders
-            .Where(f => ExchangeTransportRekey.FolderTransport(f) == ExchangeTransport.Ews && !string.IsNullOrEmpty(f.RemoteFolderId) &&
-                (string.IsNullOrEmpty(f.MapiFolderId) || !incomingMapiIds.Contains(f.MapiFolderId)))
-            .ToList();
-        if (ewsRows.Count > 0)
-        {
-            var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
-            var entryIds = await ConvertFolderIdsToHexEntryIdsAsync(service, ewsRows.Select(f => f.RemoteFolderId).ToList(), cancellationToken).ConfigureAwait(false);
-            var incomingByEntryId = mailFolders
-                .Where(f => f.EntryIdHex != null && !localMapiIds.Contains(f.FolderId.ToString("X16", CultureInfo.InvariantCulture)))
-                .GroupBy(f => f.EntryIdHex!, StringComparer.OrdinalIgnoreCase)
-                .Where(g => g.Count() == 1)
-                .ToDictionary(g => g.Key, g => g.First().FolderId.ToString("X16", CultureInfo.InvariantCulture), StringComparer.OrdinalIgnoreCase);
-            foreach (var local in ewsRows)
-            {
-                if (entryIds.TryGetValue(local.RemoteFolderId, out var entryId) && incomingByEntryId.TryGetValue(entryId, out var mapiId))
-                {
-                    local.MapiFolderId = mapiId;
-                    localMapiIds.Add(mapiId);
-                }
-            }
-        }
-
-        var rekeys = ExchangeTransportRekey.MatchFolders(
-            localFolders.Where(f => string.IsNullOrEmpty(f.MapiFolderId) || !incomingMapiIds.Contains(f.MapiFolderId)).ToList(),
-            mailFolders
-                .Where(f => !localMapiIds.Contains(f.FolderId.ToString("X16", CultureInfo.InvariantCulture)))
-                .Select(f => new ExchangeFolderCandidate(ToMapiId(f.FolderId), mailFolderIds.Contains(f.ParentFolderId) ? ToMapiId(f.ParentFolderId) : null,
-                    f.DisplayName, specialByFolderId.TryGetValue(f.FolderId, out var role) ? role : SpecialFolderType.Other))
-                .ToList(),
-            ExchangeTransport.MapiHttp);
-        foreach (var local in localFolders)
-        {
-            if (!rekeys.TryGetValue(local.Id, out var newRemoteId))
-                continue;
-
-            local.MapiFolderId = newRemoteId[MapiIdPrefix.Length..];
-        }
 
         var localByRemoteId = localFolders
             .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
             .GroupBy(f => f.RemoteFolderId)
-            .ToDictionary(g => g.Key, g => g.First());
-        var localByMapiId = localFolders
-            .Where(f => !string.IsNullOrEmpty(f.MapiFolderId))
-            .GroupBy(f => f.MapiFolderId)
             .ToDictionary(g => g.Key, g => g.First());
 
         var structureChanged = false;
@@ -1208,23 +1130,12 @@ IExchangeAuthenticator exchangeAuthenticator,
             var isSystem = specialType != SpecialFolderType.Other;
             var mapiFolderId = remote.FolderId.ToString("X16", CultureInfo.InvariantCulture);
 
-            if (localByRemoteId.TryGetValue(remoteId, out var existing) || localByMapiId.TryGetValue(mapiFolderId, out existing))
+            if (localByRemoteId.TryGetValue(remoteId, out var existing))
             {
-                if (existing.RemoteFolderId != remoteId)
-                {
-                    Logger.Information("MAPI folder sync: re-keying {Name} from another transport's id to {Key}.", remote.DisplayName, remoteId);
-                    existing.RemoteFolderId = remoteId;
-                    existing.EasFolderType = 0;
-                    existing.EasSyncGeneration = string.Empty;
-                    existing.DeltaToken = null;
-                    structureChanged = true;
-                }
-
                 if (existing.FolderName != remote.DisplayName || existing.ParentRemoteFolderId != parentRemoteId)
                     structureChanged = true;
 
-                // A type no folder holds on the server (Archive, or one the user assigned on another connection
-                // method) stays as it is.
+                // A type no folder holds on the server (Archive, or one the user assigned) stays as it is.
                 if (existing.IsSystemFolder && !isSystem && !assignedRoles.Contains(existing.SpecialFolderType))
                 {
                     specialType = existing.SpecialFolderType;

@@ -113,24 +113,8 @@ public sealed class ExchangeProviderModule(
             mailCategoryService,
             () => activeSyncFactory(account));
 
-    /// <summary>
-    /// A synchronizer runs on another transport than the account now asks for when the connection method was changed,
-    /// or when a MAPI over HTTP attempt recorded that the server does not offer it. The MAPI synchronizer records that on
-    /// its own account object, so comparing the settings alone never sees it.
-    /// </summary>
-    public bool CanReuseSynchronizer(IWinoSynchronizerBase existing, MailAccount account)
-    {
-        if (account.ServerInformation == null)
-            return true;
-
-        var currentTransport = existing switch
-        {
-            ActiveSyncExchangeSynchronizer => ExchangeTransport.ActiveSync,
-            MapiExchangeSynchronizer => ExchangeTransport.MapiHttp,
-            _ => ExchangeTransport.Ews
-        };
-        return currentTransport == account.ServerInformation.EffectiveExchangeTransport;
-    }
+    // The transport is fixed when the account is set up, so a synchronizer never runs on another one.
+    public bool CanReuseSynchronizer(IWinoSynchronizerBase existing, MailAccount account) => true;
 
     public bool IsAuthorizationFailure(Exception exception) => false;
 }

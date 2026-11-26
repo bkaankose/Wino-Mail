@@ -117,9 +117,7 @@ public partial class ExchangeSynchronizer
 
     /// <summary>
     /// Reconciles the account's Exchange address books with the mailbox's contact folders and returns the books in
-    /// folder order. Books another transport stored are re-keyed in place first (between EWS and MAPI by entry id; books
-    /// ActiveSync stored by role and title, as task lists are), so favourites, list memberships and pictures survive a
-    /// transport change. Books whose folder is gone are removed.
+    /// folder order. Books whose folder is gone are removed.
     /// </summary>
     protected async Task<List<ContactAddressBook>> EnsureContactBooksAsync(IReadOnlyList<ExchangeContactFolder> folders, CancellationToken cancellationToken = default)
     {
@@ -129,24 +127,6 @@ public partial class ExchangeSynchronizer
             .ToList();
 
         var folderIds = folders.Select(f => f.RemoteId).ToHashSet(StringComparer.Ordinal);
-        var matches = await MatchCarriedContainersAsync(
-            stored.Select(b => (b.Id, b.RemoteId ?? string.Empty, b.DisplayName ?? string.Empty, b.IsDefault)).ToList(),
-            folders.Select(f => (f.RemoteId, f.Title ?? string.Empty, f.IsDefault)).ToList(),
-            cancellationToken).ConfigureAwait(false);
-
-        foreach (var book in stored)
-        {
-            if (!matches.TryGetValue(book.Id, out var remoteId))
-                continue;
-
-            _logger.Information("Exchange contacts {Account}: re-keying address book {BookId} to the current transport.", Account.Name, book.Id);
-            await contactService.RekeyAddressBookAsync(book.Id, remoteId, new Dictionary<Guid, string>()).ConfigureAwait(false);
-            book.RemoteId = remoteId;
-        }
-
-        // A transport change also changes where the directory book comes from; it is read again in this pass.
-        if (matches.Count > 0)
-            _isDirectoryRefreshRequired = true;
 
         foreach (var stale in stored.Where(b => !folderIds.Contains(b.RemoteId ?? string.Empty)))
             await contactService.DeleteAddressBookAsync(stale.Id).ConfigureAwait(false);
@@ -176,24 +156,6 @@ public partial class ExchangeSynchronizer
             throw new InvalidOperationException($"Address book {bookId} is unavailable for {request.Operation}.");
 
         return book;
-    }
-
-    /// <summary>
-    /// Before a snapshot replaces the book's rows, contacts the other transport stored are matched to the incoming ones
-    /// and take their remote ids, so the rebuild (which keeps rows by remote id) preserves their favourites, list
-    /// memberships and local identity across a transport change.
-    /// </summary>
-    protected async Task RekeyContactsFromOtherTransportAsync(ContactAddressBook book, IReadOnlyList<AccountContact> incoming)
-    {
-        var contactService = RequireContactService();
-        var stored = await contactService.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false);
-        var matches = ExchangeTransportRekey.MatchContacts(stored, incoming);
-
-        if (matches.Count == 0)
-            return;
-
-        _logger.Information("Exchange contacts {Account}: re-keying {Count} contacts stored by the other transport.", Account.Name, matches.Count);
-        await contactService.RekeyAddressBookAsync(book.Id, book.RemoteId, matches).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -343,7 +305,6 @@ public partial class ExchangeSynchronizer
             }
             while (results.MoreAvailable);
 
-            await RekeyContactsFromOtherTransportAsync(book, upserts).ConfigureAwait(false);
             await DownloadContactPhotosAsync(photos, book, cancellationToken).ConfigureAwait(false);
             await RequireContactService().ReplaceAddressBookAsync(book.Id, upserts, null).ConfigureAwait(false);
             total += upserts.Count;
@@ -800,27 +761,11 @@ public partial class ExchangeSynchronizer
 
     /// <summary>
     /// Reconciles the account's Exchange task lists with the mailbox's task folders and returns the lists in folder
-    /// order. Lists another transport stored are re-keyed in place first (between EWS and MAPI by entry id; lists
-    /// ActiveSync stored by role and title), so colour, group, placement and the tasks' My Day dates survive a transport
-    /// change.
+    /// order.
     /// </summary>
     protected async Task<List<AccountTaskList>> EnsureTaskListsAsync(IReadOnlyList<ExchangeTaskFolder> folders, CancellationToken cancellationToken = default)
     {
         var taskService = RequireTaskService();
-        var stored = (await taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
-            .Where(list => list.SourceKind == TaskSourceKind.Exchange)
-            .ToList();
-
-        var rekeyed = await MatchCarriedContainersAsync(
-            stored.Where(list => list.PendingMutation == TaskPendingMutation.None)
-                .Select(list => (list.Id, list.RemoteId ?? string.Empty, list.Title ?? string.Empty, list.IsDefault)).ToList(),
-            folders.Select(folder => (folder.RemoteId, folder.Title ?? string.Empty, folder.IsDefault)).ToList(),
-            cancellationToken).ConfigureAwait(false);
-        foreach (var (listId, remoteId) in rekeyed)
-        {
-            _logger.Information("Exchange tasks {Account}: re-keying task list {ListId} to the current transport.", Account.Name, listId);
-            await taskService.RekeyTaskListAsync(listId, remoteId, new Dictionary<Guid, string>()).ConfigureAwait(false);
-        }
 
         await taskService.ApplyTaskTopologyDeltaAsync(new TaskTopologyDelta
         {
@@ -869,21 +814,6 @@ public partial class ExchangeSynchronizer
     {
         var taskService = RequireTaskService();
         var current = await taskService.GetTasksAsync(listId: list.Id).ConfigureAwait(false);
-
-        // Tasks the other transport stored take the incoming ids, so the snapshot keeps their rows (and their My Day
-        // date) instead of importing them again after a transport change.
-        var rekeyed = ExchangeTransportRekey.MatchTasks(current, tasks);
-        if (rekeyed.Count > 0)
-        {
-            _logger.Information("Exchange tasks {Account}: re-keying {Count} tasks stored by the other transport.", Account.Name, rekeyed.Count);
-            await taskService.RekeyTaskListAsync(list.Id, list.RemoteId, rekeyed).ConfigureAwait(false);
-
-            foreach (var task in current)
-            {
-                if (rekeyed.TryGetValue(task.Id, out var remoteId))
-                    task.RemoteId = remoteId;
-            }
-        }
 
         var currentByRemoteId = current.Where(task => !string.IsNullOrWhiteSpace(task.RemoteId))
             .GroupBy(task => task.RemoteId, StringComparer.Ordinal)

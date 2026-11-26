@@ -26,12 +26,6 @@ namespace Wino.Providers.Exchange.Integration.Processors;
 /// </summary>
 public interface IExchangeChangeProcessor : IDefaultChangeProcessor
 {
-    /// <summary>
-    /// Persists server information a synchronizer changed at run time, such as the detected transport when a MAPI
-    /// over HTTP attempt learns that the protocol is not offered.
-    /// </summary>
-    Task UpdateAccountServerInformationAsync(CustomServerInformation serverInformation);
-
     /// <summary>Upserts one occurrence, or a series master, pulled from the server into the calendar.</summary>
     Task ManageCalendarEventAsync(SyncedCalendarEvent occurrence, AccountCalendar assignedCalendar, MailAccount organizerAccount);
 
@@ -46,9 +40,6 @@ public interface IExchangeChangeProcessor : IDefaultChangeProcessor
 
     /// <summary>Makes an event's stored attachment rows match the attachments the server reported for it.</summary>
     Task SaveCalendarAttachmentsAsync(Guid calendarItemId, IReadOnlyList<SyncedCalendarAttachment> attachments);
-
-    /// <summary>Moves a calendar another transport stored to this transport's folder id; see <see cref="ExchangeCalendarRekey"/>.</summary>
-    Task RekeyAccountCalendarAsync(AccountCalendar calendar, string remoteCalendarId);
 }
 
 public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangeProcessor
@@ -65,9 +56,6 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
     {
     }
 
-    public Task UpdateAccountServerInformationAsync(CustomServerInformation serverInformation)
-        => AccountService.UpdateAccountCustomServerInformationAsync(serverInformation);
-
     public Task<List<CalendarItem>> GetCalendarItemsInRangeAsync(AccountCalendar calendar, DateTime startUtc, DateTime endUtc)
         => CalendarService.GetCalendarEventsAsync(calendar, new TimeRange(startUtc, endUtc));
 
@@ -79,9 +67,6 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
 
     public Task SaveCalendarAttachmentsAsync(Guid calendarItemId, IReadOnlyList<SyncedCalendarAttachment> attachments)
         => ExchangeCalendarAttachments.ReconcileAsync(Connection, calendarItemId, attachments);
-
-    public Task RekeyAccountCalendarAsync(AccountCalendar calendar, string remoteCalendarId)
-        => ExchangeCalendarRekey.RekeyAsync(Connection, CalendarService, calendar, remoteCalendarId);
 
     public async Task ManageCalendarEventAsync(SyncedCalendarEvent occurrence, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {

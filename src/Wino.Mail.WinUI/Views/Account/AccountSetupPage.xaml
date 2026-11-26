@@ -110,29 +110,44 @@
                         BorderBrush="{ThemeResource AccountSetupStrokeBrush}"
                         BorderThickness="1"
                         CornerRadius="4">
-                        <StackPanel
-                            Padding="0,8"
-                            VerticalAlignment="Center"
-                            Spacing="2">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <!--  The gap is the icon's margin, so a choice without an icon keeps its label at the edge.  -->
+                            <coreControls:WinoFontIcon
+                                Margin="0,0,12,0"
+                                VerticalAlignment="Center"
+                                FontFamily="{StaticResource WinoIconFontFamily}"
+                                FontSize="20"
+                                Icon="{x:Bind Glyph}"
+                                Visibility="{x:Bind HasGlyph}" />
+                            <StackPanel
+                                Grid.Column="1"
+                                Padding="0,8"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource BodyTextBlockStyle}"
+                                        Text="{x:Bind Label}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Caption}"
+                                        Visibility="{x:Bind HasCaption}" />
+                                </StackPanel>
                                 <TextBlock
-                                    VerticalAlignment="Center"
-                                    Style="{StaticResource BodyTextBlockStyle}"
-                                    Text="{x:Bind Label}" />
-                                <TextBlock
-                                    VerticalAlignment="Center"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind Caption}"
-                                    Visibility="{x:Bind HasCaption}" />
+                                    Text="{x:Bind Description}"
+                                    TextWrapping="WrapWholeWords"
+                                    Visibility="{x:Bind HasDescription}" />
                             </StackPanel>
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind Description}"
-                                TextWrapping="WrapWholeWords"
-                                Visibility="{x:Bind HasDescription}" />
-                        </StackPanel>
+                        </Grid>
                     </Border>
                 </ItemContainer>
             </DataTemplate>

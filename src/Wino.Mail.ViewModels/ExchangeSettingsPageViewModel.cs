@@ -38,6 +38,15 @@ public sealed class ExchangeTransportOption(ExchangeTransport transport, string 
 
     public override string ToString() => Title;
 
+    /// <summary>The name of a concrete transport, for the read-only display of an existing account's connection method.</summary>
+    public static string TitleOf(ExchangeTransport transport) => transport switch
+    {
+        ExchangeTransport.MapiHttp => Translator.ExchangeSetup_TransportMapi,
+        ExchangeTransport.Ews => Translator.ExchangeSetup_TransportEws,
+        ExchangeTransport.ActiveSync => Translator.ExchangeSetup_TransportActiveSync,
+        _ => Translator.ExchangeSetup_TransportAutomatic
+    };
+
     /// <summary>Automatic, MAPI over HTTP and EWS, in the order of <see cref="ExchangeTransport"/>.</summary>
     public static List<ExchangeTransportOption> CreateAll() =>
     [
@@ -520,6 +529,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
         ServerInformation = server
     };
 
+    /// <summary>Under Automatic, records what the connection check found; the setup runner saves the account with it.</summary>
     private static void ApplyDetectedTransport(CustomServerInformation server, ExchangeConnectionTestResult result)
         => server.DetectedExchangeTransport = server.ExchangeTransport == ExchangeTransport.Automatic
             ? result.DetectedTransport

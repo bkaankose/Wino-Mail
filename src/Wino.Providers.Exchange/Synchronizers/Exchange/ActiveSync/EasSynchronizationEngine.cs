@@ -100,8 +100,6 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
     private const int DraftsFolderType = 3;
 
-    // Calendars, books and lists of another transport matched to the collections of the running full hierarchy read.
-    private Dictionary<string, Guid> _carriedContainers = [];
     private const int GenericFolderType = 1;
 
     /// <summary>
@@ -542,8 +540,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
     /// <summary>
     /// Reads the folder hierarchy. Mail collections become MailItemFolder rows, the others EasCollectionState rows.
-    /// On a full read (key 0, also after a connection method change) rows another transport stored are re-keyed in
-    /// place first, so folder ids and their settings survive, and rows the server no longer has are removed.
+    /// On a full read (key 0) rows the server no longer has are removed.
     /// </summary>
     private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken)
     {
@@ -582,8 +579,7 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
         var staleRows = new List<MailItemFolder>();
         if (fullRead && _account.IsMailAccessGranted)
-            mailChanged |= await RematchFoldersAsync(mailRows, staleRows, entries).ConfigureAwait(false);
-        _carriedContainers = fullRead ? await MatchCarriedContainersAsync(entries, states).ConfigureAwait(false) : [];
+            SeparateStaleFolders(mailRows, staleRows, entries);
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var change in entries)
@@ -641,169 +637,35 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 await _database.Connection.ExecuteAsync("UPDATE EasCollectionState SET EntityId = ? WHERE Id = ?", state.EntityId, state.Id).ConfigureAwait(false);
         }
 
-        if (fullRead)
-            await RemoveOtherTransportContainersAsync().ConfigureAwait(false);
-        _carriedContainers = [];
-
         await SaveHierarchyKeyAsync(Required(response, FolderHierarchy + "SyncKey")).ConfigureAwait(false);
         if (mailChanged)
             _hierarchyChanged();
     }
 
     /// <summary>
-    /// Matches the stored folder rows to the mail collections of a full hierarchy read. An ActiveSync row keeps its
-    /// collection when the read still has its ServerId: ServerIds do not change when the hierarchy is read again from
-    /// key 0, and they are opaque, so they are never matched by name. Only rows another transport stored (EWS, MAPI)
-    /// go through the matcher every Exchange transport shares, by role and path. A re-keyed row starts its collection
-    /// over; rows that match nothing are moved to <paramref name="staleRows"/>.
+    /// Keeps the stored folder rows whose collection a full hierarchy read still has: ServerIds do not change when the
+    /// hierarchy is read again from key 0, and they are opaque, so they are never matched by name. Rows the read does not
+    /// have are moved to <paramref name="staleRows"/>.
     /// </summary>
-    private async Task<bool> RematchFoldersAsync(List<MailItemFolder> mailRows, List<MailItemFolder> staleRows, List<XElement> entries)
+    private static void SeparateStaleFolders(List<MailItemFolder> mailRows, List<MailItemFolder> staleRows, List<XElement> entries)
     {
-        var incoming = new List<ExchangeFolderCandidate>();
-        var types = new Dictionary<string, int>(StringComparer.Ordinal);
+        var mailCollections = new HashSet<string>(StringComparer.Ordinal);
         foreach (var add in entries.Where(entry => entry.Name == FolderHierarchy + "Add"))
         {
             var serverId = add.Element(FolderHierarchy + "ServerId")?.Value;
-            if (string.IsNullOrEmpty(serverId) || !int.TryParse(add.Element(FolderHierarchy + "Type")?.Value, out var type) || !IsMailType(type))
-                continue;
-            types[serverId] = type;
-            incoming.Add(new ExchangeFolderCandidate(serverId, add.Element(FolderHierarchy + "ParentId")?.Value ?? "0",
-                add.Element(FolderHierarchy + "DisplayName")?.Value ?? string.Empty, ServerRole(type)));
+            if (!string.IsNullOrEmpty(serverId) && int.TryParse(add.Element(FolderHierarchy + "Type")?.Value, out var type) && IsMailType(type))
+                mailCollections.Add(serverId);
         }
 
-        var matches = ExchangeTransportRekey.MatchFolders(mailRows, incoming, ExchangeTransport.ActiveSync);
-        foreach (var row in mailRows.Where(row => row.EasFolderType > 0 && types.ContainsKey(row.RemoteFolderId ?? string.Empty)))
-            matches[row.Id] = row.RemoteFolderId;
-
-        var changed = false;
         foreach (var row in mailRows.ToList())
         {
-            if (!matches.TryGetValue(row.Id, out var serverId))
-            {
-                mailRows.Remove(row);
-                staleRows.Add(row);
-                continue;
-            }
-            if (row.EasFolderType > 0 && row.RemoteFolderId == serverId)
+            if (row.EasFolderType > 0 && mailCollections.Contains(row.RemoteFolderId ?? string.Empty))
                 continue;
 
-            // Mail ids embed the collection id, so the downloaded mail of a re-keyed row is fetched again. Messages
-            // whose id is not an ActiveSync key (local drafts) never reached the server and stay.
-            await _database.Connection.ExecuteAsync("DELETE FROM EasItemShadow WHERE CollectionId = ?", row.Id).ConfigureAwait(false);
-            await _mail.DeleteMailsAsync(_account.Id, await ServerMailIdsAsync(row.Id).ConfigureAwait(false)).ConfigureAwait(false);
-            row.RemoteFolderId = serverId;
-            row.EasFolderType = types[serverId];
-            row.DeltaToken = "0";
-            row.EasSyncGeneration = string.Empty;
-            await _database.Connection.ExecuteAsync(
-                "UPDATE MailItemFolder SET RemoteFolderId = ?, EasFolderType = ?, DeltaToken = '0', EasSyncGeneration = '' WHERE Id = ?",
-                row.RemoteFolderId, row.EasFolderType, row.Id).ConfigureAwait(false);
-            changed = true;
-        }
-        return changed;
-    }
-
-    /// <summary>
-    /// Calendars, address books and task lists another transport stored (EWS or MAPI ids), each matched to the
-    /// collection of a full hierarchy read it continues, by ServerId. ActiveSync ServerIds are opaque, so the default
-    /// container takes the default collection (FolderSync types 8, 9 and 7) and the others match by display name when
-    /// it is unique on both sides (<see cref="ExchangeTransportRekey.MatchContainers"/>). The directory book has no
-    /// ActiveSync collection and is never matched.
-    /// </summary>
-    private async Task<Dictionary<string, Guid>> MatchCarriedContainersAsync(List<XElement> entries, List<EasCollectionState> states)
-    {
-        var result = new Dictionary<string, Guid>(StringComparer.Ordinal);
-        var adds = new List<(string ServerId, string Name, int Type)>();
-        foreach (var add in entries.Where(entry => entry.Name == FolderHierarchy + "Add"))
-        {
-            var serverId = add.Element(FolderHierarchy + "ServerId")?.Value;
-            if (!string.IsNullOrEmpty(serverId) && int.TryParse(add.Element(FolderHierarchy + "Type")?.Value, out var type))
-                adds.Add((serverId, add.Element(FolderHierarchy + "DisplayName")?.Value ?? string.Empty, type));
-        }
-
-        void Match(string itemClass, int defaultType, IEnumerable<(Guid Id, string Title, bool IsDefault)> candidates, ISet<string> claimed)
-        {
-            var open = adds.Where(add => ItemClass(add.Type) == itemClass && !claimed.Contains(add.ServerId))
-                .Select(add => (add.ServerId, add.Name, add.Type == defaultType))
-                .ToList();
-            foreach (var (id, serverId) in ExchangeTransportRekey.MatchContainers(candidates.ToList(), open))
-                result[serverId] = id;
-        }
-
-        if (_account.IsCalendarAccessGranted && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider)
-        {
-            var stateIds = states.Select(state => state.Id).ToHashSet();
-            var calendars = await _calendars.GetAccountCalendarsAsync(_account.Id).ConfigureAwait(false);
-            var claimed = adds.Select(add => add.ServerId)
-                .Where(serverId => calendars.Any(calendar => IsOwnCalendar(calendar, serverId))).ToHashSet(StringComparer.Ordinal);
-            Match("Calendar", 8, calendars
-                .Where(calendar => !stateIds.Contains(calendar.Id) && IsOtherTransportCalendar(calendar) && !adds.Any(add => IsOwnCalendar(calendar, add.ServerId)))
-                .Select(calendar => (calendar.Id, calendar.Name ?? string.Empty, calendar.IsPrimary)), claimed);
-        }
-
-        if (_account.IsContactAccessGranted && _account.ContactIntegrationSource == AccountIntegrationSource.Provider)
-        {
-            var books = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false)).Where(book => book.SourceKind == ContactSourceKind.Exchange).ToList();
-            var claimed = books.Where(book => !IsOtherTransportContainer(book.RemoteId)).Select(book => EasDataMapper.ServerIdOf(book.RemoteId)).ToHashSet(StringComparer.Ordinal);
-            Match("Contacts", 9, books.Where(book => IsOtherTransportContainer(book.RemoteId) && book.RemoteId != DirectoryBookRemoteId)
-                .Select(book => (book.Id, book.DisplayName ?? string.Empty, book.IsDefault)), claimed);
-        }
-
-        if (_account.IsTaskAccessGranted && _account.TaskIntegrationSource == AccountIntegrationSource.Provider)
-        {
-            var lists = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false)).Where(list => list.SourceKind == TaskSourceKind.Exchange).ToList();
-            var claimed = lists.Where(list => !IsOtherTransportContainer(list.RemoteId)).Select(list => EasDataMapper.ServerIdOf(list.RemoteId)).ToHashSet(StringComparer.Ordinal);
-            Match("Tasks", 7, lists.Where(list => IsOtherTransportContainer(list.RemoteId) && list.PendingMutation == TaskPendingMutation.None)
-                .Select(list => (list.Id, list.Title ?? string.Empty, list.IsDefault)), claimed);
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Removes the calendars, address books (the directory book among them) and task lists that another transport stored
-    /// and no collection continued, after a full hierarchy read: a fresh ActiveSync account has none of them.
-    /// </summary>
-    private async Task RemoveOtherTransportContainersAsync()
-    {
-        if (_account.IsCalendarAccessGranted && _account.CalendarIntegrationSource == AccountIntegrationSource.Provider)
-        {
-            foreach (var calendar in (await _calendars.GetAccountCalendarsAsync(_account.Id).ConfigureAwait(false)).Where(IsOtherTransportCalendar).ToList())
-            {
-                calendar.MailAccount = _account;
-                await _calendars.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
-            }
-        }
-
-        if (_account.IsContactAccessGranted && _account.ContactIntegrationSource == AccountIntegrationSource.Provider)
-        {
-            foreach (var book in (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false))
-                         .Where(book => book.SourceKind == ContactSourceKind.Exchange && IsOtherTransportContainer(book.RemoteId)).ToList())
-                await _contacts.DeleteAddressBookAsync(book.Id).ConfigureAwait(false);
-        }
-
-        if (_account.IsTaskAccessGranted && _account.TaskIntegrationSource == AccountIntegrationSource.Provider)
-        {
-            foreach (var list in (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false))
-                         .Where(list => list.SourceKind == TaskSourceKind.Exchange && IsOtherTransportContainer(list.RemoteId)).ToList())
-                await _tasks.RemoveTaskListAsync(list.Id).ConfigureAwait(false);
+            mailRows.Remove(row);
+            staleRows.Add(row);
         }
     }
-
-    // The read-only Global Address List book EWS and MAPI keep (ExchangeSynchronizer.DirectoryBookRemoteId).
-    private const string DirectoryBookRemoteId = "wino:directory";
-
-    private static bool IsOtherTransportContainer(string? remoteId)
-        => !string.IsNullOrWhiteSpace(remoteId) && !remoteId.StartsWith("eas:", StringComparison.Ordinal);
-
-    /// <summary>
-    /// Whether a calendar row came from EWS or MAPI: ActiveSync calendars carry "eas:" ids once their collection was
-    /// read, and "local" and "http" ids belong to other calendar sources.
-    /// </summary>
-    private static bool IsOtherTransportCalendar(AccountCalendar calendar)
-        => !string.IsNullOrWhiteSpace(calendar.RemoteCalendarId) && !calendar.RemoteCalendarId.StartsWith("eas:", StringComparison.Ordinal) &&
-           !calendar.RemoteCalendarId.StartsWith("local", StringComparison.Ordinal) &&
-           !calendar.RemoteCalendarId.StartsWith("http", StringComparison.OrdinalIgnoreCase);
 
     // Calendars stored before ActiveSync calendar ids carried the prefix hold the bare ServerId.
     private static bool IsOwnCalendar(AccountCalendar calendar, string serverId)
@@ -895,8 +757,8 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
 
     /// <summary>
     /// The id of a new collection state. A calendar collection's state shares its id with the calendar row, so a
-    /// calendar row this collection already has (after the account's sync state was reset) or one another transport
-    /// stored and this collection continues gives its id; otherwise the id is derived from the ServerId.
+    /// calendar row this collection already has (after the account's sync state was reset) gives its id; otherwise the
+    /// id is derived from the ServerId.
     /// </summary>
     private async Task<Guid> NewCollectionIdAsync(string serverId, int type)
     {
@@ -905,8 +767,6 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
             var calendars = await _calendars.GetAccountCalendarsAsync(_account.Id).ConfigureAwait(false);
             if (calendars.FirstOrDefault(calendar => IsOwnCalendar(calendar, serverId)) is { } own)
                 return own.Id;
-            if (_carriedContainers.TryGetValue(serverId, out var carried) && calendars.Any(calendar => calendar.Id == carried))
-                return carried;
         }
 
         return EasDataMapper.StableId(EasDataMapper.Key(_account.Id, serverId, string.Empty));
@@ -969,20 +829,11 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var calendarColor = ColorHelpers.ResolveDistinctCalendarColor(null, calendar, usedColors);
                 var remoteCalendarId = EasDataMapper.ProviderId(state.ServerId);
-                if (calendar != null && calendar.RemoteCalendarId != remoteCalendarId)
+                if (calendar != null && calendar.RemoteCalendarId == state.ServerId)
                 {
                     calendar.MailAccount = _account;
-                    if (calendar.RemoteCalendarId == state.ServerId)
-                    {
-                        calendar.RemoteCalendarId = remoteCalendarId;
-                        await _calendars.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        Serilog.Log.Information("EAS calendar {Collection} for {Account}: re-keying calendar {CalendarId} from another transport.",
-                            state.DisplayName, _account.Address, calendar.Id);
-                        await ExchangeCalendarRekey.RekeyAsync(_database.Connection, _calendars, calendar, remoteCalendarId).ConfigureAwait(false);
-                    }
+                    calendar.RemoteCalendarId = remoteCalendarId;
+                    await _calendars.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
                 }
                 if (calendar == null)
                     await _calendars.InsertAccountCalendarAsync(new AccountCalendar { Id = id, AccountId = _account.Id,
@@ -1001,23 +852,6 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 break;
             case "Contacts" when _account.IsContactAccessGranted && _account.ContactIntegrationSource == AccountIntegrationSource.Provider:
                 var bookId = EasDataMapper.ProviderId(state.ServerId);
-                var books = await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false);
-                if (_carriedContainers.TryGetValue(state.ServerId, out var carriedBookId) &&
-                    books.FirstOrDefault(book => book.Id == carriedBookId) is { } carriedBook && carriedBook.RemoteId != bookId &&
-                    !books.Any(book => book.SourceKind == ContactSourceKind.Exchange && book.RemoteId == bookId))
-                {
-                    Serilog.Log.Information("EAS contacts {Collection} for {Account}: re-keying address book {BookId} from another transport.",
-                        state.DisplayName, _account.Address, carriedBook.Id);
-                    await _contacts.RekeyAddressBookAsync(carriedBook.Id, bookId, new Dictionary<Guid, string>()).ConfigureAwait(false);
-                    books = await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false);
-                }
-                if (state.Type == 9 && !books.Any(book => book.SourceKind == ContactSourceKind.Exchange && book.RemoteId == bookId))
-                {
-                    var carried = books.Where(book => book.SourceKind == ContactSourceKind.Exchange && book.IsDefault &&
-                        ExchangeTransportRekey.IsOtherTransport(book.RemoteId, bookId)).ToList();
-                    if (carried.Count == 1)
-                        await _contacts.RekeyAddressBookAsync(carried[0].Id, bookId, new Dictionary<Guid, string>()).ConfigureAwait(false);
-                }
                 // The default book carries the account's name, as on EWS and MAPI.
                 var book = await _contacts.GetOrCreateProviderAddressBookAsync(_account.Id, ContactSourceKind.Exchange, bookId,
                     state.Type == 9 ? _account.Name : state.DisplayName, state.Type == 9).ConfigureAwait(false);
@@ -1027,22 +861,6 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
                 var listId = EasDataMapper.ProviderId(state.ServerId);
                 var lists = await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false);
                 var list = lists.FirstOrDefault(list => list.RemoteId == listId && list.SourceKind == TaskSourceKind.Exchange);
-                if (list == null)
-                {
-                    // A list this collection created before keeps its row id across transport changes; it is re-keyed,
-                    // not inserted again under the same id. Otherwise only the default list is carried by role.
-                    var carried = lists.Where(item => item.SourceKind == TaskSourceKind.Exchange && ExchangeTransportRekey.IsOtherTransport(item.RemoteId, listId)
-                        && (item.Id == id || (state.Type == 7 && item.IsDefault) ||
-                            (_carriedContainers.TryGetValue(state.ServerId, out var carriedListId) && item.Id == carriedListId))).ToList();
-                    if (carried.Count == 1)
-                    {
-                        list = carried[0];
-                        await _tasks.RekeyTaskListAsync(list.Id, listId, new Dictionary<Guid, string>()).ConfigureAwait(false);
-                        list.RemoteId = listId;
-                        list.RemoteVersion = null;
-                        list.DeltaLink = list.ListDeltaLink = list.TaskDeltaLink = null;
-                    }
-                }
                 list ??= new AccountTaskList { Id = id, MailAccountId = _account.Id, SourceKind = TaskSourceKind.Exchange, RemoteId = listId,
                     IsDefault = state.Type == 7, ColorHex = color };
                 list.Title = state.DisplayName;
@@ -1469,12 +1287,6 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         {
             var book = (await _contacts.GetAddressBooksAsync(_account.Id).ConfigureAwait(false))
                 .First(item => item.SourceKind == ContactSourceKind.Exchange && item.RemoteId == folderId);
-            var current = await _contacts.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false);
-            var incoming = snapshot.Select(shadow => EasDataMapper.ReadContact(Parse(shadow.ApplicationData), _account.Id, book.Id,
-                EasDataMapper.ProviderId(shadow.RemoteId))).ToList();
-            var matches = ExchangeTransportRekey.MatchContacts(current, incoming);
-            if (matches.Count > 0)
-                await _contacts.RekeyAddressBookAsync(book.Id, book.RemoteId, matches).ConfigureAwait(false);
             foreach (var shadow in snapshot)
                 await ProjectIsolatedAsync(state, shadow, downloaded, cancellationToken).ConfigureAwait(false);
             var deleted = (await _contacts.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false))
@@ -1486,12 +1298,6 @@ internal sealed partial class EasSynchronizationEngine : IDisposable
         {
             var list = (await _tasks.GetTaskListsAsync(_account.Id).ConfigureAwait(false))
                 .First(item => item.SourceKind == TaskSourceKind.Exchange && item.RemoteId == folderId);
-            var current = await _database.Connection.Table<AccountTask>().Where(item => item.TaskListId == list.Id).ToListAsync().ConfigureAwait(false);
-            var incoming = snapshot.Select(shadow => EasDataMapper.ReadTask(Parse(shadow.ApplicationData), list,
-                EasDataMapper.ProviderId(shadow.RemoteId))).ToList();
-            var matches = ExchangeTransportRekey.MatchTasks(current, incoming);
-            if (matches.Count > 0)
-                await _tasks.RekeyTaskListAsync(list.Id, list.RemoteId, matches).ConfigureAwait(false);
             foreach (var shadow in snapshot)
                 await ProjectIsolatedAsync(state, shadow, downloaded, cancellationToken).ConfigureAwait(false);
             var deleted = (await _database.Connection.Table<AccountTask>().Where(item => item.TaskListId == list.Id).ToListAsync().ConfigureAwait(false))
