@@ -1,12 +1,17 @@
+using System.Collections.Specialized;
 using AppKit;
+using Foundation;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Validation;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Dialogs;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Settings;
@@ -32,10 +37,13 @@ public sealed class CreateEmailTemplatePageViewController(
 
     private WinoRichTextEditorView _editor = null!;
     private NSTextField _nameField = null!;
+    private NSTokenField _toField = null!;
+    private TemplateToTokenDelegate? _toDelegate;
     private NSButton _save = null!;
     private NSButton _delete = null!;
     private bool _busy;
     private bool _editorDisposed;
+    private bool _syncingRecipients;
 
     public string? PageTitle => !string.IsNullOrWhiteSpace(ViewModel.TemplateName)
         ? ViewModel.TemplateName.Trim()
@@ -69,6 +77,37 @@ public sealed class CreateEmailTemplatePageViewController(
             Translator.SettingsEmailTemplates_SubjectPlaceholder, FieldWidth);
         WinoAccessibility.Label(subjectField, Translator.SettingsEmailTemplates_SubjectTitle);
         var subjectCard = Add(Card(Translator.SettingsEmailTemplates_SubjectTitle, Translator.SettingsEmailTemplates_SubjectDescription, WinoIconGlyph.Mail, subjectField));
+
+        _toField = new NSTokenField(new CoreGraphics.CGRect(0, 0, FieldWidth, 24))
+        {
+            Bordered = true,
+            Bezeled = true,
+            Editable = true,
+            Font = WinoStyle.Body,
+            TokenStyle = NSTokenStyle.Rounded,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        _toField.WidthAnchor.ConstraintEqualTo((nfloat)FieldWidth).Active = true;
+        _toField.CharacterSet = NSCharacterSet.FromString(",;");
+        _toDelegate = new TemplateToTokenDelegate(this);
+        _toField.Delegate = _toDelegate;
+        WinoAccessibility.Label(_toField, Translator.SettingsEmailTemplates_ToTitle);
+        var toCard = Add(Card(Translator.SettingsEmailTemplates_ToTitle, Translator.SettingsEmailTemplates_ToDescription, WinoIconGlyph.People, _toField));
+        NotifyCollectionChangedEventHandler recipientsChanged = (_, _) =>
+        {
+            if (_syncingRecipients) return;
+            WriteToTokens();
+        };
+        vm.TemplateToItems.CollectionChanged += recipientsChanged;
+        Bindings.Own(new ActionDisposable(() => vm.TemplateToItems.CollectionChanged -= recipientsChanged));
+        WriteToTokens();
+
+        var signaturePopUp = Bind.PopUp<CreateEmailTemplatePageViewModel, EmailTemplateSignaturePickerItem>(vm,
+            source => source.SignaturePickerItems, item => item.DisplayName,
+            nameof(vm.SelectedSignatureItem), source => source.SelectedSignatureItem, (source, value) => source.SelectedSignatureItem = value,
+            itemsProperty: nameof(vm.SignaturePickerItems), width: FieldWidth);
+        WinoAccessibility.Label(signaturePopUp, Translator.SettingsEmailTemplates_SignatureTitle);
+        var signatureCard = Add(Card(Translator.SettingsEmailTemplates_SignatureTitle, Translator.SettingsEmailTemplates_SignatureDescription, WinoIconGlyph.Signature, signaturePopUp));
 
         // ---- Template content ----
         var contentTitle = WinoStyle.Label(Translator.SettingsEmailTemplates_ContentTitle, WinoSettingsStyle.SectionTitle, WinoStyle.PrimaryText);
@@ -106,11 +145,11 @@ public sealed class CreateEmailTemplatePageViewController(
         Add(footer);
 
         // The editor takes the height the other rows leave in the window.
-        foreach (var view in new NSView[] { nameCard, descriptionCard, subjectCard, contentHeader, footer })
+        foreach (var view in new NSView[] { nameCard, descriptionCard, subjectCard, toCard, signatureCard, contentHeader, footer })
             view.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Vertical);
         // Cards have no intrinsic height (only a minimum), so hugging alone left them free to absorb
         // the spare height; keep them at their minimum unless their content needs more.
-        foreach (var card in new NSView[] { nameCard, descriptionCard, subjectCard })
+        foreach (var card in new NSView[] { nameCard, descriptionCard, subjectCard, toCard, signatureCard })
         {
             var compact = card.HeightAnchor.ConstraintEqualTo((nfloat)WinoSettingsStyle.CardMinHeight);
             compact.Priority = 740;
@@ -207,5 +246,62 @@ public sealed class CreateEmailTemplatePageViewController(
         try { await operation; }
         catch (ObjectDisposedException) { }
         catch (Exception exception) { ReportError(exception); }
+    }
+
+    private void WriteToTokens()
+    {
+        _syncingRecipients = true;
+        try
+        {
+            var addresses = new List<NSObject>();
+            foreach (var contact in ViewModel.TemplateToItems)
+            {
+                if (string.IsNullOrWhiteSpace(contact.Address)) continue;
+                addresses.Add(new NSString(contact.Address));
+            }
+            _toField.ObjectValue = NSArray.FromNSObjects(addresses.ToArray());
+        }
+        finally { _syncingRecipients = false; }
+    }
+
+    private void ReadToTokens()
+    {
+        if (_syncingRecipients) return;
+        _syncingRecipients = true;
+        try
+        {
+            ViewModel.TemplateToItems.Clear();
+            if (_toField.ObjectValue is not NSArray tokens) return;
+            for (nuint i = 0; i < tokens.Count; i++)
+            {
+                var text = tokens.GetItem<NSString>(i)?.ToString()?.Trim();
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                if (!ComposeRecipientRules.TryParseTyped(text, out var address, out var name)
+                    || !MailAccountAddressValidator.IsValid(address))
+                {
+                    ViewModel.NotifyInvalidEmail(text);
+                    continue;
+                }
+                ViewModel.TryAddRecipient(new AccountContact
+                {
+                    Address = address,
+                    Name = name ?? string.Empty,
+                    DisplayName = string.IsNullOrWhiteSpace(name) ? address : name
+                });
+            }
+        }
+        finally
+        {
+            _syncingRecipients = false;
+            WriteToTokens();
+        }
+    }
+
+    private sealed class TemplateToTokenDelegate(CreateEmailTemplatePageViewController owner) : NSTokenFieldDelegate
+    {
+        public override void Changed(NSNotification notification) => owner.ReadToTokens();
+
+        public override NSObject[] GetCompletionStrings(NSControl control, NSObject[] editingItems, string edited, nuint index)
+            => [];
     }
 }

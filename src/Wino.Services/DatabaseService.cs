@@ -939,6 +939,22 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
                 .ConfigureAwait(false);
         }
 
+        var emailTemplateColumns = await Connection.GetTableInfoAsync(nameof(EmailTemplate)).ConfigureAwait(false);
+
+        if (!emailTemplateColumns.Any(c => c.Name == nameof(EmailTemplate.ToRecipients)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(EmailTemplate)} ADD COLUMN {nameof(EmailTemplate.ToRecipients)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!emailTemplateColumns.Any(c => c.Name == nameof(EmailTemplate.SignatureId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(EmailTemplate)} ADD COLUMN {nameof(EmailTemplate.SignatureId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
         await Connection.ExecuteAsync("DROP TABLE IF EXISTS WinoAccountAddOnCache").ConfigureAwait(false);
 
         await Connection.ExecuteAsync(@"

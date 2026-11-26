@@ -724,10 +724,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
     private async Task InsertTemplateAsync(EmailTemplate template)
     {
         if (_editor is not { } editor || _editorDisposed || ViewModel is not { } viewModel) return;
-        // Windows EmailTemplateSelectionChanged order; the subject fills only when empty, so a reply keeps its RE: subject.
-        await editor.RenderHtmlAsync(template.HtmlContent ?? string.Empty);
-        await viewModel.ReapplySignatureAsync();
-        viewModel.ApplyTemplateSubject(template);
+        await viewModel.ApplyTemplateAsync(template, html => editor.RenderHtmlAsync(html));
         ScheduleAutosave();
     }
 

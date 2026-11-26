@@ -61,7 +61,7 @@ internal sealed partial class ImapCalDavSettingsView : WinoView<ImapCalDavSettin
         _form.When(pop3.Root, s => s.IsPop3);
 
         var content = OnboardingUi.Column(16, BuildPageHeader(), pageError.Root, oauthNotice.Root, pop3.Root,
-            BuildFeaturesStep(), BuildSignInStep(), BuildPendingApp(), BuildEditSignIn(), BuildServers());
+            BuildProtocolStep(), BuildFeaturesStep(), BuildSignInStep(), BuildPendingApp(), BuildEditSignIn(), BuildServers());
         content.SetMarginTop(24);
         content.SetMarginBottom(24);
         content.SetMarginStart(16);

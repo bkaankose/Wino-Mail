@@ -8,7 +8,9 @@ using MimeKit;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Validation;
 
 namespace Wino.Mail.ViewModels;
 
@@ -116,6 +118,33 @@ public partial class ComposePageViewModel
     }
 
     /// <summary>
+    /// Replaces the body through <paramref name="renderHtmlAsync"/>, applies the bound signature
+    /// (or re-applies the current one), then fills subject and To when those fields are still empty.
+    /// </summary>
+    public async Task ApplyTemplateAsync(EmailTemplate template, Func<string, Task> renderHtmlAsync)
+    {
+        if (template == null || renderHtmlAsync == null)
+            return;
+
+        await renderHtmlAsync(template.HtmlContent ?? string.Empty).ConfigureAwait(false);
+
+        await ExecuteUIThreadAsync(async () =>
+        {
+            var boundSignature = template.SignatureId is Guid signatureId
+                ? AvailableSignatures.FirstOrDefault(item => item.Id == signatureId)
+                : null;
+
+            if (boundSignature != null)
+                await ApplySignatureAsync(boundSignature);
+            else
+                await ReapplySignatureAsync();
+
+            ApplyTemplateSubject(template);
+            ApplyTemplateToRecipients(template);
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Fills the subject from an applied template only while the draft has none, so a reply, a forward or a subject
     /// the user typed keeps its own.
     /// </summary>
@@ -124,6 +153,33 @@ public partial class ComposePageViewModel
         if (template == null || string.IsNullOrWhiteSpace(template.Subject) || !string.IsNullOrWhiteSpace(Subject)) return;
 
         Subject = template.Subject;
+    }
+
+    /// <summary>
+    /// Fills To from an applied template only while the draft has no recipients, so a reply or addresses the user
+    /// typed keep their own.
+    /// </summary>
+    public void ApplyTemplateToRecipients(EmailTemplate template)
+    {
+        if (template == null || string.IsNullOrWhiteSpace(template.ToRecipients) || ToItems.Count > 0)
+            return;
+
+        foreach (var token in template.ToRecipients.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!ComposeRecipientRules.TryParseTyped(token, out var address, out var name)
+                || !MailAccountAddressValidator.IsValid(address))
+            {
+                NotifyInvalidEmail(token);
+                continue;
+            }
+
+            TryAddRecipient(ToItems, new AccountContact
+            {
+                Address = address,
+                Name = name ?? string.Empty,
+                DisplayName = string.IsNullOrWhiteSpace(name) ? address : name
+            });
+        }
     }
 
     /// <summary>Reloads <see cref="AvailableEmailTemplates"/>, for example before showing the picker.</summary>

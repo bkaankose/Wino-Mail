@@ -1,11 +1,16 @@
+using System.Collections.Specialized;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Validation;
+using Wino.Mail.Controls.Linux.Compose;
 using Wino.Mail.Controls.Linux.Settings;
 using Wino.Mail.Linux.Infrastructure;
 using Wino.Mail.Linux.Views.Dialogs;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Linux;
 
 namespace Wino.Mail.Linux.Views.Settings;
@@ -22,10 +27,12 @@ internal sealed class CreateEmailTemplatePage(CreateEmailTemplatePageViewModel v
     private const int MinimumEditorHeight = 270;
     private WinoRichTextEditorView? _editor;
     private Gtk.Entry? _nameEntry;
+    private WinoRecipientTokenBox? _toBox;
     private Gtk.Button? _save;
     private Gtk.Button? _delete;
     private bool _busy;
     private bool _editorDisposed;
+    private bool _syncingRecipients;
 
 #if DEBUG
     private static WeakReference<CreateEmailTemplatePage>? _debugCurrent;
@@ -53,6 +60,66 @@ internal sealed class CreateEmailTemplatePage(CreateEmailTemplatePageViewModel v
             Translator.SettingsEmailTemplates_DescriptionPlaceholder, nameof(vm.TemplateDescription), static s => s.TemplateDescription, static (s, v) => s.TemplateDescription = v);
         Field(fields, Translator.SettingsEmailTemplates_SubjectTitle, Translator.SettingsEmailTemplates_SubjectDescription, WinoIconGlyph.Mail,
             Translator.SettingsEmailTemplates_SubjectPlaceholder, nameof(vm.TemplateSubject), static s => s.TemplateSubject, static (s, v) => s.TemplateSubject = v);
+
+        fields.Add(Settings.Choice<CreateEmailTemplatePageViewModel, EmailTemplateSignaturePickerItem>(vm,
+            Translator.SettingsEmailTemplates_SignatureTitle, Translator.SettingsEmailTemplates_SignatureDescription, WinoIconGlyph.Signature,
+            static s => s.SignaturePickerItems, static item => item.DisplayName,
+            nameof(vm.SelectedSignatureItem), static s => s.SelectedSignatureItem, static (s, v) => s.SelectedSignatureItem = v,
+            itemsProperty: nameof(vm.SignaturePickerItems)));
+
+        var toGroup = Page.AddGroup(Translator.SettingsEmailTemplates_ToTitle, Translator.SettingsEmailTemplates_ToDescription);
+        var toBox = _toBox = new WinoRecipientTokenBox("template-to", Translator.SettingsEmailTemplates_ToTitle, "template-recipients");
+        toBox.Parse = static text => ComposeRecipientRules.TryParseTyped(text, out var address, out var name) ? new RecipientToken(address, name) : null;
+        toBox.Validate = (address, _) =>
+        {
+            if (!MailAccountAddressValidator.IsValid(address))
+            {
+                ViewModel.NotifyInvalidEmail(address);
+                return false;
+            }
+            if (!ComposePageViewModel.ContainsAddress(ViewModel.TemplateToItems, address)) return true;
+            ViewModel.NotifyAddressExists();
+            return false;
+        };
+        toBox.Refused += (_, text) => ViewModel.NotifyInvalidEmail(text);
+        toBox.Committed += (_, address, name) =>
+        {
+            if (_syncingRecipients) return;
+            ViewModel.TryAddRecipient(new AccountContact
+            {
+                Address = address,
+                Name = name ?? string.Empty,
+                DisplayName = string.IsNullOrWhiteSpace(name) ? address : name
+            });
+        };
+        toBox.Removed += (_, address) =>
+        {
+            if (_syncingRecipients) return;
+            foreach (var contact in ViewModel.TemplateToItems.ToArray())
+                if (string.Equals(contact.Address?.Trim(), address, StringComparison.OrdinalIgnoreCase))
+                    ViewModel.TemplateToItems.Remove(contact);
+        };
+        toBox.FocusLeft += static sender =>
+        {
+            if (ComposeRecipientRules.IsCompleteAddress(sender.TypedText)) sender.CommitTyped();
+        };
+        Settings.Own(toBox);
+        toGroup.Add(WinoSettingsRows.Custom(toBox.Root, Translator.SettingsEmailTemplates_ToTitle));
+        NotifyCollectionChangedEventHandler recipientsChanged = (_, _) =>
+        {
+            if (_syncingRecipients || _toBox is not { } box) return;
+            _syncingRecipients = true;
+            try
+            {
+                box.SetRecipients([.. ViewModel.TemplateToItems
+                    .Where(static c => !string.IsNullOrWhiteSpace(c.Address))
+                    .Select(static c => new RecipientToken(c.Address.Trim(), c.Name))]);
+            }
+            finally { _syncingRecipients = false; }
+        };
+        ViewModel.TemplateToItems.CollectionChanged += recipientsChanged;
+        Settings.Own(new ActionDisposable(() => ViewModel.TemplateToItems.CollectionChanged -= recipientsChanged));
+        recipientsChanged(ViewModel.TemplateToItems, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
 
         var editor = _editor = new WinoRichTextEditorView(new WinoRichTextEditorOptions(Fused: true, Highlight: true, Table: true, Emoji: true, ClearFormatting: false),
             Translator.SettingsEmailTemplates_ContentTitle, Dispatcher, launcher, preferences, translations, ReportError);

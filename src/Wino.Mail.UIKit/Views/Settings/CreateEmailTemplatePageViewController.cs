@@ -1,12 +1,17 @@
+using System.Collections.Specialized;
 using UIKit;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Validation;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Views.Dialogs;
+using Wino.Mail.UIKit.Views.Mail.Compose;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Views.Settings;
@@ -31,10 +36,12 @@ public sealed class CreateEmailTemplatePageViewController(
 
     private WinoRichTextEditorView? _editor;
     private UITextField? _nameField;
+    private ComposeRecipientField? _toField;
     private UIButton? _save;
     private UIButton? _delete;
     private bool _busy;
     private bool _editorDisposed;
+    private bool _syncingRecipients;
 
     public string? PageTitle => !string.IsNullOrWhiteSpace(ViewModel.TemplateName)
         ? ViewModel.TemplateName.Trim()
@@ -70,6 +77,39 @@ public sealed class CreateEmailTemplatePageViewController(
         WinoAccessibility.Label(subjectField, Translator.SettingsEmailTemplates_SubjectTitle);
         subjectField.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
         Add(StackedCard(Translator.SettingsEmailTemplates_SubjectTitle, Translator.SettingsEmailTemplates_SubjectDescription, WinoIconGlyph.Mail, subjectField));
+
+        var toField = _toField = new ComposeRecipientField(Translator.SettingsEmailTemplates_ToTitle);
+        toField.CommitRequested += (_, text) => CommitTemplateTo(text);
+        toField.ReturnPressed += (_, _) => CommitTemplateTo(toField.TypedText);
+        toField.EditingEnded += (_, _) =>
+        {
+            if (ComposeRecipientRules.IsCompleteAddress(toField.TypedText))
+                CommitTemplateTo(toField.TypedText);
+        };
+        toField.RemoveRequested += (_, contact) =>
+        {
+            if (_syncingRecipients) return;
+            ViewModel.TemplateToItems.Remove(contact);
+        };
+        NotifyCollectionChangedEventHandler recipientsChanged = (_, _) =>
+        {
+            if (_syncingRecipients || _toField is not { } field) return;
+            _syncingRecipients = true;
+            try { field.SetContacts(ViewModel.TemplateToItems); }
+            finally { _syncingRecipients = false; }
+        };
+        vm.TemplateToItems.CollectionChanged += recipientsChanged;
+        Bindings.Own(new ActionDisposable(() => vm.TemplateToItems.CollectionChanged -= recipientsChanged));
+        Add(StackedCard(Translator.SettingsEmailTemplates_ToTitle, Translator.SettingsEmailTemplates_ToDescription, WinoIconGlyph.People, toField));
+        recipientsChanged(vm.TemplateToItems, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+
+        var signaturePopUp = Bind.PopUp<CreateEmailTemplatePageViewModel, EmailTemplateSignaturePickerItem>(vm,
+            source => source.SignaturePickerItems, item => item.DisplayName,
+            nameof(vm.SelectedSignatureItem), source => source.SelectedSignatureItem, (source, value) => source.SelectedSignatureItem = value,
+            itemsProperty: nameof(vm.SignaturePickerItems));
+        WinoAccessibility.Label(signaturePopUp, Translator.SettingsEmailTemplates_SignatureTitle);
+        signaturePopUp.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
+        Add(StackedCard(Translator.SettingsEmailTemplates_SignatureTitle, Translator.SettingsEmailTemplates_SignatureDescription, WinoIconGlyph.Signature, signaturePopUp));
 
         // ---- Template content ----
         var contentTitle = WinoStyle.Label(Translator.SettingsEmailTemplates_ContentTitle, WinoSettingsStyle.SectionTitle, WinoStyle.PrimaryText);
@@ -180,6 +220,8 @@ public sealed class CreateEmailTemplatePageViewController(
         try
         {
             View?.EndEditing(true);
+            if (_toField is { } to && ComposeRecipientRules.IsCompleteAddress(to.TypedText))
+                CommitTemplateTo(to.TypedText);
             var html = await editor.GetHtmlBodyAsync() ?? string.Empty;
             await ViewModel.SaveAsync(html);
         }
@@ -224,5 +266,35 @@ public sealed class CreateEmailTemplatePageViewController(
         try { await operation; }
         catch (ObjectDisposedException) { }
         catch (Exception exception) { ReportError(exception); }
+    }
+
+    private void CommitTemplateTo(string? text)
+    {
+        if (_toField is not { } field) return;
+        var typed = text?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(typed))
+        {
+            field.ClearTypedText();
+            return;
+        }
+
+        if (!ComposeRecipientRules.TryParseTyped(typed, out var address, out var name)
+            || !MailAccountAddressValidator.IsValid(address))
+        {
+            ViewModel.NotifyInvalidEmail(typed);
+            return;
+        }
+
+        if (!ViewModel.TryAddRecipient(new AccountContact
+            {
+                Address = address,
+                Name = name ?? string.Empty,
+                DisplayName = string.IsNullOrWhiteSpace(name) ? address : name
+            }))
+        {
+            ViewModel.NotifyAddressExists();
+        }
+
+        field.ClearTypedText();
     }
 }

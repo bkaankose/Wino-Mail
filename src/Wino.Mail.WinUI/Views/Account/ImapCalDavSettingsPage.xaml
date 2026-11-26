@@ -158,6 +158,22 @@
             </StackPanel>
         </StackPanel>
 
+        <!--  ============ Protocol (IMAP / POP3) before Features / Sign in / Servers ============  -->
+        <controls:SettingsCard
+            Margin="0,8,0,0"
+            AutomationProperties.AutomationId="ImapSetupProtocolCard"
+            Description="{x:Bind domain:Translator.ImapSetup_ProtocolDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ImapSetup_ProtocolTitle, Mode=OneTime}"
+            IsClickEnabled="False"
+            Visibility="{x:Bind ViewModel.IsProtocolSelectionVisible, Mode=OneWay}">
+            <ComboBox
+                MinWidth="160"
+                AutomationProperties.AutomationId="ImapSetupProtocolComboBox"
+                AutomationProperties.Name="{x:Bind domain:Translator.ImapSetup_ProtocolTitle, Mode=OneTime}"
+                ItemsSource="{x:Bind ViewModel.AvailableProtocolDisplayNames}"
+                SelectedIndex="{x:Bind ViewModel.SelectedProtocolIndex, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
         <!--  ============ Features (adding an account before the apps were chosen) ============  -->
         <StackPanel
             Margin="0,8,0,0"

@@ -1,12 +1,20 @@
+using System.Collections.Specialized;
+using Android.Text;
 using Android.Views;
+using Android.Views.InputMethods;
 using Android.Widget;
 using Google.Android.Material.Button;
+using Google.Android.Material.Chip;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Validation;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Android.Views.Dialogs;
+using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 
 namespace Wino.Mail.Android.Views.Settings.GeneralAndMail;
@@ -28,10 +36,13 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
 
     private WinoHtmlTextEditor? _editor;
     private EditText? _nameField;
+    private ChipGroup? _toChips;
+    private EditText? _toInput;
     private MaterialButton? _save;
     private MaterialButton? _delete;
     private bool _busy;
     private bool _editorReady;
+    private bool _syncingRecipients;
 
     public string? PageTitle => ViewModel is not { } vm
         ? null
@@ -87,6 +98,15 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
         if (subjectLayout.EditText is { } subjectField) subjectField.ContentDescription = Translator.SettingsEmailTemplates_SubjectTitle;
         Add(StackedCard(Translator.SettingsEmailTemplates_SubjectTitle, Translator.SettingsEmailTemplates_SubjectDescription, WinoIconGlyph.Mail, subjectLayout));
 
+        Add(StackedCard(Translator.SettingsEmailTemplates_ToTitle, Translator.SettingsEmailTemplates_ToDescription, WinoIconGlyph.People, BuildToRecipientsEditor(vm)));
+
+        var signaturePopUp = Bind.PopUp<CreateEmailTemplatePageViewModel, EmailTemplateSignaturePickerItem>(vm,
+            source => source.SignaturePickerItems, item => item.DisplayName,
+            nameof(vm.SelectedSignatureItem), source => source.SelectedSignatureItem, (source, value) => source.SelectedSignatureItem = value,
+            itemsProperty: nameof(vm.SignaturePickerItems));
+        signaturePopUp.ContentDescription = Translator.SettingsEmailTemplates_SignatureTitle;
+        Add(StackedCard(Translator.SettingsEmailTemplates_SignatureTitle, Translator.SettingsEmailTemplates_SignatureDescription, WinoIconGlyph.Signature, signaturePopUp));
+
         // ---- Template content ----
         var contentTitle = Text(Translator.SettingsEmailTemplates_ContentTitle, WinoTextStyle.BodyLargeStrong);
         AndroidX.Core.View.ViewCompat.SetAccessibilityHeading(contentTitle, true);
@@ -122,6 +142,8 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
         {
             _editor = null;
             _nameField = null;
+            _toChips = null;
+            _toInput = null;
             _save = null;
             _delete = null;
             _editorReady = false;
@@ -185,6 +207,104 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
         if (_delete is { } delete) delete.Enabled = !_busy;
     }
 
+    private View BuildToRecipientsEditor(CreateEmailTemplatePageViewModel vm)
+    {
+        var chips = _toChips = new ChipGroup(Ctx) { SingleLine = false };
+        chips.ContentDescription = Translator.SettingsEmailTemplates_ToTitle;
+        var input = _toInput = new EditText(Ctx)
+        {
+            Hint = Translator.ComposerToPlaceholder,
+            ContentDescription = Translator.SettingsEmailTemplates_ToTitle,
+            InputType = InputTypes.TextVariationEmailAddress | InputTypes.TextFlagNoSuggestions,
+            ImeOptions = ImeAction.Done
+        };
+        input.SetSingleLine(true);
+        input.EditorAction += (_, args) =>
+        {
+            if (args.ActionId is ImeAction.Done or ImeAction.Next or ImeAction.Go)
+            {
+                CommitTypedTo();
+                args.Handled = true;
+            }
+        };
+        input.TextChanged += (_, _) =>
+        {
+            var text = input.Text ?? string.Empty;
+            var index = text.IndexOfAny([',', ';']);
+            if (index < 0) return;
+            var part = text[..index];
+            input.Text = text[(index + 1)..].TrimStart();
+            input.SetSelection(input.Text?.Length ?? 0);
+            CommitTypedTo(part);
+        };
+
+        NotifyCollectionChangedEventHandler changed = (_, _) => RefreshToChips();
+        vm.TemplateToItems.CollectionChanged += changed;
+        Bindings.Own(new ActionDisposable(() =>
+        {
+            vm.TemplateToItems.CollectionChanged -= changed;
+            _toChips = null;
+            _toInput = null;
+        }));
+        RefreshToChips();
+
+        var stack = Stack(WinoTokens.Px(Ctx, Resource.Dimension.wino_space_xs), chips, input);
+        return stack;
+    }
+
+    private void RefreshToChips()
+    {
+        if (_toChips is not { } chips || _syncingRecipients) return;
+        _syncingRecipients = true;
+        try
+        {
+            chips.RemoveAllViews();
+            foreach (var contact in VM.TemplateToItems.Where(static c => !string.IsNullOrWhiteSpace(c.Address)))
+            {
+                var label = string.IsNullOrWhiteSpace(contact.Name) ? contact.Address : contact.Name;
+                var chip = WinoChips.Input(Ctx, label, contact.Address);
+                chip.ContentDescription = string.IsNullOrWhiteSpace(contact.Name) || contact.Name == contact.Address
+                    ? contact.Address
+                    : $"{contact.Name}, {contact.Address}";
+                chip.CloseIconContentDescription = $"{Translator.Buttons_Remove} {label}";
+                var captured = contact;
+                chip.CloseIconClick += (_, _) => VM.TemplateToItems.Remove(captured);
+                chips.AddView(chip);
+            }
+        }
+        finally { _syncingRecipients = false; }
+    }
+
+    private void CommitTypedTo(string? overrideText = null)
+    {
+        if (_toInput is not { } input) return;
+        var typed = (overrideText ?? input.Text)?.Trim().TrimEnd(',', ';').Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(typed))
+        {
+            if (overrideText is null) input.Text = string.Empty;
+            return;
+        }
+
+        if (!ComposeRecipientRules.TryParseTyped(typed, out var address, out var name)
+            || !MailAccountAddressValidator.IsValid(address))
+        {
+            VM.NotifyInvalidEmail(typed);
+            return;
+        }
+
+        if (!VM.TryAddRecipient(new AccountContact
+            {
+                Address = address,
+                Name = name ?? string.Empty,
+                DisplayName = string.IsNullOrWhiteSpace(name) ? address : name
+            }))
+        {
+            VM.NotifyAddressExists();
+        }
+
+        if (overrideText is null) input.Text = string.Empty;
+    }
+
     /// <summary>The ViewModel validates the name (warning info bar), saves and goes back.</summary>
     private async Task SaveAsync()
     {
@@ -193,6 +313,7 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
         Refresh();
         try
         {
+            CommitTypedTo();
             if (await editor.GetHtmlAsync() is not { } html) return;
             if (Entry is { } entry) entry.State[HtmlKey] = html;
             await VM.SaveAsync(html);

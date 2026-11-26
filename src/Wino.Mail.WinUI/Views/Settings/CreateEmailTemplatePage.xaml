@@ -11,8 +11,18 @@
     xmlns:winuiControls="using:Wino.Mail.WinUI.Controls"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Styles/ComposeRecipientBoxStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
+
     <Grid RowSpacing="12">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -58,7 +68,44 @@
                 Text="{x:Bind ViewModel.TemplateSubject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </controls:SettingsCard>
 
-        <StackPanel Grid.Row="3" Spacing="8">
+        <controls:SettingsCard
+            Grid.Row="3"
+            AutomationProperties.AutomationId="TemplateToSettingsCard"
+            Description="{x:Bind domain:Translator.SettingsEmailTemplates_ToDescription}"
+            Header="{x:Bind domain:Translator.SettingsEmailTemplates_ToTitle}"
+            IsClickEnabled="False">
+            <controls:TokenizingTextBox
+                x:Name="TemplateToBox"
+                MinWidth="280"
+                MaxWidth="480"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="TemplateToBox"
+                ItemContainerStyleSelector="{StaticResource ComposeRecipientItemStyleSelector}"
+                ItemsSource="{x:Bind ViewModel.TemplateToItems, Mode=OneTime}"
+                LostFocus="TemplateToLostFocus"
+                PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
+                SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
+                TokenDelimiter=";"
+                TokenItemAdded="TemplateToTokenItemAdded"
+                TokenItemAdding="TemplateToTokenItemAdding"
+                TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            Grid.Row="4"
+            AutomationProperties.AutomationId="TemplateSignatureSettingsCard"
+            Description="{x:Bind domain:Translator.SettingsEmailTemplates_SignatureDescription}"
+            Header="{x:Bind domain:Translator.SettingsEmailTemplates_SignatureTitle}"
+            IsClickEnabled="False">
+            <ComboBox
+                x:Name="TemplateSignatureComboBox"
+                MinWidth="240"
+                AutomationProperties.AutomationId="TemplateSignatureComboBox"
+                ItemsSource="{x:Bind ViewModel.SignaturePickerItems, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedSignatureItem, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <StackPanel Grid.Row="5" Spacing="8">
             <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsEmailTemplates_ContentTitle}" />
             <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.SettingsEmailTemplates_ContentDescription}" />
             <winuiControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind TemplateEditor.Session}" />
@@ -76,7 +123,7 @@
         </StackPanel>
 
         <StackPanel
-            Grid.Row="4"
+            Grid.Row="6"
             HorizontalAlignment="Right"
             Orientation="Horizontal"
             Spacing="8">
