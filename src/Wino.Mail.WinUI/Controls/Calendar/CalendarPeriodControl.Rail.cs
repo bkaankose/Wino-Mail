@@ -201,6 +201,7 @@ public sealed partial class CalendarPeriodControl
         SizeStructureCanvases();
         UpdateAllDayHeight();
         InvalidateAllCanvases();
+        UpdateCurrentTimeLine();
     }
 
     /// <summary>
@@ -473,6 +474,7 @@ public sealed partial class CalendarPeriodControl
 
         timedUnit.Assign(unitIndex, dates, rangeStart, rangeEnd);
         timedUnit.HeaderText.Text = GetTimedHeaderText(dates[0]);
+        ApplyTodayHeaderStyle(timedUnit);
         timedUnit.Header.Visibility = Visibility.Visible;
         timedUnit.AllDayCanvas.Visibility = Visibility.Visible;
         timedUnit.BodyCanvas.Visibility = Visibility.Visible;
