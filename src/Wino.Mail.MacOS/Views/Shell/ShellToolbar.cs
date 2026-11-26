@@ -377,17 +377,30 @@ internal sealed class ShellToolbar : NSToolbarDelegate
             case AccountId:
                 _accountItem = Button(AccountId, WinoIconGlyph.Person, Translator.WinoAccount_Titlebar_SignedOutTitle, null);
                 var view = (NSButton)_accountItem.View!;
-                if ((NSImage.ImageNamed("AppIcon") ?? NSApplication.SharedApplication.ApplicationIconImage)?.Copy() is NSImage logo)
-                {
-                    logo.Size = new CGSize(22, 22);
-                    view.Image = logo;
-                }
+                if ((NSImage.ImageNamed("AppIcon") ?? NSApplication.SharedApplication.ApplicationIconImage) is NSImage logo)
+                    view.Image = AccountButtonImage(logo);
                 view.Activated += (_, _) => Safe(() => _account(view));
                 if (SupportsHiddenItems) _accountItem.Hidden = _accountHidden;
                 return _accountItem;
         }
         return new NSToolbarItem(itemIdentifier);
     }
+
+    // The app icon's transparent edges let the toolbar's glass show through, so it sits on an opaque plate. The image
+    // draws itself each time, so the plate's dynamic colours follow the light and dark appearance.
+    private static NSImage AccountButtonImage(NSImage logo)
+        => NSImage.ImageWithSize(new CGSize(24, 24), false, rect =>
+        {
+            var plate = new CGRect(rect.X + 0.5, rect.Y + 0.5, rect.Width - 1, rect.Height - 1);
+            var path = NSBezierPath.FromRoundedRect(plate, 6, 6);
+            NSColor.ControlBackground.SetFill();
+            path.Fill();
+            NSColor.Separator.SetStroke();
+            path.LineWidth = 0.5f;
+            path.Stroke();
+            logo.Draw(new CGRect(rect.X + 2, rect.Y + 2, rect.Width - 4, rect.Height - 4), CGRect.Empty, NSCompositingOperation.SourceOver, 1);
+            return true;
+        });
 
     /// <summary>A bordered toolbar button drawing a Wino glyph (17pt, like the Windows 22px viewbox at Mac density).</summary>
     private NSToolbarItem Button(string id, WinoIconGlyph glyph, string label, Action? action)
