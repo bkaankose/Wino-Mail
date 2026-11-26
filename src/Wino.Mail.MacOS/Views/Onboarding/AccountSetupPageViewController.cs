@@ -70,6 +70,9 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         SubscribeToViewModel();
     }
 
+    private static AccountSetupStep SectionOf(AccountSetupStep step)
+        => step == AccountSetupStep.ServerKind ? AccountSetupStep.SignInMethod : step;
+
     private void AddSection(NSStackView host, AccountSetupStep step, NSView section)
     {
         _sections[step] = section;
@@ -204,7 +207,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
     {
         var vm = ViewModel;
 
-        var advanced = Link(Translator.AccountSetup_AdvancedSetup, vm.OpenAdvancedSetupCommand);
+        var advanced = Link(Translator.AccountSetup_AdvancedSetup, vm.ChooseServerKindCommand);
         var local = Link(Translator.AccountSetup_LocalAccountSetup, vm.StartLocalOnlyCommand);
         var info = new NSButton
         {
@@ -321,12 +324,14 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
     private void ShowStep(AccountSetupStep step)
     {
         _shownStep = step;
-        foreach (var (key, section) in _sections) section.Hidden = key != step;
+        var shownSection = SectionOf(step);
+        foreach (var (key, section) in _sections) section.Hidden = key != shownSection;
         _logo.Hidden = step != AccountSetupStep.Address;
         _columnWidth = step == AccountSetupStep.Review ? ReviewWidth : StepWidth;
         _columnWidthConstraint.Constant = (nfloat)_columnWidth;
         foreach (var (label, inset) in _wrapping) label.PreferredMaxLayoutWidth = (nfloat)(_columnWidth - inset);
         foreach (var row in _appRowViews) row.SetWrapWidth(_columnWidth);
+        foreach (var card in _choiceCards) card.SetWrapWidth(_columnWidth);
         if (_scroll.DocumentView is { } document) document.ScrollPoint(CGPoint.Empty);
         QueueFocus();
     }
@@ -345,7 +350,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
     private NSView? FocusTarget() => ViewModel.Step switch
     {
         AccountSetupStep.Address => ViewModel.IsLocalOnlyMode ? _localName : _email,
-        AccountSetupStep.SignInMethod => _choiceCards.FirstOrDefault(card => card.IsSelected) ?? _choiceCards.FirstOrDefault(),
+        AccountSetupStep.ServerKind or AccountSetupStep.SignInMethod => _choiceCards.FirstOrDefault(card => card.IsSelected) ?? _choiceCards.FirstOrDefault(),
         AccountSetupStep.SignIn => new NSView?[] { _browserSignIn, _password, _exchangePassword }.FirstOrDefault(view => view is not null && IsShown(view)),
         _ => null
     };

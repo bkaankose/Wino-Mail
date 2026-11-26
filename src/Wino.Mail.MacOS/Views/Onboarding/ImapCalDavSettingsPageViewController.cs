@@ -367,20 +367,43 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
 
     /// <summary>
     /// Adding an account before its apps were chosen (Windows ImapCalDavSettingsPage Features step): the capability
-    /// cards, shown only while the setup starts on Features.
+    /// cards with the download range under Mail, shown only while the setup starts on Features.
     /// </summary>
     private NSView BuildFeaturesStep()
     {
         var vm = ViewModel;
-        var picker = new AccountCapabilityPicker(vm.Capabilities, () => Translator.ProviderSelection_ModeImap, null, Bindings, Dispatcher, ReportError);
-        var missing = WinoStyle.Label(Translator.ProviderSelection_CapabilityValidationMessage, WinoStyle.Caption, WinoStyle.Critical, 0);
         var capabilities = new FormBinder<AccountCapabilitySelection>(vm.Capabilities, Bindings, Dispatcher, ReportError);
+        var picker = new AccountCapabilityPicker(vm.Capabilities, () => Translator.ProviderSelection_ModeImap, BuildMailRange(capabilities), Bindings, Dispatcher, ReportError);
+        var missing = WinoStyle.Label(Translator.ProviderSelection_CapabilityValidationMessage, WinoStyle.Caption, WinoStyle.Critical, 0);
         capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);
         var column = WinoLayout.VStack(WinoStyle.Space3, picker, missing);
         foreach (var view in column.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
         var group = OnboardingPageView.Section(Translator.ImapSetup_FeaturesGroup, column);
         _form.Visible(group, nameof(vm.IsFeaturesStepVisible), s => s.IsFeaturesStepVisible);
         return group;
+    }
+
+    /// <summary>How much mail is downloaded first, with the Everything warning, as on the provider selection page.</summary>
+    private NSView BuildMailRange(FormBinder<AccountCapabilitySelection> capabilities)
+    {
+        var vm = ViewModel;
+        var range = _form.PopUp(vm.InitialSynchronizationRanges.Select(option => option.DisplayText), nameof(vm.SelectedInitialSynchronizationRange),
+            s => s.SelectedInitialSynchronizationRange is { } selected ? s.InitialSynchronizationRanges.IndexOf(selected) : -1,
+            (s, index) => { if (index >= 0 && index < s.InitialSynchronizationRanges.Count) s.SelectedInitialSynchronizationRange = s.InitialSynchronizationRanges[index]; },
+            Translator.AccountCreation_InitialSynchronization_Title);
+        range.WidthAnchor.ConstraintGreaterThanOrEqualTo(160).Active = true;
+        capabilities.Bind(nameof(AccountCapabilitySelection.IsMailEnabled), s => s.IsMailEnabled, enabled => range.Enabled = enabled);
+        var rangeDescription = WinoStyle.Label(vm.MailRangeDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        _form.Label(rangeDescription, nameof(vm.MailRangeDescription), s => s.MailRangeDescription);
+        var rangeText = WinoLayout.VStack(2, WinoStyle.Label(Translator.ProviderSelection_MailRangeHeader, WinoStyle.Body), rangeDescription);
+        rangeText.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
+        var rangeRow = WinoLayout.HStack(WinoStyle.Space4, rangeText, range);
+        var everythingWarning = new WinoInfoBar(WinoInfoBarSeverity.Warning, Translator.GeneralTitle_Warning, Translator.AccountCreation_InitialSynchronization_EverythingWarning);
+        _form.Visible(everythingWarning, nameof(vm.IsInitialSynchronizationWarningVisible), s => s.IsInitialSynchronizationWarningVisible);
+        var mailOptions = WinoLayout.VStack(WinoStyle.Space3, rangeRow, everythingWarning);
+        rangeRow.WidthAnchor.ConstraintEqualTo(mailOptions.WidthAnchor).Active = true;
+        everythingWarning.WidthAnchor.ConstraintEqualTo(mailOptions.WidthAnchor).Active = true;
+        return mailOptions;
     }
 
     /// <summary>Editing an account: the sign-in shared by every server, a password or the secure sign-in.</summary>

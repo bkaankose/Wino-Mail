@@ -255,8 +255,9 @@ internal sealed class AccountSetupShelfItemView : WinoSurfaceView
 }
 
 /// <summary>
-/// One row of the sign-in method list (Windows AccountSetupChoiceTemplate in a single-selection ItemsView): a card with
-/// the option's label and its "(recommended)" caption, outlined in the accent colour when selected.
+/// One row of the sign-in method and server kind lists (Windows AccountSetupChoiceTemplate in a single-selection
+/// ItemsView): a card with the option's mark when it has one, its label, its "(recommended)" caption and its
+/// description, outlined in the accent colour when selected.
 /// </summary>
 internal sealed class AccountSetupChoiceCard : WinoPressableView
 {
@@ -272,10 +273,18 @@ internal sealed class AccountSetupChoiceCard : WinoPressableView
         var label = WinoStyle.Label(choice.Label, WinoStyle.Body, WinoStyle.PrimaryText, 0);
         var caption = WinoStyle.Label(choice.Caption, WinoStyle.Description, WinoStyle.SecondaryText, 0);
         caption.Hidden = !choice.HasCaption;
-        var text = WinoLayout.VStack(2, label, caption);
+        var description = WinoStyle.Label(choice.Description, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        description.Hidden = !choice.HasDescription;
+        var text = WinoLayout.VStack(2, label, caption, description);
         text.Alignment = UIStackViewAlignment.Leading;
         WinoLayout.Size(_check, 18, 18);
         var row = WinoLayout.HStack(WinoStyle.Space3, text, WinoLayout.Spacer(), _check);
+        if (choice.HasGlyph)
+        {
+            var mark = new WinoIconView(choice.Glyph, 20) { IsAccessibilityElement = false };
+            WinoLayout.Size(mark, 24, 24);
+            row.InsertArrangedSubview(mark, 0);
+        }
         row.Alignment = UIStackViewAlignment.Center;
         AddSubview(row);
         NSLayoutConstraint.ActivateConstraints(

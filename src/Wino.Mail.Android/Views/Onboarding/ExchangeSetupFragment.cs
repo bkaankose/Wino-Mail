@@ -83,7 +83,8 @@ public sealed class ExchangeSetupFragment : WinoFragment<ExchangeSettingsPageVie
             {
                 if (index >= 0 && index < vm.TransportOptions.Count) vm.SelectedTransport = vm.TransportOptions[index];
             });
-        form.Help(Translator.ExchangeSetup_TransportDescription);
+        form.Help(viewModel.SelectedTransportDescription, nameof(viewModel.SelectedTransportDescription), vm => vm.SelectedTransportDescription)
+            .AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
     }
 
     private static void BuildSignInStage(OnboardingForm<ExchangeSettingsPageViewModel> form, ExchangeSettingsPageViewModel viewModel)

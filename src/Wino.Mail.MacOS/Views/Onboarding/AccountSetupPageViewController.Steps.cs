@@ -212,10 +212,15 @@ public sealed partial class AccountSetupPageViewController
 
     #region Sign-in method
 
+    /// <summary>The sign-in method and the server kind (Advanced setup) steps share this list of choice cards.</summary>
     private NSView BuildSignInMethodStep()
     {
-        WinoAccessibility.Label(_choices, Translator.AccountSetup_SignInOptionsHeader);
         _choices.AccessibilityRole = NSAccessibilityRoles.RadioGroupRole;
+        _appliers.Add(() =>
+        {
+            var label = ViewModel.Step == AccountSetupStep.ServerKind ? ViewModel.StepTitle : Translator.AccountSetup_SignInOptionsHeader;
+            if (_choices.AccessibilityLabel != label) WinoAccessibility.Label(_choices, label);
+        });
         _appliers.Add(RenderChoices);
         var caption = Wrap(AccountSetupUi.Caption());
         Text(caption, s => s.StepCaption);
@@ -238,6 +243,7 @@ public sealed partial class AccountSetupPageViewController
             foreach (var choice in vm.StepChoices)
             {
                 var card = new AccountSetupChoiceCard(choice);
+                card.SetWrapWidth(_columnWidth);
                 card.Pressed += (_, _) => ViewModel.SelectedChoice = card.Choice;
                 card.Moved += (_, delta) => MoveChoice(card, delta);
                 _choiceCards.Add(card);

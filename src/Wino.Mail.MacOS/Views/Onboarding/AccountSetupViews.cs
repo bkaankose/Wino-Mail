@@ -151,11 +151,16 @@ internal sealed class AccountSetupShelfItemView : WinoSurfaceView
 }
 
 /// <summary>
-/// One row of the sign-in method list (Windows AccountSetupChoiceTemplate in a single-selection ItemsView): a card with
-/// the option's label and its "(recommended)" caption, outlined in the accent colour when selected.
+/// One row of the sign-in method and server kind lists (Windows AccountSetupChoiceTemplate in a single-selection
+/// ItemsView): a card with the option's mark when it has one, its label and "(recommended)" caption, and the sentence
+/// under them, outlined in the accent colour when selected.
 /// </summary>
 internal sealed class AccountSetupChoiceCard : WinoSurfaceView
 {
+    private const double Padding = 12;
+    private const double GlyphSize = 20;
+    private const double GlyphGap = 12;
+    private readonly NSTextField _description;
     private bool _isSelected;
 
     public AccountSetupChoiceCard(AccountSetupChoice choice)
@@ -167,16 +172,25 @@ internal sealed class AccountSetupChoiceCard : WinoSurfaceView
         var label = WinoStyle.Label(choice.Label, WinoStyle.Body);
         var caption = WinoStyle.Label(choice.Caption, WinoStyle.Description, WinoStyle.SecondaryText);
         caption.Hidden = !choice.HasCaption;
-        var row = WinoLayout.HStack(6, label, caption);
-        row.Alignment = NSLayoutAttribute.FirstBaseline;
-        AddSubview(row);
+        var title = WinoLayout.HStack(6, label, caption);
+        title.Alignment = NSLayoutAttribute.FirstBaseline;
+        _description = WinoStyle.Label(choice.Description, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        _description.Hidden = !choice.HasDescription;
+        NSView content = WinoLayout.VStack(2, title, _description);
+        if (choice.HasGlyph)
+        {
+            var icon = new WinoIconView(choice.Glyph, GlyphSize);
+            WinoLayout.Size(icon, GlyphSize, GlyphSize);
+            content = WinoLayout.HStack(GlyphGap, icon, content);
+        }
+        AddSubview(content);
         NSLayoutConstraint.ActivateConstraints(
         [
             HeightAnchor.ConstraintGreaterThanOrEqualTo(40),
-            row.LeadingAnchor.ConstraintEqualTo(LeadingAnchor, 12),
-            row.TrailingAnchor.ConstraintLessThanOrEqualTo(TrailingAnchor, -12),
-            row.CenterYAnchor.ConstraintEqualTo(CenterYAnchor),
-            row.TopAnchor.ConstraintGreaterThanOrEqualTo(TopAnchor, 8)
+            content.LeadingAnchor.ConstraintEqualTo(LeadingAnchor, (nfloat)Padding),
+            content.TrailingAnchor.ConstraintLessThanOrEqualTo(TrailingAnchor, (nfloat)(-Padding)),
+            content.CenterYAnchor.ConstraintEqualTo(CenterYAnchor),
+            content.TopAnchor.ConstraintGreaterThanOrEqualTo(TopAnchor, 8)
         ]);
         AccessibilityElement = true;
         AccessibilityRole = NSAccessibilityRoles.RadioButtonRole;
@@ -187,6 +201,9 @@ internal sealed class AccountSetupChoiceCard : WinoSurfaceView
     public AccountSetupChoice Choice { get; }
     public event EventHandler? Pressed;
     public event EventHandler<int>? Moved;
+
+    public void SetWrapWidth(double width)
+        => _description.PreferredMaxLayoutWidth = (nfloat)Math.Max(0, width - 2 * Padding - (Choice.HasGlyph ? GlyphSize + GlyphGap : 0));
 
     public bool IsSelected
     {

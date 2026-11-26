@@ -85,7 +85,9 @@ public sealed class ExchangeSettingsPageViewController(ExchangeSettingsPageViewM
             nameof(vm.SelectedTransport), s => s.SelectedTransport is { } selected ? s.TransportOptions.IndexOf(selected) : 0,
             (s, index) => { if (index >= 0 && index < s.TransportOptions.Count) s.SelectedTransport = s.TransportOptions[index]; },
             Translator.ExchangeSetup_TransportHeader));
-        grid.Row((string?)null, FormGrid.Help(Translator.ExchangeSetup_TransportDescription));
+        var transportDescription = FormGrid.Help();
+        form.Label(transportDescription, nameof(vm.SelectedTransportDescription), s => s.SelectedTransportDescription);
+        grid.Row((string?)null, transportDescription);
 
         var group = OnboardingPageView.Group(null, grid);
         form.Visible(group, nameof(vm.IsServerStageVisible), s => s.IsServerStageVisible);

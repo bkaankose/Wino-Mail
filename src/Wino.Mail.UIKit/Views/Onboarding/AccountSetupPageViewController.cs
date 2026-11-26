@@ -202,7 +202,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
     private UIView BuildSetupLinks()
     {
         var vm = ViewModel;
-        var advanced = Link(Translator.AccountSetup_AdvancedSetup, vm.OpenAdvancedSetupCommand);
+        var advanced = Link(Translator.AccountSetup_AdvancedSetup, vm.ChooseServerKindCommand);
         var local = Link(Translator.AccountSetup_LocalAccountSetup, vm.StartLocalOnlyCommand);
         var infoConfiguration = UIButtonConfiguration.PlainButtonConfiguration;
         infoConfiguration.Image = WinoIcons.Image(WinoIconGlyph.Info, 16, WinoStyle.SecondaryText, Translator.AccountSetup_LocalAccountSetup);
@@ -387,7 +387,8 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
     {
         var previous = _shownStep;
         _shownStep = step;
-        foreach (var (key, section) in _sections) section.Hidden = key != step;
+        var sectionStep = step == AccountSetupStep.ServerKind ? AccountSetupStep.SignInMethod : step;
+        foreach (var (key, section) in _sections) section.Hidden = key != sectionStep;
         _logo.Hidden = step != AccountSetupStep.Address;
         _columnWidth.Constant = (nfloat)(step == AccountSetupStep.Review ? ReviewWidth : StepWidth);
         ClosePopover();
@@ -400,7 +401,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         QueueFocus();
     }
 
-    /// <summary>After a step appears, the keyboard goes to its first field: the address, a local account's name or the password.</summary>
+    /// <summary>After a step appears, the keyboard goes to its first field: the address, the password, or the name of a local account, which opens on the review.</summary>
     private void QueueFocus()
     {
         BeginInvokeOnMainThread(() =>
@@ -414,6 +415,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
     private UITextField? FocusTarget() => ViewModel.Step switch
     {
         AccountSetupStep.Address => ViewModel.IsLocalOnlyMode ? _localName : _email,
+        AccountSetupStep.Review when ViewModel.IsLocalOnlyMode => _reviewName,
         AccountSetupStep.SignIn => new UITextField?[] { _password, _exchangePassword }.FirstOrDefault(field => field is not null && IsShown(field)),
         _ => null
     };

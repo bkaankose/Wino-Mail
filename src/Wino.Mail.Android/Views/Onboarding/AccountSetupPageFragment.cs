@@ -24,7 +24,7 @@ namespace Wino.Mail.Android.Views.Onboarding;
 /// <summary>
 /// Address-first Add account (Windows AccountSetupPage, the shared <see cref="AccountSetupPageViewModel"/>): one centred
 /// column with the account pill with Change, the step's question and description, the current step, then Back and the
-/// step's action. The steps (address, discovery, sign-in method, sign-in, review, progress) are built once and follow
+/// step's action. The steps (address, server kind, discovery, sign-in method, sign-in, review, progress) are built once and follow
 /// <see cref="AccountSetupPageViewModel.Step"/>; every rule stays in the ViewModel. Flyouts on Windows (colour, provider picker, Change menu, local account info) are
 /// Material dialogs and a popup menu here.
 /// </summary>
@@ -56,7 +56,7 @@ public sealed partial class AccountSetupPageFragment : WinoFragment<AccountSetup
             var form = new OnboardingForm<AccountSetupPageViewModel>(context, host, binder, viewModel);
             form.GroupWhen(vm => vm.Step == AccountSetupStep.Address, () => BuildAddressStep(form, viewModel));
             form.GroupWhen(vm => vm.Step == AccountSetupStep.Discovery, () => BuildDiscoveryStep(form, viewModel));
-            form.GroupWhen(vm => vm.Step == AccountSetupStep.SignInMethod, () => BuildSignInMethodStep(form, viewModel));
+            form.GroupWhen(vm => vm.Step is AccountSetupStep.ServerKind or AccountSetupStep.SignInMethod, () => BuildSignInMethodStep(form, viewModel));
             form.GroupWhen(vm => vm.Step == AccountSetupStep.SignIn, () => BuildSignInStep(form, viewModel));
             form.GroupWhen(vm => vm.Step == AccountSetupStep.Review, () => BuildReviewStep(form, viewModel));
             form.GroupWhen(vm => vm.Step == AccountSetupStep.Progress, () => BuildProgressStep(form, viewModel));
@@ -256,7 +256,7 @@ public sealed partial class AccountSetupPageFragment : WinoFragment<AccountSetup
         if (view.FindViewById<MaterialButton>(Resource.Id.setup_page_advanced) is { } advanced)
         {
             advanced.Text = Translator.AccountSetup_AdvancedSetup;
-            binder.Command(advanced, viewModel.OpenAdvancedSetupCommand);
+            binder.Command(advanced, viewModel.ChooseServerKindCommand);
         }
         if (view.FindViewById<MaterialButton>(Resource.Id.setup_page_local) is { } local)
         {

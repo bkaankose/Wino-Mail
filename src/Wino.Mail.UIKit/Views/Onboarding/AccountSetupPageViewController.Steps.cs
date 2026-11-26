@@ -28,6 +28,7 @@ public sealed partial class AccountSetupPageViewController
     private readonly UIStackView _resultRows = AccountSetupUi.Column(0);
     private UITextField _email = null!;
     private UITextField _localName = null!;
+    private UITextField _reviewName = null!;
     private UITextField? _password;
     private UITextField? _exchangePassword;
     private List<AccountSetupProviderShelfItem>? _shownShelf;
@@ -232,8 +233,9 @@ public sealed partial class AccountSetupPageViewController
 
     #endregion
 
-    #region Sign-in method
+    #region Sign-in method and server kind
 
+    /// <summary>The sign-in method and server kind steps share this list, as on Windows (AccountSetupStepTemplateSelector).</summary>
     private UIView BuildSignInMethodStep()
     {
         _choices.AccessibilityLabel = Translator.AccountSetup_SignInOptionsHeader;
@@ -516,6 +518,7 @@ public sealed partial class AccountSetupPageViewController
         When(pop3, s => s.IsPop3NoticeVisible);
 
         var (nameRow, nameField) = BuildNameRow();
+        _reviewName = nameField;
         SubmitOnReturn(nameField);
         var nameError = AccountSetupUi.Error();
         Text(nameError, s => s.AccountNameError);
