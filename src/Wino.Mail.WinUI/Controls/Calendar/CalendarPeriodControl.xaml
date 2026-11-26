@@ -55,6 +55,10 @@
                 TextAlignment="Center" />
         </DataTemplate>
 
+        <Style x:Key="TodayTimedHeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+        </Style>
+
         <ItemsPanelTemplate x:Key="HorizontalItemsPanel">
             <StackPanel Orientation="Horizontal" />
         </ItemsPanelTemplate>
@@ -204,32 +208,26 @@
                                         Draw="TimedStructureCanvasDraw"
                                         IsHitTestVisible="False" />
                                 </Grid>
-                            </Canvas>
-                        </Grid>
 
-                        <Grid
-                            x:Name="CurrentTimeLine"
-                            Grid.ColumnSpan="2"
-                            Height="8"
-                            VerticalAlignment="Top"
-                            IsHitTestVisible="False"
-                            Visibility="Collapsed">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="64" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Rectangle
-                                Grid.Column="1"
-                                Height="2"
-                                VerticalAlignment="Center"
-                                Fill="{ThemeResource AccentFillColorDefaultBrush}" />
-                            <Ellipse
-                                Grid.Column="1"
-                                Width="8"
-                                Height="8"
-                                Margin="-4,0,0,0"
-                                HorizontalAlignment="Left"
-                                Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                                <!--  Rides the rail inside today's column only, so it never marks another day.  -->
+                                <Grid
+                                    x:Name="CurrentTimeLine"
+                                    Height="8"
+                                    Canvas.ZIndex="1"
+                                    IsHitTestVisible="False"
+                                    Visibility="Collapsed">
+                                    <Rectangle
+                                        x:Name="CurrentTimeLineBar"
+                                        Height="2"
+                                        VerticalAlignment="Center"
+                                        Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                                    <Ellipse
+                                        Width="8"
+                                        Height="8"
+                                        HorizontalAlignment="Left"
+                                        Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                                </Grid>
+                            </Canvas>
                         </Grid>
                     </Grid>
                 </ScrollViewer>

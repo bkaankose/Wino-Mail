@@ -557,6 +557,16 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var height = (float)sender.ActualHeight;
         var dayWidth = (float)_unitSize;
 
+        var todayIndex = FindWindowDateIndex(_today);
+        if (todayIndex >= 0)
+        {
+            var accentColor = ToColor(CurrentTimeLineBar.Fill);
+            var todayX = dayWidth * todayIndex;
+
+            drawingSession.FillRectangle(todayX, 0, dayWidth, height, Color.FromArgb(TodayFillAlpha, accentColor.R, accentColor.G, accentColor.B));
+            drawingSession.FillRectangle(todayX, height - TodayHeaderBarHeight, dayWidth, TodayHeaderBarHeight, accentColor);
+        }
+
         for (var index = 1; index < _windowDates.Count; index++)
         {
             var x = (dayWidth * index) - BoundaryLineInset;
@@ -698,9 +708,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         var cellWidth = (float)_monthCellWidth;
         var cellHeight = (float)_unitSize;
         var rowCount = _windowDates.Count / MonthCalendarLayoutCalculator.ColumnCount;
-        var today = DateOnly.FromDateTime(DateTime.Now.Date);
-
-        var todayIndex = FindWindowDateIndex(today);
+        var todayIndex = FindWindowDateIndex(_today);
         if (todayIndex >= 0)
         {
             drawingSession.FillRectangle(GetMonthCellRect(todayIndex), todayColor);

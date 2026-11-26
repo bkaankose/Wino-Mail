@@ -1,6 +1,9 @@
 using System;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using WinRT;
+using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Mail.WinUI.Controls.Calendar;
 
@@ -8,9 +11,12 @@ public sealed partial class CalendarPeriodControl
 {
     private static readonly TimeSpan CurrentTimeRefreshInterval = TimeSpan.FromSeconds(30);
     private const double CurrentTimeLineHalfHeight = 4d;
+    private const byte TodayFillAlpha = 26;
+    private const float TodayHeaderBarHeight = 2f;
 
     private DispatcherQueueTimer? _currentTimeTimer;
     private bool _isTimedScrollPositioned;
+    private DateOnly _today = DateOnly.FromDateTime(DateTime.Now);
 
     private void StartCurrentTimeTimer()
     {
@@ -44,15 +50,55 @@ public sealed partial class CalendarPeriodControl
 
     private void UpdateCurrentTimeLine()
     {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+
+        if (today != _today)
+        {
+            _today = today;
+            ApplyTodayHeaderStyles();
+            InvalidateAllCanvases();
+        }
+
+        var todayUnit = 0;
         var isVisible = !IsMonthRail &&
-                        _space is not null &&
-                        CalendarSettings?.IsCurrentTimeLineEnabled == true;
+                        _space is CalendarRailSpace space &&
+                        _unitSize > 0d &&
+                        CalendarSettings?.IsCurrentTimeLineEnabled == true &&
+                        space.GetUnitStartDate(todayUnit = space.GetUnitIndex(today)) == today &&
+                        todayUnit >= _windowStart &&
+                        todayUnit < _windowStart + _windowCount;
 
         CurrentTimeLine.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
 
         if (isVisible)
         {
-            CurrentTimeLine.Margin = new Thickness(0, Math.Max(0d, GetCurrentTimeOffset() - CurrentTimeLineHalfHeight), 0, 0);
+            Canvas.SetLeft(CurrentTimeLine, (todayUnit - _originUnit) * _unitSize);
+            Canvas.SetTop(CurrentTimeLine, Math.Max(0d, GetCurrentTimeOffset() - CurrentTimeLineHalfHeight));
+            CurrentTimeLine.Width = _unitSize;
+        }
+    }
+
+    private void ApplyTodayHeaderStyles()
+    {
+        foreach (var unit in _units.Values)
+        {
+            if (unit is TimedRailUnit timedUnit)
+            {
+                ApplyTodayHeaderStyle(timedUnit);
+            }
+        }
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(Style))]
+    private void ApplyTodayHeaderStyle(TimedRailUnit unit)
+    {
+        if (unit.Dates.Count > 0 && unit.Dates[0] == _today)
+        {
+            unit.HeaderText.Style = (Style)Resources["TodayTimedHeaderTextStyle"];
+        }
+        else
+        {
+            unit.HeaderText.ClearValue(FrameworkElement.StyleProperty);
         }
     }
 
