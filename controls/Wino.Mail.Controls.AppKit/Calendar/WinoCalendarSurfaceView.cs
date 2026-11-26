@@ -844,16 +844,16 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             for (int index = firstColumn; index <= Math.Min(dates.Count, lastColumn + 1); index++)
                 FillRect(new CGRect(Math.Round(HourColumnWidth + index * dayWidth) - 1, 0, 1, bounds.Height));
 
-            // Current time across the period that holds today.
-            if (Owner.TodaySpan() is { } span)
+            // Current time in today's column only, so it never reads as another day's.
+            if (Owner.TodayColumn() is { } todayColumn)
             {
                 var now = DateTime.Now;
                 double y = top + now.TimeOfDay.TotalHours * hourHeight;
+                double x = HourColumnWidth + todayColumn * dayWidth;
                 _lastNowY = y;
                 NowColor.SetFill();
-                FillRect(new CGRect(HourColumnWidth + span.First * dayWidth, y - 1, span.Count * dayWidth, 2));
-                if (span.TodayIndex >= 0)
-                    NSBezierPath.FromOvalInRect(new CGRect(HourColumnWidth + span.TodayIndex * dayWidth, y - 5, 10, 10)).Fill();
+                FillRect(new CGRect(x, y - 1, dayWidth, 2));
+                NSBezierPath.FromOvalInRect(new CGRect(x, y - 5, 10, 10)).Fill();
             }
             Owner.DrawTimedSelection();
         }

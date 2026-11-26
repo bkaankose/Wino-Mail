@@ -635,7 +635,7 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
             // The current time on today's column (drawn live, so it keeps moving).
             var now = DateTime.Now;
             int todayIndex = WinoCalendarSurfaceGeometry.IndexOf(_owner.Dates, DateOnly.FromDateTime(now));
-            if (todayIndex >= 0)
+            if (todayIndex >= 0 && _owner._settings?.IsCurrentTimeLineEnabled != false)
             {
                 float y = padding + (float)now.TimeOfDay.TotalHours * hour;
                 float x = todayIndex * dayWidth;

@@ -174,7 +174,7 @@ public sealed partial class WinoCalendarSurface
     /// <summary>One day column: shading, the 30-minute grid, its leading line, the current-time line of today's period.</summary>
     private void DrawTimedColumn(Cairo.Context cr, TimedColumn column, int height)
     {
-        if (IsMonth || _space is not { } space) return;
+        if (IsMonth || _space is null) return;
         var palette = Palette;
         var hourHeight = HourHeight;
         var dayWidth = DayWidth;
@@ -218,24 +218,15 @@ public sealed partial class WinoCalendarSurface
         cr.Rectangle(-1, 0, 1, height);
         cr.Fill();
 
-        if (settings?.IsCurrentTimeLineEnabled != false)
+        // Current time in today's column only, so it never reads as another day's.
+        if (settings?.IsCurrentTimeLineEnabled != false && date == Today())
         {
-            var today = Today();
-            var todayUnit = space.GetUnitIndex(today);
-            var unit = space.GetUnitIndex(date);
-            var periodStart = space.SnapAtOrBefore(todayUnit);
-            if (space.GetUnitStartDate(todayUnit) == today && unit >= periodStart && unit < periodStart + space.VisibleUnitCount)
-            {
-                var y = top + DateTime.Now.TimeOfDay.TotalHours * hourHeight;
-                palette.Now.Use(cr);
-                cr.Rectangle(-1, y - 1, dayWidth + 1, 2);
-                cr.Fill();
-                if (date == today)
-                {
-                    cr.Arc(5, y, 5, 0, 2 * Math.PI);
-                    cr.Fill();
-                }
-            }
+            var y = top + DateTime.Now.TimeOfDay.TotalHours * hourHeight;
+            palette.Now.Use(cr);
+            cr.Rectangle(-1, y - 1, dayWidth + 1, 2);
+            cr.Fill();
+            cr.Arc(5, y, 5, 0, 2 * Math.PI);
+            cr.Fill();
         }
         cr.Translate(-(HourColumnWidth + column.Index * dayWidth), 0);
         DrawSelection(cr, CalendarStrip.Timed);

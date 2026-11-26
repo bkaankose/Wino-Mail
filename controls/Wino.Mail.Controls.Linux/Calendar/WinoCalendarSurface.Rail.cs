@@ -255,19 +255,14 @@ public sealed partial class WinoCalendarSurface
         _monthGrid.QueueDraw();
     }
 
-    /// <summary>The realized columns of the period that holds today (the current-time line spans it) and today's index; null when today is not realized.</summary>
-    internal (int First, int Count, int TodayIndex)? TodaySpan()
+    /// <summary>Today's index among the realized dates, where the current-time line is drawn; null when today is not realized.</summary>
+    internal int? TodayColumn()
     {
         if (_space is not { } space || IsMonth || _windowCount == 0) return null;
         var today = Today();
         var unit = space.GetUnitIndex(today);
         if (space.GetUnitStartDate(unit) != today) return null;
-        var periodStart = space.SnapAtOrBefore(unit);
-        var first = Math.Max(periodStart, _windowStart);
-        var end = Math.Min(periodStart + space.VisibleUnitCount, _windowStart + _windowCount);
-        if (end <= first) return null;
-        var todayIndex = unit >= _windowStart && unit < _windowStart + _windowCount ? unit - _windowStart : -1;
-        return (first - _windowStart, end - first, todayIndex);
+        return unit >= _windowStart && unit < _windowStart + _windowCount ? unit - _windowStart : null;
     }
 
     /// <summary>Lays the window out again only when a change touches a realized unit (or a shown item); moves change nothing.</summary>

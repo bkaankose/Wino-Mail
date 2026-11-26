@@ -161,21 +161,16 @@ public sealed partial class WinoCalendarSurfaceView
     }
 
     /// <summary>
-    /// The realized columns of the period that holds today (the current-time line spans it) and today's index among the
-    /// realized dates; null when today is not realized.
+    /// Today's index among the realized dates, where the current-time line is drawn; null when today is not realized (or
+    /// is a day the work week leaves out) or the line is turned off.
     /// </summary>
-    internal (int First, int Count, int TodayIndex)? TodaySpan()
+    internal int? TodayColumn()
     {
-        if (_space is not { } space || IsMonth || _windowCount == 0) return null;
+        if (_space is not { } space || IsMonth || _windowCount == 0 || _settings?.IsCurrentTimeLineEnabled == false) return null;
         var today = Today();
         int unit = space.GetUnitIndex(today);
         if (space.GetUnitStartDate(unit) != today) return null;
-        int periodStart = space.SnapAtOrBefore(unit);
-        int first = Math.Max(periodStart, _windowStart);
-        int end = Math.Min(periodStart + space.VisibleUnitCount, _windowStart + _windowCount);
-        if (end <= first) return null;
-        int todayIndex = unit >= _windowStart && unit < _windowStart + _windowCount ? unit - _windowStart : -1;
-        return (first - _windowStart, end - first, todayIndex);
+        return unit >= _windowStart && unit < _windowStart + _windowCount ? unit - _windowStart : null;
     }
 
     private void ItemsChanged(object? sender, NotifyCollectionChangedEventArgs args)

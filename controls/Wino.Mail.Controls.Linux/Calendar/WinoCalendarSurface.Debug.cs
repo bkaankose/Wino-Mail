@@ -44,7 +44,7 @@ public sealed partial class WinoCalendarSurface
         Describe(text, _allDayLayer, _allDayOverlay, null);
         Describe(text, _timedLayer, _timedOverlay, expected);
         Describe(text, _monthLayer, _monthStrip, null);
-        text.Append(CultureInfo.InvariantCulture, $"now={NowLineY:0.#} todaySpan={TodaySpan()?.ToString() ?? "-"}").AppendLine();
+        text.Append(CultureInfo.InvariantCulture, $"now={NowLineY:0.#} todayColumn={TodayColumn()?.ToString(CultureInfo.InvariantCulture) ?? "-"}").AppendLine();
         return text.ToString();
     }
 
