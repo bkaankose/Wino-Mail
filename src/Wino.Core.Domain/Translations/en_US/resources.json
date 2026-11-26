@@ -3839,6 +3839,7 @@
   "SemanticIndex_MessagesBeingIndexed_Singular": "{0:N0} message is being indexed",
   "SemanticIndex_MessagesBeingIndexed_Plural": "{0:N0} messages are being indexed",
   "SemanticIndex_MessagesBeingIndexed_Unknown": "Indexing messages…",
+  "SemanticIndex_MessagesProgress": "{0:N0} of {1:N0} messages indexed",
   "SemanticIndex_OperationDeleting": "Deleting indexed data…",
   "Intelligence_QuotaExceeded": "This month's allowance is used up. It resets on your renewal date.",
   "Intelligence_ResultKeyLost": "This device could no longer read this indexed data, so it was discarded. Index the messages again to get new results.",

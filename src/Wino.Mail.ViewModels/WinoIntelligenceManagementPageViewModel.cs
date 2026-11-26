@@ -216,12 +216,9 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(StatusInfoBarType))]
     public partial MailIntelligenceJobStatus JobStatus { get; set; } = MailIntelligenceJobStatus.Idle;
 
-    /// <summary>How many jobs for this account are still being processed.</summary>
+    /// <summary>How many batches of this account's run are streaming right now.</summary>
     [ObservableProperty]
-    public partial int ActiveJobCount { get; set; }
-
-    /// <summary>Jobs still in flight, so the screen can show, retry and cancel each one.</summary>
-    public ObservableCollection<MailIntelligenceJobState> ActiveJobs { get; } = [];
+    public partial int ActiveBatchCount { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShouldShowEverythingWarning))]
@@ -1202,13 +1199,14 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     {
         JobStatus = snapshot.Status;
         IsJobActive = snapshot.IsActive;
-        ActiveJobCount = snapshot.ActiveJobCount;
+        ActiveBatchCount = snapshot.ActiveBatchCount;
 
-        // Progress is presented as indeterminate: the card states how many messages the job
-        // covers, never how many of them are done.
-        ProgressSummary = snapshot.IsActive || snapshot.SelectedMessageCount > 0
-            ? FormatMessagesBeingIndexed(snapshot.SelectedMessageCount)
-            : Translator.SemanticIndex_PlanEmpty;
+        // Results stream in per message, so the card counts the messages done once there are any.
+        ProgressSummary = snapshot.IsActive && snapshot.ProcessedMessageCount > 0 && snapshot.SelectedMessageCount > 0
+            ? string.Format(Translator.SemanticIndex_MessagesProgress, Math.Min(snapshot.ProcessedMessageCount, snapshot.SelectedMessageCount), snapshot.SelectedMessageCount)
+            : snapshot.IsActive || snapshot.SelectedMessageCount > 0
+                ? FormatMessagesBeingIndexed(snapshot.SelectedMessageCount)
+                : Translator.SemanticIndex_PlanEmpty;
 
         if (snapshot.Status == MailIntelligenceJobStatus.PausedForQuota)
         {

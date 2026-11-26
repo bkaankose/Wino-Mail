@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.WebSockets;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -51,7 +52,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly ITranslationService? _translationService;
     private readonly IWinoAccountSessionService _sessions;
     private readonly bool _ownsHttpClient;
-    private readonly int _maximumEncryptedAttempts;
     private readonly ILogger _logger = Log.ForContext<WinoAccountApiClient>();
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(10);
 
@@ -64,18 +64,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         IWinoAccountSessionService sessionService,
         HttpClient? httpClient = null,
         IContentEnvelopeEncryptor? contentEnvelopeEncryptor = null,
-        ITranslationService? translationService = null,
-        int maximumEncryptedAttempts = 5)
+        ITranslationService? translationService = null)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(maximumEncryptedAttempts, 1);
-
         _databaseService = databaseService;
         _credentialPersistence = credentialPersistence;
         _sessions = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
         _contentEnvelopeEncryptor = contentEnvelopeEncryptor ??
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load());
         _translationService = translationService;
-        _maximumEncryptedAttempts = maximumEncryptedAttempts;
 
         if (httpClient != null)
         {
@@ -529,74 +525,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     private const string MailIntelligenceRoot = "api/v2/ai/intelligence";
 
-    private static string MailIntelligenceJobsRoute(Guid mailboxId)
-        => $"{MailIntelligenceRoot}/mailboxes/{mailboxId:D}/jobs";
-
-    private static string MailIntelligenceJobRoute(Guid mailboxId, Guid jobId)
-        => $"{MailIntelligenceJobsRoute(mailboxId)}/{jobId:D}";
-
-    /// <summary>
-    /// Streams one encrypted SQLite upload. The job id and checksum make a retry
-    /// idempotent, so a dropped connection never produces a duplicate job.
-    /// </summary>
-    public async Task<MailIntelligenceJobAcceptedDto> SubmitMailIntelligenceJobAsync(
-        Guid mailboxId,
-        Guid jobId,
-        string checksum,
-        byte[] upload,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(upload);
-        var endpoint = $"{MailIntelligenceJobsRoute(mailboxId)}?jobId={jobId:D}&checksum={checksum}";
-
-        for (var attempt = 0; ; attempt++)
-        {
-            var isLastAttempt = attempt >= _maximumEncryptedAttempts - 1;
-            try
-            {
-                using var response = await SendAuthorizedAsync(
-                    () => CreateAuthorizedRequestAsync(
-                        HttpMethod.Post,
-                        endpoint,
-                        () =>
-                        {
-                            var content = new ByteArrayContent(upload);
-                            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-                            return content;
-                        }),
-                    cancellationToken).ConfigureAwait(false);
-
-                if (!isLastAttempt &&
-                    response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.BadGateway or
-                        HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                var envelope = await ReadEnvelopeAsync(
-                    response,
-                    WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobAcceptedDto,
-                    cancellationToken).ConfigureAwait(false);
-                return RequireResult(envelope, "Submitting the intelligence job failed.");
-            }
-            catch (WinoAccountApiException ex) when (ex.IsServiceUnavailable && !isLastAttempt)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
-            }
-        }
-    }
-
-    public async Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(
-        string? resultKeyId = null, CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            HttpMethod.Get,
-            string.IsNullOrEmpty(resultKeyId)
-                ? $"{MailIntelligenceRoot}/jobs"
-                : $"{MailIntelligenceRoot}/jobs?resultKeyId={Uri.EscapeDataString(resultKeyId)}",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobListDto,
-            cancellationToken).ConfigureAwait(false), "Listing intelligence jobs failed.");
-
     /// <summary>The server transport key uploads are encrypted to. Public material; bearer only.</summary>
     public async Task<IntelligenceTransportKeyDto> GetIntelligenceTransportKeyAsync(CancellationToken cancellationToken = default)
         => RequireResult(await SendAuthorizedRequestAsync(
@@ -605,85 +533,109 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceTransportKeyDto,
             cancellationToken).ConfigureAwait(false), "Loading the intelligence transport key failed.");
 
-    /// <summary>Returns null when the job is gone, which happens once both stages are acknowledged.</summary>
-    public async Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(
-        Guid mailboxId, Guid jobId, int waitSeconds = 0, CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<MailIntelligenceStreamFrameDto> StreamMailIntelligenceAsync(
+        Guid mailboxId,
+        MailIntelligenceStreamRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var route = waitSeconds > 0
-            ? $"{MailIntelligenceJobRoute(mailboxId, jobId)}?waitSeconds={waitSeconds}"
-            : MailIntelligenceJobRoute(mailboxId, jobId);
-        using var response = await SendAuthorizedAsync(
-            () => CreateAuthorizedRequestAsync(HttpMethod.Get, route),
-            cancellationToken).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(request);
 
-        if (response.StatusCode == HttpStatusCode.NotFound && !IsHtmlResponse(response))
+        var body = JsonSerializer.SerializeToUtf8Bytes(request, MailIntelligenceStreamJsonContext.Default.MailIntelligenceStreamRequest);
+        HttpResponseMessage response;
+        try
         {
-            return null;
+            if (body.Length > MailIntelligenceStreamLimits.MaxRequestBytes)
+            {
+                throw new WinoAccountApiException(ApiErrorCodes.IntelligenceUploadTooLarge, HttpStatusCode.RequestEntityTooLarge);
+            }
+
+            response = await SendAuthorizedAsync(
+                () => CreateAuthorizedRequestAsync(
+                    HttpMethod.Post,
+                    $"api/v3/ai/intelligence/mailboxes/{mailboxId:D}/messages:stream",
+                    () =>
+                    {
+                        var content = new ByteArrayContent(body);
+                        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                        return content;
+                    }),
+                cancellationToken,
+                HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(body);
         }
 
-        var envelope = await ReadEnvelopeAsync(
-            response,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobDto,
-            cancellationToken).ConfigureAwait(false);
-        return RequireResult(envelope, "Reading the intelligence job failed.");
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                throw await ReadStreamRefusalAsync(response, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (IsHtmlResponse(response))
+            {
+                throw NonApiResponse(response.StatusCode, null);
+            }
+
+            Stream stream;
+            try
+            {
+                stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException)
+            {
+                throw ServiceUnavailable(ex, response.StatusCode);
+            }
+
+            using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+            await foreach (var frame in MailIntelligenceStreamReader.ReadFramesAsync(reader, cancellationToken).ConfigureAwait(false))
+            {
+                yield return frame;
+            }
+        }
     }
 
     /// <summary>
-    /// Downloads one result page as its JSON bytes. A job bound to a device result key gets an
-    /// <see cref="EncryptedResultPageDto"/>; a job submitted before results were encrypted gets
-    /// the stage page itself.
+    /// The refusal of a stream request, before any frame. Unlike other intelligence calls the
+    /// error code is kept as is (quota included) and a 429 carries its Retry-After.
     /// </summary>
-    public async Task<byte[]> GetMailIntelligenceResultPageAsync(
-        Guid mailboxId,
-        Guid jobId,
-        string stage,
-        int page,
-        CancellationToken cancellationToken = default)
+    private async Task<WinoAccountApiException> ReadStreamRefusalAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        using var response = await SendAuthorizedAsync(
-            () => CreateAuthorizedRequestAsync(
-                HttpMethod.Get,
-                $"{MailIntelligenceJobRoute(mailboxId, jobId)}/results/{stage}?page={page}"),
-            cancellationToken).ConfigureAwait(false);
-        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
-
-        if (IsHtmlResponse(response))
+        var payload = await ReadPayloadAsync(response, cancellationToken).ConfigureAwait(false);
+        var retryAfter = response.Headers.RetryAfter switch
         {
-            throw NonApiResponse(response.StatusCode, null);
+            { Delta: { } delta } => delta,
+            { Date: { } date } => date - DateTimeOffset.UtcNow,
+            _ => (TimeSpan?)null,
+        };
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            return new WinoAccountApiException(ExtractErrorCode(payload) ?? ApiErrorCodes.RateLimited, response.StatusCode)
+            {
+                RetryAfter = retryAfter,
+            };
         }
 
-        byte[] content;
-        try
+        if (IsHtmlResponse(response) || (string.IsNullOrWhiteSpace(payload) && IsServiceFailureStatus(response.StatusCode)))
         {
-            content = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or IOException)
-        {
-            throw ServiceUnavailable(ex, response.StatusCode);
+            return NonApiResponse(response.StatusCode, null);
         }
 
-        if (content.Length == 0)
+        return new WinoAccountApiException(
+            ExtractErrorCode(payload) ?? FormatHttpStatus(response),
+            response.StatusCode)
         {
-            throw new InvalidOperationException($"The {stage} result page was empty.");
-        }
-
-        return content;
+            RetryAfter = retryAfter,
+        };
     }
 
-    public async Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
-        Guid mailboxId, Guid jobId, string stage, string digest, CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            HttpMethod.Post,
-            $"{MailIntelligenceJobRoute(mailboxId, jobId)}/results/{stage}:ack",
-            new MailIntelligenceStageAckRequest(digest),
-            WinoAccountApiJsonContext.Default.MailIntelligenceStageAckRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceStageAckResultDto,
-            cancellationToken).ConfigureAwait(false), "Acknowledging the intelligence stage failed.");
-
-    public async Task CancelMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default)
+    public async Task DeleteLegacyMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default)
     {
         using var response = await SendAuthorizedAsync(
-            () => CreateAuthorizedRequestAsync(HttpMethod.Delete, MailIntelligenceJobRoute(mailboxId, jobId)),
+            () => CreateAuthorizedRequestAsync(HttpMethod.Delete, $"{MailIntelligenceRoot}/mailboxes/{mailboxId:D}/jobs/{jobId:D}"),
             cancellationToken).ConfigureAwait(false);
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
@@ -1180,7 +1132,10 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     /// Sends a bearer request, refreshing the access token once on 401.
     /// Throws <see cref="WinoAccountApiException"/> when no account is signed in or the service cannot be reached.
     /// </summary>
-    private async Task<HttpResponseMessage> SendAuthorizedAsync(Func<Task<HttpRequestMessage?>> requestFactory, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendAuthorizedAsync(
+        Func<Task<HttpRequestMessage?>> requestFactory,
+        CancellationToken cancellationToken,
+        HttpCompletionOption completionOption = HttpCompletionOption.ResponseContentRead)
     {
         var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false)
             ?? throw WinoAccountApiException.SignInRequired();
@@ -1191,7 +1146,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         using var initialRequest = await requestFactory().ConfigureAwait(false)
             ?? throw WinoAccountApiException.SignInRequired();
 
-        var response = await SendAsync(initialRequest, cancellationToken).ConfigureAwait(false);
+        var response = await SendAsync(initialRequest, cancellationToken, completionOption).ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested)
         {
             response.Dispose();
@@ -1224,7 +1179,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         using var retryRequest = await requestFactory().ConfigureAwait(false)
             ?? throw WinoAccountApiException.SignInRequired();
 
-        var retryResponse = await SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
+        var retryResponse = await SendAsync(retryRequest, cancellationToken, completionOption).ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested)
         {
             retryResponse.Dispose();
@@ -1239,11 +1194,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     /// become <see cref="WinoAccountClientErrorCodes.ServiceUnavailable"/>; caller cancellation stays an
     /// <see cref="OperationCanceledException"/>.
     /// </summary>
-    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken,
+        HttpCompletionOption completionOption = HttpCompletionOption.ResponseContentRead)
     {
         try
         {
-            return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            return await _httpClient.SendAsync(request, completionOption, cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
@@ -1445,18 +1403,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ReplaceUserMailboxesRequestDto))]
 [JsonSerializable(typeof(List<UserMailboxSyncItemDto>))]
 [JsonSerializable(typeof(string[]))]
-[JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobAcceptedDto>))]
-[JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceTransportKeyDto>))]
-[JsonSerializable(typeof(EncryptedResultPageDto))]
-[JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobDto>))]
-[JsonSerializable(typeof(ApiEnvelope<MailIntelligenceStageAckResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AnalyzeMailResponseDto>))]
-[JsonSerializable(typeof(MailIntelligenceStageAckRequest))]
-[JsonSerializable(typeof(MailIntelligenceJobDto))]
-[JsonSerializable(typeof(MailIntelligenceStageStatusDto))]
-[JsonSerializable(typeof(ClassificationResultPageDto))]
-[JsonSerializable(typeof(EnrichmentResultPageDto))]
 [JsonSerializable(typeof(MailClassificationArtifactDto))]
 [JsonSerializable(typeof(MailEnrichmentArtifactDto))]
 [JsonSerializable(typeof(MailSmartAction))]

@@ -124,21 +124,26 @@ public interface IWinoAccountApiClient
     Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default);
     Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default);
     Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default);
-    // Mail intelligence. Jobs are submitted per mailbox; results are collected as two
-    // independently downloadable and independently acknowledged stages.
-    Task<MailIntelligenceJobAcceptedDto> SubmitMailIntelligenceJobAsync(
-        Guid mailboxId, Guid jobId, string checksum, byte[] upload, CancellationToken cancellationToken = default);
-    Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(string? resultKeyId = null, CancellationToken cancellationToken = default);
+    // Mail intelligence. A batch is sent in one request and its results come back on the same
+    // response; the server stores nothing.
     Task<IntelligenceTransportKeyDto> GetIntelligenceTransportKeyAsync(CancellationToken cancellationToken = default);
-    /// <param name="waitSeconds">
-    /// When above zero, the server holds the request until a stage can be downloaded or the job
-    /// ends (or the wait runs out), instead of answering at once.
-    /// </param>
-    Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, int waitSeconds = 0, CancellationToken cancellationToken = default);
-    Task<byte[]> GetMailIntelligenceResultPageAsync(Guid mailboxId, Guid jobId, string stage, int page, CancellationToken cancellationToken = default);
-    Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
-        Guid mailboxId, Guid jobId, string stage, string digest, CancellationToken cancellationToken = default);
-    Task CancelMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends one batch and yields the NDJSON frames of the response as they arrive. A refusal
+    /// before the stream starts throws <see cref="Exceptions.WinoAccountApiException"/> with the
+    /// API error code (and <c>RetryAfter</c> on a 429). Cancelling the token closes the request,
+    /// which is how the batch is cancelled on the server.
+    /// </summary>
+    IAsyncEnumerable<MailIntelligenceStreamFrameDto> StreamMailIntelligenceAsync(
+        Guid mailboxId, MailIntelligenceStreamRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a job an earlier build submitted with the v2 job protocol, so the server drops its
+    /// blobs now instead of at expiry. Only the upgrade cleanup calls it; remove it once no
+    /// installed build can still hold v2 job rows.
+    /// </summary>
+    Task DeleteLegacyMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
+
     Task<AnalyzeMailResponseDto> AnalyzeMailAsync(
         Guid mailboxId, byte[] encryptedEnvelope, string language, CancellationToken cancellationToken = default);
     Task<IntelligenceConsentDto> GetIntelligenceConsentAsync(CancellationToken cancellationToken = default);

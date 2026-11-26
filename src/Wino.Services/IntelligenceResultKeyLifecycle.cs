@@ -77,9 +77,9 @@ public sealed class IntelligenceResultKeyLifecycle :
                     break;
 
                 case IntelligenceResultKeyAction.Remove:
-                    // Jobs first, while the account may still have a token to delete them on
-                    // the server. Imported classifications and briefings are kept.
-                    await _coordinator.AbandonJobsAsync(cancellationToken).ConfigureAwait(false);
+                    // Running batches first, so no result arrives for a key about to be deleted.
+                    // Imported classifications and briefings are kept.
+                    await _coordinator.CancelAllAsync(cancellationToken).ConfigureAwait(false);
                     await _keys.DeleteAllAsync(cancellationToken).ConfigureAwait(false);
                     _messenger.Send(new WinoIntelligenceAccessChanged());
                     break;

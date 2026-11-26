@@ -9,22 +9,22 @@ namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
 /// Device-local intelligence storage. Holds Classification and Enrichment artifacts keyed by account,
-/// remote message id and content hash, plus the jobs this device is waiting on.
+/// remote message id and content hash.
 /// It never stores mail bodies or embeddings.
 /// </summary>
 public interface IMailIntelligenceStore : IInitializeAsync
 {
     bool DatabaseExists { get; }
 
-    // Jobs.
-    Task UpsertJobAsync(MailIntelligenceJobState job, CancellationToken cancellationToken = default);
-    Task<MailIntelligenceJobState?> GetJobAsync(Guid jobId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<MailIntelligenceJobState>> GetUnfinishedJobsAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<MailIntelligenceJobState>> GetJobsForAccountAsync(Guid localAccountId, CancellationToken cancellationToken = default);
-    Task DeleteJobAsync(Guid jobId, CancellationToken cancellationToken = default);
+    // Jobs an earlier build submitted with the v2 job protocol. Removable once no installed
+    // build can still hold them.
+    Task<IReadOnlyList<LegacyMailIntelligenceJob>> GetLegacyJobsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Forgets these legacy jobs, and drops their table once none is left.</summary>
+    Task DeleteLegacyJobsAsync(IReadOnlyCollection<Guid> jobIds, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Imports one Classification page in a single transaction. An artifact whose hash does not match
+    /// Imports Classification artifacts in a single transaction. An artifact whose hash does not match
     /// the caller's desired hash for that message is skipped rather than stored.
     /// </summary>
     Task<MailIntelligenceImportResult> ImportClassificationPageAsync(
@@ -34,16 +34,13 @@ public interface IMailIntelligenceStore : IInitializeAsync
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Imports one Enrichment page in its own transaction, separate from Classification.</summary>
+    /// <summary>Imports Enrichment artifacts in their own transaction, separate from Classification.</summary>
     Task<MailIntelligenceImportResult> ImportEnrichmentPageAsync(
         Guid localAccountId,
         IReadOnlyList<EnrichmentArtifact> artifacts,
         IReadOnlyList<MailIntelligenceItemFailure> failures,
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default);
-
-    Task MarkStageImportedAsync(Guid jobId, MailIntelligenceStageKind stage, CancellationToken cancellationToken = default);
-    Task MarkStageAcknowledgedAsync(Guid jobId, MailIntelligenceStageKind stage, CancellationToken cancellationToken = default);
 
     // Artifacts.
     Task<IReadOnlyDictionary<string, ClassificationArtifact>> GetClassificationArtifactsAsync(

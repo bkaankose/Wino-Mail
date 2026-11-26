@@ -76,51 +76,6 @@ public sealed class EnrichmentArtifactRow
 }
 
 /// <summary>
-/// A submitted job this device is waiting on. Persisted so polling resumes after a
-/// restart and so multiple jobs for one mailbox can coexist.
-/// </summary>
-[Table("MailIntelligenceJob")]
-public sealed class MailIntelligenceJobRow
-{
-    [PrimaryKey]
-    public Guid JobId { get; set; }
-
-    [Indexed]
-    public Guid LocalAccountId { get; set; }
-
-    public Guid MailboxId { get; set; }
-    public int MessageCount { get; set; }
-
-    public string Status { get; set; } = "pending";
-
-    public string ClassificationStatus { get; set; } = "pending";
-    public int ClassificationPageCount { get; set; }
-    public string? ClassificationDigest { get; set; }
-    public bool IsClassificationImported { get; set; }
-    public bool IsClassificationAcknowledged { get; set; }
-
-    public string EnrichmentStatus { get; set; } = "pending";
-    public int EnrichmentPageCount { get; set; }
-    public string? EnrichmentDigest { get; set; }
-    public bool IsEnrichmentImported { get; set; }
-    public bool IsEnrichmentAcknowledged { get; set; }
-
-    public int FailedCount { get; set; }
-    public string? LastError { get; set; }
-
-    /// <summary>
-    /// The device result key this job's results are encrypted to. Null only for a job
-    /// submitted before results were encrypted, whose pages the server still sends as JSON.
-    /// </summary>
-    public string? ResultKeyId { get; set; }
-
-    public DateTime CreatedUtc { get; set; }
-    public DateTime UpdatedUtc { get; set; }
-
-    public bool IsComplete => IsClassificationAcknowledged && IsEnrichmentAcknowledged;
-}
-
-/// <summary>
 /// A briefing card the user dismissed. Keyed by message identity plus content hash, so a
 /// message whose content changed comes back rather than staying hidden.
 /// </summary>
