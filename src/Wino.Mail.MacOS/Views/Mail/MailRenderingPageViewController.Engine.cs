@@ -37,7 +37,8 @@ public sealed partial class MailRenderingPageViewController : IMailMessageReader
         _mailView.LinkActivated += MailView_LinkActivated;
         _mailView.LinkHoverChanged += MailView_LinkHoverChanged;
         _mailView.ContextMenuRequested += MailView_ContextMenuRequested;
-        _mailView.AddGestureRecognizer(new NSClickGestureRecognizer(MailView_Clicked));
+        // The engine needs the primary press and release itself: a click recognizer that delays them swallows a click on a reply row.
+        _mailView.AddGestureRecognizer(new NSClickGestureRecognizer(MailView_Clicked) { DelaysPrimaryMouseButtonEvents = false });
         _reader.FoldRowTemplate = AppKitFoldRowTemplate.Instance;
         _reader.InsightsChanged += Reader_InsightsChanged;
         _reader.Attach();
