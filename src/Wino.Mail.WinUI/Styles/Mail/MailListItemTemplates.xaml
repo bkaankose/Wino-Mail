@@ -40,6 +40,14 @@
             Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}" />
     </DataTemplate>
 
+    <DataTemplate x:Key="MailCategoryIndicatorTemplate" x:DataType="mail:MailCategory">
+        <Ellipse
+            Width="8"
+            Height="8"
+            VerticalAlignment="Center"
+            Fill="{x:Bind winuiHelpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}" />
+    </DataTemplate>
+
     <!--
         Intelligence metadata shares the category tile shape so a row reads as one strip of tiles.
         The leading mark is what separates it from a category: a per-kind glyph where the tile has
@@ -230,6 +238,20 @@
                             VerticalAlignment="Center"
                             x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                             ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
+                        <ItemsControl
+                            x:Name="CategoryIndicatorsItemsControl"
+                            VerticalAlignment="Center"
+                            x:Load="{x:Bind winuiHelpers:XamlHelpers.ShouldShowMailCategoryIndicators(HasCategories), Mode=OneWay}"
+                            AutomationProperties.Name="{x:Bind CategoryIndicatorsText, Mode=OneWay}"
+                            ItemTemplate="{StaticResource MailCategoryIndicatorTemplate}"
+                            ItemsSource="{x:Bind Categories, Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind CategoryIndicatorsText, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="3" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
                         <ContentPresenter
                             x:Name="FlaggedSymbolPresenter"
                             VerticalAlignment="Center"
@@ -388,6 +410,20 @@
                             VerticalAlignment="Center"
                             x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                             ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
+                        <ItemsControl
+                            x:Name="CategoryIndicatorsItemsControl"
+                            VerticalAlignment="Center"
+                            x:Load="{x:Bind winuiHelpers:XamlHelpers.ShouldShowMailCategoryIndicators(HasCategories), Mode=OneWay}"
+                            AutomationProperties.Name="{x:Bind CategoryIndicatorsText, Mode=OneWay}"
+                            ItemTemplate="{StaticResource MailCategoryIndicatorTemplate}"
+                            ItemsSource="{x:Bind Categories, Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind CategoryIndicatorsText, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="3" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
                         <ContentPresenter
                             x:Name="FlaggedSymbolPresenter"
                             VerticalAlignment="Center"
@@ -572,6 +608,20 @@
                                 VerticalAlignment="Center"
                                 x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                                 ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
+                            <ItemsControl
+                                x:Name="CategoryIndicatorsItemsControl"
+                                VerticalAlignment="Center"
+                                x:Load="{x:Bind winuiHelpers:XamlHelpers.ShouldShowMailCategoryIndicators(HasCategories), Mode=OneWay}"
+                                AutomationProperties.Name="{x:Bind CategoryIndicatorsText, Mode=OneWay}"
+                                ItemTemplate="{StaticResource MailCategoryIndicatorTemplate}"
+                                ItemsSource="{x:Bind Categories, Mode=OneWay}"
+                                ToolTipService.ToolTip="{x:Bind CategoryIndicatorsText, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="3" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
                             <ContentPresenter
                                 x:Name="FlaggedSymbolPresenter"
                                 VerticalAlignment="Center"

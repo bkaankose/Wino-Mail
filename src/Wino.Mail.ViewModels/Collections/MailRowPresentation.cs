@@ -111,9 +111,22 @@ public static class MailRowPresentation
                string.Equals(mail.FromAddress.Trim(), accountAddress.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>True when a detailed row needs the extra tile line (categories or intelligence tiles).</summary>
+    /// <summary>True when a detailed row needs the extra tile line for intelligence tiles.</summary>
     public static bool HasTiles(MailListRow row)
-        => Leaves(row).Any(static leaf => leaf.HasCategories || leaf.HasRowIntelligenceTiles);
+        => Leaves(row).Any(static leaf => leaf.HasRowIntelligenceTiles);
+
+    /// <summary>
+    /// The categories (Gmail labels included) a row shows as color dots next to its flag, distinct across a
+    /// thread's leaves. Empty when the user turned the dots off.
+    /// </summary>
+    public static List<MailCategory> CategoryIndicators(MailListRow row, bool isEnabled)
+        => isEnabled
+            ? [.. Leaves(row).SelectMany(static leaf => leaf.Categories).Where(static category => category is not null).DistinctBy(static category => category.Id)]
+            : [];
+
+    /// <summary>The names behind a row's category dots, for a tooltip or a screen reader.</summary>
+    public static string CategoryIndicatorsText(IEnumerable<MailCategory> categories)
+        => string.Join(", ", categories.Select(static category => category.Name).Where(static name => !string.IsNullOrWhiteSpace(name)));
 
     /// <summary>The row's text and aggregated state; null when the row does not stand for a mail item.</summary>
     public static MailRowContent? Describe(MailListRow row, TimeFormatPreference timeFormat = TimeFormatPreference.UseLanguageCulture, bool alwaysShowSenderAddress = false)

@@ -242,6 +242,17 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard
+                AutomationProperties.AutomationId="MessageListPageCategoryIndicatorsSettingsCard"
+                Description="{x:Bind domain:Translator.SettingsMailListCategoryIndicators_Description}"
+                Header="{x:Bind domain:Translator.SettingsMailListCategoryIndicators_Title}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Tag" />
+                </controls:SettingsCard.HeaderIcon>
+
+                <ToggleSwitch AutomationProperties.AutomationId="MessageListPageCategoryIndicatorsToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsMailListCategoryIndicatorsEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard
                 AutomationProperties.AutomationId="MessageListPageTimeFormatSettingsCard"
                 Description="{x:Bind domain:Translator.SettingsTimeFormat_Description, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.SettingsTimeFormat_Title, Mode=OneTime}">

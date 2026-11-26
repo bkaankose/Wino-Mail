@@ -65,6 +65,7 @@ public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailI
     [NotifyPropertyChangedFor(nameof(SenderContact))]
     [NotifyPropertyChangedFor(nameof(Categories))]
     [NotifyPropertyChangedFor(nameof(HasCategories))]
+    [NotifyPropertyChangedFor(nameof(CategoryIndicatorsText))]
     [NotifyPropertyChangedFor(nameof(IntelligenceTiles))]
     [NotifyPropertyChangedFor(nameof(HasIntelligenceTiles))]
     [NotifyPropertyChangedFor(nameof(RowIntelligenceTiles))]
@@ -239,25 +240,15 @@ public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailI
     public bool HasRowIntelligenceTiles => CanShowIntelligence && RowIntelligenceTiles.Count > 0;
 
     /// <summary>
-    /// Intelligence metadata and categories in one list so a mail row renders both through a single
-    /// items control. Categories lead, so intelligence tiles trail them and wrap underneath once the
-    /// line runs out. <see cref="Categories"/> stays category-only because it is written back to
-    /// <see cref="MailCopy"/>.
+    /// The intelligence tiles of a mail row as a concrete list for an items source. Categories are not
+    /// part of it: a row shows them as color dots next to the flag (<see cref="Categories"/>).
     /// </summary>
-    public List<object> RowTiles
-    {
-        get
-        {
-            var tiles = RowIntelligenceTiles;
-            var items = new List<object>(tiles.Count + Categories.Count);
-            items.AddRange(Categories);
-            items.AddRange(tiles);
+    public List<object> RowTiles => [.. RowIntelligenceTiles];
 
-            return items;
-        }
-    }
+    public bool HasRowTiles => HasRowIntelligenceTiles;
 
-    public bool HasRowTiles => HasRowIntelligenceTiles || HasCategories;
+    /// <summary>The names behind a row's category dots, for their tooltip and screen readers.</summary>
+    public string CategoryIndicatorsText => Collections.MailRowPresentation.CategoryIndicatorsText(Categories.Where(static category => category is not null));
 
     public void RefreshIntelligenceTiles()
     {
@@ -294,8 +285,7 @@ public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailI
 
         OnPropertyChanged(nameof(Categories));
         OnPropertyChanged(nameof(HasCategories));
-        OnPropertyChanged(nameof(RowTiles));
-        OnPropertyChanged(nameof(HasRowTiles));
+        OnPropertyChanged(nameof(CategoryIndicatorsText));
     }
 
     private void ReplaceCategoryItems(IEnumerable<MailCategory> categories)
@@ -323,8 +313,7 @@ public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailI
 
         OnPropertyChanged(nameof(Categories));
         OnPropertyChanged(nameof(HasCategories));
-        OnPropertyChanged(nameof(RowTiles));
-        OnPropertyChanged(nameof(HasRowTiles));
+        OnPropertyChanged(nameof(CategoryIndicatorsText));
     }
 
     public string DraftId
@@ -472,10 +461,10 @@ public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailI
             nameof(FolderId) => MailCopyChangeFlags.FolderId,
             nameof(UniqueId) => MailCopyChangeFlags.UniqueId,
             nameof(ContactPictureFileId) or nameof(SenderContact) => MailCopyChangeFlags.SenderContact,
-            nameof(Categories) or nameof(HasCategories) => MailCopyChangeFlags.Categories,
+            nameof(Categories) or nameof(HasCategories) or nameof(CategoryIndicatorsText) => MailCopyChangeFlags.Categories,
             nameof(IntelligenceTiles) or nameof(HasIntelligenceTiles) => MailCopyChangeFlags.IntelligenceMetadata,
             nameof(RowIntelligenceTiles) or nameof(HasRowIntelligenceTiles) => MailCopyChangeFlags.IntelligenceMetadata,
-            nameof(RowTiles) or nameof(HasRowTiles) => MailCopyChangeFlags.Categories | MailCopyChangeFlags.IntelligenceMetadata,
+            nameof(RowTiles) or nameof(HasRowTiles) => MailCopyChangeFlags.IntelligenceMetadata,
             _ => MailCopyChangeFlags.None
         };
     }
@@ -732,6 +721,7 @@ public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailI
         {
             Queue(nameof(Categories));
             Queue(nameof(HasCategories));
+            Queue(nameof(CategoryIndicatorsText));
         }
 
         if ((changedFlags & MailCopyChangeFlags.IntelligenceMetadata) != 0)
@@ -742,7 +732,7 @@ public partial class MailItemViewModel : ObservableObject, IMailListItem, IMailI
             Queue(nameof(HasRowIntelligenceTiles));
         }
 
-        if ((changedFlags & (MailCopyChangeFlags.Categories | MailCopyChangeFlags.IntelligenceMetadata)) != 0)
+        if ((changedFlags & MailCopyChangeFlags.IntelligenceMetadata) != 0)
         {
             Queue(nameof(RowTiles));
             Queue(nameof(HasRowTiles));

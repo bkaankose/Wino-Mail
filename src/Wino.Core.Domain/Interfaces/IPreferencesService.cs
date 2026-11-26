@@ -382,6 +382,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsMailListGroupHeadersEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Show the colors of a mail's categories and Gmail labels as dots in the mail list.
+    /// </summary>
+    bool IsMailListCategoryIndicatorsEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Group the date-sorted mail list by each day or by fixed day ranges.
     /// </summary>
     MailListDateGroupingType MailListDateGroupingType { get; set; }

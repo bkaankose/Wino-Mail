@@ -357,6 +357,60 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
                 a => (IReadOnlyList<MailCategory>)a.Select(static row => row.ToMailCategory()).ToList());
     }
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<MailCategory>>> GetLabelCategoriesByMailAsync(Guid accountId, IEnumerable<MailCopy> mails)
+    {
+        var mailList = mails?.Where(static mail => mail != null && !string.IsNullOrEmpty(mail.Id)).ToList() ?? [];
+        if (mailList.Count == 0)
+            return new Dictionary<Guid, IReadOnlyList<MailCategory>>();
+
+        var messageIds = mailList.Select(static mail => mail.Id).Distinct(StringComparer.Ordinal).ToList();
+        var rows = new List<MailLabelRow>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(messageIds, fixedParameters: 1))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql =
+                $"SELECT DISTINCT {nameof(MailCopy)}.{nameof(MailCopy.Id)} as {nameof(MailLabelRow.MessageId)}, " +
+                $"{nameof(MailItemFolder)}.{nameof(MailItemFolder.Id)} as {nameof(MailLabelRow.FolderId)}, " +
+                $"{nameof(MailItemFolder)}.{nameof(MailItemFolder.RemoteFolderId)} as {nameof(MailLabelRow.RemoteFolderId)}, " +
+                $"{nameof(MailItemFolder)}.{nameof(MailItemFolder.FolderName)} as {nameof(MailLabelRow.FolderName)}, " +
+                $"{nameof(MailItemFolder)}.{nameof(MailItemFolder.DisplayName)} as {nameof(MailLabelRow.DisplayName)}, " +
+                $"{nameof(MailItemFolder)}.{nameof(MailItemFolder.BackgroundColorHex)} as {nameof(MailLabelRow.BackgroundColorHex)}, " +
+                $"{nameof(MailItemFolder)}.{nameof(MailItemFolder.TextColorHex)} as {nameof(MailLabelRow.TextColorHex)} " +
+                $"FROM {nameof(MailCopy)} " +
+                $"INNER JOIN {nameof(MailItemFolder)} ON {nameof(MailCopy)}.{nameof(MailCopy.FolderId)} = {nameof(MailItemFolder)}.{nameof(MailItemFolder.Id)} " +
+                $"WHERE {nameof(MailItemFolder)}.{nameof(MailItemFolder.MailAccountId)} = ? " +
+                $"AND {nameof(MailItemFolder)}.{nameof(MailItemFolder.BackgroundColorHex)} IS NOT NULL AND {nameof(MailItemFolder)}.{nameof(MailItemFolder.BackgroundColorHex)} <> '' " +
+                $"AND {nameof(MailCopy)}.{nameof(MailCopy.Id)} IN ({placeholders})";
+
+            rows.AddRange(await Connection.QueryAsync<MailLabelRow>(
+                sql,
+                [accountId, .. idChunk.Cast<object>()]).ConfigureAwait(false));
+        }
+
+        if (rows.Count == 0)
+            return new Dictionary<Guid, IReadOnlyList<MailCategory>>();
+
+        var labelsByMessage = rows.ToLookup(static row => row.MessageId, StringComparer.Ordinal);
+        var result = new Dictionary<Guid, IReadOnlyList<MailCategory>>();
+
+        foreach (var mail in mailList)
+        {
+            // The folder a row is listed from is where the user already is; its own label would only repeat it.
+            var labels = labelsByMessage[mail.Id]
+                .Where(row => row.FolderId != mail.FolderId)
+                .DistinctBy(static row => row.FolderId)
+                .Select(row => row.ToMailCategory(accountId))
+                .OrderBy(static category => category.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
+            if (labels.Count > 0)
+                result[mail.UniqueId] = labels;
+        }
+
+        return result;
+    }
+
     public async Task<List<Guid>> GetAssignedCategoryIdsForAllAsync(IEnumerable<Guid> mailCopyUniqueIds)
     {
         var uniqueIds = mailCopyUniqueIds?.Distinct().ToList() ?? [];
@@ -439,6 +493,28 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
 
     private static string NormalizeCategoryName(string name)
         => name?.Trim() ?? string.Empty;
+
+    private sealed class MailLabelRow
+    {
+        public string MessageId { get; set; }
+        public Guid FolderId { get; set; }
+        public string RemoteFolderId { get; set; }
+        public string FolderName { get; set; }
+        public string DisplayName { get; set; }
+        public string BackgroundColorHex { get; set; }
+        public string TextColorHex { get; set; }
+
+        public MailCategory ToMailCategory(Guid accountId) => new()
+        {
+            Id = FolderId,
+            MailAccountId = accountId,
+            RemoteId = RemoteFolderId,
+            Name = string.IsNullOrWhiteSpace(DisplayName) ? FolderName : DisplayName,
+            BackgroundColorHex = BackgroundColorHex,
+            TextColorHex = TextColorHex,
+            Source = MailCategorySource.GmailLabel
+        };
+    }
 
     private sealed class MailCategoryRow : MailCategory
     {

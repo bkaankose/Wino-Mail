@@ -219,6 +219,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsMailListGroupHeadersEnabled), value);
     }
 
+    public bool IsMailListCategoryIndicatorsEnabled
+    {
+        get => _configurationService.Get(nameof(IsMailListCategoryIndicatorsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsMailListCategoryIndicatorsEnabled), value);
+    }
+
     public MailListDateGroupingType MailListDateGroupingType
     {
         get => _configurationService.Get(nameof(MailListDateGroupingType), MailListDateGroupingType.EachDay);

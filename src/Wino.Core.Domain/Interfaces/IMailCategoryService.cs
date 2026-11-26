@@ -25,6 +25,11 @@ public interface IMailCategoryService
     Task UnassignCategoryAsync(Guid categoryId, IEnumerable<Guid> mailCopyUniqueIds);
     Task<List<MailCategory>> GetCategoriesForMailAsync(Guid accountId, IEnumerable<Guid> mailCopyUniqueIds);
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<MailCategory>>> GetCategoriesByMailAsync(Guid accountId, IEnumerable<Guid> mailCopyUniqueIds);
+    /// <summary>
+    /// The colored label folders that hold another copy of each mail, as categories keyed by the mail's unique id.
+    /// Only Gmail colors its folders, so other accounts get an empty result.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<MailCategory>>> GetLabelCategoriesByMailAsync(Guid accountId, IEnumerable<MailCopy> mails);
     Task<List<Guid>> GetAssignedCategoryIdsForAllAsync(IEnumerable<Guid> mailCopyUniqueIds);
     Task<List<string>> GetCategoryNamesForMailAsync(Guid mailCopyUniqueId);
     Task<List<MailCopy>> GetMailCopiesForCategoryAsync(Guid categoryId);

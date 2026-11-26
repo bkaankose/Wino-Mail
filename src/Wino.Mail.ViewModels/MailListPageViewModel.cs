@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -2016,6 +2016,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     protected override async void OnMailAdded(MailCopy addedMail, EntityUpdateSource source)
     {
         base.OnMailAdded(addedMail, source);
+        _ = RefreshLabelCategoriesOfListedCopiesAsync([addedMail]);
 
         if (addedMail.AssignedAccount == null || addedMail.AssignedFolder == null) return;
         if (ShouldSuppressDraftAdd(addedMail)) return;
@@ -2490,6 +2491,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     protected override async void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source)
     {
         base.OnMailRemoved(removedMail, source);
+        _ = RefreshLabelCategoriesOfListedCopiesAsync([removedMail]);
 
         if (removedMail.AssignedAccount == null) return;
 
@@ -2545,6 +2547,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     protected override async void OnBulkMailRemoved(IReadOnlyList<MailCopy> removedMails, EntityUpdateSource source)
     {
+        _ = RefreshLabelCategoriesOfListedCopiesAsync(removedMails);
         var targetMails = removedMails?
             .Where(x => x != null && x.AssignedAccount != null)
             .GroupBy(x => x.UniqueId)
@@ -2592,6 +2595,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     protected override async void OnBulkMailAdded(IReadOnlyList<MailCopy> addedMails, EntityUpdateSource source)
     {
+        _ = RefreshLabelCategoriesOfListedCopiesAsync(addedMails);
         var targetMails = addedMails?
             .Where(x => x != null)
             .GroupBy(x => x.UniqueId)
@@ -2799,13 +2803,76 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             var categoriesByMail = await _mailCategoryService
                 .GetCategoriesByMailAsync(groupedMails.Key, groupedMails.Select(a => a.UniqueId))
                 .ConfigureAwait(false);
+            var labelsByMail = await _mailCategoryService
+                .GetLabelCategoriesByMailAsync(groupedMails.Key, groupedMails)
+                .ConfigureAwait(false);
 
             foreach (var mail in groupedMails)
             {
-                mail.Categories = categoriesByMail.TryGetValue(mail.UniqueId, out var categories)
-                    ? categories.ToList()
-                    : [];
+                List<MailCategory> categories = [];
+                if (categoriesByMail.TryGetValue(mail.UniqueId, out var assigned))
+                    categories.AddRange(assigned);
+                if (labelsByMail.TryGetValue(mail.UniqueId, out var labels))
+                    categories.AddRange(labels);
+
+                mail.Categories = categories;
             }
+        }
+    }
+
+    /// <summary>
+    /// A Gmail label change adds or removes the mail's copy in the label folder, while the listed row is another
+    /// copy of the same message. The label categories of those rows are read again.
+    /// </summary>
+    private async Task RefreshLabelCategoriesOfListedCopiesAsync(IEnumerable<MailCopy> changedCopies)
+    {
+        try
+        {
+            var labelCopies = changedCopies?
+                .Where(static mail => mail?.AssignedAccount != null
+                                      && !string.IsNullOrEmpty(mail.Id)
+                                      && !string.IsNullOrEmpty(mail.AssignedFolder?.BackgroundColorHex))
+                .ToList() ?? [];
+
+            if (labelCopies.Count == 0)
+                return;
+
+            var changedMessages = labelCopies
+                .Select(static mail => (AccountId: mail.AssignedAccount.Id, MessageId: mail.Id))
+                .ToHashSet();
+
+            List<MailItemViewModel> listedItems = [];
+            await ExecuteUIThread(() =>
+            {
+                foreach (var item in MailCollection.Items)
+                {
+                    if (item.MailCopy?.AssignedAccount is { } account && changedMessages.Contains((account.Id, item.MailCopy.Id)))
+                        listedItems.Add(item);
+                }
+            });
+
+            foreach (var accountItems in listedItems.GroupBy(static item => item.MailCopy.AssignedAccount.Id))
+            {
+                var labelsByMail = await _mailCategoryService
+                    .GetLabelCategoriesByMailAsync(accountItems.Key, accountItems.Select(static item => item.MailCopy))
+                    .ConfigureAwait(false);
+
+                await ExecuteUIThread(() =>
+                {
+                    foreach (var item in accountItems)
+                    {
+                        List<MailCategory> categories = [.. item.Categories.Where(static category => category?.Source != MailCategorySource.GmailLabel)];
+                        if (labelsByMail.TryGetValue(item.UniqueId, out var labels))
+                            categories.AddRange(labels);
+
+                        item.UpdateCategories(categories);
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to refresh the label categories of listed mails.");
         }
     }
 

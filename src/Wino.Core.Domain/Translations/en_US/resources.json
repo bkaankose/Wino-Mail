@@ -1655,6 +1655,8 @@
   "SettingsMailListActionBar_Title": "Show mail list actions",
   "SettingsMailListGroupHeaders_Description": "Show date or sender headers in the message list.",
   "SettingsMailListGroupHeaders_Title": "Show group headers",
+  "SettingsMailListCategoryIndicators_Description": "Show the colors of categories and Gmail labels as dots next to the flag.",
+  "SettingsMailListCategoryIndicators_Title": "Show category colors",
   "SettingsMailListDateGroupingType_Title": "Date grouping type",
   "SettingsMailListDateGroupingType_Description": "How messages are grouped when the list is sorted by date.",
   "SettingsMailListDateGroupingType_EachDay": "By each day",

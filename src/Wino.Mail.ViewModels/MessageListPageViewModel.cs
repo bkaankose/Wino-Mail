@@ -847,6 +847,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         nameof(IPreferencesService.IsGravatarEnabled) or
         nameof(IPreferencesService.IsFaviconEnabled) or
         nameof(IPreferencesService.IsShowPreviewEnabled) or
+        nameof(IPreferencesService.IsMailListCategoryIndicatorsEnabled) or
         nameof(IPreferencesService.MailTimeFormatPreference) or
         nameof(IPreferencesService.AccountNicknamePosition) or
         nameof(IPreferencesService.IsThreadingEnabled) or

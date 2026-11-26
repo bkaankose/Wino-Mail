@@ -649,6 +649,9 @@ public static class XamlHelpers
     public static Visibility GetMailItemPreviewTextVisibility(string text)
         => (PreferencesService?.IsShowPreviewEnabled ?? true) && ShouldDisplayPreview(text) ? Visibility.Visible : Visibility.Collapsed;
 
+    public static bool ShouldShowMailCategoryIndicators(bool hasCategories)
+        => hasCategories && (PreferencesService?.IsMailListCategoryIndicatorsEnabled ?? true);
+
     public static bool GetMailItemSenderPictureVisibility()
         => PreferencesService?.IsShowSenderPicturesEnabled ?? true;
 
