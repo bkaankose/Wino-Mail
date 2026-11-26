@@ -26,6 +26,7 @@ internal sealed class ComposeRecipientSuggestionList : WinoSurfaceView
     private readonly Source _source;
     private List<RecipientSuggestion> _items = [];
     private string _query = string.Empty;
+    private double _maximumHeight = double.PositiveInfinity;
 
     public ComposeRecipientSuggestionList(IPictureStorageService? pictures)
     {
@@ -69,6 +70,13 @@ internal sealed class ComposeRecipientSuggestionList : WinoSurfaceView
     /// <summary>Shows <paramref name="items"/> for <paramref name="anchor"/>; empty closes.</summary>
     public void Show(ComposeRecipientField anchor, IReadOnlyList<RecipientSuggestion> items, string query)
     {
+        Show(items, query, anchor.Caption);
+        if (IsVisible) Anchor = anchor;
+    }
+
+    /// <summary>Shows <paramref name="items"/> where the page placed the list, for no recipient field; empty closes.</summary>
+    public void Show(IReadOnlyList<RecipientSuggestion> items, string query, string accessibilityLabel)
+    {
         if (items.Count == 0)
         {
             Close();
@@ -76,15 +84,37 @@ internal sealed class ComposeRecipientSuggestionList : WinoSurfaceView
         }
         _items = items.ToList();
         _query = query;
-        Anchor = anchor;
-        _height.Constant = (nfloat)(Math.Min(_items.Count, MaximumRows) * RowHeight);
-        _table.AccessibilityLabel = anchor.Caption;
+        Anchor = null;
+        _maximumHeight = double.PositiveInfinity;
+        UpdateHeight();
+        _table.AccessibilityLabel = accessibilityLabel;
         _table.ReloadData();
         _table.ContentOffset = CoreGraphics.CGPoint.Empty;
         Hidden = false;
         Superview?.BringSubviewToFront(this);
         UIAccessibility.PostNotification(UIAccessibilityPostNotification.LayoutChanged, null);
     }
+
+    /// <summary>The height the rows want, before <see cref="LimitHeight"/>.</summary>
+    public double PreferredHeight => Math.Min(_items.Count, MaximumRows) * RowHeight;
+
+    /// <summary>Keeps the list within <paramref name="maximum"/> points, never below one row; the rest scrolls.</summary>
+    public void LimitHeight(double maximum)
+    {
+        _maximumHeight = Math.Max(RowHeight, maximum);
+        UpdateHeight();
+    }
+
+    /// <summary>Highlights the row a hardware keyboard chose elsewhere (the mention list follows its ViewModel).</summary>
+    public void SelectRow(int row)
+    {
+        if (!IsVisible || row < 0 || row >= _items.Count) return;
+        var path = NSIndexPath.FromRowSection(row, 0);
+        _table.SelectRow(path, false, UITableViewScrollPosition.None);
+        _table.ScrollToRow(path, UITableViewScrollPosition.None, false);
+    }
+
+    private void UpdateHeight() => _height.Constant = (nfloat)Math.Min(PreferredHeight, _maximumHeight);
 
     public void Close()
     {
@@ -100,7 +130,7 @@ internal sealed class ComposeRecipientSuggestionList : WinoSurfaceView
         if (index < 0) return;
         _items.RemoveAt(index);
         if (_items.Count == 0) { Close(); return; }
-        _height.Constant = (nfloat)(Math.Min(_items.Count, MaximumRows) * RowHeight);
+        UpdateHeight();
         _table.ReloadData();
     }
 

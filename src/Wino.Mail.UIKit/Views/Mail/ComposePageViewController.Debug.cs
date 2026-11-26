@@ -179,6 +179,7 @@ public sealed partial class ComposePageViewController
             $"to={ViewModel.ToItems.Count} cc={ViewModel.CCItems.Count} bcc={ViewModel.BCCItems.Count} ccbcc={ViewModel.IsCCBCCVisible}",
             $"subject='{ViewModel.Subject}'",
             $"attachments={ViewModel.IncludedAttachments.Count}",
+            $"mentions={(_mentionList is { IsVisible: true } mentionList ? $"{mentionList.Items.Count}@{mentionList.Frame}" : "closed")}",
             $"canSend={ViewModel.SendCommand.CanExecute(null)} local={ViewModel.IsLocalDraft}",
             $"signature={ViewModel.SelectedSignature?.Name ?? "none"}/{ViewModel.AvailableSignatures.Count}",
             $"importance={ViewModel.SelectedMessageImportance} readReceipt={ViewModel.IsReadReceiptRequested}",
