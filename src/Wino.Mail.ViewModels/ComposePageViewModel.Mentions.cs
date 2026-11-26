@@ -97,7 +97,13 @@ public partial class ComposePageViewModel
             .SuggestAsync(ComposingAccount?.Id, query.Trim(), includeLists: false, includeWithoutAddress: true)
             .ConfigureAwait(false);
 
-        return suggestions?.Where(suggestion => suggestion is { IsList: false }).ToList() ?? [];
+        var people = suggestions?.Where(suggestion => suggestion is { IsList: false }).ToList() ?? [];
+
+        // The mention list shows the name and the address only, so a row carries no address book name.
+        foreach (var person in people)
+            person.SourceLabel = string.Empty;
+
+        return people;
     }
 
     /// <summary>

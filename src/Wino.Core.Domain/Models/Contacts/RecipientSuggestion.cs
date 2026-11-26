@@ -25,7 +25,7 @@ public sealed class RecipientSuggestion : AccountContact
     public RecipientSuggestionSource Source { get; init; }
 
     /// <summary>Where the suggestion comes from: an address book name, "From your mail", or a list's member count.</summary>
-    public string SourceLabel { get; init; }
+    public string SourceLabel { get; set; }
 
     /// <summary>The text the user typed, used to highlight the match.</summary>
     public string MatchQuery { get; init; }
