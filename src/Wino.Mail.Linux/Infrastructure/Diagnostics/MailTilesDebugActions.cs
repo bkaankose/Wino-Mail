@@ -9,7 +9,7 @@ namespace Wino.Mail.Linux.Infrastructure.Diagnostics;
 
 /// <summary>
 /// <c>debug-mail-tiles</c> <c>as</c> on <see cref="MailListView.DebugCurrent"/>: <c>['state', path]</c> writes
-/// <c>position|subject|compact|count|texts|height</c> per bound row; <c>['seed', name, '#bg', '#fg']</c> creates a category for the
+/// <c>position|subject|compact|count|texts|categories|height</c> per bound row; <c>['seed', name, '#bg', '#fg']</c> creates a category for the
 /// first account; <c>['assign', row, name]</c> / <c>['unassign', row, name]</c> toggle it through the ViewModel;
 /// <c>['unseed', name]</c> deletes it.
 /// </summary>
@@ -39,7 +39,7 @@ internal static class MailTilesDebugActions
                         if (view.PositionOf(entry) is not { } position) return;
                         var subject = entry.Row.SourceItem is Wino.Mail.ViewModels.Data.MailItemViewModel item ? item.Subject : string.Empty;
                         var tiles = cell.Row.Tiles?.Describe() ?? "none";
-                        rows.Add((position, $"{position}|{subject}|{tiles}|{cell.Root.GetHeight()}"));
+                        rows.Add((position, $"{position}|{subject}|{tiles}|{cell.Row.Model.CategoryNames}|{cell.Root.GetHeight()}"));
                     });
                     var text = new StringBuilder();
                     foreach (var row in rows.OrderBy(static row => row.Position)) text.Append(row.Line).Append('\n');

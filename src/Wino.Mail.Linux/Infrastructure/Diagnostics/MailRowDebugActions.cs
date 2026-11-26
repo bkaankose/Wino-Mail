@@ -119,13 +119,13 @@ internal static class MailRowDebugActions
                 Subject = "An extraordinarily long subject line that must ellipsise instead of widening the mail list pane at all",
                 Preview = "A preview that goes on\nacross line breaks and on and on and on and on and on and on and on and on and on and on and on.",
             },
-            plain with { Sender = "Two Categories", Subject = "Category chips", Tiles = [Red, Blue] },
+            plain with { Sender = "Three Categories", Subject = "Category dots before the flag", IsFlagged = true, HasAttachments = true, CategoryDotColors = ["#E74C3C", "#3498DB", null], CategoryNames = "Red, Blue, No colour" },
             plain with { Sender = "Six Tiles", Subject = "Six tiles wrap", Tiles = [Red, Blue, Green, Amber, Plain, Purple] },
             plain with { Sender = "Eight Tiles", Subject = "Eight tiles, two not shown", Tiles = [Red, Blue, Green, Amber, Plain, Purple, Red with { Text = "Seventh" }, Blue with { Text = "Eighth" }] },
             plain with
             {
                 Sender = "Intelligence",
-                                Subject = "Priority, two smart labels and a category",
+                                Subject = "Priority, two smart labels and a coloured chip",
                 Tiles =
                 [
                     new WinoMailRowTile("High priority", WinoIcons.Glyph(WinoIconGlyph.Warning), null, null, true, true, "Priority: high"),

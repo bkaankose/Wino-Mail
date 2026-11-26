@@ -25,6 +25,8 @@ public sealed class WinoMailRow : IDisposable
     private readonly Gtk.Label _nicknameRight;
     private readonly Gtk.Label _pin;
     private readonly Gtk.Label _attachment;
+    private readonly Gtk.Box _categoryDots;
+    private readonly List<CategoryDot> _dots = [];
     private readonly Gtk.Label _flag;
     private readonly Adw.Spinner _busy;
     private readonly Gtk.Button _chevron;
@@ -91,6 +93,9 @@ public sealed class WinoMailRow : IDisposable
         _pin = Glyph(WinoIconGlyph.Pin, 12, "dim-label");
         _pin.SetTooltipText(Translator.SearchBar_Pinned);
         _attachment = Glyph(WinoIconGlyph.Attachment, 14, WinoCssClass.MailAttachment);
+        _categoryDots = Gtk.Box.New(Gtk.Orientation.Horizontal, 3);
+        _categoryDots.SetValign(Gtk.Align.Center);
+        _categoryDots.SetVisible(false);
         _flag = Glyph(WinoIconGlyph.Flag, 14, WinoCssClass.MailFlag);
         _busy = Adw.Spinner.New();
         _busy.SetSizeRequest(12, 12);
@@ -102,6 +107,7 @@ public sealed class WinoMailRow : IDisposable
         indicators.Append(CompactTileSlot);
         indicators.Append(_pin);
         indicators.Append(_attachment);
+        indicators.Append(_categoryDots);
         indicators.Append(_flag);
         indicators.Append(_busy);
 
@@ -250,6 +256,9 @@ public sealed class WinoMailRow : IDisposable
 
         if (all || previous.IsPinned != model.IsPinned) _pin.SetVisible(model.IsPinned);
         if (all || previous.HasAttachments != model.HasAttachments) _attachment.SetVisible(model.HasAttachments);
+        if (all || !previous.CategoryDotColors.AsSpan().SequenceEqual(model.CategoryDotColors)) ApplyCategoryDots(model.CategoryDotColors);
+        if (all || previous.CategoryNames != model.CategoryNames)
+            _categoryDots.SetTooltipText(Blank(model.CategoryNames) ? null : model.CategoryNames);
         if (all || previous.IsFlagged != model.IsFlagged) _flag.SetVisible(model.IsFlagged);
         if (all || previous.IsBusy != model.IsBusy) _busy.SetVisible(model.IsBusy);
 
@@ -282,11 +291,28 @@ public sealed class WinoMailRow : IDisposable
         if (model.Tiles.Length > 0 || _tiles is not null)
             (_tiles ??= new WinoTileLine(TileSlot, CompactTileSlot)).Apply(model.Tiles, model.Density);
 
-        if (!string.Equals(model.AccessibilityText, _accessibleText, StringComparison.Ordinal))
+        var accessibleText = Blank(model.CategoryNames) ? model.AccessibilityText : model.AccessibilityText + ", " + model.CategoryNames;
+        if (!string.Equals(accessibleText, _accessibleText, StringComparison.Ordinal))
         {
-            _accessibleText = model.AccessibilityText;
-            WinoA11y.Label(_root, model.AccessibilityText);
+            _accessibleText = accessibleText;
+            WinoA11y.Label(_root, accessibleText);
         }
+    }
+
+    private void ApplyCategoryDots(string?[] colors)
+    {
+        while (_dots.Count < colors.Length)
+        {
+            var dot = new CategoryDot();
+            _dots.Add(dot);
+            _categoryDots.Append(dot.Root);
+        }
+        for (var index = 0; index < _dots.Count; index++)
+        {
+            if (index < colors.Length) _dots[index].Apply(colors[index]);
+            else _dots[index].Root.SetVisible(false);
+        }
+        _categoryDots.SetVisible(colors.Length > 0);
     }
 
     public void Dispose()
@@ -329,6 +355,41 @@ public sealed class WinoMailRow : IDisposable
         label.SetCanTarget(false);
         label.SetValign(Gtk.Align.Center);
         return label;
+    }
+
+    private sealed class CategoryDot
+    {
+        private string? _fillClass;
+        private bool _accent;
+
+        public CategoryDot()
+        {
+            Root = Gtk.Box.New(Gtk.Orientation.Horizontal, 0);
+            Root.AddCssClass(WinoCssClass.TileDot);
+            Root.SetSizeRequest(8, 8);
+            Root.SetValign(Gtk.Align.Center);
+            Root.SetCanTarget(false);
+        }
+
+        public Gtk.Box Root { get; }
+
+        public void Apply(string? backgroundHex)
+        {
+            var fill = WinoTint.FillClassFor(backgroundHex, null);
+            if (!string.Equals(fill, _fillClass, StringComparison.Ordinal))
+            {
+                if (_fillClass is not null) Root.RemoveCssClass(_fillClass);
+                if (fill is not null) Root.AddCssClass(fill);
+                _fillClass = fill;
+            }
+            var accent = fill is null;
+            if (accent != _accent)
+            {
+                _accent = accent;
+                Toggle(Root, WinoCssClass.ChipAccent, accent);
+            }
+            Root.SetVisible(true);
+        }
     }
 
     // An ellipsised label asks for its whole text as natural width; the cap keeps long subjects from widening the pane.

@@ -31,13 +31,19 @@ public sealed record WinoMailRowModel
     public bool ShowPreview { get; init; } = true;
     public string AccessibilityText { get; init; } = string.Empty;
 
-    /// <summary>Categories first, then intelligence tiles; the row shows at most <c>WinoMailRowMetrics.MaxTiles</c>.</summary>
+    /// <summary>Intelligence tiles; the row shows at most <c>WinoMailRowMetrics.MaxTiles</c>.</summary>
     public WinoMailRowTile[] Tiles { get; init; } = [];
+
+    /// <summary>One 8 px dot per category (Gmail labels included) before the flag; the fill is the category's background.</summary>
+    public string?[] CategoryDotColors { get; init; } = [];
+
+    /// <summary>The names behind <see cref="CategoryDotColors"/> for the tooltip and the accessible label.</summary>
+    public string CategoryNames { get; init; } = string.Empty;
 
     public bool ShowNickname => !string.IsNullOrWhiteSpace(AccountNickname) && NicknamePosition != AccountNicknamePosition.None;
     public bool ShowChevron => Kind == WinoMailRowKind.ThreadHead && ThreadCount > 1;
 }
 
-/// <summary>One tile of a mail row: a category (colours, text) or an intelligence indicator (glyph, text).</summary>
+/// <summary>One tile of a mail row: an intelligence indicator (glyph, text), or a coloured chip (colours, text).</summary>
 public sealed record WinoMailRowTile(string Text, string? Glyph, string? BackgroundHex, string? ForegroundHex,
     bool IsIntelligence, bool IsWarning = false, string? Tooltip = null);

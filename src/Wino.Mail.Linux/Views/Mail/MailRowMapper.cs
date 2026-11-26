@@ -16,6 +16,7 @@ internal static class MailRowMapper
     public static WinoMailRowModel? Map(MailListRow row, IPreferencesService preferences, bool showAccountColor, LinuxSenderPictureProvider? pictures, WinoMailRowDensity? densityOverride = null)
     {
         if (MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference, preferences.AlwaysShowSenderAddress) is not { } content) return null;
+        var categories = MailRowPresentation.CategoryIndicators(row, preferences.IsMailListCategoryIndicatorsEnabled);
         return new WinoMailRowModel
         {
             Kind = content.Kind,
@@ -40,25 +41,18 @@ internal static class MailRowMapper
             ShowPicture = preferences.IsShowSenderPicturesEnabled,
             ShowPreview = preferences.IsShowPreviewEnabled,
             AccessibilityText = content.AccessibilityText,
-            Tiles = Tiles(row)
+            Tiles = Tiles(row),
+            CategoryDotColors = [.. categories.Select(static category => category.BackgroundColorHex)],
+            CategoryNames = MailRowPresentation.CategoryIndicatorsText(categories)
         };
     }
 
-    /// <summary>Categories of the row's leaves (distinct by id), then their intelligence tiles (distinct by text and glyph).</summary>
+    /// <summary>The intelligence tiles of the row's leaves (distinct by text and glyph).</summary>
     public static WinoMailRowTile[] Tiles(MailListRow row)
     {
         if (!MailRowPresentation.HasTiles(row)) return [];
         var leaves = MailRowPresentation.Leaves(row);
         var tiles = new List<WinoMailRowTile>();
-        var categories = new HashSet<Guid>();
-        foreach (var leaf in leaves)
-        {
-            foreach (var category in leaf.Categories)
-            {
-                if (category is null || !categories.Add(category.Id)) continue;
-                tiles.Add(new WinoMailRowTile(category.Name ?? string.Empty, null, category.BackgroundColorHex, category.TextColorHex, false));
-            }
-        }
         var intelligence = new HashSet<string>(StringComparer.Ordinal);
         foreach (var leaf in leaves)
         {

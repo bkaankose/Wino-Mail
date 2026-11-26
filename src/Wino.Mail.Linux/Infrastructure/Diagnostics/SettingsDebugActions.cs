@@ -98,6 +98,7 @@ internal static class SettingsDebugActions
             nameof(IPreferencesService.IsShowSenderPicturesEnabled) => Flag(() => p.IsShowSenderPicturesEnabled, v => p.IsShowSenderPicturesEnabled = v, value),
             nameof(IPreferencesService.IsThreadingEnabled) => Flag(() => p.IsThreadingEnabled, v => p.IsThreadingEnabled = v, value),
             nameof(IPreferencesService.IsMailListGroupHeadersEnabled) => Flag(() => p.IsMailListGroupHeadersEnabled, v => p.IsMailListGroupHeadersEnabled = v, value),
+            nameof(IPreferencesService.IsMailListCategoryIndicatorsEnabled) => Flag(() => p.IsMailListCategoryIndicatorsEnabled, v => p.IsMailListCategoryIndicatorsEnabled = v, value),
             nameof(IPreferencesService.MailTimeFormatPreference) => Choice(() => p.MailTimeFormatPreference, v => p.MailTimeFormatPreference = v, value),
             nameof(IPreferencesService.EmailSyncIntervalMinutes) => Number(() => p.EmailSyncIntervalMinutes, v => p.EmailSyncIntervalMinutes = v, value),
             nameof(IPreferencesService.MarkAsDelay) => Number(() => p.MarkAsDelay, v => p.MarkAsDelay = v, value),

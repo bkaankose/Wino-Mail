@@ -176,6 +176,7 @@ internal sealed partial class MailListView : WinoView<MailListPageViewModel>, IU
         EventHandler<string> preferenceChanged = (_, name) =>
         {
             if (name is nameof(IPreferencesService.MailItemDisplayMode) or nameof(IPreferencesService.IsShowPreviewEnabled)
+                or nameof(IPreferencesService.IsMailListCategoryIndicatorsEnabled)
                 or nameof(IPreferencesService.IsShowSenderPicturesEnabled) or nameof(IPreferencesService.AccountNicknamePosition)
                 or nameof(IPreferencesService.AlwaysShowSenderAddress) or nameof(IPreferencesService.MailTimeFormatPreference))
                 self.Value?.RunOnUI(() => self.Value?.RefreshAppearance());

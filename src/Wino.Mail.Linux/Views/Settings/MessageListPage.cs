@@ -46,6 +46,8 @@ internal sealed class MessageListPage(MessageListPageViewModel viewModel, WinoVi
         AddGroup(Translator.SettingsMessageList_SectionRows,
             Settings.Switch(p, Translator.SettingsShowPreviewText_Title, Translator.SettingsShowPreviewText_Description, WinoIconGlyph.TextDescription,
                 nameof(p.IsShowPreviewEnabled), static s => s.IsShowPreviewEnabled, static (s, v) => s.IsShowPreviewEnabled = v),
+            Settings.Switch(p, Translator.SettingsMailListCategoryIndicators_Title, Translator.SettingsMailListCategoryIndicators_Description, WinoIconGlyph.Tag,
+                nameof(p.IsMailListCategoryIndicatorsEnabled), static s => s.IsMailListCategoryIndicatorsEnabled, static (s, v) => s.IsMailListCategoryIndicatorsEnabled = v),
             Settings.Choice(vm, Translator.SettingsTimeFormat_Title, Translator.SettingsTimeFormat_Description, WinoIconGlyph.Clock, [.. vm.TimeFormatPreferenceOptions],
                 nameof(vm.SelectedTimeFormatPreferenceIndex), static s => s.SelectedTimeFormatPreferenceIndex, static (s, v) => s.SelectedTimeFormatPreferenceIndex = v),
             Settings.Choice(vm, Translator.SettingsShowAccountNickname_Title, Translator.SettingsShowAccountNickname_Description, WinoIconGlyph.PersonTag, [.. vm.AccountNicknamePositionOptions],
