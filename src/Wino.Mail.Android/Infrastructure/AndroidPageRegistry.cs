@@ -96,6 +96,7 @@ public sealed class AndroidPageRegistry
             initialize: static (viewModel, mode, parameter) =>
             {
                 viewModel.IsSecureSignInSupportedByHost = true;
+                viewModel.IsFeaturesStepSupportedByHost = true;
                 return viewModel.InitializeAsync(mode, parameter);
             });
         // Exchange Server setup, opened from the server page's "Using Exchange Server?" link.

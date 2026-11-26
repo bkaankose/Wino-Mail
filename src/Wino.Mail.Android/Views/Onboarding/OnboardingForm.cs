@@ -41,6 +41,10 @@ internal sealed class OnboardingForm<T>(Context context, LinearLayout root, View
         return group;
     }
 
+    /// <summary>A form over another source that appends to the current container, for pieces bound to a nested object.</summary>
+    public OnboardingForm<TOther> For<TOther>(TOther other) where TOther : INotifyPropertyChanged
+        => new(context, _container, binder, other);
+
     /// <summary>Appends a horizontal row (host and port) and adds the pieces <paramref name="build"/> creates to it.</summary>
     public LinearLayout Row(Action build, int topDp = 0)
     {
