@@ -504,9 +504,20 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         Title = item.Title ?? string.Empty;
         Location = item.Location ?? string.Empty;
 
-        _editInitialTimeZoneOption = ResolveTimeZoneOption(item.StartTimeZone);
-        SelectedTimeZoneOption = _editInitialTimeZoneOption;
-        ApplyDateRange(item.StartDate, item.EndDate, item.IsAllDayEvent);
+        if (!item.IsAllDayEvent && IsUtcTimeZone(item.StartTimeZone))
+        {
+            // Outlook and CalDAV report many events as UTC instants without the zone they were planned in, so they are edited in the local zone.
+            // A null initial option makes saving write the local zone together with the converted times.
+            _editInitialTimeZoneOption = null;
+            SelectedTimeZoneOption = TimeZoneOptions.FirstOrDefault(option => option.Id == TimeZoneInfo.Local.Id) ?? SelectedTimeZoneOption;
+            ApplyDateRange(item.LocalStartDate, item.LocalEndDate, false);
+        }
+        else
+        {
+            _editInitialTimeZoneOption = ResolveTimeZoneOption(item.StartTimeZone);
+            SelectedTimeZoneOption = _editInitialTimeZoneOption;
+            ApplyDateRange(item.StartDate, item.EndDate, item.IsAllDayEvent);
+        }
 
         SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == item.ShowAs) ?? SelectedShowAsOption;
         IsPrivate = item.Visibility == CalendarItemVisibility.Private;
@@ -638,6 +649,15 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
             "DAILY" or "MONTHLY" or "YEARLY" => !hasByDay,
             _ => false
         };
+    }
+
+    private static bool IsUtcTimeZone(string timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId) || string.Equals(timeZoneId, TimeZoneInfo.Utc.Id, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return TimeZoneInfo.TryConvertIanaIdToWindowsId(timeZoneId, out var windowsId)
+            && string.Equals(windowsId, "UTC", StringComparison.OrdinalIgnoreCase);
     }
 
     private CalendarComposeTimeZoneOption ResolveTimeZoneOption(string timeZoneId)
