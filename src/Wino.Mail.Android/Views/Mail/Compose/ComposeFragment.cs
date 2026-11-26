@@ -84,6 +84,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         BuildSubject(view, context, viewModel, dispatcher);
         BuildAttachments(view, context, viewModel, dispatcher);
         BuildEditor(view, context, viewModel, services);
+        BuildMentions(context, viewModel, dispatcher);
         BuildFormatBar(view, context);
         BuildBack();
         BindState(viewModel, dispatcher);
@@ -438,6 +439,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         var editor = _editor = new EngineMailEditorSession(_web, _dispatcher ?? services.GetRequiredService<IDispatcher>(),
             services.GetRequiredService<MailEngineHost>(), services.GetRequiredService<IMailDialogService>());
         viewModel.DraftChecks = editor;
+        viewModel.Mentions = editor;
         _web.ContextMenuRequested += (_, request) => ShowEditorMenu(request);
         editor.ContentChanged += (_, _) => _dispatcher?.ExecuteOnUIThread(ScheduleAutosave);
         editor.StateChanged += (_, state) => _dispatcher?.ExecuteOnUIThread(() => UpdateFormatState(state));
@@ -520,7 +522,11 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         if (_editor is not { } editor || _editorDisposed) return;
         _editorDisposed = true;
         _editor = null;
-        if (ViewModel is { } viewModel) viewModel.DraftChecks = null;
+        if (ViewModel is { } viewModel)
+        {
+            viewModel.DraftChecks = null;
+            viewModel.Mentions = null;
+        }
         try { await editor.DisposeAsync(); }
         catch (Exception exception) { ReportError(exception); }
         _web = null;

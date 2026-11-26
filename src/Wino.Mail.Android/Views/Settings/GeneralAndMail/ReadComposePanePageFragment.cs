@@ -73,6 +73,7 @@ public sealed class ReadComposePanePageFragment : SettingsPageFragment<ReadCompo
                         accessibilityLabel: Translator.SettingsFontSize_Title)),
                 StackedCard(Translator.SettingsFontPreview_Title, null, WinoIconGlyph.None, composerPreview)),
             SpellCheckExpander(vm, p),
+            MentionsExpander(vm, p),
             Card(Translator.SettingsRendering_PasteFormatting_Title, Translator.SettingsRendering_PasteFormatting_Description, WinoIconGlyph.ClipboardPaste,
                 Bind.Switch(p, nameof(p.IsComposerPasteFormattingEnabled), s => s.IsComposerPasteFormattingEnabled, (s, v) => s.IsComposerPasteFormattingEnabled = v,
                     Translator.SettingsRendering_PasteFormatting_Title)));
@@ -124,6 +125,22 @@ public sealed class ReadComposePanePageFragment : SettingsPageFragment<ReadCompo
         Bind.Enabled(language, p, nameof(p.IsComposerSpellCheckEnabled), s => s.IsComposerSpellCheckEnabled);
         return Expander(Translator.SettingsComposerSpellCheck_Title, Translator.SettingsComposerSpellCheck_Description, WinoIconGlyph.TextProofingTools, spellCheck,
             autoCorrect, language);
+    }
+
+    private WinoSettingsExpander MentionsExpander(ReadComposePanePageViewModel vm, IPreferencesService p)
+    {
+        var mentions = Bind.Switch(p, nameof(p.IsComposerMentionSuggestionEnabled), s => s.IsComposerMentionSuggestionEnabled, (s, v) => s.IsComposerMentionSuggestionEnabled = v,
+            Translator.SettingsComposerMentions_Title);
+        var recipient = Card(Translator.SettingsComposerMentions_AddTo, Translator.SettingsComposerMentions_AddTo_Description, WinoIconGlyph.None,
+            Bind.PopUp(vm, vm.MentionRecipientOptions, nameof(vm.SelectedMentionRecipientIndex),
+                s => s.SelectedMentionRecipientIndex, (s, v) => s.SelectedMentionRecipientIndex = v));
+        var format = Card(Translator.SettingsComposerMentions_Format, Translator.SettingsComposerMentions_Format_Description, WinoIconGlyph.None,
+            Bind.PopUp(vm, vm.MentionFormatOptions, nameof(vm.SelectedMentionFormatIndex),
+                s => s.SelectedMentionFormatIndex, (s, v) => s.SelectedMentionFormatIndex = v));
+        Bind.Enabled(recipient, p, nameof(p.IsComposerMentionSuggestionEnabled), s => s.IsComposerMentionSuggestionEnabled);
+        Bind.Enabled(format, p, nameof(p.IsComposerMentionSuggestionEnabled), s => s.IsComposerMentionSuggestionEnabled);
+        return Expander(Translator.SettingsComposerMentions_Title, Translator.SettingsComposerMentions_Description, WinoIconGlyph.PersonTag, mentions,
+            recipient, format);
     }
 
     private WinoSettingsExpander DraftChecksExpander(IPreferencesService p)
