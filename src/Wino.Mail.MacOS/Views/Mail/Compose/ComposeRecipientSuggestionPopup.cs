@@ -32,6 +32,7 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
     private List<RecipientSuggestion> _items = [];
     private string _query = string.Empty;
     private NSView? _anchor;
+    private CGRect? _anchorRect;
     private NSWindow? _parent;
     private bool _disposed;
 
@@ -85,6 +86,9 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
     /// <summary>A row was chosen with the mouse.</summary>
     public event EventHandler<RecipientSuggestion>? Picked;
 
+    /// <summary>The pointer moved the highlight to another row.</summary>
+    public event EventHandler<int>? HoverChanged;
+
     /// <summary>The "Don't suggest" button of a remembered correspondent.</summary>
     public event EventHandler<RecipientSuggestion>? SuppressRequested;
 
@@ -96,11 +100,20 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
 
     public NSView? Anchor => _anchor;
 
+    public CGRect Frame => _panel.Frame;
+
     public RecipientSuggestion? Highlighted
         => _table.SelectedRow >= 0 && _table.SelectedRow < _items.Count ? _items[(int)_table.SelectedRow] : null;
 
     /// <summary>Shows <paramref name="items"/> under <paramref name="anchor"/>, the first row highlighted; empty closes.</summary>
     public void Show(NSView anchor, IReadOnlyList<RecipientSuggestion> items, string query)
+        => Show(anchor, null, items, query, null);
+
+    /// <summary>
+    /// Shows <paramref name="items"/> under <paramref name="anchorRect"/> (in <paramref name="anchor"/>'s coordinates), or
+    /// above it when the rest of <paramref name="anchor"/> below has no room for the list.
+    /// </summary>
+    public void Show(NSView anchor, CGRect? anchorRect, IReadOnlyList<RecipientSuggestion> items, string query, string? accessibilityLabel)
     {
         if (_disposed) return;
         if (items.Count == 0 || anchor.Window is not { } parent)
@@ -111,10 +124,11 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
         _items = items.ToList();
         _query = query;
         _anchor = anchor;
+        _anchorRect = anchorRect;
         _table.ReloadData();
         _table.SelectRow(0, false);
         _table.ScrollRowToVisible(0);
-        WinoAccessibility.Label(_panel.ContentView!, anchor.AccessibilityLabel);
+        WinoAccessibility.Label(_panel.ContentView!, accessibilityLabel ?? anchor.AccessibilityLabel);
         if (_parent != parent)
         {
             if (_parent is not null) _parent.RemoveChildWindow(_panel);
@@ -134,8 +148,30 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
         var height = rows * RowHeight + 8 + 12;
         var inWindow = _anchor.ConvertRectToView(_anchor.Bounds, null);
         var onScreen = window.ConvertRectToScreen(inWindow);
-        var width = Math.Max(onScreen.Width, 320);
-        _panel.SetFrame(new CGRect(onScreen.X, onScreen.Y - height - 2, width, height), true);
+        if (_anchorRect is not { } rect)
+        {
+            var width = Math.Max(onScreen.Width, 320);
+            _panel.SetFrame(new CGRect(onScreen.X, onScreen.Y - height - 2, width, height), true);
+            return;
+        }
+
+        const double Gap = 4;
+        const double PanelWidth = 320;
+        var target = window.ConvertRectToScreen(_anchor.ConvertRectToView(rect, null));
+        var below = target.Y - Gap - height;
+        var above = target.GetMaxY() + Gap;
+        var y = below < onScreen.Y && above + height <= onScreen.GetMaxY() ? above : below;
+        var x = Math.Max(onScreen.X, Math.Min(target.X, onScreen.GetMaxX() - PanelWidth));
+        _panel.SetFrame(new CGRect(x, y, PanelWidth, height), true);
+    }
+
+    /// <summary>Highlights the row the keyboard chose elsewhere (the mention list follows its ViewModel).</summary>
+    public void SelectRow(int row)
+    {
+        if (!IsVisible || row < 0 || row >= _items.Count || row == _table.SelectedRow) return;
+        _table.SelectRow(row, false);
+        _table.ScrollRowToVisible(row);
+        AnnounceSelection();
     }
 
     /// <summary>Takes a row out without closing the list (after "Don't suggest").</summary>
@@ -178,6 +214,7 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
         _items = [];
         _query = string.Empty;
         _anchor = null;
+        _anchorRect = null;
         _table.ReloadData();
     }
 
@@ -196,7 +233,9 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
 
     private void HoverRow(int row)
     {
-        if (row >= 0 && row < _items.Count && row != _table.SelectedRow) _table.SelectRow(row, false);
+        if (row < 0 || row >= _items.Count || row == _table.SelectedRow) return;
+        _table.SelectRow(row, false);
+        HoverChanged?.Invoke(this, row);
     }
 
     private NSImage? Picture(RecipientSuggestion suggestion)
@@ -234,6 +273,7 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
             Close();
             _disposed = true;
             Picked = null;
+            HoverChanged = null;
             SuppressRequested = null;
             _table.Target = null!;
             _table.DataSource = null!;

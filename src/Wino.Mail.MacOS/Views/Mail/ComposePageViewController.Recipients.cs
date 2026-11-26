@@ -192,7 +192,9 @@ public sealed partial class ComposePageViewController
         _suggestionPopup.SuppressRequested += (_, suggestion) => SuppressSuggestion(suggestion);
         _resignKeyObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.DidResignKeyNotification, notification =>
         {
-            if (notification.Object is NSWindow window && window == View.Window) CloseSuggestions();
+            if (notification.Object is not NSWindow window || window != View.Window) return;
+            CloseSuggestions();
+            ViewModel.CloseMentionList();
         });
         foreach (var field in new[] { _toField, _ccField, _bccField })
         {

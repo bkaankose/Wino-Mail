@@ -93,6 +93,16 @@ public sealed partial class ComposePageViewController
             });
             return string.Join("\n", rows.Select(row => $"{row.Source} '{row.DisplayName}' {row.SecondaryText} canSuppress={row.CanSuppress} members={row.ListMembers.Count}"));
         });
+        // "compose-mentions" prints the open mention list: its rows, the highlighted row and the panel against the editor.
+        MacDebugBridge.Register("compose-mentions", _ => OnUIAsync(() =>
+        {
+            if (_mentionPopup is not { IsVisible: true } popup || ViewModel.ActiveMentionQuery is not { } query)
+                return $"closed open={ViewModel.IsMentionListOpen} key={View.Window?.IsKeyWindow} editorFocus={IsInEditor(View.Window?.FirstResponder)} rows={ViewModel.MentionSuggestions.Count}";
+            var editor = _webView.Window is { } window ? window.ConvertRectToScreen(_webView.ConvertRectToView(_webView.Bounds, null)) : default;
+            return $"query '{query.Text}' anchor {query.AnchorX:0},{query.AnchorY:0} {query.AnchorWidth:0}x{query.AnchorHeight:0} selected {ViewModel.SelectedMentionIndex} "
+                + $"panel {popup.Frame} editor {editor}\n"
+                + string.Join("\n", popup.Items.Select(row => $"'{row.DisplayName}' {row.Address}"));
+        }));
         MacDebugBridge.Register("compose-syncfail", args => OnUIAsync(() =>
         {
             // Preview only: IsDraftSyncFailed is flipped locally; the draft and its error are not touched.

@@ -54,6 +54,18 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
                     nameof(vm.CurrentSpellCheckLanguage), s => s.CurrentSpellCheckLanguage, (s, v) => s.CurrentSpellCheckLanguage = v, width: 180)),
             p, nameof(p.IsComposerSpellCheckEnabled), s => s.IsComposerSpellCheckEnabled);
 
+        var mentionsSwitch = Bind.Switch(p, nameof(p.IsComposerMentionSuggestionEnabled), s => s.IsComposerMentionSuggestionEnabled, (s, v) => s.IsComposerMentionSuggestionEnabled = v, Translator.SettingsComposerMentions_Title);
+        var mentionRecipient = Bind.Enabled(
+            Card(Translator.SettingsComposerMentions_AddTo, Translator.SettingsComposerMentions_AddTo_Description, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.MentionRecipientOptions, nameof(vm.SelectedMentionRecipientIndex),
+                    s => s.SelectedMentionRecipientIndex, (s, v) => s.SelectedMentionRecipientIndex = v, width: 180)),
+            p, nameof(p.IsComposerMentionSuggestionEnabled), s => s.IsComposerMentionSuggestionEnabled);
+        var mentionFormat = Bind.Enabled(
+            Card(Translator.SettingsComposerMentions_Format, Translator.SettingsComposerMentions_Format_Description, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.MentionFormatOptions, nameof(vm.SelectedMentionFormatIndex),
+                    s => s.SelectedMentionFormatIndex, (s, v) => s.SelectedMentionFormatIndex = v, width: 180)),
+            p, nameof(p.IsComposerMentionSuggestionEnabled), s => s.IsComposerMentionSuggestionEnabled);
+
         var draftChecksSwitch = Bind.Switch(p, nameof(p.IsDraftCheckEnabled), s => s.IsDraftCheckEnabled, (s, v) => s.IsDraftCheckEnabled = v, Translator.SettingsRendering_DraftChecks_Title);
         var draftCheckOptions = Bind.Enabled(WinoLayout.VStack(WinoStyle.Space2,
             Bind.Checkbox(p, Translator.SettingsRendering_DraftCheckImages, nameof(p.IsDraftImageDescriptionCheckEnabled), s => s.IsDraftImageDescriptionCheckEnabled, (s, v) => s.IsDraftImageDescriptionCheckEnabled = v),
@@ -99,6 +111,8 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
                 Card(Translator.SettingsFontPreview_Title, null, WinoIconGlyph.None, composerPreview)),
             Expander(Translator.SettingsComposerSpellCheck_Title, Translator.SettingsComposerSpellCheck_Description, WinoIconGlyph.TextProofingTools, spellCheckSwitch,
                 autoCorrect, spellCheckLanguage),
+            Expander(Translator.SettingsComposerMentions_Title, Translator.SettingsComposerMentions_Description, WinoIconGlyph.PersonTag, mentionsSwitch,
+                mentionRecipient, mentionFormat),
             Card(Translator.SettingsRendering_PasteFormatting_Title, Translator.SettingsRendering_PasteFormatting_Description, WinoIconGlyph.ClipboardPaste,
                 Bind.Switch(p, nameof(p.IsComposerPasteFormattingEnabled), s => s.IsComposerPasteFormattingEnabled, (s, v) => s.IsComposerPasteFormattingEnabled = v, Translator.SettingsRendering_PasteFormatting_Title)),
             Expander(Translator.SettingsRendering_DraftChecks_Title, Translator.SettingsRendering_DraftChecks_Description, WinoIconGlyph.Send, draftChecksSwitch,
