@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Welcome (Windows WelcomePageV2 content in the Material look): the hero at the top over the theme wallpaper, the
-     logo with the title and description centred under it, then one Wino zone with the Windows page's actions: the two restore links, the import
-     progress and status, the get-started description and the primary button. One column of at most 560 dp, centred on
-     wide windows; everything scrolls when the window is short. -->
+<!-- Welcome (Windows WelcomePageV2 order in the Material look): the logo, the title and the tagline, the primary get-started
+     button directly under them, then the restore links under a caption. The import progress and status follow the links.
+     One column of at most 560 dp, centred on wide windows and vertically in the screen; everything scrolls when the window
+     is short. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/welcome_insets"
@@ -22,18 +22,18 @@
       <LinearLayout
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          android:orientation="vertical">
+          android:gravity="center_vertical"
+          android:orientation="vertical"
+          android:paddingStart="@dimen/onboarding_page_padding"
+          android:paddingTop="@dimen/onboarding_hero_top_padding"
+          android:paddingEnd="@dimen/onboarding_page_padding"
+          android:paddingBottom="@dimen/onboarding_page_padding">
 
-        <!-- The hero at the top: the logo, then the welcome title and the tagline centred under it. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:paddingStart="@dimen/onboarding_page_padding"
-            android:paddingTop="@dimen/onboarding_hero_top_padding"
-            android:paddingEnd="@dimen/onboarding_page_padding"
-            android:paddingBottom="@dimen/onboarding_page_padding">
+            android:orientation="vertical">
 
           <com.google.android.material.imageview.ShapeableImageView
               android:id="@+id/welcome_logo"
@@ -60,91 +60,71 @@
               android:layout_marginTop="@dimen/wino_space_xs"
               android:gravity="center_horizontal"
               android:textAppearance="@style/TextAppearance.Wino.HeroSubtitle" />
-        </LinearLayout>
 
-        <!-- The wallpaper shows between the hero and the zone, which holds only the actions. -->
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/welcome_add_account"
+              style="@style/Widget.Wino.Onboarding.PrimaryButton"
+              android:layout_width="match_parent"
+              android:layout_marginTop="@dimen/onboarding_hero_gap" />
 
-        <com.winomail.presentation.WinoZoneLayout
-            style="@style/Widget.Wino.Onboarding.Zone"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-          <LinearLayout
+          <TextView
+              android:id="@+id/welcome_restore_caption"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
-              android:orientation="vertical">
+              android:layout_marginTop="@dimen/onboarding_hero_gap"
+              android:gravity="center"
+              android:textAppearance="@style/TextAppearance.Wino.Caption" />
 
-            <LinearLayout
+          <com.winomail.controls.WinoFlowView
+              android:id="@+id/welcome_restore_links"
+              android:layout_width="wrap_content"
+              android:layout_gravity="center_horizontal"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/wino_space_xs">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/welcome_import_account"
+                style="@style/Widget.Wino.Onboarding.TextButton"
+                android:layout_width="wrap_content" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/welcome_import_file"
+                style="@style/Widget.Wino.Onboarding.TextButton"
+                android:layout_width="wrap_content" />
+          </com.winomail.controls.WinoFlowView>
+
+          <LinearLayout
+              android:id="@+id/welcome_import_progress"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/onboarding_welcome_gap"
+              android:orientation="vertical"
+              android:visibility="gone">
+
+            <TextView
+                android:id="@+id/welcome_import_progress_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingStart="@dimen/onboarding_page_padding"
-                android:paddingTop="16dp"
-                android:paddingEnd="@dimen/onboarding_page_padding"
-                android:paddingBottom="16dp">
+                android:gravity="center"
+                android:textAppearance="@style/TextAppearance.Wino.Caption" />
 
-              <com.google.android.material.button.MaterialButton
-                  android:id="@+id/welcome_import_account"
-                  style="@style/Widget.Wino.Onboarding.TextButton"
-                  android:layout_width="match_parent" />
-
-              <com.google.android.material.button.MaterialButton
-                  android:id="@+id/welcome_import_file"
-                  style="@style/Widget.Wino.Onboarding.TextButton"
-                  android:layout_width="match_parent" />
-
-              <LinearLayout
-                  android:id="@+id/welcome_import_progress"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:layout_marginTop="@dimen/onboarding_welcome_gap"
-                  android:orientation="vertical"
-                  android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/welcome_import_progress_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textAppearance="@style/TextAppearance.Wino.Caption" />
-
-                <com.google.android.material.progressindicator.LinearProgressIndicator
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/onboarding_welcome_gap"
-                    android:indeterminate="true" />
-              </LinearLayout>
-
-              <TextView
-                  android:id="@+id/welcome_status"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:layout_marginTop="@dimen/onboarding_welcome_gap"
-                  android:accessibilityLiveRegion="polite"
-                  android:gravity="center"
-                  android:textAppearance="@style/TextAppearance.Wino.Caption"
-                  android:visibility="gone" />
-
-              <TextView
-                  android:id="@+id/welcome_get_started_description"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:layout_marginTop="@dimen/onboarding_welcome_gap"
-                  android:gravity="center"
-                  android:textAppearance="@style/TextAppearance.Wino.ListSupporting" />
-
-              <com.google.android.material.button.MaterialButton
-                  android:id="@+id/welcome_add_account"
-                  style="@style/Widget.Wino.Onboarding.PrimaryButton"
-                  android:layout_width="match_parent"
-                  android:layout_marginTop="@dimen/onboarding_field_gap" />
-            </LinearLayout>
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/onboarding_welcome_gap"
+                android:indeterminate="true" />
           </LinearLayout>
-        </com.winomail.presentation.WinoZoneLayout>
+
+          <TextView
+              android:id="@+id/welcome_status"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/onboarding_welcome_gap"
+              android:accessibilityLiveRegion="polite"
+              android:gravity="center"
+              android:textAppearance="@style/TextAppearance.Wino.Caption"
+              android:visibility="gone" />
+        </LinearLayout>
       </LinearLayout>
     </ScrollView>
   </com.winomail.presentation.WinoMaxWidthLayout>

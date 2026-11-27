@@ -4,15 +4,16 @@ using Google.Android.Material.Button;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.Android;
 
 namespace Wino.Mail.Android.Views.Onboarding;
 
 /// <summary>
-/// Welcome (Windows WelcomePageV2 content in the Material look): the hero over the wallpaper with the logo, title and
-/// description, then in the Wino zone the Windows page's actions: restore from the Wino Account or a backup file, the
-/// import progress and status, the get-started description and the get-started button.
+/// Welcome (Windows WelcomePageV2 order in the Material look): the logo, title and tagline, the get-started button
+/// directly under them, then the restore links from the Wino Account or a backup file under a caption, with the import
+/// progress and status below them.
 /// </summary>
 public sealed class WelcomePageFragment : WinoFragment<WelcomePageV2ViewModel>
 {
@@ -25,13 +26,18 @@ public sealed class WelcomePageFragment : WinoFragment<WelcomePageV2ViewModel>
         Text(view, Resource.Id.welcome_title, Translator.WelcomeWindow_Title);
         // WelcomeWindow_AppDescription names Windows; the same line without the platform.
         Text(view, Resource.Id.welcome_description, Translator.Android_Welcome_Tagline);
-        Text(view, Resource.Id.welcome_get_started_description, Translator.WelcomeWindow_GetStartedDescription);
+        Text(view, Resource.Id.welcome_restore_caption, Translator.WelcomeWindow_RestoreOrImportCaption);
         Text(view, Resource.Id.welcome_import_progress_text, Translator.WelcomeWindow_ImportInProgress);
         if (view.FindViewById<ImageView>(Resource.Id.welcome_logo) is { } logo) logo.ContentDescription = Translator.WelcomeWindow_Title;
 
-        Button(view, Resource.Id.welcome_import_account, Translator.WelcomeWindow_ImportFromWinoAccount, viewModel.ImportFromWinoAccountCommand, dispatcher);
-        Button(view, Resource.Id.welcome_import_file, Translator.WelcomeWindow_ImportFromJsonFile, viewModel.ImportFromJsonCommand, dispatcher);
+        if (view.FindViewById<WinoFlowView>(Resource.Id.welcome_restore_links) is { } links)
+            links.Spacing = WinoTokens.Px(view.Context!, Resource.Dimension.wino_space_l);
+
         Button(view, Resource.Id.welcome_add_account, Translator.WelcomeWindow_GetStartedButton, viewModel.GetStartedCommand, dispatcher);
+        Button(view, Resource.Id.welcome_import_account, Translator.WelcomeWindow_RestoreLinkWinoAccount, viewModel.ImportFromWinoAccountCommand, dispatcher,
+            Translator.WelcomeWindow_ImportFromWinoAccount);
+        Button(view, Resource.Id.welcome_import_file, Translator.WelcomeWindow_BackupFileLink, viewModel.ImportFromJsonCommand, dispatcher,
+            Translator.WelcomeWindow_ImportFromJsonFile);
 
         if (view.FindViewById(Resource.Id.welcome_import_progress) is { } progress)
         {
@@ -48,10 +54,11 @@ public sealed class WelcomePageFragment : WinoFragment<WelcomePageV2ViewModel>
         }
     }
 
-    private void Button(View root, int id, string text, System.Windows.Input.ICommand command, IDispatcher dispatcher)
+    private void Button(View root, int id, string text, System.Windows.Input.ICommand command, IDispatcher dispatcher, string? accessibleName = null)
     {
         if (root.FindViewById<MaterialButton>(id) is not { } button) return;
         button.Text = text;
+        if (accessibleName is not null) button.ContentDescription = accessibleName;
         BindCommand(button, command, dispatcher);
     }
 

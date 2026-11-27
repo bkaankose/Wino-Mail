@@ -1,15 +1,18 @@
+using CoreGraphics;
 using Foundation;
 using UIKit;
 using Wino.Core.Domain;
+using Wino.Mail.Controls.Core.Layout;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Views;
 
 /// <summary>
-/// Welcome screen (design board "Onboarding · Welcome", Mac WelcomePageV2): the Wino Mail logo, title, one-line
-/// description, the restore links and the primary "add account" button.
-/// The theme backdrop fills the screen; the content sits in one Wino zone, a centred column on iPad.
+/// Welcome screen (design board "Onboarding · Welcome", Windows WelcomePageV2 order): the Wino Mail logo, title and
+/// subtitle, the primary "Get started" button directly under them, then the restore links under a caption. The links
+/// wrap onto another line when the text is long. The theme backdrop fills the screen; the content sits in one Wino
+/// zone, a centred column on iPad.
 /// </summary>
 public sealed class WelcomePageV2 : UIView
 {
@@ -18,7 +21,7 @@ public sealed class WelcomePageV2 : UIView
 
     private readonly List<UILabel> _wrapping = new();
 
-    public WelcomePageV2(UIButton getStarted, UIButton importAccount, UIButton importFile, UILabel status)
+    public WelcomePageV2(UIButton getStarted, IReadOnlyList<UIButton> restoreLinks, UILabel status)
     {
         var backdrop = UIKitThemeService.Track(new ThemeBackdropView());
         WinoLayout.Fill(backdrop, this);
@@ -36,17 +39,16 @@ public sealed class WelcomePageV2 : UIView
         var title = WinoStyle.Label(Translator.WelcomeWindow_Title, WinoStyle.PageTitle, WinoStyle.PrimaryText, 0);
         title.TextAlignment = UITextAlignment.Center;
         title.AccessibilityTraits = UIAccessibilityTrait.Header;
-        var description = WinoStyle.Label(Translator.WelcomeWindow_GetStartedDescription, WinoStyle.Body, WinoStyle.SecondaryText, 0);
-        description.TextAlignment = UITextAlignment.Center;
-        _wrapping.AddRange([title, description, status]);
+        var subtitle = WinoStyle.Label(Translator.Android_Welcome_Tagline, WinoStyle.Body, WinoStyle.SecondaryText, 0);
+        subtitle.TextAlignment = UITextAlignment.Center;
+        var caption = WinoStyle.Label(Translator.WelcomeWindow_RestoreOrImportCaption, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        caption.TextAlignment = UITextAlignment.Center;
+        _wrapping.AddRange([title, subtitle, caption, status]);
 
         status.Font = WinoStyle.Description;
         status.TextColor = WinoStyle.SecondaryText;
         status.TextAlignment = UITextAlignment.Center;
         status.Lines = 0;
-
-        var links = WinoLayout.VStack(0, importAccount, importFile);
-        links.Alignment = UIStackViewAlignment.Center;
 
         // The logo is centred in its own holder so the text rows can fill the column width and wrap.
         var logoHolder = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
@@ -57,12 +59,16 @@ public sealed class WelcomePageV2 : UIView
             logo.TopAnchor.ConstraintEqualTo(logoHolder.TopAnchor),
             logo.BottomAnchor.ConstraintEqualTo(logoHolder.BottomAnchor)
         ]);
-        var heading = WinoLayout.VStack(WinoStyle.Space2, logoHolder, title, description);
+        var heading = WinoLayout.VStack(WinoStyle.Space2, logoHolder, title, subtitle);
         heading.Alignment = UIStackViewAlignment.Fill;
-        var column = WinoLayout.VStack(WinoStyle.Space6, heading, status, getStarted, links);
-        column.Alignment = UIStackViewAlignment.Fill;
-        column.SetCustomSpacing((nfloat)WinoStyle.Space3, getStarted);
         getStarted.HeightAnchor.ConstraintGreaterThanOrEqualTo(50).Active = true;
+
+        var links = new LinkRow(restoreLinks);
+        var column = WinoLayout.VStack(WinoStyle.Space4, heading, getStarted, caption, links, status);
+        column.Alignment = UIStackViewAlignment.Fill;
+        column.SetCustomSpacing((nfloat)WinoStyle.Space6, heading);
+        column.SetCustomSpacing((nfloat)WinoStyle.Space6, getStarted);
+        column.SetCustomSpacing((nfloat)WinoStyle.Space2, caption);
 
         var zone = new WinoZoneView { TranslatesAutoresizingMaskIntoConstraints = false };
         var scroll = new UIScrollView { TranslatesAutoresizingMaskIntoConstraints = false, AlwaysBounceVertical = true };
@@ -131,5 +137,55 @@ public sealed class WelcomePageV2 : UIView
     {
         var path = Path.Combine(NSBundle.MainBundle.ResourcePath ?? AppContext.BaseDirectory, LogoResource);
         return File.Exists(path) ? UIImage.FromFile(path) : null;
+    }
+
+    /// <summary>The restore links in one centred row that wraps onto more lines when the width runs out.</summary>
+    private sealed class LinkRow : UIView
+    {
+        private const double Spacing = 16;
+        private const double LineSpacing = 8;
+        private nfloat _height;
+
+        public LinkRow(IReadOnlyList<UIButton> links)
+        {
+            foreach (var link in links)
+            {
+                link.TranslatesAutoresizingMaskIntoConstraints = true;
+                AddSubview(link);
+            }
+        }
+
+        public override CGSize IntrinsicContentSize => new(NoIntrinsicMetric, _height);
+
+        public override void LayoutSubviews()
+        {
+            base.LayoutSubviews();
+            var views = Subviews;
+            var sizes = views.Select(view => (Width: (double)view.IntrinsicContentSize.Width, Height: (double)view.IntrinsicContentSize.Height)).ToList();
+            var result = WinoFlowLayout.Arrange(sizes, Bounds.Width, Spacing, LineSpacing);
+
+            for (int line = 0; line < result.Frames.Count;)
+            {
+                var lineY = result.Frames[line].Y;
+                int end = line;
+                while (end < result.Frames.Count && result.Frames[end].Y == lineY) end++;
+
+                double left = result.Frames[line].X;
+                double right = result.Frames[end - 1].X + result.Frames[end - 1].Width;
+                double shift = (Bounds.Width - (right - left)) / 2 - left;
+                for (int index = line; index < end; index++)
+                {
+                    var frame = result.Frames[index];
+                    views[index].Frame = new CGRect(frame.X + shift, frame.Y, frame.Width, frame.Height);
+                }
+                line = end;
+            }
+
+            if (Math.Abs(_height - result.Height) > 0.5)
+            {
+                _height = (nfloat)result.Height;
+                InvalidateIntrinsicContentSize();
+            }
+        }
     }
 }

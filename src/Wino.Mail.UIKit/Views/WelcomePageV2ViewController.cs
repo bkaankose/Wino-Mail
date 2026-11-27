@@ -14,17 +14,22 @@ public sealed class WelcomePageV2ViewController(WelcomePageV2ViewModel viewModel
         var status = new UILabel();
         BindText(status, nameof(ViewModel.ImportStatusMessage), vm => vm.ImportStatusMessage);
         var getStarted = CommandButton(Translator.WelcomeWindow_GetStartedButton, ViewModel.GetStartedCommand, primary: true);
-        var importAccount = Link(CommandButton(Translator.WelcomeWindow_ImportFromWinoAccount, ViewModel.ImportFromWinoAccountCommand));
-        var importFile = Link(CommandButton(Translator.WelcomeWindow_ImportFromJsonFile, ViewModel.ImportFromJsonCommand));
-        View = new WelcomePageV2(getStarted, importAccount, importFile, status);
+        var restoreLinks = new[]
+        {
+            RestoreLink(Translator.WelcomeWindow_RestoreLinkWinoAccount, Translator.WelcomeWindow_ImportFromWinoAccount, ViewModel.ImportFromWinoAccountCommand),
+            RestoreLink(Translator.WelcomeWindow_BackupFileLink, Translator.WelcomeWindow_ImportFromJsonFile, ViewModel.ImportFromJsonCommand)
+        };
+        View = new WelcomePageV2(getStarted, restoreLinks, status);
     }
 
-    /// <summary>The restore actions read as links under the primary button.</summary>
-    private static UIButton Link(UIButton button)
+    /// <summary>The restore actions read as links under the primary button, with the full name for VoiceOver.</summary>
+    private UIButton RestoreLink(string text, string accessibleName, System.Windows.Input.ICommand command)
     {
+        var button = CommandButton(text, command);
         var configuration = UIButtonConfiguration.PlainButtonConfiguration;
         configuration.Title = button.Configuration?.Title ?? string.Empty;
         button.Configuration = configuration;
+        button.AccessibilityLabel = accessibleName;
         return button;
     }
 }
