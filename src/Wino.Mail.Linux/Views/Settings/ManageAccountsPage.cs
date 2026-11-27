@@ -15,7 +15,7 @@ using Wino.Presentation.Linux;
 namespace Wino.Mail.Linux.Views.Settings;
 
 /// <summary>
-/// Manage accounts (Windows AccountManagementPage, macOS order): Add account and the account-limit card, Link and
+/// Manage accounts (Windows AccountManagementPage, macOS order): Add account and the account-limit card, Import from other mail clients, Link and
 /// Reorder, the accounts with their icon, capabilities, address and attention state, then the account groups with
 /// their accounts. A row opens the account details; a group opens the account group page.
 /// </summary>
@@ -35,6 +35,7 @@ internal sealed class ManageAccountsPage(AccountManagementViewModel viewModel, W
         Settings.Visible(PurchaseGroup().Root, vm, nameof(vm.IsPurchasePanelVisible), static s => s.IsPurchasePanelVisible);
 
         var manage = AddGroup(null,
+            Settings.Command(Translator.MailClientImport_Title, Translator.MailClientImport_Description, WinoIconGlyph.ArrowDownload, vm.ImportFromOtherMailClientsCommand),
             Settings.Command(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateAccountGroupCommand),
             Settings.Command(Translator.SettingsReorderAccounts_Title, Translator.SettingsReorderAccounts_Description, WinoIconGlyph.ArrowSort, vm.ReorderAccountsCommand));
         Settings.Visible(manage.Root, vm, nameof(vm.HasAccountsDefined), static s => s.HasAccountsDefined);

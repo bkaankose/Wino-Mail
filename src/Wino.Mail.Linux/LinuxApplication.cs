@@ -96,6 +96,7 @@ internal sealed class LinuxApplication
             Infrastructure.Diagnostics.MailSelectionDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.ThemeEditorDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.ListPickerDebugActions.Register(application, () => _services);
+            Infrastructure.Diagnostics.MailClientImportDebugActions.Register(application);
             Infrastructure.Diagnostics.AccountDialogDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.FolderCategoryDebugActions.Register(application, () => _services);
             Infrastructure.Diagnostics.MailFiltersDebugActions.Register(application, () => _services);

@@ -16,7 +16,10 @@ internal sealed partial class AccountSetupView
     private Adw.EntryRow _localName = null!;
     private List<AccountSetupProviderShelfItem>? _shownShelf;
 
-    /// <summary>The providers Wino connects to, the address with the recognised provider's mark, or a local account's name.</summary>
+    /// <summary>
+    /// The providers Wino connects to, the address with the recognised provider's mark (with Skip while importing
+    /// accounts from other mail clients), or a local account's name.
+    /// </summary>
     private Gtk.Widget BuildAddressStep()
     {
         var vm = ViewModel;
@@ -54,7 +57,11 @@ internal sealed partial class AccountSetupView
         _form.When(nameError, s => s.HasAccountNameError);
         var local = _form.When(OnboardingUi.Column(6, nameGroup, nameError), s => s.IsLocalOnlyMode);
 
-        return OnboardingUi.Column(16, shelf, email, local);
+        // An account picked from another mail client can be left out; the next one's setup opens.
+        var skip = _form.When(_form.Link(vm.SkipImportedAccountText, vm.SkipImportedAccountCommand), s => s.IsSkipImportedAccountVisible);
+        _form.Apply(() => OnboardingUi.SetLabel(skip, ViewModel.SkipImportedAccountText));
+
+        return OnboardingUi.Column(16, shelf, email, skip, local);
     }
 
     private void RenderShelf(Adw.WrapBox shelf)

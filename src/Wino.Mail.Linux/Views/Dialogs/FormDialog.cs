@@ -90,6 +90,9 @@ internal sealed class FormDialog
 
     public string PrimaryText { set => _primary.SetLabel(value.Replace("_", "__", StringComparison.Ordinal)); }
 
+    /// <summary>Hides the primary button when there is nothing to confirm; Cancel stays.</summary>
+    public bool PrimaryVisible { set => _primary.SetVisible(value); }
+
     public string Title { set => Dialog.SetTitle(value); }
 
     /// <summary>The primary button's sensitivity; evaluated by <see cref="Refresh"/>.</summary>
