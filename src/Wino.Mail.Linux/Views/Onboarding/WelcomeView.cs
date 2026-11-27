@@ -10,14 +10,14 @@ using Wino.Presentation.Linux;
 namespace Wino.Mail.Linux.Views.Onboarding;
 
 /// <summary>
-/// The first-run page (macOS WelcomePageV2): app mark, title, one-line description and the import status in the centre,
-/// a footer with the two restore links at the start and Get started at the end. Get started opens the address-first
-/// setup in the same window; a finished import or a created account replaces this page with the shell.
+/// The first-run page (Windows WelcomePageV2): app mark, title and description, Get started right below them, then
+/// one wrapping row of links to restore a Wino Account or a backup file or to import accounts from other mail clients,
+/// and the import status. Get started opens the address-first setup in the same window; a finished import or a
+/// created account replaces this page with the shell.
 /// </summary>
 internal sealed class WelcomeView : WinoView<WelcomePageV2ViewModel>
 {
     private readonly Adw.ToolbarView _root;
-    private readonly Adw.BreakpointBin _bin;
     private readonly Gtk.Button _getStarted;
 
     public WelcomeView(WelcomePageV2ViewModel viewModel, WinoViewServices services, LinuxProtectionKeySetup keySetup) : base(viewModel, services)
@@ -32,8 +32,29 @@ internal sealed class WelcomeView : WinoView<WelcomePageV2ViewModel>
 
         var title = OnboardingUi.Title(Translator.WelcomeWindow_Title);
         title.AccessibleRole = Gtk.AccessibleRole.Heading;
-        var description = OnboardingUi.Subtitle(Translator.WelcomeWindow_GetStartedDescription);
+        var description = OnboardingUi.Subtitle(Translator.Linux_Welcome_AppDescription);
         description.SetMaxWidthChars(52);
+
+        _getStarted = OnboardingUi.Button(Translator.WelcomeWindow_GetStartedButton, suggested: true);
+        _getStarted.AddCssClass("pill");
+        _getStarted.SetHalign(Gtk.Align.Center);
+        _getStarted.SetSizeRequest(240, -1);
+        if (_getStarted.GetChild() is Gtk.Label getStartedLabel) getStartedLabel.SetEllipsize(Pango.EllipsizeMode.End);
+        Bind.BindCommand(_getStarted, Gated(vm.GetStartedCommand));
+        WinoA11y.Rename(_getStarted, Translator.WelcomeWindow_GetStartedButton);
+
+        var caption = OnboardingUi.Caption(Translator.WelcomeWindow_RestoreOrImportCaption);
+        caption.SetJustify(Gtk.Justification.Center);
+        caption.SetXalign(0.5f);
+
+        var links = Adw.WrapBox.New();
+        links.SetChildSpacing(4);
+        links.SetLineSpacing(0);
+        links.SetHalign(Gtk.Align.Center);
+        links.SetAlign(0.5f);
+        links.Append(Link(Translator.WelcomeWindow_RestoreLinkWinoAccount, Translator.WelcomeWindow_ImportFromWinoAccount, Gated(vm.ImportFromWinoAccountCommand)));
+        links.Append(Link(Translator.WelcomeWindow_BackupFileLink, Translator.WelcomeWindow_ImportFromJsonFile, Gated(vm.ImportFromJsonCommand)));
+        links.Append(Link(Translator.WelcomeWindow_RestoreLinkOtherClients, Translator.MailClientImport_Title, Gated(vm.ImportFromOtherMailClientsCommand)));
 
         var spinner = OnboardingUi.Spinner();
         var progress = Gtk.Label.New(Translator.WelcomeWindow_ImportInProgress);
@@ -47,11 +68,13 @@ internal sealed class WelcomeView : WinoView<WelcomePageV2ViewModel>
         Bind.BindVisible(status, nameof(vm.HasImportStatus), static s => s.HasImportStatus);
 
         var heading = OnboardingUi.Column(6, title, description);
-        var hero = OnboardingUi.Column(16, mark, heading, busy, status);
+        var restore = OnboardingUi.Column(2, caption, links);
+        restore.SetMarginTop(8);
+        var hero = OnboardingUi.Column(16, mark, heading, _getStarted, restore, busy, status);
         hero.SetValign(Gtk.Align.Center);
         hero.SetVexpand(true);
         hero.SetMarginTop(40);
-        hero.SetMarginBottom(24);
+        hero.SetMarginBottom(40);
         hero.SetMarginStart(24);
         hero.SetMarginEnd(24);
 
@@ -63,55 +86,25 @@ internal sealed class WelcomeView : WinoView<WelcomePageV2ViewModel>
         scroller.SetVexpand(true);
         scroller.SetChild(clamp);
 
-        var importAccount = OnboardingUi.Link(Translator.WelcomeWindow_ImportFromWinoAccount);
-        Bind.BindCommand(importAccount, Gated(vm.ImportFromWinoAccountCommand));
-        WinoA11y.Rename(importAccount, Translator.WelcomeWindow_ImportFromWinoAccount);
-        var importFile = OnboardingUi.Link(Translator.WelcomeWindow_ImportFromJsonFile);
-        Bind.BindCommand(importFile, Gated(vm.ImportFromJsonCommand));
-        WinoA11y.Rename(importFile, Translator.WelcomeWindow_ImportFromJsonFile);
-
-        // The links wrap under each other before Get started would be pushed out of a narrow window.
-        var links = Adw.WrapBox.New();
-        links.SetChildSpacing(4);
-        links.SetLineSpacing(4);
-        links.SetHexpand(true);
-        links.SetValign(Gtk.Align.Center);
-        links.Append(importAccount);
-        links.Append(importFile);
-
-        _getStarted = OnboardingUi.Button(Translator.WelcomeWindow_GetStartedButton, suggested: true);
-        _getStarted.AddCssClass("pill");
-        _getStarted.SetValign(Gtk.Align.Center);
-        Bind.BindCommand(_getStarted, Gated(vm.GetStartedCommand));
-        WinoA11y.Rename(_getStarted, Translator.WelcomeWindow_GetStartedButton);
-
-        var footer = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
-        footer.SetMarginTop(12);
-        footer.SetMarginBottom(12);
-        footer.SetMarginStart(16);
-        footer.SetMarginEnd(16);
-        footer.Append(links);
-        footer.Append(_getStarted);
-
-        var content = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
-        content.Append(scroller);
-        content.Append(Gtk.Separator.New(Gtk.Orientation.Horizontal));
-        content.Append(footer);
-
         var header = Adw.HeaderBar.New();
         header.SetShowTitle(false);
         _root = Adw.ToolbarView.New();
         _root.AddTopBar(header);
-        _root.SetContent(content);
-
-        if (_getStarted.GetChild() is Gtk.Label getStartedLabel) getStartedLabel.SetEllipsize(Pango.EllipsizeMode.End);
-        _bin = OnboardingUi.NarrowBin(_root, Bindings, narrow => footer.SetOrientation(narrow ? Gtk.Orientation.Vertical : Gtk.Orientation.Horizontal));
+        _root.SetContent(scroller);
 #if DEBUG
         _debugCurrent = new WeakReference<WelcomeView>(this);
 #endif
     }
 
-    public override Gtk.Widget Root => _bin;
+    private Gtk.Button Link(string text, string accessibleName, ICommand command)
+    {
+        var link = OnboardingUi.Link(text);
+        Bind.BindCommand(link, command);
+        WinoA11y.Rename(link, accessibleName);
+        return link;
+    }
+
+    public override Gtk.Widget Root => _root;
 
     public override bool HasPendingWork => base.HasPendingWork || ViewModel.IsImportInProgress;
 

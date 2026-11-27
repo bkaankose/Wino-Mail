@@ -6115,6 +6115,7 @@
   "Linux_Shortcuts_ViewAllDescription": "Navigation, window and single-key shortcuts as well as the ones listed here.",
   "Linux_SingleKeyShortcuts_Title": "Single-key shortcuts",
   "Linux_SingleKeyShortcuts_Description": "Use letters such as J, K, R and E for mail while the message list or the reader has the focus. On by default on tiling desktops.",
+  "Linux_Welcome_AppDescription": "Mail, calendar, contacts and tasks in one fast, native Linux app",
   "Info_CrossAccountMovePartialFailureTitle": "Some mail was not moved",
   "Info_CrossAccountMovePartialFailureMessage": "{0} of {1} message(s) could not be moved to {2}. They are still in their original folder.",
   "Info_CrossAccountMoveSignInRejectedMessage": "{0} did not accept the IMAP sign-in Wino uses to add mail to it. IMAP may be turned off for this mailbox by its administrator. The mail stays in its original folder.",
