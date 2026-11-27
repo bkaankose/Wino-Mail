@@ -38,10 +38,13 @@ public sealed class ProviderSelectionNavigationContext
             HostMode = ProviderSelectionHostMode.SettingsAddAccount
         };
 
-    public static ProviderSelectionNavigationContext CreateForImport(IReadOnlyList<MailClientImportCandidate> accounts, int index = 0, MailAccount? lastImportedAccount = null)
+    public static ProviderSelectionNavigationContext CreateForImport(ProviderSelectionHostMode hostMode,
+                                                                     IReadOnlyList<MailClientImportCandidate> accounts,
+                                                                     int index = 0,
+                                                                     MailAccount? lastImportedAccount = null)
         => new()
         {
-            HostMode = ProviderSelectionHostMode.SettingsAddAccount,
+            HostMode = hostMode,
             ImportedAccounts = accounts,
             ImportIndex = index,
             LastImportedAccount = lastImportedAccount

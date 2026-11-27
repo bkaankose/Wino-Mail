@@ -137,10 +137,15 @@ public partial class AccountSetupPageViewModel
             Messenger.Send(new BreadcrumbNavigationRequested(
                 Translator.MailClientImport_Title,
                 WinoPage.AccountSetupPage,
-                ProviderSelectionNavigationContext.CreateForImport(_importedAccounts, _importIndex + 1, _lastImportedAccount)));
+                ProviderSelectionNavigationContext.CreateForImport(_hostMode, _importedAccounts, _importIndex + 1, _lastImportedAccount)));
             return;
         }
 
+        ShowLastImportedAccount();
+    }
+
+    private void ShowLastImportedAccount()
+    {
         if (_lastImportedAccount != null)
             Messenger.Send(new CreatedAccountShowRequested(_lastImportedAccount));
     }

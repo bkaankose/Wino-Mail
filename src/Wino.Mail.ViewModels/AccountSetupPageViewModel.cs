@@ -293,6 +293,11 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         await DiscardSignInAsync();
 
         Messenger.Send(new BackBreadcrumNavigationRequested(NavigationTransitionEffect.FromLeft));
+
+        // The welcome window opens the app only for a shown account; without this, accounts an abandoned import
+        // already added would leave the user on the welcome page.
+        if (IsImporting && !IsSettingsHost)
+            ShowLastImportedAccount();
     }
 
     [RelayCommand]

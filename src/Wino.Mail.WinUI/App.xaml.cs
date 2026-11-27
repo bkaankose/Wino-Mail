@@ -73,6 +73,7 @@ namespace Wino.Mail.WinUI;
 public partial class App : WinoApplication,
     IRecipient<AccountSynchronizationCompleted>,
     IRecipient<AccountCreatedMessage>,
+    IRecipient<CreatedAccountShowRequested>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
     IRecipient<GetStartedFromWelcomeRequested>,
@@ -1593,6 +1594,7 @@ public partial class App : WinoApplication,
     {
         WeakReferenceMessenger.Default.Register<AccountSynchronizationCompleted>(this);
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<CreatedAccountShowRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
@@ -1622,23 +1624,46 @@ public partial class App : WinoApplication,
         EnsurePreferenceChangedSubscription();
         QueueJumpListOptionsUpdateOnUiThread();
 
-        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-
         // Only transition when the account was created from the WelcomeWindow.
-        if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
+        if (!IsWelcomeWindowOpen)
         {
             _ = SynchronizeCreatedAccountAndStartAutoSynchronizationAsync(message.Account);
             return;
         }
 
+        // An import has more accounts to set up in the welcome window; they synchronize once the shell opens.
+        if (!message.ShowsAccount)
+        {
+            _deferredWelcomeAccounts.Add(message.Account);
+            return;
+        }
+
+        OpenShellFromWelcome(message.Account);
+    }
+
+    public void Receive(CreatedAccountShowRequested message)
+    {
+        if (IsWelcomeWindowOpen)
+            OpenShellFromWelcome(message.Account);
+    }
+
+    private readonly List<Wino.Core.Domain.Entities.Shared.MailAccount> _deferredWelcomeAccounts = [];
+
+    private bool IsWelcomeWindowOpen => Services.GetRequiredService<IWinoWindowManager>().GetWindow(WinoWindowKind.Welcome) != null;
+
+    private void OpenShellFromWelcome(Wino.Core.Domain.Entities.Shared.MailAccount account)
+    {
+        var deferredAccounts = _deferredWelcomeAccounts.Where(deferred => deferred.Id != account.Id).ToList();
+        _deferredWelcomeAccounts.Clear();
+
         MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
         {
             // Create and activate ShellWindow — ActiveWindowChanged fires and rebinds the dispatcher.
-            var initialMode = message.Account.IsMailAccessGranted
+            var initialMode = account.IsMailAccessGranted
                 ? WinoApplicationMode.Mail
-                : message.Account.IsCalendarAccessGranted
+                : account.IsCalendarAccessGranted
                     ? WinoApplicationMode.Calendar
-                    : message.Account.IsTaskAccessGranted
+                    : account.IsTaskAccessGranted
                         ? WinoApplicationMode.Tasks
                     : WinoApplicationMode.Contacts;
             CreateWindow(
@@ -1657,7 +1682,10 @@ public partial class App : WinoApplication,
 
             CloseWelcomeWindowIfPresent();
 
-            await SynchronizeCreatedAccountAsync(message.Account);
+            foreach (var deferred in deferredAccounts)
+                await SynchronizeCreatedAccountAsync(deferred);
+
+            await SynchronizeCreatedAccountAsync(account);
 
             await StartRuntimeAfterLaunchAsync();
         });

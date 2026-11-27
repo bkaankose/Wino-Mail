@@ -28,6 +28,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     [NotifyCanExecuteChangedFor(nameof(GetStartedCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportFromWinoAccountCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportFromJsonCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportFromOtherMailClientsCommand))]
     public partial bool IsImportInProgress { get; set; }
 
     [ObservableProperty]
@@ -54,6 +55,20 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
             Translator.WelcomeWizard_Step2Title,
             AccountSetupNavigation.GetAddAccountPage(_platformCapabilities),
             ProviderSelectionNavigationContext.CreateForWizard()));
+    }
+
+    /// <summary>Runs account setup once for each account picked from another mail client, as Settings does.</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenWelcomeActions))]
+    private async Task ImportFromOtherMailClientsAsync()
+    {
+        var selected = await _dialogService.ShowMailClientImportDialogAsync();
+        if (selected is not { Count: > 0 })
+            return;
+
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.MailClientImport_Title,
+            AccountSetupNavigation.GetAddAccountPage(_platformCapabilities),
+            ProviderSelectionNavigationContext.CreateForImport(ProviderSelectionHostMode.Wizard, selected)));
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenWelcomeActions))]

@@ -184,7 +184,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.MailClientImport_Title,
             WinoPage.AccountSetupPage,
-            ProviderSelectionNavigationContext.CreateForImport(selected)));
+            ProviderSelectionNavigationContext.CreateForImport(ProviderSelectionHostMode.SettingsAddAccount, selected)));
     }
 
     [RelayCommand]
