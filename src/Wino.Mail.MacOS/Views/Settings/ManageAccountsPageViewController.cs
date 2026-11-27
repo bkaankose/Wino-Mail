@@ -40,7 +40,12 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         var header = Add(new SettingsAdaptiveRow(HeaderBreakpoint, 12, NSLayoutAttribute.Top, null, purchase, AddAccountTile(), purchase));
         purchase.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor).Active = true;
 
-        // Windows list header: Create account group and Reorder, above the accounts.
+        // Windows list header: Import from other mail clients, Create account group and Reorder, above the accounts.
+        // The import row stays visible without accounts, so a first-time user can find it here.
+        var import = CommandCard(Translator.MailClientImport_Title, Translator.MailClientImport_Description, WinoIconGlyph.ArrowDownload, vm.ImportFromOtherMailClientsCommand);
+        import.ShowsChevron = false;
+        Add(Group(null, import));
+
         var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateAccountGroupCommand);
         merge.ShowsChevron = false;
         var reorder = CommandCard(Translator.SettingsReorderAccounts_Title, Translator.SettingsReorderAccounts_Description, WinoIconGlyph.ArrowSort, vm.ReorderAccountsCommand);

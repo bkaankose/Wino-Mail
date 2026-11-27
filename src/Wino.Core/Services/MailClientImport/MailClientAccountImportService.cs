@@ -30,7 +30,7 @@ public sealed class MailClientAccountImportService(
         return new[] { MailClientImportSource.Thunderbird };
     }
 
-    public async Task<List<MailClientImportCandidate>> ScanAsync(IProgress<MailClientImportSource>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<List<MailClientImportCandidate>> ScanAsync(IProgress<MailClientImportSource>? progress = null, IReadOnlyList<string>? thunderbirdFolders = null, CancellationToken cancellationToken = default)
     {
         var existingAddresses = (await accountService.GetAccountsAsync().ConfigureAwait(false))
             .Select(a => NormalizeAddress(a.Address))
@@ -48,7 +48,7 @@ public sealed class MailClientAccountImportService(
             List<MailClientAccountFinding> findings;
             try
             {
-                findings = await Task.Run(() => ReadSource(source), cancellationToken).ConfigureAwait(false);
+                findings = await Task.Run(() => ReadSource(source, thunderbirdFolders), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -79,9 +79,9 @@ public sealed class MailClientAccountImportService(
         return candidates;
     }
 
-    private static List<MailClientAccountFinding> ReadSource(MailClientImportSource source) => source switch
+    private static List<MailClientAccountFinding> ReadSource(MailClientImportSource source, IReadOnlyList<string>? thunderbirdFolders) => source switch
     {
-        MailClientImportSource.Thunderbird => ThunderbirdAccountReader.Read(MailClientImportLocations.GetThunderbirdRoots()),
+        MailClientImportSource.Thunderbird => ThunderbirdAccountReader.Read(thunderbirdFolders ?? MailClientImportLocations.GetThunderbirdRoots()),
         MailClientImportSource.OutlookClassic when OperatingSystem.IsWindows() => OutlookClassicAccountReader.Read(),
         MailClientImportSource.NewOutlook => NewOutlookAccountReader.Read(MailClientImportLocations.GetNewOutlookSettingsPath()),
         MailClientImportSource.Evolution => EvolutionAccountReader.Read(MailClientImportLocations.GetEvolutionSourceFolders()),

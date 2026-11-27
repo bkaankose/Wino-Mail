@@ -21,5 +21,6 @@ public interface IMailClientAccountImportService
     /// Reads every source one by one and reports each before it is read. A client that is not installed, or whose files
     /// cannot be read, contributes nothing. An address found in several clients is listed once.
     /// </summary>
-    Task<List<MailClientImportCandidate>> ScanAsync(IProgress<MailClientImportSource>? progress = null, CancellationToken cancellationToken = default);
+    /// <param name="thunderbirdFolders">The Thunderbird folders to read in place of the default ones, for a host that cannot read them (the sandboxed Mac app reads the folder the user picked).</param>
+    Task<List<MailClientImportCandidate>> ScanAsync(IProgress<MailClientImportSource>? progress = null, IReadOnlyList<string>? thunderbirdFolders = null, CancellationToken cancellationToken = default);
 }

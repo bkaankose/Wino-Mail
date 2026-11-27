@@ -229,6 +229,10 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         When(back, s => s.IsBackVisible);
         back.WidthAnchor.ConstraintGreaterThanOrEqualTo(72).Active = true;
 
+        var skipImported = Command(string.Empty, vm.SkipImportedAccountCommand);
+        When(skipImported, s => s.IsSkipImportedAccountVisible);
+        _appliers.Add(() => { if (skipImported.Title != ViewModel.SkipImportedAccountText) skipImported.Title = ViewModel.SkipImportedAccountText; });
+
         var cancelDiscovery = Command(Translator.AccountSetup_SetUpManually, vm.CancelDiscoveryToAdvancedCommand);
         When(cancelDiscovery, s => s.IsResolvingVisible);
 
@@ -252,7 +256,7 @@ public sealed partial class AccountSetupPageViewController(AccountSetupPageViewM
         When(_primary, s => s.IsPrimaryVisible);
         _appliers.Add(() => { if (_primary.Title != ViewModel.PrimaryText) _primary.Title = ViewModel.PrimaryText; });
 
-        var footer = WinoLayout.HStack(WinoStyle.Space2, links, WinoLayout.Spacer(), back, cancelDiscovery, nativeSignIn, _primary);
+        var footer = WinoLayout.HStack(WinoStyle.Space2, links, WinoLayout.Spacer(), back, skipImported, cancelDiscovery, nativeSignIn, _primary);
         footer.EdgeInsets = new NSEdgeInsets(14, 24, 18, 24);
         return footer;
     }

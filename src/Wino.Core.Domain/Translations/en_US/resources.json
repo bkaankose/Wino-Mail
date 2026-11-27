@@ -2607,6 +2607,7 @@
   "MailClientImport_SkipAccount": "Skip this account",
   "MailClientImport_SkipLastAccount": "Skip this account and finish",
   "MailClientImport_AccountAdded": "{0} was added.",
+  "MailClientImport_ThunderbirdFolderMessage": "Choose the Thunderbird folder that holds profiles.ini, usually Library/Thunderbird in your home folder.",
   "SettingsSignatureAndEncryption_SigningCertificate": "S/Mime Signing Certificate",
   "SettingsSignatureAndEncryption_EncryptionCertificate": "S/Mime Encryption",
   "SettingsSignatureAndEncryption_SigningCertificatePlaceholder": "None",

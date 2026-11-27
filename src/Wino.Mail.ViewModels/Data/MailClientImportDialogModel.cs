@@ -52,7 +52,7 @@ public sealed partial class MailClientImportDialogModel : ObservableObject
     public bool IsNoAccountsMessageVisible => IsScanCompleted && Items.Count == 0;
     public bool IsAccountListVisible => IsScanCompleted && Items.Count > 0;
 
-    public async Task ScanAsync(CancellationToken cancellationToken)
+    public async Task ScanAsync(CancellationToken cancellationToken, IReadOnlyList<string>? thunderbirdFolders = null)
     {
         if (IsScanning)
             return;
@@ -67,7 +67,7 @@ public sealed partial class MailClientImportDialogModel : ObservableObject
 
         try
         {
-            var candidates = await _importService.ScanAsync(progress, cancellationToken);
+            var candidates = await _importService.ScanAsync(progress, thunderbirdFolders, cancellationToken);
 
             foreach (var candidate in candidates.OrderBy(c => c.IsAlreadyAdded).ThenBy(c => c.Source))
             {

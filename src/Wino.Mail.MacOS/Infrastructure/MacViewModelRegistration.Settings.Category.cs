@@ -12,6 +12,7 @@ public static partial class MacViewModelRegistration
         services.AddTransient<MailCategoryManagementPageViewController>();
 #if DEBUG
         DialogsDebug.Register();
+        MailClientImportDebug.Register();
 #endif
     }
 }
