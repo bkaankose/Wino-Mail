@@ -358,24 +358,47 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
 
     public void Receive(AccountCreatedMessage message) => _pending = ObserveAsync(AccountCreatedAsync(message.Account, message.ShowsAccount));
 
-    public void Receive(CreatedAccountShowRequested message) => _pending = ObserveAsync(ShowCreatedAccountAsync(message.Account, shellExisted: true));
+    public void Receive(CreatedAccountShowRequested message) => _pending = ObserveAsync(OpenCreatedAccountAsync(message.Account, isAlreadySynchronized: true));
+
+    /// <summary>Imported accounts created before the shell exists; they synchronize once it is up.</summary>
+    private readonly List<MailAccount> _accountsAwaitingShell = [];
 
     private async Task AccountCreatedAsync(MailAccount account, bool showsAccount)
     {
         if (!showsAccount)
         {
-            await _services.GetRequiredService<IApplicationRuntime>().SynchronizeCreatedAccountAsync(account);
+            // An import has more accounts to set up; the surface stays where it is until the last one.
+            if (_host.IsShellShown)
+                await _services.GetRequiredService<IApplicationRuntime>().SynchronizeCreatedAccountAsync(account);
+            else
+                _accountsAwaitingShell.Add(account);
+
             return;
         }
 
+        await OpenCreatedAccountAsync(account, isAlreadySynchronized: false);
+    }
+
+    private async Task OpenCreatedAccountAsync(MailAccount account, bool isAlreadySynchronized)
+    {
         // From Settings > Add account the shell already exists: just close the add-account surface.
         if (_host.IsSecondaryWindowShown) await CloseSecondaryWindowAsync();
         var shellExisted = _host.IsShellShown;
         await ShowShellAsync();
+
+        var awaitingShell = _accountsAwaitingShell.ToArray();
+        _accountsAwaitingShell.Clear();
+
         // Windows App.Receive(AccountCreatedMessage): the runtime holds a new account's first full
         // mail, calendar, contacts and To Do synchronization until the host hands it over after the
         // shell is up. Without it only the shell's Inbox sync ran and calendar events never arrived.
-        await _services.GetRequiredService<IApplicationRuntime>().SynchronizeCreatedAccountAsync(account);
+        var runtime = _services.GetRequiredService<IApplicationRuntime>();
+        foreach (var waiting in awaitingShell)
+            await runtime.SynchronizeCreatedAccountAsync(waiting);
+
+        if (!isAlreadySynchronized && Array.TrueForAll(awaitingShell, waiting => waiting.Id != account.Id))
+            await runtime.SynchronizeCreatedAccountAsync(account);
+
         await ShowCreatedAccountAsync(account, shellExisted);
     }
 
