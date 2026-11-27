@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:primitives="using:Wino.Mail.Controls.Primitives"
     xmlns:viewsAbstract="using:Wino.Mail.WinUI.Views.Abstract"
     mc:Ignorable="d">
 
@@ -41,32 +42,59 @@
                 Text="{x:Bind domain:Translator.WelcomeWindow_AppDescription}" />
         </StackPanel>
 
-        <!--  Divider  -->
-        <Border
+        <!--  Get started  -->
+        <StackPanel
             Grid.Row="1"
-            Height="1"
-            HorizontalAlignment="Stretch"
-            Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            HorizontalAlignment="Center"
+            Spacing="8">
+            <Button
+                MinWidth="240"
+                Padding="12,10"
+                HorizontalAlignment="Center"
+                AutomationProperties.AutomationId="WelcomePageV2Button"
+                Command="{x:Bind ViewModel.GetStartedCommand}"
+                Style="{StaticResource AccentButtonStyle}">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind domain:Translator.WelcomeWindow_GetStartedButton}" />
+            </Button>
+        </StackPanel>
 
-        <!--  Get Started  -->
+        <!--  Restore and import  -->
         <StackPanel
             Grid.Row="2"
             MaxWidth="600"
-            HorizontalAlignment="Center">
-            <HyperlinkButton
+            HorizontalAlignment="Center"
+            Spacing="4">
+            <TextBlock
                 HorizontalAlignment="Center"
-                AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton"
-                Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
-                Content="{x:Bind domain:Translator.WelcomeWindow_ImportFromWinoAccount}" />
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind domain:Translator.WelcomeWindow_RestoreOrImportCaption}" />
 
-            <HyperlinkButton
-                HorizontalAlignment="Center"
-                AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton2"
-                Command="{x:Bind ViewModel.ImportFromJsonCommand}"
-                Content="{x:Bind domain:Translator.WelcomeWindow_ImportFromJsonFile}" />
+            <!--  The links wrap onto a second line when a translation is long.  -->
+            <primitives:WinoWrapPanel HorizontalAlignment="Center" HorizontalSpacing="8">
+                <HyperlinkButton
+                    AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WelcomeWindow_ImportFromWinoAccount}"
+                    Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
+                    Content="{x:Bind domain:Translator.WelcomeWindow_RestoreLinkWinoAccount}" />
+                <HyperlinkButton
+                    AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton2"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WelcomeWindow_ImportFromJsonFile}"
+                    Command="{x:Bind ViewModel.ImportFromJsonCommand}"
+                    Content="{x:Bind domain:Translator.WelcomeWindow_BackupFileLink}" />
+                <HyperlinkButton
+                    AutomationProperties.AutomationId="WelcomePageImportFromOtherClients"
+                    AutomationProperties.Name="{x:Bind domain:Translator.MailClientImport_Title}"
+                    Command="{x:Bind ViewModel.ImportFromOtherMailClientsCommand}"
+                    Content="{x:Bind domain:Translator.WelcomeWindow_RestoreLinkOtherClients}" />
+            </primitives:WinoWrapPanel>
 
             <StackPanel
                 x:Name="ImportProgressPanel"
+                Margin="0,8,0,0"
                 HorizontalAlignment="Stretch"
                 Spacing="8"
                 Visibility="{x:Bind ViewModel.IsImportInProgress, Mode=OneWay}">
@@ -81,36 +109,14 @@
             <!--  The restore outcome when nothing could be imported (no backup, no accounts): an InfoBar so it is not missed.  -->
             <InfoBar
                 x:Name="ImportStatusInfoBar"
-                Margin="0,8,0,4"
+                Margin="0,8,0,0"
                 HorizontalAlignment="Stretch"
                 AutomationProperties.AutomationId="WelcomePageV2ImportStatusInfoBar"
                 IsClosable="False"
                 IsOpen="{x:Bind ViewModel.HasImportStatus, Mode=OneWay}"
                 Message="{x:Bind ViewModel.ImportStatusMessage, Mode=OneWay}"
                 Severity="Informational" />
-
-            <TextBlock
-                Margin="0,4"
-                HorizontalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyTextBlockStyle}"
-                Text="{x:Bind domain:Translator.WelcomeWindow_GetStartedDescription}" />
-
-            <Button
-                MinWidth="240"
-                Margin="0,12,0,0"
-                Padding="12,10"
-                HorizontalAlignment="Center"
-                AutomationProperties.AutomationId="WelcomePageV2Button"
-                Command="{x:Bind ViewModel.GetStartedCommand}"
-                Style="{StaticResource AccentButtonStyle}">
-                <TextBlock
-                    HorizontalAlignment="Center"
-                    FontWeight="SemiBold"
-                    Text="{x:Bind domain:Translator.WelcomeWindow_GetStartedButton}" />
-            </Button>
         </StackPanel>
-
     </Grid>
 
 </viewsAbstract:WelcomePageV2Abstract>
