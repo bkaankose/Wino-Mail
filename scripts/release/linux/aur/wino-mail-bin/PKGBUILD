@@ -5,7 +5,7 @@ pkgname=wino-mail-bin
 _pkgname=wino-mail
 _channel=beta
 _upstreamrel=1
-pkgver=2.2.15beta263261654
+pkgver=2.2.16beta263311118
 pkgrel=1
 pkgdesc='Mail, calendar, contacts and To Do in one app (beta)'
 arch=('x86_64')
@@ -38,7 +38,7 @@ provides=("$_pkgname=$pkgver")
 conflicts=("$_pkgname")
 options=('!strip' '!debug' '!zipman' '!emptydirs' '!lto')
 source=("https://download.winomail.app/linux/$_channel/$_pkgname-$pkgver-$_upstreamrel-x86_64.pkg.tar.zst")
-sha256sums=('bd5292794e19c6eebb8761051611373266f123308a16bbb41a84d191f06689a1')
+sha256sums=('3dfd8971ea37f157f293635a4108a37094a33421965c25caa15869c81ecd7249')
 
 package() {
   cp -a --no-preserve=ownership "$srcdir/usr" "$pkgdir/"

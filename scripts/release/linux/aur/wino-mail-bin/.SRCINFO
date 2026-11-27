@@ -1,6 +1,6 @@
 pkgbase = wino-mail-bin
 	pkgdesc = Mail, calendar, contacts and To Do in one app (beta)
-	pkgver = 2.2.15beta263261654
+	pkgver = 2.2.16beta263311118
 	pkgrel = 1
 	url = https://www.winomail.app
 	arch = x86_64
@@ -24,14 +24,14 @@ pkgbase = wino-mail-bin
 	optdepends = enchant: spell checking in the composer
 	optdepends = hunspell-en_us: English dictionary for spell checking
 	optdepends = krb5: Kerberos (GSSAPI) sign-in
-	provides = wino-mail=2.2.15beta263261654
+	provides = wino-mail=2.2.16beta263311118
 	conflicts = wino-mail
 	options = !strip
 	options = !debug
 	options = !zipman
 	options = !emptydirs
 	options = !lto
-	source = https://download.winomail.app/linux/beta/wino-mail-2.2.15beta263261654-1-x86_64.pkg.tar.zst
-	sha256sums = bd5292794e19c6eebb8761051611373266f123308a16bbb41a84d191f06689a1
+	source = https://download.winomail.app/linux/beta/wino-mail-2.2.16beta263311118-1-x86_64.pkg.tar.zst
+	sha256sums = 3dfd8971ea37f157f293635a4108a37094a33421965c25caa15869c81ecd7249
 
 pkgname = wino-mail-bin
